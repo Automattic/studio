@@ -98,13 +98,14 @@ describe( 'AI auth helpers', () => {
 
 		const env = await resolveAiEnvironment( 'wpcom' );
 
-		expect( env.ANTHROPIC_BASE_URL ).toBe(
-			'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy'
+		expect( env.STUDIO_WPCOM_BASE_URL ).toBe(
+			'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy/v1'
 		);
-		expect( env.ANTHROPIC_AUTH_TOKEN ).toBe( 'wpcom-token' );
-		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
-			'User-Agent: WordPressStudio/1.2.3\nX-WPCOM-AI-Feature: studio-assistant-anthropic'
-		);
+		expect( env.STUDIO_WPCOM_API_KEY ).toBe( 'wpcom-token' );
+		expect( JSON.parse( env.STUDIO_WPCOM_DEFAULT_HEADERS! ) ).toEqual( {
+			'User-Agent': 'WordPressStudio/1.2.3',
+			'X-WPCOM-AI-Feature': 'studio-agent',
+		} );
 		expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
 	} );
 
@@ -120,9 +121,11 @@ describe( 'AI auth helpers', () => {
 
 		const env = await resolveAiEnvironment( 'wpcom', { sessionId: 'session-abc' } );
 
-		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
-			'User-Agent: WordPressStudio/1.2.3\nX-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-abc'
-		);
+		expect( JSON.parse( env.STUDIO_WPCOM_DEFAULT_HEADERS! ) ).toEqual( {
+			'User-Agent': 'WordPressStudio/1.2.3',
+			'X-WPCOM-AI-Feature': 'studio-agent',
+			'X-WPCOM-Session-ID': 'session-abc',
+		} );
 	} );
 
 	it( 'prefers the saved provider', async () => {

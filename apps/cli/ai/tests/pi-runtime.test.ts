@@ -15,13 +15,13 @@ const mocks = vi.hoisted( () => ( {
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
-// 'openai' so the env credentials match.
+// 'studio' so the env credentials match.
 vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/common/ai/models') >();
 	return {
 		...actual,
 		getAiModelFamily: ( id: string ) =>
-			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'openai',
+			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'studio',
 	};
 } );
 
@@ -66,10 +66,10 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		type: 'message_end',
 		message: {
 			role: 'assistant',
-			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-responses',
-			provider: 'openai',
-			model: 'gpt-5.6-sol',
+			content: [ { type: 'text', text: 'mocked wpcom response' } ],
+			api: 'openai-completions',
+			provider: 'studio-wpcom',
+			model: 'balanced',
 			usage: {
 				input: 0,
 				output: 0,
@@ -86,10 +86,10 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		type: 'turn_end',
 		message: {
 			role: 'assistant',
-			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-responses',
-			provider: 'openai',
-			model: 'gpt-5.6-sol',
+			content: [ { type: 'text', text: 'mocked wpcom response' } ],
+			api: 'openai-completions',
+			provider: 'studio-wpcom',
+			model: 'balanced',
 			usage: {
 				input: 0,
 				output: 0,
@@ -117,9 +117,9 @@ const assistantMessage = (
 		message: {
 			role: 'assistant',
 			content,
-			api: 'openai-responses',
-			provider: 'openai',
-			model: 'gpt-5.6-sol',
+			api: 'openai-completions',
+			provider: 'studio-wpcom',
+			model: 'balanced',
 			usage: {
 				input: 0,
 				output: 0,
@@ -210,6 +210,11 @@ async function runRuntime(
 	return events;
 }
 
+const WPCOM_ENV = {
+	STUDIO_WPCOM_API_KEY: 'wpcom-token',
+	STUDIO_WPCOM_BASE_URL: 'https://proxy.example.com/v1',
+};
+
 describe( 'pi runtime', () => {
 	beforeEach( () => {
 		mocks.createdSessions.length = 0;
@@ -222,11 +227,11 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	it( 'emits agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
+	it( 'emits agent_end carrying the credential error when STUDIO_WPCOM_API_KEY is absent', async () => {
 		const events = await runRuntime( {
 			prompt: 'hello',
 			env: {},
-			model: 'gpt-5.6-sol',
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -239,7 +244,7 @@ describe( 'pi runtime', () => {
 			expect( last.role ).toBe( 'assistant' );
 			if ( last.role === 'assistant' ) {
 				expect( last.stopReason ).toBe( 'error' );
-				expect( last.errorMessage ).toMatch( /OPENAI_API_KEY/ );
+				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
 			}
 		}
 	} );
@@ -247,65 +252,53 @@ describe( 'pi runtime', () => {
 	it( 'emits a full exchange when AgentSession returns output', async () => {
 		const events = await runRuntime( {
 			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.6-sol',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 		} );
 
-		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
+		expect( findAssistantText( events ) ).toBe( 'mocked wpcom response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
-	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {
+	it( 'routes the capability tiers to the wpcom Chat Completions path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.6-sol',
-			session: newSession(),
-		} );
-
-		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
-	} );
-
-	const HOSTED_ENV = {
-		STUDIO_HOSTED_API_KEY: 'wpcom-token',
-		STUDIO_HOSTED_BASE_URL: 'https://proxy.example.com/v1',
-	};
-
-	it( 'routes hosted models to the wpcom Chat Completions path', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: {
-				...HOSTED_ENV,
-				STUDIO_HOSTED_DEFAULT_HEADERS: JSON.stringify( {
-					'X-WPCOM-AI-Feature': 'studio-assistant-hosted',
+				...WPCOM_ENV,
+				STUDIO_WPCOM_DEFAULT_HEADERS: JSON.stringify( {
+					'X-WPCOM-AI-Feature': 'studio-agent',
 					'X-WPCOM-Session-ID': 'session-2',
 				} ),
 			},
-			model: 'moonshotai/Kimi-K2.6',
+			model: 'balanced',
 			session: newSession(),
 		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.model?.id ).toBe( 'moonshotai/Kimi-K2.6' );
-		expect( options.model?.provider ).toBe( 'studio-wpcom-hosted' );
+		expect( options.model?.id ).toBe( 'balanced' );
+		expect( options.model?.provider ).toBe( 'studio-wpcom' );
 		expect( options.model?.api ).toBe( 'openai-completions' );
+		const modelRegistry = new ModelRegistry( options.modelRuntime! );
+		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
+		expect( auth ).toMatchObject( {
+			ok: true,
+			apiKey: 'wpcom-token',
+			headers: {
+				'X-WPCOM-AI-Feature': 'studio-agent',
+				'X-WPCOM-Session-ID': 'session-2',
+			},
+		} );
 	} );
 
-	// Without these the request carries OpenAI-only fields these upstreams
+	// Without these the request carries OpenAI-only fields other upstreams
 	// reject: pi infers them from the base URL, which for us reads as OpenAI.
-	it( 'declares hosted compat overrides the proxy URL cannot be detected from', async () => {
+	it( 'declares compat overrides the proxy URL cannot be detected from', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: HOSTED_ENV,
-			model: 'moonshotai/Kimi-K3',
+			env: WPCOM_ENV,
+			model: 'strong',
 			session: newSession(),
 		} );
 
@@ -321,14 +314,14 @@ describe( 'pi runtime', () => {
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: HOSTED_ENV,
-			model: 'moonshotai/Kimi-K2.6',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 		} );
 		await runRuntime( {
 			prompt: 'hello',
-			env: HOSTED_ENV,
-			model: 'zai-org/GLM-5.2',
+			env: WPCOM_ENV,
+			model: 'fast',
 			session: newSession(),
 		} );
 
@@ -341,14 +334,14 @@ describe( 'pi runtime', () => {
 	it( 'withholds take_screenshot from models that cannot see images', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: HOSTED_ENV,
-			model: 'moonshotai/Kimi-K2.6',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 		} );
 		await runRuntime( {
 			prompt: 'hello',
-			env: HOSTED_ENV,
-			model: 'zai-org/GLM-5.2',
+			env: WPCOM_ENV,
+			model: 'fast',
 			session: newSession(),
 		} );
 
@@ -363,11 +356,8 @@ describe( 'pi runtime', () => {
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.6-sol',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -420,11 +410,8 @@ describe( 'pi runtime', () => {
 
 		await runRuntime( {
 			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.6-sol',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 			activeSite: {
 				name: 'Remote',
@@ -451,11 +438,8 @@ describe( 'pi runtime', () => {
 	it( 'leaves retry policy to pi settings defaults', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.6-sol',
+			env: WPCOM_ENV,
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -469,58 +453,42 @@ describe( 'pi runtime', () => {
 	} );
 
 	it( 'creates each AgentSession with the requested model', async () => {
-		const env = {
-			OPENAI_API_KEY: 'sk-test',
-			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-		};
 		const session = newSession();
-		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
+		const otherStudioModel = 'tier-test-other' as AiModelId;
 
-		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.6-sol', session } );
-		await runRuntime( { prompt: 'follow-up', env, model: otherOpenAiModel, session } );
+		await runRuntime( { prompt: 'hi', env: WPCOM_ENV, model: 'balanced', session } );
+		await runRuntime( { prompt: 'follow-up', env: WPCOM_ENV, model: otherStudioModel, session } );
 		await runRuntime( {
 			prompt: 'still on the second model',
-			env,
-			model: otherOpenAiModel,
+			env: WPCOM_ENV,
+			model: otherStudioModel,
 			session,
 		} );
 
 		expect( mocks.createdSessions.map( ( s ) => s.state.model.id ) ).toEqual( [
-			'gpt-5.6-sol',
-			otherOpenAiModel,
-			otherOpenAiModel,
+			'balanced',
+			otherStudioModel,
+			otherStudioModel,
 		] );
 	} );
 
-	it( 'registers WPCOM Anthropic as a custom bearer-auth provider', async () => {
-		await runRuntime( {
+	it( 'emits agent_end carrying the credential error when ANTHROPIC_API_KEY is absent', async () => {
+		const events = await runRuntime( {
 			prompt: 'hello',
-			env: {
-				ANTHROPIC_AUTH_TOKEN: 'wpcom-token',
-				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
-				ANTHROPIC_CUSTOM_HEADERS:
-					'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
-			},
+			env: {},
 			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 
-		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
-		expect( options.model?.api ).toBe( 'anthropic-messages' );
-		expect( options.model?.maxTokens ).toBe( 32_000 );
-		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
-		expect( options.model?.compat ).toMatchObject( { forceAdaptiveThinking: true } );
-		const modelRegistry = new ModelRegistry( options.modelRuntime! );
-		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
-		expect( auth ).toMatchObject( {
-			ok: true,
-			apiKey: 'wpcom-token',
-			headers: {
-				'X-WPCOM-AI-Feature': 'studio-assistant-anthropic',
-				'X-WPCOM-Session-ID': 'session-1',
-			},
-		} );
+		expect( mocks.createAgentSession ).not.toHaveBeenCalled();
+		const final = events[ 0 ];
+		expect( final.type ).toBe( 'agent_end' );
+		if ( final.type === 'agent_end' ) {
+			const last = final.messages[ final.messages.length - 1 ];
+			if ( last.role === 'assistant' ) {
+				expect( last.errorMessage ).toMatch( /ANTHROPIC_API_KEY/ );
+			}
+		}
 	} );
 
 	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that
@@ -581,11 +549,10 @@ describe( 'pi runtime', () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
-				ANTHROPIC_AUTH_TOKEN: tokenWithDollar,
-				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
-				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
+				STUDIO_WPCOM_API_KEY: tokenWithDollar,
+				STUDIO_WPCOM_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'claude-sonnet-5',
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -597,24 +564,23 @@ describe( 'pi runtime', () => {
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.
-	it( 'warns and continues when STUDIO_OPENAI_DEFAULT_HEADERS is malformed', async () => {
+	it( 'warns and continues when STUDIO_WPCOM_DEFAULT_HEADERS is malformed', async () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
 		try {
 			await runRuntime( {
 				prompt: 'hello',
 				env: {
-					OPENAI_API_KEY: 'sk-test',
-					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
+					...WPCOM_ENV,
+					STUDIO_WPCOM_DEFAULT_HEADERS: '{not json',
 				},
-				model: 'gpt-5.6-sol',
+				model: 'balanced',
 				session: newSession(),
 			} );
 
 			expect( warnSpy ).toHaveBeenCalledTimes( 1 );
 			expect( warnSpy.mock.calls[ 0 ][ 0 ] ).toMatch(
-				/STUDIO_OPENAI_DEFAULT_HEADERS.*malformed JSON/
+				/STUDIO_WPCOM_DEFAULT_HEADERS.*malformed JSON/
 			);
 		} finally {
 			warnSpy.mockRestore();

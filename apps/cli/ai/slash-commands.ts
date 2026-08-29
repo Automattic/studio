@@ -1,7 +1,6 @@
-import { getAiModelFamily, getVisibleAiModels } from '@studio/common/ai/models';
-import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { getAiModelFamily, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -333,13 +332,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
-			const visible = new Set(
-				getVisibleAiModels( await isAutomatticianFromToken(), ctx.currentModel ).map(
-					( model ) => model.id
-				)
-			);
-			const offeredModels = availableModels.filter( ( id ) => visible.has( id ) );
+			const { availableModels: offeredModels } = getAiProviderDefinition( ctx.currentProvider );
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's
@@ -418,9 +411,22 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				selectedLabel.startsWith( AI_PROVIDERS[ id ] )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
+				const previousFamily = getAiModelFamily( ctx.currentModel );
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
+					// Providers no longer share a model family, so switching
+					// usually swaps the model to the new provider's default —
+					// same runtime handoff as a cross-family /model switch,
+					// which starts a fresh conversation.
+					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
+						await ctx.clearSession();
+						ctx.ui.showInfo(
+							__(
+								"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+							)
+						);
+					}
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ctx.ui.showInfo(

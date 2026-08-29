@@ -14,6 +14,11 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		getPathForFile: mockGetPathForFile,
 		setAiSessionModel: vi.fn(),
 		createAiSession: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	} ),
 } ) );
 

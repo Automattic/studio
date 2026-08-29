@@ -24,6 +24,11 @@ import { runCommand } from '../index';
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
+// The quota-based wpcom default must never hit the network in tests.
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >() ),
+	fetchStudioAssistantQuota: vi.fn().mockResolvedValue( null ),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -42,7 +47,7 @@ vi.mock( 'cli/ai/providers', () => ( {
 	DEFAULT_AI_PROVIDER: 'wpcom',
 	getAiProviderDefinition: () => ( {
 		supportsModel: () => true,
-		defaultModel: 'claude-default',
+		defaultModel: 'claude-sonnet-5',
 	} ),
 } ) );
 vi.mock( '@studio/common/ai/settings-store', () => ( {
@@ -346,7 +351,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props ).toMatchObject( {
 			outcome: 'interrupted',
 			provider: 'wpcom',
-			model_family: 'anthropic',
+			model_family: 'studio',
 			ai_session_id: 'session-id',
 			client: 'studio-code',
 		} );

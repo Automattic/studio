@@ -354,12 +354,12 @@ function buildModelCtx(
 		// `as never` keeps this test framework-agnostic — we don't need a
 		// real AiChatUI, just the methods the /model handler touches.
 		ui: {
-			currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
+			currentModel: overrides.currentModel ?? 'fast',
 			askUser: vi.fn().mockResolvedValue( { 0: overrides.askUserResponse } ),
 			showInfo: vi.fn(),
 			showError: vi.fn(),
 		} as never,
-		currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
+		currentModel: overrides.currentModel ?? 'fast',
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
 		switchProvider: vi.fn().mockResolvedValue( undefined ),
@@ -381,26 +381,26 @@ describe( '/model slash command', () => {
 	it( 'resolves the picked model exactly by label, not by prefix', async () => {
 		expect( modelHandler ).toBeDefined();
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.6-sol',
-			askUserResponse: 'Sonnet 5',
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
-		expect( ctx.currentModel ).toBe( 'claude-sonnet-5' );
+		expect( ctx.currentModel ).toBe( 'balanced' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'still resolves the picked model when its label carries the "(current)" suffix', async () => {
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.6-sol',
-			askUserResponse: 'GPT 5.6 Sol (current)',
+			currentModel: 'fast',
+			askUserResponse: 'Fast (current)',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
 		// Same model picked → no swap, no persist.
-		expect( ctx.currentModel ).toBe( 'gpt-5.6-sol' );
+		expect( ctx.currentModel ).toBe( 'fast' );
 		expect( persistMock ).not.toHaveBeenCalled();
 	} );
 } );

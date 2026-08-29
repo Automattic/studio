@@ -1,9 +1,15 @@
-import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	getEffectiveSessionProvider,
+	resolveSessionModelForProvider,
+} from '@studio/common/ai/providers';
 import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
-import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getStudioCodeAiAccessState,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -26,6 +32,7 @@ import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIsOutOfAiCredits } from 'src/hooks/use-is-out-of-ai-credits';
 import { useOffline } from 'src/hooks/use-offline';
@@ -287,10 +294,20 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
-	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
-	);
+	const { isAuthenticated } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	const aiSettings = useAiSettings();
+	// Resolved against the session's provider and the account's credit pools:
+	// a fresh wpcom session defaults to the balanced tier when purchased
+	// credits remain, the fast tier otherwise.
+	const currentModel = useMemo( () => {
+		const entries = data?.entries ?? [];
+		return resolveSessionModelForProvider(
+			entries,
+			getEffectiveSessionProvider( entries, aiSettings ),
+			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+		);
+	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]

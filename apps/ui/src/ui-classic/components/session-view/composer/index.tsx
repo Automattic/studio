@@ -10,25 +10,19 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import {
-	AI_MODELS,
-	getAiModelFamily,
-	getAiModelLabel,
-	getVisibleAiModels,
-} from '@studio/common/ai/models';
+import { getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
 	AI_PROVIDER_LABELS,
-	DEFAULT_AI_PROVIDER,
 	getAiProviderDefaultModel,
 	getAiProviderModels,
+	getEffectiveSessionProvider,
 	providerServesModel,
-	resolveSessionProvider,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
-import { isAutomatticianEmail } from '@studio/common/lib/automattician';
+import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -59,7 +53,7 @@ import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -351,26 +345,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// The conversation's provider: its own pinned choice first, then the saved
-	// global selection. Without a saved Anthropic key the pin is unusable, so
-	// WordPress.com wins regardless — the CLI applies the same rule on resume.
 	const { data: aiSettings } = useAiSettings();
-	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
-	const sessionProvider = aiSettings?.hasAnthropicApiKey
-		? pinnedProvider ?? aiSettings.provider
-		: DEFAULT_AI_PROVIDER;
+	const sessionProvider = useMemo(
+		() => getEffectiveSessionProvider( entries ?? [], aiSettings ),
+		[ entries, aiSettings ]
+	);
 	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
 
-	// Only offer models the conversation's provider can serve. Hosts without AI
-	// settings (capabilities.aiSettings false) keep the full list.
-	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
-	const { data: authUser } = useAuthUser();
-	const visibleModelIds = new Set(
-		getVisibleAiModels( isAutomatticianEmail( authUser?.email ), model ).map(
-			( entry ) => entry.id
-		)
-	);
-	const offeredModels = availableModels.filter( ( entry ) => visibleModelIds.has( entry.id ) );
+	// Only offer models the conversation's provider can serve.
+	const offeredModels = getAiProviderModels( sessionProvider );
+	const { data: quota } = useStudioAssistantQuota();
 
 	const slash = useSlashCommands( {
 		value,
@@ -394,10 +378,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	} = useComposerAttachments();
 	const hasAttachments = attachments.length > 0;
 
-	// Cross-family swap state. We hold the picked model here while the
-	// confirmation dialog is open; nothing is persisted until the user
-	// confirms.
-	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
+	// Cross-family swap state. We hold the picked model (and provider, when
+	// the swap came from the provider picker) here while the confirmation
+	// dialog is open; nothing is persisted until the user confirms.
+	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
+		model: AiModelId;
+		provider?: AiProviderId;
+	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
 	const setComposerManualTextareaHeight = useCallback( ( height: number | null ) => {
@@ -628,9 +615,19 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ appendEntryOptimistically, connector ]
 	);
 
+	const sessionHasTurns = useMemo(
+		() =>
+			( entries ?? [] ).some( ( entry ) =>
+				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
+			),
+		[ entries ]
+	);
+
 	// Pin this conversation to a provider. If it can't serve the current model,
 	// its default model rides along in the same entry, so the model section
-	// re-filters via `resolveSessionModel`.
+	// re-filters via `resolveSessionModel`. Providers no longer share a model
+	// family, so the switch usually crosses families and goes through the same
+	// confirmation into a fresh session as a cross-family model switch.
 	const handleProviderChange = useCallback(
 		( picked: AiProviderId ) => {
 			if ( picked === sessionProvider ) {
@@ -638,12 +635,28 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			const nextModel = providerServesModel( picked, model )
 				? model
-				: getAiProviderDefaultModel( picked );
+				: getAiProviderDefaultModel( picked, { hasPaidAiCredits: hasPaidAiCredits( quota ) } );
+			if (
+				getAiModelFamily( model ) !== getAiModelFamily( nextModel ) &&
+				onSwitchSession &&
+				sessionHasTurns
+			) {
+				setPendingFamilyChange( { model: nextModel, provider: picked } );
+				return;
+			}
 			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
 				connector.setSessionProvider( id, picked, nextModel )
 			);
 		},
-		[ appendEntryOptimistically, connector, model, sessionProvider ]
+		[
+			appendEntryOptimistically,
+			connector,
+			model,
+			onSwitchSession,
+			quota,
+			sessionHasTurns,
+			sessionProvider,
+		]
 	);
 
 	const handleModelChange = useCallback(
@@ -657,20 +670,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// with the agent's actual memory. We skip the prompt when the
 			// session has no user turns yet, or when the parent cannot switch
 			// to a freshly created session.
-			const hasTurns = ( entries ?? [] ).some( ( entry ) =>
-				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
-			);
 			if (
 				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
 				onSwitchSession &&
-				hasTurns
+				sessionHasTurns
 			) {
-				setPendingFamilyChange( picked );
+				setPendingFamilyChange( { model: picked } );
 				return;
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, model, onSwitchSession, sessionHasTurns ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -684,33 +694,37 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
-		const pickedModel = pendingFamilyChange;
+		const { model: pickedModel, provider: pickedProvider } = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await connector.createSession( ownerSiteId );
 			primeSessionQueryData( queryClient, newSession );
-			// Persist the model on the fresh session before navigating so the
-			// composer there opens already on the picked family —
-			// `setSessionModel` writes a `session.model_selected` event the
-			// new view picks up via `resolveSessionModel`. If this fails we
-			// still navigate; the user can re-pick from the new view's
-			// dropdown.
-			const modelPersisted = await connector
-				.setSessionModel( newSession.id, pickedModel )
+			// Persist the model (and the provider pin, when the swap came from
+			// the provider picker) on the fresh session before navigating so
+			// the composer there opens already on the picked family. If this
+			// fails we still navigate; the user can re-pick from the new
+			// view's dropdown.
+			const pinEntry = pickedProvider
+				? createSessionContextEntry( pickedProvider, pickedModel )
+				: createModelChangeEntry( pickedModel );
+			const persisted = await ( pickedProvider
+				? connector.setSessionProvider( newSession.id, pickedProvider, pickedModel )
+				: connector.setSessionModel( newSession.id, pickedModel )
+			)
 				.then( () => true )
 				.catch( () => false );
-			if ( modelPersisted ) {
+			if ( persisted ) {
 				queryClient.setQueryData< LoadedAiSession >(
 					[ ...SESSIONS_QUERY_KEY, newSession.id ],
 					( current ) =>
 						current
 							? {
 									...current,
-									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
+									entries: [ ...( current.entries ?? [] ), pinEntry ],
 							  }
 							: {
 									summary: newSession,
-									entries: [ createModelChangeEntry( pickedModel ) ],
+									entries: [ pinEntry ],
 							  }
 				);
 			}
@@ -1099,9 +1113,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ offeredModels.map( ( { id, label } ) => (
+										{ offeredModels.map( ( { id } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
+												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }
 									</Menu.RadioGroup>
@@ -1156,7 +1170,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }
-				pendingModel={ pendingFamilyChange }
+				pendingModel={ pendingFamilyChange?.model ?? null }
 				inFlight={ familySwitchInFlight }
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }

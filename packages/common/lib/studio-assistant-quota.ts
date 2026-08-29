@@ -124,6 +124,18 @@ export function getTotalRemainingAiCredits(
 	return ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
 }
 
+/**
+ * Whether the account still has purchased (paid) AI credits. Drives the
+ * default model tier: paid accounts default to balanced, free-allowance-only
+ * accounts to fast. Unknown quota (unreachable, feature off) reads as false —
+ * the free default is the safe floor.
+ */
+export function hasPaidAiCredits(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
+): boolean {
+	return ( quota?.purchasedRemaining ?? 0 ) > 0;
+}
+
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 
 /**

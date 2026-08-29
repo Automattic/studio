@@ -6,11 +6,12 @@ import {
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
-	DEFAULT_MODEL,
 	getAiModelFamily,
-	resolveSessionModel,
+	isAiModelId,
+	readRecordedSessionModel,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import {
@@ -19,6 +20,10 @@ import {
 } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -117,6 +122,27 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+// The wpcom default model depends on the account's AI credit pools: purchased
+// credits remaining → balanced, otherwise fast. Capped so a slow or hung
+// quota endpoint can't block the first turn — the free-tier default is the
+// safe floor.
+const QUOTA_FETCH_TIMEOUT_MS = 3_000;
+
+async function resolveWpcomDefaultModel(): Promise< AiModelId > {
+	const token = await readAuthToken();
+	const quota = token
+		? await Promise.race( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				new Promise< null >( ( resolve ) => {
+					setTimeout( () => resolve( null ), QUOTA_FETCH_TIMEOUT_MS ).unref();
+				} ),
+		  ] )
+		: null;
+	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
+		hasPaidAiCredits: hasPaidAiCredits( quota ),
+	} );
+}
+
 async function readAllStdin(): Promise< string > {
 	const chunks: Buffer[] = [];
 	for await ( const chunk of process.stdin ) {
@@ -157,9 +183,35 @@ export async function runCommand( options: {
 	) {
 		currentProvider = DEFAULT_AI_PROVIDER;
 	}
-	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	// The recorded model only sticks when the provider still serves it — old
+	// wpcom sessions recorded models from before the capability tiers and
+	// snap to the provider default instead.
+	const initialDefinition = getAiProviderDefinition( currentProvider );
+	const recordedModel =
+		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
+			? resumeContext.model
+			: undefined;
+	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
+
+	// The wpcom default is quota-dependent, so resolve it in the background —
+	// startup never waits on the network. Turns await the resolution (so the
+	// executed model matches what the account should default to) and it only
+	// applies while nothing else picked a model.
+	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
+	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
+		.then( ( model ) => {
+			wpcomDefaultModel = model;
+			if ( quotaDefaultApplicable && currentProvider === DEFAULT_AI_PROVIDER ) {
+				currentModel = model;
+				ui.currentModel = model;
+			}
+		} )
+		// Every turn awaits this; a failed lookup must degrade to the static
+		// default, never poison the turn.
+		.catch( () => {} );
 	if ( options.activeSite ) {
 		ui.activeSite = {
 			id: options.activeSite.id,
@@ -197,8 +249,19 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						currentModel = resolveSessionModel( sm.getEntries() );
-						ui.currentModel = currentModel;
+						// Adopt the session's recorded model only when the
+						// provider still serves it; otherwise keep the default
+						// (including the pending quota-based one).
+						const sessionModel = readRecordedSessionModel( sm.getEntries() );
+						if (
+							sessionModel !== undefined &&
+							isAiModelId( sessionModel ) &&
+							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
+						) {
+							quotaDefaultApplicable = false;
+							currentModel = sessionModel;
+							ui.currentModel = currentModel;
+						}
 						break;
 					}
 				} catch {
@@ -327,11 +390,13 @@ export async function runCommand( options: {
 		ui.currentProvider = currentProvider;
 
 		// Auto-correct model when the provider change leaves it unsupported
-		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
-		// selected). Fall back to the provider's default.
+		// (e.g. switching from wpcom → anthropic-api-key while a tier is
+		// selected). Fall back to the provider's default — the quota-based one
+		// for WordPress.com.
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
-			currentModel = definition.defaultModel;
+			currentModel =
+				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
 			ui.currentModel = currentModel;
 		}
 
@@ -521,6 +586,10 @@ export async function runCommand( options: {
 		images: StudioChatImage[] = [],
 		files: StudioChatFileAttachment[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
+		// The quota-based default must land before the model is captured for
+		// the turn; resolved after the first await, so this only ever blocks
+		// the very first turn, and only briefly.
+		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
@@ -733,6 +802,8 @@ export async function runCommand( options: {
 		},
 		set currentModel( value ) {
 			currentModel = value;
+			// An explicit pick wins over the pending quota-based default.
+			quotaDefaultApplicable = false;
 		},
 		get currentProvider() {
 			return currentProvider;

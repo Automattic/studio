@@ -607,6 +607,9 @@ if ( 'dependencies_prepared' === ( $import_result['status'] ?? '' ) ) {
 	$request_id = (string) ( $import_result['fresh_runtime']['request_id'] ?? '' );
 	$checkpoint = (string) ( $import_result['fresh_runtime']['lifecycle_checkpoint_id'] ?? $import_result['runtime_lifecycle_checkpoint'] ?? '' );
 	$lifecycle_state = array( 'runtime_lifecycle_request_id' => $request_id );
+	if ( ! empty( $state['import_id'] ) ) {
+		$lifecycle_state['import_id'] = (string) $state['import_id'];
+	}
 	if ( '' !== $checkpoint ) {
 		$lifecycle_state['runtime_lifecycle_checkpoint'] = $checkpoint;
 	}

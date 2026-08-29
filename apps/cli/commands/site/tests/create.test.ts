@@ -737,6 +737,9 @@ describe( 'CLI: studio create', () => {
 				"$import_result['fresh_runtime']['lifecycle_checkpoint_id']"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(
+				"$lifecycle_state['import_id'] = (string) $state['import_id'];"
+			);
+			expect( blueprint.staticSiteImport.code ).toContain(
 				"'canonicalization_pending' => ! empty( $canonical_documents )"
 			);
 			expect( blueprint.staticSiteImport.code ).toContain(

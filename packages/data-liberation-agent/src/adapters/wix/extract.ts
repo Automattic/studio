@@ -6,6 +6,7 @@ import { createManagedBrowser } from '../../lib/browser-kit/index.js';
 import { WooProductCsvBuilder } from '../../lib/woo-csv/index.js';
 import type { WixAdapterOpts, Inventory } from './types.js';
 import { extractWixPage } from './page.js';
+import { resolvePageTitle } from '../../lib/html-extract/index.js';
 import { extractWixProduct } from './products.js';
 
 export async function extract(
@@ -75,10 +76,14 @@ export async function extract(
             }
           }
 
-          // Strip site-name suffix from Wix titles (e.g. "About | MySite Copy" → "About")
-          const rawTitle = pageData.meta.ogTitle || pageData.meta.title || pageData.slug;
-          const pipeIdx = rawTitle.lastIndexOf(' | ');
-          const cleanedTitle = pipeIdx > 0 ? rawTitle.slice(0, pipeIdx).trim() : rawTitle;
+          // Wix pages often reuse one site-wide SEO title; resolvePageTitle
+          // demotes those to the nav label or humanized slug so imported
+          // pages get distinct names.
+          const title = resolvePageTitle(
+            pageData.meta.ogTitle || pageData.meta.title || '',
+            pageData.slug,
+            { siteTitle: inv.siteMeta?.title, navigation: inv.navigation, url }
+          );
 
           // Extract author from JSON-LD
           let author: string | undefined;
@@ -96,7 +101,7 @@ export async function extract(
           }
 
           return {
-            title: cleanedTitle || pageData.slug,
+            title: title || pageData.slug,
             slug: pageData.slug,
             content: pageData.content,
             excerpt: pageData.meta.ogDescription || pageData.meta.description || '',

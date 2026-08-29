@@ -102,8 +102,13 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
+// The importer vendors its own transformer layers (blocks-engine php-transformer and
+// figma-transformer) inside this zip, so pinning the plugin pins the whole stack. To run
+// against an unreleased transformer, build a paired zip with the importer's
+// `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
+// `--static-site-importer-path`.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.7.0/static-site-importer.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.0/static-site-importer.zip';
 const STATIC_SITE_IMPORT_CONTRACT = 'ssi-import-v5-plan-first';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_SCRIPT_FILE = 'import.php';
@@ -1725,7 +1730,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'static-site-importer-path', {
 					type: 'string',
-					describe: __( 'Local Static Site Importer plugin zip for --from imports' ),
+					describe: __(
+						'Local Static Site Importer plugin zip for --from imports, including a paired build from the importer’s build:dev-package'
+					),
 					conflicts: 'static-site-importer-url',
 					coerce: ( value ) => {
 						const pluginPath = path.resolve( untildify( value ) );

@@ -89,11 +89,14 @@ studio stop --all                                       # Stop all sites
 ### Deleting a site
 
 ```bash
-studio delete --path ~/Studio/my-site          # Remove site record only
-studio delete --path ~/Studio/my-site --files   # Also trash site files
+studio delete --path ~/Studio/my-site                 # Trash site files (default)
+studio delete --path ~/Studio/my-site --no-files      # Remove site record only
+studio delete ~/Studio/a ~/Studio/b --id <id>         # Delete multiple explicit sites
+studio delete ~/Studio/a ~/Studio/b --dry-run         # Preview selected sites and file paths
+studio delete ~/Studio/a ~/Studio/b --format json     # Per-site deleted/skipped/failed outcomes
 ```
 
-Deleting a site also removes its associated preview sites if authenticated.
+Pass explicit paths or IDs. The full set is resolved before any files are mutated, and one process-daemon session is reused for the batch. `--dry-run` prints the selected sites and file paths without deleting. Partial failure returns a nonzero status and still reports completed items. Deleting a site also removes its associated preview sites if authenticated.
 
 ## Authentication
 

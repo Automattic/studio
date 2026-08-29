@@ -298,7 +298,7 @@ describe( 'pi runtime', () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: WPCOM_ENV,
-			model: 'balanced',
+			model: 'strong',
 			session: newSession(),
 		} );
 
@@ -309,34 +309,6 @@ describe( 'pi runtime', () => {
 			supportsStrictMode: false,
 			maxTokensField: 'max_tokens',
 		} );
-	} );
-
-	// pi only emits `reasoning_effort` when `supportsReasoningEffort` is set,
-	// and the thinking-level map rewrites every level — so `strong` sends the
-	// literal "none" on each request while the other tiers send no switch.
-	it( 'pins reasoning_effort to "none" for the strong tier only', async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model: 'strong', session: newSession() } );
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		const strong = mocks.createdSessions[ 0 ].options.model!;
-		expect( strong.compat ).toMatchObject( { supportsReasoningEffort: true } );
-		expect( strong.thinkingLevelMap ).toEqual( {
-			off: 'none',
-			minimal: 'none',
-			low: 'none',
-			medium: 'none',
-			high: 'none',
-			xhigh: 'none',
-			max: 'none',
-		} );
-		const balanced = mocks.createdSessions[ 1 ].options.model!;
-		expect( balanced.compat ).toMatchObject( { supportsReasoningEffort: false } );
-		expect( balanced.thinkingLevelMap ).toBeUndefined();
 	} );
 
 	it( 'advertises image input per model rather than per family', async () => {

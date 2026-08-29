@@ -26,7 +26,11 @@ import {
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
-import { hasPaidAiCredits } from '@studio/common/lib/studio-assistant-quota';
+import {
+	formatPaidTiersNudge,
+	hasPaidAiCredits,
+	PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -54,6 +58,7 @@ import {
 	type PointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -64,6 +69,8 @@ import {
 	primeSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
+import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { AiCreditsControl } from './ai-credits-control';
 import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
@@ -394,6 +401,40 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! hasPaidCredits,
 		[ hasPaidCredits ]
 	);
+	const hasLockedModels = offeredModels.some( ( { id } ) => isModelLocked( id ) );
+
+	// Nudge free-allowance accounts toward the paid tiers: a footer in the
+	// model picker plus a dismissible line above the prompt. Shown only once
+	// the quota definitively reports the account, never while it's loading.
+	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState( () => {
+		try {
+			return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
+		} catch {
+			return false;
+		}
+	} );
+	const dismissPaidTiersNudge = useCallback( () => {
+		setPaidTiersNudgeDismissed( true );
+		try {
+			localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
+		} catch {
+			// Ignore storage errors.
+		}
+	}, [] );
+	const showPaidTiersNudge = Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed;
+
+	// Mirrors AiCreditsControl: the chooser when priced options exist, else
+	// straight to checkout for the single fixed top-up.
+	const addAiCreditsUrl = useAddAiCreditsUrl();
+	const { data: topUpPricing } = useStudioAssistantTopUpPricing();
+	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
+	const openAddCredits = () => {
+		if ( ( topUpPricing?.options.length ?? 0 ) > 0 ) {
+			setCreditsPurchaseOpen( true );
+			return;
+		}
+		void connector.openExternalUrl( addAiCreditsUrl );
+	};
 
 	const slash = useSlashCommands( {
 		value,
@@ -863,6 +904,26 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	return (
 		<>
 			<div className={ styles.root }>
+				{ showPaidTiersNudge ? (
+					<div className={ styles.paidTiersNudge }>
+						<span>{ formatPaidTiersNudge() }</span>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeAction }
+							onClick={ openAddCredits }
+						>
+							{ __( 'Add credits' ) }
+						</button>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeDismiss }
+							onClick={ dismissPaidTiersNudge }
+							aria-label={ __( 'Dismiss' ) }
+						>
+							<Icon icon={ closeSmall } size={ 16 } />
+						</button>
+					</div>
+				) : null }
 				<div
 					data-session-composer
 					className={ clsx(
@@ -1195,6 +1256,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 											</Menu.RadioItem>
 										) ) }
 									</Menu.RadioGroup>
+									{ hasLockedModels ? (
+										<>
+											<Menu.Separator />
+											<Menu.Item onClick={ openAddCredits }>{ formatPaidTiersNudge() }</Menu.Item>
+										</>
+									) : null }
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
@@ -1253,6 +1320,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
+			{ creditsPurchaseOpen ? (
+				<AiCreditsPurchaseDialog open onOpenChange={ setCreditsPurchaseOpen } />
+			) : null }
 		</>
 	);
 } );

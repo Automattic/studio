@@ -648,6 +648,45 @@
 	pointer-events: none;
 }
 
+.paidTiersNudge {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	margin-bottom: var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.paidTiersNudgeAction {
+	border: 0;
+	padding: 0;
+	background: none;
+	color: var(--wpds-color-fg-content-neutral);
+	text-decoration: underline;
+	font-size: inherit;
+	cursor: var(--wpds-cursor-interactive, pointer);
+}
+
+.paidTiersNudgeAction:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.paidTiersNudgeDismiss {
+	display: inline-flex;
+	align-items: center;
+	margin-left: auto;
+	border: 0;
+	padding: 0;
+	background: none;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: var(--wpds-cursor-interactive, pointer);
+}
+
+.paidTiersNudgeDismiss:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
 .meta {
 	display: flex;
 	align-items: center;

@@ -209,6 +209,49 @@ describe( 'Composer menu', () => {
 		} );
 	} );
 
+	it( 'nudges free-allowance accounts toward paid tiers, dismissibly', async () => {
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		const { unmount } = renderComposer();
+
+		// Banner above the prompt, with the shared nudge copy.
+		expect(
+			await screen.findByText( 'Add AI credits to unlock stronger models.' )
+		).toBeInTheDocument();
+
+		// The model picker carries the same nudge as a footer item.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		expect(
+			await screen.findByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
+		).toBeInTheDocument();
+		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
+
+		// Dismissing hides the banner and persists.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss' } ) );
+		await waitFor( () => {
+			expect(
+				screen.queryByText( 'Add AI credits to unlock stronger models.' )
+			).not.toBeInTheDocument();
+		} );
+		expect( localStorage.getItem( 'studio_code_paid_tiers_nudge_dismissed' ) ).toBe( '1' );
+		unmount();
+
+		// Paid accounts never see it.
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
+		renderComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
+		expect(
+			screen.queryByText( 'Add AI credits to unlock stronger models.' )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'shows tooltips for the plus button and model picker', async () => {
 		renderComposer();
 

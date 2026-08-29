@@ -631,9 +631,9 @@ function responsiveBodySignature( body: string ): string {
 function mediaReferences( sourceUrl: string, siteUrl: string ): string[] {
 	const media = new URL( sourceUrl );
 	const site = new URL( siteUrl );
-	return media.origin === site.origin
-		? [ sourceUrl, `${ media.pathname }${ media.search }` ]
-		: [ sourceUrl ];
+	if ( media.origin !== site.origin ) return [ sourceUrl ];
+	if ( media.pathname === '/' ) return [ sourceUrl ];
+	return [ sourceUrl, `${ media.pathname }${ media.search }` ];
 }
 
 function containsMediaReference( content: string, reference: string ): boolean {
@@ -670,6 +670,15 @@ function srcsetReferences( srcset: string ): string[] {
 }
 
 function capturedMediaReferences( entries: CaptureEntry[] ): Map< string, Set< string > > {
+	const pages = new Set(
+		entries.flatMap( ( entry ) => {
+			try {
+				return [ normalizedUrl( entry.url ) ];
+			} catch {
+				return [];
+			}
+		} )
+	);
 	const families = new Map< string, Set< string > >();
 	for ( const entry of entries ) {
 		const html = readFileSync( entry.htmlPath, 'utf8' );
@@ -685,8 +694,12 @@ function capturedMediaReferences( entries: CaptureEntry[] ): Map< string, Set< s
 			references.push( ...srcsetReferences( match[ 1 ] ) );
 		}
 		for ( const reference of references ) {
+			const trimmed = reference.trim();
+			if ( ! trimmed ) continue;
 			try {
-				const family = mediaFamily( new URL( reference.replace( /&amp;/g, '&' ), entry.url ).href );
+				const resolved = new URL( trimmed.replace( /&amp;/g, '&' ), entry.url ).href;
+				if ( pages.has( normalizedUrl( resolved ) ) ) continue;
+				const family = mediaFamily( resolved );
 				families.set( family, new Set( [ ...( families.get( family ) ?? [] ), reference ] ) );
 			} catch {
 				// Ignore non-URL browser values such as data URIs and malformed placeholders.
@@ -707,13 +720,26 @@ function mediaFamily( sourceUrl: string ): string {
 }
 
 function retainedMediaReferencesByFamily( entries: CaptureEntry[] ): Map< string, string[] > {
+	const pages = new Set(
+		entries.flatMap( ( { url } ) => {
+			try {
+				return [ normalizedUrl( url ) ];
+			} catch {
+				return [];
+			}
+		} )
+	);
 	const families = new Map< string, string[] >();
 	const add = ( reference: string, documentUrl: string ) => {
+		const trimmed = reference.trim();
+		if ( ! trimmed ) return;
 		try {
-			const family = mediaFamily( new URL( reference.replace( /&amp;/g, '&' ), documentUrl ).href );
+			const resolved = new URL( trimmed.replace( /&amp;/g, '&' ), documentUrl ).href;
+			if ( pages.has( normalizedUrl( resolved ) ) ) return;
+			const family = mediaFamily( resolved );
 			families.set( family, [
 				...( families.get( family ) ?? [] ),
-				reference.replace( /&amp;/g, '&' ),
+				trimmed.replace( /&amp;/g, '&' ),
 			] );
 		} catch {
 			// Non-URL media sources, such as data URLs, need no localization.
@@ -1281,7 +1307,21 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const mediaFamilies = new Map< string, MediaCandidate[] >();
 	const retainedMediaFamilies = retainedMediaReferencesByFamily( retainedEntries );
 	const failedMedia: Array< { sourceUrl: string; error: string; references: string[] } > = [];
+	const capturedPages = new Set(
+		[ options.sourceUrl, ...retainedEntries.map( ( entry ) => entry.url ) ].flatMap( ( url ) => {
+			try {
+				return [ normalizedUrl( url ) ];
+			} catch {
+				return [];
+			}
+		} )
+	);
 	for ( const [ sourceUrl, stub ] of MediaStubStore.load( outputDir ).list() ) {
+		try {
+			if ( capturedPages.has( normalizedUrl( sourceUrl ) ) ) continue;
+		} catch {
+			// Invalid media URLs still flow through mediaReferences().
+		}
 		const references = mediaReferences( sourceUrl, options.sourceUrl );
 		const family = mediaFamily( sourceUrl );
 		const exactReferences = references.filter( ( reference ) =>

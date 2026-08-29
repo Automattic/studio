@@ -1939,4 +1939,56 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 			error: 'removed because the aggregate portable media limit was reached',
 		} );
 	} );
+
+	it( 'does not treat empty img src as page-URL media or rewrite every slash', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-empty-src-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<!doctype html><html><body><div class="hero"><p>Home</p><img alt="Wix placeholder" src=""><img src="https://cdn.example/logo.png"></div></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'media', 'image-1788009152544.jpg' ),
+			Buffer.alloc( 6 * 1024 * 1024, 1 )
+		);
+		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess(
+			'https://example.com/',
+			join( outputDir, 'media', 'image-1788009152544.jpg' )
+		);
+		media.markSuccess( 'https://cdn.example/logo.png', join( outputDir, 'media', 'logo.png' ) );
+		media.flush();
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( '</div>' );
+		expect( html ).toContain( '</p>' );
+		expect( html ).not.toContain( '<https://example.com/div>' );
+		expect( html ).not.toContain( '<https://example.com/p>' );
+		expect( html ).toContain( '/media/logo.png' );
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.assets.map( ( asset: { sourceUrl: string } ) => asset.sourceUrl ) ).toEqual( [
+			'https://cdn.example/logo.png',
+		] );
+		expect( existsSync( join( outputDir, 'website', 'media', 'image-1788009152544.jpg' ) ) ).toBe(
+			false
+		);
+	} );
 } );

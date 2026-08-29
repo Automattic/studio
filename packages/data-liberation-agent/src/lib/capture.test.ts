@@ -90,6 +90,34 @@ describe( 'downloadCaptureSectionMedia', () => {
 			'https://cdn.example.com/failed.jpg': { status: 'error', error: 'download failed' },
 		} );
 	} );
+
+	it( 'does not download empty or self-referential page URLs as section media', async () => {
+		SectionSpecsStore.load( root ).set(
+			sourceUrl,
+			[
+				section( [
+					{ url: sourceUrl },
+					{ url: 'https://example.com' },
+					{ url: '   ' },
+					{ url: 'https://cdn.example.com/desktop.jpg' },
+				] ),
+			],
+			[]
+		);
+		SectionSpecsStore.loadMobile( root ).set(
+			sourceUrl,
+			[ section( [ { url: 'https://example.com/about' } ] ) ],
+			[],
+			{ width: 390, height: 844 }
+		);
+
+		expect(
+			await downloadCaptureSectionMedia( root, [ sourceUrl, 'https://example.com/about' ] )
+		).toBe( 1 );
+		expect( Object.fromEntries( MediaStubStore.load( root ).list() ) ).toEqual( {
+			'https://cdn.example.com/desktop.jpg': expect.objectContaining( { status: 'success' } ),
+		} );
+	} );
 } );
 
 describe( 'captureWebsite fluid learning', () => {

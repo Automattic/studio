@@ -490,6 +490,25 @@ const cancelPullThunk = createTypedAsyncThunk(
 	}
 );
 
+const BACKUP_ALREADY_IN_PROGRESS_CODE = 'backup_already_in_progress';
+
+function isBackupAlreadyInProgressError( error: unknown ): boolean {
+	if ( typeof error !== 'object' || error === null ) {
+		return false;
+	}
+	const { error: errorCode, code } = error as { error?: unknown; code?: unknown };
+	return errorCode === BACKUP_ALREADY_IN_PROGRESS_CODE || code === BACKUP_ALREADY_IN_PROGRESS_CODE;
+}
+
+function getBackupAlreadyInProgressRejection( siteName: string ) {
+	return {
+		title: sprintf( __( 'Error pulling from %s' ), siteName ),
+		message: __(
+			'A backup is already in progress for this site. Please wait a few minutes and try again.'
+		),
+	};
+}
+
 const getErrorFromResponse = ( error: unknown ): string => {
 	if (
 		typeof error === 'object' &&
@@ -666,6 +685,15 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			} );
 			const response = pullSiteResponseSchema.parse( rawResponse );
 
+			// Servers predating the `backup_already_in_progress` 409 report a deduped
+			// request as `success: true` with `backup_id: 0` (STU-2098).
+			if ( response.success && ! response.backup_id ) {
+				console.error(
+					`Pull rejected: a backup is already in progress for remote site ${ remoteSiteId }`
+				);
+				return rejectWithValue( getBackupAlreadyInProgressRejection( connectedSite.name ) );
+			}
+
 			if ( response.success ) {
 				// Creating the remote backup can take a while. If the user logged out (slice
 				// reset) or cancelled the pull while this request was in flight, don't resurrect
@@ -698,6 +726,12 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 				throw new Error( 'Pull request failed' );
 			}
 		} catch ( error ) {
+			if ( isBackupAlreadyInProgressError( error ) ) {
+				console.error(
+					`Pull rejected: a backup is already in progress for remote site ${ remoteSiteId }`
+				);
+				return rejectWithValue( getBackupAlreadyInProgressRejection( connectedSite.name ) );
+			}
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
@@ -871,7 +905,10 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 		const backupId = currentPullState.backupId;
 		if ( ! backupId ) {
 			console.error( 'No backup ID found' );
-			return;
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+				message: __( 'An error occurred while checking the backup status. Please try again.' ),
+			} );
 		}
 
 		try {

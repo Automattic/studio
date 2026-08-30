@@ -170,6 +170,22 @@ export function extensionFromContentType(contentType: string): string {
   }
 }
 
+/**
+ * The Accept header Chromium sends for image requests. Format-negotiating CDNs
+ * (Wix, Squarespace, Cloudinary f_auto, imgix auto=format, Photon) choose the
+ * served encoding from it; without it they fall back to the legacy/original
+ * format, which can be 100x larger than what a visitor's browser receives.
+ */
+export const BROWSER_IMAGE_ACCEPT =
+  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+
+/** Whether two image extensions name the same format (`.jpeg` and `.JPG` do). */
+function sameImageFormat(a: string, b: string): boolean {
+  const aliases: Record<string, string> = { '.jpeg': '.jpg', '.tif': '.tiff' };
+  const canonical = (ext: string) => aliases[ext.toLowerCase()] ?? ext.toLowerCase();
+  return canonical(a) === canonical(b);
+}
+
 const FONT_EXT_RE = /\.(woff2|woff|ttf|otf|eot)(?:[?#]|$)/i;
 
 /**
@@ -196,6 +212,7 @@ async function fetchMediaResponse(rawUrl: string): Promise<Response> {
     const res = await fetch(currentUrl, {
       signal: AbortSignal.timeout(30000),
       redirect: 'manual',
+      headers: { accept: BROWSER_IMAGE_ACCEPT },
     });
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location');
@@ -266,15 +283,22 @@ export async function downloadMedia(
     // path is a bare id with the format negotiated via content-type. We accept
     // those, but REJECT an extension-less response whose content-type is NOT an
     // image so a stray HTML/redirect page can't land in the media library as
-    // junk bytes. (URLs that already carry a real image extension are trusted.)
-    if (!extname(rawFilename)) {
-      const ct = response.headers.get('content-type') || '';
-      const ext = extensionFromContentType(ct);
-      if (!ext) {
+    // junk bytes. (URLs that already carry a real image extension are trusted
+    // to be images; only their format may be corrected below.)
+    const contentType = response.headers.get('content-type') || '';
+    const urlExtension = extname(rawFilename);
+    const negotiatedExtension = extensionFromContentType(contentType);
+    if (!urlExtension) {
+      if (!negotiatedExtension) {
         await response.body?.cancel();
-        throw new Error(`non-image content-type "${ct || 'unknown'}" for extension-less URL`);
+        throw new Error(`non-image content-type "${contentType || 'unknown'}" for extension-less URL`);
       }
-      rawFilename = `${rawFilename}${ext}`;
+      rawFilename = `${rawFilename}${negotiatedExtension}`;
+    } else if (negotiatedExtension && !sameImageFormat(urlExtension, negotiatedExtension)) {
+      // Content negotiation (the Accept header above) can return a different
+      // format than the URL names — e.g. AVIF for a `.png` transform URL. Name
+      // the file by the bytes that arrived so WordPress types it correctly.
+      rawFilename = `${rawFilename.slice(0, -urlExtension.length)}${negotiatedExtension}`;
     }
 
     const filename = safeFilename(rawFilename, seenNames);

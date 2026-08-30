@@ -1,6 +1,7 @@
 import { writeFileSync, renameSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { DismissedOverlay } from './page-helpers.js';
+import type { InteractionStatesReport } from './interaction-capture.js';
 
 export interface ManifestEntry {
   slug: string;
@@ -13,6 +14,20 @@ export interface ManifestEntry {
   sections?: string;
   /** Overlays/banners dismissed before this URL was captured (observability). */
   dismissed?: DismissedOverlay[];
+  /** User-triggered dialog states captured after baseline page artifacts. */
+  interactions?: InteractionStatesReport;
+  /**
+   * Outcome of learning the source's sizing across viewport widths: how much
+   * runtime-frozen geometry became fluid CSS, and what stayed frozen.
+   */
+  fluid?: {
+    applied: number;
+    unmodelled: number;
+    breakpoints: number[];
+    /** Width below which this document stops adapting; drives the switch point. */
+    canvasFloor?: number | null;
+    byKind: Record<string, number>;
+  };
   capturedAt: string;
   /** Populated by site-analysis; may be absent */
   metadata?: {

@@ -2,79 +2,114 @@
 
 ## Overview
 
-`data-liberation-agent` extracts content from closed web platforms (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) and produces WordPress-compatible WXR files. All eight platform adapters are implemented, plus a generic `default` fallback adapter for sites that match no known platform.
+`data-liberation-agent` copies a website into a complete, portable HTML site. HTML is the contract: the liberated directory is the deliverable, and it runs on its own without this tool, a browser runtime, or any destination platform.
 
-Three entry points — MCP server (35 tools), CLI (`src/cli.ts`), and Claude Code plugin (`claude plugin add .`) — all share `src/lib/` and `src/adapters/`. The plugin just wraps the MCP server.
+The product is three verbs, and everything else exists to serve them:
 
-The `scripts/` directory contains legacy standalone extraction scripts (Squarespace via CDP, Wix via Playwright). These predate the adapter system and are kept for reference.
+```
+data-liberation <url>                 liberate
+data-liberation compare <run-dir>     verify
+data-liberation publish <run-dir>     publish
+```
 
-## Adding a New Platform
+Three entry points share the same code: the CLI (`src/cli.ts`), the MCP server (`src/mcp-server.ts`), and the `liberate` skill, which drives the CLI. MCP exposes the same three verbs and calls the same functions — it is a transport, not the architecture. Adding pipeline phases to it recreates a surface that has to be maintained against every refactor and invites callers to reimplement the CLI.
 
-1. Create `src/adapters/<platform>/` — a directory whose `index.ts` assembles and exports the `PlatformAdapter` (inline `detect` + `discover`/`extract` imported from focused siblings: `discover.ts`, `extract.ts`, `content.ts`, `media.ts`, `products.ts`, `types.ts`, …). Keep `index.ts` a thin assembler and re-export the adapter's public API from it so external imports only reference `<platform>/index.js`. See `src/adapters/webflow/` (smallest) or `src/adapters/shopify/` (fuller split) as references.
-2. Register it in `src/mcp-server.ts` (see the "Static adapter imports" comment) — import from `./adapters/<platform>/index.js`.
-3. Add platform-specific barriers and workarounds as inline comments in the adapter
-4. Update the supported platforms table in `README.md`
+## Pipeline
 
-Adapters produce structured content and call into `WxrBuilder`, `ExtractionLog`, `ImportSession`, `MediaStubStore`, and `media` utilities for output.
+```
+url → detect platform → discover routes → capture each route in a browser
+    → learn how the source reflows → export → localize → self-contain → website/
+```
 
-### Optional per-adapter capabilities
+- `src/lib/capture.ts` — orchestrates a run.
+- `src/lib/screenshot/` — the browser work: rendering, settling, DOM capture, CSS aggregation, interaction capture, fluid learning.
+- `src/lib/capture-export.ts` — turns captured routes into the portable `website/` tree: route paths, link rewriting, media localization, desktop/mobile document merging, diagnostics.
+- `src/lib/self-contain.ts` — strips anything that would still reach the network.
+- `src/lib/fidelity/` — the gate. See below.
+- `src/lib/publish/` — the destination boundary.
 
-Both are opt-in, declared on the adapter object, and consumed by later pipeline stages — the stage subsystems (screenshotter, reconstructor) stay adapter-agnostic; the handlers that already resolve the adapter do the wiring. Types live in `src/adapters/page-actions.ts`.
+## Adapters
 
-- **`capture?: AdapterCapture`** (seam 1) — `removeSelectors: string[]` (plus an optional imperative `prepare(page, ctx)`) removed from the live page in `screenshotter.ts` after settle and BEFORE screenshots / carried HTML / mobile carry / `SectionSpec` are captured, so one removal cleans every artifact. Best-effort (never fails capture). Put it in `<platform>/capture.ts`; example: `src/adapters/shopify/capture.ts` (strips `#upCart` + Klaviyo teaser chrome).
-- **`blocks?: AdapterBlocks`** (seam 2) — a content→Gutenberg-blocks recipe (a declarative `recipes[]` table and/or a whole-body `htmlToBlocks(html, ctx)` fn). Applied ONLY on the blocks reconstruct path; the theme/carry path never invokes it. Two firing points, both blocks-path-gated: (a) per visual section in `page-reconstruct.ts`, before the `core/html` fallback island; (b) in BULK over post/page `content:encoded` bodies via the `liberate_blockify_wxr` tool (`src/lib/extraction/blockify-wxr.ts`), run after extraction and before import. Put the recipe in `<platform>/blocks.ts`; example: `src/adapters/squarespace/blocks.ts`.
+An adapter contributes platform knowledge to discovery and capture. It never owns a destination.
 
-## Resume State Files
+```ts
+interface PlatformAdapter {
+  id: string;
+  detect(url: string): boolean;
+  discover(url: string, opts): Promise<unknown>;
+  probe?(url, urls, opts): Promise<unknown[]>;
+  capture?: AdapterCapture;
+}
+```
 
-Four files cooperate to make runs resumable. Never write to them outside of the extraction-log lockfile (`mcp-server.ts` and `ui/discover.tsx` bracket the whole pipeline):
+`AdapterCapture` (`src/adapters/page-actions.ts`) is the seam for behaviour that only a platform can know:
 
-- `extraction-log.jsonl` (`ExtractionLog`) — append-only per-URL dedupe. Source of truth for "did we process this URL."
-- `session.json` (`ImportSession`) — stage, original opts, per-entity counts, adapter pagination cursors. Single-writer, atomic rename. Corrupt files become `session.json.corrupt.<ts>` (never silently deleted).
-- `media-stubs.json` (`MediaStubStore`) — per-asset status (`success` / `error` / `ignored`) with retry cap (default 3). Successful writes are buffered via `flush()`; failures persist immediately.
-- `products.jsonl` — streaming Woo product output. `openStream({resume: true})` appends instead of truncating, preserving GraphQL-emitted products across mid-run crashes.
+- `removeSelectors` — chrome removed from the live page before anything is captured, so one removal cleans every artifact.
+- `prepare(page, ctx)` — imperative escape hatch, run after removals. Wix uses it to resolve same-page anchors, which its click runtime handles rather than authored targets: the page is observed settling, and a real target is left behind so the copy can scroll there once the runtime is gone.
+- `responsiveImages(page, ctx)` — the per-viewport image variants a platform's runtime swapped in, as `{media id → url}`. The browser step stays generic and reads what the runtime settled on; recognising which URLs are that platform's CDN is adapter knowledge, and lives where it can be unit-tested.
 
-A fifth artifact, `sections/<slug>.json` (`SectionSpecsStore`), is a per-URL capture-once cache rather than shared run state, so it does NOT need the lockfile: each file is independent and written atomically (unique tmp + rename). The screenshot/capture phase runs `extractFull` on the settled desktop page (1440×900) — which returns `{ specs, landmarks }` — and persists the `SectionSpec[]` (each carrying a compact CSS `selector` that locates it in the source DOM) plus a top-level **landmark census** (`main`/`nav`/`header`/`footer`, consumed by the reconstruction region audit) here, keyed by `slugify(url)` and self-describing (records `sourceUrl` + a `SECTION_SPECS_SCHEMA` version). The reconstruction phase (`liberate_reconstruct_pages`) reads this instead of re-running Playwright, falling back to a live extract only on a cache miss — absent, corrupt, schema drift, or a slug collision (recorded `sourceUrl` ≠ requested) — and persisting the live result (specs + census) for the next run. Bump `SECTION_SPECS_SCHEMA` whenever `SectionSpec`'s shape OR the persisted envelope (e.g. the landmark census) changes so stale caches invalidate instead of silently degrading fidelity. The `selector` is built Node-side from browser-emitted `SelectorParts` via the pure `buildSelector` (`section-selector.ts`) — the `page.evaluate` closure only emits plain parts; both the section selectors and the census come from the SAME browser walk, so the region audit's census↔section join holds by construction.
+All three are best-effort: a throw is swallowed and capture continues.
 
-Adapters call `ImportSession.loadOrCreate(outputDir, id, opts, { resume })` and pass the session to `runExtractionLoop` via `ExtractionLoopOpts.session`. The shared loop updates stage + per-entity counts automatically.
+**Keep destination knowledge out of the adapter interface.** The barrel exports whole adapter objects, so anything declared on `PlatformAdapter` is statically wired to every platform. That is how WXR extraction, WooCommerce CSV, and WordPress block policy previously ended up on the liberation critical path.
 
-## Shopify GraphQL Path
+To add a platform: create `src/adapters/<platform>/` with an `index.ts` that assembles `detect` + `discover` from focused siblings, register it in `src/adapters/index.ts`, and add it to the README table.
 
-When `adminToken` is present, `shopifyAdapter.extract` fetches products via the Shopify Admin GraphQL API (pinned to `2025-04`) instead of the public JSON API. The GraphQL path:
+## The fidelity gate
 
-- Requires a `*.myshopify.com` hostname — throws if a custom storefront domain is derived and `shopDomain` wasn't passed explicitly.
-- Paginates via `endCursor` stored in `session.cursors['shopify:products:endCursor']` (resumable).
-- Tracks already-emitted product handles in `session.cursors['shopify:products:emittedHandles']` for idempotent CSV output across crashes.
-- Falls back to the JSON API + URL loop on any GraphQL failure.
-- Has `MAX_PAGES = 10000` and a non-advancing cursor guard to prevent infinite loops.
+`compare` is what makes the one-for-one claim defensible, and it runs in two tiers because they answer different questions at wildly different cost.
 
-## Non-obvious Details
+- **Self-consistency** (`src/lib/fidelity/self-consistency.ts`) — every route, offline, milliseconds. Anchors resolving to exactly one target, internal links landing on a real file, no asset still pointing at the origin. Links resolve through the same resolver the preview server uses, so a dangling link it reports is one a reader would hit.
+- **Source fidelity** (`src/lib/fidelity/check.ts`) — a sample, in a browser, ~25s per route. Text, geometry and reflow at widths the capture never sampled, plus dialogs. Routes come from the receipt's route table and are spread across it, spanning both ends so whatever sorts last is still reachable.
 
-- **MCP server runs `tsx src/mcp-server.ts` as ONE long-lived process — editing `src/` does NOT hot-reload it.** ESM modules are cached per process, so a re-called `liberate_*` tool keeps running the code that was loaded at server start. After editing handler/lib source, either restart the MCP server (so all callers pick it up) or, for a quick one-off re-run, drive the handler from a fresh `tsx` process (import the handler, pass a minimal `HandlerContext` with `textResult`/`errorResult`). Unit tests (`vitest`) always use the on-disk source, so they reflect edits immediately — the staleness is only the running MCP server.
-- **`.mcp.json` starts the MCP server through `scripts/mcp-launcher.mjs`: dev checkouts run `src/` via tsx; plugin installs run the COMMITTED bundle `dist/mcp-server.bundle.mjs`.** The launcher only uses the bundle when the package's dependencies don't resolve, so a dev environment never runs a stale dist. The bundle must be committed because plugin installs are plain git copies: Claude's installer restores npm deps only when a per-package `package-lock.json` exists (this workspace package has none), and Codex's installer NEVER restores deps — so `claude/codex plugin marketplace add Automattic/studio` only works with a prebuilt self-contained artifact in the tree. After changing `src/` or dependencies, regenerate with `npm run build:mcp-bundle` and commit the result — CI (Buildkite Lint) rebuilds it and fails on drift. `playwright` and `single-file-cli` stay external to the bundle (guarded dynamic imports that degrade with install guidance). See `scripts/build-mcp-bundle.mjs` for the import.meta.url asset-resolution seam.
-- **Skill-invoked driver scripts ship the same way: SKILL.md steps MUST invoke them as `node scripts/run.mjs <name>`, never `npx tsx scripts/<name>.ts`.** `run.mjs` runs the source via tsx in a dev checkout and the committed bundle `dist/scripts/<name>.mjs` in a plugin install (verbatim git copy, no node_modules — bare `npx tsx` has nothing to import there). Every driver a skill invokes must be listed in `SKILL_DRIVERS` in `scripts/build-mcp-bundle.mjs`, or the step only works in dev; the same `npm run build:mcp-bundle` regenerates these bundles and the same CI freshness check covers them. Drivers that statically import `playwright` fail fast in installs without it; `run.mjs` turns that into install guidance. The block-fixer sidecar cannot be bundled (registerCoreBlocks drags ~92 MB of @wordpress/block-library + block-editor in) and its deps must stay in a NESTED install (hoisting puts React 18 next to Ink's React 19 — the exact conflict the sidecar isolates); instead it ships a committed `scripts/block-fixer/package-lock.json` and `block-fixer-client` restores the nested node_modules on first use (`npm ci --ignore-scripts`, integrity-pinned), so plugin installs get real canonicalization instead of the fail-open passthrough.
-- DLA consumes `@automattic/blocks-engine` through the local pre-publish override `"file:../blocks-engine/packages/blocks-engine"`; standalone `npm install` therefore needs the sibling `blocks-engine` checkout until the package is published. On publish, flip the dependency to the authorized semver range (for example `"^0.x.y"`). Publishing itself remains gated on explicit user authorization.
-- **`tsx scripts/*.ts` that call `page.evaluate` must create the page via `newShimmedPage` from `scripts/_pw.ts`** — tsx's esbuild keepNames rewrites named functions to `__name(...)`, which is undefined in the browser context Playwright serializes into (`ReferenceError: __name is not defined`). The shim installs a `__name` identity via `addInitScript`. vitest-run code is unaffected (its transform doesn't keepNames).
-- WXR builder targets WXR 1.2 spec compliance
-- `core/html` islands convert to editable `dla/editable-html` blocks (in-canvas render → visible + styled + text/image-editable in the block editor; static-save = byte-identical front-end output). This is the DEFAULT across all three reconstruct paths (carry, local, block — every `core/html` island converts except those wrapping nested `wp:` block delimiters); opt out with `editableIslands: false` (or `EDITABLE_ISLANDS=0` on the carry driver). Conversion runs before the block-fixer canonicalization and ships + activates the `dla-editable-html` plugin once when any island converts.
-- Page-reconstruction full-width vs constrained DEFERS TO THE SOURCE: `SectionSpec.fullBleed` (a section carrying an IMAGE — foreground or background, height ≥ 100px — spanning ≥ 92% of the viewport) drives the page's `main`/`post-content` layout type. Any non-chrome (`footer`/`nav`) full-bleed section → `default` (full-width); otherwise `constrained`. This is independent of `heroIsCover`, which only controls the transparent overlay header. Specs without `fullBleed` default to constrained (back-compat).
-- `classifyUrl` types: `homepage`, `post`, `product`, `gallery`, `event`, `page` (no `category`/`author`/`other`)
-- Media filename collision handling uses numeric suffixes (`-2`, `-3`), not hashes
-- `detect-platform` uses domain-level URL patterns and HTTP fingerprinting (headers + HTML markers) — no path-based detection
-- **Fallback adapter:** sites that detect as `unknown` (or name an unregistered platform) resolve to the `default` adapter (`src/adapters/default/`) via `resolveAdapter` (`src/adapters/resolve-adapter.ts`), used by all three resolver sites (`mcp-server.ts`, `ui/discover.tsx`, `ui/inspect.tsx`). Detection is unchanged — it still reports `unknown`; the fallback is at *resolution* (so the "No adapter available" error is now unreachable). The adapter is platform-agnostic: Playwright-rendered HTML → cheerio main-content + media + JSON-LD products; its `detect()` returns `false` (nothing selects by `.detect()`). Products gotcha: the shared loop's `extractProductFromHtml` reads JSON-LD from `ExtractedPage.content` (not a re-fetch), so `default` re-attaches the Product `ld+json` script to `content` (content extraction strips `<script>` otherwise).
-- Shopify variant weights are normalized to kilograms regardless of source unit (`kg`, `g`, `lb`, `oz`) via `normalizeWeightToKg`
-- Shopify simple-product sale price uses `compareAtPrice > price` semantics — when set, `compareAtPrice` becomes `regularPrice` and `price` becomes `salePrice`
-- `WooProduct` has first-class `seoTitle`, `seoDescription`, `costOfGoods` fields plus an open `meta` record; the CSV builder emits `meta:_yoast_wpseo_title`, `meta:_yoast_wpseo_metadesc`, `meta:_wc_cog_cost` columns always, plus `meta:<key>` columns for any custom keys
-- `diffContent` in `src/lib/qa/content-differ.ts` measures extraction *loss* (origin items not in WXR), not hallucination — `missingImages` etc. reflect content that failed to make it into the output
-- Screenshots live at `<outputDir>/screenshots/{desktop,mobile}/<slug>.png` and `<slug>.scrolled.png` (post-scroll viewport capture). Rendered HTML is at `<outputDir>/html/<slug>.html`. The join back to extracted content is filesystem-only via `<outputDir>/screenshots/manifest.json`, which maps URL → files. Nothing is injected into WXR or products.csv — orchestration tooling (comparisons, design diffs, Claude Code flows) correlates by URL between manifest and `output.wxr` / `products.jsonl`. The resolved `<outputDir>` defaults to `~/Studio/_liberations/<host>`; use `liberate_paths` to resolve it at runtime.
-- The screenshot feature adds one `ImportSession` stage: `screenshotting`. `data-liberation <url>` runs it by default; pass `--no-screenshots` to skip. MCP `liberate_extract` keeps it opt-in via `screenshots: true`.
-- Screenshot capture default concurrency is 6 (parallel URL captures). Configurable via `--screenshots-concurrency N` on the default extract or `--concurrency N` on the `screenshot` subcommand. Clamped to [1, 10].
-- Screenshot capture restarts the Playwright browser every N=100 URLs (configurable via `--browser-restart-every N`) to bound memory. Restarts happen at batch boundaries, not mid-batch.
-- Same-origin enforcement: every captured URL must share origin with the `url` argument (or if only `urls[]` is given, all must share the first entry's origin). Throws `SameOriginViolation`. Mirrors `fetchSitemap` pattern.
-- `validateOutputDir` rejects paths containing `..` or outside `process.cwd()`. Tests use a cwd-local `.tmp-test/` directory (gitignored) instead of `os.tmpdir()`.
-- Scrolled-state screenshots are skipped silently (not a failure) when the page's `scrollHeight` is shorter than `viewport.height * 1.5 + viewport.height` — short pages don't have a distinct scrolled state to capture.
-- Screenshot capture aggregates per-site design tokens into three files at run end: `<outputDir>/palette.json` (dominant colors ranked by urls-desc), `<outputDir>/typography.json` (font metrics per selector, deduped + ranked), and `<outputDir>/breakpoints.json` (union of `@media min-width` / `max-width` integer px values). Collected by `SiteAnalysisAggregator` in `src/lib/screenshot/aggregator.ts`. Cross-origin stylesheets are skipped silently (their `.cssRules` throw); same-origin CSS contributes. These files are consumed by downstream replica/theme-generation workflows. Resume merges with prior-run aggregates.
-- The blocks reconstruction (`liberate_reconstruct_pages`) writes three **warning-level diagnostic artifacts** keyed off the per-section `SectionSpec.selector`, both atomic (tmp+rename) and surfaced as tallies in the handler's `textResult` (they do NOT flip the run verdict):
-  - `<outputDir>/fallback-diagnostics.json` (`{schema, site, diagnostics[]}`) — one structured record per coverage-gated `core/html` island: `selector`, `reasonCode` (`dropped_images` | `text_coverage_below_floor` — media-first precedence), `suggestedRepairClass`, `islandKind` (`verbatim`/`styled`/`responsive` for islands, `none` for non-island triage records), dropped image URLs, text coverage, and source/emitted previews — so an agent can triage *why* a section fell back and what would fix it. Built by the pure `buildFallbackDiagnostic` (`fallback-diagnostic.ts`); tally = `htmlFallbackByReason`. The artifact also carries `decorative_asset_triaged` records (asset-triage removals logged here via `suggestedRepairClass`; tallied separately as `assetsTriaged`, NOT included in `htmlFallbackByReason`). Coverage islands are emitted with a deterministic marker on the opening delimiter — `<!-- wp:html {"metadata":{"name":"lib-coverage-island"}} -->` (`PIPELINE_ISLAND_OPENER` in `src/lib/wordpress/block-policy.ts`, emitted by `html-fallback.ts`) — so the install-time wp:html ban (`validateReplicaInputs`) can accept pipeline islands on theme REINSTALL while still rejecting hand-authored Custom HTML; legacy pre-marker themes are accepted via bare islands inside `patterns/` files bearing the pipeline pattern header (`* Inserter: false`). This is a quality gate, not a security boundary — the marker is recognizable, not unforgeable.
-  - `<outputDir>/region-audit.json` (`{schema, site, pages[]}`) — per page, reconciles the source **landmark census** against what was placed: body sections join by `selector`, chrome (`header`/`nav`/`footer`) joins by ROLE (chrome presence derived from the homepage HTML via `extractThemeChromeFromHtml`, since chrome selectors come from a separate cheerio path and may not byte-match). Tiny/empty landmarks are `non_actionable`; an actionable landmark that maps to nothing is `unassigned` — the dropped-landmark signal (e.g. a source `<nav>` that didn't survive, the corneliusholmes nav-drop case). Built by the pure `reconcileRegions` (`region-audit.ts`); tally = `unassignedRegions`.
-  - **Neptune-adoption artifacts (neptune-best-parts branch):** (a) `comparison.json` v2 — per-viewport `ViewportScore` gains `originHeight`, `replicaHeight`, `heightMismatchRatio` (`|origin−replica|/origin`, 0 when either missing); when ratio exceeds `HEIGHT_MISMATCH_THRESHOLD` (0.02, exported from `compare.ts` alongside `PARITY_GATE_SCORE = 0.995`) a magenta-padded full-canvas diff is written at `<diffOutputDir>/<slug>.<viewport>.padded.png` (magenta = content-gap, not style drift); v1 files still parse (new fields absent = gate disabled). (b) `liberate_refine_report` MCP tool — validates `refine/<slug>/*.json` coverage: every `findings[].id` must appear in exactly one of `applied`/`skipped`; orphan applied/skipped ids also fail; pure validator in `src/lib/replicate/refine-report.ts`. (c) Variation hoisting in `liberate_reconstruct_pages` — recurring instance-style constellations (≥ 3 site-wide, exact match) are hoisted to `<theme>/styles/blocks/lib-*.json` and stripped from instance markup; deterministic slug derivation (block short-name + style groups present, numeric suffix on collision); fail-open (hoist skipped with a warning when the block-fixer sidecar is unavailable); disable via the `variationHoist:false` tool option (MCP-only; there is no CLI flag). (d) `<outputDir>/asset-triage.json` — vision-classified decorative asset verdicts (`keep`/`decoration` with 1-sentence description); consumed pre-build by `page-reconstruct.ts` (decoration entries skipped as `wp:image`, description lands in the record's `sourceHtmlPreview` field with `suggestedRepairClass` fixed to `replace_with_structural_block`); absent file = zero behavior change; never affects WXR/extraction/media-stubs.
-  - **SVG survival + Forms→Jetpack (neptune-best-parts branch):** (a) *SVG fetch:* every downloaded SVG is scanned for `<use`/`<defs` (`isRiskySvg`, case-insensitive) → `svgRisky: boolean`; a PNG sibling is rasterized at 1024px long edge via Playwright Chromium (`rasterizeSvg` in `src/lib/media-fetch/svg-raster.ts`; raster failure non-fatal); `MediaStub` gains optional `rasterPath`, `svgRisky`, `rasterError` (absent on old stubs → back-compat). (b) *SVG install:* any library-bound SVG in the pending batch → `ensurePlugin(sitePath,'safe-svg')` once (idempotent helper `src/lib/preview/ensure-plugin.ts`; Woo auto-install is a pending follow-up via the same helper); routing per SVG: `svgRisky && rasterPath` → upload PNG; SVG upload failure + `rasterPath` → retry as PNG; no rasterPath available → error stub. (c) *Form capture* (`SECTION_SPECS_SCHEMA` bumped to 8): `SectionSpec.forms?: SectionSpecForm[]` populated in the `extractFull` browser walk; zero-recognizable-field forms omitted entirely; `file`/`hidden` fields skipped and flagged in provenance. (d) *Form emit (blocks path only):* `jetpack/contact-form` per form with `jetpack/field-*` per kind; submit is a `core/button` (`tagName:"button"`, `type:"submit"`, className `form-button-submit is-submit` — the CURRENT Jetpack form-editor grammar; NEVER `jetpack/button`, which lives in the connection-gated extensions loader, is UNREGISTERED on unconnected installs, and renders to nothing → Contact_Form falls back to a server-built button labeled "Submit", losing the captured label); the label rides in the saved inner HTML (canonical save markup, byte-stable through the block-fixer); field labels/options/submitLabel registered with the provenance gate; `ensurePlugin(sitePath,'jetpack')` + `wp jetpack module activate contact-form` (idempotent; unconnected installs start with ALL modules inactive → empty form wrapper otherwise) called when any page's specs carry `forms` (tallied as `jetpackEnsured`/`jetpackWarning` in handler output; failures non-fatal, markup still emits). Hoist guard: `jetpack/*` blocks are excluded from variation hoisting — Jetpack's `get_form_style()` regexes `is-style-(\S+)` off the contact-form className and an unknown style makes `render_label()` return `''` (labels vanish). (e) *Block-fixer pin:* unknown `jetpack/*` blocks pass through the fixer grammar-preserved via `core/missing` `originalContent` (regression test added in `blockFixer.smoke.test.js`).
+Both must pass for exit 0. When adding a check, put it in the cheap tier if it can be answered from disk.
+
+Two things the gate has been wrong about before, both worth remembering:
+
+- Resolving is not the same as resolving correctly. `getElementById` returns the first match, so a fragment duplicated across the desktop and mobile documents reported success while sending the reader to the hidden one.
+- A route is not a URL path. A site captured at a subpath serves its entrypoint as the copy's `/`, so resolving routes against the source origin asks the live site for a page that was never captured — and a 404 page then becomes the thing the copy is compared to.
+
+## Fluid capture
+
+A copy is only faithful at the width it was captured at, because platform runtimes write inline pixel geometry that survives serialization while the runtime that computed it does not. Rather than freezing one width, capture sweeps widths with the source's runtime alive, fits a model per element (constant, proportional, floored, or a genuine breakpoint), and emits the result as ordinary CSS that needs no runtime.
+
+Elements that fit badly fall back to frozen values rather than adopting a confident wrong formula. `source-profile.json` records what was measured: one document or per-device, declarative or runtime-written geometry, the detected switch width, and how many elements were learned versus frozen.
+
+## Resume state
+
+- `extraction-log.jsonl` (`ExtractionLog`) — append-only per-URL dedupe. Source of truth for "did we process this URL".
+- `session.json` (`ImportSession`) — stage, original opts, counters. Single-writer, atomic rename; corrupt files become `session.json.corrupt.<ts>` rather than being silently deleted.
+- `media-stubs.json` (`MediaStubStore`) — per-asset status with a retry cap, so permanently-broken URLs stop retrying across resume runs.
+- `sections/<slug>.json` (`SectionSpecsStore`) — per-URL capture-once cache, written atomically, self-describing via `SECTION_SPECS_SCHEMA`. Bump the schema whenever `SectionSpec` changes so stale caches invalidate instead of silently degrading fidelity.
+
+Reuse is opt-in: a plain re-run recaptures, and `--resume` is what reports `reused`.
+
+## Build and distribution
+
+- `.mcp.json` starts the server through `scripts/mcp-launcher.mjs`: dev checkouts run `src/` via tsx, plugin installs run the committed bundle `dist/mcp-server.bundle.mjs`. The launcher only falls back to the bundle when dependencies do not resolve, so a dev environment never runs a stale dist.
+- The bundles must be committed, because Codex plugin installs do not restore dependencies. Regenerate with `npm run build:mcp-bundle` after changing `src/` or dependencies; CI fails on drift.
+- `playwright` and `single-file-cli` stay external to the bundle behind guarded dynamic imports that degrade with install guidance.
+- Playwright's Chromium is not installed on `npm install`. Run `npm run setup:browser` once.
+
+## Non-obvious details
+
+- **The MCP server is one long-lived process — editing `src/` does not hot-reload it.** ESM modules are cached per process, so a re-called tool keeps running the code loaded at server start. Restart it after editing. Vitest always uses on-disk source.
+- Liberation writes the site and exits. `--serve` opts into a server that holds the process until interrupted. Anything automated should not pass it.
+- Guidance goes to stderr; stdout stays the machine-readable result.
+- `validateOutputDir` rejects paths containing `..` or outside `process.cwd()`. Tests use a cwd-local `.tmp-test/` directory rather than `os.tmpdir()`.
+- Same-origin enforcement: every captured URL must share an origin with the `url` argument, or throw `SameOriginViolation`.
+- Media filename collisions use numeric suffixes (`-2`, `-3`), not hashes.
+- `detect-platform` uses domain-level URL patterns and HTTP fingerprinting — no path-based detection. Sites detecting as `unknown` resolve to the `default` adapter via `resolveAdapter`, so "No adapter available" is unreachable.
+- Scrolled-state screenshots are skipped silently when a page is too short to have a distinct scrolled state.
+- Screenshot capture restarts the browser every 100 URLs at batch boundaries to bound memory.
+- Cross-origin stylesheets are skipped when aggregating design tokens — their `.cssRules` throw.
+
+## Verifying a change
+
+Run the gate against a real site, not only the unit tests:
+
+```bash
+data-liberation https://example.com/ --output /tmp/check
+data-liberation compare /tmp/check/example.com
+```
+
+Claims about behaviour should come from a command that was actually run. Documented behaviour in this repository has been wrong before — reuse was described as automatic when it needs `--resume`, and an anonymous publish was described as returning a live URL when the space is private until claimed.

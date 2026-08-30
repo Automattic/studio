@@ -296,3 +296,43 @@ describe('downloadMedia — SSRF + size guards', () => {
     expect(res.error).toMatch(/exceeds max/i);
   });
 });
+
+describe('downloadMedia — browser-style format negotiation', () => {
+  let tmp: string;
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+    if (tmp && existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('sends the browser image Accept header so negotiating CDNs return what a visitor gets', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    const fetchMock = vi.fn(async () => stubResponse('image/avif'));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await downloadMedia('https://static.wixstatic.com/media/photo~mv2.png/v1/fill/w_400,h_300,enc_auto/photo~mv2.png', tmp, new Map());
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const accept = new Headers(init.headers).get('accept') ?? '';
+    expect(accept).toMatch(/image\/avif/);
+    expect(accept).toMatch(/image\/webp/);
+    expect(accept).toMatch(/\*\/\*/);
+  });
+
+  it('names the file by the negotiated content-type when it differs from the URL extension', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    global.fetch = vi.fn(async () => stubResponse('image/avif')) as unknown as typeof fetch;
+    const res = await downloadMedia('https://cdn.example.com/images/photo.png', tmp, new Map());
+    expect(res.error).toBeNull();
+    expect(res.filename).toBe('photo.avif');
+    expect(existsSync(join(tmp, 'photo.avif'))).toBe(true);
+  });
+
+  it('keeps the URL extension when the content-type is the same format or not an image', async () => {
+    tmp = mkdtempSync(join(process.cwd(), '.tmp-test-media-'));
+    const seen = new Map<string, number>();
+    global.fetch = vi.fn(async () => stubResponse('image/jpeg')) as unknown as typeof fetch;
+    expect((await downloadMedia('https://cdn.example.com/images/a.jpeg', tmp, seen)).filename).toBe('a.jpeg');
+    expect((await downloadMedia('https://cdn.example.com/images/b.JPG', tmp, seen)).filename).toBe('b.JPG');
+    global.fetch = vi.fn(async () => stubResponse('application/octet-stream')) as unknown as typeof fetch;
+    expect((await downloadMedia('https://cdn.example.com/images/c.png', tmp, seen)).filename).toBe('c.png');
+  });
+});

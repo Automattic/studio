@@ -12,7 +12,7 @@ async function readText( stream: PassThrough ): Promise< string > {
 }
 
 describe( 'teeToBoundedTail', () => {
-	it( 'pauses for a slow destination, resumes on drain, and retains a 64 KiB tail', async () => {
+	it( 'pauses for a slow destination, resumes on drain, and retains a 1 MiB tail', async () => {
 		const source = new PassThrough();
 		const received: Buffer[] = [];
 		let releaseWrite: () => void;
@@ -26,7 +26,7 @@ describe( 'teeToBoundedTail', () => {
 		const onOutput = vi.fn();
 		const tail = teeToBoundedTail( source, destination, onOutput ) as PassThrough;
 		const resumeSpy = vi.spyOn( source, 'resume' );
-		const output = Buffer.alloc( 128 * 1024, 'x' );
+		const output = Buffer.alloc( 1024 * 1024 + 1024, 'x' );
 
 		source.write( output );
 		expect( source.isPaused() ).toBe( true );
@@ -37,7 +37,7 @@ describe( 'teeToBoundedTail', () => {
 		expect( resumeSpy ).toHaveBeenCalledOnce();
 		source.end();
 
-		expect( await readText( tail ) ).toBe( output.subarray( -( 64 * 1024 ) ).toString() );
+		expect( await readText( tail ) ).toBe( output.subarray( -( 1024 * 1024 ) ).toString() );
 		expect( Buffer.concat( received ) ).toEqual( output );
 	} );
 

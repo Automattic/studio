@@ -47,7 +47,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
-const OUTPUT_TAIL_BYTES = 64 * 1024;
+const OUTPUT_TAIL_BYTES = 1024 * 1024;
 
 /**
  * Runtime-agnostic WP-CLI invocation result. Both the native PHP runtime and
@@ -129,9 +129,9 @@ export function teeToBoundedTail(
 	};
 	const onDestinationError = ( error: Error ) => fail( error );
 
-	// Flow immediately so the child cannot block on a full OS pipe. The retained
-	// tail is enough to diagnose a failed long-running command without retaining
-	// all of its output.
+	// Flow immediately so the child cannot block on a full OS pipe. One MiB is
+	// enough for SSI's bounded terminal receipt while keeping arbitrary command
+	// output out of memory.
 	source.on( 'data', ( chunk: Buffer | string ) => {
 		const data = Buffer.isBuffer( chunk ) ? chunk : Buffer.from( chunk );
 		tail = Buffer.concat( [ tail, data ] ).subarray( -OUTPUT_TAIL_BYTES );
@@ -165,12 +165,10 @@ export function teeToBoundedTail(
 
 function drainToMemory( source: Readable ): Readable {
 	const sink = new PassThrough();
-
 	buffer( source )
 		.then( ( data ) => sink.end( data ) )
 		.catch( ( error ) => sink.destroy( error ) );
 	sink.on( 'error', () => {} );
-
 	return sink;
 }
 
@@ -299,7 +297,6 @@ async function runNativeWpCliCommand(
 			options.onLiveOutput?.();
 		}
 	};
-
 	return {
 		response: new WpCliResponse(
 			// Non-null: the 'pipe' stdio mode always provides stdout/stderr streams.

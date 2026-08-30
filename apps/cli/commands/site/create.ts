@@ -108,7 +108,7 @@ const defaultLogger = new Logger< LoggerAction >();
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.2/static-site-importer.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.4/static-site-importer.zip';
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
@@ -120,6 +120,7 @@ type StaticSiteImportProgressPhase = 'import' | 'finalization';
 type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
+	stagedSourcePath?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -139,6 +140,7 @@ export type CreateCommandOptions = {
 		staticSiteImport?: {
 			request: string;
 			bundlePath?: string;
+			sourcePath?: string;
 		};
 	};
 	adminUsername?: string;
@@ -191,29 +193,6 @@ function sourceFilePayload( filePath: string, relativePath: string ): Record< st
 		path: relativePath.replace( /\\/g, '/' ),
 		content_base64: fs.readFileSync( filePath ).toString( 'base64' ),
 	};
-}
-
-function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
-	const files: Record< string, string >[] = [];
-	const walk = ( currentDir: string ) => {
-		for ( const entry of fs.readdirSync( currentDir, { withFileTypes: true } ) ) {
-			if ( entry.name === '.DS_Store' || entry.name === '__MACOSX' ) {
-				continue;
-			}
-
-			const entryPath = path.join( currentDir, entry.name );
-			if ( entry.isDirectory() ) {
-				walk( entryPath );
-				continue;
-			}
-
-			if ( entry.isFile() ) {
-				files.push( sourceFilePayload( entryPath, path.relative( sourceDir, entryPath ) ) );
-			}
-		}
-	};
-	walk( sourceDir );
-	return files;
 }
 
 function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
@@ -272,15 +251,15 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			}
 		}
 
-		const files = collectSourceFiles( resolveDataLiberationWebsiteRoot( sourcePath ) );
-		if ( files.length > 0 ) {
-			return {
-				path: sourcePath,
-				payload: { files },
-			};
+		const stagedSourcePath = resolveDataLiberationWebsiteRoot( sourcePath );
+		if ( fs.readdirSync( stagedSourcePath ).length === 0 ) {
+			throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
 		}
-
-		throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
+		return {
+			path: sourcePath,
+			payload: {},
+			stagedSourcePath,
+		};
 	}
 
 	if ( ! stat.isFile() ) {
@@ -334,7 +313,9 @@ function buildStaticSiteImporterRequest(
 	let themeMaterialization: unknown;
 	const artifact = payload.artifact;
 
-	if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
+	if ( source.stagedSourcePath ) {
+		requestSource = { type: 'files', ref: 'request-bundle:source' };
+	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
 			schema: _schema,
 			entrypoint,
@@ -368,7 +349,7 @@ function buildStaticSiteImporterRequest(
 		client_script_provenance: {
 			ref: `studio-create-from:sha256:${ crypto
 				.createHash( 'sha256' )
-				.update( JSON.stringify( payload ) )
+				.update( JSON.stringify( requestSource ) )
 				.digest( 'hex' ) }`,
 		},
 		source_metadata: {
@@ -415,6 +396,7 @@ export function buildCreateFromSourceBlueprint(
 	staticSiteImport: {
 		request: string;
 		bundlePath?: string;
+		sourcePath?: string;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -460,6 +442,7 @@ export function buildCreateFromSourceBlueprint(
 		staticSiteImport: {
 			request: `${ JSON.stringify( request, null, 2 ) }\n`,
 			bundlePath: tempDir,
+			sourcePath: source.stagedSourcePath,
 		},
 	};
 }
@@ -477,6 +460,10 @@ export function staticSiteImportProgressMessage(
 
 function staticSiteImportRequestPath( sitePath: string ): string {
 	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE );
+}
+
+function staticSiteImportSourcePath( sitePath: string ): string {
+	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, 'source' );
 }
 
 type WpCliResult = { exitCode: number; stdout: string; stderr: string };
@@ -535,6 +522,7 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 async function runStaticSiteImport(
 	site: SiteData,
 	request: string,
+	sourcePath?: string,
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< boolean > {
@@ -545,6 +533,13 @@ async function runStaticSiteImport(
 		}
 	} else {
 		fs.mkdirSync( path.dirname( requestPath ), { recursive: true } );
+		if ( sourcePath ) {
+			await fs.promises.cp( sourcePath, staticSiteImportSourcePath( site.path ), {
+				recursive: true,
+				errorOnExist: true,
+				force: false,
+			} );
+		}
 		fs.writeFileSync( requestPath, request );
 	}
 
@@ -738,6 +733,8 @@ export async function runCommand(
 			existingSite &&
 			staticSiteImport &&
 			fs.existsSync( staticSiteImportRequestPath( sitePath ) ) &&
+			( ! staticSiteImport.sourcePath ||
+				fs.existsSync( staticSiteImportSourcePath( sitePath ) ) ) &&
 			fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' ) ===
 				staticSiteImport.request;
 		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {
@@ -746,6 +743,7 @@ export async function runCommand(
 				const cleanupSucceeded = await runStaticSiteImport(
 					existingSite,
 					staticSiteImport.request,
+					staticSiteImport.sourcePath,
 					true,
 					logger
 				);
@@ -944,6 +942,7 @@ export async function runCommand(
 					const cleanupSucceeded = await runStaticSiteImport(
 						siteDetails,
 						staticSiteImport.request,
+						staticSiteImport.sourcePath,
 						false,
 						logger
 					);
@@ -995,6 +994,7 @@ export async function runCommand(
 						const cleanupSucceeded = await runStaticSiteImport(
 							siteDetails,
 							staticSiteImport.request,
+							staticSiteImport.sourcePath,
 							false,
 							logger
 						);

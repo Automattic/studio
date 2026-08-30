@@ -528,7 +528,7 @@ describe( 'CLI: studio create', () => {
 			).toBe( 'classic' );
 		} );
 
-		it( 'imports only the website root from a Data Liberation capture directory', () => {
+		it( 'stages only the website root from a Data Liberation capture directory', () => {
 			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-test-' ) );
 			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
@@ -541,17 +541,39 @@ describe( 'CLI: studio create', () => {
 				} )
 			);
 
-			const files = JSON.parse(
-				buildCreateFromSourceBlueprint(
-					captureDir,
-					'Liberated Site',
-					'https://example.com/static-site-importer.zip'
-				).staticSiteImport.request
-			).source.files as Array< { path: string } >;
+			const blueprint = buildCreateFromSourceBlueprint(
+				captureDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
 
-			expect( files ).toEqual( [ expect.objectContaining( { path: 'index.html' } ) ] );
-			expect( files ).not.toEqual(
-				expect.arrayContaining( [ expect.objectContaining( { path: 'diagnostics.json' } ) ] )
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+			} );
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
+		} );
+
+		it( 'copies a request-bundled directory into the site before import', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-bundle-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Source bundle</main>' );
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Bundled Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+
+			expect( copySpy ).toHaveBeenCalledWith(
+				sourceDir,
+				path.join( mockSitePath, '.studio-import', 'source' ),
+				{ recursive: true, errorOnExist: true, force: false }
 			);
 		} );
 
@@ -692,10 +714,20 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
-		it( 'streams live WP-CLI output for native PHP imports', async () => {
+		it( 'consumes a complete terminal receipt larger than the former 64 KiB tail', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						steps: 1,
+						response: { success: true, artifact: 'x'.repeat( 128 * 1024 ) },
+					} ),
+				} )
+			);
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,

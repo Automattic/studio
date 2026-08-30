@@ -394,6 +394,44 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'liberates a URL before handing the portable site to SSI', async () => {
+			const captureRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-source-' ) );
+			const websiteDir = path.join( captureRoot, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Liberated</main>' );
+			const liberate = vi.fn().mockResolvedValue( websiteDir );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const rmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Liberated Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			const outputBase = path.normalize( `${ mockSitePath }-source` );
+			expect( liberate ).toHaveBeenCalledWith(
+				'https://example.com',
+				outputBase,
+				expect.objectContaining( { onProgress: expect.any( Function ) } )
+			);
+			expect( copySpy ).toHaveBeenCalledWith(
+				websiteDir,
+				path.join( mockSitePath, '.studio-import', 'source' ),
+				{ recursive: true, errorOnExist: true, force: false }
+			);
+			expect( rmSpy ).toHaveBeenCalledWith( outputBase, { recursive: true, force: true } );
+		} );
+
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );

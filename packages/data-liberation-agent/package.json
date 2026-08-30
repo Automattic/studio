@@ -1,25 +1,38 @@
 {
   "name": "data-liberation",
   "version": "0.1.0",
-  "description": "Extract content from closed web platforms into WordPress-compatible WXR files",
+  "description": "Liberate any website into a complete, portable HTML site",
   "type": "module",
   "bin": {
     "data-liberation": "./dist/cli.js"
   },
+  "files": [
+    ".claude-plugin/",
+    ".codex-plugin/",
+    ".mcp.codex.json",
+    ".mcp.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "dist/",
+    "docs/",
+    "gemini-extension.json",
+    "scripts/",
+    "skills/",
+    "src/"
+  ],
   "scripts": {
-    "import": "tsx src/cli.ts import",
     "build": "tsc && node scripts/copy-runtime-assets.mjs && node scripts/build-mcp-bundle.mjs",
     "build:mcp-bundle": "node scripts/build-mcp-bundle.mjs",
     "copy-runtime-assets": "node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
+    "test:package": "node scripts/test-package.mjs",
     "test:watch": "vitest",
     "mcp": "tsx src/mcp-server.ts",
-    "inspect": "tsx src/cli.ts inspect",
-    "qa": "tsx src/cli.ts qa",
-    "verify": "tsx src/cli.ts verify",
-    "setup": "tsx src/cli.ts setup",
     "liberate": "tsx src/cli.ts",
-    "setup:browser": "playwright install chromium"
+    "setup:browser": "playwright install chromium",
+    "compare": "tsx src/cli.ts compare",
+    "publish": "tsx src/cli.ts publish"
   },
   "engines": {
     "node": ">=22.0.0"

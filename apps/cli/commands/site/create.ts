@@ -72,6 +72,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -1111,7 +1112,10 @@ function coerceSiteId( value: string ) {
 	return value;
 }
 
-export const registerCommand = ( yargs: StudioArgv ) => {
+export const registerCommand = (
+	yargs: StudioArgv,
+	dependencies: { liberate?: typeof liberateWebsite } = {}
+) => {
 	return yargs.command( {
 		command: 'create',
 		describe: __( 'Create a new site' ),
@@ -1463,11 +1467,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			};
 
 			try {
-				const importSource = argv.from;
-				// Remote URLs are rendered into a local source by Data Liberation before they
-				// reach SSI; until that path exists here, `resolveStaticSiteImporterSource`
-				// rejects them. `sourceUrl` still carries provenance for local captures.
+				let importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
+				let liberationOutputDir: string | undefined;
+				if ( sourceUrl ) {
+					liberationOutputDir = path.join(
+						path.dirname( sitePath ),
+						`${ path.basename( sitePath ) }-source`
+					);
+					defaultLogger.reportStart(
+						LoggerAction.IMPORT_SITE,
+						__( 'Preparing source website with Data Liberation…' )
+					);
+					importSource = await ( dependencies.liberate ?? liberateWebsite )(
+						sourceUrl,
+						liberationOutputDir,
+						{ onProgress: ( message ) => defaultLogger.reportProgress( message ) }
+					);
+					defaultLogger.reportSuccess( __( 'Source website prepared' ) );
+				}
 
 				if ( importSource ) {
 					config.blueprint = buildCreateFromSourceBlueprint(
@@ -1506,6 +1524,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 				try {
 					await runCommand( sitePath, config );
+					if ( sourceUrl && liberationOutputDir ) {
+						await fs.promises
+							.rm( liberationOutputDir, { recursive: true, force: true } )
+							.catch( () => {} );
+					}
 				} finally {
 					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;
 					if ( bundlePath ) {

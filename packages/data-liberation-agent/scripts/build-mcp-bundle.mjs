@@ -2,8 +2,7 @@
 // driver scripts (dist/scripts/<name>.mjs) into self-contained artifacts.
 //
 // Why: the Claude/Codex plugin installer copies this package's files into
-// ~/.claude/plugins/cache/... WITHOUT node_modules — and inside the Studio npm
-// workspace the dependencies are hoisted to the repo root anyway — so a
+// ~/.claude/plugins/cache/... WITHOUT node_modules, so a
 // `npx tsx src/mcp-server.ts` entry has nothing to import once installed as a
 // plugin. The bundles inline every dependency so `.mcp.json` can point a bare
 // `node` at the server bundle and `scripts/run.mjs` can run the drivers. The
@@ -34,21 +33,15 @@ const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = resolve(pkgRoot, 'src');
 const scriptsDir = resolve(pkgRoot, 'scripts');
 const serverOutfile = resolve(pkgRoot, 'dist', 'mcp-server.bundle.mjs');
+const captureOutfile = resolve(pkgRoot, 'dist', 'capture-engine.bundle.mjs');
+const cliOutfile = resolve(pkgRoot, 'dist', 'cli.bundle.mjs');
 const scriptsOutDir = resolve(pkgRoot, 'dist', 'scripts');
 
 // Every driver a shipped skill invokes through scripts/run.mjs. Adding a
 // `node scripts/run.mjs <name>` step to a SKILL.md means adding <name> here,
-// or the step only works in dev checkouts.
-const SKILL_DRIVERS = [
-  '_shot',
-  '_validate',
-  'carry-chrome-audit-run',
-  'carry-reconstruct-drive',
-  'carry-replica-shots',
-  'enrich-product-marketing',
-  'localize-native-post-media',
-  'triage-candidates',
-];
+// or the step only works in dev checkouts. The liberate skill drives the CLI
+// directly, so there are currently none.
+const SKILL_DRIVERS = [];
 
 /** Rewrite import.meta.url in first-party modules to the original file's URL,
  * expressed relative to the bundle so it survives being copied anywhere. */
@@ -98,6 +91,20 @@ const server = await build({
   plugins: [perModuleImportMetaUrl(dirname(serverOutfile))],
 });
 
+const capture = await build({
+  ...shared,
+  entryPoints: [resolve(srcDir, 'capture-engine.ts')],
+  outfile: captureOutfile,
+  plugins: [perModuleImportMetaUrl(dirname(captureOutfile))],
+});
+
+const cli = await build({
+  ...shared,
+  entryPoints: [resolve(srcDir, 'cli.ts')],
+  outfile: cliOutfile,
+  plugins: [perModuleImportMetaUrl(dirname(cliOutfile))],
+});
+
 // Clean first so renamed entry points and stale shared chunks don't linger —
 // the committed dist/scripts/ must be exactly what this build emits.
 await rm(scriptsOutDir, { recursive: true, force: true });
@@ -121,6 +128,8 @@ const drivers = await build({
 
 for (const [result, label] of [
   [server, relative(pkgRoot, serverOutfile)],
+  [capture, relative(pkgRoot, captureOutfile)],
+  [cli, relative(pkgRoot, cliOutfile)],
   [drivers, `${relative(pkgRoot, scriptsOutDir)}/ (${SKILL_DRIVERS.length} drivers)`],
 ]) {
   const bytes = Object.values(result.metafile.outputs).reduce((sum, o) => sum + o.bytes, 0);

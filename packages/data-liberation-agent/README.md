@@ -1,158 +1,138 @@
 # data-liberation-agent
 
-Extract content from closed web platforms into WordPress-compatible WXR files.
+Liberate any website into a complete, portable HTML site.
 
 ## The problem
 
-Closed platforms make it hard to leave. Wix has no HTML export and caps RSS at 20 posts. JavaScript-rendered content and limited APIs leave your site data locked inside.
+Closed platforms make it hard to leave. Wix has no HTML export and caps RSS at 20 posts. JavaScript-rendered content and limited APIs leave your site locked inside.
 
 ## The solution
 
-This tool extracts all content from closed platforms — posts, pages, media, navigation, redirects, products — and produces a standard WordPress WXR file ready to import.
+Point it at a URL and get your site back as plain files:
 
-**Where to host WordPress**: If your current provider also offers WordPress, you can move to WordPress and stay with them. WordPress.com is another option: the $4/mo Personal plan now supports plugins and themes, and the [WordPress.com MCP integration](https://wordpress.com/blog/2026/03/20/ai-agent-manage-content/) gives AI agents direct write access.
+```bash
+data-liberation https://example.com/
+```
+
+Every retained route becomes a directory of HTML, CSS, media, and fonts, with references rewritten so navigation works locally. It runs on its own, anywhere that can serve a folder.
+
+**HTML is the contract.** The liberated site is the deliverable — not an intermediate format on the way to somewhere else, and not tied to any destination.
+
+## Three commands
+
+```bash
+data-liberation <url>                        # liberate a site
+data-liberation compare <run-dir>            # verify the copy against its source
+data-liberation publish <run-dir> --to spacefast   # put it on a live URL
+```
+
+That is the whole surface. Liberation writes the site and exits; add `--serve` to keep a local server running so you can click through it.
+
+### Liberate
+
+| Flag | |
+|---|---|
+| `--output <dir>` | Output base. Default `~/data-liberation`, or `DLA_OUTPUT_DIR` |
+| `--resume` | Reuse what is already on disk instead of recapturing |
+| `--screenshots` | Also write full-page desktop and mobile PNGs |
+| `--serve` | Keep a local server running until interrupted |
+| `--no-learn-fluid` | Freeze the layout at one width instead of learning how it reflows |
+
+Fluid learning is on by default. The capture sweeps widths with the source's own runtime alive, fits how each element is sized, and emits that as ordinary CSS — so the copy keeps reflowing after the runtime is stripped, instead of being pinned to the width it was captured at.
+
+### Compare
+
+Verification runs in two tiers, and the report says which found what.
+
+- **Self-consistency**, across every route, offline: anchors resolving to exactly one target, internal links landing on a real file, no asset still pointing at the origin. Milliseconds.
+- **Source fidelity**, across a sample, in a browser: text, geometry and reflow at widths the capture never sampled, and dialogs opening as the source opens them. Roughly 25 seconds per route, so it samples rather than walking everything.
+
+Exit code 0 means both passed. `--screenshots` writes source, copy, and diff PNGs; the pixel score is evidence for a human and never decides pass or fail.
+
+### Publish
+
+```bash
+data-liberation publish <run-dir> --to spacefast
+```
+
+Publishing reads what is on disk, so a repaired copy or a different target can ship without touching the source site again. Without a token the publish is anonymous and returns a one-time claim link — the space stays private until it is claimed, so the live URL answers 403 to everyone until then. `--token`, or `SPACEFAST_TOKEN`, publishes into an account you own.
+
+Naming an unknown target lists the registered ones.
 
 ## Supported platforms
 
-| Platform | Status | Prompt |
-|---|---|---|
-| **GoDaddy Websites & Marketing** (pages/blog) | Ready | [`prompts/godaddy-wm.md`](./prompts/godaddy-wm.md) |
-| **Hostinger Website Builder** (blog/pages/products) | Ready | — |
-| **HubSpot** | Ready | — |
-| **Shopify** (blog/pages/products) | Ready | [`prompts/shopify.md`](./prompts/shopify.md) |
-| **Squarespace** | Ready | [`prompts/squarespace.md`](./prompts/squarespace.md) |
-| **Webflow** | Ready | [`prompts/webflow.md`](./prompts/webflow.md) |
-| **Weebly** (blog/pages/products) | Ready | — |
-| **Wix** | Ready | [`prompts/wix.md`](./prompts/wix.md) |
-| **Any other website** (generic fallback) | Best-effort | — |
+| Platform | Status |
+|---|---|
+| GoDaddy Websites & Marketing | Ready |
+| Hostinger Website Builder | Ready |
+| HubSpot | Ready |
+| Shopify | Ready |
+| Squarespace | Ready |
+| Webflow | Ready |
+| Weebly | Ready |
+| Wix | Ready |
+| Any other website | Best-effort generic fallback |
 
-All eight platforms have MCP adapters with full extraction support including products (exported as WooCommerce-compatible CSV). Sites matching none of them fall back to a generic `default` adapter that renders each page in a headless browser and extracts the main content, media, and any JSON-LD products — best-effort, since it can't key off platform-specific markup. GoDaddy Websites & Marketing is pages + blog only in v1; GoDaddy Online Store (OLS) product support is planned for v1.1.
+Adapters contribute platform knowledge to discovery and capture — how a platform lists its routes, what its CDN URLs look like, how its runtime resolves anchors. Sites matching none of them fall back to a generic adapter that renders each page in a headless browser.
 
-## Getting started — agent-first
+## Output
 
-data-liberation-agent is built to be driven by an AI agent. The front door is the `liberate` skill: one command runs the full pipeline — detect the platform, inventory every page/post/product, extract content and media, capture screenshots and design tokens, then reconstruct the site as an editable WordPress block theme and import it into a local WordPress preview.
+A run produces, under `~/data-liberation/<host>/`:
 
-> **Studio required for preview/import.** Install [Automattic Studio](https://developer.wordpress.com/studio/) before running `/data-liberation:liberate`. Extraction itself needs no WordPress.
+| Path | |
+|---|---|
+| `website/` | **The deliverable.** Serve this directory anywhere |
+| `capture-receipt.json` | Source URL, the route table mapping each page to the URL it came from, assets |
+| `diagnostics.json` | Everything the source withheld or the capture could not resolve |
+| `source-profile.json` | Measured behaviour: one document or per-device, declarative or runtime-written geometry, switch width |
+
+## Using it from an agent
+
+The `liberate` skill drives the CLI. It is the only skill: a URL becomes a verified, portable site, and optionally a live URL.
 
 ### Claude Code
 
-Install from the marketplace:
-
 ```bash
-claude plugin marketplace add Automattic/studio
-claude plugin install data-liberation@studio
+claude plugin marketplace add Automattic/data-liberation-agent
+claude plugin install data-liberation@data-liberation
 ```
 
-Or from a local checkout (for development on the plugin itself):
-
-```bash
-cd studio
-claude plugin marketplace add .
-claude plugin install data-liberation@studio
-```
-
-Then, in Claude Code:
-
-```
-/liberate https://your-site.com
-```
-
-What you'll see: the agent detects the platform, inventories all pages/posts/products, pauses to confirm scope and estimated time, then extracts content and media. It then drives the design phase — clustering page layouts, building a responsive block theme that mirrors your source site's structure and visual style, and importing everything into Automattic Studio. When it finishes you get a local preview URL and a `run-report.json` summarizing what was built, what's faithful, and any gaps.
-
-The result is a responsive, editable WordPress block theme — not a static copy.
-
-Note: the engine CLI / `siteToTheme` consumes static source directories; liberating an external dynamic site still starts with DLA's Playwright capture, which feeds captured SectionSpecs into the engine.
+Then `/liberate https://your-site.com`.
 
 ### Codex
 
 ```bash
-cd studio/packages/data-liberation-agent
-codex
+cd data-liberation-agent && codex
 ```
 
-The `.codex-plugin/plugin.json` and `.mcp.codex.json` register the MCP server and skills automatically (Codex does not expand `${CLAUDE_PLUGIN_ROOT}`, so it uses a plugin-root-relative config instead of `.mcp.json`). The `liberate` flow runs sequentially on Codex (the builder fan-out step degrades to a sequential loop).
-
-Then in Codex:
-
-```
-$liberate https://your-site.com
-```
+`.codex-plugin/plugin.json` and `.mcp.codex.json` register the server and skill automatically, since Codex does not expand `${CLAUDE_PLUGIN_ROOT}`. Then `$liberate https://your-site.com`.
 
 ### Gemini CLI
 
 ```bash
-cd studio/packages/data-liberation-agent
-gemini extension link .
+cd data-liberation-agent && gemini extension link .
 ```
 
 ### Any MCP client
 
-Run the MCP server over stdio:
-
 ```bash
-npx tsx src/mcp-server.ts
-
-# or
-
-npm run mcp
+npm run mcp     # or: npx tsx src/mcp-server.ts
 ```
 
-> **First-time browser setup.** Extraction/capture uses Playwright's Chromium. It is no longer installed automatically on `npm install` — run it once explicitly:
+The server exposes the same three verbs as tools — `liberate`, `compare`, `publish` — calling the same entry points the CLI calls. MCP is a transport here, not the architecture: nothing requires it, and it deliberately does not expose internal pipeline phases.
+
+> **First-time browser setup.** Capture uses Playwright's Chromium, which is not installed automatically:
 >
 > ```bash
 > npm run setup:browser
 > ```
 
-It exposes **35 tools**. The ones you'll call directly for a deterministic extract → QA → import flow:
-
-`liberate_detect`, `liberate_discover`, `liberate_inspect`, `liberate_extract`, `liberate_screenshot`, `liberate_status`, `liberate_qa`, `liberate_verify`, `liberate_setup`, and `liberate_import` — plus `liberate_paths` (resolve the output directory) and `liberate_probe` / `liberate_map_apis` (browser-based diagnostics). The remaining tools drive the design/reconstruction phase and are orchestrated by the skills rather than called by hand. Full reference with parameters: [docs/mcp.md](./docs/mcp.md).
-
-## Output
-
-A successful run produces, in `~/Studio/_liberations/<host>/` (the default for the `liberate` flow; set the `DLA_OUTPUT_DIR` environment variable to change it, or pass `outputDir` when calling the MCP tools — `liberate_paths` reports the resolved path):
-
-- `~/Studio/_liberations/<host>/`
-   - `output.wxr` — WordPress eXtended RSS file, ready to import via WordPress Admin > Tools > Import
-   - `media/` — downloaded images and attachments with local paths rewritten in the WXR
-   - `redirect-map.json` — old platform paths mapped to new WordPress slugs
-   - `extraction-log.jsonl` — per-URL extraction log (atomic dedupe for resume)
-   - `session.json` — pipeline stage, captured opts, per-entity progress counters, and adapter pagination cursors
-   - `media-stubs.json` — per-asset download status so permanently-broken URLs stop retrying across resume runs
-   - `products.csv` — WooCommerce-compatible product CSV (if the site has e-commerce)
-   - `products.jsonl` — raw product data streamed during extraction
-
-## Screenshots & design tokens
-
-The `liberate` flow captures, for every URL, full-page + scrolled-state screenshots (desktop 1440×900 and mobile 390×844), the rendered HTML, and site-wide design tokens — used by the reconstruction phase and handy for feeding AI design-system tools. Via raw MCP this is the `liberate_screenshot` tool (or `screenshots: true` on `liberate_extract`).
-
-Artifacts land under the output directory:
-
-- `screenshots/{desktop,mobile}/<slug>.png` (plus `.scrolled.png` post-scroll variants)
-- `html/<slug>.html` — rendered HTML per URL
-- `screenshots/manifest.json` — the URL → files join table
-- `palette.json`, `typography.json`, `breakpoints.json` — aggregated per-site design tokens
-
-The join back to `output.wxr` and `products.jsonl` happens on the filesystem via `manifest.json`, keyed by URL — nothing is written into WordPress postmeta.
-
 ## Additional documentation
 
-* [How it works](/packages/data-liberation-agent/docs/how-it-works/README.md)
-* [AI agent commands](/packages/data-liberation-agent/docs/commands.md)
-* [AI skills](/packages/data-liberation-agent/docs/skills.md)
-* [MCP server tools](/packages/data-liberation-agent/docs/mcp.md)
-* [Wix authenticated content endpoints](/packages/data-liberation-agent/docs/wix-content-endpoints.md) — reference of the ten load-bearing content endpoints behind Wix's editor / dashboard auth
+- [Wix authenticated content endpoints](/docs/wix-content-endpoints.md) — the load-bearing content endpoints behind Wix's editor and dashboard auth
+- [Discoveries](./DISCOVERIES.md) — findings from real runs
 
 ## Related
 
 - [WordPress Data Liberation project](https://wordpress.org/data-liberation/) — the official effort
-- [WordPress.com MCP](https://wordpress.com/blog/2026/03/20/ai-agent-manage-content/) — AI agent write access to WordPress.com
-
-## Troubleshooting the preview
-
-Preview and import require [Automattic Studio](https://developer.wordpress.com/studio/) — install the app first (the `studio` CLI ships with it). Studio sites are persistent and named after the output directory's domain slug (`example-com`, `example-com-2` on collision).
-
-**"Studio not found"** — the `studio` CLI is not on PATH. Install Studio from https://developer.wordpress.com/studio/ and relaunch the terminal so the PATH update takes effect.
-
-**"Studio create-site fails"** — out of disk, port conflict, or Studio config corruption. The error message includes the underlying CLI output. If it's a port conflict, retry. If the Studio config is corrupt, reinstalling Studio fixes it.
-
-**Preview is not a secure environment.** Studio sites auto-log in as `admin`/`password` and bind to `localhost`. Do not paste secrets into them.
+- [Spacefast](https://spacefast.com/) — agent-first static hosting, the default publish target

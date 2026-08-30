@@ -24,6 +24,7 @@ export interface Inventory {
   navigation: import('../../lib/html-extract/index.js').NavLink[];
   counts: Record<string, number>;
   urls: import('../shared.js').InventoryUrl[];
+  diagnostics?: Array<{ code: string; url: string; reason: string }>;
 }
 
 export interface CapturedApiCall {

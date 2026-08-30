@@ -946,6 +946,50 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( result.status, result.stderr ).toBe( 0 );
 	}, 70_000 );
 
+	it( 'compacts structured semantic evidence to fit the artifact file limit', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-compact-semantic-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<main><h1>Home</h1></main>' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		const spec = {
+			selector: 'main > section',
+			layout: { samples: Array.from( { length: 56_000 }, () => 0 ) },
+		} as never;
+		const specs = Array.from( { length: 5 }, () => spec );
+		SectionSpecsStore.load( outputDir ).set( 'https://example.com/', specs, [] );
+		SectionSpecsStore.loadMobile( outputDir ).set( 'https://example.com/', specs, [] );
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const artifact = JSON.parse( readFileSync( join( outputDir, 'artifact.json' ), 'utf8' ) );
+		const evidence = JSON.parse(
+			readFileSync( join( outputDir, 'semantic-evidence.json' ), 'utf8' )
+		);
+		expect( Buffer.byteLength( JSON.stringify( evidence, null, 2 ) ) ).toBeGreaterThan(
+			artifact.compiler_limits.max_file_bytes
+		);
+		const artifactEvidence = artifact.files.find(
+			( file: { path: string } ) => file.path === 'semantic-evidence.json'
+		);
+		expect( Buffer.byteLength( artifactEvidence.content ) ).toBeLessThanOrEqual(
+			artifact.compiler_limits.max_file_bytes
+		);
+	} );
+
 	it( 'preserves the rendered authoring tree when section reconstruction lacks visual proof', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

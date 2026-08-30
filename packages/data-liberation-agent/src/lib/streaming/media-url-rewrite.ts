@@ -88,7 +88,9 @@ export function rewriteMediaUrls(
   // (a 404). Longest-first guarantees the most-specific (full) url is replaced
   // before any shorter substring of it.
   const ordered = [...replacements.entries()]
-    .filter(([source]) => source)
+    // A same-origin media URL can produce `/` as an alias. Replacing that
+    // substring would corrupt every path, closing tag, and MIME type in the document.
+    .filter(([source]) => source && source !== '/')
     .sort((a, b) => b[0].length - a[0].length);
   for (const [source, local] of ordered) {
     // Escape the source URL for safe inclusion in a RegExp. This handles

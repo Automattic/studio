@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { safeFetch, type SafeFetchResult } from '../media-fetch/safe-fetch.js';
 import type { Page, Response } from 'playwright';
@@ -12,6 +13,14 @@ const CAPTURED_RESOURCE_TYPES = new Set( [
 	'fetch',
 	'image',
 	'media',
+] );
+const REPLAYABLE_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font', 'image' ] );
+const REPLAY_RESPONSE_HEADERS = new Set( [
+	'access-control-allow-credentials',
+	'access-control-allow-origin',
+	'content-language',
+	'cross-origin-resource-policy',
+	'timing-allow-origin',
 ] );
 const MAX_CAPTURED_RESOURCE_BYTES = 10 * 1024 * 1024;
 const MAX_CAPTURED_RESOURCE_TOTAL_BYTES = 256 * 1024 * 1024;
@@ -34,6 +43,53 @@ export interface CapturedResourceManifest {
 	version: 1;
 	resources: Record< string, CapturedResourceEntry >;
 	failures: CapturedResourceFailure[];
+}
+
+export interface CapturedResourceReplay {
+	path: string;
+	contentType: string;
+	headers: Record< string, string >;
+}
+
+interface CapturedResourceReplayMetadata {
+	expiresAt: number;
+	headers: Record< string, string >;
+}
+
+function replayableResponseMetadata(
+	headers: Record< string, string >
+): CapturedResourceReplayMetadata | undefined {
+	const cacheControl = headers[ 'cache-control' ] ?? '';
+	if (
+		! /(?:^|,)\s*public\s*(?:,|$)/i.test( cacheControl ) ||
+		/(?:^|,)\s*(?:no-cache|no-store|private)(?:\s*(?:,|$)|\s*=)/i.test( cacheControl ) ||
+		headers[ 'set-cookie' ]
+	) {
+		return undefined;
+	}
+	const maxAgeMatch = cacheControl.match( /(?:^|,)\s*max-age\s*=\s*"?(\d+)/i );
+	const maxAge = maxAgeMatch ? Number( maxAgeMatch[ 1 ] ) : undefined;
+	const age = Number( headers.age ?? 0 );
+	const responseAge = Number.isFinite( age ) ? age : 0;
+	const expiresAt = Number.isFinite( maxAge )
+		? Date.now() + ( maxAge! - responseAge ) * 1000
+		: Date.parse( headers.expires ?? '' );
+	if ( ! Number.isFinite( expiresAt ) || expiresAt <= Date.now() ) return undefined;
+
+	const vary = ( headers.vary ?? '' )
+		.split( ',' )
+		.map( ( value ) => value.trim().toLowerCase() )
+		.filter( Boolean );
+	if ( vary.some( ( value ) => ! [ 'accept-encoding', 'origin' ].includes( value ) ) ) {
+		return undefined;
+	}
+
+	return {
+		expiresAt,
+		headers: Object.fromEntries(
+			Object.entries( headers ).filter( ( [ name ] ) => REPLAY_RESPONSE_HEADERS.has( name ) )
+		),
+	};
 }
 
 async function responseBodyWithTimeout( response: Response ): Promise< Buffer > {
@@ -129,7 +185,14 @@ export class CapturedResourceStore {
 	private readonly captures = new Map< string, Promise< void > >();
 	private readonly pageCaptures = new WeakMap< Page, Set< Promise< void > > >();
 	private readonly listeners = new WeakMap< Page, ( response: Response ) => void >();
+	private readonly replayMetadata = new Map< string, CapturedResourceReplayMetadata >();
+	private readonly replayResources = new Map<
+		string,
+		{ path: string; contentType: string }
+	>();
 	private readonly fetchMedia: ( url: string ) => Promise< SafeFetchResult >;
+	private replayDir?: string;
+	private replayBytes = 0;
 	private capturedBytes = 0;
 
 	constructor(
@@ -164,9 +227,27 @@ export class CapturedResourceStore {
 	}
 
 	async flush(): Promise< void > {
-		await Promise.all( this.captures.values() );
-		mkdirSync( dirname( this.manifestPath ), { recursive: true } );
-		writeFileSync( this.manifestPath, `${ JSON.stringify( this.manifest, null, 2 ) }\n` );
+		try {
+			await Promise.all( this.captures.values() );
+			mkdirSync( dirname( this.manifestPath ), { recursive: true } );
+			writeFileSync( this.manifestPath, `${ JSON.stringify( this.manifest, null, 2 ) }\n` );
+		} finally {
+			if ( this.replayDir ) rmSync( this.replayDir, { recursive: true, force: true } );
+		}
+	}
+
+	getReplayableResponse( url: string, resourceType: string ): CapturedResourceReplay | undefined {
+		if ( ! REPLAYABLE_RESOURCE_TYPES.has( resourceType ) ) return undefined;
+		const resource = this.replayResources.get( url );
+		const metadata = this.replayMetadata.get( url );
+		if (
+			! resource ||
+			! metadata ||
+			metadata.expiresAt <= Date.now()
+		)
+			return undefined;
+		if ( ! existsSync( resource.path ) ) return undefined;
+		return { ...resource, headers: metadata.headers };
 	}
 
 	async captureDomDependencies( html: string, documentUrl: string ): Promise< void > {
@@ -279,11 +360,15 @@ export class CapturedResourceStore {
 		} catch {
 			return Promise.resolve();
 		}
-		// Preserve passive render inputs from CDNs, never provider executable/runtime traffic.
+		// Preserve only passive CDN inputs in the portable artifact. Cache immutable
+		// provider scripts ephemerally to restore the browser cache disabled by routing.
 		if (
 			resourceUrl.origin !== this.origin &&
 			! EXTERNAL_PASSIVE_RESOURCE_TYPES.has( resourceType )
 		) {
+			if ( resourceType === 'script' && request.method() === 'GET' ) {
+				return this.captureReplayOnly( response, resourceUrl );
+			}
 			return Promise.resolve();
 		}
 
@@ -299,6 +384,43 @@ export class CapturedResourceStore {
 				} );
 			}
 		);
+		this.captures.set( url, capture );
+		return capture;
+	}
+
+	private captureReplayOnly( response: Response, resourceUrl: URL ): Promise< void > {
+		const url = resourceUrl.href;
+		const existing = this.captures.get( url );
+		if ( existing ) return existing;
+		const capture = ( async () => {
+			if ( response.status() < 200 || response.status() >= 300 ) return;
+			const headers = response.headers();
+			const metadata = replayableResponseMetadata( headers );
+			if ( ! metadata ) return;
+			const declaredBytes = Number( headers[ 'content-length' ] );
+			if (
+				Number.isFinite( declaredBytes ) &&
+				declaredBytes > MAX_CAPTURED_RESOURCE_BYTES
+			)
+				return;
+			const body = await responseBodyWithTimeout( response );
+			if (
+				body.length > MAX_CAPTURED_RESOURCE_BYTES ||
+				this.replayBytes + body.length > MAX_CAPTURED_RESOURCE_TOTAL_BYTES
+			)
+				return;
+			this.replayDir ??= mkdtempSync( join( tmpdir(), 'dla-resource-replay-' ) );
+			const path = join( this.replayDir, createHash( 'sha256' ).update( url ).digest( 'hex' ) );
+			writeFileSync( path, body );
+			this.replayBytes += body.length;
+			this.replayResources.set( url, {
+				path,
+				contentType: canonicalContentType( headers[ 'content-type' ] ?? '' ),
+			} );
+			this.replayMetadata.set( url, metadata );
+		} )().catch( () => {
+			// Ephemeral cache misses must not become portable artifact failures.
+		} );
 		this.captures.set( url, capture );
 		return capture;
 	}
@@ -331,6 +453,11 @@ export class CapturedResourceStore {
 				path: `resources/${ relativePath.replace( /\\/g, '/' ) }`,
 				contentType,
 			};
+			this.replayResources.set( url, { path: destination, contentType } );
+			const metadata = replayableResponseMetadata(
+				Object.fromEntries( fetched.headers.entries() )
+			);
+			if ( metadata ) this.replayMetadata.set( url, metadata );
 		} )().catch( ( error: unknown ) => {
 			this.manifest.failures.push( {
 				url,
@@ -376,6 +503,9 @@ export class CapturedResourceStore {
 			path: `resources/${ relativePath.replace( /\\/g, '/' ) }`,
 			contentType,
 		};
+		this.replayResources.set( resourceUrl.href, { path: destination, contentType } );
+		const replayMetadata = replayableResponseMetadata( headers );
+		if ( replayMetadata ) this.replayMetadata.set( resourceUrl.href, replayMetadata );
 	}
 
 	private reserveBytes( bytes: number ): void {

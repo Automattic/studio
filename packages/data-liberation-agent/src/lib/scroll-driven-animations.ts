@@ -13,6 +13,8 @@ import postcss from 'postcss';
 
 /** A paused, script-started animation rule recovered from the source CSS. */
 export interface PausedAnimationRule {
+	/** Original selector, including the runtime state gate. */
+	sourceSelector: string;
 	/** Original selector part, with any state-attribute gate removed. */
 	selector: string;
 	/** Declarations that reproduce the animation in a self-driving form. */
@@ -27,18 +29,44 @@ export interface PausedAnimationRule {
 const PAUSED_SHORTHAND_RE = /(?:^|[\s,])paused(?:$|[\s,])/i;
 
 /**
+ * The same keyword, for removal rather than detection.
+ *
+ * Deliberately a second constant. `PAUSED_SHORTHAND_RE` is used with `.test()`,
+ * and a `g`-flagged regex carries `lastIndex` between calls, so one shared
+ * global constant would make detection skip every other rule it is asked about.
+ *
+ * The delimiters are lookaround rather than consumed. An `animation` shorthand
+ * separates its layers with commas, so a pattern that consumes the character
+ * after `paused` deletes that separator and welds two layers into one — which
+ * is invalid, and a browser drops the whole declaration rather than part of it.
+ */
+const PAUSED_STRIP_RE = /(?<=^|[\s,])paused(?=$|[\s,])/gi;
+
+/**
+ * Remove the `paused` keyword from every layer of an `animation` shorthand.
+ *
+ * Every layer, because a multi-layer shorthand parks each one independently and
+ * a single leftover `paused` keeps that layer from ever running.
+ */
+export function withoutPausedKeyword( value: string ): string {
+	return value
+		.replace( PAUSED_STRIP_RE, '' )
+		// Tidy only what removal left behind: the gap where the keyword was.
+		.replace( /[ \t]{2,}/g, ' ' )
+		.replace( /[ \t]+,/g, ',' )
+		.trim();
+}
+
+/**
  * Infinite motion is ambience (spinners, marquees), not an entrance. Binding it
  * to a scroll timeline would make it stutter with the scroll position.
  */
 const INFINITE_RE = /(?:^|[\s,])infinite(?:$|[\s,])/i;
 
 /**
- * Strip a state-attribute gate such as `:not([data-motion-enter="done"])`.
- *
- * The gate exists to let runtime JS turn the animation off after it has played.
- * Captured DOM carries whatever state the page happened to be in, so the gate
- * would decide arbitrarily whether motion survives. Removing it makes the
- * rewritten rule depend on the element, not on captured runtime state.
+ * Return the element identity without a state-attribute gate such as
+ * `:not([data-motion-enter="done"])`. Detection exposes this normalized target
+ * while retaining the exact source selector for state-aware emission.
  */
 function withoutStateAttributeGate( selector: string ): string {
 	return selector.replace( /:not\(\s*\[[^\]]*\]\s*\)/gi, '' ).trim();
@@ -63,9 +91,9 @@ function isScriptGatedEntrance( declarations: postcss.Declaration[] ): boolean {
 /**
  * Recover every script-gated entrance animation in `css`.
  *
- * Rules are reported with their gate removed so a caller can re-emit them in a
- * self-driving form. Rules nested in `@keyframes` are skipped: their `paused`
- * text belongs to the animation being defined, not to an element.
+ * Rules report both the original pending-state selector and a normalized target
+ * with its gate removed. Rules nested in `@keyframes` are skipped: their
+ * `paused` text belongs to the animation being defined, not to an element.
  */
 export function detectPausedAnimationRules( css: string ): PausedAnimationRule[] {
 	let root: postcss.Root;
@@ -92,7 +120,7 @@ export function detectPausedAnimationRules( css: string ): PausedAnimationRule[]
 			.map( ( declaration ) => {
 				if ( declaration.prop.toLowerCase() === 'animation-play-state' ) return '';
 				if ( declaration.prop.toLowerCase() === 'animation' ) {
-					return `animation:${ declaration.value.replace( PAUSED_SHORTHAND_RE, ' ' ) }`;
+					return `animation:${ withoutPausedKeyword( declaration.value ) }`;
 				}
 				return `${ declaration.prop }:${ declaration.value }`;
 			} )
@@ -102,7 +130,7 @@ export function detectPausedAnimationRules( css: string ): PausedAnimationRule[]
 		for ( const part of rule.selectors ) {
 			const selector = withoutStateAttributeGate( part );
 			if ( selector === '' ) continue;
-			rules.push( { selector, declarations: carried.join( ';' ) } );
+			rules.push( { sourceSelector: part.trim(), selector, declarations: carried.join( ';' ) } );
 		}
 	} );
 
@@ -113,21 +141,22 @@ export function detectPausedAnimationRules( css: string ): PausedAnimationRule[]
  * Append self-driving equivalents for the script-gated entrance animations in
  * `sourceCss`. Returns `css` unchanged when there are none.
  *
- * The override binds each animation to the element's own view progress, so the
- * browser runs it as the element scrolls into view — the behaviour the stripped
- * script provided. It is wrapped in `@supports` so browsers without scroll
- * timelines keep the captured end state rather than parking at the first
+ * The override binds each pending animation to the element's own view progress,
+ * so the browser runs it as the element scrolls into view — the behaviour the
+ * stripped script provided. The source completion gate remains on the emitted
+ * selector so settled elements keep their captured end state. It is wrapped in
+ * `@supports` so browsers without scroll timelines do not park at the first
  * keyframe, which for an entrance is usually invisible.
  */
 export function appendScrollDrivenAnimations( css: string, sourceCss: string ): string {
 	const seen = new Set< string >();
 	const blocks: string[] = [];
 	for ( const rule of detectPausedAnimationRules( sourceCss ) ) {
-		const key = `${ rule.selector }\n${ rule.declarations }`;
+		const key = `${ rule.sourceSelector }\n${ rule.declarations }`;
 		if ( seen.has( key ) ) continue;
 		seen.add( key );
 		blocks.push(
-			`${ rule.selector }{${ rule.declarations };animation-play-state:running;animation-timeline:view();animation-range:entry 0% cover 40%}`
+			`${ rule.sourceSelector }{${ rule.declarations };animation-play-state:running;animation-timeline:view();animation-range:entry 0% cover 40%}`
 		);
 	}
 	if ( blocks.length === 0 ) return css;

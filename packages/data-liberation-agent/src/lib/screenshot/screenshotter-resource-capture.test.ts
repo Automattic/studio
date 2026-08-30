@@ -6,6 +6,7 @@ import { captureScreenshots } from './screenshotter.js';
 
 const mocks = vi.hoisted( () => ( {
 	captureDomDependencies: vi.fn().mockResolvedValue( undefined ),
+	getReplayableResponse: vi.fn(),
 } ) );
 
 vi.mock( '../browser-kit/index.js', () => ( {
@@ -15,15 +16,23 @@ vi.mock( '../browser-kit/index.js', () => ( {
 vi.mock( './resource-capture.js', () => ( {
 	CapturedResourceStore: class {
 		captureDomDependencies = mocks.captureDomDependencies;
+		getReplayableResponse = mocks.getReplayableResponse;
 		observe = vi.fn();
 		settle = vi.fn().mockResolvedValue( undefined );
 		flush = vi.fn().mockResolvedValue( undefined );
 	},
 } ) );
 
-function makePage( mobile: boolean ) {
+function makePage( mobile: boolean, routedRequest?: object ) {
+	let routeHandler: ( route: object ) => Promise< void >;
 	return {
-		goto: vi.fn().mockResolvedValue( { status: () => 200 } ),
+		route: vi.fn().mockImplementation( async ( _pattern, handler ) => {
+			routeHandler = handler;
+		} ),
+		goto: vi.fn().mockImplementation( async () => {
+			if ( routedRequest ) await routeHandler( routedRequest );
+			return { status: () => 200 };
+		} ),
 		content: vi
 			.fn()
 			.mockResolvedValue(
@@ -60,6 +69,7 @@ describe( 'screenshot resource capture', () => {
 		mkdirSync( parent, { recursive: true } );
 		const outputDir = mkdtempSync( join( parent, 'screenshot-resources-' ) );
 		mocks.captureDomDependencies.mockClear();
+		mocks.getReplayableResponse.mockReset();
 		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
 			newContext: vi.fn().mockImplementation( async ( options: { isMobile?: boolean } ) => ( {
 				newPage: vi.fn().mockResolvedValue( makePage( options.isMobile === true ) ),
@@ -75,6 +85,7 @@ describe( 'screenshot resource capture', () => {
 				outputDir,
 				concurrency: 1,
 				settleMs: 0,
+				publicUrlsOnly: true,
 			} );
 
 			expect( mocks.captureDomDependencies ).toHaveBeenCalledTimes( 2 );
@@ -82,6 +93,62 @@ describe( 'screenshot resource capture', () => {
 				expect.stringContaining( 'mobile-only.jpg' ),
 				'https://example.com/'
 			);
+		} finally {
+			rmSync( outputDir, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'fulfills cacheable static requests from captured resources', async () => {
+		const parent = join( process.cwd(), '.tmp-test' );
+		mkdirSync( parent, { recursive: true } );
+		const outputDir = mkdtempSync( join( parent, 'screenshot-resource-replay-' ) );
+		const fulfill = vi.fn().mockResolvedValue( undefined );
+		const continueRequest = vi.fn().mockResolvedValue( undefined );
+		const routedRequest = {
+			request: () => ( {
+				url: () => 'https://example.com/assets/site.css',
+				method: () => 'GET',
+				headers: () => ( {} ),
+				resourceType: () => 'stylesheet',
+			} ),
+			abort: vi.fn().mockResolvedValue( undefined ),
+			continue: continueRequest,
+			fulfill,
+		};
+		mocks.getReplayableResponse.mockReset().mockReturnValue( {
+			path: '/capture/resources/assets/site.css',
+			contentType: 'text/css',
+			headers: { 'access-control-allow-origin': '*' },
+		} );
+		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			newContext: vi.fn().mockImplementation( async ( options: { isMobile?: boolean } ) => ( {
+				newPage: vi.fn().mockResolvedValue(
+					makePage( options.isMobile === true, routedRequest )
+				),
+				addInitScript: vi.fn().mockResolvedValue( undefined ),
+				close: vi.fn().mockResolvedValue( undefined ),
+			} ) ),
+			close: vi.fn().mockResolvedValue( undefined ),
+		} );
+
+		try {
+			await captureScreenshots( {
+				urls: [ 'https://example.com/' ],
+				outputDir,
+				concurrency: 1,
+				settleMs: 0,
+				publicUrlsOnly: true,
+			} );
+			expect( mocks.getReplayableResponse ).toHaveBeenCalledWith(
+				'https://example.com/assets/site.css',
+				'stylesheet'
+			);
+			expect( fulfill ).toHaveBeenCalledWith( {
+				path: '/capture/resources/assets/site.css',
+				contentType: 'text/css',
+				headers: { 'access-control-allow-origin': '*' },
+			} );
+			expect( continueRequest ).not.toHaveBeenCalled();
 		} finally {
 			rmSync( outputDir, { recursive: true, force: true } );
 		}

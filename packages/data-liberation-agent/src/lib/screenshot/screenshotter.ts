@@ -18,6 +18,7 @@ import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
 import { learnAndApplyFluidGeometry } from './fluid-capture.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
+import { hydrateDisclosureContent } from './dynamic-content.js';
 import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
@@ -485,11 +486,32 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	resourceStore.observe( page );
 	if ( publicUrlsOnly && page.route ) {
 		await page.route( '**/*', async ( route ) => {
+			const request = route.request();
 			try {
-				assertPublicHttpUrl( route.request().url() );
+				assertPublicHttpUrl( request.url() );
 			} catch {
 				await route.abort( 'blockedbyclient' );
 				return;
+			}
+			const requestHeaders = request.headers();
+			if (
+				request.method() === 'GET' &&
+				! requestHeaders.range &&
+				! requestHeaders.authorization &&
+				! requestHeaders.cookie
+			) {
+				const replay = resourceStore.getReplayableResponse(
+					request.url(),
+					request.resourceType()
+				);
+				if ( replay ) {
+					await route.fulfill( {
+						path: replay.path,
+						contentType: replay.contentType,
+						headers: replay.headers,
+					} );
+					return;
+				}
 			}
 			await route.continue();
 		} );
@@ -549,7 +571,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// scroll-lock would defeat the scroll-through) and again AFTER (scrolling can
 	// trigger exit-intent / scroll-depth popups). Best-effort: never fails capture.
 	const dismissedEarly = await dismissOverlays( page );
-	await triggerLazyLoad( page );
+	await triggerLazyLoad( page, isDesktop && args.learnFluid === true );
 	const dismissedLate = await dismissOverlays( page );
 	const dismissedHere = [ ...dismissedEarly, ...dismissedLate ];
 	if ( dismissedHere.length > 0 ) {
@@ -626,6 +648,15 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 				attempt: 1,
 			} );
 		}
+	}
+
+	if (
+		plan.captureHtml ||
+		plan.captureMobileHtml ||
+		plan.captureSections ||
+		plan.captureMobileSections
+	) {
+		await hydrateDisclosureContent( page );
 	}
 
 	// Seam 1b: replace runtime-computed pixel geometry with the relationship the

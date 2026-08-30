@@ -22,7 +22,7 @@ afterEach( () => {
 } );
 
 describe( 'exportWebsiteCapture', () => {
-	it( 'carries valid responsive section evidence in the portable artifact', () => {
+	it( 'carries bounded responsive section evidence in the portable artifact', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-semantic-export-' ) );
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
@@ -43,9 +43,12 @@ describe( 'exportWebsiteCapture', () => {
 			headings: [ 'Tianna Wolfson' ],
 			images: [],
 			layout: {},
+			sectionHtml: `<section>${ 'source'.repeat( 100_000 ) }</section>`,
+			styledHtml: `<section style="color:red">${ 'styled'.repeat( 100_000 ) }</section>`,
 		} as never;
-		SectionSpecsStore.load( outputDir ).set( 'https://example.com/', [ spec ], [] );
-		SectionSpecsStore.loadMobile( outputDir ).set( 'https://example.com/', [ spec ], [] );
+		const specs = Array.from( { length: 5 }, () => spec );
+		SectionSpecsStore.load( outputDir ).set( 'https://example.com/', specs, [] );
+		SectionSpecsStore.loadMobile( outputDir ).set( 'https://example.com/', specs, [] );
 
 		exportWebsiteCapture( {
 			outputDir,
@@ -63,15 +66,25 @@ describe( 'exportWebsiteCapture', () => {
 			path: 'semantic-evidence.json',
 			page_count: 1,
 		} );
-		expect( evidence.pages[ 0 ] ).toMatchObject( {
-			path: 'website/index.html',
-			viewports: {
-				desktop: [ { headings: [ 'Tianna Wolfson' ] } ],
-				mobile: [ { headings: [ 'Tianna Wolfson' ] } ],
-			},
+		expect( evidence.pages[ 0 ].path ).toBe( 'website/index.html' );
+		expect( evidence.pages[ 0 ].viewports.desktop ).toHaveLength( 5 );
+		expect( evidence.pages[ 0 ].viewports.mobile ).toHaveLength( 5 );
+		expect( evidence.pages[ 0 ].viewports.desktop[ 0 ] ).toMatchObject( {
+			headings: [ 'Tianna Wolfson' ],
 		} );
-		expect( artifact.files.map( ( file: { path: string } ) => file.path ) ).toContain(
-			'semantic-evidence.json'
+		for ( const sections of Object.values( evidence.pages[ 0 ].viewports ) as Array<
+			Record< string, unknown >[]
+		> ) {
+			for ( const section of sections ) {
+				expect( section ).not.toHaveProperty( 'sectionHtml' );
+				expect( section ).not.toHaveProperty( 'styledHtml' );
+			}
+		}
+		const artifactEvidence = artifact.files.find(
+			( file: { path: string } ) => file.path === 'semantic-evidence.json'
+		);
+		expect( Buffer.byteLength( artifactEvidence.content ) ).toBeLessThanOrEqual(
+			artifact.compiler_limits.max_file_bytes
 		);
 	} );
 
@@ -1920,6 +1933,58 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).not.toContain( 'cdn.example' );
 		expect( html ).toContain( 'href="https://example.com/"' );
 		expect( html ).toContain( 'href="https://external.example/about"' );
+	} );
+
+	it( 'does not treat the source root as a global media replacement', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-root-media-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media', 'resources/cdn' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const sourceHtml = '<html><head><link rel="stylesheet" href="https://cdn.example/site.css"></head><body><img src="/"><p data-kind="image/x-icon">Icon</p><a href="/about/">About</a></body></html>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), sourceHtml );
+		writeFileSync( join( outputDir, 'media', 'homepage.jpg' ), 'not-an-image' );
+		writeFileSync(
+			join( outputDir, 'resources', 'cdn', 'site.css' ),
+			'.icon{background-image:url("data:image/svg+xml;base64,PHN2Zz4=")}'
+		);
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					'https://cdn.example/site.css': {
+						path: 'resources/cdn/site.css',
+						contentType: 'text/css',
+					},
+				},
+				failures: [],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://example.com/', join( outputDir, 'media', 'homepage.jpg' ) );
+		media.flush();
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const css = readFileSync( join( outputDir, 'website', 'cdn', 'site.css' ), 'utf8' );
+		expect( html ).toContain( 'data-kind="image/x-icon"' );
+		expect( html ).toContain( 'href="/about/"' );
+		expect( html ).not.toContain( 'https:https://' );
+		expect( css ).toContain( 'data:image/svg+xml;base64,PHN2Zz4=' );
 	} );
 
 	it( 'keeps portable media within the artifact capacity left after routes and resources', () => {

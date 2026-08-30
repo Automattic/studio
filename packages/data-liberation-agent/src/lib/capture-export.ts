@@ -1816,7 +1816,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	if ( semanticEvidence ) {
 		writeFileSync(
 			join( outputDir, 'semantic-evidence.json' ),
-			`${ JSON.stringify( semanticEvidence, null, 2 ) }\n`
+			`${ JSON.stringify( semanticEvidence ) }\n`
 		);
 		reportFiles.push( 'semantic-evidence.json' );
 	}

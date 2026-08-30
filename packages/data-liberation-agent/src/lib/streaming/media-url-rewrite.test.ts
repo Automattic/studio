@@ -50,6 +50,13 @@ describe('rewriteMediaUrls', () => {
     expect(out).toContain('https://cdn/unknown.jpg');
   });
 
+  it('ignores a root-path mapping that would rewrite every slash', () => {
+    const html = '<link rel="icon" href="https://cdn.example/favicon.ico" type="image/x-icon"><img src="/"><a href="/about/">About</a>';
+    const map = new Map([['/', 'https://example.com/']]);
+
+    expect(rewriteMediaUrls(html, map)).toBe(html);
+  });
+
   it('reports unmapped URLs via onMissing callback', () => {
     const html = '<img src="https://cdn/unknown.jpg">';
     const onMissing = vi.fn();

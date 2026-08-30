@@ -118,6 +118,19 @@ function isUsableSectionEvidence( sections: unknown ): sections is Record< strin
 	);
 }
 
+function semanticSectionEvidence(
+	sections: Record< string, unknown >[]
+): Record< string, unknown >[] {
+	return sections.map( ( section ) => {
+		// These snapshots are reconstruction inputs already represented by the
+		// captured page HTML, not semantic evidence. Each may be up to 600 KB.
+		const evidence = { ...section };
+		delete evidence.sectionHtml;
+		delete evidence.styledHtml;
+		return evidence;
+	} );
+}
+
 function fileHash( path: string ): string {
 	return createHash( 'sha256' ).update( readFileSync( path ) ).digest( 'hex' );
 }
@@ -141,6 +154,7 @@ const MAX_PORTABLE_RESPONSIVE_MEDIA_BYTES = 8 * 1024 * 1024;
 const MAX_PORTABLE_MEDIA_DIMENSION = 2048;
 const MAX_PORTABLE_MEDIA_TOTAL_BYTES = 160 * 1024 * 1024;
 const MAX_ARTIFACT_FILES = 5000;
+const MAX_ARTIFACT_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_ARTIFACT_TOTAL_BYTES = 192 * 1024 * 1024;
 const TRANSPARENT_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 const MAX_DECLARATIVE_FORM_EMBEDS = 32;
@@ -248,7 +262,9 @@ function replaceAll( content: string, replacements: Map< string, string > ): str
 		values.set( source, local );
 		values.set( source.replace( /&/g, '&amp;' ), local.replace( /&/g, '&amp;' ) );
 	}
-	const sources = [ ...values.keys() ].filter( Boolean ).sort( ( a, b ) => b.length - a.length );
+	const sources = [ ...values.keys() ]
+		.filter( ( source ) => source !== '' && source !== '/' )
+		.sort( ( a, b ) => b.length - a.length );
 	if ( sources.length === 0 ) return content;
 	const pattern = new RegExp(
 		sources.map( ( source ) => source.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) ).join( '|' ),
@@ -1782,8 +1798,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				path: route.path,
 				url: route.url,
 				viewports: {
-					desktop,
-					...( isUsableSectionEvidence( mobile ) ? { mobile } : {} ),
+					desktop: semanticSectionEvidence( desktop ),
+					...( isUsableSectionEvidence( mobile )
+						? { mobile: semanticSectionEvidence( mobile ) }
+						: {} ),
 				},
 			},
 		];
@@ -1909,7 +1927,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				version: 1,
 				compiler_limits: {
 					max_files: MAX_ARTIFACT_FILES,
-					max_file_bytes: 10 * 1024 * 1024,
+					max_file_bytes: MAX_ARTIFACT_FILE_BYTES,
 					max_total_bytes: artifactTotalBytesLimit,
 				},
 				id: `capture-${ Buffer.from( options.sourceUrl ).toString( 'base64url' ).slice( 0, 24 ) }`,
@@ -1933,6 +1951,11 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		let artifactFileCount = 0;
 		let artifactContentBytes = 0;
 		const writeArtifactFile = ( file: Record< string, string >, contentBytes: number ) => {
+			if ( contentBytes > MAX_ARTIFACT_FILE_BYTES ) {
+				throw new Error(
+					`Portable capture file "${ file.path }" exceeds compiler limit: ${ contentBytes } bytes.`
+				);
+			}
 			artifactFileCount++;
 			artifactContentBytes += contentBytes;
 			if (

@@ -14,6 +14,67 @@ afterEach( () => {
 } );
 
 describe( 'CapturedResourceStore', () => {
+	it( 'replays only fresh static responses with response semantics intact', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime( new Date( '2026-08-29T00:00:00Z' ) );
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+		dirs.push( outputDir );
+		const page = new EventEmitter();
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/' );
+		store.observe( page as never );
+
+		for ( const [ url, resourceType, cacheControl, vary ] of [
+			[ 'https://example.com/assets/app.js', 'script', 'public, max-age=3600', 'Accept-Encoding' ],
+			[ 'https://example.com/api/data', 'fetch', 'public, max-age=3600', '' ],
+			[ 'https://example.com/styles/private.css', 'stylesheet', 'no-store', '' ],
+			[ 'https://example.com/styles/context.css', 'stylesheet', 'private, max-age=3600', '' ],
+			[ 'https://example.com/images/variant.jpg', 'image', 'public, max-age=3600', 'User-Agent' ],
+		] ) {
+			page.emit( 'response', {
+				url: () => url,
+				status: () => 200,
+				headers: () => ( {
+					'content-type': resourceType === 'stylesheet' ? 'text/css' : 'application/octet-stream',
+					'cache-control': cacheControl,
+					'access-control-allow-origin': 'https://example.com',
+					vary,
+				} ),
+				body: vi.fn().mockResolvedValue( Buffer.from( url ) ),
+				request: () => ( { resourceType: () => resourceType } ),
+			} );
+		}
+
+		await store.settle( page as never );
+		const replay = store.getReplayableResponse(
+			'https://example.com/assets/app.js',
+			'script'
+		);
+		expect( replay ).toEqual( {
+			path: join( outputDir, 'resources', 'assets', 'app.js' ),
+			contentType: 'application/octet-stream',
+			headers: { 'access-control-allow-origin': 'https://example.com' },
+		} );
+		expect( readFileSync( replay!.path, 'utf8' ) ).toBe(
+			'https://example.com/assets/app.js'
+		);
+		vi.setSystemTime( new Date( '2026-08-29T01:00:01Z' ) );
+		expect(
+			store.getReplayableResponse( 'https://example.com/assets/app.js', 'script' )
+		).toBeUndefined();
+		expect(
+			store.getReplayableResponse( 'https://example.com/api/data', 'fetch' )
+		).toBeUndefined();
+		expect(
+			store.getReplayableResponse( 'https://example.com/styles/private.css', 'stylesheet' )
+		).toBeUndefined();
+		expect(
+			store.getReplayableResponse( 'https://example.com/styles/context.css', 'stylesheet' )
+		).toBeUndefined();
+		expect(
+			store.getReplayableResponse( 'https://example.com/images/variant.jpg', 'image' )
+		).toBeUndefined();
+	} );
+
 	it( 'captures same-origin runtime dependencies and records failed responses', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
 		dirs.push( outputDir );
@@ -33,7 +94,7 @@ describe( 'CapturedResourceStore', () => {
 			status: () => 200,
 			headers: () => ( { 'content-type': 'text/javascript' } ),
 			body: vi.fn().mockResolvedValue( Buffer.from( 'export const site = true;' ) ),
-			request: () => ( { resourceType: () => 'script' } ),
+			request: () => ( { resourceType: () => 'script', method: () => 'GET' } ),
 		} );
 		page.emit( 'response', {
 			url: () => 'https://example.com/_json/site.json',
@@ -65,7 +126,7 @@ describe( 'CapturedResourceStore', () => {
 			status: () => 200,
 			headers: () => ( {} ),
 			body: vi.fn(),
-			request: () => ( { resourceType: () => 'script' } ),
+			request: () => ( { resourceType: () => 'script', method: () => 'GET' } ),
 		} );
 
 		await store.settle( page as never );
@@ -177,12 +238,21 @@ describe( 'CapturedResourceStore', () => {
 			page.emit( 'response', {
 				url: () => url,
 				status: () => 200,
-				headers: () => ( { 'content-type': contentType } ),
+				headers: () => ( {
+					'content-type': contentType,
+					'cache-control': 'public, max-age=3600',
+				} ),
 				body: vi.fn().mockResolvedValue( Buffer.from( body ) ),
-				request: () => ( { resourceType: () => resourceType } ),
+				request: () => ( { resourceType: () => resourceType, method: () => 'GET' } ),
 			} );
 		}
 		await store.settle( page as never );
+		const scriptReplay = store.getReplayableResponse(
+			'https://cdn.example/runtime.js',
+			'script'
+		);
+		expect( scriptReplay?.contentType ).toBe( 'text/javascript' );
+		expect( existsSync( scriptReplay!.path ) ).toBe( true );
 		await store.flush();
 		const manifest = JSON.parse(
 			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
@@ -191,6 +261,7 @@ describe( 'CapturedResourceStore', () => {
 			'https://cdn.example/styles/site.css',
 			'https://cdn.example/fonts/site.woff2',
 		] );
+		expect( existsSync( scriptReplay!.path ) ).toBe( false );
 		for ( const resource of Object.values( manifest.resources ) as Array< { path: string } > ) {
 			expect( resource.path ).toMatch( /^resources\/external\/[a-f0-9]{16}\// );
 		}

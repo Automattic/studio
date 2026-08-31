@@ -659,7 +659,7 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			const updated = await updateServerFiles();
+			const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
 			if ( updated ) {
 				logger.reportSuccess( __( 'Dependencies updated' ) );
 			}

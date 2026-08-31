@@ -152,6 +152,23 @@
 	background: var(--wpds-color-bg-surface-neutral);
 }
 
+/* Preserve the URL field before toolbar actions begin colliding. The controls
+   keep their accessible names and tooltips; only the redundant visible labels
+   collapse, leaving the same icons and dropdown indicator. */
+@container studio-preview-toolbar (max-width: 720px) {
+	.toolbarLabel {
+		display: none;
+	}
+
+	.headerSide {
+		gap: var(--wpds-dimension-padding-xs);
+	}
+
+	.browserLocation {
+		padding-inline: 0;
+	}
+}
+
 /* Below this width the inline "Send to chat" button starts eating into the
    address segments, so the pair folds into a split button. Only applies to
    the pending-notes layout: a lone annotate toggle always fits. The query

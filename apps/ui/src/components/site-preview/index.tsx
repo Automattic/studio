@@ -631,7 +631,7 @@ function PreviewResponsiveControls( {
 					className={ styles.responsiveModeIcon }
 					data-keep-size
 				/>
-				<span>{ selectedLabel }</span>
+				<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
 				<Icon icon={ chevronDown } size={ 12 } className={ styles.responsiveModeChevron } />
 			</Menu.Trigger>
 			<Menu.Popup side="bottom" align="end">
@@ -747,7 +747,7 @@ function PreviewAnnotationControls( {
 								onClick={ () => onCommand( 'toggle-picking' ) }
 							>
 								<Icon icon={ pencil } size={ 18 } />
-								{ __( 'Annotate' ) }
+								<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
 							</Button>
 						}
 					/>

@@ -1,6 +1,10 @@
 import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
 import { Container } from '@earendil-works/pi-tui';
-import { ADD_AI_CREDITS_URL } from '@studio/common/lib/studio-assistant-quota';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	ADD_AI_CREDITS_URL,
+	fetchStudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
@@ -40,6 +44,23 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => {
 vi.mock( 'cli/lib/browser', () => ( {
 	openBrowser: vi.fn(),
 } ) );
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/shared-config') >();
+	return {
+		...actual,
+		readAuthToken: vi.fn(),
+	};
+} );
+
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => {
+	const actual =
+		await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >();
+	return {
+		...actual,
+		fetchStudioAssistantQuota: vi.fn(),
+	};
+} );
 
 vi.mock( 'cli/lib/site-utils', () => ( {
 	isSiteRunning: vi.fn(),
@@ -894,5 +915,80 @@ describe( 'AiChatUI.handleEvent', () => {
 		const joined = renderedContainerText( messages );
 		expect( joined ).toContain( 'Screenshot captured' );
 		expect( joined ).not.toContain( 'mediaWidgetPayload' );
+	} );
+} );
+
+describe( 'AiChatUI.showTurnStats', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	const quota = ( overrides: Record< string, unknown > = {} ) =>
+		( {
+			costUsage: 5,
+			costCap: 100,
+			emailVerified: true,
+			hasPaymentMethod: true,
+			...overrides,
+		} ) as never;
+
+	function makeStatsUi( overrides: Record< string, unknown > = {} ) {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			showTurnStats: ( stats: string ) => void;
+			[ key: string ]: unknown;
+		};
+		const messages = new Container();
+		Object.assign( ui, {
+			messages,
+			tui: { requestRender: vi.fn() },
+			currentProvider: 'wpcom',
+			replayMode: false,
+			...overrides,
+		} );
+		return { ui, messages };
+	}
+
+	it( 'appends the remaining AI credit balance to the stats line', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue(
+			quota( { allowanceRemaining: 100000, purchasedRemaining: 10000 } )
+		);
+		const { ui, messages } = makeStatsUi();
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+		const formatted = new Intl.NumberFormat().format( 110000 );
+		await vi.waitFor( () => {
+			expect( renderedContainerText( messages ) ).toContain(
+				`Thought for 5s · 1 turn · ${ formatted } credits left`
+			);
+		} );
+	} );
+
+	it( 'does not fetch the quota on the Anthropic API key provider', async () => {
+		const { ui, messages } = makeStatsUi( { currentProvider: 'anthropic-api-key' } );
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+		await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+		expect( readAuthToken ).not.toHaveBeenCalled();
+		expect( fetchStudioAssistantQuota ).not.toHaveBeenCalled();
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+	} );
+
+	it( 'keeps the bare stats line when the quota has no credit pools', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( quota() );
+		const { ui, messages } = makeStatsUi();
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+		await vi.waitFor( () => {
+			expect( fetchStudioAssistantQuota ).toHaveBeenCalled();
+		} );
+		await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+		expect( renderedContainerText( messages ) ).not.toContain( 'credits left' );
 	} );
 } );

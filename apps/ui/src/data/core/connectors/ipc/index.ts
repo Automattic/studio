@@ -27,6 +27,7 @@ import type {
 	PushPhase,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
+	SiteAgentInstructionStatus,
 	SiteDetails,
 	SkillStatus,
 	Snapshot,
@@ -40,6 +41,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { InstructionFileType } from '@studio/common/lib/agent-instructions';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -235,6 +237,7 @@ export function createIpcConnector(): Connector {
 			aiSettings: true,
 			studioLogs: true,
 			switchToClassicUi: true,
+			siteAgentSkills: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -1014,6 +1017,49 @@ export function createIpcConnector(): Connector {
 
 		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		},
+
+		async getSiteSkillsStatus( siteId: string ): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatus( siteId ) ) as SkillStatus[];
+		},
+
+		async installSiteSkill( siteId: string, skillId: string ): Promise< void > {
+			await ipcApi.installWordPressSkillById( siteId, skillId );
+		},
+
+		async removeSiteSkill( siteId: string, skillId: string ): Promise< void > {
+			await ipcApi.removeWordPressSkillById( siteId, skillId );
+		},
+
+		async getSiteAgentInstructionsStatus(
+			siteId: string
+		): Promise< SiteAgentInstructionStatus[] > {
+			const statuses = ( await ipcApi.getAgentInstructionsStatus( siteId ) ) as Array< {
+				id: InstructionFileType;
+				displayName: string;
+				description: string;
+				exists: boolean;
+			} >;
+			return statuses.map( ( status ) => ( {
+				id: status.id,
+				displayName: status.displayName,
+				description: status.description,
+				installed: status.exists,
+			} ) );
+		},
+
+		async installSiteAgentInstructionFile(
+			siteId: string,
+			fileType: InstructionFileType
+		): Promise< void > {
+			await ipcApi.installAgentInstructions( siteId, { fileType } );
+		},
+
+		async removeSiteAgentInstructionFile(
+			siteId: string,
+			fileType: InstructionFileType
+		): Promise< void > {
+			await ipcApi.removeAgentInstruction( siteId, fileType );
 		},
 
 		// Window state

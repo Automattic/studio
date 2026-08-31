@@ -21,7 +21,9 @@ import type {
 	ProposedSitePath,
 	PullSiteProgress,
 	SelectedSiteFolder,
+	SiteAgentInstructionStatus,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -31,6 +33,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { InstructionFileType } from '@studio/common/lib/agent-instructions';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 
@@ -255,6 +258,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			aiSettings: true,
 			studioLogs: false,
 			switchToClassicUi: false,
+			siteAgentSkills: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -873,6 +877,67 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async removeWordPressSkillFromAllSites() {
 			// No-op: the local server does not manage WordPress skills yet.
+		},
+
+		async getSiteSkillsStatus( siteId: string ): Promise< SkillStatus[] > {
+			return api< SkillStatus[] >( `/sites/${ encodeURIComponent( siteId ) }/skills` );
+		},
+
+		async installSiteSkill( siteId: string, skillId: string ): Promise< void > {
+			await api< void >(
+				`/sites/${ encodeURIComponent( siteId ) }/skills/${ encodeURIComponent( skillId ) }`,
+				{ method: 'POST' }
+			);
+		},
+
+		async removeSiteSkill( siteId: string, skillId: string ): Promise< void > {
+			await api< void >(
+				`/sites/${ encodeURIComponent( siteId ) }/skills/${ encodeURIComponent( skillId ) }`,
+				{ method: 'DELETE' }
+			);
+		},
+
+		async getSiteAgentInstructionsStatus(
+			siteId: string
+		): Promise< SiteAgentInstructionStatus[] > {
+			const statuses = await api<
+				Array< {
+					id: InstructionFileType;
+					displayName: string;
+					description: string;
+					exists: boolean;
+				} >
+			>( `/sites/${ encodeURIComponent( siteId ) }/agent-instructions` );
+			return statuses.map( ( status ) => ( {
+				id: status.id,
+				displayName: status.displayName,
+				description: status.description,
+				installed: status.exists,
+			} ) );
+		},
+
+		async installSiteAgentInstructionFile(
+			siteId: string,
+			fileType: InstructionFileType
+		): Promise< void > {
+			await api< void >(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-instructions/${ encodeURIComponent(
+					fileType
+				) }`,
+				{ method: 'POST' }
+			);
+		},
+
+		async removeSiteAgentInstructionFile(
+			siteId: string,
+			fileType: InstructionFileType
+		): Promise< void > {
+			await api< void >(
+				`/sites/${ encodeURIComponent( siteId ) }/agent-instructions/${ encodeURIComponent(
+					fileType
+				) }`,
+				{ method: 'DELETE' }
+			);
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

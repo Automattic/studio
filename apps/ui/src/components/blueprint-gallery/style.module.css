@@ -1,0 +1,171 @@
+.root {
+	margin-top: 40px;
+	padding-top: 32px;
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	text-align: center;
+}
+
+.heading {
+	margin: 0 0 20px;
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 16px;
+	text-align: left;
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong) 50%, transparent);
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+	text-align: left;
+	appearance: none;
+	font: inherit;
+	color: inherit;
+	padding: 0;
+}
+
+.card:hover {
+	border-color: var(--wpds-color-stroke-interactive-brand);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+}
+
+.card:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+	border-color: var(--wpds-color-stroke-interactive-brand);
+}
+
+.cardImage {
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	object-fit: cover;
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.cardImageFallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.cardBody {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px;
+}
+
+.cardTitle {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 0.15s ease;
+}
+
+.card:hover .cardTitle {
+	color: var(--wpds-color-fg-interactive-brand);
+}
+
+.cardExcerpt {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.exploreHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-top: 32px;
+	margin-bottom: 16px;
+}
+
+.exploreTitle {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.searchInput {
+	max-width: 200px;
+	padding: 6px 10px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.searchInput:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -1px;
+	border-color: var(--wpds-color-stroke-interactive-brand);
+}
+
+.notice {
+	margin: 0;
+	padding: 24px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.hiddenInput {
+	display: none;
+}
+
+/* Matches .cardImage so the upload tile crops and sits exactly like the
+   curated artwork beside it. */
+.uploadTile {
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	overflow: hidden;
+}
+
+/* The artwork is 1160x808, so at full width it is taller than this 16:9 frame
+   and overflows. Block layout would clip all of that off the bottom, but the
+   curated PNGs use object-fit: cover, which crops top and bottom equally — so
+   pull the svg up by half the overflow to match. Percentage margins resolve
+   against the containing block's width, which is what the overflow scales with:
+   w * (808/1160 - 9/16) / 2 = w * 6.7026%. */
+.uploadTile svg {
+	margin-top: -6.7026%;
+}
+
+.uploadCardDragging,
+.uploadCardDragging:hover {
+	border-color: var(--wpds-color-stroke-interactive-brand);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-brand);
+}
+
+.uploadError {
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-sm);
+}

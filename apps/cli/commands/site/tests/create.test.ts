@@ -84,9 +84,6 @@ vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
-vi.mock( 'cli/lib/dependency-management/lock', () => ( {
-	withWordPressVersionsLock: vi.fn( ( run: () => Promise< unknown > ) => run() ),
-} ) );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {

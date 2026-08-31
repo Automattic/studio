@@ -10,10 +10,6 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 
 vi.mock( '../wordpress' );
 
-vi.mock( '../lock', () => ( {
-	withWordPressVersionsLock: vi.fn( ( run: () => Promise< unknown > ) => run() ),
-} ) );
-
 describe( 'updateServerFiles', () => {
 	const NOW = 1_700_000_000_000;
 
@@ -104,13 +100,15 @@ describe( 'updateServerFiles', () => {
 			} );
 		} );
 
-		it( 'does not persist the timestamp when the update throws, so the next attempt retries', async () => {
+		it( 'persists the timestamp even when the update throws', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 			vi.mocked( updateLatestWordPressVersion ).mockRejectedValue( new Error( 'network' ) );
 
-			await expect( updateServerFiles() ).resolves.toBe( false );
+			await updateServerFiles();
 
-			expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+			expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( {
+				lastDependencyCheckTime: NOW,
+			} );
 		} );
 
 		it( 'does not persist the timestamp when the check is skipped', async () => {

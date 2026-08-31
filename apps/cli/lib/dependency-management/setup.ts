@@ -3,7 +3,6 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { withWordPressVersionsLock } from './lock';
 import { getWordPressVersionPath, getWpFilesPath } from './paths';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
@@ -38,7 +37,7 @@ async function copyBundledLatestWpVersion() {
 
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
-		[ 'WordPress version', () => withWordPressVersionsLock( copyBundledLatestWpVersion ) ],
+		[ 'WordPress version', copyBundledLatestWpVersion ],
 	];
 
 	for ( const [ name, step ] of steps ) {
@@ -79,8 +78,7 @@ async function markDependencyCheckTime(): Promise< void > {
 
 /**
  * Checks for and applies dependency updates (e.g. WordPress versions), throttled
- * by `DEPENDENCY_CHECK_INTERVAL_MS`. Returns true if the check ran and succeeded,
- * false if it was skipped or failed.
+ * to at most once per 24 hours. Returns true if the check ran, false if skipped.
  */
 export async function updateServerFiles(): Promise< boolean > {
 	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
@@ -88,12 +86,9 @@ export async function updateServerFiles(): Promise< boolean > {
 	}
 
 	try {
-		await withWordPressVersionsLock( updateLatestWordPressVersion );
+		await updateLatestWordPressVersion();
 	} catch ( error ) {
-		// Leave the timestamp alone so the next attempt retries. Recording it here
-		// would let one network blip serve a stale WordPress for a whole interval.
 		console.error( 'Failed to update dependency WordPress version:', error );
-		return false;
 	}
 
 	await markDependencyCheckTime();

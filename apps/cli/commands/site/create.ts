@@ -76,7 +76,6 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { withWordPressVersionsLock } from 'cli/lib/dependency-management/lock';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -666,10 +665,12 @@ export async function runCommand(
 			}
 		}
 	} catch ( error ) {
-		// Not fatal — the site still gets the cached copy. Reported in production
-		// too, or an auto-updating site starts on an older release for no visible
-		// reason.
-		logger.reportError( new LoggerError( 'Failed to update dependencies', error ), false );
+		// Errors here aren't critical and likely relate to things outside the user's control,
+		// like network issues or bad API responses. Report them only in development.
+		if ( process.env.NODE_ENV !== 'production' ) {
+			const loggerError = new LoggerError( 'Failed to update dependencies', error );
+			logger.reportError( loggerError, false );
+		}
 	}
 
 	const createStartedAt = Date.now();
@@ -782,45 +783,41 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
-		// Locked because `wordpress-versions/latest` is shared mutable state: a
-		// concurrent refresh rewrites it in place while this copies out of it.
-		await withWordPressVersionsLock( async () => {
-			if ( options.wpVersion === 'latest' ) {
-				const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
+		if ( options.wpVersion === 'latest' ) {
+			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
 
-				if ( ! ( await pathExists( bundledWPPath ) ) ) {
-					throw new LoggerError(
-						__(
-							'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
-						)
-					);
-				}
-
-				logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-				await recursiveCopyDirectory( bundledWPPath, sitePath );
-				logger.reportSuccess( __( 'WordPress files copied' ) );
-			} else if ( ! isOnlineStatus ) {
+			if ( ! ( await pathExists( bundledWPPath ) ) ) {
 				throw new LoggerError(
 					__(
-						'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
+						'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
 					)
 				);
-			} else if ( siteRuntime === SITE_RUNTIME_NATIVE_PHP && ! isWordPressDirResult ) {
-				logger.reportStart(
-					LoggerAction.SETUP_WORDPRESS,
-					sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
-				);
-				await downloadWordPress( options.wpVersion );
-				logger.reportSuccess( __( 'WordPress files downloaded' ) );
-
-				logger.reportStart(
-					LoggerAction.SETUP_WORDPRESS,
-					sprintf( __( 'Copying WordPress %s…' ), options.wpVersion )
-				);
-				await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), sitePath );
-				logger.reportSuccess( __( 'WordPress files copied' ) );
 			}
-		} );
+
+			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
+			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			logger.reportSuccess( __( 'WordPress files copied' ) );
+		} else if ( ! isOnlineStatus ) {
+			throw new LoggerError(
+				__(
+					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
+				)
+			);
+		} else if ( siteRuntime === SITE_RUNTIME_NATIVE_PHP && ! isWordPressDirResult ) {
+			logger.reportStart(
+				LoggerAction.SETUP_WORDPRESS,
+				sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
+			);
+			await downloadWordPress( options.wpVersion );
+			logger.reportSuccess( __( 'WordPress files downloaded' ) );
+
+			logger.reportStart(
+				LoggerAction.SETUP_WORDPRESS,
+				sprintf( __( 'Copying WordPress %s…' ), options.wpVersion )
+			);
+			await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), sitePath );
+			logger.reportSuccess( __( 'WordPress files copied' ) );
+		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
 		await keepSqliteIntegrationUpdated( sitePath );

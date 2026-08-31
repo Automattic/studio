@@ -415,3 +415,17 @@ export function formatOutOfCreditsTitle(): string {
 export function formatOutOfCreditsDescription(): string {
 	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
 }
+
+// Crediting can trail the checkout redirect by a second or two, so a single
+// refetch would report "nothing bought" for a purchase about to land.
+export const AI_CREDITS_CONFIRM_ATTEMPTS = 5;
+export const AI_CREDITS_CONFIRM_INTERVAL_MS = 2000;
+
+/** Confirmation shown once a top-up is proven to have reached the balance. */
+export function formatAiCreditsAddedTitle( credits: number, locale?: string ): string {
+	return sprintf(
+		/* translators: %s: number of AI credits the purchase added (e.g. 500,000). */
+		__( '%s AI credits added' ),
+		new Intl.NumberFormat( locale ).format( credits )
+	);
+}

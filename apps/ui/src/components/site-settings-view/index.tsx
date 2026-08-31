@@ -39,7 +39,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'overview' | 'general' | 'debugging';
+type TabId = 'overview' | 'general' | 'debugging' | 'ai';
 
 interface FormData {
 	name: string;
@@ -315,8 +315,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-			{ /* The save actions apply to the form tabs only, not Overview. */ }
-			{ activeTab !== 'overview' && (
+			{ /* The save actions apply to the form tabs only, not Overview or AI. */ }
+			{ ( activeTab === 'general' || activeTab === 'debugging' ) && (
 				<div className={ styles.actions }>
 					<Button
 						type="submit"
@@ -335,13 +335,13 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'overview' || value === 'general' || value === 'debugging';
+	return value === 'overview' || value === 'general' || value === 'debugging' || value === 'ai';
 }
 
 export type SiteSettingsTabId = TabId;
 
 // The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
-// Studio Classic's Settings panel; overview and debugging keep their own names.
+// Studio Classic's Settings panel; overview, debugging, and AI keep their own names.
 export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
 	return tab === 'general' ? 'settings' : tab;
 }

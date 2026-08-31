@@ -30,6 +30,7 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
+import { SiteAiPanel } from '@/components/site-ai-panel';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
@@ -308,6 +309,9 @@ function SiteOverviewBody( {
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="general">{ __( 'Settings' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+								{ connector.capabilities.siteAgentSkills ? (
+									<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+								) : null }
 							</Tabs.List>
 						</div>
 					</div>
@@ -467,6 +471,11 @@ function SiteOverviewBody( {
 								</div>
 							</Tabs.Panel>
 							<SiteSettingsForm site={ site } activeTab={ activeTab } />
+							{ connector.capabilities.siteAgentSkills ? (
+								<Tabs.Panel tabId="ai" className={ styles.panel }>
+									<SiteAiPanel siteId={ site.id } />
+								</Tabs.Panel>
+							) : null }
 						</main>
 					</div>
 				</Tabs.Root>

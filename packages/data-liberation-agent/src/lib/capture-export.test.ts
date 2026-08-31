@@ -246,7 +246,7 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<html><head><style>.mobile{color:red}</style></head><body><main>Mobile</main></body></html>'
+			'<html><head><style>.mobile{color:red}:root .device-mobile-responsive.responsive{display:revert!important}</style></head><body class="device-mobile-responsive responsive"><main>Mobile</main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
@@ -279,6 +279,12 @@ describe( 'exportWebsiteCapture', () => {
 		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
 		expect( html ).toContain( '@media(max-width:980px)' );
 		expect( html ).toContain( '<style media="(min-width:981px)">.desktop{color:blue}</style>' );
+		const sourceVisibilityOverride = html.indexOf( 'display:revert!important' );
+		const authoritativeSwitch = html.lastIndexOf(
+			'.data-liberation-mobile-document{display:none!important}'
+		);
+		expect( sourceVisibilityOverride ).toBeGreaterThanOrEqual( 0 );
+		expect( authoritativeSwitch ).toBeGreaterThan( sourceVisibilityOverride );
 		expect( html ).not.toContain( '768px' );
 		expect( html ).not.toContain( '769px' );
 

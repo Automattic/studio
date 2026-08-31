@@ -982,11 +982,11 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	return { webview, clearWebviewCache, setWebviewViewport, update };
 }
 
-// Leaves "fit pane" for one of the simulated presets, which is what turns the
+// Leaves "Responsive" for one of the simulated presets, which is what turns the
 // CDP emulation on.
 async function selectResponsiveMode( label: string ) {
-	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitemradio', { name: label } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 }
 
 describe( 'SitePreview webview reload', () => {

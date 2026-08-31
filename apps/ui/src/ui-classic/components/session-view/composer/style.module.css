@@ -511,11 +511,18 @@
 	stroke: var(--wpds-color-bg-interactive-brand-strong);
 }
 
-.aiCreditsRing[data-caution] .aiCreditsRingValue {
-	stroke: var(--wpds-color-fg-content-warning-weak);
+/* Same escalation colors as the Settings → Usage meter. */
+.aiCreditsRing[data-intent='warning'] .aiCreditsRingValue {
+	stroke: var(--wpds-color-fg-content-caution-weak);
+	filter: saturate(2) brightness(1.8);
 }
 
-.aiCreditsRing[data-exhausted] .aiCreditsRingValue {
+.aiCreditsRing[data-intent='critical'] .aiCreditsRingValue {
+	stroke: var(--wpds-color-fg-content-warning-weak);
+	filter: saturate(1.6) brightness(1.35);
+}
+
+.aiCreditsRing[data-intent='exhausted'] .aiCreditsRingValue {
 	stroke: var(--wpds-color-bg-interactive-error-strong);
 }
 

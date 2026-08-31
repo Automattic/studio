@@ -22,34 +22,18 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import styles from './style.module.css';
 
-const LOW_AI_CREDITS_THRESHOLD = 100_000;
-
-type AiCreditsStatus = 'plenty' | 'low' | 'out';
-
 // The ring arc draws the same used-over-total fraction as the Settings →
-// Usage meter (`getAiCreditsMeter`, STU-2326). The meter resolves null when
-// no denominator is measurable (e.g. billing unreachable) — there is no
-// exact fraction then, so the coloring falls back to an absolute
-// low-balance threshold and the arc stays empty (or full at zero balance).
-function getAiCreditsStatus(
-	remaining: number,
-	intent: AiCreditsMeterIntent | null
-): AiCreditsStatus {
-	if ( remaining === 0 ) {
-		return 'out';
-	}
-	if ( intent !== null ) {
-		return intent === 'ok' ? 'plenty' : 'low';
-	}
-	return remaining <= LOW_AI_CREDITS_THRESHOLD ? 'low' : 'plenty';
-}
-
+// Usage meter (`getAiCreditsMeter`, STU-2326), and its color escalates
+// through the same intent steps. The meter resolves null when no denominator
+// is measurable (e.g. billing unreachable) — there is no fraction to
+// escalate on then, so the ring stays plain (or exhausted at zero balance)
+// and the tooltip keeps carrying the figure.
 function AiCreditsRing( {
 	fillPercentage,
-	status,
+	intent,
 }: {
 	fillPercentage: number;
-	status: AiCreditsStatus;
+	intent: AiCreditsMeterIntent;
 } ) {
 	return (
 		<svg
@@ -59,8 +43,7 @@ function AiCreditsRing( {
 			height="20"
 			fill="none"
 			aria-hidden="true"
-			data-caution={ status === 'low' || undefined }
-			data-exhausted={ status === 'out' || undefined }
+			data-intent={ intent === 'ok' ? undefined : intent }
 		>
 			<circle className={ styles.aiCreditsRingTrack } cx="12" cy="12" r="8" strokeWidth="2" />
 			<circle
@@ -107,9 +90,13 @@ export function AiCreditsControl() {
 	const hasTopUpOptions = ( pricing?.options.length ?? 0 ) > 0;
 	const remaining = ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
 	const meter = getAiCreditsMeter( quota );
-	const intent = meter ? getAiCreditsMeterIntent( meter.fraction ) : null;
-	const status = getAiCreditsStatus( remaining, intent );
-	const fillPercentage = status === 'out' ? 100 : meter ? Math.round( meter.fraction * 100 ) : 0;
+	const intent: AiCreditsMeterIntent = meter
+		? getAiCreditsMeterIntent( meter.fraction )
+		: remaining === 0
+		? 'exhausted'
+		: 'ok';
+	const fillPercentage =
+		intent === 'exhausted' ? 100 : meter ? Math.round( meter.fraction * 100 ) : 0;
 	const formattedRemaining = new Intl.NumberFormat( locale ).format( remaining );
 	const compactRemaining = new Intl.NumberFormat( locale, {
 		notation: 'compact',
@@ -158,7 +145,7 @@ export function AiCreditsControl() {
 									/>
 								}
 							>
-								<AiCreditsRing fillPercentage={ fillPercentage } status={ status } />
+								<AiCreditsRing fillPercentage={ fillPercentage } intent={ intent } />
 							</Tooltip.Trigger>
 						}
 					/>

@@ -123,8 +123,7 @@ describe( 'AiCreditsControl', () => {
 		const ring = container.querySelector( 'svg' );
 
 		expect( ring ).toBeInTheDocument();
-		expect( ring ).not.toHaveAttribute( 'data-caution' );
-		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		expect( ring ).not.toHaveAttribute( 'data-intent' );
 		// The spent allowance drops out of the meter: 50,000 of 200,000
 		// purchased credits used, same as the Settings → Usage bar.
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
@@ -133,7 +132,24 @@ describe( 'AiCreditsControl', () => {
 		);
 	} );
 
-	it( 'shows the low state when at least 80% of the metered credits are used', () => {
+	it( 'escalates to the warning intent at 80% of the metered credits used', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 1_000_000,
+				allowanceRemaining: 150000,
+				purchasedRemaining: 30000,
+				purchasedAtTopUp: 100_000,
+			},
+		} as never );
+
+		const { container } = renderControl();
+
+		// 920,000 of 1,100,000 used → ~84%.
+		expect( container.querySelector( 'svg' ) ).toHaveAttribute( 'data-intent', 'warning' );
+	} );
+
+	it( 'escalates to the critical intent at 90% of the metered credits used', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
@@ -145,10 +161,8 @@ describe( 'AiCreditsControl', () => {
 		} as never );
 
 		const { container } = renderControl();
-		const ring = container.querySelector( 'svg' );
 
-		expect( ring ).toHaveAttribute( 'data-caution', 'true' );
-		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		expect( container.querySelector( 'svg' ) ).toHaveAttribute( 'data-intent', 'critical' );
 		// 1,000,000 of 1,100,000 used → 91% fill.
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
@@ -156,7 +170,7 @@ describe( 'AiCreditsControl', () => {
 		);
 	} );
 
-	it( 'keeps the plenty state below 80% usage', () => {
+	it( 'keeps the plain ring below 80% usage', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
@@ -168,7 +182,7 @@ describe( 'AiCreditsControl', () => {
 
 		const { container } = renderControl();
 
-		expect( container.querySelector( 'svg' ) ).not.toHaveAttribute( 'data-caution' );
+		expect( container.querySelector( 'svg' ) ).not.toHaveAttribute( 'data-intent' );
 	} );
 
 	it.each( [
@@ -196,7 +210,7 @@ describe( 'AiCreditsControl', () => {
 		);
 	} );
 
-	it( 'falls back to the low-balance threshold when no denominator is measurable', () => {
+	it( 'renders a plain empty ring when no denominator is measurable', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
@@ -206,11 +220,10 @@ describe( 'AiCreditsControl', () => {
 		} as never );
 
 		const { container } = renderControl();
-		const ring = container.querySelector( 'svg' );
 
-		expect( ring ).toHaveAttribute( 'data-caution', 'true' );
-		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
-		// No exact fraction without a denominator — the arc stays empty.
+		// No fraction to escalate on — no intent color, and the arc stays
+		// empty; the tooltip still carries the remaining figure.
+		expect( container.querySelector( 'svg' ) ).not.toHaveAttribute( 'data-intent' );
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
 			'100'
@@ -238,7 +251,7 @@ describe( 'AiCreditsControl', () => {
 		await openMenu();
 
 		expect( screen.getByText( 'No AI credits remaining' ) ).toBeInTheDocument();
-		expect( container.querySelector( 'svg' ) ).toHaveAttribute( 'data-exhausted', 'true' );
+		expect( container.querySelector( 'svg' ) ).toHaveAttribute( 'data-intent', 'exhausted' );
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
 			'0'

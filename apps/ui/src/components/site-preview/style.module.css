@@ -21,10 +21,12 @@
 
 .header {
 	position: relative;
-	display: flex;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
+	padding-inline-start: var(--wpds-dimension-padding-md);
 	min-height: 32px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
@@ -47,17 +49,23 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Matching flexible side tracks: because both flex from the same 0 basis,
-   the address control between them sits at the toolbar's true center no
-   matter how many controls each side holds. They keep their automatic
-   min-content floor, so a narrow toolbar shrinks the address segments
-   between them rather than letting the (non-shrinking) button groups
-   spill out of their track and over the address bar. */
+/* @wordpress/icons SVGs omit a root fill and otherwise fall back to black.
+   Map them to each control's theme-aware foreground; stroke-based custom
+   browser icons declare fill="none" and remain unchanged. */
+.header svg:not([fill]) {
+	fill: currentColor;
+}
+
+/* The outer tracks size to their controls so the middle selector can use all
+   remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
 	display: flex;
-	flex: 1 1 0;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
+}
+
+.headerSideStart {
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .headerSideEnd {
@@ -66,11 +74,33 @@
 
 .browserLocation {
 	display: flex;
-	flex: 0 1 auto;
 	align-items: center;
 	justify-content: center;
-	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
+	padding-inline: var(--wpds-dimension-gap-sm);
+}
+
+.historyEntry {
+	display: flex;
+	width: min(320px, calc(100vw - 64px));
+	min-width: 0;
+	flex-direction: column;
+}
+
+.historyTitle,
+.historyPath {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.historyTitle {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.historyPath {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
 }
 
 .annotationControls {
@@ -80,10 +110,46 @@
 	flex-shrink: 0;
 }
 
+.annotationToggle {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+.annotationToggle[aria-pressed='true'] {
+	color: var(--wpds-color-fg-content-inverted, #fff);
+}
+
+.annotationToggle[aria-pressed='true'] svg {
+	color: inherit;
+	fill: currentColor;
+}
+
 .annotationMenu {
 	display: none;
 	align-items: center;
 	flex-shrink: 0;
+}
+
+.responsiveModeIcon {
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+}
+
+.responsiveModeTrigger {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+
+	white-space: nowrap;
+}
+
+.responsiveModeChevron {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+}
+
+.responsiveModeItem[aria-current='true'] {
+	background: var(--wpds-color-bg-surface-neutral);
 }
 
 /* Below this width the inline "Send to chat" button starts eating into the

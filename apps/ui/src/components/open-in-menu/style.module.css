@@ -1,3 +1,7 @@
+.trigger {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
 .popup {
 	min-width: 180px;
 }

@@ -173,6 +173,10 @@ const api: IpcApi = {
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
+	getWebviewNavigationHistory: ( webContentsId ) =>
+		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),
+	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
+		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>

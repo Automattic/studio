@@ -2,12 +2,14 @@ import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	aspectRatio as fitToPane,
 	chevronDown,
-	chevronLeft,
-	chevronRight,
+	columns,
+	desktop,
 	Icon,
-	moreVertical,
+	mobile,
 	pencil,
+	tablet,
 } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
@@ -15,7 +17,6 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
-import { OpenInMenu } from '@/components/open-in-menu';
 import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -28,7 +29,7 @@ import {
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -96,12 +97,20 @@ interface InspectorCommand {
 	type: 'toggle-picking' | 'submit';
 }
 
+interface BrowserHistoryEntry {
+	index: number;
+	title: string;
+	url: string;
+}
+
 interface BrowserNavigationState {
 	canGoBack: boolean;
 	canGoForward: boolean;
 	loading: boolean;
 	progress: number;
 	title: string | null;
+	historyEntries: BrowserHistoryEntry[];
+	activeHistoryIndex: number;
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
@@ -113,7 +122,8 @@ type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
 
 interface BrowserCommand {
 	id: number;
-	type: BrowserShortcutCommandType;
+	type: BrowserShortcutCommandType | 'go-to-history';
+	historyIndex?: number;
 }
 
 // Electron's `<webview>` is a custom element with non-standard methods. Type
@@ -247,6 +257,11 @@ interface PreviewWindow extends Window {
 			viewport: PreviewViewport | null
 		) => Promise< void >;
 		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
+		getWebviewNavigationHistory?: ( webContentsId: number ) => Promise< {
+			activeIndex: number;
+			entries: BrowserHistoryEntry[];
+		} >;
+		goToWebviewNavigationHistoryEntry?: ( webContentsId: number, index: number ) => Promise< void >;
 	};
 }
 
@@ -314,6 +329,8 @@ const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	loading: false,
 	progress: 0,
 	title: null,
+	historyEntries: [],
+	activeHistoryIndex: -1,
 };
 
 const EMPTY_INSPECTOR_STATE: InspectorState = {
@@ -556,17 +573,12 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 	);
 }
 
-// Trailing "•••" menu holding the preview's environment controls: the
-// responsive viewport controls and full preview. Other view options join it
-// as they land.
-function PreviewOverflowMenu( {
+function PreviewResponsiveControls( {
 	viewportMode,
 	onViewportModeChange,
 	viewportControlsDisabled,
 	mobileOrientation,
 	onMobileOrientationChange,
-	fullscreen,
-	onFullscreenChange,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
@@ -575,14 +587,23 @@ function PreviewOverflowMenu( {
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
-	fullscreen: boolean;
-	onFullscreenChange?: ( value: boolean ) => void;
 } ) {
-	const viewportLabels: Record< ViewportPreset[ 'id' ], string > = {
+	const viewportLabels: Record< ViewportMode, string > = {
+		fit: __( 'Responsive' ),
 		mobile: __( 'Mobile' ),
 		tablet: __( 'Tablet' ),
 		desktop: __( 'Desktop' ),
+		split: __( 'Desktop + Mobile' ),
 	};
+	const viewportIcons: Record< ViewportMode, typeof mobile > = {
+		fit: fitToPane,
+		mobile,
+		tablet,
+		desktop,
+		split: columns,
+	};
+	const selectedLabel = viewportLabels[ viewportMode ];
+	const selectedIcon = viewportIcons[ viewportMode ];
 	const getPresetLabel = ( preset: ViewportPreset ) =>
 		sprintf(
 			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
@@ -592,41 +613,80 @@ function PreviewOverflowMenu( {
 			preset.height
 		);
 	return (
-		// Unlike the app's other (non-modal) menus, this one floats over the
-		// webview, which swallows outside clicks before they reach the host
-		// document. Modal mode mounts a backdrop that catches them, so
-		// clicking the preview dismisses the menu like clicking anywhere else.
 		<Menu.Root>
 			<Menu.Trigger
 				render={
-					<IconButton
+					<Button
 						variant="minimal"
 						tone="neutral"
 						size="small"
-						icon={ moreVertical }
-						label={ __( 'More options' ) }
+						className={ styles.responsiveModeTrigger }
+						aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
 					/>
 				}
-			/>
+			>
+				<Icon
+					icon={ selectedIcon }
+					size={ 18 }
+					className={ styles.responsiveModeIcon }
+					data-keep-size
+				/>
+				<span>{ selectedLabel }</span>
+				<Icon icon={ chevronDown } size={ 12 } className={ styles.responsiveModeChevron } />
+			</Menu.Trigger>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
 					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
-					<Menu.RadioGroup
-						value={ viewportMode }
-						onValueChange={ ( next ) => onViewportModeChange( next as ViewportMode ) }
-						disabled={ viewportControlsDisabled }
-					>
-						<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
+					<Menu.Group>
+						<Menu.Item
+							className={ styles.responsiveModeItem }
+							aria-current={ viewportMode === 'fit' ? 'true' : undefined }
+							disabled={ viewportControlsDisabled }
+							onClick={ () => onViewportModeChange( 'fit' ) }
+						>
+							<Icon
+								icon={ fitToPane }
+								size={ 18 }
+								className={ styles.responsiveModeIcon }
+								data-keep-size
+							/>
+							{ __( 'Responsive' ) }
+						</Menu.Item>
 						{ VIEWPORT_PRESETS.map( ( preset ) => (
-							<Menu.RadioItem key={ preset.id } value={ preset.id }>
+							<Menu.Item
+								key={ preset.id }
+								className={ styles.responsiveModeItem }
+								aria-current={ viewportMode === preset.id ? 'true' : undefined }
+								disabled={ viewportControlsDisabled }
+								onClick={ () => onViewportModeChange( preset.id ) }
+							>
+								<Icon
+									icon={ viewportIcons[ preset.id ] }
+									size={ 18 }
+									className={ styles.responsiveModeIcon }
+									data-keep-size
+								/>
 								{ getPresetLabel(
 									// Keep the advertised dimensions honest in landscape.
 									preset.id === 'mobile' ? getMobilePreset( mobileOrientation ) : preset
 								) }
-							</Menu.RadioItem>
+							</Menu.Item>
 						) ) }
-						<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
-					</Menu.RadioGroup>
+						<Menu.Item
+							className={ styles.responsiveModeItem }
+							aria-current={ viewportMode === 'split' ? 'true' : undefined }
+							disabled={ viewportControlsDisabled }
+							onClick={ () => onViewportModeChange( 'split' ) }
+						>
+							<Icon
+								icon={ columns }
+								size={ 18 }
+								className={ styles.responsiveModeIcon }
+								data-keep-size
+							/>
+							{ __( 'Desktop + Mobile' ) }
+						</Menu.Item>
+					</Menu.Group>
 				</Menu.Group>
 				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
 					<>
@@ -642,14 +702,6 @@ function PreviewOverflowMenu( {
 								<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
 							</Menu.RadioGroup>
 						</Menu.Group>
-					</>
-				) : null }
-				{ onFullscreenChange ? (
-					<>
-						<Menu.Separator />
-						<Menu.Item onClick={ () => onFullscreenChange( ! fullscreen ) }>
-							{ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
-						</Menu.Item>
 					</>
 				) : null }
 			</Menu.Popup>
@@ -681,16 +733,28 @@ function PreviewAnnotationControls( {
 			<div
 				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
 			>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ pencil }
-					label={ toggleLabel }
-					disabled={ disabled }
-					aria-pressed={ isPicking }
-					onClick={ () => onCommand( 'toggle-picking' ) }
-				/>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.annotationToggle }
+								aria-label={ toggleLabel }
+								disabled={ disabled }
+								aria-pressed={ isPicking }
+								onClick={ () => onCommand( 'toggle-picking' ) }
+							>
+								<Icon icon={ pencil } size={ 18 } />
+								{ __( 'Annotate' ) }
+							</Button>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ isPicking ? __( 'Stop annotating' ) : __( 'Add notes' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 				{ hasPending ? (
 					<Button
 						variant="solid"
@@ -720,7 +784,7 @@ function PreviewAnnotationControls( {
 											variant="minimal"
 											tone="neutral"
 											size="small"
-											className={ splitStyles.splitAction }
+											className={ clsx( splitStyles.splitAction, styles.annotationToggle ) }
 											aria-label={ toggleLabel }
 											aria-pressed={ isPicking }
 											disabled={ disabled }
@@ -774,13 +838,113 @@ function PreviewAnnotationControls( {
 	);
 }
 
+export function getDirectionalHistoryEntries(
+	entries: BrowserHistoryEntry[],
+	activeIndex: number,
+	direction: 'back' | 'forward'
+): BrowserHistoryEntry[] {
+	const directional = entries.filter( ( entry ) =>
+		direction === 'back' ? entry.index < activeIndex : entry.index > activeIndex
+	);
+	return direction === 'back' ? directional.reverse() : directional;
+}
+
+function getHistoryEntryPath( url: string ) {
+	try {
+		const parsed = new URL( url );
+		return `${ parsed.pathname }${ parsed.search }${ parsed.hash }`;
+	} catch {
+		return url;
+	}
+}
+
+function BrowserHistoryButton( {
+	direction,
+	browserState,
+	shortcut,
+	onStep,
+	onJump,
+}: {
+	direction: 'back' | 'forward';
+	browserState: BrowserNavigationState;
+	shortcut: ReturnType< typeof getNavigationShortcutDescriptor >;
+	onStep: () => void;
+	onJump: ( index: number ) => void;
+} ) {
+	const entries = getDirectionalHistoryEntries(
+		browserState.historyEntries,
+		browserState.activeHistoryIndex,
+		direction
+	);
+	const back = direction === 'back';
+	const label = back ? __( 'Back' ) : __( 'Forward' );
+	const disabled = back ? ! browserState.canGoBack : ! browserState.canGoForward;
+	const [ menuOpen, setMenuOpen ] = useState( false );
+	const trigger = (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			icon={ back ? browserBackIcon : browserForwardIcon }
+			label={ label }
+			shortcut={ shortcut }
+			disabled={ disabled }
+			onClick={ onStep }
+			onContextMenu={ ( event ) => {
+				event.preventDefault();
+				setMenuOpen( true );
+			} }
+		/>
+	);
+
+	return (
+		<Menu.Root
+			open={ menuOpen }
+			onOpenChange={ ( open ) => {
+				if ( ! open ) {
+					setMenuOpen( false );
+				}
+			} }
+		>
+			<Menu.Trigger render={ trigger } />
+			<Menu.Popup side="bottom" align="start">
+				{ entries.length ? (
+					entries.map( ( entry ) => (
+						<Menu.Item
+							key={ `${ entry.index }:${ entry.url }` }
+							onClick={ () => onJump( entry.index ) }
+						>
+							<span className={ styles.historyEntry }>
+								<span className={ styles.historyTitle }>
+									{ entry.title || getHistoryEntryPath( entry.url ) }
+								</span>
+								<span className={ styles.historyPath }>{ getHistoryEntryPath( entry.url ) }</span>
+							</span>
+						</Menu.Item>
+					) )
+				) : (
+					<Menu.Item disabled>
+						{ back ? __( 'No back history' ) : __( 'No forward history' ) }
+					</Menu.Item>
+				) }
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
 		a.canGoForward === b.canGoForward &&
 		a.loading === b.loading &&
 		a.progress === b.progress &&
-		a.title === b.title
+		a.title === b.title &&
+		a.activeHistoryIndex === b.activeHistoryIndex &&
+		a.historyEntries.length === b.historyEntries.length &&
+		a.historyEntries.every( ( entry, index ) => {
+			const other = b.historyEntries[ index ];
+			return other?.index === entry.index && other.title === entry.title && other.url === entry.url;
+		} )
 	);
 }
 
@@ -835,7 +999,6 @@ export function SitePreview( {
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
-	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
@@ -944,6 +1107,19 @@ export function SitePreview( {
 		( type: BrowserCommand[ 'type' ] ) => {
 			commandIdRef.current += 1;
 			patchSurface( activeSurfaceKey, { browserCommand: { id: commandIdRef.current, type } } );
+		},
+		[ activeSurfaceKey, patchSurface ]
+	);
+	const goToHistoryIndex = useCallback(
+		( historyIndex: number ) => {
+			commandIdRef.current += 1;
+			patchSurface( activeSurfaceKey, {
+				browserCommand: {
+					id: commandIdRef.current,
+					type: 'go-to-history',
+					historyIndex,
+				},
+			} );
 		},
 		[ activeSurfaceKey, patchSurface ]
 	);
@@ -1061,13 +1237,8 @@ export function SitePreview( {
 		( mode: ViewportMode ) => {
 			setViewportMode( mode );
 			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
-			// Two frames side by side need the room — a desktop page beside a
-			// phone is unreadable in the narrow panel.
-			if ( mode === 'split' ) {
-				onFullscreenChange?.( true );
-			}
 		},
-		[ onFullscreenChange, site.id ]
+		[ site.id ]
 	);
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
@@ -1079,16 +1250,6 @@ export function SitePreview( {
 		},
 		[ site.id ]
 	);
-
-	// The comparison is a full-preview mode: leaving full preview (or landing
-	// on a site that remembered it) falls back to the single fit-to-pane view
-	// rather than squeezing both frames into the panel. Only when the host
-	// offers full preview at all — otherwise the mode could never be picked.
-	useEffect( () => {
-		if ( onFullscreenChange && ! fullscreen && viewportMode === 'split' ) {
-			handleViewportModeChange( 'fit' );
-		}
-	}, [ fullscreen, handleViewportModeChange, onFullscreenChange, viewportMode ] );
 
 	useEffect( () => {
 		const remembered = viewportBySiteRef.current[ site.id ];
@@ -1188,57 +1349,46 @@ export function SitePreview( {
 					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
 				}
 			>
-				{ /* Equal-flex side tracks keep the address control truly centered
-					in the toolbar regardless of what each side holds. */ }
-				<div className={ styles.headerSide }>
-					{ canPreview ? (
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ refreshIcon }
-							label={ __( 'Refresh' ) }
-							shortcut={ browserShortcuts.reload }
-							onClick={ () => sendBrowserCommand( 'reload' ) }
-						/>
-					) : null }
-				</div>
-				{ /* Back/forward flank the address segments so history controls sit
-					with the place they navigate; symmetric widths keep the segments
-					(and the omnibox popup anchored to this element) centered. */ }
-				<div ref={ locationRef } className={ styles.browserLocation }>
+				{ /* Browser navigation stays at the start, the address field fills the
+					available middle track, and preview actions stay at the end. */ }
+				<div className={ clsx( styles.headerSide, styles.headerSideStart ) }>
 					{ canPreview ? (
 						<>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronLeft }
-								label={ __( 'Back' ) }
+							<BrowserHistoryButton
+								direction="back"
+								browserState={ browserState }
 								shortcut={ browserShortcuts.back }
-								disabled={ ! browserState.canGoBack }
-								onClick={ () => sendBrowserCommand( 'back' ) }
+								onStep={ () => sendBrowserCommand( 'back' ) }
+								onJump={ goToHistoryIndex }
 							/>
-							<PreviewAddressBar
-								site={ site }
-								siteUrl={ siteUrl }
-								path={ getSafePath( path ) }
-								searchEnabled={ canUseWebview }
-								anchorRef={ locationRef }
-								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-								onSwitchRealm={ handleSwitchRealm }
+							<BrowserHistoryButton
+								direction="forward"
+								browserState={ browserState }
+								shortcut={ browserShortcuts.forward }
+								onStep={ () => sendBrowserCommand( 'forward' ) }
+								onJump={ goToHistoryIndex }
 							/>
 							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								icon={ chevronRight }
-								label={ __( 'Forward' ) }
-								shortcut={ browserShortcuts.forward }
-								disabled={ ! browserState.canGoForward }
-								onClick={ () => sendBrowserCommand( 'forward' ) }
+								icon={ refreshIcon }
+								label={ __( 'Refresh' ) }
+								shortcut={ browserShortcuts.reload }
+								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</>
+					) : null }
+				</div>
+				<div className={ styles.browserLocation }>
+					{ canPreview ? (
+						<PreviewAddressBar
+							site={ site }
+							siteUrl={ siteUrl }
+							path={ getSafePath( path ) }
+							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+							onSwitchRealm={ handleSwitchRealm }
+						/>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
@@ -1250,16 +1400,13 @@ export function SitePreview( {
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
-					<OpenInMenu key={ site.id } site={ site } browserPath={ getSafePath( path ) } />
 					{ canPreview ? (
-						<PreviewOverflowMenu
+						<PreviewResponsiveControls
 							viewportMode={ viewportMode }
 							onViewportModeChange={ handleViewportModeChange }
 							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
-							fullscreen={ fullscreen }
-							onFullscreenChange={ onFullscreenChange }
 						/>
 					) : null }
 				</div>
@@ -1321,9 +1468,9 @@ export function SitePreview( {
 												onInspectorState={ ( state ) => patchSurface( key, { inspector: state } ) }
 												inspectorCommand={ surface.inspectorCommand }
 												browserCommand={ surface.browserCommand }
-												onBrowserStateChange={ ( state ) =>
-													patchSurface( key, { browser: state } )
-												}
+												onBrowserStateChange={ ( state ) => {
+													patchSurface( key, { browser: state } );
+												} }
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 												viewport={ viewport }
@@ -1340,13 +1487,14 @@ export function SitePreview( {
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
+													const title = getIframeTitle( event.currentTarget );
 													handleSurfaceNavigation( key, event.currentTarget.src );
 													patchSurface( key, {
 														browser: {
 															...surface.browser,
 															loading: false,
 															progress: 0,
-															title: getIframeTitle( event.currentTarget ),
+															title,
 														},
 													} );
 												} }
@@ -1610,6 +1758,25 @@ function WebviewSurface( {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 
+		const publishNavigationHistory = () => {
+			const { ipcApi } = window as PreviewWindow;
+			let webContentsId: number;
+			try {
+				webContentsId = getWebviewContentsId( webview );
+			} catch {
+				return;
+			}
+			void ipcApi
+				?.getWebviewNavigationHistory?.( webContentsId )
+				.then( ( history ) => {
+					publishBrowserState( {
+						historyEntries: history.entries,
+						activeHistoryIndex: history.activeIndex,
+					} );
+				} )
+				.catch( () => undefined );
+		};
+
 		const publishDocumentTitle = ( title?: unknown ) => {
 			if ( typeof title === 'string' ) {
 				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
@@ -1628,6 +1795,7 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
 				return;
 			}
@@ -1708,6 +1876,7 @@ function WebviewSurface( {
 			}
 			didReadTitleAfterLoad = false;
 			publishBrowserState();
+			publishNavigationHistory();
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
@@ -1722,6 +1891,7 @@ function WebviewSurface( {
 		};
 		const handleStopLoading = () => {
 			finishProgress();
+			publishNavigationHistory();
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
 				publishDocumentTitle();
@@ -1812,6 +1982,16 @@ function WebviewSurface( {
 				webview.goBack?.();
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
+			} else if (
+				browserCommand.type === 'go-to-history' &&
+				typeof browserCommand.historyIndex === 'number'
+			) {
+				const { ipcApi } = window as PreviewWindow;
+				const webContentsId = getWebviewContentsId( webview );
+				void ipcApi?.goToWebviewNavigationHistoryEntry?.(
+					webContentsId,
+					browserCommand.historyIndex
+				);
 			} else if ( browserCommand.type === 'reload' ) {
 				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}

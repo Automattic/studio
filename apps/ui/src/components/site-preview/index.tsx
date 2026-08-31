@@ -4,6 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import {
 	aspectRatio as fitToPane,
 	chevronDown,
+	close,
 	columns,
 	desktop,
 	Icon,
@@ -12,7 +13,7 @@ import {
 	tablet,
 } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
@@ -94,7 +95,7 @@ interface InspectorState {
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'cancel' | 'toggle-picking' | 'submit';
 }
 
 interface BrowserHistoryEntry {
@@ -725,9 +726,21 @@ function PreviewAnnotationControls( {
 	disabled: boolean;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
-	const toggleLabel = isPicking ? __( 'Stop annotating' ) : __( 'Annotate' );
+	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
+	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
 	const submitLabel = __( 'Send annotations to chat' );
 	const hasPending = annotationCount > 0;
+	const handleToggle = () => {
+		if ( isPicking ) {
+			setCancelDialogOpen( true );
+			return;
+		}
+		onCommand( 'toggle-picking' );
+	};
+	const handleCancel = () => {
+		setCancelDialogOpen( false );
+		onCommand( 'cancel' );
+	};
 	return (
 		<>
 			<div
@@ -744,15 +757,17 @@ function PreviewAnnotationControls( {
 								aria-label={ toggleLabel }
 								disabled={ disabled }
 								aria-pressed={ isPicking }
-								onClick={ () => onCommand( 'toggle-picking' ) }
+								onClick={ handleToggle }
 							>
-								<Icon icon={ pencil } size={ 18 } />
-								<span className={ styles.toolbarLabel }>{ __( 'Annotate' ) }</span>
+								<Icon icon={ isPicking ? close : pencil } size={ 18 } />
+								<span className={ styles.toolbarLabel }>
+									{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
+								</span>
 							</Button>
 						}
 					/>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ isPicking ? __( 'Stop annotating' ) : __( 'Add notes' ) }
+						{ isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
 				{ hasPending ? (
@@ -771,8 +786,8 @@ function PreviewAnnotationControls( {
 			{ hasPending ? (
 				<div className={ styles.annotationMenu }>
 					{ /* Two commands to offer, so it becomes a split button matching the
-						"Open in…" control beside it: the pencil still toggles directly,
-						the chevron opens the pair. Modal for the same reason as the
+						"Open in…" control beside it: the main action controls annotation,
+						and the chevron opens the pair. Modal for the same reason as the
 						overflow menu — the webview swallows outside clicks, so the
 						backdrop is what dismisses it. */ }
 					<Menu.Root>
@@ -788,11 +803,11 @@ function PreviewAnnotationControls( {
 											aria-label={ toggleLabel }
 											aria-pressed={ isPicking }
 											disabled={ disabled }
-											onClick={ () => onCommand( 'toggle-picking' ) }
+											onClick={ handleToggle }
 										/>
 									}
 								>
-									<Icon icon={ pencil } size={ 18 } />
+									<Icon icon={ isPicking ? close : pencil } size={ 18 } />
 								</Tooltip.Trigger>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 									{ toggleLabel }
@@ -828,12 +843,32 @@ function PreviewAnnotationControls( {
 							</Tooltip.Root>
 						</div>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item onClick={ () => onCommand( 'toggle-picking' ) }>{ toggleLabel }</Menu.Item>
+							<Menu.Item onClick={ handleToggle }>{ toggleLabel }</Menu.Item>
 							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
 						</Menu.Popup>
 					</Menu.Root>
 				</div>
 			) : null }
+			<Dialog.Root open={ cancelDialogOpen } onOpenChange={ setCancelDialogOpen }>
+				<Dialog.Popup size="small">
+					<Dialog.Header>
+						<Dialog.Title>{ __( 'Cancel annotation?' ) }</Dialog.Title>
+					</Dialog.Header>
+					<Dialog.Content>
+						<Dialog.Description>
+							{ __( 'Your annotations and any unfinished note will be discarded.' ) }
+						</Dialog.Description>
+					</Dialog.Content>
+					<Dialog.Footer>
+						<Dialog.Action variant="minimal" tone="neutral">
+							{ __( 'Keep annotating' ) }
+						</Dialog.Action>
+						<Button variant="solid" tone="brand" onClick={ handleCancel }>
+							{ __( 'Discard annotations' ) }
+						</Button>
+					</Dialog.Footer>
+				</Dialog.Popup>
+			</Dialog.Root>
 		</>
 	);
 }

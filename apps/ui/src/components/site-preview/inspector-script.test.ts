@@ -84,6 +84,33 @@ describe( 'site preview inspector sessions', () => {
 		).toHaveLength( 1 );
 	} );
 
+	it( 'discards saved notes and unfinished drafts when cancelled', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
+		const draft = document.querySelector( '#draft' ) as HTMLElement;
+		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		draft.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = 'Unfinished note';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+
+		command( 'cancel' );
+
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+		expect(
+			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
+		).toEqual( [] );
+		expect( bridgeMessages( log ).find( ( message ) => message.type === 'done' ) ).toBeUndefined();
+	} );
+
 	it( 'reopens an existing note without turning picking back on', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		seedSavedNote();

@@ -426,10 +426,23 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function cancelAnnotations() {
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
 	window.addEventListener(
 		COMMAND_EVENT,
 		( event ) => {
 			const command = event.detail || {};
+			if ( command.type === 'cancel' ) {
+				cancelAnnotations();
+				return;
+			}
 			if ( command.type === 'toggle-picking' ) {
 				togglePicking();
 				return;

@@ -468,12 +468,60 @@ describe( 'SitePreview', () => {
 		} );
 		fireEvent( webview as Element, stateEvent );
 
-		expect( screen.getByRole( 'button', { name: 'Stop annotating' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Cancel annotation' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	} );
+
+	it( 'confirms before discarding an annotation session', async () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		const stateEvent = new Event( 'console-message' );
+		Object.defineProperty( stateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, stateEvent );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Keep annotating' } ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+			).not.toBeInTheDocument()
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard annotations' } ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+			).not.toBeInTheDocument()
+		);
 
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,

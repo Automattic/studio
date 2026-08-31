@@ -1,5 +1,4 @@
 import fs from 'fs';
-import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,
@@ -8,10 +7,6 @@ import {
 	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
-import {
-	stream as streamAnthropic,
-	type AnthropicOptions,
-} from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
@@ -72,13 +67,11 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioOpenAiCompatibleModel = Model< 'openai-responses' > | Model< 'openai-completions' >;
-type StudioModel = StudioOpenAiCompatibleModel | Model< 'anthropic-messages' >;
+type StudioWpcomModel = Model< 'openai-completions' > | Model< 'openai-responses' >;
+type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
-const STUDIO_WPCOM_OPENAI_PROVIDER = 'studio-wpcom-openai';
-const STUDIO_WPCOM_HOSTED_PROVIDER = 'studio-wpcom-hosted';
+const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
 const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
@@ -143,73 +136,51 @@ interface ResolvedCredentials {
 	apiKey: string;
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
-	useBearerAuth: boolean;
 }
-
-// Families that speak an OpenAI dialect each get their own env namespace so a
-// single resolved environment can carry all of them and the user can swap
-// models mid-session.
-const OPENAI_DIALECT_ENV_VARS = {
-	openai: {
-		label: 'OpenAI',
-		apiKey: 'OPENAI_API_KEY',
-		baseUrl: 'OPENAI_BASE_URL',
-		headers: 'STUDIO_OPENAI_DEFAULT_HEADERS',
-	},
-	hosted: {
-		label: 'Hosted',
-		apiKey: 'STUDIO_HOSTED_API_KEY',
-		baseUrl: 'STUDIO_HOSTED_BASE_URL',
-		headers: 'STUDIO_HOSTED_DEFAULT_HEADERS',
-	},
-} as const;
 
 function resolveCredentials(
 	family: AiModelFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
-	if ( family === 'openai' || family === 'hosted' ) {
-		const vars = OPENAI_DIALECT_ENV_VARS[ family ];
-		const apiKey = env[ vars.apiKey ]?.trim();
+	if ( family === 'studio' ) {
+		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
 		if ( ! apiKey ) {
 			return {
 				ok: false,
-				reason: `${ vars.label } models are only available through the WordPress.com provider, and ${ vars.apiKey } is not set — run /login to authenticate.`,
+				reason:
+					'The WordPress.com models need a wpcom access token, and STUDIO_WPCOM_API_KEY is not set — run /login to authenticate.',
 			};
 		}
-		const baseURL = env[ vars.baseUrl ]?.trim();
+		const baseURL = env.STUDIO_WPCOM_BASE_URL?.trim();
 		if ( ! baseURL ) {
-			return { ok: false, reason: `${ vars.baseUrl } not set — cannot route to wpcom proxy.` };
+			return { ok: false, reason: 'STUDIO_WPCOM_BASE_URL not set — cannot route to wpcom proxy.' };
 		}
 		return {
 			ok: true,
 			creds: {
 				apiKey,
 				baseURL,
-				extraHeaders: parseJsonHeaderEnv( vars.headers, env[ vars.headers ] ),
-				useBearerAuth: false,
+				extraHeaders: parseJsonHeaderEnv(
+					'STUDIO_WPCOM_DEFAULT_HEADERS',
+					env.STUDIO_WPCOM_DEFAULT_HEADERS
+				),
 			},
 		};
 	}
 
-	const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
 	const apiKey = env.ANTHROPIC_API_KEY?.trim();
-	const credential = authToken ?? apiKey;
-	if ( ! credential ) {
+	if ( ! apiKey ) {
 		return {
 			ok: false,
 			reason:
-				'Anthropic provider selected but neither ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY is set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate. Otherwise switch to the Anthropic · API key provider with /provider and save a key.',
+				'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
 		};
 	}
-	const baseURL = env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com';
 	return {
 		ok: true,
 		creds: {
-			apiKey: credential,
-			baseURL,
-			extraHeaders: parseAnthropicHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ),
-			useBearerAuth: Boolean( authToken ),
+			apiKey,
+			baseURL: 'https://api.anthropic.com',
 		},
 	};
 }
@@ -410,19 +381,36 @@ function buildModel(
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
-	if ( family === 'hosted' ) {
-		// pi infers `compat` from the base URL, and the wpcom proxy URL reads as
-		// plain OpenAI — so spell out the shape or requests carry OpenAI-only
-		// fields these upstreams reject. With `supportsReasoningEffort` false and
-		// the default `thinkingFormat`, no thinking switch is sent at all and
-		// each model uses its own default — the portable choice across vendors
-		// that spell that parameter differently. Reasoning still streams back.
+	if ( family === 'studio' ) {
+		// The capability tiers are resolved to upstream models by the wpcom
+		// proxy. The context window is a conservative floor across the
+		// upstreams a tier may resolve to, so compaction kicks in before any
+		// of them overflows.
+		//
+		// `strong` rides the Responses path: its upstream is a reasoning model
+		// that rejects tools-plus-reasoning on Chat Completions.
+		if ( modelId === 'strong' ) {
+			return {
+				...common,
+				api: 'openai-responses',
+				provider: STUDIO_WPCOM_PROVIDER,
+				reasoning: true,
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			};
+		}
+		// The other tiers speak Chat Completions. pi infers `compat` from the
+		// base URL, which for us reads as plain OpenAI — so spell out the shape
+		// or requests carry OpenAI-only fields other upstreams reject. With
+		// `supportsReasoningEffort` false no thinking switch is sent at all and
+		// each upstream uses its own default — the portable choice across
+		// vendors that spell that parameter differently.
 		return {
 			...common,
 			api: 'openai-completions',
-			provider: STUDIO_WPCOM_HOSTED_PROVIDER,
+			provider: STUDIO_WPCOM_PROVIDER,
 			reasoning: true,
-			contextWindow: 262_144,
+			contextWindow: 200_000,
 			maxTokens: 32_000,
 			compat: {
 				supportsStore: false,
@@ -431,28 +419,6 @@ function buildModel(
 				supportsStrictMode: false,
 				maxTokensField: 'max_tokens',
 			},
-		};
-	}
-
-	if ( family === 'openai' ) {
-		// GPT-5.6 models reject function tools on /v1/chat/completions unless
-		// reasoning is disabled; the Responses API supports tools + reasoning.
-		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
-		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
-		// in — so compaction keeps sessions below it. Understating the window
-		// is also load-bearing for correctness: pi clamps max output tokens to
-		// the declared window minus its (post-compaction, sometimes stale)
-		// context estimate, and a too-small window can clamp all the way down
-		// to 1, which the API rejects with a 400.
-		// The openai family always rides the wpcom proxy (Studio has no
-		// direct-OpenAI provider), so it always uses the custom provider.
-		return {
-			...common,
-			api: 'openai-responses',
-			provider: STUDIO_WPCOM_OPENAI_PROVIDER,
-			reasoning: true,
-			contextWindow: 272_000,
-			maxTokens: 32_000,
 		};
 	}
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
@@ -464,7 +430,7 @@ function buildModel(
 	return {
 		...common,
 		api: 'anthropic-messages',
-		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
+		provider: 'anthropic',
 		reasoning: true,
 		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
@@ -523,20 +489,10 @@ async function createModelRuntime(
 		modelsPath: null,
 	} );
 
-	if ( family === 'anthropic' && creds.useBearerAuth ) {
-		modelRuntime.registerProvider(
-			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
-			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
-		);
-		return modelRuntime;
-	}
-
-	if ( family === 'openai' || family === 'hosted' ) {
-		// `buildModel` already resolved the provider and wire API for this
-		// family; read them off the model rather than deriving them again.
+	if ( family === 'studio' ) {
 		modelRuntime.registerProvider(
 			model.provider,
-			createWpcomOpenAiCompatibleProviderConfig( model as StudioOpenAiCompatibleModel, creds )
+			createWpcomProviderConfig( model as StudioWpcomModel, creds )
 		);
 		return modelRuntime;
 	}
@@ -557,54 +513,12 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-function createWpcomAnthropicProviderConfig(
-	model: Model< 'anthropic-messages' >,
-	creds: ResolvedCredentials
-): ProviderConfigInput {
-	return {
-		baseUrl: creds.baseURL,
-		apiKey: escapePiConfigValue( creds.apiKey ),
-		api: 'anthropic-messages',
-		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
-			const client = new Anthropic( {
-				apiKey: null,
-				authToken: options?.apiKey ?? creds.apiKey,
-				baseURL: m.baseUrl,
-				dangerouslyAllowBrowser: true,
-				defaultHeaders: options?.headers,
-			} );
-			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return withUsageCapErrorRewrite(
-				streamAnthropic( m as Model< 'anthropic-messages' >, stripStaleImagesFromContext( ctx ), {
-					...( options as AnthropicOptions | undefined ),
-					client: clientForPi,
-				} )
-			);
-		},
-		models: [
-			{
-				id: model.id,
-				name: model.name,
-				api: 'anthropic-messages',
-				baseUrl: model.baseUrl,
-				reasoning: model.reasoning,
-				input: model.input,
-				cost: model.cost,
-				contextWindow: model.contextWindow,
-				maxTokens: model.maxTokens,
-				headers: creds.extraHeaders,
-				compat: model.compat,
-				thinkingLevelMap: model.thinkingLevelMap,
-			},
-		],
-	};
-}
-
-// The wpcom OpenAI-dialect paths only need pi's stock streaming for their API;
-// the custom provider exists to wrap the stream with the usage-cap 429 rewrite.
-function createWpcomOpenAiCompatibleProviderConfig(
-	model: StudioOpenAiCompatibleModel,
+// The wpcom lane only needs pi's stock streaming for each tier's API; the
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite
+// and to strip stale screenshots, which would otherwise bloat requests past
+// the proxy's body limit.
+function createWpcomProviderConfig(
+	model: StudioWpcomModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
@@ -618,7 +532,7 @@ function createWpcomOpenAiCompatibleProviderConfig(
 		api: model.api,
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite( stream( m, ctx, options ) ),
+			withUsageCapErrorRewrite( stream( m, stripStaleImagesFromContext( ctx ), options ) ),
 		models: [
 			{
 				id: model.id,
@@ -762,19 +676,4 @@ function parseJsonHeaderEnv(
 		console.warn( `${ name } contained malformed JSON; ignoring custom headers.` );
 	}
 	return undefined;
-}
-
-function parseAnthropicHeaderEnv(
-	value: string | undefined
-): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	const out: Record< string, string > = {};
-	for ( const line of value.split( '\n' ) ) {
-		const idx = line.indexOf( ':' );
-		if ( idx <= 0 ) continue;
-		const name = line.slice( 0, idx ).trim();
-		const v = line.slice( idx + 1 ).trim();
-		if ( name && v ) out[ name ] = v;
-	}
-	return Object.keys( out ).length ? out : undefined;
 }

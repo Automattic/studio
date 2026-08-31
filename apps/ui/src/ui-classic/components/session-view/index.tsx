@@ -1,6 +1,12 @@
-import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	getEffectiveSessionProvider,
+	resolveSessionModelForProvider,
+} from '@studio/common/ai/providers';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getStudioCodeAiAccessState,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -23,6 +29,7 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
@@ -251,10 +258,23 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		answerQuestion,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
-	);
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+	const { data: aiSettings } = useAiSettings();
+	// A fresh wpcom session defaults to balanced when purchased credits
+	// remain, fast otherwise.
+	const currentModel = useMemo( () => {
+		const entries = data?.entries ?? [];
+		return resolveSessionModelForProvider(
+			entries,
+			getEffectiveSessionProvider( entries, aiSettings ),
+			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+		);
+	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
@@ -398,12 +418,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		queuedPrompts.length,
 	] );
 
-	const {
-		data: quota,
-		isLoading: isQuotaLoading,
-		isFetching: isQuotaFetching,
-		refetch: refetchQuota,
-	} = useStudioAssistantQuota();
 	// Out of credits replaces the composer: there is nothing to type into
 	// until the account buys more, so the offer takes the input's place.
 	const isOutOfCredits = useIsOutOfAiCredits();

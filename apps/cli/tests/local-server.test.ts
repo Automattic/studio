@@ -307,7 +307,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'gpt-5.6-sol' } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'balanced' } ),
 			}
 		);
 

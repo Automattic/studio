@@ -25,10 +25,17 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
+vi.mock( '@/data/queries/use-ai-settings', () => ( {
+	useAiSettings: () => ( { data: undefined } ),
+} ) );
 
 vi.mock( '@/data/core', async ( importOriginal ) => ( {
 	...( await importOriginal< object >() ),
-	useConnector: () => ( { openExternalUrl: vi.fn() } ),
+	useConnector: () => ( {
+		openExternalUrl: vi.fn(),
+		capabilities: { aiSettings: false },
+		getAiSettings: vi.fn(),
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {

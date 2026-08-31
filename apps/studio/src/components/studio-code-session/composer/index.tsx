@@ -10,9 +10,21 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { getAiModelFamily, getAiModelLabel, getVisibleAiModels } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+} from '@studio/common/ai/models';
+import { getAiProviderModels, getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
+import {
+	formatPaidTiersNudge,
+	getAddAiCreditsUrl,
+	hasPaidAiCredits,
+	persistPaidTiersNudgeDismissed,
+	readPaidTiersNudgeDismissed,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -26,9 +38,15 @@ import {
 	useState,
 	type SetStateAction,
 } from 'react';
+import { AiCreditsPurchaseDialog } from 'src/components/ai-credits-purchase-dialog';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	useGetStudioAssistantQuota,
+	useGetStudioAssistantTopUpPricing,
+} from 'src/stores/wpcom-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
@@ -307,11 +325,50 @@ export function Composer( {
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
 	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
 
+	// Only offer models the conversation's provider can serve. The paid tiers
+	// are listed but disabled for accounts without purchased credits.
+	const aiSettings = useAiSettings();
+	const visibleModels = getAiProviderModels(
+		getEffectiveSessionProvider( entries ?? [], aiSettings )
+	);
+	const { isAuthenticated, user } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	// The paid tiers unlock with purchased credits; Automatticians are exempt.
+	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( user?.email );
+	const isModelLocked = useCallback(
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
+		[ canUsePaidTiers ]
+	);
+	const hasLockedModels = visibleModels.some( ( { id } ) => isModelLocked( id ) );
+
+	// Nudge free-allowance accounts toward the paid tiers: a footer in the
+	// model picker plus a dismissible line above the prompt. Never shown while
+	// the quota is still loading, nor on top of the usage-cap banner.
+	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
+		readPaidTiersNudgeDismissed
+	);
+	const dismissPaidTiersNudge = () => {
+		setPaidTiersNudgeDismissed( true );
+		persistPaidTiersNudgeDismissed();
+	};
+	const showPaidTiersNudge =
+		Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed && ! usageCapMessage;
+
+	// Mirrors AddAiCreditsButton: the chooser when priced options exist, else
+	// straight to checkout for the single fixed top-up.
+	const { data: topUpPricing } = useGetStudioAssistantTopUpPricing();
+	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
+	const openAddCredits = () => {
+		if ( ( topUpPricing?.options.length ?? 0 ) > 0 ) {
+			setCreditsPurchaseOpen( true );
+			return;
+		}
+		void getIpcApi().openURL( getAddAiCreditsUrl( { returnsToDesktop: true } ) );
+	};
+
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
-	const { user } = useAuth();
-	const visibleModels = getVisibleAiModels( isAutomatticianEmail( user?.email ), model );
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
@@ -393,7 +450,7 @@ export function Composer( {
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
-			if ( picked === model ) {
+			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog
@@ -415,7 +472,7 @@ export function Composer( {
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, isModelLocked, model, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -475,6 +532,26 @@ export function Composer( {
 				{ usageCapMessage ? (
 					<div className={ styles.usageCapBanner } role="alert">
 						{ usageCapMessage }
+					</div>
+				) : null }
+				{ showPaidTiersNudge ? (
+					<div className={ styles.paidTiersNudge }>
+						<span>{ formatPaidTiersNudge() }</span>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeAction }
+							onClick={ openAddCredits }
+						>
+							{ __( 'Add credits' ) }
+						</button>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeDismiss }
+							onClick={ dismissPaidTiersNudge }
+							aria-label={ __( 'Dismiss' ) }
+						>
+							<Icon icon={ closeSmall } size={ 16 } />
+						</button>
 					</div>
 				) : null }
 				<div
@@ -691,12 +768,18 @@ export function Composer( {
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ visibleModels.map( ( { id, label } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
+										{ visibleModels.map( ( { id } ) => (
+											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
+												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }
 									</Menu.RadioGroup>
+									{ hasLockedModels ? (
+										<>
+											<Menu.Separator />
+											<Menu.Item onClick={ openAddCredits }>{ formatPaidTiersNudge() }</Menu.Item>
+										</>
+									) : null }
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
@@ -749,6 +832,9 @@ export function Composer( {
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
+			{ creditsPurchaseOpen ? (
+				<AiCreditsPurchaseDialog open onOpenChange={ setCreditsPurchaseOpen } />
+			) : null }
 		</>
 	);
 }

@@ -14,6 +14,41 @@
 	line-height: 1.4;
 }
 
+.paidTiersNudge {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	margin-bottom: var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-xs);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.paidTiersNudgeAction {
+	border: 0;
+	padding: 0;
+	background: none;
+	color: var(--color-frame-text);
+	text-decoration: underline;
+	font-size: inherit;
+	cursor: pointer;
+}
+
+.paidTiersNudgeDismiss {
+	display: inline-flex;
+	align-items: center;
+	margin-left: auto;
+	border: 0;
+	padding: 0;
+	background: none;
+	color: var(--color-frame-text-secondary);
+	cursor: pointer;
+}
+
+.paidTiersNudgeDismiss:hover {
+	color: var(--color-frame-text);
+}
+
 .shell {
 	display: flex;
 	flex-direction: column;

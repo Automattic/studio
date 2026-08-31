@@ -1,3 +1,5 @@
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
@@ -40,6 +42,10 @@ vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 	isAutomatticianFromToken: vi.fn().mockResolvedValue( true ),
+} ) );
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >() ),
+	fetchStudioAssistantQuota: vi.fn(),
 } ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
@@ -354,12 +360,12 @@ function buildModelCtx(
 		// `as never` keeps this test framework-agnostic — we don't need a
 		// real AiChatUI, just the methods the /model handler touches.
 		ui: {
-			currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
+			currentModel: overrides.currentModel ?? 'fast',
 			askUser: vi.fn().mockResolvedValue( { 0: overrides.askUserResponse } ),
 			showInfo: vi.fn(),
 			showError: vi.fn(),
 		} as never,
-		currentModel: overrides.currentModel ?? 'gpt-5.6-sol',
+		currentModel: overrides.currentModel ?? 'fast',
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
 		switchProvider: vi.fn().mockResolvedValue( undefined ),
@@ -372,6 +378,20 @@ function buildModelCtx(
 }
 
 describe( '/model slash command', () => {
+	const setAccount = ( {
+		hasPaid,
+		automattician = false,
+	}: {
+		hasPaid: boolean;
+		automattician?: boolean;
+	} ) => {
+		vi.mocked( isAutomatticianFromToken ).mockResolvedValue( automattician );
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'wpcom-token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( {
+			purchasedRemaining: hasPaid ? 100_000 : 0,
+		} as never );
+	};
+
 	// Locks in the labelToId-map matcher introduced in slash-commands.ts.
 	// The previous implementation used `selectedLabel.startsWith( label )`,
 	// which silently picked the wrong id whenever one model's label was a
@@ -380,27 +400,81 @@ describe( '/model slash command', () => {
 	// and we want the regression coverage to survive future additions.
 	it( 'resolves the picked model exactly by label, not by prefix', async () => {
 		expect( modelHandler ).toBeDefined();
+		setAccount( { hasPaid: true } );
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.6-sol',
-			askUserResponse: 'Sonnet 5',
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
-		expect( ctx.currentModel ).toBe( 'claude-sonnet-5' );
+		expect( ctx.currentModel ).toBe( 'balanced' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'withholds the paid tiers when no purchased credits remain', async () => {
+		setAccount( { hasPaid: false } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		// Balanced was never offered, so the pick resolves to nothing.
+		expect( ctx.currentModel ).toBe( 'fast' );
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [ 'fast' ] );
+		expect( ctx.ui.showInfo ).toHaveBeenCalledWith(
+			expect.stringContaining( 'purchased AI credits' )
+		);
+	} );
+
+	it( 'offers the paid tiers to Automatticians regardless of credits', async () => {
+		setAccount( { hasPaid: false, automattician: true } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Strong',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [
+			'fast',
+			'balanced',
+			'strong',
+		] );
+		expect( ctx.currentModel ).toBe( 'strong' );
+	} );
+
+	it( 'keeps offering the current model even when it needs purchased credits', async () => {
+		setAccount( { hasPaid: false } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'strong',
+			askUserResponse: 'Fast',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [
+			'fast',
+			'strong',
+		] );
+		expect( ctx.currentModel ).toBe( 'fast' );
 	} );
 
 	it( 'still resolves the picked model when its label carries the "(current)" suffix', async () => {
 		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'gpt-5.6-sol',
-			askUserResponse: 'GPT 5.6 Sol (current)',
+			currentModel: 'fast',
+			askUserResponse: 'Fast (current)',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
 		// Same model picked → no swap, no persist.
-		expect( ctx.currentModel ).toBe( 'gpt-5.6-sol' );
+		expect( ctx.currentModel ).toBe( 'fast' );
 		expect( persistMock ).not.toHaveBeenCalled();
 	} );
 } );

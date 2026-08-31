@@ -1,4 +1,4 @@
-import { resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { readRecordedSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { isAiProviderId } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -24,10 +24,9 @@ export function resolveResumeSessionContext(
 		context.sessionId = resumeSession.summary.id;
 	}
 
-	// Shared resolution: the most recent recorded model wins, and a removed
-	// model auto-switches to the default so resumed sessions never pin a
-	// model we no longer offer.
-	context.model = resolveSessionModel( resumeSession.entries );
+	// Unset when the session recorded no (still-offered) model, so the caller
+	// applies its provider-appropriate default instead of pinning a dead id.
+	context.model = readRecordedSessionModel( resumeSession.entries );
 
 	for ( let index = resumeSession.entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = resumeSession.entries[ index ];

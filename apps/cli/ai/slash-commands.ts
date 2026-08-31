@@ -1,7 +1,15 @@
-import { getAiModelFamily, getVisibleAiModels } from '@studio/common/ai/models';
-import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -334,12 +342,27 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
 			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
-			const visible = new Set(
-				getVisibleAiModels( await isAutomatticianFromToken(), ctx.currentModel ).map(
-					( model ) => model.id
-				)
-			);
-			const offeredModels = availableModels.filter( ( id ) => visible.has( id ) );
+			// The paid tiers are only offered while purchased credits remain;
+			// Automatticians are exempt. The current model always stays listed,
+			// so a session already on a paid tier keeps showing what it runs on.
+			let offeredModels = availableModels;
+			if (
+				availableModels.some( aiModelRequiresPaidCredits ) &&
+				! ( await isAutomatticianFromToken() )
+			) {
+				const token = await readAuthToken();
+				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
+				if ( ! hasPaidAiCredits( quota ) ) {
+					offeredModels = availableModels.filter(
+						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+					);
+				}
+			}
+			if ( offeredModels.length < availableModels.length ) {
+				ctx.ui.showInfo(
+					__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
+				);
+			}
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's
@@ -418,9 +441,20 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				selectedLabel.startsWith( AI_PROVIDERS[ id ] )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
+				const previousFamily = getAiModelFamily( ctx.currentModel );
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
+					// Providers don't share a model family, so a switch is the
+					// same runtime handoff as a cross-family /model switch.
+					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
+						await ctx.clearSession();
+						ctx.ui.showInfo(
+							__(
+								"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+							)
+						);
+					}
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ctx.ui.showInfo(

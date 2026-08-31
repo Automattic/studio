@@ -33,7 +33,6 @@ import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
-	ADD_AI_CREDITS_URL,
 	fetchStudioAssistantQuota,
 	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
@@ -1837,12 +1836,7 @@ export class AiChatUI implements AiOutputAdapter {
 					this.usageCapReached = true;
 					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
 					if ( outOfCredits ) {
-						// The terminal can't render a link, so the URL goes on its own
-						// line, as-is — it stays copyable and most terminals auto-link it.
-						this.showInfo(
-							__( 'Use /credits to see your balance and buy more, or open the link below:' )
-						);
-						this.showInfo( ADD_AI_CREDITS_URL );
+						this.showInfo( __( 'Use /credits to see your balance and buy more.' ) );
 					} else {
 						// Async on purpose: the reset date needs a wpcom round trip
 						// and must not block rendering the cap notice.

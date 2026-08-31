@@ -280,6 +280,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			type: 'state',
 			isPicking,
 			annotationCount: annotations.length,
+			hasUnsavedDraft: hasDraft(),
 		} );
 	}
 
@@ -558,6 +559,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		ta.addEventListener( 'input', () => {
 			state.comment = ta.value;
 			syncActions();
+			sendState();
 		} );
 		ta.addEventListener( 'keydown', ( event ) => {
 			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;

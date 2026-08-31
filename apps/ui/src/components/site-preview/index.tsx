@@ -84,6 +84,7 @@ interface InspectorEvent {
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
+	hasUnsavedDraft?: boolean;
 	command?: PreviewShortcutCommandType;
 }
 
@@ -91,6 +92,7 @@ interface InspectorState {
 	ready: boolean;
 	isPicking: boolean;
 	annotationCount: number;
+	hasUnsavedDraft: boolean;
 }
 
 interface InspectorCommand {
@@ -338,6 +340,7 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	ready: false,
 	isPicking: false,
 	annotationCount: 0,
+	hasUnsavedDraft: false,
 };
 
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
@@ -436,7 +439,10 @@ function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | und
 
 function areInspectorStatesEqual( a: InspectorState, b: InspectorState ) {
 	return (
-		a.ready === b.ready && a.isPicking === b.isPicking && a.annotationCount === b.annotationCount
+		a.ready === b.ready &&
+		a.isPicking === b.isPicking &&
+		a.annotationCount === b.annotationCount &&
+		a.hasUnsavedDraft === b.hasUnsavedDraft
 	);
 }
 
@@ -718,11 +724,13 @@ function PreviewResponsiveControls( {
 function PreviewAnnotationControls( {
 	isPicking,
 	annotationCount,
+	hasUnsavedDraft,
 	disabled,
 	onCommand,
 }: {
 	isPicking: boolean;
 	annotationCount: number;
+	hasUnsavedDraft: boolean;
 	disabled: boolean;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
@@ -732,7 +740,11 @@ function PreviewAnnotationControls( {
 	const hasPending = annotationCount > 0;
 	const handleToggle = () => {
 		if ( isPicking ) {
-			setCancelDialogOpen( true );
+			if ( hasPending || hasUnsavedDraft ) {
+				setCancelDialogOpen( true );
+			} else {
+				onCommand( 'cancel' );
+			}
 			return;
 		}
 		onCommand( 'toggle-picking' );
@@ -1435,6 +1447,7 @@ export function SitePreview( {
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
+							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
 							disabled={ ! canAnnotate }
 							onCommand={ sendInspectorCommand }
 						/>
@@ -1860,6 +1873,7 @@ function WebviewSurface( {
 						ready: true,
 						isPicking: false,
 						annotationCount: stored.length,
+						hasUnsavedDraft: false,
 					} );
 				} )
 				.catch( () => {
@@ -1890,6 +1904,7 @@ function WebviewSurface( {
 					ready: true,
 					isPicking: Boolean( parsed.isPicking ),
 					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+					hasUnsavedDraft: Boolean( parsed.hasUnsavedDraft ),
 				} );
 				return;
 			}

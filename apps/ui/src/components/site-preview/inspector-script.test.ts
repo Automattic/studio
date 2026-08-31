@@ -99,10 +99,15 @@ describe( 'site preview inspector sessions', () => {
 		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
 		textarea.value = 'Unfinished note';
 		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		expect( latestState( log ) ).toMatchObject( { hasUnsavedDraft: true } );
 
 		command( 'cancel' );
 
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+		expect( latestState( log ) ).toMatchObject( {
+			isPicking: false,
+			annotationCount: 0,
+			hasUnsavedDraft: false,
+		} );
 		expect( root.querySelector( '.popup' ) ).toBeNull();
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
 		expect(

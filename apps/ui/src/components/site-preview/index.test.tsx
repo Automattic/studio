@@ -507,6 +507,22 @@ describe( 'SitePreview', () => {
 		fireEvent( webview as Element, stateEvent );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		expect(
+			screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+		).not.toBeInTheDocument();
+
+		const draftStateEvent = new Event( 'console-message' );
+		Object.defineProperty( draftStateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+				hasUnsavedDraft: true,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, draftStateEvent );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
 		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Keep annotating' } ) );
 		await waitFor( () =>

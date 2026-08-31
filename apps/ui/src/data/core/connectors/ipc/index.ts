@@ -1028,6 +1028,10 @@ export function createIpcConnector(): Connector {
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
 
+		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
+			return ipcApi.ensureMinWindowWidth( minimumWidth );
+		},
+
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );
 		},

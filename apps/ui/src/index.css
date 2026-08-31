@@ -280,6 +280,7 @@ select option {
 
 [data-wpds-theme-provider-id] .components-radio-control__option-description {
 	color: var( --wpds-color-fg-content-neutral-weak );
+	unicode-bidi: plaintext;
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

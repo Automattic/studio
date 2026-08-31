@@ -94,6 +94,8 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: import('@studio/common/lib/site-runtime').SiteRuntime;
+	fileAccess?: import('@studio/common/lib/site-file-access').SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from

@@ -265,6 +265,9 @@ function SiteOverviewBody( {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const [ footerActionsElement, setFooterActionsElement ] = useState< HTMLDivElement | null >(
+		null
+	);
 	const importInputRef = useRef< HTMLInputElement >( null );
 	const backupImport = useSiteBackupImport( site );
 	const managementActions = useSiteManagementActions( site, {
@@ -274,6 +277,7 @@ function SiteOverviewBody( {
 	const themeStatus = useThemeDetails( site );
 	const themeDetails = themeStatus.state === 'ready' ? themeStatus.details : undefined;
 	const busy = useIsSiteBusy( site );
+	const sidebarCollapsed = useSidebarCollapsed();
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 	const { data: wpVersion } = useWpVersion( site.id );
 
@@ -466,13 +470,25 @@ function SiteOverviewBody( {
 									</ButtonSection>
 								</div>
 							</Tabs.Panel>
-							<SiteSettingsForm site={ site } activeTab={ activeTab } />
+							<SiteSettingsForm
+								site={ site }
+								activeTab={ activeTab }
+								footerActionsElement={ footerActionsElement }
+							/>
 						</main>
 					</div>
 				</Tabs.Root>
 			</div>
-			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
+			<ProgressiveBlur direction="up" className={ styles.footerBlur } fadeToSurface />
 			<div className={ styles.footerBar }>
+				<div
+					ref={ setFooterActionsElement }
+					className={
+						sidebarCollapsed
+							? `${ styles.footerActions } ${ styles.footerActionsSidebarCollapsed }`
+							: styles.footerActions
+					}
+				/>
 				<PreviewToggleButton />
 			</div>
 			<input

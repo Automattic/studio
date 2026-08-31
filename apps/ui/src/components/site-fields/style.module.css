@@ -9,3 +9,27 @@
 	flex-shrink: 0;
 	fill: currentColor;
 }
+
+.updateModeControl {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+	min-inline-size: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.updateModeControl :global(.components-radio-control) {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.updateModeControl :global(.components-radio-control__option-description) {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.pinnedVersionSelect {
+	width: min(180px, 100%);
+}

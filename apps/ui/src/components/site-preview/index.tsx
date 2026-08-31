@@ -1138,9 +1138,12 @@ export function SitePreview( {
 				onFullscreenChange?.( ! fullscreen );
 				return;
 			}
+			if ( inspectorState.isPicking ) {
+				return;
+			}
 			sendBrowserCommand( command );
 		},
-		[ fullscreen, onFullscreenChange, sendBrowserCommand ]
+		[ fullscreen, inspectorState.isPicking, onFullscreenChange, sendBrowserCommand ]
 	);
 
 	// Point the active surface at whatever path the host is asking for, creating
@@ -1289,8 +1292,8 @@ export function SitePreview( {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
-			const command = getBrowserShortcutCommand( event );
-			const realm = command ? null : getRealmShortcut( event );
+			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
+			const realm = command || inspectorState.isPicking ? null : getRealmShortcut( event );
 			// Only claim the full-preview chord when the host actually offers
 			// the mode, so it stays available to the page otherwise.
 			const fullPreview =
@@ -1324,6 +1327,7 @@ export function SitePreview( {
 		collapsed,
 		fullscreen,
 		handleSwitchRealm,
+		inspectorState.isPicking,
 		onFullscreenChange,
 		sendBrowserCommand,
 	] );
@@ -1352,7 +1356,7 @@ export function SitePreview( {
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }
 				<div className={ clsx( styles.headerSide, styles.headerSideStart ) }>
-					{ canPreview ? (
+					{ canPreview && ! inspectorState.isPicking ? (
 						<>
 							<BrowserHistoryButton
 								direction="back"
@@ -1381,7 +1385,7 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
-					{ canPreview ? (
+					{ canPreview && ! inspectorState.isPicking ? (
 						<PreviewAddressBar
 							site={ site }
 							siteUrl={ siteUrl }

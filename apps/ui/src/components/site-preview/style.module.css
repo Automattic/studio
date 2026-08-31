@@ -155,7 +155,7 @@
 /* Preserve the URL field before toolbar actions begin colliding. The controls
    keep their accessible names and tooltips; only the redundant visible labels
    collapse, leaving the same icons and dropdown indicator. */
-@container studio-preview-toolbar (max-width: 720px) {
+@container studio-preview-toolbar (max-width: 640px) {
 	.toolbarLabel {
 		display: none;
 	}

@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { DATABASE_HOME_PATH } from './address-bar';
+import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,
@@ -438,6 +439,46 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'prioritizes annotation controls while picking', () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		expect( webview ).toBeInTheDocument();
+
+		const stateEvent = new Event( 'console-message' );
+		Object.defineProperty( stateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, stateEvent );
+
+		expect( screen.getByRole( 'button', { name: 'Stop annotating' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
 	} );
 
 	it( 'shows a single annotate toggle while no notes are pending', () => {

@@ -13,7 +13,14 @@
 
 .group {
 	position: absolute;
-	top: calc(50% + 72px);
+	/* Keep the full prompt group above the fixed composer at short window
+	   heights, while retaining its logo-relative position when there is room. */
+	top: min(
+		calc(50% + 72px),
+		calc(
+			100% - var(--classic-composer-height) - var(--classic-panel-footer-height) - 148px
+		)
+	);
 	left: 50%;
 	display: flex;
 	width: min(100%, 656px);

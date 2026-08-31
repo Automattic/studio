@@ -50,11 +50,7 @@
 }
 
 .headerSidebarCollapsed {
-	padding-top: calc(
-		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-lg)
-	);
-	padding-inline-start: var(--wpds-dimension-padding-xl);
+	padding-inline-start: 94px;
 }
 
 .headerSite {

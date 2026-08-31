@@ -5,9 +5,9 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useRef, useState } from 'react';
+import { BlueprintGallery } from '@/components/blueprint-gallery';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
-	BlueprintGalleryIllustration,
 	BuildNewSiteIllustration,
 	ConnectSiteIllustration,
 	DropBackupIllustration,
@@ -16,6 +16,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useOffline } from '@/hooks/use-offline';
 import { setPendingBackup } from '@/lib/pending-backup';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -118,21 +119,6 @@ export function OnboardingHomePage() {
 					</div>
 				</Link>
 				<Link
-					to="/onboarding/blueprint"
-					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
-					aria-disabled={ isOffline || undefined }
-					onClick={ ( event ) => isOffline && event.preventDefault() }
-				>
-					<BlueprintGalleryIllustration />
-					<div className={ styles.cardText }>
-						<h3 className={ styles.cardTitle }>{ __( 'Start from a Blueprint' ) }</h3>
-						<p className={ styles.cardBody }>
-							{ __( 'Choose from pre-built site templates to get started quickly.' ) }
-						</p>
-						{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
-					</div>
-				</Link>
-				<Link
 					to="/onboarding/connect"
 					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
 					aria-disabled={ isOffline || undefined }
@@ -149,6 +135,12 @@ export function OnboardingHomePage() {
 				</Link>
 				<ImportBackupCard />
 			</div>
+			<BlueprintGallery
+				onSelect={ ( blueprint ) => {
+					pendingBlueprintSlot.set( blueprint );
+					void navigate( { to: '/onboarding/create' } );
+				} }
+			/>
 			{ ( sites?.length ?? 0 ) > 0 && (
 				<OnboardingFooter>
 					<Button

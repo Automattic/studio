@@ -1,13 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { OnboardingHomePage } from './index';
+import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { ComponentProps } from 'react';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn(),
 	hasSites: false,
 	isOffline: false,
+	galleryProps: null as Record< string, unknown > | null,
+} ) );
+
+vi.mock( '@/components/blueprint-gallery', () => ( {
+	BlueprintGallery: ( props: Record< string, unknown > ) => {
+		mocks.galleryProps = props;
+		return <div data-testid="blueprint-gallery" />;
+	},
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -36,10 +46,11 @@ describe( 'OnboardingHomePage', () => {
 		vi.clearAllMocks();
 		mocks.hasSites = false;
 		mocks.isOffline = false;
+		mocks.galleryProps = null;
 		clearPendingBackup();
 	} );
 
-	it( 'shows Create, Blueprint, Connect, and Import in that order', () => {
+	it( 'shows Create, Connect, and Import in that order', () => {
 		render( <OnboardingHomePage /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
@@ -47,22 +58,19 @@ describe( 'OnboardingHomePage', () => {
 			screen.getByText( 'Start fresh or bring an existing site into your Studio.' )
 		).toBeInTheDocument();
 		const create = screen.getByRole( 'link', { name: /Create a new site/ } );
-		const blueprint = screen.getByRole( 'link', { name: /Start from a Blueprint/ } );
 		const connect = screen.getByRole( 'link', { name: /Connect a site/ } );
 		const importBackup = screen.getByRole( 'button', { name: /Import from a backup/ } );
 
 		expect( create ).toHaveAttribute( 'href', '/onboarding/create' );
-		expect( blueprint ).toHaveAttribute( 'href', '/onboarding/blueprint' );
 		expect( connect ).toHaveAttribute( 'href', '/onboarding/connect' );
 		expect( importBackup ).toBeEnabled();
-		expect( create.compareDocumentPosition( blueprint ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-		expect( blueprint.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( create.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 	} );
 
-	it( 'marks Connect and Blueprint unavailable while offline', () => {
+	it( 'marks Connect unavailable while offline', () => {
 		mocks.isOffline = true;
 		render( <OnboardingHomePage /> );
 
@@ -70,11 +78,7 @@ describe( 'OnboardingHomePage', () => {
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByRole( 'link', { name: /Start from a Blueprint/ } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.getAllByText( 'Available online' ) ).toHaveLength( 2 );
+		expect( screen.getByText( 'Available online' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the file picker from the Import card', () => {
@@ -163,6 +167,17 @@ describe( 'OnboardingHomePage', () => {
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 		expect( peekPendingBackup() ).toBeNull();
 		expect( mocks.navigate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'carries a Blueprint pick through to the create form', () => {
+		render( <OnboardingHomePage /> );
+		const picked = { title: 'WooCommerce' } as SelectedBlueprint;
+
+		( mocks.galleryProps?.onSelect as ( value: SelectedBlueprint ) => void )( picked );
+
+		expect( pendingBlueprintSlot.getSnapshot() ).toBe( picked );
+		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/create' } );
+		pendingBlueprintSlot.clear( picked );
 	} );
 
 	it( 'shows Back when onboarding was opened from an existing site', () => {

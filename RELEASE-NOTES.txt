@@ -1,6 +1,21 @@
 Unreleased
 ==========
 
+1.20.0
+=====
+* Added AI image generation to Studio Code: the agent now creates real images while it builds a site, instead of leaving placeholders behind, guided by a new imagery skill #4668
+* Improved the AI credits experience: the top-up dialog now offers four credit amounts, explains what credits are and how they differ from tokens, and links to the AI credits guidelines. A new usage meter in Settings → Usage shows how much you have left #4678, #4679, #4692
+* Improved the Studio Code terminal UI: tools that run at the same time now report their own progress and results live, instead of piling up under the last tool call #4653
+* Studio Code: Improved the sites the agent builds — anchor links in one-page site headers now point at the home page, pill labels stay inside the content column, and styling prefers the theme's block styles over custom CSS #4655, #4677, #4680
+* Fixed new sites being created in English instead of the language configured in Studio #4667
+* Fixed being signed out of wp-admin every time a site restarted, such as after saving settings, changing the PHP version, or toggling Xdebug #4703
+* Fixed the Publish button showing the previous user's cached remote sites after signing out and back in #4589
+* Agentic UI: Fixed settings alignment in some languages, a blurred scrollbar beneath conversations, the empty-state frost clipping at the panel edge, and the About card's disk measurement thrashing when switching sites #4687, #4556, #4555, #4627
+* Agentic UI: Simplified phpMyAdmin's embedded interface, improved the working timer's units and transition, and made the agent's preview refresh drop the cache like the toolbar's does #4684, #4579, #4625
+* Data Liberation: Added timeouts to browser calls so extraction cannot hang, removed stub commands that shadowed their skills, and updated its dependencies #4584, #4682, #4664
+* Updated multiple dependencies, including the ESLint and testing groups, RuboCop and claude-code-action #4707, #4708, #4710, #4711
+* Misc and maintenance improvements #4670, #4693, #4694
+
 1.19.0
 =====
 * Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624

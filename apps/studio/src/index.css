@@ -27,6 +27,9 @@
 	--color-frame-code-text: #1d2327;
 	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
+	/* AI credits meter escalation fills (80% / 90% spent). */
+	--color-frame-warning: #f0b849;
+	--color-frame-critical: #e68b20;
 	--color-frame-tab-active: #000;
 	--color-frame-diff-add-text: #008a20;
 	--color-frame-diff-add-bg: #edfaef;
@@ -60,6 +63,8 @@
 		--color-frame-code-text: #e0e0e0;
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
+		--color-frame-warning: #f2c14e;
+		--color-frame-critical: #f09b47;
 		--color-frame-tab-active: #fff;
 		--color-frame-diff-add-text: #1ed15a;
 		--color-frame-diff-add-bg: rgba( 30, 209, 90, 0.12 );

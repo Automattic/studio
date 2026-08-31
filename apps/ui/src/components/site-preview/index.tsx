@@ -1650,6 +1650,9 @@ function WebviewSurface( {
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
+	// How many loads have reached `dom-ready`. `ready` alone can't drive
+	// per-load work — it latches true on the first one and never changes again.
+	const [ domReadyCount, setDomReadyCount ] = useState( 0 );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	const onInspectorStateRef = useRef( onInspectorState );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
@@ -1686,6 +1689,11 @@ function WebviewSurface( {
 	useEffect( () => {
 		urlRef.current = url;
 	}, [ url ] );
+	// The last url the host asked for, which is what separates a navigation
+	// from a refresh: `currentUrlRef` follows the guest wherever it lands, so
+	// it can't tell "the parent wants another page" from "the parent wants this
+	// page again".
+	const lastRequestedUrlRef = useRef( url );
 	// Only loads we started (the mount-time `src` counts) are judged for redirects.
 	const pendingLoadRef = useRef( true );
 	// Identifies the most recent load we started, so a rejection from a load
@@ -1798,6 +1806,7 @@ function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
+			setDomReadyCount( ( count ) => count + 1 );
 			publishDocumentTitle();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
@@ -1937,13 +1946,27 @@ function WebviewSurface( {
 	// it doesn't block navigating *back* to the starting url later.
 	useEffect( () => {
 		if ( ! ready ) return;
-		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
+		const reloadRequested = reloadNonce !== lastReloadNonceRef.current;
+		const requestedUrlChanged = url !== lastRequestedUrlRef.current;
+		// Tracked even when we go on to skip the load, so an in-preview
+		// navigation that round-trips through `path` doesn't leave the next
+		// nonce bump looking like a page change.
+		lastRequestedUrlRef.current = url;
+		if ( url === currentUrlRef.current && ! reloadRequested ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		const previousUrl = currentUrlRef.current;
 		const generation = ++loadGenerationRef.current;
 		lastReloadNonceRef.current = reloadNonce;
 		pendingLoadRef.current = true;
+		// A nonce bump that asks for the same url is a refresh, not a
+		// navigation, so it goes through the same cache-dropping path as the
+		// toolbar's ⟳ — otherwise the agent's `refresh_browser` reloads with a
+		// warm cache and serves the CSS/JS it just edited back stale.
+		if ( reloadRequested && ! requestedUrlChanged ) {
+			void reloadPreview( webview, url, previousUrl );
+			return;
+		}
 		// `currentUrlRef` is advanced by `did-navigate`, never optimistically:
 		// a load the guest refuses — an unsaved-changes guard, a dead url —
 		// must leave the host showing the page that's actually on screen.
@@ -2004,23 +2027,26 @@ function WebviewSurface( {
 		}
 	}, [ browserCommand, publishBrowserState, ready ] );
 
-	// The CDP metrics override persists across navigations, so it only needs
-	// applying when the simulated viewport changes (or on the first dom-ready
-	// after one was requested). The `applied` ref skips the initial clear so
-	// plain previews don't pay for an emulation round-trip. The value is
-	// debounced because pane resizes stream continuous viewport changes and
+	// The CDP metrics override outlives a navigation, but only for as long as
+	// the guest webContents it was attached to: if that one goes away (a crash,
+	// or a process swap that drops the debugger) the override goes with it while
+	// `applied` still claims otherwise, and nothing would ever restore it. So
+	// re-assert on every dom-ready as well as on viewport changes — one extra
+	// round-trip per load in a responsive mode, and it self-heals. The `applied`
+	// ref still skips the initial clear so plain previews pay nothing. The value
+	// is debounced because pane resizes stream continuous viewport changes and
 	// each application is an IPC + CDP round-trip; the CSS frame tracks the
 	// drag live and the emulation settles right behind it.
 	const debouncedViewport = useDebouncedValue( viewport, 150 );
 	const appliedViewportRef = useRef( false );
 	useEffect( () => {
-		if ( ! ready ) return;
+		if ( ! domReadyCount ) return;
 		if ( ! debouncedViewport && ! appliedViewportRef.current ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		appliedViewportRef.current = Boolean( debouncedViewport );
 		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
-	}, [ debouncedViewport, ready ] );
+	}, [ debouncedViewport, domReadyCount ] );
 
 	return (
 		<>

@@ -1,4 +1,9 @@
-import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
+	getStudioCodeAiAccessState,
+	type AiCreditsMeterIntent,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -21,38 +26,31 @@ const LOW_AI_CREDITS_THRESHOLD = 100_000;
 
 type AiCreditsStatus = 'plenty' | 'low' | 'out';
 
-// The API exposes the combined remaining balance, but not the original total
-// of purchased credits. The ring therefore uses discrete low-balance states
-// rather than presenting its arc as an exact usage percentage.
-const AI_CREDITS_RING_STEPS = [
-	{ maximum: 50_000, fillPercentage: 90 },
-	{ maximum: 75_000, fillPercentage: 80 },
-	{ maximum: 100_000, fillPercentage: 70 },
-	{ maximum: 175_000, fillPercentage: 60 },
-	{ maximum: 250_000, fillPercentage: 50 },
-	{ maximum: 375_000, fillPercentage: 40 },
-	{ maximum: 500_000, fillPercentage: 30 },
-	{ maximum: 750_000, fillPercentage: 20 },
-	{ maximum: 1_000_000, fillPercentage: 10 },
-] as const;
-
-function getAiCreditsStatus( remaining: number ): AiCreditsStatus {
+// The ring arc draws the same used-over-total fraction as the Settings →
+// Usage meter (`getAiCreditsMeter`, STU-2326). The meter resolves null when
+// no denominator is measurable (e.g. billing unreachable) — there is no
+// exact fraction then, so the coloring falls back to an absolute
+// low-balance threshold and the arc stays empty (or full at zero balance).
+function getAiCreditsStatus(
+	remaining: number,
+	intent: AiCreditsMeterIntent | null
+): AiCreditsStatus {
 	if ( remaining === 0 ) {
 		return 'out';
+	}
+	if ( intent !== null ) {
+		return intent === 'ok' ? 'plenty' : 'low';
 	}
 	return remaining <= LOW_AI_CREDITS_THRESHOLD ? 'low' : 'plenty';
 }
 
-function getAiCreditsRingPercentage( remaining: number ): number {
-	if ( remaining === 0 ) {
-		return 100;
-	}
-	return AI_CREDITS_RING_STEPS.find( ( step ) => remaining <= step.maximum )?.fillPercentage ?? 0;
-}
-
-function AiCreditsRing( { remaining, status }: { remaining: number; status: AiCreditsStatus } ) {
-	const fillPercentage = getAiCreditsRingPercentage( remaining );
-
+function AiCreditsRing( {
+	fillPercentage,
+	status,
+}: {
+	fillPercentage: number;
+	status: AiCreditsStatus;
+} ) {
 	return (
 		<svg
 			className={ styles.aiCreditsRing }
@@ -108,7 +106,10 @@ export function AiCreditsControl() {
 
 	const hasTopUpOptions = ( pricing?.options.length ?? 0 ) > 0;
 	const remaining = ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
-	const status = getAiCreditsStatus( remaining );
+	const meter = getAiCreditsMeter( quota );
+	const intent = meter ? getAiCreditsMeterIntent( meter.fraction ) : null;
+	const status = getAiCreditsStatus( remaining, intent );
+	const fillPercentage = status === 'out' ? 100 : meter ? Math.round( meter.fraction * 100 ) : 0;
 	const formattedRemaining = new Intl.NumberFormat( locale ).format( remaining );
 	const compactRemaining = new Intl.NumberFormat( locale, {
 		notation: 'compact',
@@ -157,7 +158,7 @@ export function AiCreditsControl() {
 									/>
 								}
 							>
-								<AiCreditsRing remaining={ remaining } status={ status } />
+								<AiCreditsRing fillPercentage={ fillPercentage } status={ status } />
 							</Tooltip.Trigger>
 						}
 					/>

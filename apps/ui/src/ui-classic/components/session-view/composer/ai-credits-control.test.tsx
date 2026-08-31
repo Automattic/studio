@@ -57,9 +57,10 @@ describe( 'AiCreditsControl', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
-				costCap: 0,
+				costCap: 1_000_000,
 				allowanceRemaining: 960000,
 				purchasedRemaining: 150000,
+				purchasedAtTopUp: 200_000,
 			},
 		} as never );
 	} );
@@ -107,13 +108,14 @@ describe( 'AiCreditsControl', () => {
 		expect( screen.getByText( '1,110,000 remaining' ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows the plenty state from the combined balance, regardless of the legacy quota usage', () => {
+	it( 'resets the ring to the purchased pool once the allowance is spent', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 100,
-				costCap: 100,
+				costCap: 1_000_000,
 				allowanceRemaining: 0,
 				purchasedRemaining: 150000,
+				purchasedAtTopUp: 200_000,
 			},
 		} as never );
 
@@ -123,19 +125,22 @@ describe( 'AiCreditsControl', () => {
 		expect( ring ).toBeInTheDocument();
 		expect( ring ).not.toHaveAttribute( 'data-caution' );
 		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		// The spent allowance drops out of the meter: 50,000 of 200,000
+		// purchased credits used, same as the Settings → Usage bar.
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
-			'40'
+			'75'
 		);
 	} );
 
-	it( 'shows the low state when the combined balance reaches 100,000 credits', () => {
+	it( 'shows the low state when at least 80% of the metered credits are used', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
-				costCap: 0,
+				costCap: 1_000_000,
 				allowanceRemaining: 70000,
 				purchasedRemaining: 30000,
+				purchasedAtTopUp: 100_000,
 			},
 		} as never );
 
@@ -144,18 +149,19 @@ describe( 'AiCreditsControl', () => {
 
 		expect( ring ).toHaveAttribute( 'data-caution', 'true' );
 		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		// 1,000,000 of 1,100,000 used → 91% fill.
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
-			'30'
+			'9'
 		);
 	} );
 
-	it( 'keeps the plenty state above the low-credit boundary', () => {
+	it( 'keeps the plenty state below 80% usage', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
-				costCap: 0,
-				allowanceRemaining: 100001,
+				costCap: 1_000_000,
+				allowanceRemaining: 200001,
 				purchasedRemaining: 0,
 			},
 		} as never );
@@ -166,22 +172,17 @@ describe( 'AiCreditsControl', () => {
 	} );
 
 	it.each( [
-		[ 1_000_001, '100' ],
-		[ 1_000_000, '90' ],
-		[ 750_000, '80' ],
-		[ 500_000, '70' ],
-		[ 375_000, '60' ],
-		[ 250_000, '50' ],
-		[ 175_000, '40' ],
-		[ 100_000, '30' ],
-		[ 75_000, '20' ],
-		[ 50_000, '10' ],
+		[ 1_000_000, '100' ],
+		[ 750_000, '75' ],
+		[ 500_000, '50' ],
+		[ 250_000, '25' ],
+		[ 100_000, '10' ],
 		[ 0, '0' ],
-	] )( 'shows the expected ring step at %i remaining credits', ( remaining, dashOffset ) => {
+	] )( 'draws the used fraction of the ring at %i remaining credits', ( remaining, dashOffset ) => {
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: {
 				costUsage: 0,
-				costCap: 0,
+				costCap: 1_000_000,
 				allowanceRemaining: remaining,
 				purchasedRemaining: 0,
 			},
@@ -192,6 +193,27 @@ describe( 'AiCreditsControl', () => {
 		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
 			'stroke-dashoffset',
 			dashOffset
+		);
+	} );
+
+	it( 'falls back to the low-balance threshold when no denominator is measurable', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				allowanceRemaining: 50000,
+			},
+		} as never );
+
+		const { container } = renderControl();
+		const ring = container.querySelector( 'svg' );
+
+		expect( ring ).toHaveAttribute( 'data-caution', 'true' );
+		expect( ring ).not.toHaveAttribute( 'data-exhausted' );
+		// No exact fraction without a denominator — the arc stays empty.
+		expect( container.querySelector( 'circle:last-child' ) ).toHaveAttribute(
+			'stroke-dashoffset',
+			'100'
 		);
 	} );
 

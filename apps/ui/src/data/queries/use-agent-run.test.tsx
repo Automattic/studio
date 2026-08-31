@@ -59,11 +59,15 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 
 describe( 'useAgentRun queued handoff', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
-	let connector: Pick< Connector, 'continueSession' | 'getActiveAgentRuns' | 'onAgentEvent' >;
+	let connector: Pick<
+		Connector,
+		'continueSession' | 'getActiveAgentRuns' | 'onAgentEvent' | 'interruptAgentRun'
+	>;
 
 	beforeEach( () => {
 		connector = {
 			continueSession: vi.fn().mockResolvedValue( { runId: 'run-next' } ),
+			interruptAgentRun: vi.fn().mockResolvedValue( undefined ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
 				agentListener = listener;
@@ -139,6 +143,89 @@ describe( 'useAgentRun queued handoff', () => {
 					return data.text === 'Queued follow-up';
 				} )
 		).toBe( true );
+	} );
+
+	it( 'cancels pending questions so a reply is not stuck behind a blocked run', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [
+						{
+							question: 'How should the plugin be structured?',
+							options: [ { label: 'Single file plugin', description: 'One file.' } ],
+						},
+					],
+				},
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		// A run blocked on `ask_user` never reaches idle by itself, so without
+		// the cancel the queued reply would never be delivered.
+		await waitFor( () => expect( connector.interruptAgentRun ).toHaveBeenCalledWith( 'run-old' ) );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.interrupted', timestamp: '2026-06-24T12:00:02.000Z' },
+			} );
+		} );
+
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				'session-1',
+				'Queued follow-up',
+				expect.objectContaining( { displayMessage: 'Queued follow-up' } )
+			)
+		);
+	} );
+
+	it( 'leaves a running turn alone when no questions are pending', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+		expect( connector.interruptAgentRun ).not.toHaveBeenCalled();
 	} );
 
 	it( 'still invalidates when a run ends without a queued follow-up', async () => {

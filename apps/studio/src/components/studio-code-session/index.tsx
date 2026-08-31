@@ -296,6 +296,28 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
+	const [ composerFocusRequestId, setComposerFocusRequestId ] = useState( 0 );
+	const chooseFreeFormAnswer = useCallback( ( question: string ) => {
+		setArmedFreeFormQuestion( question );
+		setComposerFocusRequestId( ( id ) => id + 1 );
+	}, [] );
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -427,6 +449,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						) : (
 							<Composer
 								busy={ composerBusy }
+								awaitingAnswer={ pendingQuestions.length > 0 }
+								freeFormActive={ freeFormQuestion !== null }
+								focusRequestId={ composerFocusRequestId }
 								isInterrupting={ isInterrupting }
 								error={ usageCapReached ? null : runError }
 								usageCapMessage={ usageCapReached ? runError : null }
@@ -459,7 +484,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
-							onAnswerQuestion={ answerQuestion }
+							freeFormQuestion={ freeFormQuestion }
+							onAnswerQuestion={ answerQuestionFromOption }
+							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>

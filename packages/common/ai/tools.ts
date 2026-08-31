@@ -375,6 +375,27 @@ function getDataLiberationDetail( input: Record< string, unknown > ): string {
 		: detail;
 }
 
+// `AskUserQuestion` tells the model the system appends a free-form option, so
+// a well-behaved model never writes one itself. Both GUIs append it here.
+export function getFreeFormOptionLabel(): string {
+	return __( 'Something else' );
+}
+
+export function getFreeFormOptionDescription(): string {
+	return __( 'Reply in your own words instead of picking an option.' );
+}
+
+// Off-contract models do write their own escape hatch. Match the English
+// labels they actually use — comparing against the translated label above
+// would never match outside an English locale.
+const MODEL_FREE_FORM_LABELS = new Set( [ 'other', 'something else', 'none of the above' ] );
+
+export function hasOwnFreeFormOption( options: Array< { label: string } > ): boolean {
+	return options.some( ( option ) =>
+		MODEL_FREE_FORM_LABELS.has( option.label.trim().toLowerCase() )
+	);
+}
+
 function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
 	const questions = input?.questions;
 	if ( ! Array.isArray( questions ) || questions.length === 0 ) {

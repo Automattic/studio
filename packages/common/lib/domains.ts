@@ -14,6 +14,16 @@ export const generateCustomDomainFromSiteName = ( siteName: string ): string => 
 	return `${ domainBase }${ DEFAULT_CUSTOM_DOMAIN_SUFFIX }`;
 };
 
+export const stripLocalDomainSuffix = ( domain: string ): string => {
+	if ( domain.endsWith( DEFAULT_CUSTOM_DOMAIN_SUFFIX ) ) {
+		return domain.slice( 0, -DEFAULT_CUSTOM_DOMAIN_SUFFIX.length );
+	}
+	if ( domain.endsWith( '.local' ) ) {
+		return domain.slice( 0, -'.local'.length );
+	}
+	return domain;
+};
+
 export const getDomainNameValidationError = (
 	useCustomDomain: boolean,
 	domainName: string | null,

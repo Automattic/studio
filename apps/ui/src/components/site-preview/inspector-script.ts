@@ -677,13 +677,12 @@ export const INSPECTOR_PAGE_SCRIPT =
 				return;
 			}
 			if ( e.key !== 'Escape' ) return;
-			if ( activePopup ) {
+			if ( isPicking ) {
+				e.preventDefault();
+				e.stopPropagation();
+				send( { type: 'cancel-requested' } );
+			} else if ( activePopup ) {
 				activePopup = null;
-				persistAnnotations();
-				render();
-			} else if ( isPicking ) {
-				isPicking = false;
-				hoveredEl = null;
 				persistAnnotations();
 				render();
 			}

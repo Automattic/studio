@@ -115,15 +115,6 @@
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
 }
 
-.annotationToggle[aria-pressed='true'] {
-	color: var(--wpds-color-fg-content-inverted, #fff);
-}
-
-.annotationToggle[aria-pressed='true'] svg {
-	color: inherit;
-	fill: currentColor;
-}
-
 .annotationMenu {
 	display: none;
 	align-items: center;

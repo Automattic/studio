@@ -468,7 +468,10 @@ describe( 'SitePreview', () => {
 		} );
 		fireEvent( webview as Element, stateEvent );
 
-		expect( screen.getByRole( 'button', { name: 'Cancel annotation' } ) ).toBeVisible();
+		const cancelButton = screen.getByRole( 'button', { name: 'Cancel annotation' } );
+		expect( cancelButton ).toBeVisible();
+		expect( cancelButton.querySelector( 'svg' ) ).toBeNull();
+		expect( cancelButton ).not.toHaveAttribute( 'aria-pressed' );
 		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
@@ -506,7 +509,13 @@ describe( 'SitePreview', () => {
 		} );
 		fireEvent( webview as Element, stateEvent );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		const emptyCancelRequest = new Event( 'console-message' );
+		Object.defineProperty( emptyCancelRequest, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'cancel-requested',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, emptyCancelRequest );
 		expect(
 			screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
 		).not.toBeInTheDocument();
@@ -522,7 +531,13 @@ describe( 'SitePreview', () => {
 		} );
 		fireEvent( webview as Element, draftStateEvent );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		const draftCancelRequest = new Event( 'console-message' );
+		Object.defineProperty( draftCancelRequest, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'cancel-requested',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, draftCancelRequest );
 		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Keep annotating' } ) );
 		await waitFor( () =>
@@ -531,7 +546,8 @@ describe( 'SitePreview', () => {
 			).not.toBeInTheDocument()
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel annotation' } ) );
+		fireEvent.keyDown( document, { key: 'Escape' } );
+		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Discard annotations' } ) );
 		await waitFor( () =>
 			expect(

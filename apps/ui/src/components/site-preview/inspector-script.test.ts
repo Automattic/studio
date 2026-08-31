@@ -68,7 +68,7 @@ describe( 'site preview inspector sessions', () => {
 		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
 	} );
 
-	it( 'keeps saved notes when annotation mode is switched off', () => {
+	it( 'requests cancellation when Escape is pressed while annotating', () => {
 		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		seedSavedNote();
 
@@ -78,7 +78,8 @@ describe( 'site preview inspector sessions', () => {
 			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
 		);
 
-		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 1 } );
+		expect( bridgeMessages( log ) ).toContainEqual( { type: 'cancel-requested' } );
+		expect( latestState( log ) ).toMatchObject( { isPicking: true, annotationCount: 1 } );
 		expect(
 			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
 		).toHaveLength( 1 );

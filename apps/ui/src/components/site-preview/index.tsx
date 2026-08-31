@@ -4,7 +4,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import {
 	aspectRatio as fitToPane,
 	chevronDown,
-	close,
 	columns,
 	desktop,
 	Icon,
@@ -80,7 +79,7 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'cancel-requested' | 'done' | 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
@@ -725,12 +724,14 @@ function PreviewAnnotationControls( {
 	isPicking,
 	annotationCount,
 	hasUnsavedDraft,
+	cancelRequestId,
 	disabled,
 	onCommand,
 }: {
 	isPicking: boolean;
 	annotationCount: number;
 	hasUnsavedDraft: boolean;
+	cancelRequestId: number;
 	disabled: boolean;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
@@ -738,17 +739,20 @@ function PreviewAnnotationControls( {
 	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
 	const submitLabel = __( 'Send annotations to chat' );
 	const hasPending = annotationCount > 0;
-	const handleToggle = () => {
-		if ( isPicking ) {
-			if ( hasPending || hasUnsavedDraft ) {
-				setCancelDialogOpen( true );
-			} else {
-				onCommand( 'cancel' );
-			}
-			return;
+	const handledCancelRequestId = useRef( cancelRequestId );
+	const requestCancel = useCallback( () => {
+		if ( hasPending || hasUnsavedDraft ) {
+			setCancelDialogOpen( true );
+		} else {
+			onCommand( 'cancel' );
 		}
-		onCommand( 'toggle-picking' );
-	};
+	}, [ hasPending, hasUnsavedDraft, onCommand ] );
+	useEffect( () => {
+		if ( handledCancelRequestId.current === cancelRequestId ) return;
+		handledCancelRequestId.current = cancelRequestId;
+		if ( isPicking ) requestCancel();
+	}, [ cancelRequestId, isPicking, requestCancel ] );
+	const handleToggle = () => ( isPicking ? requestCancel() : onCommand( 'toggle-picking' ) );
 	const handleCancel = () => {
 		setCancelDialogOpen( false );
 		onCommand( 'cancel' );
@@ -768,10 +772,9 @@ function PreviewAnnotationControls( {
 								className={ styles.annotationToggle }
 								aria-label={ toggleLabel }
 								disabled={ disabled }
-								aria-pressed={ isPicking }
 								onClick={ handleToggle }
 							>
-								<Icon icon={ isPicking ? close : pencil } size={ 18 } />
+								{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
 								<span className={ styles.toolbarLabel }>
 									{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
 								</span>
@@ -813,14 +816,13 @@ function PreviewAnnotationControls( {
 											size="small"
 											className={ clsx( splitStyles.splitAction, styles.annotationToggle ) }
 											aria-label={ toggleLabel }
-											aria-pressed={ isPicking }
 											disabled={ disabled }
 											onClick={ handleToggle }
-										/>
+										>
+											{ isPicking ? __( 'Cancel' ) : <Icon icon={ pencil } size={ 18 } /> }
+										</Button>
 									}
-								>
-									<Icon icon={ isPicking ? close : pencil } size={ 18 } />
-								</Tooltip.Trigger>
+								/>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 									{ toggleLabel }
 								</Tooltip.Popup>
@@ -1043,6 +1045,7 @@ export function SitePreview( {
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
@@ -1339,13 +1342,17 @@ export function SitePreview( {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			const cancelAnnotation =
+				inspectorState.isPicking &&
+				event.key === 'Escape' &&
+				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
 			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
 			const realm = command || inspectorState.isPicking ? null : getRealmShortcut( event );
 			// Only claim the full-preview chord when the host actually offers
 			// the mode, so it stays available to the page otherwise.
 			const fullPreview =
 				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
-			if ( ! command && ! realm && ! fullPreview ) {
+			if ( ! cancelAnnotation && ! command && ! realm && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -1358,7 +1365,9 @@ export function SitePreview( {
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			if ( command ) {
+			if ( cancelAnnotation ) {
+				setAnnotationCancelRequestId( ( current ) => current + 1 );
+			} else if ( command ) {
 				sendBrowserCommand( command );
 			} else if ( realm ) {
 				handleSwitchRealm( realm );
@@ -1448,6 +1457,7 @@ export function SitePreview( {
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
 							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
+							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
 							onCommand={ sendInspectorCommand }
 						/>
@@ -1518,6 +1528,9 @@ export function SitePreview( {
 												inspector={ isResponsiveSurface( key ) }
 												onAnnotationsDone={ onAnnotationsDone }
 												onInspectorState={ ( state ) => patchSurface( key, { inspector: state } ) }
+												onInspectorCancelRequest={ () =>
+													setAnnotationCancelRequestId( ( current ) => current + 1 )
+												}
 												inspectorCommand={ surface.inspectorCommand }
 												browserCommand={ surface.browserCommand }
 												onBrowserStateChange={ ( state ) => {
@@ -1663,6 +1676,7 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	onInspectorState?: ( state: InspectorState ) => void;
+	onInspectorCancelRequest?: () => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
@@ -1688,6 +1702,7 @@ function WebviewSurface( {
 	reloadNonce,
 	onAnnotationsDone,
 	onInspectorState,
+	onInspectorCancelRequest,
 	inspectorCommand,
 	browserCommand,
 	onBrowserStateChange,
@@ -1703,6 +1718,7 @@ function WebviewSurface( {
 	const [ domReadyCount, setDomReadyCount ] = useState( 0 );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	const onInspectorStateRef = useRef( onInspectorState );
+	const onInspectorCancelRequestRef = useRef( onInspectorCancelRequest );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
@@ -1720,6 +1736,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onInspectorStateRef.current = onInspectorState;
 	}, [ onInspectorState ] );
+	useEffect( () => {
+		onInspectorCancelRequestRef.current = onInspectorCancelRequest;
+	}, [ onInspectorCancelRequest ] );
 	useEffect( () => {
 		onBrowserStateChangeRef.current = onBrowserStateChange;
 	}, [ onBrowserStateChange ] );
@@ -1897,6 +1916,10 @@ function WebviewSurface( {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
 				}
+				return;
+			}
+			if ( parsed.type === 'cancel-requested' ) {
+				onInspectorCancelRequestRef.current?.();
 				return;
 			}
 			if ( parsed.type === 'state' ) {

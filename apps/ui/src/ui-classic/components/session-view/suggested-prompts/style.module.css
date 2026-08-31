@@ -21,55 +21,67 @@
 	transform: translateX(-50%);
 }
 
-/* Progressive frost behind the labels: each stronger layer begins farther
-   down the W, then remains fully active through the bottom of the canvas.
-   The generous bounds keep animated pixels inside the effect while they
-   drift away from their resting positions. The overhang smears at the clipped
-   panel edge, but the composer strip always covers it here (see
-   access-requirements for the exposed-edge variant). */
+.frostField {
+	position: absolute;
+	top: calc(50% + 72px);
+	right: 0;
+	bottom: 0;
+	left: 50%;
+	width: min(100%, 656px);
+	transform: translateX(-50%);
+}
+
+/* Give displaced particles room to travel below the prompts, then fade the
+   effect away before the panel edge. A backdrop-filter that reaches the
+   clipped edge can smear the window chrome behind the panel into a visible
+   rectangle. */
 .frost {
 	position: absolute;
-	inset: -96px 0 -160px;
+	inset: -96px 0 0;
 	pointer-events: none;
 	backdrop-filter: blur(var(--frost-radius));
-	mask-image: linear-gradient(
+	--frost-ramp: linear-gradient(
 		to bottom,
-		transparent 0%,
+		transparent 0,
 		transparent var(--frost-start),
 		black var(--frost-end),
 		black 100%
 	);
-	-webkit-mask-image: linear-gradient(
+	--frost-edge-fade: linear-gradient(
 		to bottom,
-		transparent 0%,
-		transparent var(--frost-start),
-		black var(--frost-end),
-		black 100%
+		black 0,
+		black calc(100% - 96px),
+		transparent calc(100% - 16px),
+		transparent 100%
 	);
+	mask-image: var(--frost-ramp), var(--frost-edge-fade);
+	mask-composite: intersect;
+	-webkit-mask-image: var(--frost-ramp), var(--frost-edge-fade);
+	-webkit-mask-composite: source-in;
 }
 
 .frostSoft {
 	--frost-radius: 2px;
-	--frost-start: 10%;
-	--frost-end: 38%;
+	--frost-start: 40px;
+	--frost-end: 148px;
 }
 
 .frostMedium {
 	--frost-radius: 6px;
-	--frost-start: 18%;
-	--frost-end: 48%;
+	--frost-start: 70px;
+	--frost-end: 188px;
 }
 
 .frostStrong {
 	--frost-radius: 14px;
-	--frost-start: 32%;
-	--frost-end: 62%;
+	--frost-start: 124px;
+	--frost-end: 242px;
 }
 
 .frostIntense {
 	--frost-radius: 28px;
-	--frost-start: 46%;
-	--frost-end: 76%;
+	--frost-start: 180px;
+	--frost-end: 296px;
 }
 
 /* Fade-in for the frost layers and list — never an ancestor (see the
@@ -105,12 +117,12 @@
 .prompt {
 	--wp-ui-button-background-color: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral) 76%,
+		var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 76%),
 		transparent
 	);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 84%,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 84%),
 		transparent
 	);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
@@ -138,7 +150,7 @@
 	border-radius: 6px 6px 12px 6px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) 88%,
+		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 88%),
 		transparent
 	);
 	box-shadow: 0 0 16px
@@ -177,21 +189,14 @@
 	}
 }
 
+/* The surfaces above go opaque on their own via `--surface-alpha`; only the
+   effects that have no opaque equivalent need handling here. */
 @media (prefers-reduced-transparency: reduce) {
 	.frost {
 		display: none;
 	}
 
-	.prompt {
-		--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral);
-		--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral-strong);
-
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
-	}
-
 	.transfer {
-		background: var(--wpds-color-bg-surface-neutral-strong);
 		box-shadow: none;
 	}
 }

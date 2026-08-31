@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CopyButton } from '@/components/copy-button';
 import { useConnector } from '@/data/core';
+import { CODE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
@@ -31,7 +32,7 @@ function CodeBlock( { children }: { children?: ReactNode } ) {
 	const text = useMemo( () => extractText( children ).replace( /\n$/, '' ), [ children ] );
 
 	return (
-		<div className={ styles.codeBlock }>
+		<div className={ styles.codeBlock } { ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }>
 			<pre className={ styles.pre }>{ children }</pre>
 			{ text ? (
 				<CopyButton

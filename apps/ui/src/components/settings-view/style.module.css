@@ -43,6 +43,14 @@
 	pointer-events: none;
 }
 
+/* Holding the close button rather than the traffic-light spacer, so it has to
+   take clicks back and mirror .headerEnd's inset. */
+.headerStartClose {
+	align-items: center;
+	pointer-events: auto;
+	padding-inline-start: var( --wpds-dimension-padding-lg );
+}
+
 .headerTabs {
 	grid-column: 2;
 	align-self: stretch;
@@ -99,6 +107,14 @@
 	align-items: center;
 	justify-self: end;
 	padding-inline-end: var( --wpds-dimension-padding-lg );
+}
+
+/* Match the onboarding close button: settings portals outside the
+   [data-ui-mode='classic'] container, so the global compact-density rule
+   that shrinks icons to 16px doesn't reach this svg. */
+.headerClose svg {
+	width: 16px;
+	height: 16px;
 }
 
 .scroll {
@@ -201,7 +217,6 @@
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
 	line-height: var( --wpds-typography-line-height-sm );
-	white-space: nowrap;
 }
 
 .preferenceText p {
@@ -216,6 +231,29 @@
 	justify-content: flex-end;
 	min-width: 0;
 	inline-size: 100%;
+}
+
+/* Description and toggle share the top line; the key field spans both columns
+   underneath. */
+.apiKeyRow {
+	row-gap: var( --wpds-dimension-padding-md );
+}
+
+.apiKeyControls {
+	grid-column: 1 / -1;
+}
+
+.apiKeyControls :global( .components-base-control ) {
+	max-inline-size: 420px;
+}
+
+/* Match the error message below the field. The accent overrides keep the
+   border and focus ring red while the input is focused. */
+.apiKeyControlsError :global( input.components-text-control__input ) {
+	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+
+	border-color: var( --wpds-color-stroke-surface-error-strong );
 }
 
 .appearancePicker {
@@ -744,10 +782,6 @@
 		flex-direction: column;
 	}
 
-	.preferenceText h2 {
-		white-space: normal;
-	}
-
 	.skillRow {
 		align-items: stretch;
 		grid-template-columns: 1fr;
@@ -868,7 +902,71 @@
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
-	background: var( --wpds-color-fg-interactive-brand );
+	background: var( --wpds-color-fg-content-neutral );
+}
+
+/* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
+   filters brighten the wpds caution/warning weak tokens toward the design's
+   yellow and orange — taken as-is from the usage-interfaces exploration. */
+.progressValueWarning {
+	background: var( --wpds-color-fg-content-caution-weak );
+	filter: saturate( 2 ) brightness( 1.8 );
+}
+
+.progressValueCritical {
+	background: var( --wpds-color-fg-content-warning-weak );
+	filter: saturate( 1.6 ) brightness( 1.35 );
+}
+
+.progressValueExhausted {
+	background: var( --wpds-color-bg-interactive-error-strong );
+}
+
+.creditMeter {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.creditMeterSummary {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditMeterCredits {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditMeterAvailable {
+	flex: none;
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditCallout {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditCallout > :first-child {
+	flex: none;
+}
+
+.creditCalloutText {
+	min-width: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .previewActionsButton {
@@ -877,6 +975,28 @@
 
 .usageSectionAction {
 	align-self: flex-start;
+}
+
+.aiCreditsHeading {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.aiCreditsDetailsButton {
+	flex: none;
+}
+
+.aiCreditsDetailsButton svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+.creditBalances {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	font-variant-numeric: tabular-nums;
 }
 
 .aiCreditsTrack {

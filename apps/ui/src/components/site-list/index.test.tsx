@@ -9,6 +9,7 @@ import {
 	useDeleteSite,
 	useExportDatabase,
 	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -49,10 +50,16 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	COPY_SITE_MUTATION_KEY: [ 'copySite' ],
+	EXPORT_DATABASE_MUTATION_KEY: [ 'exportDatabase' ],
+	EXPORT_FULL_SITE_MUTATION_KEY: [ 'exportFullSite' ],
 	useCopySite: vi.fn(),
 	useDeleteSite: vi.fn(),
 	useExportDatabase: vi.fn(),
 	useExportFullSite: vi.fn(),
+	useIsSiteBusy: vi.fn(),
+	useIsSiteMutating: vi.fn(),
+	useSiteOperation: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -83,6 +90,7 @@ const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -109,16 +117,18 @@ describe( 'SiteList', () => {
 			reason: null,
 			isReady: true,
 		} );
+		useIsSiteBusyMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor: vi.fn(),
-			openSiteInTerminal: vi.fn(),
+			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
+			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
+			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
 		} as unknown as ReturnType< typeof useConnector > );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
@@ -208,17 +218,48 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
 	} );
 
-	it( 'opens site settings from the site actions menu', async () => {
+	it( 'records a Tracks event when opening the site folder from the menu', async () => {
 		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+		fireEvent.click( await screen.findByText( 'Open folder' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
+	} );
+
+	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
+
+		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
+		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'external',
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
+	} );
+
+	it( 'opens site settings from the site actions menu', async () => {
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
 		fireEvent.click( await screen.findByText( 'Site settings' ) );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
 			search: { tab: 'general' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'settings',
 		} );
 	} );
 
@@ -238,6 +279,19 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
 			params: { siteId: 'stopped-site' },
+		} );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
+	} );
+
+	it( 'records an assistant panel event when clicking a site name opens chat', () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
 		} );
 	} );
 
@@ -264,13 +318,42 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
-		render( <SiteList /> );
+		const onSiteOpen = vi.fn();
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
 
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'overview',
+		} );
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
+	it( 'shows the overview shortcut as pressed and toggles back to chat', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const overviewButton = within( stoppedRow ).getByRole( 'button', {
+			name: 'Site overview',
+		} );
+		expect( overviewButton ).toHaveAttribute( 'aria-pressed', 'true' );
+
+		fireEvent.click( overviewButton );
+
+		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/new',
 			params: { siteId: 'stopped-site' },
 		} );
 	} );
@@ -386,6 +469,7 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {
+		const onSiteOpen = vi.fn();
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
@@ -404,7 +488,7 @@ describe( 'SiteList', () => {
 			isLoading: false,
 		} );
 
-		render( <SiteList /> );
+		render( <SiteList onSiteOpen={ onSiteOpen } /> );
 
 		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
 
@@ -417,6 +501,7 @@ describe( 'SiteList', () => {
 			to: '/sessions/$sessionId',
 			params: { sessionId: 'latest-chat' },
 		} );
+		expect( onSiteOpen ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {
@@ -642,6 +727,25 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
+	} );
+
+	// Without a per-row indicator there is nothing to tell two concurrent imports
+	// apart — the toast that used to carry this named no site.
+	it( 'shows activity on the importing row only', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'idle' );
+		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>
+			siteId === 'running-site' ? { kind: 'pending', direction: 'import' } : null
+		);
+
+		render( <SiteList /> );
+
+		const importingRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const otherRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+
+		expect(
+			within( importingRow ).getByRole( 'status', { name: 'Importing backup' } )
+		).toBeInTheDocument();
+		expect( within( otherRow ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows live sync activity before the site name while a site is syncing', () => {

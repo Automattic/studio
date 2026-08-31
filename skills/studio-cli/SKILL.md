@@ -21,7 +21,7 @@ studio list      # List all sites (--format table|json)
 studio status    # Show site details (--format table|json)
 studio start     # Start a site
 studio stop      # Stop a site (--all to stop all)
-studio delete    # Delete a site (--files to trash site files)
+studio delete    # Delete one or more sites by path or ID (--files to trash, --dry-run to preview)
 studio config    # Get/set site settings (config get | config set)
 ```
 
@@ -86,14 +86,17 @@ studio stop --path ~/Studio/my-site                     # Stop current site
 studio stop --all                                       # Stop all sites
 ```
 
-### Deleting a site
+### Deleting sites
 
 ```bash
-studio delete --path ~/Studio/my-site          # Remove site record only
-studio delete --path ~/Studio/my-site --files   # Also trash site files
+studio delete --path ~/Studio/my-site                 # Trash files (default) and remove the site
+studio delete --path ~/Studio/my-site --no-files      # Remove the site record; keep files
+studio delete ~/Studio/site-a ~/Studio/site-b         # Delete multiple explicit paths in one session
+studio delete <site-id> <site-id> --format json       # Machine-readable per-site outcomes
+studio delete ~/Studio/site-a ~/Studio/site-b --dry-run
 ```
 
-Deleting a site also removes its associated preview sites if authenticated.
+Explicit paths or IDs authorize the deletion; there is no `--all`. Preview with `--dry-run`/`--preview` before mutating. Default is move-to-Trash. Partial failure returns a nonzero status and still reports completed items. Deleting a site also removes its associated preview sites if authenticated.
 
 ## Authentication
 

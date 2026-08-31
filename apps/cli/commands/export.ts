@@ -11,11 +11,12 @@ import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { untildify } from 'cli/lib/utils';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { classifyExportFailure, untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 function sendIpcEvent( eventTuple: ExportIpcEvent[ 'event' ] ) {
 	const ipcEvent: ExportIpcEvent = { event: eventTuple };
@@ -61,7 +62,10 @@ function handleExportIpc( emitter: ImportExportEventEmitter ) {
 	} );
 }
 
-export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
+export function handleExportEvents(
+	emitter: ImportExportEventEmitter,
+	logger: Logger< string > = defaultLogger
+): void {
 	emitter.on( ExportEvents.EXPORT_START, () => {
 		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
 	} );
@@ -112,12 +116,8 @@ export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportSuccess( __( 'Site exported successfully' ) );
 	} );
 
-	emitter.on( ExportEvents.EXPORT_ERROR, ( payload ) => {
-		throw new LoggerError(
-			__( 'Export failed' ),
-			payload.message ? new Error( payload.message ) : undefined
-		);
-	} );
+	// No EXPORT_ERROR handler: every emitter rethrows the original error right after emitting, and
+	// that error carries the failure `code` for analytics — a wrap here would discard it.
 }
 
 export async function runCommand(
@@ -126,8 +126,11 @@ export async function runCommand(
 	mode: 'full' | 'content' | 'db' = 'full',
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
-	applyDeployIgnore = false
+	applyDeployIgnore = false,
+	suppressTracksEvent = false,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
+	const startedAt = Date.now();
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -167,19 +170,57 @@ export async function runCommand(
 		} );
 
 		if ( ! exporter ) {
-			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
+			throw new LoggerError(
+				__( 'No suitable exporter found for the provided backup file' ),
+				undefined,
+				'no_exporter_found'
+			);
 		}
 
 		if ( process.send ) {
 			handleExportIpc( exporter );
 		} else {
-			handleExportEvents( exporter );
+			handleExportEvents( exporter, logger );
 		}
 		await exporter.export();
 
 		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
+
+		if ( ! suppressTracksEvent ) {
+			await recordSiteExportEvent( {
+				success: true,
+				export_type: mode,
+				time_ms: Date.now() - startedAt,
+			} );
+		}
+	} catch ( error ) {
+		if ( ! suppressTracksEvent ) {
+			await recordSiteExportEvent( {
+				success: false,
+				export_type: mode,
+				failure_reason: classifyExportFailure( error ),
+				time_ms: Date.now() - startedAt,
+			} );
+		}
+		throw error;
 	} finally {
 		await disconnectFromDaemon();
+	}
+}
+
+async function recordSiteExportEvent( props: {
+	success: boolean;
+	export_type: 'full' | 'content' | 'db';
+	failure_reason?: string;
+	time_ms: number;
+} ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.SITE_EXPORT, {
+			...props,
+			...getTracksOrigin(),
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail the export.
 	}
 }
 
@@ -243,6 +284,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Apply .deployignore patterns when exporting' ),
 					hidden: true,
+				} )
+				.option( 'suppress-tracks-event', {
+					type: 'boolean',
+					default: false,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -276,14 +322,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.mode,
 					argv.splitDbDumpByTable,
 					argv.includeOnly,
-					argv.applyDeployIgnore
+					argv.applyDeployIgnore,
+					argv.suppressTracksEvent
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to export site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

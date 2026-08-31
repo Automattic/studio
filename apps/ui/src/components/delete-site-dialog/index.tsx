@@ -1,7 +1,10 @@
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
+import { AppThemeScope } from '@/components/app-theme-scope';
 import { useDeleteSite } from '@/data/queries/use-sites';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -15,72 +18,46 @@ interface DeleteSiteDialogProps {
 export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: DeleteSiteDialogProps ) {
 	const deleteSite = useDeleteSite();
 	const [ deleteFiles, setDeleteFiles ] = useState( true );
-	const [ error, setError ] = useState< string | null >( null );
+	const confirmLabel = __( 'Delete site' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
 
-	const handleConfirm = () => {
-		setError( null );
-		deleteSite.mutate(
-			{ id: site.id, deleteFiles },
-			{
-				onSuccess: () => {
-					onOpenChange( false );
-					onDeleted?.();
-				},
-				onError: ( err: Error ) => {
-					setError( err.message ?? __( 'Unable to delete the site. Please try again.' ) );
-				},
-			}
-		);
+	const handleConfirm = async () => {
+		try {
+			await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+			onDeleted?.();
+		} catch ( err ) {
+			return {
+				error: ( err as Error )?.message || __( 'Unable to delete the site. Please try again.' ),
+			};
+		}
 	};
 
 	return (
-		<Dialog.Root
-			open={ open }
-			onOpenChange={ ( next ) => {
-				if ( deleteSite.isPending ) {
-					return;
-				}
-				onOpenChange( next );
-				if ( ! next ) {
-					setError( null );
-				}
-			} }
-		>
-			<Dialog.Popup size="small">
-				<Dialog.Header>
-					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
-				</Dialog.Header>
-				<Dialog.Content>
-					<p className={ styles.dialogText }>
-						{ __(
-							"The site's database will be lost, including all posts, pages, comments, and media."
-						) }
-					</p>
-					<label className={ styles.dialogCheckbox }>
-						<input
-							type="checkbox"
+		// The dialog is opened from the site list, which lives in the sidebar's
+		// dark chrome scope; without this it inherits that palette and renders
+		// dark on top of the light app.
+		<AppThemeScope>
+			<AlertDialog.Root open={ open } onOpenChange={ onOpenChange } onConfirm={ handleConfirm }>
+				<AlertDialog.Popup
+					className={ styles.popup }
+					onKeyDown={ handleKeyDown }
+					intent="irreversible"
+					title={ sprintf( __( 'Delete %s' ), site.name ) }
+					description={ __(
+						"The site's database will be lost, including all posts, pages, comments, and media."
+					) }
+					confirmButtonText={ confirmLabel }
+				>
+					<div className={ styles.dialogCheckbox }>
+						<CheckboxControl
+							__nextHasNoMarginBottom
+							label={ __( 'Delete site files from my computer' ) }
 							checked={ deleteFiles }
-							onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
+							onChange={ setDeleteFiles }
 						/>
-						<span>{ __( 'Delete site files from my computer' ) }</span>
-					</label>
-					{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
-				</Dialog.Content>
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteSite.isPending }>
-						{ __( 'Cancel' ) }
-					</Dialog.Action>
-					<Button
-						variant="solid"
-						tone="brand"
-						loading={ deleteSite.isPending }
-						loadingAnnouncement={ __( 'Deleting site' ) }
-						onClick={ handleConfirm }
-					>
-						{ __( 'Delete site' ) }
-					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+					</div>
+				</AlertDialog.Popup>
+			</AlertDialog.Root>
+		</AppThemeScope>
 	);
 }

@@ -5,6 +5,7 @@ import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib
 import {
 	BackupExtractEvents,
 	ImporterEvents,
+	ImporterType,
 	ImportEventTuple,
 	ImportIpcEvent,
 	ValidatorEvents,
@@ -24,7 +25,8 @@ import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { untildify } from 'cli/lib/utils';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { classifyImportFailure, untildify } from 'cli/lib/utils';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -33,7 +35,7 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
 	plugins: __( 'Importing plugins…' ),
@@ -49,7 +51,9 @@ async function setupWordPressFilesOnly( sitePath: string ): Promise< void > {
 		throw new LoggerError(
 			__(
 				'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
-			)
+			),
+			undefined,
+			'bundled_wp_missing'
 		);
 	}
 
@@ -121,7 +125,10 @@ function handleImportIpc( emitter: ImportExportEventEmitter ) {
 	} );
 }
 
-export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
+export function handleImportEvents(
+	emitter: ImportExportEventEmitter,
+	logger: Logger< string > = defaultLogger
+): void {
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
 		logger.reportSuccess( sprintf( __( 'Started import…' ) ) );
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating backup…' ) );
@@ -170,12 +177,8 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportWarning( warningMessage || __( 'A warning occurred while extracting backup' ) );
 	} );
 
-	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
-		throw new LoggerError(
-			__( 'Failed to extract backup' ),
-			error instanceof Error ? error : undefined
-		);
-	} );
+	// No BACKUP_EXTRACT_ERROR handler: every extraction failure rejects `extractFiles`, which the
+	// import manager wraps in a LoggerError coded `extract` — a wrap here would double-wrap it.
 
 	emitter.on( ImporterEvents.IMPORT_START, () => {
 		logger.reportStart( LoggerAction.IMPORT_SITE, __( 'Importing backup…' ) );
@@ -250,20 +253,23 @@ export function handleImportEvents( emitter: ImportExportEventEmitter ): void {
 		logger.reportSuccess( __( 'Site imported successfully' ) );
 	} );
 
-	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
-		throw new LoggerError( __( 'Import failed' ), new Error( error ) );
-	} );
+	// No IMPORT_ERROR handler: every emitter rethrows the original error right after emitting, and
+	// that error carries the failure `code` for analytics — a wrap here would discard it.
 }
 
 export async function runCommand(
 	siteFolder: string,
 	importFile: string,
-	alwaysStartServer = false
+	alwaysStartServer = false,
+	suppressTracksEvent = false,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
+	const startedAt = Date.now();
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
 	let restartSiteError: unknown;
+	let importerType: ImporterType | undefined;
 
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -275,7 +281,11 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		if ( ! fs.existsSync( importFile ) ) {
-			throw new LoggerError( sprintf( __( 'Import file not found: %s' ), importFile ) );
+			throw new LoggerError(
+				sprintf( __( 'Import file not found: %s' ), importFile ),
+				undefined,
+				'file_not_found'
+			);
 		}
 
 		wasServerRunning = !! ( await isServerRunning( site.id ) );
@@ -299,10 +309,13 @@ export async function runCommand(
 			{ path: importFile, type: getBackupFileType( importFile ) },
 			DEFAULT_IMPORTER_OPTIONS
 		);
+		importer.on( ImporterEvents.IMPORT_START, ( type ) => {
+			importerType = type;
+		} );
 		if ( process.send ) {
 			handleImportIpc( importer );
 		} else {
-			handleImportEvents( importer );
+			handleImportEvents( importer, logger );
 		}
 		const importResult = await importer.import( site );
 		const importedPhpVersion = importResult.meta?.phpVersion;
@@ -340,7 +353,32 @@ export async function runCommand(
 		}
 	}
 
-	if ( importError instanceof LoggerError && restartSiteError instanceof Error ) {
+	// Record before the LoggerError merge below — merging the restart error into `previousError`
+	// would corrupt the failure classification, which walks the import error's chain.
+	if ( ! suppressTracksEvent ) {
+		await recordSiteImportEvent(
+			importError === undefined
+				? {
+						success: true,
+						importer_type: importerType ?? 'unknown',
+						time_ms: Date.now() - startedAt,
+				  }
+				: {
+						success: false,
+						importer_type: importerType ?? 'unknown',
+						failure_reason: classifyImportFailure( importError ),
+						time_ms: Date.now() - startedAt,
+				  }
+		);
+	}
+
+	// Attach the restart error only when the import error has no cause of its own — overwriting an
+	// existing `previousError` would hide the root cause behind the (secondary) restart failure.
+	if (
+		importError instanceof LoggerError &&
+		restartSiteError instanceof Error &&
+		! importError.previousError
+	) {
 		importError.previousError = restartSiteError;
 	}
 
@@ -350,6 +388,22 @@ export async function runCommand(
 
 	if ( restartSiteError instanceof Error ) {
 		throw restartSiteError;
+	}
+}
+
+async function recordSiteImportEvent( props: {
+	success: boolean;
+	importer_type: ImporterType | 'unknown';
+	failure_reason?: string;
+	time_ms: number;
+} ): Promise< void > {
+	try {
+		await recordTracksEvent( TRACKS_EVENTS.SITE_IMPORT, {
+			...props,
+			...getTracksOrigin(),
+		} );
+	} catch {
+		// Best-effort telemetry — never block or fail the import.
 	}
 }
 
@@ -372,17 +426,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: false,
 					hidden: true,
+				} )
+				.option( 'suppress-tracks-event', {
+					type: 'boolean',
+					default: false,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.importFile, argv.startServer );
+				await runCommand( argv.path, argv.importFile, argv.startServer, argv.suppressTracksEvent );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Failed to import site' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

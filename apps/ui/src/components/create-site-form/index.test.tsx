@@ -114,6 +114,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				aiSettings: false,
 				studioLogs: false,
 				switchToClassicUi: false,
 			},
@@ -170,7 +171,10 @@ describe( 'CreateSiteForm', () => {
 
 		rerenderWith( { name: 'Suggested site' } );
 		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
 
 		await act( async () => {
 			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
@@ -267,7 +271,10 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'First' } );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'First' ) );
 		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Second' } } );
-		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'Second' ) );
 
 		await act( async () => {
@@ -314,6 +321,40 @@ describe( 'CreateSiteForm', () => {
 
 		expect( refreshedGenerator ).not.toHaveBeenCalled();
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/created-site' );
+	} );
+
+	it( 'keeps the submit button enabled while typing and queues a submit until the path resolves', async () => {
+		const pending = deferred< {
+			path: string;
+			isEmpty: boolean;
+			isWordPress: boolean;
+		} >();
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( () => pending.promise ),
+			selectPath: vi.fn(),
+		} );
+		const onSubmit = vi.fn();
+		renderForm( undefined, onSubmit );
+		fireEvent.change( screen.getByLabelText( /Site name/ ), {
+			target: { value: 'My site' },
+		} );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
+
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).not.toHaveBeenCalled();
+
+		await act( async () => {
+			pending.resolve( { path: '/sites/my-site', isEmpty: true, isWordPress: false } );
+			await pending.promise;
+		} );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: '/sites/my-site' } )
+			)
+		);
 	} );
 
 	it( 'preserves a manual path when automatic generation is still pending', async () => {
@@ -388,6 +429,7 @@ describe( 'CreateSiteForm', () => {
 				annotatePreview: false,
 				readLocalMedia: false,
 				agentInstructions: false,
+				aiSettings: false,
 				studioLogs: false,
 				switchToClassicUi: false,
 			},

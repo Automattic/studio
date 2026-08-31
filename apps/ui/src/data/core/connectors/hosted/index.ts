@@ -1,6 +1,8 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
@@ -19,6 +21,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSettings } from '@studio/common/ai/providers';
 
 const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
 
@@ -122,6 +125,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			aiSettings: false,
 			studioLogs: false,
 			switchToClassicUi: false,
 		},
@@ -184,6 +188,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
+		async getSiteStorageUsage(): Promise< null > {
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},
@@ -242,6 +249,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getStudioAssistantQuota() {
 			return null;
 		},
+		async getStudioAssistantTopUpPricing() {
+			return null;
+		},
 		async deleteAllSnapshots() {
 			// No-op: hosted mode does not create WordPress.com preview sites.
 		},
@@ -266,8 +276,32 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pushSiteToLive() {
 			throw new UnsupportedError( 'pushSiteToLive' );
 		},
+		async cancelSync() {
+			throw new UnsupportedError( 'cancelSync' );
+		},
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
+		},
+		async getLatestRewindId(): Promise< string | null > {
+			throw new UnsupportedError( 'getLatestRewindId' );
+		},
+		async listRemoteFileTree(): Promise< Record< string, unknown > > {
+			throw new UnsupportedError( 'listRemoteFileTree' );
+		},
+		async getHostingPhpVersion(): Promise< string | undefined > {
+			throw new UnsupportedError( 'getHostingPhpVersion' );
+		},
+		async listLocalFileTree(): Promise< never > {
+			throw new UnsupportedError( 'listLocalFileTree' );
+		},
+		async getDirectorySize(): Promise< never > {
+			throw new UnsupportedError( 'getDirectorySize' );
+		},
+		async getFileSize(): Promise< never > {
+			throw new UnsupportedError( 'getFileSize' );
+		},
+		async getIsMultisite(): Promise< never > {
+			throw new UnsupportedError( 'getIsMultisite' );
 		},
 		getPublishCheckoutUrl() {
 			return undefined;
@@ -309,6 +343,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/model`, {
 				method: 'POST',
 				body: JSON.stringify( { model } ),
+			} );
+		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
 			} );
 		},
 		async interruptAgentRun( runId ) {
@@ -372,6 +412,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async saveAgentInstructions(): Promise< void > {
 			throw new UnsupportedError( 'saveAgentInstructions' );
 		},
+		async getAiSettings(): Promise< AiSettings > {
+			throw new UnsupportedError( 'getAiSettings' );
+		},
+		async saveAnthropicApiKey(): Promise< AiSettings > {
+			throw new UnsupportedError( 'saveAnthropicApiKey' );
+		},
+		async setAiProvider(): Promise< AiSettings > {
+			throw new UnsupportedError( 'setAiProvider' );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
@@ -395,8 +444,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// hosted (browser) target has no Main-process choke point yet. See the design doc.
+		// Deliberately a no-op: the anonymous per-install id `studio ui` records against
+		// doesn't carry over to a multi-user deployment, which needs its own consent model.
 		async trackEvent() {
 			// intentionally empty
 		},
@@ -468,8 +517,32 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
+			return () => {};
+		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

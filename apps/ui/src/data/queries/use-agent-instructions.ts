@@ -17,8 +17,13 @@ export function useSaveAgentInstructions() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( content: string ) =>
-			connector.saveAgentInstructions( content ).then( () => content ),
+		mutationFn: ( {
+			content,
+			editSession,
+		}: {
+			content: string;
+			editSession?: { previousContent: string };
+		} ) => connector.saveAgentInstructions( content, { editSession } ).then( () => content ),
 		onSuccess: ( content ) => {
 			queryClient.setQueryData< string >( AGENT_INSTRUCTIONS_QUERY_KEY, content );
 		},

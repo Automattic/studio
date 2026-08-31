@@ -1,24 +1,16 @@
-.dialogText {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+/* AlertDialog hardcodes its popup to the `medium` surface width (560px), which
+   leaves this dialog's one-sentence body running well past a comfortable
+   measure. Match the `small` width the app's other confirmations use. Unlayered
+   CSS wins over WP UI's cascade layers. */
+.popup {
+	max-width: var( --wpds-dimension-surface-width-md );
 }
 
+/* CheckboxControl draws its checkmark a few px larger than the input box and
+   lets it bleed. The dialog body has no bottom padding of its own, so without
+   room for that bleed it reports itself as scrollable and grows a separator
+   above the footer. */
 .dialogCheckbox {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
-	cursor: var(--wpds-cursor-control);
-}
-
-.dialogError {
-	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	margin-top: var( --wpds-dimension-gap-lg );
+	padding-bottom: var( --wpds-dimension-gap-xs );
 }

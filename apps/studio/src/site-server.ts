@@ -125,6 +125,10 @@ type SiteServerMeta = {
 export class SiteServer {
 	server: CliServerProcess;
 
+	// True while Studio serves a PHP-error page for this site and watches for a fix. The CLI reports
+	// the site as stopped in this state, so running-state adoption treats it as running instead.
+	inErrorRecovery = false;
+
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
@@ -203,7 +207,14 @@ export class SiteServer {
 
 		// Default to the native PHP runtime when the caller doesn't specify one.
 		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
-		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		let result;
+		try {
+			result = await createSiteViaCli( { ...options, runtime, siteId } );
+		} catch ( error ) {
+			// Not `unregister`, which would mark the id deleted; this site never existed.
+			servers.delete( siteId );
+			throw error;
+		}
 		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;
 
@@ -258,6 +269,11 @@ export class SiteServer {
 
 	// Adopt an authoritative running value, touching only running/url so Studio-owned fields survive.
 	adoptRunningState( running: boolean ): boolean {
+		// A site serving a PHP-error page counts as running even though the CLI reports it stopped.
+		if ( this.inErrorRecovery ) {
+			running = true;
+		}
+
 		if ( this.details.running === running ) {
 			return false;
 		}

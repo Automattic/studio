@@ -22,14 +22,12 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+	-webkit-app-region: drag;
 }
 
-/* Inside the sidebar's dark ThemeProvider; generates no box, but declares
-   the row background here so it resolves against the dark ramp (declared on
-   .sidebar it would resolve against the outer light theme). */
+/* Inside the sidebar's dark ThemeProvider; generates no box. */
 .sidebarThemeScope {
 	display: contents;
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -49,6 +47,7 @@
 	bottom: 0;
 	z-index: 1;
 	background-color: var(--app-chrome-bg);
+	-webkit-app-region: no-drag;
 }
 
 .sidebarCollapsed {
@@ -58,7 +57,10 @@
 .main {
 	flex: 1;
 	min-width: 0;
-	overflow: auto;
+	/* Route panels own their scrolling. Keep this frame fixed so positioned
+	   chrome, such as the collapsed-sidebar toggle, cannot create an outer
+	   scroll range. */
+	overflow: hidden;
 	position: relative;
 	isolation: isolate;
 	background-color: var(--app-chrome-bg);
@@ -80,6 +82,15 @@
 
 .sidebarCards {
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* The beta affordance stays in normal footer flow, below transient/persistent
+   messages and above Settings, so it never overlays a toast or checklist.
+   Margin, not padding: this class lands on the bubble itself, which owns its
+   own padding. */
+.sidebarBeta {
+	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
+		var(--wpds-dimension-padding-xs);
 }
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
@@ -128,6 +139,21 @@
 	display: inline-flex;
 }
 
+/* Replicates @wordpress/ui IconButton's internal sizing (see
+   node_modules/@wordpress/ui/src/icon-button/style.module.css, including the
+   -1px border compensation on the icon) — IconButton itself isn't used
+   because its unconditional tooltip would fight the hover-opened site
+   switcher popover. Keep in sync with upstream. */
+.floatingToggleControl {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+.floatingToggleIcon {
+	margin: -1px;
+}
+
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
    on the right. */
 .floatingToggleButton:dir(rtl) svg {
@@ -138,6 +164,10 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* --app-main-composer-height is published on the document by the session
+   view's chrome observer, so the shelf rides above the composer as it grows.
+   Views without a composer leave it unset and the shelf sits on the panel's
+   own footer band. */
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
@@ -146,4 +176,10 @@
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
+}
+
+/* Fullscreen preview hides the chat column but leaves its composer measured,
+   so ignore that height and sit on the footer band like any composer-less view. */
+.floatingToastsOverPreview {
+	--app-main-composer-height: 0px;
 }

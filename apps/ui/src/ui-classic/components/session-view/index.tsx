@@ -16,6 +16,7 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -30,10 +31,12 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -139,17 +142,30 @@ function SessionFrame( {
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
+			// ancestor of this root, so it can't inherit the value from here.
+			// Publishing it on the document lets the shelf ride above the composer
+			// however it grows — wrapped text, attachments, or the resize handle.
+			document.documentElement.style.setProperty(
+				'--app-main-composer-height',
+				`${ composerHeight }px`
 			);
 		};
 
 		updateChromeSize();
 
+		// Views without a composer must fall back to the shelf's 0px default.
+		const clearComposerHeight = () =>
+			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearComposerHeight();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -160,7 +176,10 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearComposerHeight();
+		};
 	}, [] );
 
 	return (
@@ -174,7 +193,7 @@ function SessionFrame( {
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
-					<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
 					<div
 						ref={ composerRef }
 						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
@@ -250,6 +269,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	useEffect(
+		() =>
+			watchComposerTextQuote( ( text ) => {
+				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
+			} ),
+		[]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -276,6 +302,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	useEffect( () => {
 		updateIsScrolledAway();
 	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
+
+	useLayoutEffect( () => {
+		setIsScrolledAway( false );
+	}, [ sessionId ] );
 
 	const scrollToLatest = useCallback( () => {
 		const node = scrollRef.current;
@@ -351,7 +381,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node || pendingQuestions.length > 0 ) {
+		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -359,7 +389,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
+	}, [
+		sessionId,
+		data,
+		isRunning,
+		isScrolledAway,
+		pendingQuestions.length,
+		queuedPrompts.length,
+	] );
 
 	const {
 		data: quota,
@@ -367,6 +404,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
+	// Out of credits replaces the composer: there is nothing to type into
+	// until the account buys more, so the offer takes the input's place.
+	const isOutOfCredits = useIsOutOfAiCredits();
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
@@ -466,19 +506,23 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					<Composer
-						ref={ composerRef }
-						busy={ composerBusy }
-						isInterrupting={ isInterrupting }
-						error={ runError }
-						model={ currentModel }
-						onSend={ sendMessage }
-						onInterrupt={ interrupt }
-						sessionId={ sessionId }
-						entries={ data.entries }
-						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ switchSession }
-					/>
+					{ isOutOfCredits ? (
+						<OutOfCreditsNotice />
+					) : (
+						<Composer
+							ref={ composerRef }
+							busy={ composerBusy }
+							isInterrupting={ isInterrupting }
+							error={ runError }
+							model={ currentModel }
+							onSend={ sendMessage }
+							onInterrupt={ interrupt }
+							sessionId={ sessionId }
+							entries={ data.entries }
+							ownerSiteId={ ownerSite?.id }
+							onSwitchSession={ switchSession }
+						/>
+					) }
 				</div>
 			}
 			footer={
@@ -504,13 +548,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
 				/>
 			) : null }
-			<div
-				className={ clsx(
-					styles.classicColumn,
-					styles.classicConversationSpacing,
-					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
-				) }
-			>
+			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

@@ -56,6 +56,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 	};
 	return {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
+		getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 	};
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
@@ -147,6 +148,7 @@ function mockElectron() {
 			},
 			BrowserWindow: Object.assign( vi.fn(), {
 				getAllWindows: vi.fn().mockReturnValue( [] ),
+				getFocusedWindow: vi.fn().mockReturnValue( null ),
 			} ),
 			ipcMain: {
 				on: vi.fn(),
@@ -188,7 +190,7 @@ describe( 'App initialization', () => {
 		mockElectron();
 		vi.resetModules();
 		await expect( import( '../index' ) ).resolves.toBeDefined();
-	} );
+	}, 10_000 );
 
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
@@ -229,6 +231,70 @@ describe( 'App initialization', () => {
 				Accept: 'text/html',
 				Referer: 'https://developer.wordpress.com/studio/',
 			},
+		} );
+	} );
+
+	describe( 'unsaved changes in the site preview', () => {
+		// Electron inverts the usual contract here: `preventDefault()` on
+		// `will-prevent-unload` *allows* the page to be unloaded, and doing
+		// nothing keeps the user on the page.
+		async function captureUnloadListener( contentsType: string ) {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			const electron = await import( 'electron' );
+			await import( '../index' );
+			await mockedEvents.ready();
+
+			const contents = {
+				getType: () => contentsType,
+				on: vi.fn(),
+				setWindowOpenHandler: vi.fn(),
+			};
+			await mockedEvents[ 'web-contents-created' ]( {}, contents );
+
+			const listener = contents.on.mock.calls.find(
+				( [ event ] ) => event === 'will-prevent-unload'
+			)?.[ 1 ] as ( ( event: { preventDefault: () => void } ) => void ) | undefined;
+
+			return { listener, dialog: electron.dialog };
+		}
+
+		it( 'should unload the page when the user chooses to leave', async () => {
+			const { listener, dialog } = await captureUnloadListener( 'webview' );
+			vi.mocked( dialog.showMessageBoxSync ).mockReturnValue( 0 );
+			const event = { preventDefault: vi.fn() };
+
+			listener?.( event );
+
+			expect( dialog.showMessageBoxSync ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					message: 'Leave page with unsaved changes?',
+					buttons: [ 'Leave', 'Stay' ],
+				} )
+			);
+			expect( event.preventDefault ).toHaveBeenCalled();
+		} );
+
+		it( 'should keep the page when the user chooses to stay', async () => {
+			const { listener, dialog } = await captureUnloadListener( 'webview' );
+			vi.mocked( dialog.showMessageBoxSync ).mockReturnValue( 1 );
+			const event = { preventDefault: vi.fn() };
+
+			listener?.( event );
+
+			expect( dialog.showMessageBoxSync ).toHaveBeenCalled();
+			expect( event.preventDefault ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should not prompt for web contents outside the site preview', async () => {
+			const { listener, dialog } = await captureUnloadListener( 'window' );
+			const event = { preventDefault: vi.fn() };
+
+			expect( listener ).toBeDefined();
+			listener?.( event );
+
+			expect( dialog.showMessageBoxSync ).not.toHaveBeenCalled();
+			expect( event.preventDefault ).not.toHaveBeenCalled();
 		} );
 	} );
 

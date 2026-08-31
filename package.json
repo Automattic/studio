@@ -10,7 +10,7 @@
 	"devEngines": {
 		"runtime": {
 			"name": "node",
-			"version": ">=22.0.0"
+			"version": ">=24.0.0"
 		},
 		"packageManager": {
 			"name": "npm",
@@ -72,16 +72,16 @@
 		"@automattic/wp-babel-makepot": "^1.2.0",
 		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.62.1",
-		"@testing-library/jest-dom": "^7.0.0",
+		"@testing-library/jest-dom": "^7.0.1",
 		"@testing-library/react": "^16.3.2",
-		"@testing-library/user-event": "^14.6.1",
+		"@testing-library/user-event": "^14.6.6",
 		"@types/fs-extra": "^11.0.4",
-		"@vitest/ui": "^4.1.10",
+		"@vitest/ui": "^4.1.11",
 		"@wp-playground/tools": "3.1.45",
 		"@yao-pkg/pkg": "^6.21.0",
 		"electron2appx": "2.1.3",
-		"electron-playwright-helpers": "^2.1.0",
-		"eslint": "^10.8.0",
+		"electron-playwright-helpers": "^3.1.2",
+		"eslint": "^10.9.1",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-import-resolver-typescript": "^4.4.5",
 		"eslint-plugin-import-x": "^4.17.1",
@@ -102,9 +102,9 @@
 		"semver": "^7.7.4",
 		"tar": "^7.5.21",
 		"typescript": "~6.0.3",
-		"typescript-eslint": "^8.65.0",
+		"typescript-eslint": "^8.68.0",
 		"undici": "^8.3.0",
-		"vite": "^8.0.16",
+		"vite": "^8.2.1",
 		"vitest": "^4.1.10",
 		"web-streams-polyfill": "^4.2.0",
 		"yargs": "^18.0.0",

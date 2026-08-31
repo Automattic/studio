@@ -31,6 +31,9 @@ vi.mock( 'src/hooks/use-auth', () => ( {
 
 vi.mock( 'src/stores', () => ( {
 	useI18nLocale: () => 'en',
+	useAppDispatch: () => vi.fn(),
+	// Neutral for every ui-slice selector the session tree reads.
+	useRootSelector: () => null,
 } ) );
 
 vi.mock( 'src/stores/wpcom-api', () => ( {

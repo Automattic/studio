@@ -1,16 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	check,
-	chevronDown,
-	closeSmall,
-	home,
-	Icon,
-	pencil,
-	plus,
-	wordpress,
-} from '@wordpress/icons';
+import { check, chevronDown, closeSmall, Icon, pencil, plus, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -42,7 +33,6 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
-	getRealmOpenEvent,
 	PreviewAddressBar,
 	useDebouncedValue,
 	type PreviewRealm,
@@ -364,12 +354,6 @@ const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-};
-
 /**
  * Realms that share a browsing session share a surface.
  *
@@ -1447,46 +1431,6 @@ function SingleSitePreview( {
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
-	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
-	} );
-	useEffect( () => {
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ site.id ] );
-	useEffect( () => {
-		// Auto-login is a transient hop, not a place to return to.
-		if ( safePath.startsWith( '/studio-auto-login' ) ) {
-			return;
-		}
-		lastRealmPathsRef.current[ getPreviewRealm( safePath ) ] = safePath;
-	}, [ safePath ] );
-
-	// Realm segments (front end / WP Admin / database). Moving between the front
-	// end and WP Admin is a navigation inside the shared site surface, so they
-	// keep one history and one login; admin targets go through the site's
-	// /studio-auto-login endpoint so they never land on the login form. Moving to
-	// or from the database only swaps which surface is visible — it's already
-	// loaded, at its own size, so there's nothing to reload or resize.
-	const handleSwitchRealm = useCallback(
-		( realm: PreviewRealm ) => {
-			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
-			if ( activeRealm === realm ) {
-				return;
-			}
-			// The agentic UI opens the realm in its in-app preview panel.
-			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
-			const target = lastRealmPathsRef.current[ realm ];
-			// Returning to a surface that's already sitting on the target path just
-			// reveals it; anything else is a real navigation.
-			if ( surfaces.byKey[ getSurfaceKey( realm ) ]?.path === target ) {
-				onPathChange?.( target );
-				return;
-			}
-			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
-		},
-		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
-	);
-
 	const browserShortcuts = useMemo(
 		() => ( {
 			back: getNavigationShortcutDescriptor( 'back' ),
@@ -1649,14 +1593,6 @@ function SingleSitePreview( {
 								label={ __( 'Refresh' ) }
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ home }
-								label={ __( 'Front end' ) }
-								onClick={ () => handleSwitchRealm( 'frontend' ) }
 							/>
 						</>
 					) : null }

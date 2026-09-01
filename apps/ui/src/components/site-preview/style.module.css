@@ -53,7 +53,7 @@
 .tabList {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4px;
 	min-width: 0;
 	padding-block-end: var(--wpds-border-width-xs);
 	margin-block-end: calc(-1 * var(--wpds-border-width-xs));
@@ -80,7 +80,7 @@
 	background-color: transparent;
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-block-end: 0;
-	border-radius: var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0 0;
+	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;
 }
 
 .tab:hover {
@@ -92,7 +92,6 @@
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	border-color: var(--wpds-color-stroke-surface-neutral);
-	box-shadow: var(--wpds-elevation-sm);
 }
 
 .tabSelected:hover {

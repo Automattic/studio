@@ -135,8 +135,16 @@
 	cursor: pointer;
 }
 
-.tabSelect:focus-visible,
 .tabClose:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -2px;
+}
+
+.tabSelect:focus-visible {
+	outline: none;
+}
+
+.tab:has(.tabSelect:focus-visible) {
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: -2px;
 }

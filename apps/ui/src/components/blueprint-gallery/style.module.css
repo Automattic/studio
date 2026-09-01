@@ -82,14 +82,6 @@
 	transform: scale( 1.05 );
 }
 
-.cardImageWithoutAdminBar {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	height: 103%;
-	object-position: bottom;
-}
-
 .cardImageFallback {
 	display: flex;
 	align-items: center;

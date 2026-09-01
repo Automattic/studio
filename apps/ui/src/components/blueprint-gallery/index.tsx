@@ -11,7 +11,6 @@ import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-const BLUEPRINT_ARTWORK_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
 const SEARCH_THRESHOLD = 20;
 
 const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
@@ -71,27 +70,12 @@ function apiToSelectedBlueprint( bp: Blueprint ): SelectedBlueprint {
 	};
 }
 
-function BlueprintCard( {
-	blueprint,
-	onClick,
-	cropAdminBar = false,
-}: {
-	blueprint: Blueprint;
-	onClick: () => void;
-	cropAdminBar?: boolean;
-} ) {
+function BlueprintCard( { blueprint, onClick }: { blueprint: Blueprint; onClick: () => void } ) {
 	return (
 		<button type="button" className={ styles.card } onClick={ onClick }>
 			{ blueprint.image ? (
 				<div className={ styles.cardImageViewport }>
-					<img
-						src={ blueprint.image }
-						alt=""
-						className={ `${ styles.cardImage } ${
-							cropAdminBar ? styles.cardImageWithoutAdminBar : ''
-						}` }
-						loading="lazy"
-					/>
+					<img src={ blueprint.image } alt="" className={ styles.cardImage } loading="lazy" />
 				</div>
 			) : (
 				<div className={ styles.cardImageFallback }>{ blueprint.title }</div>
@@ -212,7 +196,6 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 		<BlueprintCard
 			key={ bp.slug }
 			blueprint={ bp }
-			cropAdminBar={ ! BLUEPRINT_ARTWORK_SLUGS.has( bp.slug ) }
 			onClick={ () => onSelect( apiToSelectedBlueprint( bp ) ) }
 		/>
 	);

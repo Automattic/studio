@@ -20,8 +20,6 @@ import styles from '../layout-onboarding/style.module.css';
 import localStyles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
-const BLUEPRINT_ARTWORK_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
-
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
 ): Partial< CreateSiteFormValues > {
@@ -148,7 +146,6 @@ function SelectedBlueprintSummary( {
 	onRemove: () => void;
 } ) {
 	const packages = getBlueprintPackages( selected.blueprint );
-	const cropAdminBar = selected.slug && ! BLUEPRINT_ARTWORK_SLUGS.has( selected.slug );
 
 	return (
 		<section className={ localStyles.summary } aria-labelledby="selected-blueprint-title">
@@ -165,13 +162,7 @@ function SelectedBlueprintSummary( {
 			>
 				{ selected.image && (
 					<div className={ localStyles.summaryImageViewport }>
-						<img
-							src={ selected.image }
-							alt=""
-							className={ `${ localStyles.summaryImage } ${
-								cropAdminBar ? localStyles.summaryImageWithoutAdminBar : ''
-							}` }
-						/>
+						<img src={ selected.image } alt="" className={ localStyles.summaryImage } />
 					</div>
 				) }
 				<div className={ localStyles.summaryContent }>

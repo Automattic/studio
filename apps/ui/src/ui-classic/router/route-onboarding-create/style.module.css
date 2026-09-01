@@ -70,14 +70,6 @@
 	object-fit: cover;
 }
 
-.summaryImageWithoutAdminBar {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	height: 103%;
-	object-position: bottom;
-}
-
 .summaryContent {
 	min-width: 0;
 }

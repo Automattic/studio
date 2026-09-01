@@ -4,12 +4,15 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { SuggestedPrompts } from '.';
 
-function renderPrompts( initialDraft = { text: '', hasAttachments: false } ) {
+function renderPrompts(
+	initialDraft = { text: '', hasAttachments: false, suggestionBaseline: null as string | null }
+) {
 	// Mirrors the composer: onPick replaces the draft with the picked prompt.
 	const draft = { ...initialDraft };
 	const onPick = vi.fn( ( prompt: string ) => {
 		draft.text = prompt;
 		draft.hasAttachments = false;
+		draft.suggestionBaseline = prompt;
 	} );
 	render(
 		<Tooltip.Provider delay={ 0 }>
@@ -73,8 +76,24 @@ describe( 'SuggestedPrompts', () => {
 		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'replaces a restored untouched suggestion without asking', () => {
+		const restoredSuggestion = 'A suggestion restored with the session draft';
+		const { onPick } = renderPrompts( {
+			text: restoredSuggestion,
+			hasAttachments: false,
+			suggestionBaseline: restoredSuggestion,
+		} );
+		pickSuggestion( 0 );
+		expect( onPick ).toHaveBeenCalledTimes( 1 );
+		expect( screen.queryByText( 'Replace your draft?' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'asks before replacing a user-written draft', () => {
-		const { onPick } = renderPrompts( { text: 'my own words', hasAttachments: false } );
+		const { onPick } = renderPrompts( {
+			text: 'my own words',
+			hasAttachments: false,
+			suggestionBaseline: null,
+		} );
 		pickSuggestion( 0 );
 		expect( onPick ).not.toHaveBeenCalled();
 		expect( screen.getByText( 'Replace your draft?' ) ).toBeInTheDocument();
@@ -118,7 +137,11 @@ describe( 'SuggestedPrompts', () => {
 	} );
 
 	it( 'keeps the draft on cancel', () => {
-		const { onPick } = renderPrompts( { text: 'my own words', hasAttachments: false } );
+		const { onPick } = renderPrompts( {
+			text: 'my own words',
+			hasAttachments: false,
+			suggestionBaseline: null,
+		} );
 		pickSuggestion( 0 );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( onPick ).not.toHaveBeenCalled();

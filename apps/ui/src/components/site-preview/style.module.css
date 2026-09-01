@@ -89,6 +89,7 @@
 	z-index: 1;
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: var(--wpds-elevation-sm);
 }
 
 .tabSelected:hover {

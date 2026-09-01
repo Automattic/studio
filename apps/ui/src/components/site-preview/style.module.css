@@ -19,6 +19,10 @@
 	border-inline-start: none;
 }
 
+.header.browserChromeHidden {
+	display: none;
+}
+
 .header {
 	position: relative;
 	display: grid;
@@ -108,6 +112,10 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	flex-shrink: 0;
+}
+
+.disabledControlTooltipTarget {
+	display: inline-flex;
 }
 
 .annotationToggle {

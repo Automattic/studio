@@ -10,7 +10,7 @@
 	align-items: center;
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
 	overflow: hidden;
 }
 
@@ -60,12 +60,29 @@
 	border-radius: var(--wpds-border-radius-lg);
 	background: var(--wpds-color-bg-surface-neutral-strong);
 	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .shortcutsList {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xs);
+}
+
+.shortcutsSection {
+	display: flex;
+	flex-direction: column;
+	margin-block-start: var(--wpds-dimension-padding-xs);
+	padding-block-start: var(--wpds-dimension-padding-xs);
+	border-block-start: var(--wpds-border-width-xs) solid
+		var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.shortcutsLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 }
 
 .shortcut {
@@ -92,13 +109,13 @@
 	outline: none;
 }
 
-.shortcut kbd {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-}
-
 .shortcutSiteIcon {
 	width: 18px;
 	height: 18px;
+}
+
+.shortcutUrl {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

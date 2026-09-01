@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
 	getPreviewRealm,
@@ -96,6 +96,8 @@ describe( 'preview realms', () => {
 } );
 
 describe( 'PreviewAddressBar', () => {
+	beforeEach( () => window.localStorage.clear() );
+
 	it( 'shows the current complete URL and follows path updates', () => {
 		const { rerender } = renderAddressBar( { path: '/about/?preview=1' } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
@@ -186,5 +188,20 @@ describe( 'PreviewAddressBar', () => {
 		);
 		fireEvent.focus( input );
 		expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'remembers submitted addresses per site and lists them as recent destinations', async () => {
+		const { unmount } = renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.change( input, { target: { value: '/about/' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+		unmount();
+
+		renderAddressBar();
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		const popup = await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } );
+
+		expect( within( popup ).getByText( 'Recent' ) ).toBeVisible();
+		expect( within( popup ).getByRole( 'button', { name: `${ SITE_URL }/about/` } ) ).toBeVisible();
 	} );
 } );

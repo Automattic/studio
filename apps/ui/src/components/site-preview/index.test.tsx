@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ariaKeyShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -240,7 +241,7 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
-	it( 'switches realms on primary-modifier number shortcuts', () => {
+	it( 'switches realms from the address menu', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -257,19 +258,20 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
 		);
 
 		// Re-selecting the already-active realm is a no-op.
 		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Front end' } ) );
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'records an internal-browser Tracks event when switching realms', () => {
+	it( 'records an internal-browser Tracks event when switching realms', async () => {
 		const trackEvent = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -286,13 +288,14 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
 			browser: 'internal',
 		} );
 	} );
 
-	it( 'does not record a realm switch when re-selecting the active realm', () => {
+	it( 'does not record a realm switch when re-selecting the active realm', async () => {
 		const trackEvent = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -309,12 +312,13 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		// Already on the admin realm; its shortcut is a no-op.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		// Already on the admin realm; selecting it again is a no-op.
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'WP Admin' } ) );
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches to the database realm on its shortcut', () => {
+	it( 'switches to the database realm from the address menu', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -331,7 +335,8 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Database' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith(
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
@@ -363,7 +368,7 @@ describe( 'SitePreview', () => {
 		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 1 );
 	} );
 
-	it( 'gives the database its own surface and reveals it without reloading', () => {
+	it( 'gives the database its own surface and reveals it without reloading', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -404,7 +409,8 @@ describe( 'SitePreview', () => {
 		expect( siteSurface?.closest( '[inert]' ) ).toBeNull();
 
 		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Database' } ) );
 		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
 
 		rerender( ui( DATABASE_HOME_PATH ) );
@@ -657,15 +663,20 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		const responsiveButton = screen.getByRole( 'button', {
+			name: 'Responsive mode: Responsive',
+		} );
+		expect( responsiveButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( responsiveButton ).toHaveAttribute( 'aria-description', 'Not available for Database' );
+		expect( responsiveButton.parentElement ).toHaveAttribute(
+			'title',
+			'Not available for Database'
+		);
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		const fitPane = screen.getByRole( 'menuitem', { name: 'Responsive' } );
-		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		// Disabled radio items swallow the click — the mode doesn't change.
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
-		expect( fitPane ).toBeVisible();
+		fireEvent.click( responsiveButton );
+		expect(
+			screen.queryByRole( 'menuitem', { name: 'Mobile · 390×844' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps full preview out of the responsive controls', async () => {
@@ -786,6 +797,32 @@ describe( 'SitePreview', () => {
 		expect( onFullscreenChange ).not.toHaveBeenCalled();
 	} );
 
+	it( 'toggles full preview directly from the toolbar', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onFullscreenChange={ onFullscreenChange }
+			/>
+		);
+
+		const fullPreviewButton = screen.getByRole( 'button', { name: 'Full preview' } );
+		expect( fullPreviewButton ).toHaveAttribute(
+			'aria-keyshortcuts',
+			ariaKeyShortcut.primaryShift( 'f' )
+		);
+		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
+		fireEvent.click( fullPreviewButton );
+		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+	} );
+
 	it( 'hides the responsive controls when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -795,6 +832,8 @@ describe( 'SitePreview', () => {
 
 		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
 
+		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'Responsive mode: Responsive' } )
 		).not.toBeInTheDocument();

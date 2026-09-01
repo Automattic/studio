@@ -1,7 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, Icon, pencil } from '@wordpress/icons';
+import { check, chevronDown, fullscreen as fullscreenIcon, Icon, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -28,7 +28,6 @@ import {
 	getRealmNavigationPath,
 	getRealmOpenEvent,
 	PreviewAddressBar,
-	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
@@ -65,7 +64,7 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	// True while the preview fills the whole window (sidebar and chat hidden).
 	fullscreen?: boolean;
-	// Enters/leaves full preview. The "•••" menu only offers it when provided.
+	// Enters/leaves full preview. The toolbar toggle only renders when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
 }
 
@@ -537,22 +536,16 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-// ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
-function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
-	if ( event.defaultPrevented || event.repeat ) {
-		return null;
-	}
-	for ( const realm of Object.keys( REALM_SHORTCUT_KEYS ) as PreviewRealm[] ) {
-		if ( isKeyboardEvent.primary( event, REALM_SHORTCUT_KEYS[ realm ] ) ) {
-			return realm;
-		}
-	}
-	return null;
-}
-
 // ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
 // Keyboard alongside the other preview shortcuts.
 const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function getFullPreviewShortcutDescriptor() {
+	return {
+		displayShortcut: displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+		ariaKeyShortcut: ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+	};
+}
 
 function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -579,7 +572,7 @@ function PreviewResponsiveControls( {
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
-	// Greys out the viewport controls for a surface that can't simulate one,
+	// Disables the viewport controls for a surface that can't simulate one,
 	// keeping the chosen mode for when the preview returns to one that can.
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
@@ -593,6 +586,9 @@ function PreviewResponsiveControls( {
 		split: __( 'Desktop + Mobile' ),
 	};
 	const selectedLabel = viewportLabels[ viewportMode ];
+	const tooltipLabel = viewportControlsDisabled
+		? __( 'Not available for Database' )
+		: __( 'Preview size' );
 	const getPresetLabel = ( preset: ViewportPreset ) =>
 		sprintf(
 			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
@@ -608,34 +604,41 @@ function PreviewResponsiveControls( {
 	);
 	return (
 		<Menu.Root>
-			<Tooltip.Root>
-				<Menu.Trigger
-					render={
-						<Tooltip.Trigger
-							render={
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.responsiveModeTrigger }
-									aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+			<span
+				className={ styles.disabledControlTooltipTarget }
+				title={ viewportControlsDisabled ? tooltipLabel : undefined }
+			>
+				<Tooltip.Root>
+					<Menu.Trigger
+						render={
+							<Tooltip.Trigger
+								render={
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ styles.responsiveModeTrigger }
+										aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+										aria-description={ viewportControlsDisabled ? tooltipLabel : undefined }
+										disabled={ viewportControlsDisabled }
+									/>
+								}
+							>
+								<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
+								<Icon
+									icon={ chevronDown }
+									size={ 12 }
+									className={ styles.responsiveModeChevron }
+									data-keep-size
 								/>
-							}
-						>
-							<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
-							<Icon
-								icon={ chevronDown }
-								size={ 12 }
-								className={ styles.responsiveModeChevron }
-								data-keep-size
-							/>
-						</Tooltip.Trigger>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-					{ __( 'Preview size' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+							</Tooltip.Trigger>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ tooltipLabel }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</span>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
 					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
@@ -707,6 +710,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft,
 	cancelRequestId,
 	disabled,
+	disabledReason,
 	onCommand,
 }: {
 	isPicking: boolean;
@@ -714,6 +718,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft: boolean;
 	cancelRequestId: number;
 	disabled: boolean;
+	disabledReason?: string;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
 	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
@@ -743,29 +748,35 @@ function PreviewAnnotationControls( {
 			<div
 				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
 			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								variant="outline"
-								tone="neutral"
-								size="small"
-								className={ styles.annotationToggle }
-								aria-label={ toggleLabel }
-								disabled={ disabled }
-								onClick={ handleToggle }
-							>
-								{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
-								<span className={ styles.toolbarLabel }>
-									{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
-								</span>
-							</Button>
-						}
-					/>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				<span
+					className={ styles.disabledControlTooltipTarget }
+					title={ disabled ? disabledReason : undefined }
+				>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									className={ styles.annotationToggle }
+									aria-label={ toggleLabel }
+									aria-description={ disabled ? disabledReason : undefined }
+									disabled={ disabled }
+									onClick={ handleToggle }
+								>
+									{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
+									<span className={ styles.toolbarLabel }>
+										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
+									</span>
+								</Button>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ disabledReason ?? ( isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</span>
 				{ hasPending ? (
 					<Button
 						variant="solid"
@@ -1314,7 +1325,7 @@ export function SitePreview( {
 		return () => observer.disconnect();
 	}, [] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) and the ⌘1/⌘2/⌘3 realm switches
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→)
 	// pressed while focus is in the host document. Shortcuts pressed inside the
 	// guest page are forwarded by the inspector script through the console
 	// bridge instead.
@@ -1328,12 +1339,10 @@ export function SitePreview( {
 				event.key === 'Escape' &&
 				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
 			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
-			const realm = command || inspectorState.isPicking ? null : getRealmShortcut( event );
 			// Only claim the full-preview chord when the host actually offers
 			// the mode, so it stays available to the page otherwise.
-			const fullPreview =
-				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
-			if ( ! cancelAnnotation && ! command && ! realm && ! fullPreview ) {
+			const fullPreview = ! command && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! cancelAnnotation && ! command && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -1350,8 +1359,6 @@ export function SitePreview( {
 				setAnnotationCancelRequestId( ( current ) => current + 1 );
 			} else if ( command ) {
 				sendBrowserCommand( command );
-			} else if ( realm ) {
-				handleSwitchRealm( realm );
 			} else {
 				onFullscreenChange?.( ! fullscreen );
 			}
@@ -1363,7 +1370,6 @@ export function SitePreview( {
 		canPreview,
 		collapsed,
 		fullscreen,
-		handleSwitchRealm,
 		inspectorState.isPicking,
 		onFullscreenChange,
 		sendBrowserCommand,
@@ -1376,10 +1382,12 @@ export function SitePreview( {
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div
+				hidden={ ! canPreview }
 				// In full preview the toolbar reaches the window's physical left
 				// edge, where the macOS traffic lights sit.
 				className={ clsx(
 					styles.header,
+					! canPreview && styles.browserChromeHidden,
 					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
@@ -1449,7 +1457,25 @@ export function SitePreview( {
 							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
+							disabledReason={
+								! isResponsiveSurface( activeSurfaceKey )
+									? __( 'Not available for Database' )
+									: undefined
+							}
 							onCommand={ sendInspectorCommand }
+						/>
+					) : null }
+					{ canPreview && onFullscreenChange ? (
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ fullscreenIcon }
+							label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+							shortcut={ getFullPreviewShortcutDescriptor() }
+							aria-pressed={ fullscreen }
+							onClick={ () => onFullscreenChange( ! fullscreen ) }
+							positioner={ <Tooltip.Positioner side="bottom" /> }
 						/>
 					) : null }
 				</div>

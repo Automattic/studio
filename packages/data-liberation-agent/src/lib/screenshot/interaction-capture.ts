@@ -1,8 +1,10 @@
 import type { Page } from 'playwright';
 
-export const INTERACTION_STATES_SCHEMA = 'data-liberation/interaction-states/v1';
+export const INTERACTION_STATES_SCHEMA = 'data-liberation/interaction-states/v2';
+export const LEGACY_INTERACTION_STATES_SCHEMA = 'data-liberation/interaction-states/v1';
 
 const MAX_TRIGGERS = 8;
+const MAX_INITIAL_DIALOGS = 8;
 const MAX_DIALOG_HTML_BYTES = 64 * 1024;
 const DIALOG_WAIT_MS = 2_000;
 
@@ -32,12 +34,26 @@ export interface CapturedDialogInteraction {
 	error?: string;
 }
 
+export interface CapturedInitialDialog {
+	status: 'captured' | 'no-close-control' | 'dismissal-unverified';
+	/** This evidence is intentionally separate from trigger-opened dialog states. */
+	initiallyVisible: true;
+	dialog: NonNullable< CapturedDialogInteraction[ 'dialog' ] >;
+	dismissal?: {
+		control: { selector: string; tag: string; label?: string };
+		verified: boolean;
+	};
+	error?: string;
+}
+
 export interface InteractionStatesReport {
-	schema: typeof INTERACTION_STATES_SCHEMA;
+	schema: typeof INTERACTION_STATES_SCHEMA | typeof LEGACY_INTERACTION_STATES_SCHEMA;
 	sourceUrl: string;
 	viewport: { width: number; height: number };
 	capturedAt: string;
 	states: CapturedDialogInteraction[];
+	/** Dialogs already visible after the page's normal runtime settling. */
+	initialDialogs?: CapturedInitialDialog[];
 }
 
 interface TriggerDescriptor {
@@ -63,12 +79,19 @@ interface DialogDescriptor {
 	html: string;
 }
 
+interface CloseControlDescriptor {
+	selector: string;
+	tag: string;
+	label?: string;
+}
+
 /** Capture user-triggered dialogs after all baseline page artifacts are complete. */
 export async function captureTriggeredDialogs(
 	page: Page,
 	sourceUrl: string
 ): Promise< InteractionStatesReport > {
 	const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+	const initialDialogs = await captureInitiallyVisibleDialogs( page );
 	const triggers = ( await page.evaluate( ( limit: number ) => {
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
@@ -117,11 +140,10 @@ export async function captureTriggeredDialogs(
 		).filter( ( element ) => {
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
 			if ( ! visible( element ) ) return false;
-			const name = (
-				element.getAttribute( 'aria-label' ) ||
-				element.textContent ||
-				''
-			).replace( /\s+/g, ' ' );
+			const name = ( element.getAttribute( 'aria-label' ) || element.textContent || '' ).replace(
+				/\s+/g,
+				' '
+			);
 			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
 			if ( popup === 'dialog' ) {
 				const hasBinding =
@@ -156,11 +178,7 @@ export async function captureTriggeredDialogs(
 				...( element.id ? { id: element.id } : {} ),
 				...( element.getAttribute( 'role' ) ? { role: element.getAttribute( 'role' )! } : {} ),
 				ariaHaspopup: element.getAttribute( 'aria-haspopup' ) ?? '',
-				label: (
-					element.getAttribute( 'aria-label' ) ||
-					element.textContent ||
-					''
-				)
+				label: ( element.getAttribute( 'aria-label' ) || element.textContent || '' )
 					.replace( /\s+/g, ' ' )
 					.trim()
 					.slice( 0, 40 ),
@@ -229,6 +247,12 @@ export async function captureTriggeredDialogs(
 		for ( const element of document.querySelectorAll( '[data-lib-interaction-dialog]' ) ) {
 			element.removeAttribute( 'data-lib-interaction-dialog' );
 		}
+		for ( const element of document.querySelectorAll(
+			'[data-lib-initial-dialog],[data-lib-initial-close]'
+		) ) {
+			element.removeAttribute( 'data-lib-initial-dialog' );
+			element.removeAttribute( 'data-lib-initial-close' );
+		}
 	} );
 
 	return {
@@ -237,7 +261,58 @@ export async function captureTriggeredDialogs(
 		viewport,
 		capturedAt: new Date().toISOString(),
 		states,
+		...( initialDialogs.length > 0 ? { initialDialogs } : {} ),
 	};
+}
+
+async function captureInitiallyVisibleDialogs( page: Page ): Promise< CapturedInitialDialog[] > {
+	const dialogs = await visibleSemanticDialogs( page );
+	const states: CapturedInitialDialog[] = [];
+	for ( const dialog of dialogs.slice( 0, MAX_INITIAL_DIALOGS ) ) {
+		await waitForDialogContentStable( page, dialog.selector );
+		const snapshot = ( await snapshotDialog( page, dialog.selector ) ) ?? dialog;
+		const bounded = boundHtml( snapshot.html );
+		const capturedDialog = {
+			selector: snapshot.selector,
+			tag: snapshot.tag,
+			...( snapshot.id ? { id: snapshot.id } : {} ),
+			...( snapshot.role ? { role: snapshot.role } : {} ),
+			ariaModal: snapshot.ariaModal,
+			...( snapshot.ariaLabel ? { ariaLabel: snapshot.ariaLabel } : {} ),
+			html: bounded.html,
+			htmlBytes: bounded.bytes,
+			htmlTruncated: bounded.truncated,
+		};
+		const close = await findCloseControl( page, dialog.selector );
+		if ( ! close ) {
+			states.push( { status: 'no-close-control', initiallyVisible: true, dialog: capturedDialog } );
+			continue;
+		}
+		try {
+			await page.locator( close.selector ).first().click( { timeout: 1_000 } );
+			await page.waitForTimeout( 100 );
+			const verified = ! ( await page
+				.locator( dialog.selector )
+				.first()
+				.isVisible()
+				.catch( () => false ) );
+			states.push( {
+				status: verified ? 'captured' : 'dismissal-unverified',
+				initiallyVisible: true,
+				dialog: capturedDialog,
+				dismissal: { control: close, verified },
+			} );
+		} catch ( error ) {
+			states.push( {
+				status: 'dismissal-unverified',
+				initiallyVisible: true,
+				dialog: capturedDialog,
+				dismissal: { control: close, verified: false },
+				error: boundedError( error ),
+			} );
+		}
+	}
+	return states;
 }
 
 function triggerRecord( trigger: TriggerDescriptor ): CapturedDialogInteraction[ 'trigger' ] {
@@ -290,6 +365,114 @@ async function visibleDialogSelectors( page: Page ): Promise< string[] > {
 			} )
 			.map( selector );
 	} );
+}
+
+async function visibleSemanticDialogs( page: Page ): Promise< DialogDescriptor[] > {
+	return page.evaluate( ( limit: number ) => {
+		const visible = ( element: Element ): boolean => {
+			const rect = element.getBoundingClientRect();
+			const style = getComputedStyle( element );
+			return (
+				rect.width > 0 &&
+				rect.height > 0 &&
+				style.display !== 'none' &&
+				style.visibility !== 'hidden' &&
+				Number.parseFloat( style.opacity || '1' ) > 0.1
+			);
+		};
+		const cssEscape = ( value: string ) =>
+			globalThis.CSS?.escape
+				? globalThis.CSS.escape( value )
+				: value.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+		return Array.from(
+			document.querySelectorAll( 'dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]' )
+		)
+			.filter( visible )
+			.slice( 0, limit )
+			.map( ( dialog, index ) => {
+				const selector = dialog.id
+					? `#${ cssEscape( dialog.id ) }`
+					: `[data-lib-initial-dialog="${ index }"]`;
+				if ( ! dialog.id ) dialog.setAttribute( 'data-lib-initial-dialog', String( index ) );
+				const clone = dialog.cloneNode( true ) as Element;
+				clone.removeAttribute( 'data-lib-initial-dialog' );
+				for ( const unsafe of Array.from(
+					clone.querySelectorAll( 'script,style,noscript,iframe' )
+				) )
+					unsafe.remove();
+				for ( const element of [ clone, ...Array.from( clone.querySelectorAll( '*' ) ) ] ) {
+					for ( const attribute of Array.from( element.attributes ) ) {
+						if ( /^on/i.test( attribute.name ) ) element.removeAttribute( attribute.name );
+					}
+				}
+				return {
+					selector,
+					tag: dialog.tagName.toLowerCase(),
+					...( dialog.id ? { id: dialog.id } : {} ),
+					...( dialog.getAttribute( 'role' ) ? { role: dialog.getAttribute( 'role' )! } : {} ),
+					ariaModal: dialog.getAttribute( 'aria-modal' ) === 'true',
+					...( dialog.getAttribute( 'aria-label' )
+						? { ariaLabel: dialog.getAttribute( 'aria-label' )! }
+						: {} ),
+					html: clone.outerHTML,
+				};
+			} );
+	}, MAX_INITIAL_DIALOGS ) as Promise< DialogDescriptor[] >;
+}
+
+async function findCloseControl(
+	page: Page,
+	dialogSelector: string
+): Promise< CloseControlDescriptor | undefined > {
+	return page
+		.locator( dialogSelector )
+		.first()
+		.evaluate( ( dialog ) => {
+			const control = Array.from(
+				dialog.querySelectorAll(
+					'[aria-label*="close" i],[title*="close" i],button[class*="close" i],[data-dismiss],[data-testid*="close" i]'
+				)
+			).find( ( element ) => {
+				const rect = element.getBoundingClientRect();
+				const style = getComputedStyle( element );
+				return (
+					rect.width > 0 &&
+					rect.height > 0 &&
+					style.display !== 'none' &&
+					style.visibility !== 'hidden'
+				);
+			} );
+			if ( ! control ) return undefined;
+			if ( control.id )
+				return {
+					selector: `#${
+						globalThis.CSS?.escape ? globalThis.CSS.escape( control.id ) : control.id
+					}`,
+					tag: control.tagName.toLowerCase(),
+					...( control.getAttribute( 'aria-label' ) || control.textContent?.trim()
+						? {
+								label: (
+									control.getAttribute( 'aria-label' ) || control.textContent!.trim()
+								).slice( 0, 80 ),
+						  }
+						: {} ),
+				};
+			const index = document.querySelectorAll( '[data-lib-initial-close]' ).length;
+			control.setAttribute( 'data-lib-initial-close', String( index ) );
+			return {
+				selector: `[data-lib-initial-close="${ index }"]`,
+				tag: control.tagName.toLowerCase(),
+				...( control.getAttribute( 'aria-label' ) || control.textContent?.trim()
+					? {
+							label: ( control.getAttribute( 'aria-label' ) || control.textContent!.trim() ).slice(
+								0,
+								80
+							),
+					  }
+					: {} ),
+			};
+		} )
+		.catch( () => undefined );
 }
 
 async function firstNewVisibleDialog(

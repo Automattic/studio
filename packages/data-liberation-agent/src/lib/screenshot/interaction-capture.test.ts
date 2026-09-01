@@ -1,8 +1,66 @@
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
+import { wireCapturedDialogs } from '../static-dialogs.js';
 import { captureTriggeredDialogs, INTERACTION_STATES_SCHEMA } from './interaction-capture.js';
 
 describe( 'captureTriggeredDialogs', () => {
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'captures initially visible dialogs with verified native dismissal and bounds probes',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 1200, height: 800 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
+					<script>
+						for (let index = 0; index < 9; index++) {
+							const dialog = document.createElement('div');
+							dialog.id = 'automatic-' + index;
+							dialog.setAttribute('role', 'dialog');
+							dialog.setAttribute('aria-modal', 'true');
+							dialog.setAttribute('aria-label', 'Automatic ' + index);
+							dialog.innerHTML = '<p>Automatic popup ' + index + '</p><button id="close-' + index + '" type="button" aria-label="Close automatic ' + index + '">Close</button>';
+							dialog.querySelector('button').addEventListener('click', () => { dialog.style.display = 'none'; });
+							document.body.append(dialog);
+						}
+					</script>
+				</body>` );
+
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.schema ).toBe( INTERACTION_STATES_SCHEMA );
+				expect( report.initialDialogs ).toHaveLength( 8 );
+				expect( report.initialDialogs?.every( ( state ) => state.initiallyVisible ) ).toBe( true );
+				expect( report.initialDialogs?.every( ( state ) => state.status === 'captured' ) ).toBe(
+					true
+				);
+				expect( report.initialDialogs?.every( ( state ) => state.dismissal?.verified ) ).toBe(
+					true
+				);
+				expect( await page.locator( '[role="dialog"]:visible' ).count() ).toBe( 1 );
+
+				const portable = wireCapturedDialogs(
+					'<!doctype html><html><head></head><body><main>Source page</main></body></html>',
+					report.states,
+					report.initialDialogs
+				);
+				expect( portable ).not.toContain( '<script' );
+				await page.setContent( portable );
+				expect( await page.locator( 'details.dla-initial-dialog[open]' ).count() ).toBe( 8 );
+				expect( await page.getByText( 'Automatic popup 7' ).isVisible() ).toBe( true );
+				await page.locator( 'details.dla-initial-dialog' ).last().locator( 'summary' ).click();
+				expect(
+					await page
+						.locator( 'details.dla-initial-dialog' )
+						.last()
+						.evaluate( ( details ) => ( details as HTMLDetailsElement ).open )
+				).toBe( false );
+				expect( await page.getByText( 'Automatic popup 7' ).isVisible() ).toBe( false );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'discovers an unbound dialog trigger',
 		async () => {

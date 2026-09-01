@@ -32,3 +32,87 @@
 	line-height: var(--wpds-typography-line-height-xs);
 	outline: 0;
 }
+
+.suggestionsPositioner {
+	z-index: 100;
+	outline: none;
+}
+
+.suggestionsPopup {
+	box-sizing: border-box;
+	width: var(--anchor-width);
+	max-width: calc(100vw - var(--wpds-dimension-padding-lg));
+	max-height: min(420px, calc(100vh - var(--wpds-dimension-padding-lg)));
+	padding: var(--wpds-dimension-padding-xs);
+	overflow-y: auto;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.suggestionsSection {
+	display: flex;
+	flex-direction: column;
+}
+
+.suggestionsSection + .suggestionsSection {
+	margin-block-start: var(--wpds-dimension-padding-xs);
+	padding-block-start: var(--wpds-dimension-padding-xs);
+	border-block-start: var(--wpds-border-width-xs) solid
+		var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.suggestionsLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.suggestion {
+	display: grid;
+	grid-template-columns: 18px minmax(0, 1fr);
+	box-sizing: border-box;
+	width: 100%;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+}
+
+.suggestion:hover,
+.suggestion:focus-visible {
+	background: var(--wpds-color-bg-surface-neutral);
+	outline: none;
+}
+
+.locationIcon,
+.locationSiteIcon {
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+
+.locationIcon {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.locationSiteIcon {
+	--site-icon-size: 18px;
+}
+
+.suggestionUrl {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

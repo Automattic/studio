@@ -1,7 +1,12 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { Icon, wordpress } from '@wordpress/icons';
+import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { useEffect, useRef, useState } from 'react';
+import { SiteIcon } from '@/components/site-icon';
+import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
+import type { SiteDetails } from '@/data/core';
 import type { FormEvent } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
@@ -91,9 +96,61 @@ export function useDebouncedValue< T >( value: T, delayMs: number ): T {
 }
 
 interface PreviewAddressBarProps {
+	site: SiteDetails;
 	siteUrl: string;
 	path: string;
 	onNavigate: ( path: string ) => void;
+}
+
+interface RecentPreviewLocation {
+	path: string;
+	label: string;
+}
+
+const RECENT_LOCATIONS_VERSION = 1;
+const RECENT_LOCATIONS_LIMIT = 8;
+
+function getRecentLocationsStorageKey( siteId: string ): string {
+	return `studio-preview-recent-locations:${ siteId }`;
+}
+
+function loadRecentLocations( siteId: string ): RecentPreviewLocation[] {
+	try {
+		const raw = window.localStorage.getItem( getRecentLocationsStorageKey( siteId ) );
+		if ( ! raw ) return [];
+		const stored = JSON.parse( raw ) as { version?: unknown; locations?: unknown };
+		if ( stored.version !== RECENT_LOCATIONS_VERSION || ! Array.isArray( stored.locations ) ) {
+			return [];
+		}
+		return stored.locations.slice( 0, RECENT_LOCATIONS_LIMIT ).flatMap( ( value ) => {
+			if ( ! value || typeof value !== 'object' ) return [];
+			const location = value as { path?: unknown; label?: unknown };
+			return typeof location.path === 'string' && typeof location.label === 'string'
+				? [ { path: location.path, label: location.label } ]
+				: [];
+		} );
+	} catch {
+		return [];
+	}
+}
+
+function storeRecentLocation(
+	siteId: string,
+	location: RecentPreviewLocation
+): RecentPreviewLocation[] {
+	const locations = [
+		location,
+		...loadRecentLocations( siteId ).filter( ( recent ) => recent.path !== location.path ),
+	].slice( 0, RECENT_LOCATIONS_LIMIT );
+	try {
+		window.localStorage.setItem(
+			getRecentLocationsStorageKey( siteId ),
+			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
+		);
+	} catch {
+		// The address bar remains usable when storage is unavailable or full.
+	}
+	return locations;
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
@@ -104,11 +161,17 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	}
 }
 
-export function PreviewAddressBar( { siteUrl, path, onNavigate }: PreviewAddressBarProps ) {
+export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
+	const [ suggestionsOpen, setSuggestionsOpen ] = useState( false );
+	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
+		loadRecentLocations( site.id )
+	);
+	const addressBarRef = useRef< HTMLFormElement | null >( null );
 
 	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
+	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
@@ -120,19 +183,114 @@ export function PreviewAddressBar( { siteUrl, path, onNavigate }: PreviewAddress
 			intent.type === 'path'
 				? getRealmNavigationPath( intent.path, siteUrl )
 				: `/?s=${ encodeURIComponent( intent.term ) }`;
+		const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
+		setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+		setSuggestionsOpen( false );
 		onNavigate( nextPath );
+	};
+	const chooseLocation = ( nextPath: string, recent?: RecentPreviewLocation ) => {
+		if ( recent ) {
+			setRecentLocations( storeRecentLocation( site.id, recent ) );
+		}
+		setSuggestionsOpen( false );
+		onNavigate( nextPath );
+	};
+	const renderLocationIcon = ( locationPath: string ) => {
+		const realm = getPreviewRealm( locationPath );
+		if ( realm === 'frontend' ) {
+			return (
+				<SiteIcon
+					className={ styles.locationSiteIcon }
+					seed={ `${ site.id }:${ site.name }:${ site.path }` }
+					imageSrc={ site.siteIcon }
+				/>
+			);
+		}
+		return (
+			<Icon
+				icon={ realm === 'admin' ? wordpress : databaseIcon }
+				size={ 18 }
+				className={ styles.locationIcon }
+			/>
+		);
 	};
 
 	return (
-		<form className={ styles.addressBar } onSubmit={ handleSubmit }>
-			<input
-				className={ styles.input }
-				value={ value }
-				onChange={ ( event ) => setValue( event.target.value ) }
-				onFocus={ ( event ) => event.currentTarget.select() }
-				aria-label={ __( 'Address' ) }
-				spellCheck={ false }
-			/>
-		</form>
+		<Popover.Root open={ suggestionsOpen } onOpenChange={ setSuggestionsOpen }>
+			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
+				<input
+					className={ styles.input }
+					value={ value }
+					onChange={ ( event ) => setValue( event.target.value ) }
+					onClick={ () => {
+						setRecentLocations( loadRecentLocations( site.id ) );
+						setSuggestionsOpen( true );
+					} }
+					onFocus={ ( event ) => {
+						event.currentTarget.select();
+						setRecentLocations( loadRecentLocations( site.id ) );
+						setSuggestionsOpen( true );
+					} }
+					aria-label={ __( 'Address' ) }
+					spellCheck={ false }
+				/>
+			</form>
+			<Popover.Popup
+				variant="unstyled"
+				initialFocus={ false }
+				finalFocus={ false }
+				className={ styles.suggestionsPopup }
+				positioner={
+					<Popover.Positioner
+						anchor={ addressBarRef }
+						side="bottom"
+						align="start"
+						sideOffset={ 4 }
+						className={ styles.suggestionsPositioner }
+					/>
+				}
+			>
+				<VisuallyHidden render={ <Popover.Title /> }>
+					{ __( 'Address suggestions' ) }
+				</VisuallyHidden>
+				<div className={ styles.suggestionsSection }>
+					<div className={ styles.suggestionsLabel }>{ __( 'Destinations' ) }</div>
+					<Popover.Close className={ styles.suggestion } onClick={ () => chooseLocation( '/' ) }>
+						{ renderLocationIcon( '/' ) }
+						<span>{ __( 'Front-end' ) }</span>
+					</Popover.Close>
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( getRealmNavigationPath( '/wp-admin/', siteUrl ) ) }
+					>
+						{ renderLocationIcon( '/wp-admin/' ) }
+						<span>{ __( 'WordPress' ) }</span>
+					</Popover.Close>
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( DATABASE_HOME_PATH ) }
+					>
+						{ renderLocationIcon( DATABASE_HOME_PATH ) }
+						<span>{ __( 'Database' ) }</span>
+					</Popover.Close>
+				</div>
+				{ recentLocations.length > 0 ? (
+					<div className={ styles.suggestionsSection }>
+						<div className={ styles.suggestionsLabel }>{ __( 'Recent' ) }</div>
+						{ recentLocations.map( ( recent ) => (
+							<Popover.Close
+								key={ recent.path }
+								className={ styles.suggestion }
+								title={ recent.label }
+								onClick={ () => chooseLocation( recent.path, recent ) }
+							>
+								{ renderLocationIcon( recent.path ) }
+								<span className={ styles.suggestionUrl }>{ recent.label }</span>
+							</Popover.Close>
+						) ) }
+					</div>
+				) : null }
+			</Popover.Popup>
+		</Popover.Root>
 	);
 }

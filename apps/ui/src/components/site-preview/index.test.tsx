@@ -250,6 +250,66 @@ describe( 'SitePreview', () => {
 		);
 	} );
 
+	it( 'offers default destinations and remembers submitted addresses per site', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		function PreviewHarness( { site }: { site: SiteDetails } ) {
+			const [ currentPath, setCurrentPath ] = useState( '/' );
+			return (
+				<SitePreview
+					site={ site }
+					path={ currentPath }
+					reloadNonce={ 0 }
+					onPathChange={ setCurrentPath }
+				/>
+			);
+		}
+
+		const firstSite = createSite( { id: 'first-site', running: true } );
+		const preview = renderPreview( <PreviewHarness site={ firstSite } /> );
+		let address = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.focus( address );
+
+		expect( screen.getByText( 'Destinations' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Front-end' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'WordPress' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Database' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Recent' ) ).not.toBeInTheDocument();
+
+		fireEvent.change( address, {
+			target: { value: 'http://localhost:8881/contact/' },
+		} );
+		fireEvent.submit( address.closest( 'form' )! );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+
+		fireEvent.focus( address );
+		expect( screen.getByText( 'Recent' ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).toBeInTheDocument();
+		preview.unmount();
+
+		const restored = renderPreview( <PreviewHarness site={ firstSite } /> );
+		address = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.focus( address );
+		expect(
+			screen.getByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).toBeInTheDocument();
+		restored.unmount();
+
+		renderPreview(
+			<PreviewHarness site={ createSite( { id: 'second-site', port: 8882, running: true } ) } />
+		);
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect(
+			screen.queryByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'offers each preview realm when adding a tab', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

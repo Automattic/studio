@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
 	getPreviewRealm,
@@ -8,9 +8,22 @@ import {
 	parseOmniboxInput,
 	PreviewAddressBar,
 } from './address-bar';
+import type { SiteDetails } from '@/data/core';
 import type { Mock } from 'vitest';
 
 const SITE_URL = 'http://localhost:8881';
+const SITE: SiteDetails = {
+	id: 'site-1',
+	name: 'Example Site',
+	path: '/Users/example/Studio/example-site',
+	port: 8881,
+	running: true,
+	phpVersion: '8.3',
+};
+
+afterEach( () => {
+	window.localStorage.clear();
+} );
 function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
@@ -23,7 +36,7 @@ function renderAddressBar( {
 	onNavigate?: Mock< ( path: string ) => void >;
 } = {} ) {
 	const result = render(
-		<PreviewAddressBar siteUrl={ SITE_URL } path={ path } onNavigate={ onNavigate } />
+		<PreviewAddressBar site={ SITE } siteUrl={ SITE_URL } path={ path } onNavigate={ onNavigate } />
 	);
 	return { ...result, onNavigate };
 }
@@ -81,7 +94,14 @@ describe( 'PreviewAddressBar', () => {
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect( input ).toHaveValue( `${ SITE_URL }/about/?preview=1` );
 
-		rerender( <PreviewAddressBar siteUrl={ SITE_URL } path="/contact/" onNavigate={ vi.fn() } /> );
+		rerender(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/contact/"
+				onNavigate={ vi.fn() }
+			/>
+		);
 		expect( input ).toHaveValue( `${ SITE_URL }/contact/` );
 	} );
 

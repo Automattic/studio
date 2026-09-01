@@ -2047,6 +2047,7 @@ function SingleSitePreview( {
 				<div className={ styles.browserLocation }>
 					{ canPreview && ! inspectorState.isPicking ? (
 						<PreviewAddressBar
+							site={ site }
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }

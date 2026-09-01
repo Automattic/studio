@@ -2,8 +2,10 @@ import { prepareBlueprint } from '@studio/common/lib/blueprint-selection';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export interface SelectedBlueprint {
+	slug?: string;
 	title: string;
 	excerpt: string;
+	image?: string;
 	blueprint: BlueprintV1Declaration;
 	file: Pick< File, 'name' | 'size' >;
 	filePath?: string;

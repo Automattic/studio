@@ -1,21 +1,23 @@
 import { __ } from '@wordpress/i18n';
+import { upload } from '@wordpress/icons';
+import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from '@/lib/load-blueprint-file';
 import styles from './style.module.css';
-import { UploadTile } from './upload-tile';
 import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-const FEATURED_BLUEPRINT_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
+const SEARCH_THRESHOLD = 20;
 
 const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
 	'Quick Start': 'WordPress.com',
-	Development: 'WordPress Dev',
+	Development: 'Theme & plugin development',
 	Commerce: 'WooCommerce',
+	'Stylish Press': 'WooCommerce starter store',
 };
 
 function getBlueprintExcerptOverrides(): Record< string, string > {
@@ -26,20 +28,28 @@ function getBlueprintExcerptOverrides(): Record< string, string > {
 		Commerce: __(
 			'Create your next online store with WooCommerce and its companion plugins pre-installed.'
 		),
-		Development: __( 'A streamlined environment for building and testing themes or plugins.' ),
+		Development: __(
+			'Query Monitor, Plugin Check, Theme Check, and Create Block Theme pre-installed.'
+		),
+		'Stylish Press': __(
+			'A ready-made WooCommerce store with a custom theme, sample content, and products.'
+		),
 	};
 }
 
-const BLUEPRINT_ORDER: Record< string, number > = {
-	'Quick Start': 1,
-	Commerce: 2,
-	Development: 3,
-};
+const PINNED_BLUEPRINT_SLUGS = [ 'development', 'quick-start', 'woo-shop' ];
+const PINNED_BLUEPRINT_ORDER = new Map(
+	PINNED_BLUEPRINT_SLUGS.map( ( slug, index ) => [ slug, index ] )
+);
 
 function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
 	const excerptOverrides = getBlueprintExcerptOverrides();
 	return [ ...blueprints ]
-		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
+		.sort(
+			( a, b ) =>
+				( PINNED_BLUEPRINT_ORDER.get( a.slug ) ?? Number.MAX_SAFE_INTEGER ) -
+				( PINNED_BLUEPRINT_ORDER.get( b.slug ) ?? Number.MAX_SAFE_INTEGER )
+		)
 		.map( ( item ) => ( {
 			...item,
 			excerpt: excerptOverrides[ item.title ] || item.excerpt,
@@ -49,8 +59,10 @@ function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
 
 function apiToSelectedBlueprint( bp: Blueprint ): SelectedBlueprint {
 	return {
+		slug: bp.slug,
 		title: bp.title,
 		excerpt: bp.excerpt,
+		image: bp.image,
 		blueprint: bp.blueprint as BlueprintV1Declaration,
 		file: { name: bp.title, size: 0 },
 		filePath: bp.filePath,
@@ -62,7 +74,9 @@ function BlueprintCard( { blueprint, onClick }: { blueprint: Blueprint; onClick:
 	return (
 		<button type="button" className={ styles.card } onClick={ onClick }>
 			{ blueprint.image ? (
-				<img src={ blueprint.image } alt="" className={ styles.cardImage } loading="lazy" />
+				<div className={ styles.cardImageViewport }>
+					<img src={ blueprint.image } alt="" className={ styles.cardImage } loading="lazy" />
+				</div>
 			) : (
 				<div className={ styles.cardImageFallback }>{ blueprint.title }</div>
 			) }
@@ -74,10 +88,7 @@ function BlueprintCard( { blueprint, onClick }: { blueprint: Blueprint; onClick:
 	);
 }
 
-// Sits alongside the curated Blueprints so "bring your own" is one of the
-// choices rather than a separate step. Drag handling is scoped to this card,
-// not the window, so it can't intercept a backup dropped on the Import card.
-function UploadBlueprintCard( { onSelect }: { onSelect: ( bp: SelectedBlueprint ) => void } ) {
+function UploadBlueprintButton( { onSelect }: { onSelect: ( bp: SelectedBlueprint ) => void } ) {
 	const connector = useConnector();
 	const inputRef = useRef< HTMLInputElement >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
@@ -116,9 +127,12 @@ function UploadBlueprintCard( { onSelect }: { onSelect: ( bp: SelectedBlueprint 
 					event.target.value = '';
 				} }
 			/>
-			<button
+			<Button
 				type="button"
-				className={ `${ styles.card } ${ isDragging ? styles.uploadCardDragging : '' }` }
+				variant="outline"
+				tone="neutral"
+				size="small"
+				className={ isDragging ? styles.uploadButtonDragging : undefined }
 				onClick={ () => inputRef.current?.click() }
 				onDragOver={ ( event ) => {
 					event.preventDefault();
@@ -136,21 +150,14 @@ function UploadBlueprintCard( { onSelect }: { onSelect: ( bp: SelectedBlueprint 
 					void handleFile( event.dataTransfer.files[ 0 ] );
 				} }
 			>
-				<UploadTile />
-				<div className={ styles.cardBody }>
-					<h3 className={ styles.cardTitle }>{ __( 'Upload a Blueprint' ) }</h3>
-					<p className={ styles.cardExcerpt }>
-						{ isReading
-							? __( 'Reading Blueprint…' )
-							: __( 'Use your own Blueprint JSON file or ZIP bundle.' ) }
-					</p>
-					{ error && (
-						<span role="alert" className={ styles.uploadError }>
-							{ error }
-						</span>
-					) }
-				</div>
-			</button>
+				<Icon icon={ upload } size={ 16 } />
+				<span>{ isReading ? __( 'Reading Blueprint…' ) : __( 'Upload a Blueprint' ) }</span>
+			</Button>
+			{ error && (
+				<span role="alert" className={ styles.uploadError }>
+					{ error }
+				</span>
+			) }
 		</>
 	);
 }
@@ -163,26 +170,17 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 	const isOffline = useOffline();
 	const { data: blueprints, isLoading, isError } = useBlueprints();
 	const [ searchQuery, setSearchQuery ] = useState( '' );
-
-	const featured = useMemo(
-		() =>
-			renameBlueprintsForDisplay(
-				( blueprints ?? [] ).filter( ( bp ) => FEATURED_BLUEPRINT_SLUGS.has( bp.slug ) )
-			),
+	const displayBlueprints = useMemo(
+		() => renameBlueprintsForDisplay( blueprints ?? [] ),
 		[ blueprints ]
 	);
 
-	const explore = useMemo(
-		() => ( blueprints ?? [] ).filter( ( bp ) => ! FEATURED_BLUEPRINT_SLUGS.has( bp.slug ) ),
-		[ blueprints ]
-	);
-
-	const filteredExplore = useMemo( () => {
+	const filteredBlueprints = useMemo( () => {
 		const query = searchQuery.toLowerCase().trim();
 		if ( ! query ) {
-			return explore;
+			return displayBlueprints;
 		}
-		return explore.filter( ( bp ) => {
+		return displayBlueprints.filter( ( bp ) => {
 			const titleMatch = bp.title.toLowerCase().includes( query );
 			const excerptMatch = bp.excerpt.toLowerCase().includes( query );
 			const meta = ( bp.blueprint as Record< string, unknown > )?.meta as
@@ -192,7 +190,7 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 			const categoryMatch = categoryList.some( ( cat ) => cat.toLowerCase().includes( query ) );
 			return titleMatch || excerptMatch || categoryMatch;
 		} );
-	}, [ explore, searchQuery ] );
+	}, [ displayBlueprints, searchQuery ] );
 
 	const renderCard = ( bp: Blueprint ) => (
 		<BlueprintCard
@@ -204,9 +202,24 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 
 	return (
 		<section className={ styles.root } aria-labelledby="blueprint-gallery-heading">
-			<h2 id="blueprint-gallery-heading" className={ styles.heading }>
-				{ __( 'Or start from a Blueprint' ) }
-			</h2>
+			<div className={ styles.sectionHeader }>
+				<h2 id="blueprint-gallery-heading" className={ styles.heading }>
+					{ __( 'Start from a Blueprint' ) }
+				</h2>
+				<div className={ styles.sectionActions }>
+					{ displayBlueprints.length > SEARCH_THRESHOLD && (
+						<input
+							type="search"
+							className={ styles.searchInput }
+							placeholder={ __( 'Search Blueprints' ) }
+							aria-label={ __( 'Search Blueprints' ) }
+							value={ searchQuery }
+							onChange={ ( event ) => setSearchQuery( event.target.value ) }
+						/>
+					) }
+					<UploadBlueprintButton onSelect={ onSelect } />
+				</div>
+			</div>
 
 			{ isLoading ? (
 				<p className={ styles.notice }>{ __( 'Loading Blueprints…' ) }</p>
@@ -214,34 +227,10 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 				<p className={ styles.notice }>
 					{ __( 'Blueprints could not be loaded. Check your internet connection and try again.' ) }
 				</p>
+			) : filteredBlueprints.length === 0 ? (
+				<p className={ styles.notice }>{ __( 'No Blueprints found.' ) }</p>
 			) : (
-				<>
-					<div className={ styles.grid }>
-						{ featured.map( renderCard ) }
-						<UploadBlueprintCard onSelect={ onSelect } />
-					</div>
-
-					{ explore.length > 0 && (
-						<>
-							<div className={ styles.exploreHeader }>
-								<h3 className={ styles.exploreTitle }>{ __( 'Explore more Blueprints' ) }</h3>
-								<input
-									type="search"
-									className={ styles.searchInput }
-									placeholder={ __( 'Search Blueprints' ) }
-									aria-label={ __( 'Search Blueprints' ) }
-									value={ searchQuery }
-									onChange={ ( event ) => setSearchQuery( event.target.value ) }
-								/>
-							</div>
-							{ filteredExplore.length === 0 ? (
-								<p className={ styles.notice }>{ __( 'No Blueprints found.' ) }</p>
-							) : (
-								<div className={ styles.grid }>{ filteredExplore.map( renderCard ) }</div>
-							) }
-						</>
-					) }
-				</>
+				<div className={ styles.grid }>{ filteredBlueprints.map( renderCard ) }</div>
 			) }
 		</section>
 	);

@@ -32,6 +32,7 @@ function apiBlueprint( slug: string, title: string, excerpt = '' ): Blueprint {
 }
 
 const QUICK_START = apiBlueprint( 'quick-start', 'Quick Start' );
+const WOO_COMMERCE = apiBlueprint( 'woo-shop', 'Commerce' );
 const COOKBOOK = apiBlueprint( 'cookbook', 'Cookbook', 'Recipes and menus' );
 
 describe( 'BlueprintGallery', () => {
@@ -55,11 +56,30 @@ describe( 'BlueprintGallery', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: /WordPress\.com/ } ) );
 
 		expect( onSelect ).toHaveBeenCalledWith(
-			expect.objectContaining( { title: 'WordPress.com', excerpt: expect.any( String ) } )
+			expect.objectContaining( {
+				slug: 'quick-start',
+				title: 'WordPress.com',
+				excerpt: expect.any( String ),
+			} )
 		);
 	} );
 
-	it( 'filters Explore by excerpt while leaving Featured in place', () => {
+	it( 'filters the complete gallery by excerpt', () => {
+		mocks.blueprints = {
+			data: [
+				WOO_COMMERCE,
+				QUICK_START,
+				...Array.from( { length: 21 }, ( _, index ) =>
+					apiBlueprint(
+						`explore-${ index }`,
+						index === 0 ? 'Cookbook' : `Blueprint ${ index }`,
+						index === 0 ? 'Recipes and menus' : 'A sample Blueprint'
+					)
+				),
+			],
+			isLoading: false,
+			isError: false,
+		};
 		render( <BlueprintGallery onSelect={ vi.fn() } /> );
 		const search = screen.getByRole( 'searchbox', { name: 'Search Blueprints' } );
 
@@ -68,7 +88,28 @@ describe( 'BlueprintGallery', () => {
 
 		fireEvent.change( search, { target: { value: 'nothing here' } } );
 		expect( screen.getByText( 'No Blueprints found.' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /WordPress\.com/ } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /WooCommerce/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hides Search for a small Blueprint collection', () => {
+		render( <BlueprintGallery onSelect={ vi.fn() } /> );
+
+		expect(
+			screen.queryByRole( 'searchbox', { name: 'Search Blueprints' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'pins development, WordPress.com, and WooCommerce ahead of the API order', () => {
+		mocks.blueprints = {
+			data: [ COOKBOOK, WOO_COMMERCE, apiBlueprint( 'development', 'Development' ), QUICK_START ],
+			isLoading: false,
+			isError: false,
+		};
+		render( <BlueprintGallery onSelect={ vi.fn() } /> );
+
+		expect(
+			screen.getAllByRole( 'heading', { level: 3 } ).map( ( heading ) => heading.textContent )
+		).toEqual( [ 'Theme & plugin development', 'WordPress.com', 'WooCommerce', 'Cookbook' ] );
 	} );
 
 	it( 'hands an uploaded Blueprint upward like a curated pick', async () => {

@@ -116,6 +116,32 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'tab' ) ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
 
+	it( 'uses vertical wheel input to scroll an overflowing tab list', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tabList = screen.getByRole( 'tablist' );
+		Object.defineProperties( tabList, {
+			scrollWidth: { configurable: true, value: 600 },
+			clientWidth: { configurable: true, value: 240 },
+			scrollLeft: { configurable: true, value: 0, writable: true },
+		} );
+
+		fireEvent.wheel( tabList, { deltaX: 0, deltaY: 64 } );
+		expect( tabList.scrollLeft ).toBe( 64 );
+
+		document.documentElement.dir = 'rtl';
+		fireEvent.wheel( tabList, { deltaX: 0, deltaY: 32 } );
+		expect( tabList.scrollLeft ).toBe( 32 );
+		document.documentElement.removeAttribute( 'dir' );
+	} );
+
 	it( "restores each site's open tabs, order, and active tab", () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -936,7 +962,7 @@ describe( 'SitePreview', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
 		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitemradio', { name: 'Responsive' } ) ).not.toBeInTheDocument();
 		// The orientation group only accompanies the phone frame.
@@ -953,9 +979,7 @@ describe( 'SitePreview', () => {
 		const backdrop = document.querySelector( '[role="presentation"][data-base-ui-inert]' );
 		expect( backdrop ).toBeInTheDocument();
 		fireEvent.pointerDown( backdrop as Element );
-		await waitFor( () =>
-			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
-		);
+		await waitFor( () => expect( screen.queryByText( 'Viewport width' ) ).not.toBeInTheDocument() );
 	} );
 
 	it( 'disables the responsive mode controls while previewing the database realm', async () => {
@@ -1002,7 +1026,7 @@ describe( 'SitePreview', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
 	} );
 

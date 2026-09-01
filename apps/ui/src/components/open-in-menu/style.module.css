@@ -1,11 +1,11 @@
-@container site-toolbar (max-width: 520px) {
+@container site-toolbar (max-width: 440px) {
 	.label {
 		display: none;
 	}
 }
 
 .popup {
-	min-width: 180px;
+	min-width: 160px;
 }
 
 .itemIcon {

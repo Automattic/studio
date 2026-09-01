@@ -54,7 +54,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties, RefObject } from 'react';
+import type { CSSProperties, RefObject, WheelEvent } from 'react';
 
 export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
@@ -701,7 +701,7 @@ function PreviewResponsiveControls( {
 			</span>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
-					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
+					<Menu.GroupLabel>{ __( 'Viewport width' ) }</Menu.GroupLabel>
 					<Menu.Group>
 						<Menu.Item
 							className={ styles.responsiveModeItem }
@@ -1396,6 +1396,20 @@ export function SitePreview( props: SitePreviewProps ) {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, true );
 	}, [ collapsed, cycleTab, tabs.length ] );
 
+	const handleTabListWheel = ( event: WheelEvent< HTMLDivElement > ) => {
+		const tabList = event.currentTarget;
+		if (
+			event.ctrlKey ||
+			tabList.scrollWidth <= tabList.clientWidth ||
+			Math.abs( event.deltaX ) >= Math.abs( event.deltaY )
+		) {
+			return;
+		}
+		event.preventDefault();
+		const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+		tabList.scrollLeft += event.deltaY * direction;
+	};
+
 	const reorderTab = ( sourceId: number, targetId: number ) => {
 		if ( sourceId === targetId ) return;
 		setTabs( ( current ) => {
@@ -1430,7 +1444,12 @@ export function SitePreview( props: SitePreviewProps ) {
 				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
 			>
 				<div className={ styles.tabListViewport }>
-					<div className={ styles.tabList } role="tablist" aria-label={ __( 'Preview tabs' ) }>
+					<div
+						className={ styles.tabList }
+						role="tablist"
+						aria-label={ __( 'Preview tabs' ) }
+						onWheel={ handleTabListWheel }
+					>
 						{ tabs.map( ( tab ) => {
 							const selected = tab.id === activeTabId;
 							const realm = getPreviewRealm( tab.path );

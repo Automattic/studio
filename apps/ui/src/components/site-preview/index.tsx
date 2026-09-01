@@ -74,7 +74,7 @@ interface SitePreviewProps {
 	onFullscreenChange?: ( value: boolean ) => void;
 }
 
-function FullPreviewIcon( { active }: { active: boolean } ) {
+function getFullPreviewIcon( active: boolean ) {
 	const cornerClassName = clsx(
 		styles.fullPreviewCorner,
 		active && styles.fullPreviewCornerActive
@@ -1605,7 +1605,7 @@ export function SitePreview( props: SitePreviewProps ) {
 						variant="minimal"
 						tone="neutral"
 						size="small"
-						icon={ <FullPreviewIcon active={ fullscreen } /> }
+						icon={ getFullPreviewIcon( fullscreen ) }
 						label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
 						shortcut={ getFullPreviewShortcutDescriptor() }
 						aria-pressed={ fullscreen }

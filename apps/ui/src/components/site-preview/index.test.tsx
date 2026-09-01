@@ -201,6 +201,7 @@ describe( 'SitePreview', () => {
 			ariaKeyShortcut.primaryShift( 'f' )
 		);
 		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect( fullPreviewButton.querySelectorAll( 'path' ) ).toHaveLength( 4 );
 		fireEvent.click( fullPreviewButton );
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );

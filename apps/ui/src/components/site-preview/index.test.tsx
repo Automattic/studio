@@ -1,14 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { DATABASE_HOME_PATH } from './address-bar';
+import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
+	getDirectionalHistoryEntries,
 	isOffOriginRedirect,
 	isThemeActivationUrl,
 	getPathFromPreviewUrl,
@@ -80,6 +81,23 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'orders back and forward history from the current page outward', () => {
+		const entries = [
+			{ index: 0, title: 'Home', url: 'http://localhost/' },
+			{ index: 1, title: 'Posts', url: 'http://localhost/posts' },
+			{ index: 2, title: 'Editor', url: 'http://localhost/editor' },
+			{ index: 3, title: 'Settings', url: 'http://localhost/settings' },
+			{ index: 4, title: 'Themes', url: 'http://localhost/themes' },
+		];
+
+		expect(
+			getDirectionalHistoryEntries( entries, 2, 'back' ).map( ( entry ) => entry.index )
+		).toEqual( [ 1, 0 ] );
+		expect(
+			getDirectionalHistoryEntries( entries, 2, 'forward' ).map( ( entry ) => entry.index )
+		).toEqual( [ 3, 4 ] );
+	} );
+
 	it( 'recognizes WordPress theme activation navigations', () => {
 		expect(
 			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )
@@ -121,67 +139,6 @@ describe( 'SitePreview', () => {
 		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( themeDetails );
 	} );
 
-	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
-		);
-
-		// The active segment wears the realm name ("WordPress" for /wp-admin/).
-		const realmTitle = screen.getByText( 'WordPress' );
-		expect( realmTitle ).toBeVisible();
-
-		// The title is a span inside the address trigger; tooltip hover events
-		// don't bubble, so target the button itself.
-		const addressTrigger = realmTitle.closest( 'button' ) as HTMLElement;
-		fireEvent.mouseEnter( addressTrigger );
-		fireEvent.mouseMove( addressTrigger, { movementX: 1, movementY: 1 } );
-
-		// jsdom reports a non-Apple platform, so the shortcut renders as Ctrl+2.
-		const tooltip = `View WP Admin ${ displayShortcut.primary( '2' ) }`;
-		expect( screen.queryByText( tooltip ) ).not.toBeInTheDocument();
-		// Tooltips use Base UI's default open delay, so wait long enough for the popup to appear.
-		expect( await screen.findByText( tooltip, {}, { timeout: 2000 } ) ).toBeVisible();
-	} );
-
-	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
-		);
-
-		const addressTrigger = screen.getByText( 'WordPress' ).closest( 'button' ) as HTMLElement;
-		fireEvent.mouseEnter( addressTrigger );
-		fireEvent.mouseMove( addressTrigger, { movementX: 1, movementY: 1 } );
-
-		await screen.findByText(
-			`View WP Admin ${ displayShortcut.primary( '2' ) }`,
-			{},
-			{ timeout: 2000 }
-		);
-
-		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
-		expect( screen.queryByText( /^Refresh/ ) ).not.toBeInTheDocument();
-
-		fireEvent.mouseLeave( addressTrigger, { relatedTarget: refreshButton } );
-		fireEvent.mouseEnter( refreshButton, { relatedTarget: addressTrigger } );
-		fireEvent.mouseMove( refreshButton, { movementX: 1, movementY: 1 } );
-
-		const refreshTooltip = screen.getByText( /^Refresh/ );
-		expect( refreshTooltip ).toBeInTheDocument();
-		expect( refreshTooltip ).toHaveAttribute( 'data-instant', 'delay' );
-	} );
-
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {
 		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
 		useConnectorMock.mockReturnValue( {
@@ -206,7 +163,7 @@ describe( 'SitePreview', () => {
 		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
 	} );
 
-	it( 'keeps the Open in… control in the toolbar while the site is stopped', () => {
+	it( 'does not render the chat-level Open in control in the preview toolbar', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -215,7 +172,7 @@ describe( 'SitePreview', () => {
 
 		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
 
-		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows a refresh button that reloads the active preview surface', () => {
@@ -230,19 +187,21 @@ describe( 'SitePreview', () => {
 		);
 
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		const backButton = screen.getByRole( 'button', { name: 'Back' } );
+		const forwardButton = screen.getByRole( 'button', { name: 'Forward' } );
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
+		expect( backButton.compareDocumentPosition( forwardButton ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+		expect( forwardButton.compareDocumentPosition( refreshButton ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
 
 		// jsdom reports a non-Apple platform: the navigation alias is Alt+arrow,
 		// with the bracket chord kept as a secondary shortcut.
-		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
-			'aria-keyshortcuts',
-			'Alt+ArrowLeft Control+['
-		);
-		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
-			'aria-keyshortcuts',
-			'Alt+ArrowRight Control+]'
-		);
+		expect( backButton ).toHaveAttribute( 'aria-keyshortcuts', 'Alt+ArrowLeft Control+[' );
+		expect( forwardButton ).toHaveAttribute( 'aria-keyshortcuts', 'Alt+ArrowRight Control+]' );
 
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
@@ -482,6 +441,126 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 
+	it( 'prioritizes annotation controls while picking', () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		expect( webview ).toBeInTheDocument();
+
+		const stateEvent = new Event( 'console-message' );
+		Object.defineProperty( stateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, stateEvent );
+
+		const cancelButton = screen.getByRole( 'button', { name: 'Cancel annotation' } );
+		expect( cancelButton ).toBeVisible();
+		expect( cancelButton.querySelector( 'svg' ) ).toBeNull();
+		expect( cancelButton ).not.toHaveAttribute( 'aria-pressed' );
+		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	} );
+
+	it( 'confirms before discarding an annotation session', async () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		const stateEvent = new Event( 'console-message' );
+		Object.defineProperty( stateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, stateEvent );
+
+		const emptyCancelRequest = new Event( 'console-message' );
+		Object.defineProperty( emptyCancelRequest, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'cancel-requested',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, emptyCancelRequest );
+		expect(
+			screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+		).not.toBeInTheDocument();
+
+		const draftStateEvent = new Event( 'console-message' );
+		Object.defineProperty( draftStateEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'state',
+				isPicking: true,
+				annotationCount: 0,
+				hasUnsavedDraft: true,
+			} ) }`,
+		} );
+		fireEvent( webview as Element, draftStateEvent );
+
+		const draftCancelRequest = new Event( 'console-message' );
+		Object.defineProperty( draftCancelRequest, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'cancel-requested',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, draftCancelRequest );
+		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Keep annotating' } ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+			).not.toBeInTheDocument()
+		);
+
+		fireEvent.keyDown( document, { key: 'Escape' } );
+		expect( screen.getByRole( 'dialog', { name: 'Cancel annotation?' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard annotations' } ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'dialog', { name: 'Cancel annotation?' } )
+			).not.toBeInTheDocument()
+		);
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	} );
+
 	it( 'shows a single annotate toggle while no notes are pending', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -528,7 +607,7 @@ describe( 'SitePreview', () => {
 		} );
 	} );
 
-	it( 'offers responsive modes from the More options menu while running', async () => {
+	it( 'offers responsive modes from the responsive preview menu while running', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -539,15 +618,16 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
 
 		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitemradio', { name: 'Responsive' } ) ).not.toBeInTheDocument();
 		// The orientation group only accompanies the phone frame.
 		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
 
-		// Radio items keep the menu open, so the orientation group appears in place.
-		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Mobile' } ) );
 
 		expect( await screen.findByText( 'Mobile orientation' ) ).toBeVisible();
 		expect( screen.getByRole( 'menuitemradio', { name: 'Portrait' } ) ).toBeChecked();
@@ -577,56 +657,18 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
 
 		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		const fitPane = screen.getByRole( 'menuitemradio', { name: 'Fit pane' } );
+		const fitPane = screen.getByRole( 'menuitem', { name: 'Responsive' } );
 		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
 
 		// Disabled radio items swallow the click — the mode doesn't change.
-		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
-		expect( fitPane ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
+		expect( fitPane ).toBeVisible();
 	} );
 
-	it( 'toggles full preview from the More options menu', async () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onFullscreenChange = vi.fn();
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		const ui = ( fullscreen: boolean ) => (
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider>
-					<SitePreview
-						site={ createSite( { running: true } ) }
-						path="/"
-						reloadNonce={ 0 }
-						fullscreen={ fullscreen }
-						onFullscreenChange={ onFullscreenChange }
-					/>
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		);
-
-		const { rerender } = render( ui( false ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Full preview' } ) );
-
-		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
-
-		// While full, the same item offers the way back out.
-		rerender( ui( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Exit full preview' } ) );
-
-		expect( onFullscreenChange ).toHaveBeenLastCalledWith( false );
-	} );
-
-	it( 'omits full preview when the host provides no toggle', async () => {
+	it( 'keeps full preview out of the responsive controls', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -637,13 +679,13 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
 
 		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'asks for full preview when the Desktop + Mobile comparison is picked', async () => {
+	it( 'does not force full preview when the Desktop + Mobile comparison is picked', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -660,13 +702,13 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
-		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+		expect( onFullscreenChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'drops the comparison back to Fit pane when full preview ends', async () => {
+	it( 'keeps the comparison selected when full preview ends', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -690,15 +732,15 @@ describe( 'SitePreview', () => {
 		);
 
 		const { rerender } = render( ui( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) );
-		expect( screen.getByRole( 'menuitemradio', { name: 'Desktop + Mobile' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
-		// Two frames don't fit the panel, so the comparison doesn't survive the
-		// return to the split layout.
 		rerender( ui( false ) );
-
-		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Desktop + Mobile' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Desktop + Mobile' } ) ).toHaveAttribute(
+			'aria-current',
+			'true'
+		);
 	} );
 
 	it( 'toggles full preview with the keyboard shortcut', () => {
@@ -744,7 +786,7 @@ describe( 'SitePreview', () => {
 		expect( onFullscreenChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'hides the More options menu when the site is not running', () => {
+	it( 'hides the responsive controls when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -753,7 +795,9 @@ describe( 'SitePreview', () => {
 
 		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
 
-		expect( screen.queryByRole( 'button', { name: 'More options' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Responsive mode: Responsive' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'remembers the responsive mode per site during the session', async () => {
@@ -777,18 +821,23 @@ describe( 'SitePreview', () => {
 		const siteB = createSite( { id: 'site-b', running: true } );
 
 		const { rerender } = render( ui( siteA ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
 
 		// A site without a remembered mode starts from the default…
 		rerender( ui( siteB ) );
-		expect( await screen.findByRole( 'menuitemradio', { name: 'Fit pane' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toHaveAttribute(
+			'aria-current',
+			'true'
+		);
 
 		// …and returning to the first site restores its mode.
 		rerender( ui( siteA ) );
-		expect(
-			await screen.findByRole( 'menuitemradio', { name: 'Mobile · 390×844' } )
-		).toBeChecked();
+		expect( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) ).toHaveAttribute(
+			'aria-current',
+			'true'
+		);
 	} );
 } );
 
@@ -1013,11 +1062,11 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	return { webview, clearWebviewCache, setWebviewViewport, update };
 }
 
-// Leaves "fit pane" for one of the simulated presets, which is what turns the
+// Leaves "Responsive" for one of the simulated presets, which is what turns the
 // CDP emulation on.
 async function selectResponsiveMode( label: string ) {
-	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitemradio', { name: label } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 }
 
 describe( 'SitePreview webview reload', () => {

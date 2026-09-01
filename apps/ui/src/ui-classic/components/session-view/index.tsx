@@ -17,6 +17,7 @@ import {
 	type Ref,
 } from 'react';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -33,7 +34,12 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	pathForSite,
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
@@ -73,6 +79,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	const { data: sites } = useSites();
 	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
+	const preview = useSessionPreviewUI();
 	if ( ! siteName ) {
 		return null;
 	}
@@ -102,6 +109,15 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? (
+				<div className={ styles.headerActions }>
+					<OpenInMenu
+						key={ site.id }
+						site={ site }
+						browserPath={ pathForSite( preview.pathsBySiteId, site.id ) }
+					/>
+				</div>
+			) : null }
 		</div>
 	);
 }

@@ -5,7 +5,10 @@ import { useSession } from '@/data/queries/use-sessions';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
-const { navigateMock } = vi.hoisted( () => ( { navigateMock: vi.fn() } ) );
+const { navigateMock, sitesState } = vi.hoisted( () => ( {
+	navigateMock: vi.fn(),
+	sitesState: { data: [] as Array< { id: string; name: string; path: string } > },
+} ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigateMock,
@@ -19,7 +22,21 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: [] } ),
+	useSites: () => sitesState,
+} ) );
+
+vi.mock( '@/components/open-in-menu', () => ( {
+	OpenInMenu: ( { site, browserPath }: { site: { name: string }; browserPath: string } ) => (
+		<div data-testid="open-in-menu">{ `${ site.name }:${ browserPath }` }</div>
+	),
+} ) );
+
+vi.mock( '@/components/site-dropdown', () => ( {
+	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/preview-toggle-button', () => ( {
+	PreviewToggleButton: () => null,
 } ) );
 
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
@@ -53,6 +70,11 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
+	useSessionPreviewUI: () => ( {
+		pathsBySiteId: { 'site-1': '/wp-admin/' },
+	} ),
+	pathForSite: ( pathsBySiteId: Record< string, string >, siteId: string ) =>
+		pathsBySiteId[ siteId ] ?? '/',
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -66,6 +88,11 @@ vi.mock( './composer', () => ( {
 
 vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
+} ) );
+
+vi.mock( './session-chat-actions', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	SessionChatActions: () => null,
 } ) );
 
 const useSessionMock = vi.mocked( useSession, { partial: true } );
@@ -108,6 +135,7 @@ function setScrollMetrics(
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		sitesState.data = [];
 		// Entitled account by default; individual tests override.
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: makeQuota( {} ),
@@ -115,6 +143,28 @@ describe( 'SessionView', () => {
 			isFetching: false,
 			refetch: vi.fn(),
 		} );
+	} );
+
+	it( 'shows the Open in control at the top-right of the chat header', () => {
+		sitesState.data = [
+			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
+		];
+		useSessionMock.mockReturnValue( {
+			data: {
+				summary: {
+					id: 'session-1',
+					ownerSiteId: 'site-1',
+					ownerSiteName: 'Example Site',
+				},
+				entries: [],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site:/wp-admin/' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

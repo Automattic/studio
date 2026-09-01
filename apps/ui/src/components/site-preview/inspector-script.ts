@@ -280,6 +280,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			type: 'state',
 			isPicking,
 			annotationCount: annotations.length,
+			hasUnsavedDraft: hasDraft(),
 		} );
 	}
 
@@ -426,10 +427,23 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function cancelAnnotations() {
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
 	window.addEventListener(
 		COMMAND_EVENT,
 		( event ) => {
 			const command = event.detail || {};
+			if ( command.type === 'cancel' ) {
+				cancelAnnotations();
+				return;
+			}
 			if ( command.type === 'toggle-picking' ) {
 				togglePicking();
 				return;
@@ -545,6 +559,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		ta.addEventListener( 'input', () => {
 			state.comment = ta.value;
 			syncActions();
+			sendState();
 		} );
 		ta.addEventListener( 'keydown', ( event ) => {
 			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
@@ -662,13 +677,12 @@ export const INSPECTOR_PAGE_SCRIPT =
 				return;
 			}
 			if ( e.key !== 'Escape' ) return;
-			if ( activePopup ) {
+			if ( isPicking ) {
+				e.preventDefault();
+				e.stopPropagation();
+				send( { type: 'cancel-requested' } );
+			} else if ( activePopup ) {
 				activePopup = null;
-				persistAnnotations();
-				render();
-			} else if ( isPicking ) {
-				isPicking = false;
-				hoveredEl = null;
 				persistAnnotations();
 				render();
 			}

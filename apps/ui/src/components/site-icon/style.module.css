@@ -36,7 +36,7 @@
 }
 
 .rootWithImage {
-	background: transparent;
+	background: var(--wpds-color-bg-content-neutral, transparent);
 	border: 0;
 	box-shadow: none;
 }

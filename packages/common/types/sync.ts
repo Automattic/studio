@@ -122,19 +122,6 @@ export type PullSiteProgress = {
 	action?: string;
 };
 
-// The phases a push moves through, in order: export the local archive, upload
-// it, then wait on the remote import. Only `uploading` carries a percentage;
-// `paused` means the upload stalled on the network and will resume itself.
-export const pushSitePhases = [ 'exporting', 'uploading', 'paused', 'importing' ] as const;
-
-export type PushSitePhase = ( typeof pushSitePhases )[ number ];
-
-export type PushSiteProgress = {
-	phase: PushSitePhase;
-	// 0–100, present during `uploading` and `paused`.
-	progress?: number;
-};
-
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {
 	success: z.boolean(),

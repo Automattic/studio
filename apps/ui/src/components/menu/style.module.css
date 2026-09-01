@@ -10,9 +10,6 @@
 	outline: none;
 }
 
-/* A menu triggered from inside a dialog or popover has to clear that surface's
-   own stacking level. It sits where a select inside a dialog sits: above the
-   overlay, still below tooltips. */
 .positionerAboveOverlays {
 	z-index: var(--wp-ui-select-z-index, 750);
 }

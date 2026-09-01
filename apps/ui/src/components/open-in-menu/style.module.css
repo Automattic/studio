@@ -1,3 +1,13 @@
+.trigger {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+@container site-toolbar (max-width: 520px) {
+	.label {
+		display: none;
+	}
+}
+
 .popup {
 	min-width: 180px;
 }

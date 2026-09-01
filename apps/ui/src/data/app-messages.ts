@@ -16,9 +16,6 @@ export type ToastInput = {
 	title: string;
 	description?: string;
 	action?: ToastAction;
-	// 0 pins the toast open until something replaces or dismisses it. Used for
-	// work that runs for an unknown length of time, where a timer would hide
-	// the thing the user is waiting on.
 	durationMs?: number;
 };
 
@@ -73,7 +70,7 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted || toast.durationMs <= 0 ) {
+	if ( ! rendererMounted ) {
 		return;
 	}
 	const timer = setTimeout( () => {

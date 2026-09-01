@@ -31,7 +31,6 @@ type PopupProps = {
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
-	/** Raises the menu above modal surfaces. Set when the trigger is inside a dialog. */
 	aboveOverlays?: boolean;
 	className?: string;
 	onClick?: MouseEventHandler< HTMLElement >;

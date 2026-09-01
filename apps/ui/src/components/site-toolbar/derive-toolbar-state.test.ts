@@ -50,7 +50,7 @@ describe( 'deriveToolbarState', () => {
 			expect( state.actions ).toHaveLength( 1 );
 			expect( state.actions[ 0 ] ).toMatchObject( {
 				id: 'publish',
-				label: 'Publish',
+				label: 'Publish…',
 				variant: 'solid',
 				tone: 'brand',
 				disabled: false,
@@ -65,7 +65,7 @@ describe( 'deriveToolbarState', () => {
 			expect( state.actions ).toHaveLength( 1 );
 			expect( state.actions[ 0 ] ).toMatchObject( {
 				id: 'sync',
-				label: 'Sync',
+				label: 'Sync…',
 				variant: 'solid',
 				tone: 'brand',
 			} );
@@ -169,7 +169,7 @@ describe( 'deriveToolbarState', () => {
 		it( '11 · leaves the fill flat for a phase that cannot report a percentage', () => {
 			const state = derive( {
 				connections: [ liveSite() ],
-				activity: { kind: 'pending', direction: 'push', phase: 'exporting' },
+				activity: { kind: 'pending', direction: 'push', phase: 'creatingBackup' },
 				isSyncing: true,
 			} );
 
@@ -198,7 +198,7 @@ describe( 'deriveToolbarState', () => {
 			// Failures are announced as toasts; the button just goes back to
 			// offering the same move.
 			expect( action( state, 'sync' ) ).toMatchObject( {
-				label: 'Sync',
+				label: 'Sync…',
 				busy: false,
 				disabled: false,
 			} );

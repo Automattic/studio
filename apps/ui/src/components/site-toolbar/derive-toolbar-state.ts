@@ -124,7 +124,7 @@ export function deriveToolbarState( {
 				// about moving files off a local server — don't apply to it.
 				{
 					id: 'publish',
-					label: __( 'Publish' ),
+					label: __( 'Publish…' ),
 					variant: 'solid',
 					tone: 'brand',
 					busy: false,
@@ -177,7 +177,7 @@ export function deriveToolbarState( {
 		actions: [
 			{
 				id: 'sync',
-				label: __( 'Sync' ),
+				label: __( 'Sync…' ),
 				variant: 'solid',
 				tone: 'brand',
 				busy: running,

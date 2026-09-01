@@ -39,7 +39,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'overview' | 'connections' | 'general' | 'debugging';
+type TabId = 'overview' | 'general' | 'debugging';
 
 interface FormData {
 	name: string;
@@ -334,10 +334,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	);
 }
 
-const SITE_TABS: TabId[] = [ 'overview', 'connections', 'general', 'debugging' ];
-
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return ( SITE_TABS as string[] ).includes( value );
+	return value === 'overview' || value === 'general' || value === 'debugging';
 }
 
 export type SiteSettingsTabId = TabId;

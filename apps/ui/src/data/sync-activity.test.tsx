@@ -4,7 +4,7 @@ import {
 	getSyncCancelLabels,
 	reportPushPhase,
 	reportSyncPending,
-	reportPullProgress,
+	reportSyncProgress,
 	reportSyncSuccess,
 	useSiteSyncActivity,
 } from './sync-activity';
@@ -23,7 +23,7 @@ describe( 'sync activity progress', () => {
 		expect( result.current ).toEqual( { kind: 'pending', direction: 'pull' } );
 
 		act( () =>
-			reportPullProgress( siteId, {
+			reportSyncProgress( siteId, 'pull', {
 				message: 'Downloading backup… (50%)',
 				progress: 50,
 			} )

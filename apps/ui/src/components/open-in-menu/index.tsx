@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useState } from 'react';
 import * as Menu from '@/components/menu';
 import splitStyles from '@/components/split-button/style.module.css';
@@ -72,7 +73,7 @@ export function OpenInMenu( {
 
 	return (
 		<Menu.Root>
-			<div className={ splitStyles.splitTrigger }>
+			<div className={ clsx( splitStyles.splitTrigger, styles.trigger ) }>
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						render={
@@ -88,6 +89,7 @@ export function OpenInMenu( {
 						}
 					>
 						<Icon icon={ lastUsedDestination.logo } size={ 18 } />
+						<span className={ styles.label }>{ lastUsedDestination.label }</span>
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 						{ actionLabel }

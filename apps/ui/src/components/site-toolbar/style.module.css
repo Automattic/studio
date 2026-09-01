@@ -13,6 +13,7 @@
 	/* The window drags by the toolbar's empty space; its controls opt back out
 	   below so clicks reach them. */
 	-webkit-app-region: drag;
+	container: site-toolbar / inline-size;
 }
 
 .identity {
@@ -235,4 +236,3 @@
 		animation: none;
 	}
 }
-

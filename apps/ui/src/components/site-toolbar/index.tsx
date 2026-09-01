@@ -4,8 +4,10 @@ import { external, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
+import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -34,6 +36,7 @@ import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync
 interface SiteToolbarProps {
 	site: SiteDetails;
 	className?: string;
+	browserPath?: string;
 }
 
 // Counts in-flight push/pull mutations for this site across hook instances, so
@@ -55,19 +58,17 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 }
 
 /**
- * The site's permanent header: who you're working on and what state it's in on
- * the left, one status pill and one primary action on the right. Replaces the
- * old site dropdown, whose actions were hidden behind a trigger that read as a
- * status indicator.
+ * The site's permanent header: identity and status on the left, with the
+ * available site actions on the right.
  */
-export function SiteToolbar( { site, className }: SiteToolbarProps ) {
+export function SiteToolbar( { site, className, browserPath }: SiteToolbarProps ) {
 	const connector = useConnector();
 	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
 	// The sidebar's site rows already carry a run-state dot for every site,
 	// including this one. Showing a second one in the header only earns its
 	// place once the sidebar is out of view.
 	const showRunState = useSidebarCollapsed();
-	const login = useLogin();
+	const login = useLogin( { source: 'site_header' } );
 	const [ publishOpen, setPublishOpen ] = useState( false );
 	const [ syncOpen, setSyncOpen ] = useState( false );
 	const [ shareOpen, setShareOpen ] = useState( false );
@@ -182,20 +183,23 @@ export function SiteToolbar( { site, className }: SiteToolbarProps ) {
 			</div>
 
 			<div className={ styles.actions }>
+				{ browserPath !== undefined ? (
+					<OpenInMenu key={ site.id } site={ site } browserPath={ browserPath } />
+				) : null }
 				{ /* Sharing isn't a sync: it publishes a throwaway copy, so it sits
 				     outside the primary action rather than inside its panel. */ }
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						render={
 							<Button
-								variant="minimal"
+								variant="outline"
 								tone="neutral"
 								size="small"
-								className={ styles.action }
+								className={ clsx( styles.action, splitStyles.secondaryButton ) }
 								disabled={ ! agenticEnabled }
 								onClick={ () => setShareOpen( true ) }
 							>
-								{ __( 'Share' ) }
+								{ __( 'Share…' ) }
 							</Button>
 						}
 					/>

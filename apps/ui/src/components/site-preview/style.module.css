@@ -97,6 +97,14 @@
 	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
+:global(html[data-color-scheme='dark']) .tab:not(.tabSelected) {
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+:global(html[data-color-scheme='dark']) .tab:not(.tabSelected):hover {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
 .tabSelected {
 	z-index: 1;
 	color: var(--wpds-color-fg-content-neutral);
@@ -175,6 +183,11 @@
 	margin-inline-end: var(--wpds-dimension-padding-xs);
 	border-radius: var(--wpds-border-radius-sm);
 	flex: 0 0 20px;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.tabClose svg {
+	fill: currentColor;
 }
 
 .tabClose:hover {

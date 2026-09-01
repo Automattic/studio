@@ -95,6 +95,7 @@ describe( 'SitePreview', () => {
 
 		for ( let count = 0; count < 4; count++ ) {
 			fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Front-end' } ) );
 		}
 
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 5 );
@@ -129,6 +130,7 @@ describe( 'SitePreview', () => {
 
 		renderPreview( <PreviewHarness /> );
 		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Front-end' } ) );
 
 		let address = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect( address ).toHaveValue( 'http://localhost:8881/' );
@@ -145,6 +147,60 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 			'http://localhost:8881/contact/'
 		);
+	} );
+
+	it( 'offers each preview realm when adding a tab', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Front-end' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: 'WordPress' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
+	} );
+
+	it( 'uses realm-specific favicons in browser tabs', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
+
+		const frontend = renderPreview(
+			<SitePreview site={ createSite( { running: true, siteIcon } ) } path="/" reloadNonce={ 0 } />
+		);
+		expect( frontend.container.querySelector( '[data-realm="frontend"] img' ) ).toHaveAttribute(
+			'src',
+			siteIcon
+		);
+		frontend.unmount();
+
+		const admin = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
+		);
+		expect( admin.container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
+		admin.unmount();
+
+		const database = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+			/>
+		);
+		expect( database.container.querySelector( '[data-realm="database"] svg' ) ).toBeInTheDocument();
 	} );
 
 	it( 'orders back and forward history from the current page outward', () => {
@@ -336,7 +392,7 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
-	it( 'switches realms on primary-modifier number shortcuts', () => {
+	it( 'does not reserve primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -353,84 +409,11 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
-		);
+		const event = new KeyboardEvent( 'keydown', { key: '2', ctrlKey: true, cancelable: true } );
+		document.body.dispatchEvent( event );
 
-		// Re-selecting the already-active realm is a no-op.
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
+		expect( event.defaultPrevented ).toBe( false );
 		expect( onPathChange ).not.toHaveBeenCalled();
-	} );
-
-	it( 'records an internal-browser Tracks event when switching realms', () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent,
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onPathChange={ vi.fn() }
-			/>
-		);
-
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'internal',
-		} );
-	} );
-
-	it( 'does not record a realm switch when re-selecting the active realm', () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent,
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/wp-admin/"
-				reloadNonce={ 0 }
-				onPathChange={ vi.fn() }
-			/>
-		);
-
-		// Already on the admin realm; its shortcut is a no-op.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( trackEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'switches to the database realm on its shortcut', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onPathChange = vi.fn();
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onPathChange={ onPathChange }
-			/>
-		);
-
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
 	} );
 
 	it( 'keeps the front end and WP Admin on one shared surface', () => {
@@ -498,10 +481,6 @@ describe( 'SitePreview', () => {
 		rerender( ui( '/' ) );
 		expect( container.querySelector( 'iframe' ) ).toBe( siteSurface );
 		expect( siteSurface?.closest( '[inert]' ) ).toBeNull();
-
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
 
 		rerender( ui( DATABASE_HOME_PATH ) );
 		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );

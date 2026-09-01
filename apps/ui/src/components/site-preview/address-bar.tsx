@@ -1,13 +1,7 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { Icon, wordpress } from '@wordpress/icons';
-import { displayShortcut } from '@wordpress/keycodes';
-import { Button, Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
-import { useEffect, useRef, useState } from 'react';
-import { SiteIcon } from '@/components/site-icon';
-import { databaseIcon } from '@/lib/icons';
+import { useEffect, useState } from 'react';
 import styles from './address-bar.module.css';
-import type { SiteDetails } from '@/data/core';
 import type { FormEvent } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
@@ -96,18 +90,10 @@ export function useDebouncedValue< T >( value: T, delayMs: number ): T {
 	return debounced;
 }
 
-export const REALM_SHORTCUT_KEYS: Record< PreviewRealm, string > = {
-	frontend: '1',
-	admin: '2',
-	database: '3',
-};
-
 interface PreviewAddressBarProps {
-	site: SiteDetails;
 	siteUrl: string;
 	path: string;
 	onNavigate: ( path: string ) => void;
-	onSwitchRealm: ( realm: PreviewRealm ) => void;
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
@@ -118,18 +104,9 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	}
 }
 
-export function PreviewAddressBar( {
-	site,
-	siteUrl,
-	path,
-	onNavigate,
-	onSwitchRealm,
-}: PreviewAddressBarProps ) {
+export function PreviewAddressBar( { siteUrl, path, onNavigate }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
-	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
-	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
-	const addressBarRef = useRef< HTMLFormElement | null >( null );
 
 	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
 
@@ -143,133 +120,19 @@ export function PreviewAddressBar( {
 			intent.type === 'path'
 				? getRealmNavigationPath( intent.path, siteUrl )
 				: `/?s=${ encodeURIComponent( intent.term ) }`;
-		setShortcutsOpen( false );
 		onNavigate( nextPath );
-	};
-	const chooseRealm = ( realm: PreviewRealm ) => {
-		setShortcutsOpen( false );
-		onSwitchRealm( realm );
 	};
 
 	return (
-		<Popover.Root
-			open={ shortcutsOpen }
-			onOpenChange={ ( open ) => {
-				setShortcutsOpen( open );
-				if ( ! open ) {
-					setValue( displayUrl );
-				}
-			} }
-		>
-			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				<span className={ styles.siteIcon } data-realm={ activeRealm } aria-hidden="true">
-					{ activeRealm === 'frontend' ? (
-						<SiteIcon
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
-					) : (
-						<Icon
-							icon={ activeRealm === 'admin' ? wordpress : databaseIcon }
-							size={ 18 }
-							className={ activeRealm === 'admin' ? styles.wordpressIcon : undefined }
-						/>
-					) }
-				</span>
-				<input
-					className={ styles.input }
-					value={ value }
-					onChange={ ( event ) => setValue( event.target.value ) }
-					onClick={ () => setShortcutsOpen( true ) }
-					onFocus={ ( event ) => {
-						event.currentTarget.select();
-					} }
-					aria-label={ __( 'Address' ) }
-					spellCheck={ false }
-				/>
-				<div className={ styles.addressShortcuts }>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.addressShortcut }
-									aria-label={ __( 'Open WP Admin' ) }
-									aria-current={ activeRealm === 'admin' ? 'page' : undefined }
-									onClick={ () => chooseRealm( 'admin' ) }
-								/>
-							}
-						>
-							<Icon icon={ wordpress } size={ 16 } className={ styles.wordpressIcon } />
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ __( 'WP Admin' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.addressShortcut }
-									aria-label={ __( 'Open Database' ) }
-									aria-current={ activeRealm === 'database' ? 'page' : undefined }
-									onClick={ () => chooseRealm( 'database' ) }
-								/>
-							}
-						>
-							<Icon icon={ databaseIcon } size={ 16 } />
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ __( 'Database' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				</div>
-			</form>
-			<Popover.Popup
-				variant="unstyled"
-				initialFocus={ false }
-				finalFocus={ false }
-				className={ styles.shortcutsPopup }
-				positioner={
-					<Popover.Positioner
-						anchor={ addressBarRef }
-						side="bottom"
-						align="start"
-						sideOffset={ 4 }
-						className={ styles.shortcutsPositioner }
-					/>
-				}
-			>
-				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
-				<div className={ styles.shortcutsList }>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'frontend' ) }>
-						<SiteIcon
-							className={ styles.shortcutSiteIcon }
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
-						<span>{ __( 'Front end' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.frontend ) }</kbd>
-					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'admin' ) }>
-						<Icon icon={ wordpress } size={ 18 } className={ styles.wordpressIcon } />
-						<span>{ __( 'WP Admin' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.admin ) }</kbd>
-					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'database' ) }>
-						<Icon icon={ databaseIcon } size={ 18 } />
-						<span>{ __( 'Database' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.database ) }</kbd>
-					</Popover.Close>
-				</div>
-			</Popover.Popup>
-		</Popover.Root>
+		<form className={ styles.addressBar } onSubmit={ handleSubmit }>
+			<input
+				className={ styles.input }
+				value={ value }
+				onChange={ ( event ) => setValue( event.target.value ) }
+				onFocus={ ( event ) => event.currentTarget.select() }
+				aria-label={ __( 'Address' ) }
+				spellCheck={ false }
+			/>
+		</form>
 	);
 }

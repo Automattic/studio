@@ -34,12 +34,11 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
-	padding-inline-start: var(--wpds-dimension-padding-md);
-	min-height: 32px;
+	padding-top: var(--wpds-dimension-padding-md);
+	padding-inline: var(--wpds-dimension-padding-md);
+	/* min-height: 32px; */
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral-strong);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
 }
 
@@ -71,24 +70,24 @@
 	align-items: center;
 	min-width: 112px;
 	max-width: 240px;
-	height: 32px;
+	height: 24px;
 	flex: 1 1 180px;
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-md);
 }
 
 .tab:hover {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .tabSelected {
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .tabSelected:hover {
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .tabSelect,
@@ -119,10 +118,17 @@
 }
 
 .tabIcon {
+	display: grid;
+	place-items: center;
 	width: 18px;
 	height: 18px;
-	border-radius: var(--wpds-border-radius-sm);
 	flex: 0 0 18px;
+	color: var(--wpds-color-fg-content-neutral);
+	fill: currentColor;
+}
+
+.tabSiteIcon {
+	--site-icon-size: 18px;
 }
 
 .tabTitle {

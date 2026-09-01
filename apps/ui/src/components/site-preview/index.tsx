@@ -1,7 +1,16 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, closeSmall, home, Icon, pencil, plus } from '@wordpress/icons';
+import {
+	check,
+	chevronDown,
+	closeSmall,
+	home,
+	Icon,
+	pencil,
+	plus,
+	wordpress,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -21,7 +30,13 @@ import {
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
+import {
+	browserBackIcon,
+	browserForwardIcon,
+	databaseIcon,
+	playIcon,
+	refreshIcon,
+} from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -29,7 +44,6 @@ import {
 	getRealmNavigationPath,
 	getRealmOpenEvent,
 	PreviewAddressBar,
-	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
@@ -550,19 +564,6 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-// ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
-function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
-	if ( event.defaultPrevented || event.repeat ) {
-		return null;
-	}
-	for ( const realm of Object.keys( REALM_SHORTCUT_KEYS ) as PreviewRealm[] ) {
-		if ( isKeyboardEvent.primary( event, REALM_SHORTCUT_KEYS[ realm ] ) ) {
-			return realm;
-		}
-	}
-	return null;
-}
-
 // ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
 // Keyboard alongside the other preview shortcuts.
 const FULL_PREVIEW_SHORTCUT_KEY = 'f';
@@ -1041,10 +1042,10 @@ export function SitePreview( props: SitePreviewProps ) {
 		onPathChange?.( tab.path );
 	};
 
-	const addTab = () => {
+	const addTab = ( nextPath: string ) => {
 		const tab = {
 			id: nextTabId.current++,
-			path: '/',
+			path: nextPath,
 			title: site.name,
 			reloadNonce,
 		};
@@ -1091,6 +1092,7 @@ export function SitePreview( props: SitePreviewProps ) {
 				<div className={ styles.tabList } role="tablist" aria-label={ __( 'Preview tabs' ) }>
 					{ tabs.map( ( tab ) => {
 						const selected = tab.id === activeTabId;
+						const realm = getPreviewRealm( tab.path );
 						return (
 							<div key={ tab.id } className={ clsx( styles.tab, selected && styles.tabSelected ) }>
 								<button
@@ -1101,11 +1103,17 @@ export function SitePreview( props: SitePreviewProps ) {
 									tabIndex={ selected ? 0 : -1 }
 									onClick={ () => selectTab( tab ) }
 								>
-									<SiteIcon
-										className={ styles.tabIcon }
-										seed={ `${ site.id }:${ site.name }:${ site.path }` }
-										imageSrc={ site.siteIcon }
-									/>
+									<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
+										{ realm === 'frontend' ? (
+											<SiteIcon
+												className={ styles.tabSiteIcon }
+												seed={ `${ site.id }:${ site.name }:${ site.path }` }
+												imageSrc={ site.siteIcon }
+											/>
+										) : (
+											<Icon icon={ realm === 'admin' ? wordpress : databaseIcon } size={ 18 } />
+										) }
+									</span>
 									<span className={ styles.tabTitle }>{ tab.title }</span>
 								</button>
 								<button
@@ -1124,14 +1132,30 @@ export function SitePreview( props: SitePreviewProps ) {
 						);
 					} ) }
 				</div>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ plus }
-					label={ __( 'New tab' ) }
-					onClick={ addTab }
-				/>
+				<Menu.Root>
+					<Menu.Trigger
+						render={
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ plus }
+								label={ __( 'New tab' ) }
+							/>
+						}
+					/>
+					<Menu.Popup side="bottom" align="end">
+						<Menu.Item onClick={ () => addTab( '/' ) }>{ __( 'Front-end' ) }</Menu.Item>
+						<Menu.Item
+							onClick={ () => addTab( getRealmNavigationPath( '/wp-admin/', getSiteUrl( site ) ) ) }
+						>
+							{ __( 'WordPress' ) }
+						</Menu.Item>
+						<Menu.Item onClick={ () => addTab( DATABASE_HOME_PATH ) }>
+							{ __( 'Database' ) }
+						</Menu.Item>
+					</Menu.Popup>
+				</Menu.Root>
 			</div>
 			<div className={ styles.tabPanels }>
 				{ tabs.map( ( tab ) => {
@@ -1524,10 +1548,9 @@ function SingleSitePreview( {
 		return () => observer.disconnect();
 	}, [] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) and the ⌘1/⌘2/⌘3 realm switches
-	// pressed while focus is in the host document. Shortcuts pressed inside the
-	// guest page are forwarded by the inspector script through the console
-	// bridge instead.
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed while focus is in the
+	// host document. Shortcuts pressed inside the guest page are forwarded by
+	// the inspector script through the console bridge instead.
 	useEffect( () => {
 		if ( ! canPreview || collapsed ) {
 			return;
@@ -1538,12 +1561,10 @@ function SingleSitePreview( {
 				event.key === 'Escape' &&
 				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
 			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
-			const realm = command || inspectorState.isPicking ? null : getRealmShortcut( event );
 			// Only claim the full-preview chord when the host actually offers
 			// the mode, so it stays available to the page otherwise.
-			const fullPreview =
-				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
-			if ( ! cancelAnnotation && ! command && ! realm && ! fullPreview ) {
+			const fullPreview = ! command && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! cancelAnnotation && ! command && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -1560,8 +1581,6 @@ function SingleSitePreview( {
 				setAnnotationCancelRequestId( ( current ) => current + 1 );
 			} else if ( command ) {
 				sendBrowserCommand( command );
-			} else if ( realm ) {
-				handleSwitchRealm( realm );
 			} else {
 				onFullscreenChange?.( ! fullscreen );
 			}
@@ -1573,7 +1592,6 @@ function SingleSitePreview( {
 		canPreview,
 		collapsed,
 		fullscreen,
-		handleSwitchRealm,
 		inspectorState.isPicking,
 		onFullscreenChange,
 		sendBrowserCommand,
@@ -1646,11 +1664,9 @@ function SingleSitePreview( {
 				<div className={ styles.browserLocation }>
 					{ canPreview && ! inspectorState.isPicking ? (
 						<PreviewAddressBar
-							site={ site }
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-							onSwitchRealm={ handleSwitchRealm }
 						/>
 					) : null }
 				</div>

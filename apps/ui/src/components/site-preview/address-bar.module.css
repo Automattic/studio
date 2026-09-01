@@ -6,7 +6,7 @@
 	min-width: 80px;
 	height: 24px;
 	margin: 0;
-	padding-inline-start: var(--wpds-dimension-padding-xs);
+	padding-inline: var(--wpds-dimension-padding-sm);
 	align-items: center;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm);
@@ -19,25 +19,11 @@
 	outline-offset: 1px;
 }
 
-.siteIcon {
-	display: inline-flex;
-	width: 16px;
-	height: 16px;
-	flex: 0 0 16px;
-	align-items: center;
-	justify-content: center;
-}
-
-.wordpressIcon {
-	color: var(--wpds-color-fg-content-neutral);
-	fill: currentColor;
-}
-
 .input {
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-xs);
+	padding: 0;
 	border: 0;
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
@@ -45,93 +31,4 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
 	outline: 0;
-}
-
-.addressShortcuts {
-	display: flex;
-	flex: 0 0 auto;
-	align-items: center;
-	gap: 1px;
-	padding-inline-end: 2px;
-}
-
-.addressShortcut {
-	--wp-ui-button-min-width: 20px;
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
-
-	width: 20px;
-	height: 20px;
-	min-height: 20px;
-	padding: 2px;
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.addressShortcut:hover,
-.addressShortcut:focus-visible,
-.addressShortcut[aria-current='page'] {
-	color: var(--wpds-color-fg-content-neutral);
-	background: var(--wpds-color-bg-surface-neutral-strong);
-}
-
-@container studio-preview-toolbar (max-width: 500px) {
-	.addressShortcuts {
-		display: none;
-	}
-}
-
-.shortcutsPositioner {
-	z-index: 100;
-}
-
-.shortcutsPopup {
-	box-sizing: border-box;
-	width: var(--anchor-width);
-	max-width: calc(100vw - 16px);
-	padding: var(--wpds-dimension-padding-xs);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: var(--wpds-elevation-md);
-}
-
-.shortcutsList {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-}
-
-.shortcut {
-	display: grid;
-	grid-template-columns: 18px minmax(0, 1fr) auto;
-	gap: var(--wpds-dimension-gap-sm);
-	width: 100%;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	align-items: center;
-	border: 0;
-	border-radius: var(--wpds-border-radius-sm);
-	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	text-align: start;
-	cursor: var(--wpds-cursor-control);
-}
-
-.shortcut:hover,
-.shortcut:focus-visible {
-	background: var(--wpds-color-bg-surface-neutral);
-	outline: none;
-}
-
-.shortcut kbd {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-}
-
-.shortcutSiteIcon {
-	width: 18px;
-	height: 18px;
 }

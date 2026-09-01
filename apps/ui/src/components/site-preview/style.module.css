@@ -13,6 +13,155 @@
 	overflow: hidden;
 }
 
+.tabbedRoot {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	overflow: hidden;
+}
+
+.tabbedRootFullscreen {
+	border-inline-start: none;
+}
+
+.tabBar {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	min-height: 32px;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	-webkit-app-region: drag;
+}
+
+.tabBarTrafficLights {
+	padding-left: 94px;
+}
+
+.tabBar button {
+	-webkit-app-region: no-drag;
+}
+
+.tabList {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+	display: none;
+}
+
+.tab {
+	display: flex;
+	align-items: center;
+	min-width: 112px;
+	max-width: 240px;
+	height: 32px;
+	flex: 1 1 180px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: transparent;
+	border-radius: var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0 0;
+}
+
+.tab:hover {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+}
+
+.tabSelected {
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.tabSelected:hover {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.tabSelect,
+.tabClose {
+	appearance: none;
+	color: inherit;
+	background: transparent;
+	border: 0;
+	font: inherit;
+	cursor: pointer;
+}
+
+.tabSelect:focus-visible,
+.tabClose:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -2px;
+}
+
+.tabSelect {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	height: 100%;
+	padding: 0 0 0 var(--wpds-dimension-padding-sm);
+	flex: 1;
+	text-align: start;
+}
+
+.tabIcon {
+	width: 18px;
+	height: 18px;
+	border-radius: var(--wpds-border-radius-sm);
+	flex: 0 0 18px;
+}
+
+.tabTitle {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.tabClose {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	margin-inline-end: 2px;
+	border-radius: var(--wpds-border-radius-sm);
+	flex: 0 0 28px;
+}
+
+.tabClose:hover {
+	background-color: var(--wpds-color-bg-interactive-neutral-strong);
+}
+
+.tabPanels,
+.tabPanel {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.tabPanelHidden {
+	display: none;
+}
+
+.rootTabbed {
+	border-inline-start: none;
+}
+
 /* Full preview: the panel spans the whole frame, so the content/preview
    separator would read as a stray line down the window's edge. */
 .rootFullscreen {

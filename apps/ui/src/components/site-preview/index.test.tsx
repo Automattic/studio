@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -81,6 +82,71 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'adds and closes independent browser tabs without removing the last tab', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		for ( let count = 0; count < 4; count++ ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		}
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 5 );
+		expect( screen.getAllByRole( 'button', { name: 'Refresh', hidden: true } ) ).toHaveLength( 5 );
+
+		for ( let count = 0; count < 5; count++ ) {
+			fireEvent.click( screen.getAllByRole( 'button', { name: /Close Example Site/ } )[ 0 ] );
+		}
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'tab' ) ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'keeps each tab at its own URL when switching between them', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		function PreviewHarness() {
+			const [ currentPath, setCurrentPath ] = useState( '/about/' );
+			return (
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path={ currentPath }
+					reloadNonce={ 0 }
+					onPathChange={ setCurrentPath }
+				/>
+			);
+		}
+
+		renderPreview( <PreviewHarness /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+
+		let address = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( address ).toHaveValue( 'http://localhost:8881/' );
+		fireEvent.change( address, { target: { value: 'http://localhost:8881/contact/' } } );
+		fireEvent.submit( address.closest( 'form' )! );
+		expect( address ).toHaveValue( 'http://localhost:8881/contact/' );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		fireEvent.click( tabs[ 0 ] );
+		address = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( address ).toHaveValue( 'http://localhost:8881/about/' );
+
+		fireEvent.click( tabs[ 1 ] );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			'http://localhost:8881/contact/'
+		);
+	} );
+
 	it( 'orders back and forward history from the current page outward', () => {
 		const entries = [
 			{ index: 0, title: 'Home', url: 'http://localhost/' },

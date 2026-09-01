@@ -1,13 +1,14 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, home, Icon, pencil } from '@wordpress/icons';
+import { check, chevronDown, closeSmall, home, Icon, pencil, plus } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
+import { SiteIcon } from '@/components/site-icon';
 import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -67,6 +68,18 @@ interface SitePreviewProps {
 	fullscreen?: boolean;
 	// Enters/leaves full preview. The "•••" menu only offers it when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
+}
+
+interface PreviewTab {
+	id: number;
+	path: string;
+	title: string;
+	reloadNonce: number;
+}
+
+interface SingleSitePreviewProps extends SitePreviewProps {
+	onTitleChange?: ( title: string | null ) => void;
+	hasTabBar?: boolean;
 }
 
 interface InspectorEvent {
@@ -978,7 +991,197 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 	);
 }
 
-export function SitePreview( {
+export function SitePreview( props: SitePreviewProps ) {
+	const { site, path, reloadNonce, onPathChange, collapsed = false, fullscreen = false } = props;
+	const nextTabId = useRef( 2 );
+	const trafficLightSpace = useTrafficLightSpace();
+	const [ tabs, setTabs ] = useState< PreviewTab[] >( () => [
+		{ id: 1, path: getSafePath( path ), title: site.name, reloadNonce },
+	] );
+	const [ activeTabId, setActiveTabId ] = useState( 1 );
+	const activeTabIdRef = useRef( activeTabId );
+	const siteIdRef = useRef( site.id );
+	const activeTab = tabs.find( ( tab ) => tab.id === activeTabId ) ?? tabs[ 0 ];
+	useEffect( () => {
+		activeTabIdRef.current = activeTabId;
+	}, [ activeTabId ] );
+
+	useEffect( () => {
+		if ( siteIdRef.current === site.id ) {
+			return;
+		}
+		siteIdRef.current = site.id;
+		setTabs( [ { id: 1, path: getSafePath( path ), title: site.name, reloadNonce } ] );
+		setActiveTabId( 1 );
+		nextTabId.current = 2;
+	}, [ path, reloadNonce, site.id, site.name ] );
+
+	useEffect( () => {
+		setTabs( ( current ) =>
+			current.map( ( tab ) =>
+				tab.id === activeTabIdRef.current && tab.path !== getSafePath( path )
+					? { ...tab, path: getSafePath( path ) }
+					: tab
+			)
+		);
+	}, [ path ] );
+
+	useEffect( () => {
+		setTabs( ( current ) =>
+			current.map( ( tab ) =>
+				tab.id === activeTabIdRef.current && tab.reloadNonce !== reloadNonce
+					? { ...tab, reloadNonce }
+					: tab
+			)
+		);
+	}, [ reloadNonce ] );
+
+	const selectTab = ( tab: PreviewTab ) => {
+		setActiveTabId( tab.id );
+		onPathChange?.( tab.path );
+	};
+
+	const addTab = () => {
+		const tab = {
+			id: nextTabId.current++,
+			path: '/',
+			title: site.name,
+			reloadNonce,
+		};
+		setTabs( ( current ) => [ ...current, tab ] );
+		setActiveTabId( tab.id );
+		onPathChange?.( tab.path );
+	};
+
+	const closeTab = ( tabId: number ) => {
+		const closingIndex = tabs.findIndex( ( tab ) => tab.id === tabId );
+		const remaining = tabs.filter( ( tab ) => tab.id !== tabId );
+		if ( remaining.length === 0 ) {
+			const replacement = {
+				id: nextTabId.current++,
+				path: '/',
+				title: site.name,
+				reloadNonce,
+			};
+			setTabs( [ replacement ] );
+			setActiveTabId( replacement.id );
+			onPathChange?.( replacement.path );
+			return;
+		}
+		setTabs( remaining );
+		if ( tabId === activeTabId ) {
+			const replacement = remaining[ Math.min( closingIndex, remaining.length - 1 ) ];
+			setActiveTabId( replacement.id );
+			onPathChange?.( replacement.path );
+		}
+	};
+
+	return (
+		<div
+			className={ clsx( styles.tabbedRoot, fullscreen && styles.tabbedRootFullscreen ) }
+			aria-label={ __( 'Site preview browser' ) }
+		>
+			<div
+				className={ clsx(
+					styles.tabBar,
+					fullscreen && trafficLightSpace.start && styles.tabBarTrafficLights
+				) }
+				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
+			>
+				<div className={ styles.tabList } role="tablist" aria-label={ __( 'Preview tabs' ) }>
+					{ tabs.map( ( tab ) => {
+						const selected = tab.id === activeTabId;
+						return (
+							<div key={ tab.id } className={ clsx( styles.tab, selected && styles.tabSelected ) }>
+								<button
+									type="button"
+									className={ styles.tabSelect }
+									role="tab"
+									aria-selected={ selected }
+									tabIndex={ selected ? 0 : -1 }
+									onClick={ () => selectTab( tab ) }
+								>
+									<SiteIcon
+										className={ styles.tabIcon }
+										seed={ `${ site.id }:${ site.name }:${ site.path }` }
+										imageSrc={ site.siteIcon }
+									/>
+									<span className={ styles.tabTitle }>{ tab.title }</span>
+								</button>
+								<button
+									type="button"
+									className={ styles.tabClose }
+									aria-label={ sprintf(
+										/* translators: %s: browser tab title */
+										__( 'Close %s' ),
+										tab.title
+									) }
+									onClick={ () => closeTab( tab.id ) }
+								>
+									<Icon icon={ closeSmall } size={ 16 } />
+								</button>
+							</div>
+						);
+					} ) }
+				</div>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ plus }
+					label={ __( 'New tab' ) }
+					onClick={ addTab }
+				/>
+			</div>
+			<div className={ styles.tabPanels }>
+				{ tabs.map( ( tab ) => {
+					const selected = tab.id === activeTab?.id;
+					return (
+						<div
+							key={ tab.id }
+							className={ clsx( styles.tabPanel, ! selected && styles.tabPanelHidden ) }
+							role="tabpanel"
+							hidden={ ! selected }
+							inert={ selected ? undefined : true }
+						>
+							<SingleSitePreview
+								{ ...props }
+								path={ tab.path }
+								reloadNonce={ tab.reloadNonce }
+								collapsed={ collapsed || ! selected }
+								hasTabBar
+								onPathChange={ ( nextPath ) => {
+									if ( selected ) {
+										onPathChange?.( nextPath );
+									} else {
+										setTabs( ( current ) =>
+											current.map( ( currentTab ) =>
+												currentTab.id === tab.id ? { ...currentTab, path: nextPath } : currentTab
+											)
+										);
+									}
+								} }
+								onTitleChange={ ( title ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) =>
+											currentTab.id === tab.id
+												? currentTab.title === ( title || site.name )
+													? currentTab
+													: { ...currentTab, title: title || site.name }
+												: currentTab
+										)
+									);
+								} }
+							/>
+						</div>
+					);
+				} ) }
+			</div>
+		</div>
+	);
+}
+
+function SingleSitePreview( {
 	site,
 	path,
 	reloadNonce,
@@ -987,7 +1190,9 @@ export function SitePreview( {
 	collapsed = false,
 	fullscreen = false,
 	onFullscreenChange,
-}: SitePreviewProps ) {
+	onTitleChange,
+	hasTabBar = false,
+}: SingleSitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { chatEnabled } = useAgenticFeatures();
@@ -1031,6 +1236,11 @@ export function SitePreview( {
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
+	const onTitleChangeRef = useRef( onTitleChange );
+	useEffect( () => {
+		onTitleChangeRef.current = onTitleChange;
+	}, [ onTitleChange ] );
+	useEffect( () => onTitleChangeRef.current?.( browserState.title ), [ browserState.title ] );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
@@ -1372,7 +1582,11 @@ export function SitePreview( {
 	return (
 		<aside
 			ref={ rootRef }
-			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
+			className={ clsx(
+				styles.root,
+				hasTabBar && styles.rootTabbed,
+				fullscreen && styles.rootFullscreen
+			) }
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div
@@ -1380,14 +1594,14 @@ export function SitePreview( {
 				// edge, where the macOS traffic lights sit.
 				className={ clsx(
 					styles.header,
-					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
+					fullscreen && ! hasTabBar && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
 					// In RTL the preview pane sits at the physical left, so the
 					// header's end-side controls land under the macOS traffic
 					// lights — pad past them. Windows/Linux need nothing: their
 					// controls sit in the chrome band above the frame.
-					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
+					! hasTabBar && trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
 				}
 			>
 				{ /* Browser navigation stays at the start, the address field fills the

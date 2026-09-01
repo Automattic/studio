@@ -118,11 +118,12 @@
 .fullPreviewCorner {
 	transform-box: fill-box;
 	transform-origin: center;
-	transition: rotate var(--wpds-motion-duration-sm) var(--wpds-motion-easing-expressive);
+	transform: rotate(0deg);
+	transition: transform var(--wpds-motion-duration-lg) var(--wpds-motion-easing-expressive);
 }
 
 .fullPreviewCornerActive {
-	rotate: 180deg;
+	transform: rotate(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAutoStartSites, useStartSite, useStopSite } from './use-sites';
+import type { StartSiteOptions } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -38,6 +40,7 @@ describe( 'useAutoStartSites', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		resetAppMessagesForTests();
 		useConnectorMock.mockReturnValue( {
 			getSites: vi.fn( () =>
 				Promise.resolve( [
@@ -64,6 +67,21 @@ describe( 'useAutoStartSites', () => {
 		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'stopped-auto-start' ) );
 		expect( startSite ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'does not announce the sites it started', async () => {
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<Harness />
+			</QueryClientProvider>
+		);
+
+		await waitFor( () => expect( startSite ).toHaveBeenCalledWith( 'stopped-auto-start' ) );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
+	} );
 } );
 
 describe( 'useStartSite', () => {
@@ -73,6 +91,7 @@ describe( 'useStartSite', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		resetAppMessagesForTests();
 		stopSite = vi.fn(
 			() =>
 				new Promise< void >( ( resolve ) => {
@@ -86,16 +105,33 @@ describe( 'useStartSite', () => {
 		} as unknown as Connector );
 	} );
 
-	function renderMutations() {
+	function renderMutations( options: StartSiteOptions = {} ) {
 		const queryClient = new QueryClient( {
 			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 		} );
-		return renderHook( () => ( { start: useStartSite(), stop: useStopSite() } ), {
+		return renderHook( () => ( { start: useStartSite( options ), stop: useStopSite() } ), {
 			wrapper: ( { children }: { children: ReactNode } ) => (
 				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
 			),
 		} ).result;
 	}
+
+	it( 'announces an explicit start', async () => {
+		const result = renderMutations();
+
+		await result.current.start.mutateAsync( 'site-1' );
+
+		expect( getVisibleToasts().map( ( item ) => item.title ) ).toEqual( [ 'Site started' ] );
+	} );
+
+	it( 'stays quiet for a silent start', async () => {
+		const result = renderMutations( { silent: true } );
+
+		await result.current.start.mutateAsync( 'site-1' );
+
+		expect( startSite ).toHaveBeenCalledWith( 'site-1' );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
+	} );
 
 	it( 'skips the start while a stop for the same site is in flight', async () => {
 		const result = renderMutations();

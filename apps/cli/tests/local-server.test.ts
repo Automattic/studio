@@ -15,6 +15,7 @@ const mocks = vi.hoisted( () => ( {
 	execute: vi.fn(),
 	killAll: vi.fn(),
 	measureSiteStorage: vi.fn(),
+	readSitePath: vi.fn(),
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
 	setAiProvider: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/storage-usage', () => ( {
 	measureSiteStorage: mocks.measureSiteStorage,
 } ) );
+vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
 vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
 	readAiSettings: mocks.readAiSettings,
@@ -75,6 +77,9 @@ describe( 'local web server Connect contracts', () => {
 				running: false,
 			},
 		] );
+		mocks.readSitePath.mockImplementation( async ( siteId: string ) =>
+			siteId === 'local-a' ? '/sites/local-a' : null
+		);
 		mocks.measureSiteStorage.mockResolvedValue( {
 			total: 800,
 			uploads: 400,
@@ -126,7 +131,20 @@ describe( 'local web server Connect contracts', () => {
 			database: 50,
 			other: 50,
 		} );
-		expect( mocks.measureSiteStorage ).toHaveBeenCalledWith( '/sites/local-a' );
+		expect( mocks.measureSiteStorage ).toHaveBeenCalledWith( '/sites/local-a', {
+			signal: expect.any( AbortSignal ),
+		} );
+		// The UI asks for this on every site switch, so it must not cost a CLI fork.
+		expect( listSites ).not.toHaveBeenCalled();
+	} );
+
+	it( '404s a storage request for a site that is not in the config', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/missing/storage`
+		);
+
+		expect( response.status ).toBe( 404 );
+		expect( mocks.measureSiteStorage ).not.toHaveBeenCalled();
 	} );
 
 	afterEach( async () => {

@@ -113,7 +113,7 @@ describe( 'MediaStreamer', () => {
 			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
-		streamer.onEvent( { type: 'progress', timestamp: 'now', message: 'doing things' } );
+		streamer.onEvent( { type: 'info', timestamp: 'now', message: 'doing things' } );
 		streamer.onEvent( { type: 'turn.started', timestamp: 'now' } );
 
 		const summary = await streamer.drain();

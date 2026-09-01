@@ -4,6 +4,7 @@ import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
+import { appThemeColor } from '@/components/app-theme-scope';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
@@ -37,7 +38,7 @@ function SiteEventsBridge() {
 // browser, where there's no Electron `nativeTheme` to mirror it.
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
-	const themeColor = colorScheme === 'dark' ? { background: '#1e1e1e' } : undefined;
+	const themeColor = appThemeColor( colorScheme );
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
 		document.documentElement.dataset.colorScheme = colorScheme;

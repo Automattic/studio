@@ -92,6 +92,7 @@
 	min-height: 0;
 	box-sizing: border-box;
 	overflow-y: auto;
+	overflow-x: hidden;
 	padding-block: var(--classic-header-height)
 		calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
 	z-index: 0;

@@ -1442,12 +1442,39 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return getWordPressVersion( wordPressPath );
 }
 
+// In-flight storage measurements, keyed by the renderer's request id. Walking a
+// site takes long enough that the renderer is often gone before it finishes, and
+// `ipcRenderer.invoke` has no cancellation of its own, so the renderer cancels
+// through `cancelSiteStorageUsage` instead. Keyed per request rather than per
+// site so one window abandoning a measurement can't stop another's.
+const siteStorageControllers = new Map< string, AbortController >();
+
 export async function getSiteStorageUsage(
 	_event: IpcMainInvokeEvent,
-	id: string
+	id: string,
+	requestId?: string
 ): Promise< SiteStorageUsage | null > {
 	const server = SiteServer.get( id );
-	return server ? measureSiteStorage( server.details.path ) : null;
+	if ( ! server ) {
+		return null;
+	}
+	if ( ! requestId ) {
+		return measureSiteStorage( server.details.path );
+	}
+	const controller = new AbortController();
+	siteStorageControllers.set( requestId, controller );
+	try {
+		return await measureSiteStorage( server.details.path, { signal: controller.signal } );
+	} finally {
+		siteStorageControllers.delete( requestId );
+	}
+}
+
+export async function cancelSiteStorageUsage(
+	_event: IpcMainInvokeEvent,
+	requestId: string
+): Promise< void > {
+	siteStorageControllers.get( requestId )?.abort();
 }
 
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
@@ -1969,6 +1996,29 @@ export function toggleMinWindowWidth(
 		isSidebarVisible ? currentWidth - sidebarW : currentWidth + sidebarW
 	);
 	parentWindow.setSize( newWidth, currentHeight, true );
+}
+
+export async function ensureMinWindowWidth(
+	event: IpcMainInvokeEvent,
+	minimumWidth: number
+): Promise< number | null > {
+	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
+		return null;
+	}
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return null;
+	}
+	// Measure and resize the content area, not the whole window. The renderer's
+	// responsive math is entirely in CSS pixels (`window.innerWidth`); on Windows
+	// and Linux the window frame makes that differ from the outer window size, so
+	// growing (and reporting) the content width is what keeps the two in sync.
+	const [ currentWidth, currentHeight ] = parentWindow.getContentSize();
+	const nextWidth = Math.ceil( minimumWidth );
+	if ( currentWidth < nextWidth ) {
+		parentWindow.setContentSize( nextWidth, currentHeight );
+	}
+	return parentWindow.getContentSize()[ 0 ];
 }
 
 /**

@@ -609,6 +609,30 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
+	it( 'keeps browser shortcuts active when browser chrome has focus', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tab = screen.getByRole( 'tab' );
+		tab.focus();
+		let iframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( tab, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( iframe );
+
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		address.focus();
+		iframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( address, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( iframe );
+	} );
+
 	it( 'does not reserve primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

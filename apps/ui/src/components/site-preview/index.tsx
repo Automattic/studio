@@ -54,7 +54,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 
 export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
@@ -93,6 +93,7 @@ interface PreviewTab {
 }
 
 interface SingleSitePreviewProps extends SitePreviewProps {
+	shortcutScopeRef?: RefObject< HTMLElement | null >;
 	onTitleChange?: ( title: string | null ) => void;
 	onTabCycle?: ( direction: -1 | 1 ) => void;
 	onHistoryChange?: ( entries: BrowserHistoryEntry[], activeIndex: number ) => void;
@@ -1564,6 +1565,7 @@ export function SitePreview( props: SitePreviewProps ) {
 								reloadNonce={ tab.reloadNonce }
 								collapsed={ collapsed || ! selected }
 								hasTabBar
+								shortcutScopeRef={ rootRef }
 								onTabCycle={ cycleTab }
 								initialHistoryEntries={ tab.historyEntries }
 								initialHistoryIndex={ tab.activeHistoryIndex }
@@ -1629,6 +1631,7 @@ function SingleSitePreview( {
 	initialHistoryEntries = [],
 	initialHistoryIndex = -1,
 	hasTabBar = false,
+	shortcutScopeRef,
 }: SingleSitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -1957,10 +1960,11 @@ function SingleSitePreview( {
 				return;
 			}
 			const activeElement = document.activeElement;
+			const shortcutScope = shortcutScopeRef?.current ?? rootRef.current;
 			if (
 				activeElement &&
 				activeElement !== document.body &&
-				! rootRef.current?.contains( activeElement )
+				! shortcutScope?.contains( activeElement )
 			) {
 				return;
 			}
@@ -1984,6 +1988,7 @@ function SingleSitePreview( {
 		inspectorState.isPicking,
 		onFullscreenChange,
 		sendBrowserCommand,
+		shortcutScopeRef,
 	] );
 
 	return (

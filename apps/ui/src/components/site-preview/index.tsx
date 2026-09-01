@@ -75,10 +75,12 @@ interface SitePreviewProps {
 }
 
 function getFullPreviewIcon( active: boolean ) {
-	const cornerClassName = clsx(
-		styles.fullPreviewCorner,
-		active && styles.fullPreviewCornerActive
-	);
+	const getCornerClassName = ( reverse = false ) =>
+		clsx(
+			styles.fullPreviewCorner,
+			reverse && styles.fullPreviewCornerReverse,
+			active && styles.fullPreviewCornerActive
+		);
 
 	return (
 		<svg
@@ -87,17 +89,20 @@ function getFullPreviewIcon( active: boolean ) {
 			fill="currentColor"
 			data-fullscreen={ active }
 		>
-			<path className={ cornerClassName } d="M6 4a2 2 0 0 0-2 2v3h1.5V6a.5.5 0 0 1 .5-.5h3V4H6Z" />
 			<path
-				className={ cornerClassName }
+				className={ getCornerClassName() }
+				d="M6 4a2 2 0 0 0-2 2v3h1.5V6a.5.5 0 0 1 .5-.5h3V4H6Z"
+			/>
+			<path
+				className={ getCornerClassName( true ) }
 				d="M9 18.5H6a.5.5 0 0 1-.5-.5v-3H4v3a2 2 0 0 0 2 2h3v-1.5Z"
 			/>
 			<path
-				className={ cornerClassName }
+				className={ getCornerClassName() }
 				d="M15 20v-1.5h3a.5.5 0 0 0 .5-.5v-3H20v3a2 2 0 0 1-2 2h-3Z"
 			/>
 			<path
-				className={ cornerClassName }
+				className={ getCornerClassName( true ) }
 				d="M18 4a2 2 0 0 1 2 2v3h-1.5V6a.5.5 0 0 0-.5-.5h-3V4h3Z"
 			/>
 		</svg>

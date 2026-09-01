@@ -201,7 +201,13 @@ describe( 'SitePreview', () => {
 			ariaKeyShortcut.primaryShift( 'f' )
 		);
 		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
-		expect( fullPreviewButton.querySelectorAll( 'path' ) ).toHaveLength( 4 );
+		const iconCorners = fullPreviewButton.querySelectorAll( 'path' );
+		expect( iconCorners ).toHaveLength( 4 );
+		expect( iconCorners[ 0 ] ).toHaveAttribute( 'class', iconCorners[ 2 ].getAttribute( 'class' ) );
+		expect( iconCorners[ 1 ] ).toHaveAttribute( 'class', iconCorners[ 3 ].getAttribute( 'class' ) );
+		expect( iconCorners[ 0 ].getAttribute( 'class' ) ).not.toBe(
+			iconCorners[ 1 ].getAttribute( 'class' )
+		);
 		fireEvent.click( fullPreviewButton );
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );

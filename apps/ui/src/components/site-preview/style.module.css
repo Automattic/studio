@@ -128,14 +128,20 @@
 }
 
 .fullPreviewCorner {
+	--full-preview-corner-rotation: 180deg;
+
 	transform-box: fill-box;
 	transform-origin: center;
 	transform: rotate(0deg);
 	transition: transform var(--wpds-motion-duration-lg) var(--wpds-motion-easing-expressive);
 }
 
+.fullPreviewCornerReverse {
+	--full-preview-corner-rotation: -180deg;
+}
+
 .fullPreviewCornerActive {
-	transform: rotate(180deg);
+	transform: rotate(var(--full-preview-corner-rotation));
 }
 
 @media (prefers-reduced-motion: reduce) {

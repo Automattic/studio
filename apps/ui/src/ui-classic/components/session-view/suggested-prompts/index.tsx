@@ -16,7 +16,11 @@ interface SuggestedPromptsProps {
 	// Checked at click time; confirmation is only asked when the draft
 	// diverged from the last suggestion we inserted (user edits count,
 	// switching between untouched suggestions does not).
-	getDraft: () => { text: string; hasAttachments: boolean };
+	getDraft: () => {
+		text: string;
+		hasAttachments: boolean;
+		suggestionBaseline: string | null;
+	};
 }
 
 interface PendingPrompt {
@@ -56,12 +60,8 @@ export function SuggestedPrompts( {
 	const handleReplaceKeyDown = useConfirmOnEnter( replaceLabel );
 	const [ transfer, setTransfer ] = useState< PromptTransfer | null >( null );
 	const transferIdRef = useRef( 0 );
-	// Text of the last suggestion we inserted. While the draft still equals it
-	// (and no attachments were added), another suggestion may replace it freely.
-	const baselineRef = useRef< string | null >( null );
 
 	const apply = ( prompt: string ) => {
-		baselineRef.current = prompt;
 		onPick( prompt );
 	};
 
@@ -97,7 +97,7 @@ export function SuggestedPrompts( {
 		const draft = getDraft();
 		const isUntouched =
 			! draft.hasAttachments &&
-			( draft.text.trim().length === 0 || draft.text === baselineRef.current );
+			( draft.text.trim().length === 0 || draft.text === draft.suggestionBaseline );
 		if ( isUntouched ) {
 			applyWithTransfer( prompt, label, sourceRect );
 		} else {

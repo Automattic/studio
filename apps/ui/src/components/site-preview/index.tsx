@@ -1481,124 +1481,131 @@ export function SitePreview( props: SitePreviewProps ) {
 				) }
 				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
 			>
-				<div
-					className={ clsx(
-						styles.tabListViewport,
-						tabListOverflowing && styles.tabListViewportOverflowing
-					) }
-				>
+				<div className={ styles.tabGroup }>
 					<div
-						ref={ tabListRef }
-						className={ styles.tabList }
-						role="tablist"
-						aria-label={ __( 'Preview tabs' ) }
-						onWheel={ handleTabListWheel }
+						className={ clsx(
+							styles.tabListViewport,
+							tabListOverflowing && styles.tabListViewportOverflowing
+						) }
 					>
-						{ tabs.map( ( tab ) => {
-							const selected = tab.id === activeTabId;
-							const realm = getPreviewRealm( tab.path );
-							return (
-								<div
-									key={ tab.id }
-									className={ clsx(
-										styles.tab,
-										selected && styles.tabSelected,
-										draggedTabId === tab.id && styles.tabDragging
-									) }
-									draggable
-									onDragStart={ ( event ) => {
-										draggedTabIdRef.current = tab.id;
-										dragOverTabIdRef.current = tab.id;
-										setDraggedTabId( tab.id );
-										event.dataTransfer.effectAllowed = 'move';
-										event.dataTransfer.setData( 'text/plain', String( tab.id ) );
-									} }
-									onDragOver={ ( event ) => {
-										event.preventDefault();
-										event.dataTransfer.dropEffect = 'move';
-										const sourceId = draggedTabIdRef.current;
-										if ( sourceId && dragOverTabIdRef.current !== tab.id ) {
-											dragOverTabIdRef.current = tab.id;
-											reorderTab( sourceId, tab.id );
-										}
-									} }
-									onDrop={ ( event ) => {
-										event.preventDefault();
-										finishTabDrag();
-									} }
-									onDragEnd={ finishTabDrag }
-								>
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											render={
-												<button
-													type="button"
-													className={ styles.tabSelect }
-													role="tab"
-													aria-selected={ selected }
-													tabIndex={ selected ? 0 : -1 }
-													onClick={ () => selectTab( tab ) }
-												/>
-											}
-										>
-											<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
-												{ realm === 'frontend' ? (
-													<SiteIcon
-														className={ styles.tabSiteIcon }
-														seed={ `${ site.id }:${ site.name }:${ site.path }` }
-														imageSrc={ site.siteIcon }
-													/>
-												) : (
-													<Icon icon={ realm === 'admin' ? wordpress : databaseIcon } size={ 18 } />
-												) }
-											</span>
-											<span className={ styles.tabTitle }>{ tab.title }</span>
-										</Tooltip.Trigger>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-											{ tab.title }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-									<button
-										type="button"
-										className={ styles.tabClose }
-										aria-label={ sprintf(
-											/* translators: %s: browser tab title */
-											__( 'Close %s' ),
-											tab.title
-										) }
-										onClick={ () => closeTab( tab.id ) }
-									>
-										<Icon icon={ closeSmall } size={ 16 } />
-									</button>
-								</div>
-							);
-						} ) }
-					</div>
-				</div>
-				<Menu.Root>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ plus }
-								label={ __( 'New tab' ) }
-							/>
-						}
-					/>
-					<Menu.Popup side="bottom" align="end">
-						<Menu.Item onClick={ () => addTab( '/' ) }>{ __( 'Front-end' ) }</Menu.Item>
-						<Menu.Item
-							onClick={ () => addTab( getRealmNavigationPath( '/wp-admin/', getSiteUrl( site ) ) ) }
+						<div
+							ref={ tabListRef }
+							className={ styles.tabList }
+							role="tablist"
+							aria-label={ __( 'Preview tabs' ) }
+							onWheel={ handleTabListWheel }
 						>
-							{ __( 'WordPress' ) }
-						</Menu.Item>
-						<Menu.Item onClick={ () => addTab( DATABASE_HOME_PATH ) }>
-							{ __( 'Database' ) }
-						</Menu.Item>
-					</Menu.Popup>
-				</Menu.Root>
+							{ tabs.map( ( tab ) => {
+								const selected = tab.id === activeTabId;
+								const realm = getPreviewRealm( tab.path );
+								return (
+									<div
+										key={ tab.id }
+										className={ clsx(
+											styles.tab,
+											selected && styles.tabSelected,
+											draggedTabId === tab.id && styles.tabDragging
+										) }
+										draggable
+										onDragStart={ ( event ) => {
+											draggedTabIdRef.current = tab.id;
+											dragOverTabIdRef.current = tab.id;
+											setDraggedTabId( tab.id );
+											event.dataTransfer.effectAllowed = 'move';
+											event.dataTransfer.setData( 'text/plain', String( tab.id ) );
+										} }
+										onDragOver={ ( event ) => {
+											event.preventDefault();
+											event.dataTransfer.dropEffect = 'move';
+											const sourceId = draggedTabIdRef.current;
+											if ( sourceId && dragOverTabIdRef.current !== tab.id ) {
+												dragOverTabIdRef.current = tab.id;
+												reorderTab( sourceId, tab.id );
+											}
+										} }
+										onDrop={ ( event ) => {
+											event.preventDefault();
+											finishTabDrag();
+										} }
+										onDragEnd={ finishTabDrag }
+									>
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.tabSelect }
+														role="tab"
+														aria-selected={ selected }
+														tabIndex={ selected ? 0 : -1 }
+														onClick={ () => selectTab( tab ) }
+													/>
+												}
+											>
+												<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
+													{ realm === 'frontend' ? (
+														<SiteIcon
+															className={ styles.tabSiteIcon }
+															seed={ `${ site.id }:${ site.name }:${ site.path }` }
+															imageSrc={ site.siteIcon }
+														/>
+													) : (
+														<Icon
+															icon={ realm === 'admin' ? wordpress : databaseIcon }
+															size={ 18 }
+														/>
+													) }
+												</span>
+												<span className={ styles.tabTitle }>{ tab.title }</span>
+											</Tooltip.Trigger>
+											<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+												{ tab.title }
+											</Tooltip.Popup>
+										</Tooltip.Root>
+										<button
+											type="button"
+											className={ styles.tabClose }
+											aria-label={ sprintf(
+												/* translators: %s: browser tab title */
+												__( 'Close %s' ),
+												tab.title
+											) }
+											onClick={ () => closeTab( tab.id ) }
+										>
+											<Icon icon={ closeSmall } size={ 16 } />
+										</button>
+									</div>
+								);
+							} ) }
+						</div>
+					</div>
+					<Menu.Root>
+						<Menu.Trigger
+							render={
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ plus }
+									label={ __( 'New tab' ) }
+								/>
+							}
+						/>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => addTab( '/' ) }>{ __( 'Front-end' ) }</Menu.Item>
+							<Menu.Item
+								onClick={ () =>
+									addTab( getRealmNavigationPath( '/wp-admin/', getSiteUrl( site ) ) )
+								}
+							>
+								{ __( 'WordPress' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ () => addTab( DATABASE_HOME_PATH ) }>
+								{ __( 'Database' ) }
+							</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
 				{ props.onFullscreenChange ? (
 					<IconButton
 						className={ styles.fullPreviewButton }

@@ -38,7 +38,8 @@
 .tabBar {
 	container-name: preview-tab-bar;
 	container-type: inline-size;
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	padding-top: var(--wpds-dimension-padding-sm);
@@ -57,12 +58,22 @@
 	-webkit-app-region: no-drag;
 }
 
+.tabGroup {
+	display: flex;
+	align-self: stretch;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
 .tabListViewport {
 	position: relative;
 	display: flex;
 	align-self: stretch;
+	max-width: calc(100% - var(--wpds-dimension-padding-3xl) - var(--wpds-dimension-gap-xs));
 	min-width: 0;
 	flex: 0 1 auto;
+	overflow: hidden;
 }
 
 .tabList {
@@ -72,7 +83,8 @@
 	min-width: 0;
 	padding-block-end: var(--wpds-border-width-xs);
 	margin-block-end: calc(-1 * var(--wpds-border-width-xs));
-	flex: 1;
+	width: max-content;
+	max-width: 100%;
 	overflow-x: auto;
 	scrollbar-width: none;
 }

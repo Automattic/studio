@@ -441,7 +441,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													disabled={ isEditingSite }
 													errorMessage={ errorUpdatingWpVersion }
 													installedVersion={
-														selectedSite?.isWpAutoUpdating !== false ? currentWpVersion : undefined
+														selectedWpVersion === DEFAULT_WORDPRESS_VERSION
+															? currentWpVersion
+															: undefined
 													}
 													extraOptions={ [
 														{

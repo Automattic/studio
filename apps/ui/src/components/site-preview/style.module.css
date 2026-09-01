@@ -121,12 +121,14 @@
 	flex-shrink: 0;
 }
 
-.responsiveModeIcon {
+.responsiveModeIndicator {
 	width: 18px;
 	height: 18px;
 	flex: 0 0 18px;
 	color: var(--wpds-color-fg-content-neutral);
 	fill: currentColor;
+	display: grid;
+	place-items: center;
 }
 
 .responsiveModeTrigger {

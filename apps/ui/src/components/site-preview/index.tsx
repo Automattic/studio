@@ -1,16 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	aspectRatio as fitToPane,
-	chevronDown,
-	columns,
-	desktop,
-	Icon,
-	mobile,
-	pencil,
-	tablet,
-} from '@wordpress/icons';
+import { check, chevronDown, Icon, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -601,15 +592,7 @@ function PreviewResponsiveControls( {
 		desktop: __( 'Desktop' ),
 		split: __( 'Desktop + Mobile' ),
 	};
-	const viewportIcons: Record< ViewportMode, typeof mobile > = {
-		fit: fitToPane,
-		mobile,
-		tablet,
-		desktop,
-		split: columns,
-	};
 	const selectedLabel = viewportLabels[ viewportMode ];
-	const selectedIcon = viewportIcons[ viewportMode ];
 	const getPresetLabel = ( preset: ViewportPreset ) =>
 		sprintf(
 			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
@@ -618,6 +601,11 @@ function PreviewResponsiveControls( {
 			preset.width,
 			preset.height
 		);
+	const renderSelectedIndicator = ( mode: ViewportMode ) => (
+		<span className={ styles.responsiveModeIndicator } aria-hidden="true">
+			{ viewportMode === mode ? <Icon icon={ check } size={ 18 } data-keep-size /> : null }
+		</span>
+	);
 	return (
 		<Menu.Root>
 			<Tooltip.Root>
@@ -634,12 +622,6 @@ function PreviewResponsiveControls( {
 								/>
 							}
 						>
-							<Icon
-								icon={ selectedIcon }
-								size={ 18 }
-								className={ styles.responsiveModeIcon }
-								data-keep-size
-							/>
 							<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
 							<Icon
 								icon={ chevronDown }
@@ -664,12 +646,7 @@ function PreviewResponsiveControls( {
 							disabled={ viewportControlsDisabled }
 							onClick={ () => onViewportModeChange( 'fit' ) }
 						>
-							<Icon
-								icon={ fitToPane }
-								size={ 18 }
-								className={ styles.responsiveModeIcon }
-								data-keep-size
-							/>
+							{ renderSelectedIndicator( 'fit' ) }
 							{ __( 'Responsive' ) }
 						</Menu.Item>
 						{ VIEWPORT_PRESETS.map( ( preset ) => (
@@ -680,12 +657,7 @@ function PreviewResponsiveControls( {
 								disabled={ viewportControlsDisabled }
 								onClick={ () => onViewportModeChange( preset.id ) }
 							>
-								<Icon
-									icon={ viewportIcons[ preset.id ] }
-									size={ 18 }
-									className={ styles.responsiveModeIcon }
-									data-keep-size
-								/>
+								{ renderSelectedIndicator( preset.id ) }
 								{ getPresetLabel(
 									// Keep the advertised dimensions honest in landscape.
 									preset.id === 'mobile' ? getMobilePreset( mobileOrientation ) : preset
@@ -698,12 +670,7 @@ function PreviewResponsiveControls( {
 							disabled={ viewportControlsDisabled }
 							onClick={ () => onViewportModeChange( 'split' ) }
 						>
-							<Icon
-								icon={ columns }
-								size={ 18 }
-								className={ styles.responsiveModeIcon }
-								data-keep-size
-							/>
+							{ renderSelectedIndicator( 'split' ) }
 							{ __( 'Desktop + Mobile' ) }
 						</Menu.Item>
 					</Menu.Group>

@@ -2742,4 +2742,30 @@ export async function clearWebviewCache(
 	await getOwnedWebviewContents( event, webContentsId ).session.clearCache();
 }
 
+export async function getWebviewNavigationHistory(
+	event: IpcMainInvokeEvent,
+	webContentsId: number
+): Promise< {
+	activeIndex: number;
+	entries: { index: number; title: string; url: string }[];
+} > {
+	const history = getOwnedWebviewContents( event, webContentsId ).navigationHistory;
+	return {
+		activeIndex: history.getActiveIndex(),
+		entries: history.getAllEntries().map( ( entry, index ) => ( {
+			index,
+			title: entry.title,
+			url: entry.url,
+		} ) ),
+	};
+}
+
+export async function goToWebviewNavigationHistoryEntry(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	index: number
+): Promise< void > {
+	getOwnedWebviewContents( event, webContentsId ).navigationHistory.goToIndex( index );
+}
+
 export { showTextContextMenu } from 'src/text-context-menu';

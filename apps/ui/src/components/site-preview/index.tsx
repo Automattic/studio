@@ -1520,8 +1520,14 @@ export function SitePreview( props: SitePreviewProps ) {
 							}
 						/>
 						<Menu.Popup side="bottom" align="end">
-							<Menu.Item onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }>
+							<Menu.Item
+								aria-keyshortcuts={ ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
+								onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }
+							>
 								{ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+								<Menu.Shortcut>
+									{ displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
+								</Menu.Shortcut>
 							</Menu.Item>
 						</Menu.Popup>
 					</Menu.Root>

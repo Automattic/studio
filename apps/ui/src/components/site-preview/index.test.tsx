@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -169,7 +170,9 @@ describe( 'SitePreview', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full preview' } ) );
+		const fullPreviewItem = screen.getByRole( 'menuitem', { name: 'Full preview' } );
+		expect( fullPreviewItem ).toHaveTextContent( displayShortcut.primaryShift( 'f' ) );
+		fireEvent.click( fullPreviewItem );
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );
 

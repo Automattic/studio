@@ -111,6 +111,48 @@ describe( 'learnWidestFluidModel', () => {
 		expect( model ).toMatchObject( { kind: 'proportional', css: '54.64vw' } );
 	} );
 
+	// The regression this guards: an element that merely fills its parent was
+	// described as a share of the screen. That reads correctly only while the
+	// parent spans the viewport, and re-anchors the element to the screen
+	// everywhere else — a narrower container, or an editor canvas.
+	it( 'describes a parent-filling element by its container, not the screen', () => {
+		const model = learnFluidModel( [
+			{ viewport: 1024, value: 1024, container: 1024 },
+			{ viewport: 1440, value: 1440, container: 1440 },
+			{ viewport: 1920, value: 1920, container: 1920 },
+		] );
+		expect( model ).toMatchObject( { kind: 'container', css: '100%', ratio: 1 } );
+	} );
+
+	it( 'keeps viewport units when the element does not track its container', () => {
+		const model = learnFluidModel( [
+			{ viewport: 1024, value: 512, container: 1024 },
+			{ viewport: 1440, value: 720, container: 900 },
+			{ viewport: 1920, value: 960, container: 700 },
+		] );
+		expect( model ).toMatchObject( { kind: 'proportional', css: '50vw' } );
+	} );
+
+	// A container that never moves cannot prove the relationship: equality at a
+	// single size is a coincidence, not evidence of filling the parent.
+	it( 'does not infer a container fit from an unchanging container', () => {
+		const model = learnFluidModel( [
+			{ viewport: 1024, value: 512, container: 1000 },
+			{ viewport: 1440, value: 720, container: 1000 },
+			{ viewport: 1920, value: 960, container: 1000 },
+		] );
+		expect( model.kind ).toBe( 'proportional' );
+	} );
+
+	it( 'still prefers a constant over a container fit', () => {
+		const model = learnFluidModel( [
+			{ viewport: 1024, value: 200, container: 1024 },
+			{ viewport: 1440, value: 200, container: 1440 },
+			{ viewport: 1920, value: 200, container: 1920 },
+		] );
+		expect( model ).toMatchObject( { kind: 'constant', css: '200px' } );
+	} );
+
 	it( 'keeps a breakpoint when the widest segment has too little evidence', () => {
 		expect(
 			learnWidestFluidModel(

@@ -1,9 +1,9 @@
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 import type {
 	CapturedDialogInteraction,
 	CapturedInitialDialog,
 } from './screenshot/interaction-capture.js';
-import type { Element } from 'domhandler';
 
 const DISCLOSURE_CSS =
 	'details.dla-disclosure>summary{list-style:none;cursor:pointer;display:inline-block}' +
@@ -45,17 +45,12 @@ export function wireCapturedDialogs(
 		} );
 	}
 	for ( const state of initialDialogs ) {
-		if ( state.status !== 'captured' || ! state.dismissal?.verified || state.dialog.htmlTruncated )
-			continue;
+		if ( state.status !== 'captured' || !state.dismissal?.verified || state.dialog.htmlTruncated ) continue;
 		const panel = $( '<div class="dla-dialog" role="dialog" aria-modal="true"></div>' );
 		if ( state.dialog.ariaLabel ) panel.attr( 'aria-label', state.dialog.ariaLabel );
 		panel.html( state.dialog.html );
-		const close = findCloseControl(
-			$,
-			panel as cheerio.Cheerio< Element >,
-			state.dismissal.control
-		);
-		if ( ! close.length ) continue;
+		const close = findCloseControl( $, panel as cheerio.Cheerio< Element >, state.dismissal.control );
+		if ( !close.length ) continue;
 		const summary = $( '<summary></summary>' );
 		for ( const [ name, value ] of Object.entries( close.attr() ?? {} ) ) {
 			if ( name !== 'type' && name !== 'id' ) summary.attr( name, value );
@@ -98,7 +93,7 @@ function findCloseControl(
 		)
 		.filter( ( _, element ) => {
 			if ( element.tagName !== control.tag ) return false;
-			if ( ! label ) return true;
+			if ( !label ) return true;
 			const text = ( $( element ).attr( 'aria-label' ) || $( element ).text() )
 				.replace( /\s+/g, ' ' )
 				.trim()
@@ -108,7 +103,10 @@ function findCloseControl(
 		.first();
 }
 
-function findTriggers( $: cheerio.CheerioAPI, trigger: CapturedDialogInteraction[ 'trigger' ] ) {
+function findTriggers(
+	$: cheerio.CheerioAPI,
+	trigger: CapturedDialogInteraction[ 'trigger' ]
+) {
 	if ( trigger.id ) {
 		const byId = $( `#${ cssEscape( trigger.id ) }` );
 		if ( byId.length ) return byId;

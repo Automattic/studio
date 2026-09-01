@@ -16,11 +16,20 @@ export interface GeometrySample {
 	viewport: number;
 	/** Value the source's runtime computed, in pixels. */
 	value: number;
+	/**
+	 * Content-box size of the element's layout parent on the same axis.
+	 *
+	 * Absent when the axis has no meaningful container, which simply removes
+	 * the container-relative candidate rather than changing the other fits.
+	 */
+	container?: number | null;
 }
 
 export type FluidModel =
 	/** Same value at every width. */
 	| { kind: 'constant'; css: string; value: number }
+	/** Scales with its own container. */
+	| { kind: 'container'; css: string; ratio: number }
 	/** Scales with the viewport. */
 	| { kind: 'proportional'; css: string; ratio: number }
 	/** Scales with the viewport but never below a floor. */
@@ -67,6 +76,32 @@ export function learnFluidModel( samples: readonly GeometrySample[] ): FluidMode
 		const sorted = [ ...values ].sort( ( a, b ) => a - b );
 		const value = round( sorted[ Math.floor( sorted.length / 2 ) ]!, 0 );
 		return { kind: 'constant', css: `${ value }px`, value };
+	}
+
+	// Container-relative: the element tracks its own parent, not the screen.
+	// Preferred over the viewport fit for the same reason a constant is
+	// preferred over a ratio — emitting `100vw` for an element that merely
+	// fills its parent invents a dependency on the screen that the source
+	// never had, and it only looks correct while that parent happens to span
+	// the viewport. A percentage reproduces the observed relationship in any
+	// container, including one narrower than the screen.
+	const containers = ordered.map( ( sample ) =>
+		typeof sample.container === 'number' && Number.isFinite( sample.container ) && sample.container > 0
+			? sample.container
+			: null
+	);
+	if ( containers.every( ( container ): container is number => container !== null ) ) {
+		const containerRatio = ordered[ ordered.length - 1 ]!.value / containers[ containers.length - 1 ]!;
+		const containerFits = ordered.every(
+			( sample, index ) => Math.abs( containerRatio * containers[ index ]! - sample.value ) <= TOLERANCE_PX
+		);
+		// A container that never changes cannot distinguish "fills its parent"
+		// from "happens to equal it once", so require it to have actually moved.
+		const containerVaries =
+			Math.max( ...containers ) - Math.min( ...containers ) > TOLERANCE_PX;
+		if ( containerFits && containerVaries ) {
+			return { kind: 'container', css: `${ round( containerRatio * 100 ) }%`, ratio: containerRatio };
+		}
 	}
 
 	// Proportional: a fixed fraction of the viewport at every width. Take the

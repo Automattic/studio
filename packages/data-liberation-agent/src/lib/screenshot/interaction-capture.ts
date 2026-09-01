@@ -140,10 +140,11 @@ export async function captureTriggeredDialogs(
 		).filter( ( element ) => {
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
 			if ( ! visible( element ) ) return false;
-			const name = ( element.getAttribute( 'aria-label' ) || element.textContent || '' ).replace(
-				/\s+/g,
-				' '
-			);
+			const name = (
+				element.getAttribute( 'aria-label' ) ||
+				element.textContent ||
+				''
+			).replace( /\s+/g, ' ' );
 			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
 			if ( popup === 'dialog' ) {
 				const hasBinding =
@@ -178,7 +179,11 @@ export async function captureTriggeredDialogs(
 				...( element.id ? { id: element.id } : {} ),
 				...( element.getAttribute( 'role' ) ? { role: element.getAttribute( 'role' )! } : {} ),
 				ariaHaspopup: element.getAttribute( 'aria-haspopup' ) ?? '',
-				label: ( element.getAttribute( 'aria-label' ) || element.textContent || '' )
+				label: (
+					element.getAttribute( 'aria-label' ) ||
+					element.textContent ||
+					''
+				)
 					.replace( /\s+/g, ' ' )
 					.trim()
 					.slice( 0, 40 ),
@@ -247,9 +252,7 @@ export async function captureTriggeredDialogs(
 		for ( const element of document.querySelectorAll( '[data-lib-interaction-dialog]' ) ) {
 			element.removeAttribute( 'data-lib-interaction-dialog' );
 		}
-		for ( const element of document.querySelectorAll(
-			'[data-lib-initial-dialog],[data-lib-initial-close]'
-		) ) {
+		for ( const element of document.querySelectorAll( '[data-lib-initial-dialog],[data-lib-initial-close]' ) ) {
 			element.removeAttribute( 'data-lib-initial-dialog' );
 			element.removeAttribute( 'data-lib-initial-close' );
 		}
@@ -291,11 +294,7 @@ async function captureInitiallyVisibleDialogs( page: Page ): Promise< CapturedIn
 		try {
 			await page.locator( close.selector ).first().click( { timeout: 1_000 } );
 			await page.waitForTimeout( 100 );
-			const verified = ! ( await page
-				.locator( dialog.selector )
-				.first()
-				.isVisible()
-				.catch( () => false ) );
+			const verified = !( await page.locator( dialog.selector ).first().isVisible().catch( () => false ) );
 			states.push( {
 				status: verified ? 'captured' : 'dismissal-unverified',
 				initiallyVisible: true,
@@ -372,34 +371,22 @@ async function visibleSemanticDialogs( page: Page ): Promise< DialogDescriptor[]
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
-			return (
-				rect.width > 0 &&
-				rect.height > 0 &&
-				style.display !== 'none' &&
-				style.visibility !== 'hidden' &&
-				Number.parseFloat( style.opacity || '1' ) > 0.1
-			);
+			return rect.width > 0 && rect.height > 0 && style.display !== 'none' &&
+				style.visibility !== 'hidden' && Number.parseFloat( style.opacity || '1' ) > 0.1;
 		};
-		const cssEscape = ( value: string ) =>
-			globalThis.CSS?.escape
-				? globalThis.CSS.escape( value )
-				: value.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
-		return Array.from(
-			document.querySelectorAll( 'dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]' )
-		)
+		const cssEscape = ( value: string ) => globalThis.CSS?.escape
+			? globalThis.CSS.escape( value ) : value.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+		return Array.from( document.querySelectorAll( 'dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]' ) )
 			.filter( visible )
 			.slice( 0, limit )
 			.map( ( dialog, index ) => {
 				const selector = dialog.id
 					? `#${ cssEscape( dialog.id ) }`
 					: `[data-lib-initial-dialog="${ index }"]`;
-				if ( ! dialog.id ) dialog.setAttribute( 'data-lib-initial-dialog', String( index ) );
+				if ( !dialog.id ) dialog.setAttribute( 'data-lib-initial-dialog', String( index ) );
 				const clone = dialog.cloneNode( true ) as Element;
 				clone.removeAttribute( 'data-lib-initial-dialog' );
-				for ( const unsafe of Array.from(
-					clone.querySelectorAll( 'script,style,noscript,iframe' )
-				) )
-					unsafe.remove();
+				for ( const unsafe of Array.from( clone.querySelectorAll( 'script,style,noscript,iframe' ) ) ) unsafe.remove();
 				for ( const element of [ clone, ...Array.from( clone.querySelectorAll( '*' ) ) ] ) {
 					for ( const attribute of Array.from( element.attributes ) ) {
 						if ( /^on/i.test( attribute.name ) ) element.removeAttribute( attribute.name );
@@ -411,68 +398,43 @@ async function visibleSemanticDialogs( page: Page ): Promise< DialogDescriptor[]
 					...( dialog.id ? { id: dialog.id } : {} ),
 					...( dialog.getAttribute( 'role' ) ? { role: dialog.getAttribute( 'role' )! } : {} ),
 					ariaModal: dialog.getAttribute( 'aria-modal' ) === 'true',
-					...( dialog.getAttribute( 'aria-label' )
-						? { ariaLabel: dialog.getAttribute( 'aria-label' )! }
-						: {} ),
+					...( dialog.getAttribute( 'aria-label' ) ? { ariaLabel: dialog.getAttribute( 'aria-label' )! } : {} ),
 					html: clone.outerHTML,
 				};
 			} );
-	}, MAX_INITIAL_DIALOGS ) as Promise< DialogDescriptor[] >;
+	}, MAX_INITIAL_DIALOGS ) as Promise< DialogDescriptor[]>;
 }
 
 async function findCloseControl(
 	page: Page,
 	dialogSelector: string
 ): Promise< CloseControlDescriptor | undefined > {
-	return page
-		.locator( dialogSelector )
-		.first()
-		.evaluate( ( dialog ) => {
-			const control = Array.from(
-				dialog.querySelectorAll(
-					'[aria-label*="close" i],[title*="close" i],button[class*="close" i],[data-dismiss],[data-testid*="close" i]'
-				)
-			).find( ( element ) => {
-				const rect = element.getBoundingClientRect();
-				const style = getComputedStyle( element );
-				return (
-					rect.width > 0 &&
-					rect.height > 0 &&
-					style.display !== 'none' &&
-					style.visibility !== 'hidden'
-				);
-			} );
-			if ( ! control ) return undefined;
-			if ( control.id )
-				return {
-					selector: `#${
-						globalThis.CSS?.escape ? globalThis.CSS.escape( control.id ) : control.id
-					}`,
-					tag: control.tagName.toLowerCase(),
-					...( control.getAttribute( 'aria-label' ) || control.textContent?.trim()
-						? {
-								label: (
-									control.getAttribute( 'aria-label' ) || control.textContent!.trim()
-								).slice( 0, 80 ),
-						  }
-						: {} ),
-				};
-			const index = document.querySelectorAll( '[data-lib-initial-close]' ).length;
-			control.setAttribute( 'data-lib-initial-close', String( index ) );
-			return {
-				selector: `[data-lib-initial-close="${ index }"]`,
-				tag: control.tagName.toLowerCase(),
-				...( control.getAttribute( 'aria-label' ) || control.textContent?.trim()
-					? {
-							label: ( control.getAttribute( 'aria-label' ) || control.textContent!.trim() ).slice(
-								0,
-								80
-							),
-					  }
-					: {} ),
-			};
-		} )
-		.catch( () => undefined );
+	return page.locator( dialogSelector ).first().evaluate( ( dialog ) => {
+		const control = Array.from( dialog.querySelectorAll(
+			'[aria-label*="close" i],[title*="close" i],button[class*="close" i],[data-dismiss],[data-testid*="close" i]'
+		) ).find( ( element ) => {
+			const rect = element.getBoundingClientRect();
+			const style = getComputedStyle( element );
+			return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+		} );
+		if ( !control ) return undefined;
+		if ( control.id ) return {
+			selector: `#${ globalThis.CSS?.escape ? globalThis.CSS.escape( control.id ) : control.id }`,
+			tag: control.tagName.toLowerCase(),
+			...( ( control.getAttribute( 'aria-label' ) || control.textContent?.trim() )
+				? { label: ( control.getAttribute( 'aria-label' ) || control.textContent!.trim() ).slice( 0, 80 ) }
+				: {} ),
+		};
+		const index = document.querySelectorAll( '[data-lib-initial-close]' ).length;
+		control.setAttribute( 'data-lib-initial-close', String( index ) );
+		return {
+			selector: `[data-lib-initial-close="${ index }"]`,
+			tag: control.tagName.toLowerCase(),
+			...( ( control.getAttribute( 'aria-label' ) || control.textContent?.trim() )
+				? { label: ( control.getAttribute( 'aria-label' ) || control.textContent!.trim() ).slice( 0, 80 ) }
+				: {} ),
+		};
+	} ).catch( () => undefined );
 }
 
 async function firstNewVisibleDialog(

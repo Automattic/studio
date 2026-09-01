@@ -14,11 +14,11 @@ import { CssAggregator } from './css-aggregator.js';
 import { captureDesignForUrl, captureMobileBodyFragment } from './design-capture-runner.js';
 import { countBodyTags, isStackingArtifact } from './document-integrity.js';
 import { collectMobileChromeLayout } from './dom-capture.js';
-import { hydrateDisclosureContent } from './dynamic-content.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
-import { learnAndApplyFluidGeometry } from './fluid-capture.js';
 import { sanitizeFrozenHtml } from './freeze.js';
+import { learnAndApplyFluidGeometry } from './fluid-capture.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
+import { hydrateDisclosureContent } from './dynamic-content.js';
 import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
@@ -233,14 +233,8 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 			if ( source.protocol !== 'https:' || ! source.hostname || ! visible ) continue;
 
 			frame.setAttribute( evidenceAttributes.src, source.href );
-			frame.setAttribute(
-				evidenceAttributes.width,
-				String( Math.max( 1, Math.round( bounds.width ) ) )
-			);
-			frame.setAttribute(
-				evidenceAttributes.height,
-				String( Math.max( 1, Math.round( bounds.height ) ) )
-			);
+			frame.setAttribute( evidenceAttributes.width, String( Math.max( 1, Math.round( bounds.width ) ) ) );
+			frame.setAttribute( evidenceAttributes.height, String( Math.max( 1, Math.round( bounds.height ) ) ) );
 		}
 	}, iframeEvidenceAttributes );
 	try {
@@ -506,7 +500,10 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 				! requestHeaders.authorization &&
 				! requestHeaders.cookie
 			) {
-				const replay = resourceStore.getReplayableResponse( request.url(), request.resourceType() );
+				const replay = resourceStore.getReplayableResponse(
+					request.url(),
+					request.resourceType()
+				);
 				if ( replay ) {
 					await route.fulfill( {
 						path: replay.path,
@@ -686,9 +683,7 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 				url,
 				viewport: viewport.id,
 				stage: 'content',
-				error: `fluid learning failed: ${
-					error instanceof Error ? error.message : String( error )
-				}`,
+				error: `fluid learning failed: ${ error instanceof Error ? error.message : String( error ) }`,
 				timestamp: now(),
 				attempt: 1,
 			} );
@@ -975,8 +970,8 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// Dialogs are captured only after every baseline artifact so probing a close
 	// control or trigger cannot alter screenshots, geometry, sidecars, or page HTML.
 	if (
-		! entry.interactions?.states.some( ( state ) => state.status === 'captured' ) &&
-		! entry.interactions?.initialDialogs?.some( ( state ) => state.status === 'captured' )
+		!entry.interactions?.states.some( ( state ) => state.status === 'captured' ) &&
+		!entry.interactions?.initialDialogs?.some( ( state ) => state.status === 'captured' )
 	) {
 		try {
 			const interactions = await captureTriggeredDialogs( page, url );

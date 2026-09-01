@@ -36,6 +36,8 @@
 }
 
 .tabBar {
+	container-name: preview-tab-bar;
+	container-type: inline-size;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
@@ -55,6 +57,14 @@
 	-webkit-app-region: no-drag;
 }
 
+.tabListViewport {
+	position: relative;
+	display: flex;
+	align-self: stretch;
+	min-width: 0;
+	flex: 1;
+}
+
 .tabList {
 	display: flex;
 	align-items: center;
@@ -69,6 +79,35 @@
 
 .tabList::-webkit-scrollbar {
 	display: none;
+}
+
+@container preview-tab-bar (max-width: 760px) {
+	.tabList {
+		padding-inline-end: var(--wpds-dimension-padding-lg);
+	}
+
+	.tabListViewport::after {
+		position: absolute;
+		z-index: 2;
+		inset-block: 0;
+		inset-inline-end: 0;
+		width: 40px;
+		background: linear-gradient(
+			to right,
+			transparent,
+			var(--wpds-color-bg-surface-neutral-weak) 85%
+		);
+		content: '';
+		pointer-events: none;
+	}
+
+	:global(html[dir='rtl']) .tabListViewport::after {
+		background: linear-gradient(
+			to left,
+			transparent,
+			var(--wpds-color-bg-surface-neutral-weak) 85%
+		);
+	}
 }
 
 .tab {

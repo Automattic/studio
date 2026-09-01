@@ -112,7 +112,7 @@
 
 .fullPreviewButton {
 	margin-inline-start: auto;
-	translate: 0 calc(-1 * var(--wpds-dimension-padding-xs));
+	translate: 0 calc(-1 * var(--wpds-border-width-focus));
 }
 
 .tab {

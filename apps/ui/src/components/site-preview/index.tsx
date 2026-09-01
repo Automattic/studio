@@ -1239,10 +1239,12 @@ export function SitePreview( props: SitePreviewProps ) {
 	const [ initialSession ] = useState( () => loadPreviewTabSession( site, path, reloadNonce ) );
 	const nextTabId = useRef( Math.max( ...initialSession.tabs.map( ( tab ) => tab.id ) ) + 1 );
 	const rootRef = useRef< HTMLDivElement | null >( null );
+	const tabListRef = useRef< HTMLDivElement | null >( null );
 	const trafficLightSpace = useTrafficLightSpace();
 	const [ tabs, setTabs ] = useState< PreviewTab[] >( initialSession.tabs );
 	const [ activeTabId, setActiveTabId ] = useState( initialSession.activeTabId );
 	const [ draggedTabId, setDraggedTabId ] = useState< number | null >( null );
+	const [ tabListOverflowing, setTabListOverflowing ] = useState( false );
 	const draggedTabIdRef = useRef< number | null >( null );
 	const dragOverTabIdRef = useRef< number | null >( null );
 	const activeTabIdRef = useRef( activeTabId );
@@ -1410,6 +1412,21 @@ export function SitePreview( props: SitePreviewProps ) {
 		tabList.scrollLeft += event.deltaY * direction;
 	};
 
+	useEffect( () => {
+		const tabList = tabListRef.current;
+		if ( ! tabList ) return;
+
+		const updateOverflow = () => {
+			setTabListOverflowing( tabList.scrollWidth > tabList.clientWidth );
+		};
+		updateOverflow();
+
+		if ( typeof ResizeObserver === 'undefined' ) return;
+		const observer = new ResizeObserver( updateOverflow );
+		observer.observe( tabList );
+		return () => observer.disconnect();
+	}, [ tabs ] );
+
 	const reorderTab = ( sourceId: number, targetId: number ) => {
 		if ( sourceId === targetId ) return;
 		setTabs( ( current ) => {
@@ -1443,8 +1460,14 @@ export function SitePreview( props: SitePreviewProps ) {
 				) }
 				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
 			>
-				<div className={ styles.tabListViewport }>
+				<div
+					className={ clsx(
+						styles.tabListViewport,
+						tabListOverflowing && styles.tabListViewportOverflowing
+					) }
+				>
 					<div
+						ref={ tabListRef }
 						className={ styles.tabList }
 						role="tablist"
 						aria-label={ __( 'Preview tabs' ) }
@@ -1557,6 +1580,7 @@ export function SitePreview( props: SitePreviewProps ) {
 				</Menu.Root>
 				{ props.onFullscreenChange ? (
 					<IconButton
+						className={ styles.fullPreviewButton }
 						variant="minimal"
 						tone="neutral"
 						size="small"

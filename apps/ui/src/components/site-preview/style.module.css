@@ -62,7 +62,7 @@
 	display: flex;
 	align-self: stretch;
 	min-width: 0;
-	flex: 1;
+	flex: 0 1 auto;
 }
 
 .tabList {
@@ -82,11 +82,11 @@
 }
 
 @container preview-tab-bar (max-width: 760px) {
-	.tabList {
+	.tabListViewportOverflowing .tabList {
 		padding-inline-end: var(--wpds-dimension-padding-lg);
 	}
 
-	.tabListViewport::after {
+	.tabListViewportOverflowing::after {
 		position: absolute;
 		z-index: 2;
 		inset-block: 0;
@@ -101,13 +101,18 @@
 		pointer-events: none;
 	}
 
-	:global(html[dir='rtl']) .tabListViewport::after {
+	:global(html[dir='rtl']) .tabListViewportOverflowing::after {
 		background: linear-gradient(
 			to left,
 			transparent,
 			var(--wpds-color-bg-surface-neutral-weak) 85%
 		);
 	}
+}
+
+.fullPreviewButton {
+	margin-inline-start: auto;
+	translate: 0 calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
 .tab {

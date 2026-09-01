@@ -16,11 +16,12 @@
 	margin-bottom: 12px;
 }
 
+/* A quiet section label, so the Blueprint's own name below stays dominant. */
 .summaryHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
-	font-size: var( --wpds-typography-font-size-md );
-	font-weight: 600;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 500;
 }
 
 .summaryRemove {

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
@@ -10,6 +10,7 @@ import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
+	ensureMinWindowWidth,
 	getFileSize,
 	getXdebugEnabledSite,
 	isFullscreen,
@@ -185,6 +186,52 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'ensureMinWindowWidth', () => {
+	it( 'grows the sender window content while preserving its height', async () => {
+		const setContentSize = vi.fn();
+		let width = 420;
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ width, 700 ],
+			setContentSize: ( nextWidth: number, height: number ) => {
+				width = nextWidth;
+				setContentSize( nextWidth, height );
+			},
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setContentSize ).toHaveBeenCalledWith( 640, 700 );
+		expect( result ).toBe( 640 );
+	} );
+
+	it( 'leaves an already-wide window unchanged', async () => {
+		const setContentSize = vi.fn();
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ 900, 700 ],
+			setContentSize,
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setContentSize ).not.toHaveBeenCalled();
+		expect( result ).toBe( 900 );
+	} );
+
+	it( 'returns the content width the window manager actually applied', async () => {
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ 600, 700 ],
+			setContentSize: vi.fn(),
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( result ).toBe( 600 );
 	} );
 } );
 

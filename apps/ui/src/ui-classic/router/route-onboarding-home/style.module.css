@@ -1,14 +1,14 @@
 .page {
 	width: 100%;
 	text-align: center;
+	padding-top: 48px;
 	padding-bottom: 72px;
 }
 
 .cards {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(240px, 300px));
+	grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
 	gap: 20px;
-	justify-content: center;
 }
 
 .card {
@@ -17,14 +17,14 @@
 	align-items: center;
 	gap: 16px;
 	padding: 24px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 12px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 50%),
+		var( --wpds-color-bg-surface-neutral-strong ) var( --surface-alpha, 50% ),
 		transparent
 	);
-	backdrop-filter: blur(12px);
+	backdrop-filter: blur( 12px );
 	appearance: none;
 	font: inherit;
 	text-align: center;
@@ -36,20 +36,20 @@
 
 .card:hover,
 .cardDragging {
-	border-color: var(--wpds-color-stroke-interactive-brand);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
+	border-color: var( --wpds-color-stroke-interactive-brand );
+	box-shadow: 0 0 0 1px var( --wpds-color-stroke-interactive-brand );
 }
 
 .card:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline: 2px solid var( --wpds-color-stroke-focus-brand );
 	outline-offset: 2px;
-	border-color: var(--wpds-color-stroke-interactive-brand);
+	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
 .cardDisabled,
 .cardDisabled:hover {
 	opacity: 0.55;
-	border-color: var(--wpds-color-stroke-surface-neutral);
+	border-color: var( --wpds-color-stroke-surface-neutral );
 	box-shadow: none;
 	cursor: not-allowed;
 }
@@ -61,41 +61,41 @@
 }
 
 .cardTitle {
-	font-size: var(--wpds-typography-font-size-lg);
+	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 500;
 	transition: color 0.15s ease;
 }
 
 .card:hover .cardTitle,
 .card:focus-visible .cardTitle {
-	color: var(--wpds-color-fg-interactive-brand);
+	color: var( --wpds-color-fg-interactive-brand );
 }
 
 .cardBody {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-md);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-md );
 	line-height: 1.4;
 }
 
 .cardHint {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .cardError {
 	margin-top: 4px;
-	color: var(--wpds-color-fg-content-error);
-	font-size: var(--wpds-typography-font-size-sm);
+	color: var( --wpds-color-fg-content-error );
+	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .hiddenInput {
 	display: none;
 }
 
-@media (max-width: 720px) {
+@media ( max-width: 720px ) {
 	.cards {
-		grid-template-columns: minmax(0, 1fr);
+		grid-template-columns: minmax( 0, 1fr );
 	}
 
 	.card {

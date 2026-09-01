@@ -219,15 +219,10 @@ export function useUpdateSite() {
 			// in-memory details.
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
-			// Seed the applied version rather than refetching it: the CLI keeps
-			// restarting the site after this resolves, and a disk read landing
-			// mid-restart still reports the pre-edit version, which would flash
-			// the old value back into the settings form.
-			//
-			// `latest` is the exception: it's the auto-update mode, not a version,
-			// so seeding it would store a non-version in a cache that means "the
-			// version on disk". Refetch instead — the CLI has already installed
-			// the release by the time this resolves, so the read reports it.
+			// Seed the applied version rather than refetching, which can still
+			// report the pre-edit version and flash it back into the form.
+			// `latest` is the auto-update mode, not a version, so there is
+			// nothing to seed — refetch and let the read report what landed.
 			if ( wpVersion && wpVersion !== DEFAULT_WORDPRESS_VERSION ) {
 				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
 			} else if ( wpVersion ) {

@@ -489,8 +489,6 @@ describe( 'SiteOverviewView', () => {
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
-		// The auto-update option names the version the site runs now, so
-		// "latest" can't be read as "already on the newest release" (STU-2348).
 		expect( screen.getByRole( 'option', { name: 'Auto-update (6.7.2)' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
 	} );
@@ -504,8 +502,6 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		// Naming a version next to "Auto-update" on a pinned site would read as
-		// if auto-updates were already on.
 		expect( screen.getByRole( 'option', { name: 'Auto-update' } ) ).toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'option', { name: 'Auto-update (6.7.2)' } )

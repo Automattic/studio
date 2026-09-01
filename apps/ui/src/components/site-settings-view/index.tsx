@@ -159,10 +159,9 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
-				// Keyed off the current selection, not `site.isWpAutoUpdating`: the
-				// persisted flag lags a save by a site-updated event, which would
-				// drop the version from the label right after switching to
-				// auto-update.
+				// Current selection, not `site.isWpAutoUpdating`: the persisted flag
+				// lags a save by a site-updated event, which would drop the version
+				// from the label right after switching to auto-update.
 				installedVersion: data.wpVersion === '' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),

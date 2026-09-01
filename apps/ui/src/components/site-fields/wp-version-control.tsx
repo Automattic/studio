@@ -42,8 +42,6 @@ export function WpVersionControl< Item >( {
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
-	// The auto-update option carries its own explanation, so it needs no
-	// heading; HTML allows plain options before the first optgroup.
 	const autoUpdateOptions = options.filter( ( option ) => option.group === 'latest' );
 	const groups = [
 		{

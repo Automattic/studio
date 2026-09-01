@@ -106,7 +106,6 @@ export const WPVersionSelector = ( {
 				>
 					{ wpVersions.length > 0 ? (
 						<>
-							{ /* Ungrouped: the option names the mode itself. */ }
 							<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
 								{ getAutoUpdateVersionLabel( installedVersion ) }
 							</option>

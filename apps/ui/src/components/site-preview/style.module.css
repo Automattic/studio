@@ -82,7 +82,7 @@
 	padding-inline: var(--wpds-dimension-padding-sm);
 	flex: 1 1 180px;
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-block-end: 0;
 	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;

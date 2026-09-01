@@ -117,6 +117,7 @@ export function wpVersionField< T extends { wpVersion: string } >(
 				value: version.value,
 				label: version.label,
 				group: 'prerelease' as const,
+				current: version.value === currentVersion,
 			} ) );
 		let stable: WpVersionOption[] = offers
 			.filter(
@@ -127,6 +128,7 @@ export function wpVersionField< T extends { wpVersion: string } >(
 				value: version.value,
 				label: version.label,
 				group: 'stable' as const,
+				current: version.value === currentVersion,
 			} ) );
 		// The site's installed version may predate the fetched offers — keep it
 		// selectable, sorted into the right group, like the legacy selector's
@@ -136,6 +138,7 @@ export function wpVersionField< T extends { wpVersion: string } >(
 				value: currentVersion,
 				label: currentVersion,
 				group: 'stable',
+				current: true,
 			};
 			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
 				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
@@ -153,11 +156,13 @@ export function wpVersionField< T extends { wpVersion: string } >(
 			// The settings form maps "latest" to '' (auto-update) but falls back
 			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
 			// installed version can't be read. Keep that seed renderable without
-			// offering it.
+			// offering it, and out of the auto-update group: the site is pinned,
+			// so an "Auto-update" readout there would be wrong.
 			options.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
-				label: autoUpdateLabel,
-				group: 'latest',
+				/* translators: WordPress version option for a pinned site whose installed version Studio cannot read. */
+				label: __( 'Unknown version' ),
+				group: 'stable',
 				hidden: true,
 			} );
 		}

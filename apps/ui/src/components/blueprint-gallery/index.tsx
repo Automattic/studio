@@ -12,7 +12,7 @@ import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-const SEARCH_THRESHOLD = 20;
+const SEARCH_THRESHOLD = 8;
 
 const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
 	'Quick Start': 'WordPress.com',

@@ -69,7 +69,7 @@ describe( 'BlueprintGallery', () => {
 			data: [
 				WOO_COMMERCE,
 				QUICK_START,
-				...Array.from( { length: 21 }, ( _, index ) =>
+				...Array.from( { length: 7 }, ( _, index ) =>
 					apiBlueprint(
 						`explore-${ index }`,
 						index === 0 ? 'Cookbook' : `Blueprint ${ index }`,

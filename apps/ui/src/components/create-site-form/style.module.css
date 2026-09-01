@@ -7,14 +7,14 @@
 	flex-direction: column;
 	gap: 24px;
 	padding: 32px;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 12px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 50%),
+		var( --wpds-color-background-surface-neutral-strong ) var( --surface-alpha, 50% ),
 		transparent
 	);
-	backdrop-filter: blur(12px);
+	backdrop-filter: blur( 12px );
 }
 
 /* The path trigger is a <button>, but we style it to sit within the
@@ -29,33 +29,35 @@
 	gap: 8px;
 	width: 100%;
 	height: 40px;
-	padding: 0 4px 0 var(--wpds-dimension-padding-md);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	padding: 0 4px 0 var( --wpds-dimension-padding-md );
+	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
 	border-radius: 2px;
-	background-color: var(--wpds-color-background-interactive-neutral-weak);
-	color: var(--wpds-color-foreground-interactive-neutral);
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-md);
+	background-color: var( --wpds-color-background-interactive-neutral-weak );
+	color: var( --wpds-color-foreground-interactive-neutral );
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
 	line-height: 1;
 	text-align: left;
 	cursor: pointer;
-	transition: border-color 0.15s, box-shadow 0.15s;
+	transition:
+		border-color 0.15s,
+		box-shadow 0.15s;
 }
 
 .pathTrigger:hover {
-	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	border-color: var( --wpds-color-stroke-interactive-neutral-active );
 }
 
 .pathTrigger:focus-visible {
-	border-color: var(--wpds-color-stroke-interactive-neutral-active);
-	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-interactive-neutral-active);
+	border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-interactive-neutral-active );
 	outline: none;
 }
 
 .pathTrigger.pathTriggerError,
 .pathTrigger.pathTriggerError:focus {
-	border-color: var(--wpds-color-stroke-surface-error-strong);
-	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-surface-error-strong);
+	border-color: var( --wpds-color-stroke-surface-error-strong );
+	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-surface-error-strong );
 }
 
 .pathValue {
@@ -67,45 +69,42 @@
 }
 
 .pathValuePlaceholder {
-	color: var(--wpds-color-foreground-content-neutral-weak);
+	color: var( --wpds-color-foreground-content-neutral-weak );
 }
 
 .pathTriggerAction {
 	flex: 0 0 auto;
 	padding: 6px 12px;
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var( --wpds-typography-font-size-sm );
 	font-weight: 500;
-	color: var(--wpds-color-foreground-interactive-neutral);
+	color: var( --wpds-color-foreground-interactive-neutral );
 }
 
-.pathControlError :global(.components-input-control__backdrop) {
-	border-color: var(--wpds-color-stroke-surface-error-strong);
-	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-surface-error-strong);
+.pathControlError :global( .components-input-control__backdrop ) {
+	border-color: var( --wpds-color-stroke-surface-error-strong );
+	box-shadow: 0 0 0 0.5px var( --wpds-color-stroke-surface-error-strong );
 }
 
-.form :global(.components-validated-control__indicator.is-invalid) {
-	color: var(--wpds-color-foreground-content-error-weak);
+.form :global( .components-validated-control__indicator.is-invalid ) {
+	color: var( --wpds-color-foreground-content-error-weak );
 }
 
 .form
 	:global(
-		.components-validated-control:has(
-				:is(input, select):invalid[data-validity-visible]
-			)
+		.components-validated-control:has( :is( input, select ):invalid[data-validity-visible] )
 			.components-input-control__backdrop
 	) {
-	--wp-components-color-accent: var(--wpds-color-stroke-surface-error-strong);
-	border-color: var(--wpds-color-stroke-surface-error-strong);
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+	border-color: var( --wpds-color-stroke-surface-error-strong );
 }
 
 .form
 	:global(
-		.components-validated-control
-			:is(textarea, input[type='text']):invalid[data-validity-visible]
+		.components-validated-control :is( textarea, input[type='text'] ):invalid[data-validity-visible]
 	) {
-	--wp-admin-theme-color: var(--wpds-color-stroke-surface-error-strong);
-	--wp-components-color-accent: var(--wpds-color-stroke-surface-error-strong);
-	border-color: var(--wpds-color-stroke-surface-error-strong);
+	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+	border-color: var( --wpds-color-stroke-surface-error-strong );
 }
 
 .advancedToggle {
@@ -113,7 +112,7 @@
 	align-items: center;
 	gap: 4px;
 	align-self: flex-start;
-	color: var(--wpds-color-foreground-content-neutral);
+	color: var( --wpds-color-foreground-content-neutral );
 }
 
 .advancedCollapse {
@@ -121,7 +120,10 @@
 	grid-template-rows: 0fr;
 	opacity: 0;
 	margin-top: -24px;
-	transition: grid-template-rows 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+	transition:
+		grid-template-rows 0.25s ease,
+		opacity 0.2s ease,
+		margin-top 0.25s ease;
 }
 
 .advancedCollapseOpen {
@@ -137,7 +139,7 @@
 	margin: -4px;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.advancedCollapse {
 		transition: none;
 	}
@@ -147,7 +149,7 @@
 	margin-left: 8px;
 	font-size: 12px;
 	font-weight: 500;
-	color: var(--wpds-color-foreground-content-error);
+	color: var( --wpds-color-foreground-content-error );
 }
 
 .submitError {
@@ -156,8 +158,8 @@
 	gap: 6px;
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
+	background: var( --wpds-color-background-surface-error-weak );
+	color: var( --wpds-color-foreground-content-error );
 	font-size: 13px;
 	line-height: 1.5;
 }
@@ -188,7 +190,12 @@
 		Menlo,
 		monospace
 	);
-	font-size: var(--wpds-typography-font-size-xs);
+	font-size: var( --wpds-typography-font-size-xs );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
+}
+
+.panelFooter {
+	padding-top: 24px;
+	border-top: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 }

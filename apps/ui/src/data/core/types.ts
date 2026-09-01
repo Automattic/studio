@@ -705,9 +705,12 @@ export interface CreateSiteParams {
 	skipStart?: boolean;
 	// Optional blueprint payload. `filePath` points at the extracted
 	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
+	// `bundleUrl` is set for API blueprints that bundle resources (theme zips, WXR
+	// files); the server downloads and extracts it to resolve relative paths.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
 		filePath?: string;
+		bundleUrl?: string;
 	};
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.

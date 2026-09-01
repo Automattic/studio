@@ -8,9 +8,9 @@
 	margin: 0;
 	padding-inline-start: var(--wpds-dimension-padding-xs);
 	align-items: center;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border: var(--wpds-border-width-xs) solid transparent;
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-bg-surface-neutral);
 	overflow: hidden;
 }
 

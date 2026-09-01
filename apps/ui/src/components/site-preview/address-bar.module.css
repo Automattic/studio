@@ -10,7 +10,7 @@
 	align-items: center;
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
 	overflow: hidden;
 }
 

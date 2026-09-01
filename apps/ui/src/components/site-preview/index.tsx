@@ -747,7 +747,7 @@ function PreviewAnnotationControls( {
 					<Tooltip.Trigger
 						render={
 							<Button
-								variant="minimal"
+								variant="outline"
 								tone="neutral"
 								size="small"
 								className={ styles.annotationToggle }
@@ -1433,6 +1433,15 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+					{ canPreview ? (
+						<PreviewResponsiveControls
+							viewportMode={ viewportMode }
+							onViewportModeChange={ handleViewportModeChange }
+							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
+							mobileOrientation={ mobileOrientation }
+							onMobileOrientationChange={ handleMobileOrientationChange }
+						/>
+					) : null }
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
@@ -1441,15 +1450,6 @@ export function SitePreview( {
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
 							onCommand={ sendInspectorCommand }
-						/>
-					) : null }
-					{ canPreview ? (
-						<PreviewResponsiveControls
-							viewportMode={ viewportMode }
-							onViewportModeChange={ handleViewportModeChange }
-							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
-							mobileOrientation={ mobileOrientation }
-							onMobileOrientationChange={ handleMobileOrientationChange }
 						/>
 					) : null }
 				</div>

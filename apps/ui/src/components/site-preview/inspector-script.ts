@@ -78,6 +78,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 	function getBrowserShortcutCommand( event ) {
 		if ( event.defaultPrevented || event.repeat ) return null;
 		const apple = isApplePlatform();
+		if ( event.key === 'Tab' && event.ctrlKey && ! event.altKey && ! event.metaKey ) {
+			return event.shiftKey ? 'previous-tab' : 'next-tab';
+		}
 		if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
 			/* Layout-independent back/forward aliases: the bracket chords need
 			 * Option/AltGr on many European layouts. Skipped while editing text
@@ -96,6 +99,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		 * the window — so the chord is caught here and forwarded back. */
 		if ( event.shiftKey ) {
 			if ( key === 'f' ) return 'full-preview';
+			if ( key === '[' ) return 'previous-tab';
+			if ( key === ']' ) return 'next-tab';
 			return key === 'r' ? 'reload' : null;
 		}
 		if ( key === 'r' ) return 'reload';

@@ -2760,6 +2760,33 @@ export async function getWebviewNavigationHistory(
 	};
 }
 
+export async function restoreWebviewNavigationHistory(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	entries: { title: string; url: string }[],
+	activeIndex: number
+): Promise< void > {
+	const history = getOwnedWebviewContents( event, webContentsId ).navigationHistory;
+	if ( ! Array.isArray( entries ) ) {
+		return;
+	}
+	const safeEntries = entries.slice( 0, 100 ).flatMap( ( entry ) => {
+		if ( ! entry || typeof entry.url !== 'string' ) return [];
+		try {
+			const url = new URL( entry.url );
+			if ( url.protocol !== 'http:' && url.protocol !== 'https:' ) return [];
+			return [ { title: typeof entry.title === 'string' ? entry.title : '', url: url.toString() } ];
+		} catch {
+			return [];
+		}
+	} );
+	if ( safeEntries.length === 0 ) return;
+	await history.restore( {
+		entries: safeEntries,
+		index: Math.max( 0, Math.min( activeIndex, safeEntries.length - 1 ) ),
+	} );
+}
+
 export async function goToWebviewNavigationHistoryEntry(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,

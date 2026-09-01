@@ -1,7 +1,16 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, closeSmall, Icon, pencil, plus, wordpress } from '@wordpress/icons';
+import {
+	check,
+	chevronDown,
+	closeSmall,
+	Icon,
+	moreVertical,
+	pencil,
+	plus,
+	wordpress,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -79,10 +88,16 @@ interface PreviewTab {
 	path: string;
 	title: string;
 	reloadNonce: number;
+	historyEntries: BrowserHistoryEntry[];
+	activeHistoryIndex: number;
 }
 
 interface SingleSitePreviewProps extends SitePreviewProps {
 	onTitleChange?: ( title: string | null ) => void;
+	onTabCycle?: ( direction: -1 | 1 ) => void;
+	onHistoryChange?: ( entries: BrowserHistoryEntry[], activeIndex: number ) => void;
+	initialHistoryEntries?: BrowserHistoryEntry[];
+	initialHistoryIndex?: number;
 	hasTabBar?: boolean;
 }
 
@@ -113,6 +128,11 @@ interface BrowserHistoryEntry {
 	url: string;
 }
 
+interface PreviewTabSession {
+	tabs: PreviewTab[];
+	activeTabId: number;
+}
+
 interface BrowserNavigationState {
 	canGoBack: boolean;
 	canGoForward: boolean;
@@ -128,7 +148,11 @@ type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
 // What the guest page can forward over the console bridge: the browser
 // commands it swallows, plus the full-preview toggle (the webview covers most
 // of the window in full preview, so the host listener alone would miss it).
-type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
+type PreviewShortcutCommandType =
+	| BrowserShortcutCommandType
+	| 'full-preview'
+	| 'previous-tab'
+	| 'next-tab';
 
 interface BrowserCommand {
 	id: number;
@@ -271,6 +295,11 @@ interface PreviewWindow extends Window {
 			activeIndex: number;
 			entries: BrowserHistoryEntry[];
 		} >;
+		restoreWebviewNavigationHistory?: (
+			webContentsId: number,
+			entries: BrowserHistoryEntry[],
+			activeIndex: number
+		) => Promise< void >;
 		goToWebviewNavigationHistoryEntry?: ( webContentsId: number, index: number ) => Promise< void >;
 	};
 }
@@ -548,6 +577,22 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
+export function getTabCycleDirection( event: globalThis.KeyboardEvent ): -1 | 1 | null {
+	if ( event.defaultPrevented || event.repeat ) {
+		return null;
+	}
+	if ( isKeyboardEvent.primaryShift( event, '[' ) ) {
+		return -1;
+	}
+	if ( isKeyboardEvent.primaryShift( event, ']' ) ) {
+		return 1;
+	}
+	if ( event.key === 'Tab' && event.ctrlKey && ! event.altKey && ! event.metaKey ) {
+		return event.shiftKey ? -1 : 1;
+	}
+	return null;
+}
+
 // ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
 // Keyboard alongside the other preview shortcuts.
 const FULL_PREVIEW_SHORTCUT_KEY = 'f';
@@ -564,7 +609,9 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 		command === 'back' ||
 		command === 'forward' ||
 		command === 'reload' ||
-		command === 'full-preview'
+		command === 'full-preview' ||
+		command === 'previous-tab' ||
+		command === 'next-tab'
 	);
 }
 
@@ -976,16 +1023,209 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 	);
 }
 
+export function getPreviewTabTitle(
+	path: string,
+	documentTitle: string | null,
+	siteName: string
+): string {
+	const realm = getPreviewRealm( path );
+	if ( realm === 'database' ) {
+		const query = path.split( '?' )[ 1 ] ?? '';
+		const params = new URLSearchParams( query );
+		const database = params.get( 'db' );
+		const table = params.get( 'table' );
+		if ( table && database ) {
+			return sprintf(
+				/* translators: 1: database table name, 2: database name */
+				__( '%1$s · %2$s' ),
+				table,
+				database
+			);
+		}
+		if ( table ) {
+			return sprintf(
+				/* translators: %s: database table name */
+				__( '%s · Database' ),
+				table
+			);
+		}
+		if ( database ) {
+			return sprintf(
+				/* translators: %s: database name */
+				__( '%s · Database' ),
+				database
+			);
+		}
+		return __( 'Database' );
+	}
+	return documentTitle || ( realm === 'admin' ? __( 'WordPress' ) : siteName );
+}
+
+const PREVIEW_TAB_SESSION_VERSION = 1;
+
+function getPreviewTabSessionStorageKey( siteId: string ): string {
+	return `studio:site-preview:tabs:${ siteId }`;
+}
+
+function createPreviewTab(
+	id: number,
+	path: string,
+	title: string,
+	reloadNonce: number,
+	historyEntries: BrowserHistoryEntry[] = [],
+	activeHistoryIndex = -1
+): PreviewTab {
+	return { id, path, title, reloadNonce, historyEntries, activeHistoryIndex };
+}
+
+function normalizeStoredHistory( entries: unknown, siteUrl: string ): BrowserHistoryEntry[] {
+	if ( ! Array.isArray( entries ) ) return [];
+	return entries.flatMap( ( entry, index ) => {
+		if ( ! entry || typeof entry !== 'object' ) return [];
+		const candidate = entry as { title?: unknown; url?: unknown };
+		if ( typeof candidate.url !== 'string' ) return [];
+		try {
+			const oldUrl = new URL( candidate.url );
+			const url = new URL(
+				`${ oldUrl.pathname }${ oldUrl.search }${ oldUrl.hash }`,
+				siteUrl
+			).toString();
+			return [
+				{
+					index,
+					title: typeof candidate.title === 'string' ? candidate.title : '',
+					url,
+				},
+			];
+		} catch {
+			return [];
+		}
+	} );
+}
+
+function loadPreviewTabSession(
+	site: SiteDetails,
+	path: string,
+	reloadNonce: number
+): PreviewTabSession {
+	const fallbackPath = getSafePath( path );
+	const fallback = {
+		tabs: [
+			createPreviewTab(
+				1,
+				fallbackPath,
+				getPreviewTabTitle( fallbackPath, null, site.name ),
+				reloadNonce
+			),
+		],
+		activeTabId: 1,
+	};
+	try {
+		const raw = window.localStorage.getItem( getPreviewTabSessionStorageKey( site.id ) );
+		if ( ! raw ) return fallback;
+		const stored = JSON.parse( raw ) as {
+			version?: unknown;
+			activeTabId?: unknown;
+			tabs?: unknown;
+		};
+		if ( stored.version !== PREVIEW_TAB_SESSION_VERSION || ! Array.isArray( stored.tabs ) ) {
+			return fallback;
+		}
+		const siteUrl = getSiteUrl( site );
+		const seenIds = new Set< number >();
+		const tabs = stored.tabs.slice( 0, 50 ).flatMap( ( value ) => {
+			if ( ! value || typeof value !== 'object' ) return [];
+			const tab = value as {
+				id?: unknown;
+				path?: unknown;
+				title?: unknown;
+				historyEntries?: unknown;
+				activeHistoryIndex?: unknown;
+			};
+			if (
+				typeof tab.id !== 'number' ||
+				! Number.isInteger( tab.id ) ||
+				tab.id < 1 ||
+				seenIds.has( tab.id ) ||
+				typeof tab.path !== 'string'
+			) {
+				return [];
+			}
+			seenIds.add( tab.id );
+			const nextPath = getSafePath( tab.path );
+			const historyEntries = normalizeStoredHistory( tab.historyEntries, siteUrl );
+			const requestedIndex =
+				typeof tab.activeHistoryIndex === 'number'
+					? tab.activeHistoryIndex
+					: historyEntries.length - 1;
+			const activeHistoryIndex =
+				historyEntries.length > 0
+					? Math.max( 0, Math.min( requestedIndex, historyEntries.length - 1 ) )
+					: -1;
+			return [
+				createPreviewTab(
+					tab.id,
+					nextPath,
+					typeof tab.title === 'string' && tab.title
+						? tab.title
+						: getPreviewTabTitle( nextPath, null, site.name ),
+					reloadNonce,
+					historyEntries,
+					activeHistoryIndex
+				),
+			];
+		} );
+		if ( tabs.length === 0 ) return fallback;
+		const activeTabId =
+			typeof stored.activeTabId === 'number' && seenIds.has( stored.activeTabId )
+				? stored.activeTabId
+				: tabs[ 0 ].id;
+		return { tabs, activeTabId };
+	} catch {
+		return fallback;
+	}
+}
+
+function storePreviewTabSession( siteId: string, tabs: PreviewTab[], activeTabId: number ): void {
+	try {
+		window.localStorage.setItem(
+			getPreviewTabSessionStorageKey( siteId ),
+			JSON.stringify( {
+				version: PREVIEW_TAB_SESSION_VERSION,
+				activeTabId,
+				tabs: tabs.map( ( tab ) => ( {
+					id: tab.id,
+					path: tab.path,
+					title: tab.title,
+					historyEntries: tab.historyEntries,
+					activeHistoryIndex: tab.activeHistoryIndex,
+				} ) ),
+			} )
+		);
+	} catch {
+		// The preview remains usable when storage is unavailable or full.
+	}
+}
+
 export function SitePreview( props: SitePreviewProps ) {
 	const { site, path, reloadNonce, onPathChange, collapsed = false, fullscreen = false } = props;
-	const nextTabId = useRef( 2 );
+	const [ initialSession ] = useState( () => loadPreviewTabSession( site, path, reloadNonce ) );
+	const nextTabId = useRef( Math.max( ...initialSession.tabs.map( ( tab ) => tab.id ) ) + 1 );
+	const rootRef = useRef< HTMLDivElement | null >( null );
 	const trafficLightSpace = useTrafficLightSpace();
-	const [ tabs, setTabs ] = useState< PreviewTab[] >( () => [
-		{ id: 1, path: getSafePath( path ), title: site.name, reloadNonce },
-	] );
-	const [ activeTabId, setActiveTabId ] = useState( 1 );
+	const [ tabs, setTabs ] = useState< PreviewTab[] >( initialSession.tabs );
+	const [ activeTabId, setActiveTabId ] = useState( initialSession.activeTabId );
+	const [ draggedTabId, setDraggedTabId ] = useState< number | null >( null );
+	const draggedTabIdRef = useRef< number | null >( null );
+	const dragOverTabIdRef = useRef< number | null >( null );
 	const activeTabIdRef = useRef( activeTabId );
 	const siteIdRef = useRef( site.id );
+	const skipStorageRef = useRef( false );
+	const skipNextExternalPathRef = useRef( true );
+	const restoredPathRef = useRef(
+		initialSession.tabs.find( ( tab ) => tab.id === initialSession.activeTabId )?.path ??
+			initialSession.tabs[ 0 ].path
+	);
 	const activeTab = tabs.find( ( tab ) => tab.id === activeTabId ) ?? tabs[ 0 ];
 	useEffect( () => {
 		activeTabIdRef.current = activeTabId;
@@ -996,20 +1236,47 @@ export function SitePreview( props: SitePreviewProps ) {
 			return;
 		}
 		siteIdRef.current = site.id;
-		setTabs( [ { id: 1, path: getSafePath( path ), title: site.name, reloadNonce } ] );
-		setActiveTabId( 1 );
-		nextTabId.current = 2;
-	}, [ path, reloadNonce, site.id, site.name ] );
+		const session = loadPreviewTabSession( site, path, reloadNonce );
+		skipStorageRef.current = true;
+		skipNextExternalPathRef.current = true;
+		restoredPathRef.current =
+			session.tabs.find( ( tab ) => tab.id === session.activeTabId )?.path ??
+			session.tabs[ 0 ].path;
+		setTabs( session.tabs );
+		setActiveTabId( session.activeTabId );
+		nextTabId.current = Math.max( ...session.tabs.map( ( tab ) => tab.id ) ) + 1;
+	}, [ path, reloadNonce, site ] );
 
 	useEffect( () => {
-		setTabs( ( current ) =>
-			current.map( ( tab ) =>
-				tab.id === activeTabIdRef.current && tab.path !== getSafePath( path )
-					? { ...tab, path: getSafePath( path ) }
-					: tab
-			)
-		);
-	}, [ path ] );
+		if ( skipNextExternalPathRef.current ) {
+			skipNextExternalPathRef.current = false;
+			if ( restoredPathRef.current !== getSafePath( path ) ) {
+				onPathChange?.( restoredPathRef.current );
+			}
+			return;
+		}
+		setTabs( ( current ) => {
+			const index = current.findIndex( ( tab ) => tab.id === activeTabIdRef.current );
+			const currentTab = current[ index ];
+			const nextPath = getSafePath( path );
+			if ( ! currentTab || currentTab.path === nextPath ) return current;
+			const next = [ ...current ];
+			next[ index ] = {
+				...currentTab,
+				path: nextPath,
+				title: getPreviewTabTitle( nextPath, null, site.name ),
+			};
+			return next;
+		} );
+	}, [ onPathChange, path, site.name ] );
+
+	useEffect( () => {
+		if ( skipStorageRef.current ) {
+			skipStorageRef.current = false;
+			return;
+		}
+		storePreviewTabSession( site.id, tabs, activeTabId );
+	}, [ activeTabId, site.id, tabs ] );
 
 	useEffect( () => {
 		setTabs( ( current ) =>
@@ -1027,12 +1294,12 @@ export function SitePreview( props: SitePreviewProps ) {
 	};
 
 	const addTab = ( nextPath: string ) => {
-		const tab = {
-			id: nextTabId.current++,
-			path: nextPath,
-			title: site.name,
-			reloadNonce,
-		};
+		const tab = createPreviewTab(
+			nextTabId.current++,
+			nextPath,
+			getPreviewTabTitle( nextPath, null, site.name ),
+			reloadNonce
+		);
 		setTabs( ( current ) => [ ...current, tab ] );
 		setActiveTabId( tab.id );
 		onPathChange?.( tab.path );
@@ -1042,12 +1309,12 @@ export function SitePreview( props: SitePreviewProps ) {
 		const closingIndex = tabs.findIndex( ( tab ) => tab.id === tabId );
 		const remaining = tabs.filter( ( tab ) => tab.id !== tabId );
 		if ( remaining.length === 0 ) {
-			const replacement = {
-				id: nextTabId.current++,
-				path: '/',
-				title: site.name,
-				reloadNonce,
-			};
+			const replacement = createPreviewTab(
+				nextTabId.current++,
+				'/',
+				getPreviewTabTitle( '/', null, site.name ),
+				reloadNonce
+			);
 			setTabs( [ replacement ] );
 			setActiveTabId( replacement.id );
 			onPathChange?.( replacement.path );
@@ -1061,8 +1328,60 @@ export function SitePreview( props: SitePreviewProps ) {
 		}
 	};
 
+	const cycleTab = useCallback(
+		( direction: -1 | 1 ) => {
+			if ( tabs.length < 2 ) return;
+			const activeIndex = tabs.findIndex( ( tab ) => tab.id === activeTabIdRef.current );
+			const nextIndex = ( activeIndex + direction + tabs.length ) % tabs.length;
+			const nextTab = tabs[ nextIndex ];
+			setActiveTabId( nextTab.id );
+			onPathChange?.( nextTab.path );
+		},
+		[ onPathChange, tabs ]
+	);
+
+	useEffect( () => {
+		if ( collapsed || tabs.length < 2 ) return;
+		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			const direction = getTabCycleDirection( event );
+			if ( ! direction ) return;
+			const activeElement = document.activeElement;
+			if (
+				activeElement &&
+				activeElement !== document.body &&
+				! rootRef.current?.contains( activeElement )
+			) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			cycleTab( direction );
+		};
+		document.addEventListener( 'keydown', handleKeyDown, true );
+		return () => document.removeEventListener( 'keydown', handleKeyDown, true );
+	}, [ collapsed, cycleTab, tabs.length ] );
+
+	const reorderTab = ( sourceId: number, targetId: number ) => {
+		if ( sourceId === targetId ) return;
+		setTabs( ( current ) => {
+			const sourceIndex = current.findIndex( ( tab ) => tab.id === sourceId );
+			const targetIndex = current.findIndex( ( tab ) => tab.id === targetId );
+			if ( sourceIndex < 0 || targetIndex < 0 ) return current;
+			const reordered = [ ...current ];
+			const [ source ] = reordered.splice( sourceIndex, 1 );
+			reordered.splice( targetIndex, 0, source );
+			return reordered;
+		} );
+	};
+	const finishTabDrag = () => {
+		draggedTabIdRef.current = null;
+		dragOverTabIdRef.current = null;
+		setDraggedTabId( null );
+	};
+
 	return (
 		<div
+			ref={ rootRef }
 			className={ clsx( styles.tabbedRoot, fullscreen && styles.tabbedRootFullscreen ) }
 			aria-label={ __( 'Site preview browser' ) }
 		>
@@ -1078,28 +1397,66 @@ export function SitePreview( props: SitePreviewProps ) {
 						const selected = tab.id === activeTabId;
 						const realm = getPreviewRealm( tab.path );
 						return (
-							<div key={ tab.id } className={ clsx( styles.tab, selected && styles.tabSelected ) }>
-								<button
-									type="button"
-									className={ styles.tabSelect }
-									role="tab"
-									aria-selected={ selected }
-									tabIndex={ selected ? 0 : -1 }
-									onClick={ () => selectTab( tab ) }
-								>
-									<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
-										{ realm === 'frontend' ? (
-											<SiteIcon
-												className={ styles.tabSiteIcon }
-												seed={ `${ site.id }:${ site.name }:${ site.path }` }
-												imageSrc={ site.siteIcon }
+							<div
+								key={ tab.id }
+								className={ clsx(
+									styles.tab,
+									selected && styles.tabSelected,
+									draggedTabId === tab.id && styles.tabDragging
+								) }
+								draggable
+								onDragStart={ ( event ) => {
+									draggedTabIdRef.current = tab.id;
+									dragOverTabIdRef.current = tab.id;
+									setDraggedTabId( tab.id );
+									event.dataTransfer.effectAllowed = 'move';
+									event.dataTransfer.setData( 'text/plain', String( tab.id ) );
+								} }
+								onDragOver={ ( event ) => {
+									event.preventDefault();
+									event.dataTransfer.dropEffect = 'move';
+									const sourceId = draggedTabIdRef.current;
+									if ( sourceId && dragOverTabIdRef.current !== tab.id ) {
+										dragOverTabIdRef.current = tab.id;
+										reorderTab( sourceId, tab.id );
+									}
+								} }
+								onDrop={ ( event ) => {
+									event.preventDefault();
+									finishTabDrag();
+								} }
+								onDragEnd={ finishTabDrag }
+							>
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.tabSelect }
+												role="tab"
+												aria-selected={ selected }
+												tabIndex={ selected ? 0 : -1 }
+												onClick={ () => selectTab( tab ) }
 											/>
-										) : (
-											<Icon icon={ realm === 'admin' ? wordpress : databaseIcon } size={ 18 } />
-										) }
-									</span>
-									<span className={ styles.tabTitle }>{ tab.title }</span>
-								</button>
+										}
+									>
+										<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
+											{ realm === 'frontend' ? (
+												<SiteIcon
+													className={ styles.tabSiteIcon }
+													seed={ `${ site.id }:${ site.name }:${ site.path }` }
+													imageSrc={ site.siteIcon }
+												/>
+											) : (
+												<Icon icon={ realm === 'admin' ? wordpress : databaseIcon } size={ 18 } />
+											) }
+										</span>
+										<span className={ styles.tabTitle }>{ tab.title }</span>
+									</Tooltip.Trigger>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+										{ tab.title }
+									</Tooltip.Popup>
+								</Tooltip.Root>
 								<button
 									type="button"
 									className={ styles.tabClose }
@@ -1140,6 +1497,26 @@ export function SitePreview( props: SitePreviewProps ) {
 						</Menu.Item>
 					</Menu.Popup>
 				</Menu.Root>
+				{ props.onFullscreenChange ? (
+					<Menu.Root>
+						<Menu.Trigger
+							render={
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ moreVertical }
+									label={ __( 'More options' ) }
+								/>
+							}
+						/>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }>
+								{ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+							</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				) : null }
 			</div>
 			<div className={ styles.tabPanels }>
 				{ tabs.map( ( tab ) => {
@@ -1158,26 +1535,45 @@ export function SitePreview( props: SitePreviewProps ) {
 								reloadNonce={ tab.reloadNonce }
 								collapsed={ collapsed || ! selected }
 								hasTabBar
-								onPathChange={ ( nextPath ) => {
-									if ( selected ) {
-										onPathChange?.( nextPath );
-									} else {
-										setTabs( ( current ) =>
-											current.map( ( currentTab ) =>
-												currentTab.id === tab.id ? { ...currentTab, path: nextPath } : currentTab
-											)
-										);
-									}
-								} }
-								onTitleChange={ ( title ) => {
+								onTabCycle={ cycleTab }
+								initialHistoryEntries={ tab.historyEntries }
+								initialHistoryIndex={ tab.activeHistoryIndex }
+								onHistoryChange={ ( entries, activeIndex ) => {
 									setTabs( ( current ) =>
 										current.map( ( currentTab ) =>
 											currentTab.id === tab.id
-												? currentTab.title === ( title || site.name )
-													? currentTab
-													: { ...currentTab, title: title || site.name }
+												? {
+														...currentTab,
+														historyEntries: entries,
+														activeHistoryIndex: activeIndex,
+												  }
 												: currentTab
 										)
+									);
+								} }
+								onPathChange={ ( nextPath ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) =>
+											currentTab.id === tab.id
+												? {
+														...currentTab,
+														path: nextPath,
+														title: getPreviewTabTitle( nextPath, null, site.name ),
+												  }
+												: currentTab
+										)
+									);
+									if ( selected ) onPathChange?.( nextPath );
+								} }
+								onTitleChange={ ( title ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) => {
+											if ( currentTab.id !== tab.id ) return currentTab;
+											const nextTitle = getPreviewTabTitle( currentTab.path, title, site.name );
+											return currentTab.title === nextTitle
+												? currentTab
+												: { ...currentTab, title: nextTitle };
+										} )
 									);
 								} }
 							/>
@@ -1199,6 +1595,10 @@ function SingleSitePreview( {
 	fullscreen = false,
 	onFullscreenChange,
 	onTitleChange,
+	onTabCycle,
+	onHistoryChange,
+	initialHistoryEntries = [],
+	initialHistoryIndex = -1,
 	hasTabBar = false,
 }: SingleSitePreviewProps ) {
 	const connector = useConnector();
@@ -1245,10 +1645,22 @@ function SingleSitePreview( {
 	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const onTitleChangeRef = useRef( onTitleChange );
+	const onHistoryChangeRef = useRef( onHistoryChange );
 	useEffect( () => {
 		onTitleChangeRef.current = onTitleChange;
 	}, [ onTitleChange ] );
+	useEffect( () => {
+		onHistoryChangeRef.current = onHistoryChange;
+	}, [ onHistoryChange ] );
 	useEffect( () => onTitleChangeRef.current?.( browserState.title ), [ browserState.title ] );
+	useEffect( () => {
+		if ( browserState.historyEntries.length === 0 && initialHistoryEntries.length > 0 ) return;
+		onHistoryChangeRef.current?.( browserState.historyEntries, browserState.activeHistoryIndex );
+	}, [
+		browserState.activeHistoryIndex,
+		browserState.historyEntries,
+		initialHistoryEntries.length,
+	] );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
@@ -1383,6 +1795,10 @@ function SingleSitePreview( {
 	// bridge: browser commands go to the webview, full preview to the host.
 	const handleForwardedShortcut = useCallback(
 		( command: PreviewShortcutCommandType ) => {
+			if ( command === 'previous-tab' || command === 'next-tab' ) {
+				onTabCycle?.( command === 'previous-tab' ? -1 : 1 );
+				return;
+			}
 			if ( command === 'full-preview' ) {
 				onFullscreenChange?.( ! fullscreen );
 				return;
@@ -1392,7 +1808,7 @@ function SingleSitePreview( {
 			}
 			sendBrowserCommand( command );
 		},
-		[ fullscreen, inspectorState.isPicking, onFullscreenChange, sendBrowserCommand ]
+		[ fullscreen, inspectorState.isPicking, onFullscreenChange, onTabCycle, sendBrowserCommand ]
 	);
 
 	// Point the active surface at whatever path the host is asking for, creating
@@ -1688,6 +2104,14 @@ function SingleSitePreview( {
 												}
 												inspectorCommand={ surface.inspectorCommand }
 												browserCommand={ surface.browserCommand }
+												initialNavigationHistory={
+													key === activeSurfaceKey && initialHistoryEntries.length > 0
+														? {
+																entries: initialHistoryEntries,
+																activeIndex: initialHistoryIndex,
+														  }
+														: undefined
+												}
 												onBrowserStateChange={ ( state ) => {
 													patchSurface( key, { browser: state } );
 												} }
@@ -1834,6 +2258,10 @@ interface WebviewSurfaceProps {
 	onInspectorCancelRequest?: () => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
+	initialNavigationHistory?: {
+		entries: BrowserHistoryEntry[];
+		activeIndex: number;
+	};
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
@@ -1860,6 +2288,7 @@ function WebviewSurface( {
 	onInspectorCancelRequest,
 	inspectorCommand,
 	browserCommand,
+	initialNavigationHistory,
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
@@ -1883,6 +2312,8 @@ function WebviewSurface( {
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
+	const initialNavigationHistoryRef = useRef( initialNavigationHistory );
+	const didRestoreNavigationHistoryRef = useRef( false );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
@@ -2029,6 +2460,30 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			setDomReadyCount( ( count ) => count + 1 );
+			const storedHistory = initialNavigationHistoryRef.current;
+			if (
+				! didRestoreNavigationHistoryRef.current &&
+				storedHistory &&
+				storedHistory.entries.length > 1
+			) {
+				didRestoreNavigationHistoryRef.current = true;
+				const { ipcApi } = window as PreviewWindow;
+				let webContentsId: number;
+				try {
+					webContentsId = getWebviewContentsId( webview );
+				} catch {
+					webContentsId = 0;
+				}
+				if ( webContentsId ) {
+					void ipcApi
+						?.restoreWebviewNavigationHistory?.(
+							webContentsId,
+							storedHistory.entries,
+							storedHistory.activeIndex
+						)
+						.catch( () => undefined );
+				}
+			}
 			publishDocumentTitle();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {

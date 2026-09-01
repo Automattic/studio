@@ -81,6 +81,11 @@
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-block-end: 0;
 	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;
+	-webkit-app-region: no-drag;
+}
+
+.tabDragging {
+	opacity: 0.5;
 }
 
 .tab:hover {
@@ -152,7 +157,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 }
 
 .tabClose {

@@ -177,6 +177,8 @@ const api: IpcApi = {
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	getWebviewNavigationHistory: ( webContentsId ) =>
 		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),
+	restoreWebviewNavigationHistory: ( webContentsId, entries, activeIndex ) =>
+		ipcRendererInvoke( 'restoreWebviewNavigationHistory', webContentsId, entries, activeIndex ),
 	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
 		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),

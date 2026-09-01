@@ -11,6 +11,8 @@ import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,
+	getPreviewTabTitle,
+	getTabCycleDirection,
 	isOffOriginRedirect,
 	isThemeActivationUrl,
 	getPathFromPreviewUrl,
@@ -43,6 +45,10 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+
+afterEach( () => {
+	window.localStorage.clear();
+} );
 
 // Browser-style capabilities (no native dialogs, no preview annotation) — the
 // component reads `connector.capabilities` to decide which toolbar controls show.
@@ -107,6 +113,64 @@ describe( 'SitePreview', () => {
 
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
 		expect( screen.getByRole( 'tab' ) ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( "restores each site's open tabs, order, and active tab", () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const preview = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		const dataTransfer = {
+			effectAllowed: '',
+			dropEffect: '',
+			setData: vi.fn(),
+			getData: vi.fn(),
+		} as unknown as DataTransfer;
+		fireEvent.dragStart( tabs[ 2 ].parentElement!, { dataTransfer } );
+		fireEvent.dragOver( tabs[ 0 ].parentElement!, { dataTransfer } );
+		fireEvent.drop( tabs[ 0 ].parentElement!, { dataTransfer } );
+		preview.unmount();
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+			'wordpress · Database',
+			'Example Site',
+			'WordPress',
+		] );
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'offers full preview from the tab bar options menu', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onFullscreenChange={ onFullscreenChange }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full preview' } ) );
+		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );
 
 	it( 'keeps each tab at its own URL when switching between them', () => {
@@ -186,12 +250,14 @@ describe( 'SitePreview', () => {
 			siteIcon
 		);
 		frontend.unmount();
+		window.localStorage.clear();
 
 		const admin = renderPreview(
 			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
 		);
 		expect( admin.container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
 		admin.unmount();
+		window.localStorage.clear();
 
 		const database = renderPreview(
 			<SitePreview
@@ -201,6 +267,88 @@ describe( 'SitePreview', () => {
 			/>
 		);
 		expect( database.container.querySelector( '[data-realm="database"] svg' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab' ) ).toHaveTextContent( 'wordpress · Database' );
+	} );
+
+	it( 'uses useful database and table names instead of phpMyAdmin document titles', () => {
+		expect( getPreviewTabTitle( DATABASE_HOME_PATH, 'phpMyAdmin 5.2.1', 'Example Site' ) ).toBe(
+			'wordpress · Database'
+		);
+		expect(
+			getPreviewTabTitle(
+				'/phpmyadmin/index.php?route=/table/browse&db=wordpress&table=wp_posts',
+				'phpMyAdmin 5.2.1',
+				'Example Site'
+			)
+		).toBe( 'wp_posts · wordpress' );
+	} );
+
+	it( 'reorders tabs as they are dragged over one another', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		const data = new Map< string, string >();
+		const dataTransfer = {
+			effectAllowed: '',
+			dropEffect: '',
+			setData: ( type: string, value: string ) => {
+				data.set( type, value );
+			},
+			getData: ( type: string ) => data.get( type ) ?? '',
+		} as unknown as DataTransfer;
+		fireEvent.dragStart( tabs[ 2 ].parentElement!, { dataTransfer } );
+		fireEvent.dragOver( tabs[ 0 ].parentElement!, { dataTransfer } );
+
+		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+			'wordpress · Database',
+			'Example Site',
+			'WordPress',
+		] );
+		fireEvent.drop( tabs[ 0 ].parentElement!, { dataTransfer } );
+	} );
+
+	it( 'cycles through tabs with browser-standard keyboard shortcuts', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		fireEvent.keyDown( document, { key: 'Tab', ctrlKey: true } );
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' );
+		fireEvent.keyDown( document, { key: 'Tab', ctrlKey: true, shiftKey: true } );
+		expect( screen.getAllByRole( 'tab' )[ 2 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'does not reuse back and forward shortcuts for cycling tabs', () => {
+		expect(
+			getTabCycleDirection( new KeyboardEvent( 'keydown', { key: '[', metaKey: true } ) )
+		).toBe( null );
+		expect(
+			getTabCycleDirection(
+				new KeyboardEvent( 'keydown', { key: 'Tab', ctrlKey: true, shiftKey: true } )
+			)
+		).toBe( -1 );
 	} );
 
 	it( 'orders back and forward history from the current page outward', () => {
@@ -275,7 +423,6 @@ describe( 'SitePreview', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'WordPress' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
 		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
@@ -1069,7 +1216,17 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	vi.stubGlobal( 'ResizeObserver', ResizeObserverStub );
 	const clearWebviewCache = vi.fn().mockResolvedValue( undefined );
 	const setWebviewViewport = vi.fn().mockResolvedValue( undefined );
-	vi.stubGlobal( 'ipcApi', { clearWebviewCache, setWebviewViewport } );
+	const restoreWebviewNavigationHistory = vi.fn().mockResolvedValue( undefined );
+	const getWebviewNavigationHistory = vi.fn().mockResolvedValue( {
+		activeIndex: 0,
+		entries: [],
+	} );
+	vi.stubGlobal( 'ipcApi', {
+		clearWebviewCache,
+		setWebviewViewport,
+		restoreWebviewNavigationHistory,
+		getWebviewNavigationHistory,
+	} );
 	useConnectorMock.mockReturnValue( {
 		startSite: vi.fn().mockResolvedValue( undefined ),
 		trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -1104,7 +1261,13 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 				</Tooltip.Provider>
 			</QueryClientProvider>
 		);
-	return { webview, clearWebviewCache, setWebviewViewport, update };
+	return {
+		webview,
+		clearWebviewCache,
+		setWebviewViewport,
+		restoreWebviewNavigationHistory,
+		update,
+	};
 }
 
 // Leaves "Responsive" for one of the simulated presets, which is what turns the
@@ -1128,6 +1291,40 @@ describe( 'SitePreview webview reload', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
 		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
 		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'restores a persisted navigation history stack', async () => {
+		window.localStorage.setItem(
+			'studio:site-preview:tabs:site-1',
+			JSON.stringify( {
+				version: 1,
+				activeTabId: 1,
+				tabs: [
+					{
+						id: 1,
+						path: '/second/',
+						title: 'Second',
+						activeHistoryIndex: 1,
+						historyEntries: [
+							{ index: 0, title: 'First', url: 'http://localhost:8881/first/' },
+							{ index: 1, title: 'Second', url: 'http://localhost:8881/second/' },
+						],
+					},
+				],
+			} )
+		);
+		const { restoreWebviewNavigationHistory } = renderWebviewPreview();
+
+		await waitFor( () =>
+			expect( restoreWebviewNavigationHistory ).toHaveBeenCalledWith(
+				7,
+				[
+					{ index: 0, title: 'First', url: 'http://localhost:8881/first/' },
+					{ index: 1, title: 'Second', url: 'http://localhost:8881/second/' },
+				],
+				1
+			)
+		);
 	} );
 
 	it( 'navigates without dropping the cache when the path changes', async () => {

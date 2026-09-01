@@ -294,6 +294,10 @@
 	flex-shrink: 0;
 }
 
+.disabledControlTooltipTarget {
+	display: inline-flex;
+}
+
 .annotationToggle {
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);

@@ -889,15 +889,20 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		const responsiveButton = screen.getByRole( 'button', {
+			name: 'Responsive mode: Responsive',
+		} );
+		expect( responsiveButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( responsiveButton ).toHaveAttribute( 'aria-description', 'Not available for Database' );
+		expect( responsiveButton.parentElement ).toHaveAttribute(
+			'title',
+			'Not available for Database'
+		);
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		const fitPane = screen.getByRole( 'menuitem', { name: 'Responsive' } );
-		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		// Disabled radio items swallow the click — the mode doesn't change.
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
-		expect( fitPane ).toBeVisible();
+		fireEvent.click( responsiveButton );
+		expect(
+			screen.queryByRole( 'menuitem', { name: 'Mobile · 390×844' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps full preview out of the responsive controls', async () => {

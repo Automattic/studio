@@ -631,7 +631,7 @@ function PreviewResponsiveControls( {
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
-	// Greys out the viewport controls for a surface that can't simulate one,
+	// Disables the viewport selector for a surface that can't simulate one,
 	// keeping the chosen mode for when the preview returns to one that can.
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
@@ -645,6 +645,9 @@ function PreviewResponsiveControls( {
 		split: __( 'Desktop + Mobile' ),
 	};
 	const selectedLabel = viewportLabels[ viewportMode ];
+	const tooltipLabel = viewportControlsDisabled
+		? __( 'Not available for Database' )
+		: __( 'Preview size' );
 	const getPresetLabel = ( preset: ViewportPreset ) =>
 		sprintf(
 			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
@@ -660,34 +663,41 @@ function PreviewResponsiveControls( {
 	);
 	return (
 		<Menu.Root>
-			<Tooltip.Root>
-				<Menu.Trigger
-					render={
-						<Tooltip.Trigger
-							render={
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.responsiveModeTrigger }
-									aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+			<span
+				className={ styles.disabledControlTooltipTarget }
+				title={ viewportControlsDisabled ? tooltipLabel : undefined }
+			>
+				<Tooltip.Root>
+					<Menu.Trigger
+						render={
+							<Tooltip.Trigger
+								render={
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ styles.responsiveModeTrigger }
+										aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+										aria-description={ viewportControlsDisabled ? tooltipLabel : undefined }
+										disabled={ viewportControlsDisabled }
+									/>
+								}
+							>
+								<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
+								<Icon
+									icon={ chevronDown }
+									size={ 12 }
+									className={ styles.responsiveModeChevron }
+									data-keep-size
 								/>
-							}
-						>
-							<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
-							<Icon
-								icon={ chevronDown }
-								size={ 12 }
-								className={ styles.responsiveModeChevron }
-								data-keep-size
-							/>
-						</Tooltip.Trigger>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-					{ __( 'Preview size' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+							</Tooltip.Trigger>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ tooltipLabel }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</span>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
 					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
@@ -759,6 +769,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft,
 	cancelRequestId,
 	disabled,
+	disabledReason,
 	onCommand,
 }: {
 	isPicking: boolean;
@@ -766,6 +777,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft: boolean;
 	cancelRequestId: number;
 	disabled: boolean;
+	disabledReason?: string;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
 	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
@@ -795,29 +807,35 @@ function PreviewAnnotationControls( {
 			<div
 				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
 			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								variant="outline"
-								tone="neutral"
-								size="small"
-								className={ styles.annotationToggle }
-								aria-label={ toggleLabel }
-								disabled={ disabled }
-								onClick={ handleToggle }
-							>
-								{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
-								<span className={ styles.toolbarLabel }>
-									{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
-								</span>
-							</Button>
-						}
-					/>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				<span
+					className={ styles.disabledControlTooltipTarget }
+					title={ disabled ? disabledReason : undefined }
+				>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									className={ styles.annotationToggle }
+									aria-label={ toggleLabel }
+									aria-description={ disabled ? disabledReason : undefined }
+									disabled={ disabled }
+									onClick={ handleToggle }
+								>
+									{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
+									<span className={ styles.toolbarLabel }>
+										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
+									</span>
+								</Button>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ disabledReason ?? ( isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</span>
 				{ hasPending ? (
 					<Button
 						variant="solid"
@@ -857,7 +875,7 @@ function PreviewAnnotationControls( {
 									}
 								/>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-									{ toggleLabel }
+									{ disabledReason ?? toggleLabel }
 								</Tooltip.Popup>
 							</Tooltip.Root>
 							<Tooltip.Root>
@@ -2052,6 +2070,11 @@ function SingleSitePreview( {
 							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
+							disabledReason={
+								! isResponsiveSurface( activeSurfaceKey )
+									? __( 'Not available for Database' )
+									: undefined
+							}
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }

@@ -1,7 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, Icon, pencil } from '@wordpress/icons';
+import { check, chevronDown, home, Icon, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -1417,6 +1417,14 @@ export function SitePreview( {
 								label={ __( 'Refresh' ) }
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ home }
+								label={ __( 'Front end' ) }
+								onClick={ () => handleSwitchRealm( 'frontend' ) }
 							/>
 						</>
 					) : null }

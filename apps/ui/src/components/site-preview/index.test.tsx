@@ -187,6 +187,7 @@ describe( 'SitePreview', () => {
 		);
 
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		const homeButton = screen.getByRole( 'button', { name: 'Front end' } );
 		const backButton = screen.getByRole( 'button', { name: 'Back' } );
 		const forwardButton = screen.getByRole( 'button', { name: 'Forward' } );
 		expect( refreshButton ).toBeEnabled();
@@ -195,6 +196,9 @@ describe( 'SitePreview', () => {
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 		expect( forwardButton.compareDocumentPosition( refreshButton ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+		expect( refreshButton.compareDocumentPosition( homeButton ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 
@@ -209,6 +213,32 @@ describe( 'SitePreview', () => {
 		fireEvent.click( refreshButton );
 
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+	} );
+
+	it( 'returns to the front end without relying on browser history', () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent,
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/wp-admin/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Front end' } ) );
+
+		expect( onPathChange ).toHaveBeenCalledWith( '/' );
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
+			browser: 'internal',
+		} );
 	} );
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {

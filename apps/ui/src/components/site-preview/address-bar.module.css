@@ -47,6 +47,39 @@
 	outline: 0;
 }
 
+.addressShortcuts {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 1px;
+	padding-inline-end: 2px;
+}
+
+.addressShortcut {
+	--wp-ui-button-min-width: 20px;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	width: 20px;
+	height: 20px;
+	min-height: 20px;
+	padding: 2px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.addressShortcut:hover,
+.addressShortcut:focus-visible,
+.addressShortcut[aria-current='page'] {
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+@container studio-preview-toolbar (max-width: 500px) {
+	.addressShortcuts {
+		display: none;
+	}
+}
+
 .shortcutsPositioner {
 	z-index: 100;
 }

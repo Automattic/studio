@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
@@ -144,12 +144,23 @@ describe( 'PreviewAddressBar', () => {
 
 	it( 'puts the configured site icon inside the address field', () => {
 		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
-		const { container } = renderAddressBar( { site: { ...SITE, siteIcon } } );
+		renderAddressBar( { site: { ...SITE, siteIcon } } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect(
 			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
 		).toBeInTheDocument();
-		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 0 );
+		expect( screen.getByRole( 'button', { name: 'Open WP Admin' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Open Database' } ) ).toBeVisible();
+	} );
+
+	it( 'offers one-click WP Admin and Database shortcuts', () => {
+		const { onSwitchRealm } = renderAddressBar();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open WP Admin' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open Database' } ) );
+
+		expect( onSwitchRealm ).toHaveBeenNthCalledWith( 1, 'admin' );
+		expect( onSwitchRealm ).toHaveBeenNthCalledWith( 2, 'database' );
 	} );
 
 	it( 'changes the address icon for WP Admin and Database', () => {
@@ -175,16 +186,19 @@ describe( 'PreviewAddressBar', () => {
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
 
-		expect( await screen.findByRole( 'button', { name: /Front end/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: /WP Admin/ } ) ).toBeVisible();
+		const popup = await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } );
+		expect( within( popup ).getByRole( 'button', { name: /Front end/ } ) ).toBeVisible();
+		expect( within( popup ).getByRole( 'button', { name: /WP Admin/ } ) ).toBeVisible();
 		expect( document.querySelectorAll( `img[src="${ siteIcon }"]` ) ).toHaveLength( 2 );
-		fireEvent.click( screen.getByRole( 'button', { name: /Database/ } ) );
+		fireEvent.click( within( popup ).getByRole( 'button', { name: /Database/ } ) );
 
 		expect( onSwitchRealm ).toHaveBeenCalledWith( 'database' );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument()
+			expect(
+				screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } )
+			).not.toBeInTheDocument()
 		);
 		fireEvent.focus( input );
-		expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
 	} );
 } );

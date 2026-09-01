@@ -2,7 +2,7 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { displayShortcut } from '@wordpress/keycodes';
-import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { Button, Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
@@ -187,6 +187,50 @@ export function PreviewAddressBar( {
 					aria-label={ __( 'Address' ) }
 					spellCheck={ false }
 				/>
+				<div className={ styles.addressShortcuts }>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									type="button"
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.addressShortcut }
+									aria-label={ __( 'Open WP Admin' ) }
+									aria-current={ activeRealm === 'admin' ? 'page' : undefined }
+									onClick={ () => chooseRealm( 'admin' ) }
+								/>
+							}
+						>
+							<Icon icon={ wordpress } size={ 16 } className={ styles.wordpressIcon } />
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ __( 'WP Admin' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									type="button"
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.addressShortcut }
+									aria-label={ __( 'Open Database' ) }
+									aria-current={ activeRealm === 'database' ? 'page' : undefined }
+									onClick={ () => chooseRealm( 'database' ) }
+								/>
+							}
+						>
+							<Icon icon={ databaseIcon } size={ 16 } />
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ __( 'Database' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</div>
 			</form>
 			<Popover.Popup
 				variant="unstyled"

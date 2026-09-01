@@ -622,7 +622,7 @@ function PreviewResponsiveControls( {
 								/>
 							}
 						>
-							<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
+							<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
 							<Icon
 								icon={ chevronDown }
 								size={ 12 }

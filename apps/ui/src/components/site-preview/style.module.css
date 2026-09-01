@@ -138,6 +138,10 @@
 	white-space: nowrap;
 }
 
+.responsiveModeLabel {
+	white-space: nowrap;
+}
+
 .responsiveModeChevron {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	fill: currentColor;

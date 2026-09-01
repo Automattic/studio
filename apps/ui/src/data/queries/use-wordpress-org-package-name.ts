@@ -41,7 +41,6 @@ export function useWordPressOrgPackageName(
 			return fetchWordPressOrgPackageName( kind, slug );
 		},
 		enabled: Boolean( kind && slug ),
-		select: ( name ) => ( name ? decodeHtmlEntities( name ) : null ),
 		staleTime: Infinity,
 		retry: 1,
 	} );

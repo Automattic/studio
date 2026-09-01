@@ -1,16 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	check,
-	chevronDown,
-	closeSmall,
-	fullscreen as fullscreenIcon,
-	Icon,
-	pencil,
-	plus,
-	wordpress,
-} from '@wordpress/icons';
+import { check, chevronDown, closeSmall, Icon, pencil, plus, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -81,6 +72,36 @@ interface SitePreviewProps {
 	fullscreen?: boolean;
 	// Enters/leaves full preview. The tab bar toggle only renders when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
+}
+
+function FullPreviewIcon( { active }: { active: boolean } ) {
+	const cornerClassName = clsx(
+		styles.fullPreviewCorner,
+		active && styles.fullPreviewCornerActive
+	);
+
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 24 24"
+			fill="currentColor"
+			data-fullscreen={ active }
+		>
+			<path className={ cornerClassName } d="M6 4a2 2 0 0 0-2 2v3h1.5V6a.5.5 0 0 1 .5-.5h3V4H6Z" />
+			<path
+				className={ cornerClassName }
+				d="M9 18.5H6a.5.5 0 0 1-.5-.5v-3H4v3a2 2 0 0 0 2 2h3v-1.5Z"
+			/>
+			<path
+				className={ cornerClassName }
+				d="M15 20v-1.5h3a.5.5 0 0 0 .5-.5v-3H20v3a2 2 0 0 1-2 2h-3Z"
+			/>
+			<path
+				className={ cornerClassName }
+				d="M18 4a2 2 0 0 1 2 2v3h-1.5V6a.5.5 0 0 0-.5-.5h-3V4h3Z"
+			/>
+		</svg>
+	);
 }
 
 interface PreviewTab {
@@ -1584,7 +1605,7 @@ export function SitePreview( props: SitePreviewProps ) {
 						variant="minimal"
 						tone="neutral"
 						size="small"
-						icon={ fullscreenIcon }
+						icon={ <FullPreviewIcon active={ fullscreen } /> }
 						label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
 						shortcut={ getFullPreviewShortcutDescriptor() }
 						aria-pressed={ fullscreen }

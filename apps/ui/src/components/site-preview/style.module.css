@@ -115,6 +115,22 @@
 	translate: 0 calc(-1 * var(--wpds-border-width-focus));
 }
 
+.fullPreviewCorner {
+	transform-box: fill-box;
+	transform-origin: center;
+	transition: rotate var(--wpds-motion-duration-sm) var(--wpds-motion-easing-expressive);
+}
+
+.fullPreviewCornerActive {
+	rotate: 180deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fullPreviewCorner {
+		transition: none;
+	}
+}
+
 .tab {
 	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 

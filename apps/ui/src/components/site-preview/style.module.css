@@ -78,6 +78,8 @@
 	flex: 1 1 180px;
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: transparent;
+	border: var(--wpds-border-width-xs) solid transparent;
+	border-block-end: 0;
 	border-radius: var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0 0;
 }
 
@@ -89,6 +91,7 @@
 	z-index: 1;
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	border-color: var(--wpds-color-stroke-surface-neutral);
 	box-shadow: var(--wpds-elevation-sm);
 }
 

@@ -205,7 +205,7 @@
 
 .tabSelect::after {
 	position: absolute;
-	inset-block: var(--wpds-border-width-focus);
+	inset-block: calc(var(--wpds-border-width-focus) + var(--wpds-border-width-xs));
 	inset-inline-end: 0;
 	width: 24px;
 	background: linear-gradient(to right, transparent, var(--tab-background) 85%);

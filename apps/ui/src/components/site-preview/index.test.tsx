@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { displayShortcut } from '@wordpress/keycodes';
+import { ariaKeyShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -153,7 +153,7 @@ describe( 'SitePreview', () => {
 		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
 
-	it( 'offers full preview from the tab bar options menu', () => {
+	it( 'toggles full preview directly from the tab bar', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -169,10 +169,13 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
-		const fullPreviewItem = screen.getByRole( 'menuitem', { name: 'Full preview' } );
-		expect( fullPreviewItem ).toHaveTextContent( displayShortcut.primaryShift( 'f' ) );
-		fireEvent.click( fullPreviewItem );
+		const fullPreviewButton = screen.getByRole( 'button', { name: 'Full preview' } );
+		expect( fullPreviewButton ).toHaveAttribute(
+			'aria-keyshortcuts',
+			ariaKeyShortcut.primaryShift( 'f' )
+		);
+		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
+		fireEvent.click( fullPreviewButton );
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );
 
@@ -459,7 +462,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tablist', { name: 'Preview tabs' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'New tab' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'More options' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Full preview' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
 		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );

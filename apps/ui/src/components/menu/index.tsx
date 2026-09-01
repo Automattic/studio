@@ -186,14 +186,6 @@ export function GroupLabel( { children }: { children: ReactNode } ) {
 	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;
 }
 
-export function Shortcut( { children }: { children: ReactNode } ) {
-	return (
-		<span className={ styles.shortcut } aria-hidden="true">
-			{ children }
-		</span>
-	);
-}
-
 export function Separator( { className }: { className?: string } ) {
 	return <BaseMenu.Separator className={ `${ styles.separator } ${ className ?? '' }` } />;
 }

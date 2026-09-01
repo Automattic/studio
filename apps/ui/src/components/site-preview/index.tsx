@@ -5,8 +5,8 @@ import {
 	check,
 	chevronDown,
 	closeSmall,
+	fullscreen as fullscreenIcon,
 	Icon,
-	moreVertical,
 	pencil,
 	plus,
 	wordpress,
@@ -79,7 +79,7 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	// True while the preview fills the whole window (sidebar and chat hidden).
 	fullscreen?: boolean;
-	// Enters/leaves full preview. The "•••" menu only offers it when provided.
+	// Enters/leaves full preview. The tab bar toggle only renders when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
 }
 
@@ -596,6 +596,13 @@ export function getTabCycleDirection( event: globalThis.KeyboardEvent ): -1 | 1 
 // ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
 // Keyboard alongside the other preview shortcuts.
 const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function getFullPreviewShortcutDescriptor() {
+	return {
+		displayShortcut: displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+		ariaKeyShortcut: ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+	};
+}
 
 function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -1509,30 +1516,17 @@ export function SitePreview( props: SitePreviewProps ) {
 					</Menu.Popup>
 				</Menu.Root>
 				{ props.onFullscreenChange ? (
-					<Menu.Root>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ moreVertical }
-									label={ __( 'More options' ) }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item
-								aria-keyshortcuts={ ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
-								onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }
-							>
-								{ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
-								<Menu.Shortcut>
-									{ displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
-								</Menu.Shortcut>
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ fullscreenIcon }
+						label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+						shortcut={ getFullPreviewShortcutDescriptor() }
+						aria-pressed={ fullscreen }
+						onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }
+						positioner={ <Tooltip.Positioner side="bottom" /> }
+					/>
 				) : null }
 			</div>
 			<div className={ styles.tabPanels }>

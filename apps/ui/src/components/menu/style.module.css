@@ -103,14 +103,6 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.shortcut {
-	margin-inline-start: auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-sm);
-	white-space: nowrap;
-}
-
 .separator {
 	height: 1px;
 	margin: var(--wpds-dimension-padding-xs) 0;

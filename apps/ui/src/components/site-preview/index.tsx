@@ -641,7 +641,12 @@ function PreviewResponsiveControls( {
 								data-keep-size
 							/>
 							<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
-							<Icon icon={ chevronDown } size={ 12 } className={ styles.responsiveModeChevron } />
+							<Icon
+								icon={ chevronDown }
+								size={ 12 }
+								className={ styles.responsiveModeChevron }
+								data-keep-size
+							/>
 						</Tooltip.Trigger>
 					}
 				/>

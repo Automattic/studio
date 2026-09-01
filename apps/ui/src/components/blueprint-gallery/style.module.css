@@ -11,7 +11,6 @@
 }
 
 .sectionHeader {
-	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -164,17 +163,6 @@
 .uploadButtonDragging {
 	outline: 2px solid var( --wpds-color-stroke-interactive-brand );
 	outline-offset: 2px;
-}
-
-.uploadError {
-	position: absolute;
-	top: 100%;
-	right: 0;
-	max-width: 320px;
-	margin-top: 4px;
-	color: var( --wpds-color-fg-content-error );
-	font-size: var( --wpds-typography-font-size-sm );
-	text-align: right;
 }
 
 @media ( max-width: 520px ) {

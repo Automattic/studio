@@ -1,6 +1,7 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BlueprintErrorDialog } from '@/components/blueprint-error-dialog';
 import { useConnector } from '@/data/core';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from '@/lib/load-blueprint-file';
 import styles from './style.module.css';
@@ -156,22 +157,7 @@ export function BlueprintUpload( {
 								}
 						  ) }
 				</p>
-				{ error && (
-					<p role="alert" className={ styles.error }>
-						<span>
-							{ sprintf(
-								// translators: %s is the Blueprint validation or upload error.
-								__( 'Blueprint error: %s' ),
-								error
-							) }
-						</span>
-						{ ! selected && (
-							<button type="button" className={ styles.action } onClick={ handleRemove }>
-								{ __( 'Remove' ) }
-							</button>
-						) }
-					</p>
-				) }
+				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
 			</div>
 			{ isDragging && (
 				<div className={ styles.fullScreenDrop } aria-hidden="true">

@@ -3,6 +3,7 @@ import { upload } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { BlueprintErrorDialog } from '@/components/blueprint-error-dialog';
 import { useConnector } from '@/data/core';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/hooks/use-offline';
@@ -154,11 +155,7 @@ function UploadBlueprintButton( { onSelect }: { onSelect: ( bp: SelectedBlueprin
 				<Icon icon={ upload } size={ 16 } />
 				<span>{ isReading ? __( 'Reading Blueprint…' ) : __( 'Upload a Blueprint' ) }</span>
 			</Button>
-			{ error && (
-				<span role="alert" className={ styles.uploadError }>
-					{ error }
-				</span>
-			) }
+			<BlueprintErrorDialog error={ error } onDismiss={ () => setError( '' ) } />
 		</>
 	);
 }

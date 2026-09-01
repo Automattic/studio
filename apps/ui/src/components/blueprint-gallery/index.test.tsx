@@ -152,7 +152,9 @@ describe( 'BlueprintGallery', () => {
 
 		fireEvent.change( input, { target: { files: [ new File( [ 'x' ], 'notes.txt' ) ] } } );
 
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'not supported' );
+		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
+			'not supported'
+		);
 		expect( onSelect ).not.toHaveBeenCalled();
 	} );
 

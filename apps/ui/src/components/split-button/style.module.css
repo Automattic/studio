@@ -19,9 +19,14 @@
 	content: '';
 	position: absolute;
 	inset: 0;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border: var(--wpds-border-width-xs) solid transparent;
 	border-radius: inherit;
 	pointer-events: none;
+	transition: border-color 100ms ease;
+}
+
+.splitTrigger:is(:hover, :focus-within)::after {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 /* Size the halves so the pair reads as one compact button: normal padding
@@ -32,6 +37,8 @@
 	--wp-ui-button-min-width: unset;
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
 
 	padding-inline: var(--wpds-dimension-padding-xs) 1px;
 	border-start-end-radius: 0;
@@ -40,6 +47,8 @@
 
 .splitMenuButton {
 	--wp-ui-button-min-width: unset;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
 
 	padding-inline: 1px 3px;
 	border-start-start-radius: 0;

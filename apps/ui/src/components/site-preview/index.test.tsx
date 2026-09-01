@@ -173,6 +173,37 @@ describe( 'SitePreview', () => {
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
 	} );
 
+	it( 'moves the macOS traffic lights only while full preview is active', async () => {
+		const setTrafficLightPosition = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+			reservesTrafficLightSpace: true,
+			setTrafficLightPosition,
+		} as never );
+		const preview = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		await waitFor( () => expect( setTrafficLightPosition ).toHaveBeenLastCalledWith( 'default' ) );
+
+		preview.rerender(
+			<QueryClientProvider client={ preview.queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						fullscreen
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		await waitFor( () =>
+			expect( setTrafficLightPosition ).toHaveBeenLastCalledWith( 'preview-tabs' )
+		);
+	} );
+
 	it( 'keeps each tab at its own URL when switching between them', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

@@ -1209,6 +1209,7 @@ function storePreviewTabSession( siteId: string, tabs: PreviewTab[], activeTabId
 
 export function SitePreview( props: SitePreviewProps ) {
 	const { site, path, reloadNonce, onPathChange, collapsed = false, fullscreen = false } = props;
+	const connector = useConnector();
 	const [ initialSession ] = useState( () => loadPreviewTabSession( site, path, reloadNonce ) );
 	const nextTabId = useRef( Math.max( ...initialSession.tabs.map( ( tab ) => tab.id ) ) + 1 );
 	const rootRef = useRef< HTMLDivElement | null >( null );
@@ -1230,6 +1231,14 @@ export function SitePreview( props: SitePreviewProps ) {
 	useEffect( () => {
 		activeTabIdRef.current = activeTabId;
 	}, [ activeTabId ] );
+
+	useEffect( () => {
+		if ( ! connector.reservesTrafficLightSpace || ! connector.setTrafficLightPosition ) return;
+		void connector.setTrafficLightPosition( fullscreen ? 'preview-tabs' : 'default' );
+		return () => {
+			void connector.setTrafficLightPosition?.( 'default' );
+		};
+	}, [ connector, fullscreen ] );
 
 	useEffect( () => {
 		if ( siteIdRef.current === site.id ) {

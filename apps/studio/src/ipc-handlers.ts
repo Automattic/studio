@@ -106,7 +106,12 @@ import {
 } from '@studio/common/sites/blueprint-extract';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	MACOS_PREVIEW_TABS_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+} from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import {
@@ -2543,6 +2548,19 @@ export async function setWindowControlsSurface(
 	}
 	setAgenticControlsSurface( surface );
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
+}
+
+export async function setTrafficLightPosition(
+	event: IpcMainInvokeEvent,
+	position: 'default' | 'preview-tabs'
+): Promise< void > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'darwin' ) return;
+	parentWindow.setWindowButtonPosition(
+		position === 'preview-tabs'
+			? MACOS_PREVIEW_TABS_TRAFFIC_LIGHT_POSITION
+			: MACOS_TRAFFIC_LIGHT_POSITION
+	);
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

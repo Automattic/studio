@@ -224,7 +224,7 @@ export function BlueprintGallery( { onSelect }: BlueprintGalleryProps ) {
 
 			{ isLoading ? (
 				<p className={ styles.notice }>{ __( 'Loading Blueprints…' ) }</p>
-			) : isError || isOffline ? (
+			) : displayBlueprints.length === 0 && ( isError || isOffline ) ? (
 				<p className={ styles.notice }>
 					{ __( 'Blueprints could not be loaded. Check your internet connection and try again.' ) }
 				</p>

@@ -91,6 +91,22 @@ describe( 'BlueprintGallery', () => {
 		expect( screen.queryByRole( 'button', { name: /WooCommerce/ } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'keeps a cached collection visible when a refresh fails or the app is offline', () => {
+		mocks.isOffline = true;
+		mocks.blueprints = { data: [ QUICK_START, COOKBOOK ], isLoading: false, isError: true };
+		render( <BlueprintGallery onSelect={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: /Cookbook/ } ) ).toBeInTheDocument();
+		expect( screen.queryByText( /Blueprints could not be loaded/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'reports the failure when there is nothing cached to fall back on', () => {
+		mocks.blueprints = { data: [], isLoading: false, isError: true };
+		render( <BlueprintGallery onSelect={ vi.fn() } /> );
+
+		expect( screen.getByText( /Blueprints could not be loaded/ ) ).toBeInTheDocument();
+	} );
+
 	it( 'hides Search for a small Blueprint collection', () => {
 		render( <BlueprintGallery onSelect={ vi.fn() } /> );
 
@@ -142,6 +158,7 @@ describe( 'BlueprintGallery', () => {
 
 	it( 'explains itself instead of showing an empty grid when offline', () => {
 		mocks.isOffline = true;
+		mocks.blueprints = { data: [], isLoading: false, isError: false };
 		render( <BlueprintGallery onSelect={ vi.fn() } /> );
 
 		expect( screen.getByText( /Blueprints could not be loaded/ ) ).toBeInTheDocument();

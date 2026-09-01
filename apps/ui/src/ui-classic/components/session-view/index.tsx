@@ -17,12 +17,11 @@ import {
 	type Ref,
 } from 'react';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
-import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
+import { SiteToolbar } from '@/components/site-toolbar';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
@@ -92,12 +91,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 			) }
 		>
 			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon
-					showStatus={ sidebarCollapsed }
-				/>
+				<SiteToolbar site={ site } browserPath={ pathForSite( preview.pathsBySiteId, site.id ) } />
 			) : (
 				<>
 					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
@@ -108,16 +102,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 					</span>
 				</>
 			) }
-			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ site ? (
-				<div className={ styles.headerActions }>
-					<OpenInMenu
-						key={ site.id }
-						site={ site }
-						browserPath={ pathForSite( preview.pathsBySiteId, site.id ) }
-					/>
-				</div>
-			) : null }
+			{ ! site ? <span className={ styles.headerSpacer } aria-hidden="true" /> : null }
 		</div>
 	);
 }

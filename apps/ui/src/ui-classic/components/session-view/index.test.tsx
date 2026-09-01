@@ -25,14 +25,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
 } ) );
 
-vi.mock( '@/components/open-in-menu', () => ( {
-	OpenInMenu: ( { site, browserPath }: { site: { name: string }; browserPath: string } ) => (
-		<div data-testid="open-in-menu">{ `${ site.name }:${ browserPath }` }</div>
+vi.mock( '@/components/site-toolbar', () => ( {
+	SiteToolbar: ( { site, browserPath }: { site: { name: string }; browserPath: string } ) => (
+		<div data-testid="site-toolbar">{ `${ site.name }:${ browserPath }` }</div>
 	),
-} ) );
-
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
 } ) );
 
 vi.mock( '@/components/preview-toggle-button', () => ( {
@@ -145,7 +141,7 @@ describe( 'SessionView', () => {
 		} );
 	} );
 
-	it( 'shows the Open in control at the top-right of the chat header', () => {
+	it( 'passes the active preview path to the permanent site toolbar', () => {
 		sitesState.data = [
 			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
 		];
@@ -164,7 +160,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site:/wp-admin/' );
+		expect( screen.getByTestId( 'site-toolbar' ) ).toHaveTextContent( 'Example Site:/wp-admin/' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

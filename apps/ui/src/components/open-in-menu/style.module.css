@@ -1,3 +1,9 @@
+@container site-toolbar (max-width: 520px) {
+	.label {
+		display: none;
+	}
+}
+
 .popup {
 	min-width: 180px;
 }

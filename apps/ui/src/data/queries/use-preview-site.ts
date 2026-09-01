@@ -10,6 +10,8 @@ type PublishPreviewVariables = {
 	existingHostname?: string;
 };
 
+export const PUBLISH_PREVIEW_MUTATION_KEY = [ 'publishPreviewSite' ] as const;
+
 // Creates or refreshes the WordPress.com-hosted preview snapshot for a
 // local site. Reports lifecycle into the shared sync-activity store so the
 // site-dropdown indicator can render the pending / success / error states.
@@ -17,6 +19,7 @@ export function usePublishPreviewSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		mutationKey: PUBLISH_PREVIEW_MUTATION_KEY,
 		mutationFn: ( { siteId, existingHostname }: PublishPreviewVariables ) =>
 			connector.publishPreviewSite( siteId, existingHostname ),
 		onMutate: ( { siteId } ) => {
@@ -31,6 +34,20 @@ export function usePublishPreviewSite() {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'preview', message );
 			toast.error( __( 'Failed to publish preview site' ) );
+		},
+	} );
+}
+
+export function useDeletePreviewSite() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { hostname }: { hostname: string } ) => connector.deletePreviewSite( hostname ),
+		onSuccess: () => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+		},
+		onError: () => {
+			toast.error( __( 'Failed to delete preview link' ) );
 		},
 	} );
 }

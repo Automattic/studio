@@ -10,6 +10,10 @@
 	outline: none;
 }
 
+.positionerAboveOverlays {
+	z-index: var(--wp-ui-select-z-index, 750);
+}
+
 .popup {
 	min-width: 160px;
 	padding: var(--wpds-dimension-padding-xs);

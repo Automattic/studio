@@ -19,7 +19,7 @@
 			calc((100% - var(--classic-composer-column-max-width)) / 2)
 		)
 	);
-	--classic-header-height: 46px;
+	--classic-header-height: 54px;
 	--classic-composer-height: 0px;
 	--classic-panel-footer-height: 0px;
 	--classic-header-blur-overhang: 16px;
@@ -41,9 +41,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm) 6px;
-	min-height: 46px;
+	height: 54px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
@@ -79,15 +77,6 @@
 
 .headerSpacer {
 	flex: 1;
-}
-
-.headerActions {
-	position: relative;
-	inset-block-start: -7px;
-	display: flex;
-	align-items: center;
-	margin-inline-end: var(--wpds-dimension-padding-sm);
-	-webkit-app-region: no-drag;
 }
 
 .scroll {

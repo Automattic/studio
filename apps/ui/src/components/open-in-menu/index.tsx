@@ -88,7 +88,7 @@ export function OpenInMenu( {
 						}
 					>
 						<Icon icon={ lastUsedDestination.logo } size={ 18 } />
-						<span>{ lastUsedDestination.label }</span>
+						<span className={ styles.label }>{ lastUsedDestination.label }</span>
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 						{ actionLabel }

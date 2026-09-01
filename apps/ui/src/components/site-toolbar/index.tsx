@@ -7,7 +7,6 @@ import { useMemo, useState } from 'react';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { SiteIcon } from '@/components/site-icon';
 import { SiteStatusButton } from '@/components/site-status-button';
-import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -195,7 +194,7 @@ export function SiteToolbar( { site, className, browserPath }: SiteToolbarProps 
 								variant="outline"
 								tone="neutral"
 								size="small"
-								className={ clsx( styles.action, splitStyles.secondaryButton ) }
+								className={ styles.action }
 								disabled={ ! agenticEnabled }
 								onClick={ () => setShareOpen( true ) }
 							>

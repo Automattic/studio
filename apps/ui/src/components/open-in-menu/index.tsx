@@ -1,7 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useState } from 'react';
 import * as Menu from '@/components/menu';
 import splitStyles from '@/components/split-button/style.module.css';
@@ -73,7 +72,7 @@ export function OpenInMenu( {
 
 	return (
 		<Menu.Root>
-			<div className={ clsx( splitStyles.splitTrigger, styles.trigger ) }>
+			<div className={ splitStyles.splitTrigger }>
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						render={

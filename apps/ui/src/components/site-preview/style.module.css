@@ -38,8 +38,8 @@
 	padding-inline-start: var(--wpds-dimension-padding-md);
 	min-height: 32px;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral-strong);
 	-webkit-app-region: drag;
 }
 
@@ -66,24 +66,29 @@
 }
 
 .tab {
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	min-width: 112px;
 	max-width: 240px;
 	height: 32px;
 	flex: 1 1 180px;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md) var(--wpds-border-radius-md) 0 0;
 }
 
 .tab:hover {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-color: var(--wpds-color-stroke-surface-neutral-strong);
 }
 
 .tabSelected {
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	border-color: var(--wpds-color-stroke-surface-neutral-strong);
+	box-shadow: inset 0 -2px 0 var(--wpds-color-stroke-interactive-neutral-strong);
 }
 
 .tabSelected:hover {

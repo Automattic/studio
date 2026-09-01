@@ -1395,8 +1395,10 @@ export function SitePreview( props: SitePreviewProps ) {
 			aria-label={ __( 'Site preview browser' ) }
 		>
 			<div
+				hidden={ ! site.running }
 				className={ clsx(
 					styles.tabBar,
+					! site.running && styles.browserChromeHidden,
 					fullscreen && trafficLightSpace.start && styles.tabBarTrafficLights
 				) }
 				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
@@ -1983,10 +1985,12 @@ function SingleSitePreview( {
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div
+				hidden={ ! canPreview }
 				// In full preview the toolbar reaches the window's physical left
 				// edge, where the macOS traffic lights sit.
 				className={ clsx(
 					styles.header,
+					! canPreview && styles.browserChromeHidden,
 					fullscreen && ! hasTabBar && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={

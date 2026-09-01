@@ -30,6 +30,11 @@
 	border-inline-start: none;
 }
 
+.tabBar.browserChromeHidden,
+.header.browserChromeHidden {
+	display: none;
+}
+
 .tabBar {
 	display: flex;
 	align-items: center;

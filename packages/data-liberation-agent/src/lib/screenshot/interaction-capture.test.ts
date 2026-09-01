@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
-import { wireCapturedDialogs } from '../static-dialogs.js';
 import { captureTriggeredDialogs, INTERACTION_STATES_SCHEMA } from './interaction-capture.js';
+import { wireCapturedDialogs } from '../static-dialogs.js';
 
 describe( 'captureTriggeredDialogs', () => {
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
@@ -29,12 +29,8 @@ describe( 'captureTriggeredDialogs', () => {
 				expect( report.schema ).toBe( INTERACTION_STATES_SCHEMA );
 				expect( report.initialDialogs ).toHaveLength( 8 );
 				expect( report.initialDialogs?.every( ( state ) => state.initiallyVisible ) ).toBe( true );
-				expect( report.initialDialogs?.every( ( state ) => state.status === 'captured' ) ).toBe(
-					true
-				);
-				expect( report.initialDialogs?.every( ( state ) => state.dismissal?.verified ) ).toBe(
-					true
-				);
+				expect( report.initialDialogs?.every( ( state ) => state.status === 'captured' ) ).toBe( true );
+				expect( report.initialDialogs?.every( ( state ) => state.dismissal?.verified ) ).toBe( true );
 				expect( await page.locator( '[role="dialog"]:visible' ).count() ).toBe( 1 );
 
 				const portable = wireCapturedDialogs(

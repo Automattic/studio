@@ -109,6 +109,18 @@ export async function learnAndApplyFluidGeometry(
 				[ ...document.querySelectorAll< HTMLElement >( `[${ attribute }]` ) ].map( ( element ) => {
 					const style = element.getAttribute( 'style' ) ?? '';
 					const values: Record< string, number | null > = {};
+					const containers: Record< string, number | null > = {};
+					const parent = element.parentElement;
+					for ( const property of properties ) {
+						// `top` is a position against a containing block, not a
+						// share of a parent's box, so it has no container fit.
+						containers[ property ] =
+							parent && property !== 'top'
+								? property === 'width'
+									? parent.clientWidth
+									: parent.clientHeight
+								: null;
+					}
 					for ( const property of properties ) {
 						if ( property === 'top' && ! element.hasAttribute( 'data-dla-anchor-target' ) ) {
 							values[ property ] = null;
@@ -125,7 +137,7 @@ export async function learnAndApplyFluidGeometry(
 						const match = new RegExp( `(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px` ).exec( style );
 						values[ property ] = match ? Number( match[ 1 ] ) : null;
 					}
-					return { id: element.getAttribute( attribute )!, values };
+					return { id: element.getAttribute( attribute )!, values, containers };
 				} ),
 			{ attribute: ID_ATTRIBUTE, properties: LEARNABLE_PROPERTIES as unknown as string[] }
 		);
@@ -136,14 +148,14 @@ export async function learnAndApplyFluidGeometry(
 				if ( value === null || value === undefined ) continue;
 				const key = `${ entry.id }:${ property }`;
 				const list = observations.get( key ) ?? [];
-				list.push( { viewport: width, value } );
+				list.push( { viewport: width, value, container: entry.containers?.[ property ] ?? null } );
 				observations.set( key, list );
 			}
 		}
 		options.onProgress?.( width, measured.length );
 	}
 
-	const learned: Array< { id: string; property: string; css: string } > = [];
+	const learned: Array< { id: string; property: string; css: string; fallbackCss: string | null } > = [];
 	const byKind: Record< string, number > = {};
 	const breakpoints = new Set< number >();
 	let canvasFloor: number | null = null;
@@ -166,7 +178,17 @@ export async function learnAndApplyFluidGeometry(
 		if ( model.kind === 'floored' && property === 'width' ) {
 			canvasFloor = Math.max( canvasFloor ?? 0, model.floor );
 		}
-		learned.push( { id, property, css: model.css } );
+		// A percentage only resolves against a parent that has a definite size on
+		// that axis. Carry the viewport fit so a container model that collapses
+		// can fall back to the previous behaviour instead of to nothing.
+		let fallbackCss: string | null = null;
+		if ( model.kind === 'container' ) {
+			const viewportOnly = learnWidestFluidModel(
+				samples.map( ( sample ) => ( { viewport: sample.viewport, value: sample.value } ) )
+			);
+			if ( viewportOnly.kind !== 'breakpoint' ) fallbackCss = viewportOnly.css;
+		}
+		learned.push( { id, property, css: model.css, fallbackCss } );
 	}
 
 	// Restore the capture viewport BEFORE writing the learned CSS. Returning to
@@ -175,13 +197,26 @@ export async function learnAndApplyFluidGeometry(
 	if ( original ) await page.setViewportSize( original );
 	await page.waitForTimeout( settleMs );
 
-	await page.evaluate(
+	const reverted = await page.evaluate(
 		( { attribute, entries } ) => {
+			let revertedCount = 0;
 			for ( const entry of entries ) {
 				const element = document.querySelector< HTMLElement >( `[${ attribute }="${ entry.id }"]` );
 				if ( ! element ) continue;
+				const axis = entry.property === 'height' ? 'height' : 'width';
+				const before = element.getBoundingClientRect()[ axis ];
 				element.style.setProperty( entry.property, entry.css );
+				if ( entry.fallbackCss === null ) continue;
+
+				// Verify rather than assume: a parent with no definite size on
+				// this axis collapses the percentage, which would be a worse
+				// copy than the viewport units it replaced.
+				const after = element.getBoundingClientRect()[ axis ];
+				if ( after > 1 || before <= 1 ) continue;
+				element.style.setProperty( entry.property, entry.fallbackCss );
+				revertedCount++;
 			}
+			return revertedCount;
 		},
 		{ attribute: ID_ATTRIBUTE, entries: learned }
 	);
@@ -194,6 +229,11 @@ export async function learnAndApplyFluidGeometry(
 		},
 		{ attribute: ID_ATTRIBUTE }
 	);
+
+	if ( reverted > 0 ) {
+		byKind.container = Math.max( 0, ( byKind.container ?? 0 ) - reverted );
+		byKind.proportional = ( byKind.proportional ?? 0 ) + reverted;
+	}
 
 	return {
 		applied: learned.length,

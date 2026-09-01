@@ -455,7 +455,7 @@ describe( 'exportWebsiteCapture', () => {
 				'<iframe src="https://hidden.example/embed" width="500" height="300"></iframe>' +
 				'<iframe src="javascript:steal()" data-dla-visual-iframe-src="javascript:steal()" data-dla-visual-iframe-width="500" data-dla-visual-iframe-height="300"></iframe>' +
 				'<iframe src="https://zero.example/embed" data-dla-visual-iframe-src="https://zero.example/embed" data-dla-visual-iframe-width="0" data-dla-visual-iframe-height="300"></iframe>' +
-				'</main></body></html>'
+			'</main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
@@ -655,11 +655,7 @@ describe( 'exportWebsiteCapture', () => {
 										htmlTruncated: false,
 									},
 									dismissal: {
-										control: {
-											selector: '#automatic-close',
-											tag: 'button',
-											label: 'Close automatic popup',
-										},
+										control: { selector: '#automatic-close', tag: 'button', label: 'Close automatic popup' },
 										verified: true,
 									},
 								},
@@ -2026,8 +2022,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		dirs.push( outputDir );
 		for ( const path of [ 'html', 'screenshots', 'media', 'resources/cdn' ] )
 			mkdirSync( join( outputDir, path ), { recursive: true } );
-		const sourceHtml =
-			'<html><head><link rel="stylesheet" href="https://cdn.example/site.css"></head><body><img src="/"><p data-kind="image/x-icon">Icon</p><a href="/about/">About</a></body></html>';
+		const sourceHtml = '<html><head><link rel="stylesheet" href="https://cdn.example/site.css"></head><body><img src="/"><p data-kind="image/x-icon">Icon</p><a href="/about/">About</a></body></html>';
 		writeFileSync( join( outputDir, 'html', 'homepage.html' ), sourceHtml );
 		writeFileSync( join( outputDir, 'media', 'homepage.jpg' ), 'not-an-image' );
 		writeFileSync(

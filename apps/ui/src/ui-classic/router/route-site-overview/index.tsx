@@ -1,7 +1,9 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { SiteOverviewView } from '@/components/site-overview-view';
-import { isSiteSettingsTab } from '@/components/site-settings-view';
+import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
+import { useConnector } from '@/data/core';
 import { useSites, SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -16,8 +18,9 @@ interface SiteOverviewSearch {
 
 function SiteOverviewPage() {
 	const { siteId } = siteOverviewRoute.useParams();
-	const { tab } = siteOverviewRoute.useSearch();
+	const { tab, sync } = siteOverviewRoute.useSearch();
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const activeTab: SiteSettingsTabId = tab ?? 'overview';
 
@@ -36,14 +39,18 @@ function SiteOverviewPage() {
 		<SiteOverviewView
 			siteId={ siteId }
 			activeTab={ activeTab }
-			onTabChange={ ( next ) =>
+			openSiteDropdown={ sync === 'pull' }
+			onTabChange={ ( next ) => {
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, {
+					panel: siteSettingsTabToPanel( next ),
+				} );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId },
 					search: { tab: next },
 					replace: true,
-				} )
-			}
+				} );
+			} }
 		/>
 	);
 }
@@ -63,10 +70,13 @@ export const siteOverviewRoute = createRoute( {
 		return validated;
 	},
 	beforeLoad: async ( { params, context } ) => {
-		const sites = await context.queryClient.fetchQuery( {
-			queryKey: SITES_QUERY_KEY,
-			queryFn: () => context.connector.getSites(),
-		} );
+		const cachedSites = context.queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+		const sites = cachedSites?.some( ( site ) => site.id === params.siteId )
+			? cachedSites
+			: ( await context.queryClient.fetchQuery( {
+					queryKey: SITES_QUERY_KEY,
+					queryFn: () => context.connector.getSites(),
+			  } ) ) ?? [];
 		if ( ! sites.some( ( site: SiteDetails ) => site.id === params.siteId ) ) {
 			throw redirect( { to: '/' } );
 		}

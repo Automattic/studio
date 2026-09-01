@@ -117,14 +117,21 @@ export function ContextPopup( {
 	);
 }
 
-type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item >;
+type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {
+	/** Renders the item in error colors, for actions that destroy data. */
+	destructive?: boolean;
+};
 
 export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >( function Item(
-	{ className, children, ...props },
+	{ className, children, destructive, ...props },
 	ref
 ) {
 	return (
-		<BaseMenu.Item ref={ ref } className={ `${ styles.item } ${ className ?? '' }` } { ...props }>
+		<BaseMenu.Item
+			ref={ ref }
+			className={ clsx( styles.item, destructive && styles.itemDestructive, className ) }
+			{ ...props }
+		>
 			{ children }
 		</BaseMenu.Item>
 	);

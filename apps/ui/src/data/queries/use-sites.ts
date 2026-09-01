@@ -1,12 +1,15 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { SiteOperationKind } from '@studio/common/lib/site-operation';
+import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
@@ -19,6 +22,13 @@ const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
+// Keyed so progress survives navigation: a `useMutation` observer dies with the
+// component that created it, so a remounted screen would report "idle" while
+// the work is still running. Counting the mutation cache instead is the same
+// trick `useIsSiteStarting` uses.
+export const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
+export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
@@ -69,6 +79,9 @@ export function useCopySite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
+		// Keyed so `useSiteOperation` can spot an in-flight copy. Duplication is
+		// the one kind no CLI command records — see `SITE_OPERATIONS`.
+		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 		onError: () => toast.error( __( 'Failed to copy site' ) ),
@@ -78,6 +91,7 @@ export function useCopySite() {
 export function useExportFullSite() {
 	const connector = useConnector();
 	return useMutation( {
+		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
 	} );
 }
@@ -85,23 +99,48 @@ export function useExportFullSite() {
 export function useExportDatabase() {
 	const connector = useConnector();
 	return useMutation( {
+		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
 	} );
 }
 
+export interface StartSiteOptions {
+	// Set by callers whose start is a side effect of something else — boot
+	// auto-start, the connect-site lifecycle, opening a link on a stopped site.
+	// The site's own status already reports the start, and a batch of them
+	// would otherwise fill the shelf with notifications nobody asked for.
+	// Failures still surface: a site that never came up is worth a toast.
+	silent?: boolean;
+}
+
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state.
-export function useStartSite() {
+export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: START_SITE_MUTATION_KEY,
-		mutationFn: async ( id: string ) => {
+		// Returns false when the start was skipped, so the caller's toast (and
+		// anything else keyed off success) doesn't claim a site came up.
+		mutationFn: async ( id: string ): Promise< boolean > => {
+			// A stop this window fired moments ago hasn't been recorded by the CLI
+			// yet, and racing it used to loop forever. Deliberately the only
+			// pre-flight: everything else is the CLI's call, so a stale cache
+			// can't silently swallow a start.
+			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
+				return false;
+			}
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			return true;
 		},
-		onSuccess: () => toast.success( __( 'Site started' ) ),
-		onError: () => toast.error( __( 'Failed to start site' ) ),
+		onSuccess: ( started ) => {
+			if ( started && ! silent ) {
+				toast.success( __( 'Site started' ) );
+			}
+		},
+		onError: ( _error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ) ),
 	} );
 }
 
@@ -115,7 +154,8 @@ export function useStopSite() {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 		onSuccess: () => toast.success( __( 'Site stopped' ) ),
-		onError: () => toast.error( __( 'Failed to stop site' ) ),
+		onError: ( _error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
 	} );
 }
 
@@ -200,12 +240,48 @@ export function useXdebugEnabledSite(): SiteDetails | null {
 	return useMemo( () => sites?.find( ( site ) => site.enableXdebug ) ?? null, [ sites ] );
 }
 
-function useIsSiteMutating( siteId: string | undefined, mutationKey: readonly string[] ): boolean {
+export function useIsSiteMutating(
+	siteId: string | undefined,
+	mutationKey: readonly string[]
+): boolean {
 	const count = useIsMutating( {
 		mutationKey,
 		predicate: ( mutation ) => mutation.state.variables === siteId,
 	} );
 	return count > 0;
+}
+
+// Imperative twin of `useIsSiteMutating`, for reading the same state from
+// inside a `mutationFn` where hooks aren't available.
+function isSiteMutating(
+	queryClient: QueryClient,
+	mutationKey: readonly string[],
+	siteId: string
+): boolean {
+	return (
+		queryClient.isMutating( {
+			mutationKey,
+			predicate: ( mutation ) => mutation.state.variables === siteId,
+		} ) > 0
+	);
+}
+
+/**
+ * Why an action on this site failed, worded from the operation on the cached
+ * record. Only ever used to phrase an error that already happened, so a cache
+ * that's a beat behind costs nothing — unlike using it to *decide*, which would
+ * silently swallow the action.
+ */
+function getBusyMessage( queryClient: QueryClient, siteId: string, fallback: string ): string {
+	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+	const operation = sites?.find( ( site ) => site.id === siteId )?.operation?.kind;
+	return operation
+		? sprintf(
+				/* translators: %s: an operation already running, e.g. "a settings change". */
+				__( 'This site is busy: %s is in progress. Try again once it finishes.' ),
+				getSiteOperationNoun( operation )
+		  )
+		: fallback;
 }
 
 export function useIsSiteStarting( siteId: string | undefined ): boolean {
@@ -214,6 +290,32 @@ export function useIsSiteStarting( siteId: string | undefined ): boolean {
 
 export function useIsSiteStopping( siteId: string | undefined ): boolean {
 	return useIsSiteMutating( siteId, STOP_SITE_MUTATION_KEY );
+}
+
+/**
+ * The operation currently holding the site, or null. Mostly read from the site
+ * record the CLI writes, so it covers work the agent or another Studio window
+ * started — not just this client's own mutations.
+ *
+ * Duplication is the exception: no CLI command performs it, so it's read from
+ * the in-flight mutation. That only sees this window, which is enough because
+ * a duplicate can't originate anywhere else.
+ */
+export function useSiteOperation( site: SiteDetails | undefined ): SiteOperationKind | null {
+	const isDuplicating = useIsSiteMutating( site?.id, COPY_SITE_MUTATION_KEY );
+	return site?.operation?.kind ?? ( isDuplicating ? 'duplicate' : null );
+}
+
+/**
+ * Whether the site is mid-transition and its actions should be disabled. Folds
+ * this client's in-flight start/stop — which lands before the CLI writes its
+ * operation — into the CLI's authoritative view.
+ */
+export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
+	const isStarting = useIsSiteStarting( site?.id );
+	const isStopping = useIsSiteStopping( site?.id );
+	const operation = useSiteOperation( site );
+	return isStarting || isStopping || operation !== null;
 }
 
 /**
@@ -247,7 +349,7 @@ export function useSyncSitesWithEvents(): void {
 // with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
-	const { mutate: startSite } = useStartSite();
+	const { mutate: startSite } = useStartSite( { silent: true } );
 	const startedRef = useRef( false );
 	useEffect( () => {
 		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {

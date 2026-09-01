@@ -413,6 +413,7 @@ export function CreateSiteForm( {
 		return applyInitialValues( defaults, initialValues, defaults );
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
+	const isSubmitQueuedRef = useRef( false );
 
 	useEffect( () => {
 		const values = initialValues ?? {};
@@ -554,6 +555,7 @@ export function CreateSiteForm( {
 	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
+		isSubmitQueuedRef.current = false;
 		for ( const key of Object.keys( update ) ) {
 			if ( key === 'useCustomDomain' ) {
 				dirtyFieldsRef.current.add( 'customDomain' );
@@ -577,14 +579,13 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
-	// toggle doesn't flash), so gate submit on it separately.
-	const canSubmit =
-		isValid && ! isSubmitting && ! isSubmitDisabled && ! data.isPathPending && ! data.pathError;
+	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
+	// every keystroke of the name field while the path auto-gen resolves, and
+	// disabling the submit button on it makes the button blink. Submits that
+	// land inside that window are queued and fired once the path resolves.
+	const canSubmit = isValid && ! isSubmitting && ! isSubmitDisabled && ! data.pathError;
 
-	const handleSubmit = ( event: FormEvent ) => {
-		event.preventDefault();
-		if ( ! canSubmit ) return;
+	const submitForm = () => {
 		onSubmit( {
 			name: data.name.trim(),
 			path: data.path,
@@ -599,6 +600,22 @@ export function CreateSiteForm( {
 			adminEmail: data.adminEmail,
 		} );
 	};
+
+	const handleSubmit = ( event: FormEvent ) => {
+		event.preventDefault();
+		if ( ! canSubmit ) return;
+		if ( data.isPathPending ) {
+			isSubmitQueuedRef.current = true;
+			return;
+		}
+		submitForm();
+	};
+
+	useEffect( () => {
+		if ( data.isPathPending || ! isSubmitQueuedRef.current ) return;
+		isSubmitQueuedRef.current = false;
+		if ( canSubmit ) submitForm();
+	} );
 
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 	const actions = (

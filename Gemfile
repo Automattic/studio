@@ -2,9 +2,9 @@
 
 source 'https://rubygems.org'
 
-gem 'fastlane', '~> 2.237'
-gem 'fastlane-plugin-wpmreleasetoolkit', '~> 14.11'
+gem 'fastlane', '~> 2.238'
+gem 'fastlane-plugin-wpmreleasetoolkit', '~> 15.0'
 
-gem 'aws-sdk-cloudfront', '~> 1.151'
+gem 'aws-sdk-cloudfront', '~> 1.152'
 
-gem 'rubocop', '~> 1.88', require: false
+gem 'rubocop', '~> 1.90', require: false

@@ -6,6 +6,6 @@
 	"description": "ESLint rules for Studio",
 	"main": "src/index.js",
 	"dependencies": {
-		"eslint": "^10.8.0"
+		"eslint": "^10.9.1"
 	}
 }

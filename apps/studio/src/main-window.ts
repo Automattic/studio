@@ -11,6 +11,7 @@ import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
+	AGENTIC_TITLEBAR_HEIGHT,
 	DEFAULT_WIDTH,
 	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -230,27 +231,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	const rendererLoaded = loadRendererLocation(
-		mainWindow,
-		getRendererLocation( getPreferredStudioUiMode() )
-	);
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
-	// DO NOT COMMIT — local fix for STU-2171, kept out of the STU-2162 branch.
-	// It belongs in its own PR; drop it from any commit made here.
-	//
-	// Open the DevTools if the user had it open last time they used the app.
-	// During development the dev tools default to open.
-	//
-	// This waits for the renderer to finish loading. Electron 43 delivers the
-	// sandboxed preload's startup data as part of the initial page load;
-	// attaching DevTools while that is still in flight leaves
-	// `binding.startupData` null, so the preload never runs and the renderer
-	// comes up with no `window.ipcApi` — a blank window whose only symptom is
-	// an "IPC API not available" error.
-	void loadUserData().then( ( userData ) => {
-		initializePortFinder( SiteServer.getAllDetails() );
-		void rendererLoaded.then( () => setupDevTools( mainWindow, userData.devToolsOpen ) );
-	} );
+	initializePortFinder( SiteServer.getAllDetails() );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateAppdata( { devToolsOpen: true } );
@@ -261,6 +244,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	} );
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
+		// Attaching DevTools before the first load commits leaves the sandboxed renderer without its
+		// preload script, so the UI boots to a blank screen with no `window.ipcApi`.
+		// Open the DevTools if the user had it open last time they used the app.
+		// During development the dev tools default to open.
+		setupDevTools( mainWindow, userData.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
@@ -316,15 +304,31 @@ export function getFrameTitleBarOverlayOptions() {
 	};
 }
 
+export type WindowControlsSurface = 'chrome' | 'content';
+
+// The agentic UI's controls sit in the chrome gap above the content frame,
+// except while a full-window page (settings, site creation) covers that chrome.
+// Those two surfaces are opposite shades in light mode, so the renderer tells us
+// which one is showing; remembering it here keeps a later theme change from
+// repainting the controls for the wrong one.
+let agenticControlsSurface: WindowControlsSurface = 'chrome';
+
+export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
+	agenticControlsSurface = surface;
+}
+
 export function getTitleBarOverlayOptions() {
 	if ( getPreferredStudioUiMode() !== 'agentic' ) {
 		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
+	// Chrome is dark in both schemes; the content surface tracks
+	// `--wpds-color-bg-surface-neutral`.
+	const onChrome = agenticControlsSurface === 'chrome';
 	return {
-		color: isDark ? '#242424' : '#fff',
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
-		height: WINDOWS_TITLEBAR_HEIGHT,
+		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',
+		symbolColor: onChrome || isDark ? '#e0e0e0' : '#1e1e1e',
+		height: AGENTIC_TITLEBAR_HEIGHT,
 	};
 }
 

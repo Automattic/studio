@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -22,6 +23,7 @@ interface PreviewSplitFrameProps {
 	// Full preview: the preview takes the whole frame and the content column
 	// collapses to zero width (kept mounted so chat state survives).
 	previewFullscreen?: boolean;
+	onContainerWidthChange?: ( containerWidth: number | null ) => void;
 	children?: ReactNode;
 }
 
@@ -29,12 +31,22 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	previewFullscreen = false,
+	onContainerWidthChange,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const showFullscreen = showPreview && previewFullscreen;
-	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
+	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
+		showPreview,
+	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
+	// The chrome gap above the frame is where the native window controls land on
+	// Windows/Linux, so it has to be at least as tall as they are.
+	const windowControls = useWindowControlsOverlay();
+
+	useEffect( () => {
+		onContainerWidthChange?.( showPreview && ! showFullscreen ? containerWidth : null );
+	}, [ containerWidth, onContainerWidthChange, showFullscreen, showPreview ] );
 
 	// Animate only open/close/fullscreen toggles of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
@@ -79,6 +91,7 @@ export function PreviewSplitFrame( {
 		// Fullscreen collapses the content column; the split geometry keeps its
 		// last width so leaving fullscreen restores the previous split.
 		'--preview-frame-content-width': showFullscreen ? '0px' : contentWidthVar,
+		...( windowControls && { '--panel-frame-gap-top': `${ windowControls.height }px` } ),
 	} as CSSProperties;
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.

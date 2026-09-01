@@ -1,7 +1,15 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DaemonStartTimeoutError, getDaemonStatus } from '@studio/common/lib/remote-session';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	getRemoteSessionDaemonStatus,
+	startRemoteSessionDaemon,
+	stopRemoteSessionDaemon,
+} from 'src/ipc-handlers';
+import * as bumpStats from 'src/lib/bump-stats';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import type { IpcMainInvokeEvent } from 'electron';
 
@@ -17,6 +25,7 @@ vi.mock( '@studio/common/lib/remote-session', async () => {
 
 vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn(),
+	getTracksOriginEnv: vi.fn( () => 'studio-ui:v1' ),
 } ) );
 
 vi.mock( 'src/lib/bump-stats', async () => {
@@ -44,28 +53,20 @@ const mockIpcEvent = {
 function stubExecuteCliCommand(
 	behavior: ( emitter: CliEmitter, args: string[], options: unknown ) => void
 ) {
-	void ( async () => {
-		const { executeCliCommand } = await import( 'src/modules/cli/lib/execute-command' );
-		vi.mocked( executeCliCommand ).mockImplementation( ( ( args: string[], options: unknown ) => {
-			const emitter = new TypedEventEmitter() as CliEmitter;
-			// Defer so the IPC handler can subscribe before events fire.
-			queueMicrotask( () => behavior( emitter, args, options ) );
-			return [ emitter, {} as never ];
-		} ) as unknown as typeof executeCliCommand );
-	} )();
+	vi.mocked( executeCliCommand ).mockImplementation( ( ( args: string[], options: unknown ) => {
+		const emitter = new TypedEventEmitter() as CliEmitter;
+		// Defer so the IPC handler can subscribe before events fire.
+		queueMicrotask( () => behavior( emitter, args, options ) );
+		return [ emitter, {} as never ];
+	} ) as unknown as typeof executeCliCommand );
 }
 
 beforeEach( () => {
 	vi.clearAllMocks();
 } );
 
-afterEach( () => {
-	vi.resetModules();
-} );
-
 describe( 'getRemoteSessionDaemonStatus', () => {
 	it( 'projects the underlying daemon status to the renderer-facing shape', async () => {
-		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		// Internal `DaemonStatus` is the rich shape — pid, pidFile, etc.
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: true,
@@ -73,7 +74,6 @@ describe( 'getRemoteSessionDaemonStatus', () => {
 			pidFile: '/tmp/remote-session.pid',
 		} );
 
-		const { getRemoteSessionDaemonStatus } = await import( 'src/ipc-handlers' );
 		const result = await getRemoteSessionDaemonStatus( mockIpcEvent );
 
 		// IPC return only carries what the renderer needs (`running`). The
@@ -84,13 +84,11 @@ describe( 'getRemoteSessionDaemonStatus', () => {
 	} );
 
 	it( 'returns "not running" when no daemon is present', async () => {
-		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: false,
 			pidFile: '/tmp/remote-session.pid',
 		} );
 
-		const { getRemoteSessionDaemonStatus } = await import( 'src/ipc-handlers' );
 		const result = await getRemoteSessionDaemonStatus( mockIpcEvent );
 
 		expect( result.running ).toBe( false );
@@ -105,14 +103,12 @@ describe( 'startRemoteSessionDaemon', () => {
 			emitter.emit( 'success', { result: undefined } );
 		} );
 
-		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: true,
 			pid: 12345,
 			pidFile: '/tmp/remote-session.pid',
 		} );
 
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 		const result = await startRemoteSessionDaemon( mockIpcEvent );
 
 		expect( recordedCalls ).toHaveLength( 1 );
@@ -129,15 +125,10 @@ describe( 'startRemoteSessionDaemon', () => {
 			emitter.emit( 'success', { result: undefined } );
 		} );
 
-		const { getDaemonStatus, DaemonStartTimeoutError } = await import(
-			'@studio/common/lib/remote-session'
-		);
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: false,
 			pidFile: '/tmp/remote-session.pid',
 		} );
-
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 
 		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBeInstanceOf(
 			DaemonStartTimeoutError
@@ -150,8 +141,6 @@ describe( 'startRemoteSessionDaemon', () => {
 			emitter.emit( 'failure', { error: failure } );
 		} );
 
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
-
 		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
 	} );
 
@@ -160,15 +149,11 @@ describe( 'startRemoteSessionDaemon', () => {
 			emitter.emit( 'success', { result: undefined } );
 		} );
 
-		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: true,
 			pid: 12345,
 			pidFile: '/tmp/remote-session.pid',
 		} );
-
-		const bumpStats = await import( 'src/lib/bump-stats' );
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 
 		await startRemoteSessionDaemon( mockIpcEvent );
 
@@ -197,13 +182,11 @@ describe( 'stopRemoteSessionDaemon', () => {
 			emitter.emit( 'success', { result: undefined } );
 		} );
 
-		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: false,
 			pidFile: '/tmp/remote-session.pid',
 		} );
 
-		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 		const result = await stopRemoteSessionDaemon( mockIpcEvent );
 
 		expect( recordedCalls ).toHaveLength( 1 );
@@ -224,8 +207,6 @@ describe( 'stopRemoteSessionDaemon', () => {
 			emitter.emit( 'failure', { error: failure } );
 		} );
 
-		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
-
 		await expect( stopRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
 	} );
 
@@ -233,9 +214,6 @@ describe( 'stopRemoteSessionDaemon', () => {
 		stubExecuteCliCommand( ( emitter ) => {
 			emitter.emit( 'success', { result: undefined } );
 		} );
-
-		const bumpStats = await import( 'src/lib/bump-stats' );
-		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 
 		await stopRemoteSessionDaemon( mockIpcEvent );
 

@@ -5,13 +5,87 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
-import { runPhpCommand } from './php-process';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { PhpCommandError, runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 function isWriteAccessError( error: unknown ): boolean {
 	const code = ( error as NodeJS.ErrnoException )?.code;
 	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
+}
+
+// blueprints.phar fails the whole Blueprint on an unknown feature rather than ignoring it.
+const RUNNER_SUPPORTED_FEATURES = [ 'networking' ];
+
+// Studio picks the PHP binary, installs WordPress, and ships Intl, so these are already decided.
+export function normalizeBlueprintForRunner( contents: Record< string, unknown > ): void {
+	delete contents.preferredVersions;
+
+	const features = contents.features;
+	if ( ! features || typeof features !== 'object' ) {
+		return;
+	}
+
+	const supported = Object.fromEntries(
+		Object.entries( features ).filter( ( [ name ] ) => RUNNER_SUPPORTED_FEATURES.includes( name ) )
+	);
+	if ( Object.keys( supported ).length > 0 ) {
+		contents.features = supported;
+	} else {
+		delete contents.features;
+	}
+}
+
+export async function removeOwnedSqliteSymlink(
+	symlinkPath: string,
+	symlinkIno: number
+): Promise< void > {
+	try {
+		if ( fs.lstatSync( symlinkPath ).ino === symlinkIno ) {
+			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
+		}
+	} catch {
+		// Best effort - an already-removed symlink needs no cleanup.
+	}
+}
+
+// Fits a schema validation report (one line per offending property) without overflowing a toast.
+const MAX_BLUEPRINT_ERROR_LENGTH = 2000;
+
+function truncate( message: string ): string {
+	return message.length > MAX_BLUEPRINT_ERROR_LENGTH
+		? `${ message.slice( 0, MAX_BLUEPRINT_ERROR_LENGTH ) }…`
+		: message;
+}
+
+/**
+ * The runner reports on stdout as JSON lines, progress interleaved with errors. Only `message` is
+ * kept; the `details.trace` on step failures is a phar-internal stack, meaningless to the user.
+ */
+export function formatBlueprintRunnerError( error: PhpCommandError ): string {
+	const reportedErrors: string[] = [];
+	for ( const line of error.stdout.split( /\r?\n/ ) ) {
+		const trimmed = line.trim();
+		if ( ! trimmed.startsWith( '{' ) ) {
+			continue;
+		}
+		try {
+			const parsed = JSON.parse( trimmed );
+			if ( parsed?.type === 'error' && typeof parsed.message === 'string' ) {
+				reportedErrors.push( parsed.message );
+			}
+		} catch {
+			// A partial line from a truncated capture - nothing to report from it.
+		}
+	}
+
+	if ( reportedErrors.length > 0 ) {
+		return truncate( reportedErrors.join( '\n' ) );
+	}
+
+	const stderr = error.stderr.trim();
+	return stderr ? truncate( stderr ) : error.message;
 }
 
 export async function runBlueprint(
@@ -41,9 +115,7 @@ export async function runBlueprint(
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	// Native PHP selects PHP and installs WordPress before Blueprint execution.
-	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
-	delete blueprint.contents.preferredVersions;
+	normalizeBlueprintForRunner( blueprint.contents );
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.
@@ -87,7 +159,7 @@ export async function runBlueprint(
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
 		// Remove only the entry created here, not unrelated content that replaced it.
-		symlinkIno = fs.statSync( pluginsSqlite ).ino;
+		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
 	try {
@@ -100,6 +172,7 @@ export async function runBlueprint(
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
+				`--db-path=${ path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`,
 			],
 			{
 				phpVersion,
@@ -114,19 +187,20 @@ export async function runBlueprint(
 				},
 			}
 		);
+	} catch ( error ) {
+		if ( error instanceof PhpCommandError ) {
+			throw new Error( formatBlueprintRunnerError( error ) );
+		}
+		throw error;
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
 		if ( fallbackTempDir ) {
 			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
 		}
 		if ( needsSymlink ) {
-			try {
-				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
-					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
-				}
-			} catch {
-				// Best effort - leaving the symlink behind is non-fatal.
-			}
+			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
+			// The runner may remove the symlink target while managing its SQLite driver.
+			await keepSqliteIntegrationUpdated( config.sitePath );
 		}
 	}
 }

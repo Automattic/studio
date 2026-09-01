@@ -4,14 +4,15 @@
 }
 
 .shell {
+	--composer-resting-tint-strength: 5%;
 	--composer-resting-fill: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) 82%,
+		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) var(--surface-alpha, 82%),
 		transparent
 	);
 	--composer-resting-tint: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 5%,
+		var(--wpds-color-fg-content-neutral) var(--composer-resting-tint-strength),
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
@@ -29,6 +30,10 @@
 	padding: 0;
 	outline: 0 solid transparent;
 	transition: outline-color 80ms ease, outline-width 80ms ease;
+}
+
+:global(html[data-color-scheme='dark']) .shell {
+	--composer-resting-tint-strength: 10%;
 }
 
 .shell:focus-within:not(:has(.resizeHandle:focus-visible)) {
@@ -337,6 +342,37 @@
 	min-width: 0;
 }
 
+/* Inline listbox anchored above the textarea. The Menu `.popup` class provides
+   the surface; this only adds the anchor/layout bits the portaled Menu doesn't
+   need. Stays a plain element so the textarea keeps focus. */
+.autocompletePopup {
+	position: absolute;
+	bottom: calc(100% + 4px);
+	left: 0;
+	z-index: 100;
+	max-height: 240px;
+	overflow-y: auto;
+	margin: 0;
+	list-style: none;
+}
+
+.commandItem {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.commandName {
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.commandDescription {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .input {
 	display: block;
 	min-height: 48px;
@@ -442,6 +478,26 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.aiCreditsSummary {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+}
+
+.aiCreditsSummary span {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.aiCreditsSummary strong {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-variant-numeric: tabular-nums;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 .pill {
 	display: inline-flex;
 	flex: 0 0 auto;
@@ -465,6 +521,11 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.pillProviderPrefix {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 600;
 }
 
 .pill:hover:not(:disabled),

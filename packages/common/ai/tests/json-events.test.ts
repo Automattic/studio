@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildUsageCapErrorMessage,
 	getAgentEndFailure,
-	isHttp429ErrorMessage,
+	isAiAccessRequiredError,
 	isAiBlockedError,
+	isOutOfCreditsError,
 	isUsageCapError,
 	USAGE_CAP_ERROR_PREFIX,
 } from '../json-events';
@@ -43,32 +44,6 @@ function agentEnd(
 	return { type: 'agent_end', willRetry, messages } as unknown as AgentSessionEvent;
 }
 
-describe( 'isHttp429ErrorMessage', () => {
-	it.each( [
-		// Anthropic SDK: "<status> <message or JSON body>".
-		'429 {"type":"error","error":{"type":"rate_limit_error","message":"exceeded"}}',
-		'429 Number of requests has exceeded your monthly limit',
-		'429 status code (no body)',
-		// pi-ai OpenAI Responses formatting.
-		'OpenAI API error (429): {"error":{"message":"exceeded"}}',
-		// Legacy Claude Code SDK formatting.
-		'API Error: 429 {"error":"exceeded"}',
-	] )( 'matches %s', ( message ) => {
-		expect( isHttp429ErrorMessage( message ) ).toBe( true );
-	} );
-
-	it.each( [
-		'500 internal server error',
-		'Request took 429 ms',
-		'API Error: 500 upstream failure',
-		undefined,
-		null,
-		'',
-	] )( 'does not match %s', ( message ) => {
-		expect( isHttp429ErrorMessage( message ) ).toBe( false );
-	} );
-} );
-
 describe( 'isUsageCapError', () => {
 	it( 'matches the canonical runtime-stamped prefix', () => {
 		expect( isUsageCapError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( true );
@@ -77,15 +52,59 @@ describe( 'isUsageCapError', () => {
 		);
 	} );
 
-	it( 'matches legacy Claude Code SDK formats', () => {
-		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( true );
-		expect( isUsageCapError( 'Request failed with status code 429' ) ).toBe( true );
-		expect( isUsageCapError( '{"status": 429}' ) ).toBe( true );
+	it( 'matches an un-rewritten proxy cost-cap code', () => {
+		expect(
+			isUsageCapError( 'OpenAI API error (429): {"error":{"code":"cost_cap_exceeded"}}' )
+		).toBe( true );
+	} );
+
+	// STU-2236: both credit pools empty is its own state — the fix is buying
+	// credits, not waiting for the reset — so it must not read as the cap.
+	it( 'does not match the out-of-credits refusal', () => {
+		expect(
+			isUsageCapError(
+				"402 studio_out_of_credits: You've used your free monthly AI allowance and have no credits left."
+			)
+		).toBe( false );
+	} );
+
+	// A hosted upstream 429s for its own token-per-minute limits, which
+	// retrying clears — those must not read as the monthly cap.
+	it( 'does not match a 429 without the cost-cap code', () => {
+		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( false );
+		expect( isUsageCapError( 'Request failed with status code 429' ) ).toBe( false );
+		expect( isUsageCapError( '{"status": 429}' ) ).toBe( false );
 	} );
 
 	it( 'does not match raw un-rewritten 429s (non-wpcom rate limits)', () => {
 		expect( isUsageCapError( '429 rate limited' ) ).toBe( false );
 		expect( isUsageCapError( 'OpenAI API error (429): rate limited' ) ).toBe( false );
+	} );
+} );
+
+describe( 'isOutOfCreditsError', () => {
+	it( 'matches the load-bearing code token wherever it appears in the message', () => {
+		expect(
+			isOutOfCreditsError(
+				"studio_out_of_credits: You've used your free monthly AI allowance and have no credits left. Buy credits in WordPress Studio to continue."
+			)
+		).toBe( true );
+		expect(
+			isOutOfCreditsError(
+				'402 {"code":"studio_out_of_credits","message":"studio_out_of_credits: You\'ve used your free monthly AI allowance and have no credits left.","data":{"status":402}}'
+			)
+		).toBe( true );
+	} );
+
+	it( 'does not match the cap refusal or unrelated errors', () => {
+		expect( isOutOfCreditsError( '429 cost_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe(
+			false
+		);
+		expect( isOutOfCreditsError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( false );
+		expect( isOutOfCreditsError( '402 payment required' ) ).toBe( false );
+		expect( isOutOfCreditsError( '500 internal server error' ) ).toBe( false );
+		expect( isOutOfCreditsError( undefined ) ).toBe( false );
+		expect( isOutOfCreditsError( null ) ).toBe( false );
 	} );
 } );
 
@@ -106,6 +125,36 @@ describe( 'isAiBlockedError', () => {
 		expect( isAiBlockedError( '403 Studio Code AI is blocked for this account.' ) ).toBe( false );
 		expect( isAiBlockedError( 'Monthly usage limit reached: x' ) ).toBe( false );
 		expect( isAiBlockedError( undefined ) ).toBe( false );
+		expect(
+			isAiBlockedError(
+				'403 studio_code_ai_access_required: Studio Code AI access has not been enabled for this account.'
+			)
+		).toBe( false );
+	} );
+} );
+
+describe( 'isAiAccessRequiredError', () => {
+	it( 'matches the load-bearing code token wherever it appears in the message', () => {
+		expect(
+			isAiAccessRequiredError(
+				'403 studio_code_ai_access_required: Studio Code AI access has not been enabled for this account.'
+			)
+		).toBe( true );
+		expect(
+			isAiAccessRequiredError(
+				'403 {"code":"studio_code_ai_access_required","message":"Studio Code AI access has not been enabled for this account.","data":{"status":403}}'
+			)
+		).toBe( true );
+	} );
+
+	it( 'does not match the blocked code or unrelated errors', () => {
+		expect(
+			isAiAccessRequiredError(
+				'403 studio_code_ai_disabled: Studio Code AI is blocked for this account.'
+			)
+		).toBe( false );
+		expect( isAiAccessRequiredError( '403 model not allowed' ) ).toBe( false );
+		expect( isAiAccessRequiredError( undefined ) ).toBe( false );
 	} );
 } );
 

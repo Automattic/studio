@@ -43,7 +43,7 @@ import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 // Runs against the app window's own contents rather than whatever has focus.
 async function withAppWebContents( run: ( contents: WebContents ) => void ) {
 	const window = await getMainWindow();
-	if ( window && ! window.webContents.isDestroyed() ) {
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		run( window.webContents );
 	}
 }
@@ -97,7 +97,11 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				// Only use sublabel on macOS where it displays nicely
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
-					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					await updateBetaFeature(
+						key as keyof BetaFeatures,
+						menuItem.checked,
+						key === 'enableAgenticUi' ? 'menu' : undefined
+					);
 					if ( key === 'remoteSession' ) {
 						bumpStat(
 							menuItem.checked
@@ -449,6 +453,13 @@ async function getAppMenu(
 					label: __( "What's New" ),
 					click: async () => {
 						void sendIpcEventToRenderer( 'show-whats-new' );
+					},
+					enabled: ! needsOnboarding,
+				},
+				{
+					label: __( 'Getting Started' ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-getting-started' );
 					},
 					enabled: ! needsOnboarding,
 				},

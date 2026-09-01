@@ -20,15 +20,16 @@ export const updatePreviewTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			async () => {
+			async ( logger ) => {
 				const site = await resolveSite( args.nameOrPath );
-				await runUpdatePreviewCommand( site.path, normalizedHost, args.overwrite ?? false );
+				await runUpdatePreviewCommand( site.path, normalizedHost, args.overwrite ?? false, logger );
 			},
 			`Preview site "${ normalizedHost }" updated from "${ args.nameOrPath }".`,
-			'Failed to update preview site'
+			'Failed to update preview site',
+			context.onProgress
 		);
 	}
 );

@@ -20,9 +20,10 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { runCommand } from '../delete';
+import { runCommand, runDeleteCommand } from '../delete';
 
 vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
@@ -54,11 +55,23 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
+// Run the command body directly: these suites cover the command, not the
+// operation guard (lib/tests/site-operations.test.ts does that). Spreading the real module keeps
+// any other export real rather than silently stubbing it.
+vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/site-operations') >() ),
+	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+	withSiteOperations: ( _ids: string[], _kind: string, fn: () => unknown ) => fn(),
+} ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( 'trash' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'CLI: studio site delete', () => {
 	const testSiteFolder = '/test/site/path';
@@ -110,9 +123,11 @@ describe( 'CLI: studio site delete', () => {
 	};
 
 	let testSite: SiteData;
+	const originalExitCode = process.exitCode;
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		process.exitCode = originalExitCode;
 
 		testSite = createTestSite();
 
@@ -143,6 +158,7 @@ describe( 'CLI: studio site delete', () => {
 	} );
 
 	afterEach( () => {
+		process.exitCode = originalExitCode;
 		vi.restoreAllMocks();
 	} );
 
@@ -160,7 +176,8 @@ describe( 'CLI: studio site delete', () => {
 			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Read failed' ) );
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should throw when site not found in appdata', async () => {
@@ -173,7 +190,8 @@ describe( 'CLI: studio site delete', () => {
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow(
 				'The specified directory is not added to Studio.'
 			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should throw when WordPress server stop fails', async () => {
@@ -390,6 +408,211 @@ describe( 'CLI: studio site delete', () => {
 			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
 			expect( deleteSiteCertificate ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files true when trashing files', async () => {
+			await runCommand( testSiteFolder, true );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: true } )
+			);
+		} );
+
+		it( 'records a site-delete Tracks event with delete_files false when keeping files', async () => {
+			await runCommand( testSiteFolder, false );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_DELETE,
+				expect.objectContaining( { delete_files: false } )
+			);
+		} );
+	} );
+
+	describe( 'Batch deletion', () => {
+		const createSites = ( count: number ): SiteData[] =>
+			Array.from( { length: count }, ( _, index ) =>
+				createTestSite( {
+					id: `site-${ index + 1 }`,
+					name: `Site ${ index + 1 }`,
+					path: `/test/site/${ index + 1 }`,
+					port: 8881 + index,
+				} )
+			);
+
+		const mockSites = ( sites: SiteData[] ) => {
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites,
+				snapshots: [],
+			} );
+		};
+
+		it( 'deletes nine sites with a single daemon session', async () => {
+			const sites = createSites( 9 );
+			mockSites( sites );
+
+			const result = await runDeleteCommand( {
+				identities: sites.map( ( site ) => site.path ),
+			} );
+
+			expect( connectToDaemon ).toHaveBeenCalledTimes( 1 );
+			expect( disconnectFromDaemon ).toHaveBeenCalledTimes( 1 );
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 9 );
+			expect( trash ).toHaveBeenCalledTimes( 9 );
+			expect( result.sites ).toHaveLength( 9 );
+			expect( result.sites.every( ( site ) => site.status === 'deleted' ) ).toBe( true );
+			expect( process.exitCode ).toBe( originalExitCode );
+		} );
+
+		it( 'resolves site IDs and paths in one invocation', async () => {
+			const sites = createSites( 2 );
+			mockSites( sites );
+
+			const result = await runDeleteCommand( {
+				identities: [ sites[ 0 ].id, sites[ 1 ].path ],
+			} );
+
+			expect( connectToDaemon ).toHaveBeenCalledTimes( 1 );
+			expect( result.sites.map( ( site ) => site.id ) ).toEqual( [ 'site-1', 'site-2' ] );
+			expect( result.sites.every( ( site ) => site.status === 'deleted' ) ).toBe( true );
+		} );
+
+		it( 'validates the full set before mutating and skips remaining sites', async () => {
+			const sites = createSites( 2 );
+			mockSites( sites );
+
+			const result = await runDeleteCommand( {
+				identities: [ sites[ 0 ].path, '/missing/site', sites[ 1 ].path ],
+			} );
+
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( trash ).not.toHaveBeenCalled();
+			expect( result.sites ).toEqual( [
+				expect.objectContaining( {
+					path: sites[ 0 ].path,
+					status: 'skipped',
+				} ),
+				expect.objectContaining( {
+					identity: '/missing/site',
+					status: 'failed',
+					error: 'The specified directory is not added to Studio.',
+				} ),
+				expect.objectContaining( {
+					path: sites[ 1 ].path,
+					status: 'skipped',
+				} ),
+			] );
+			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it( 'rejects duplicate identities before mutating', async () => {
+			mockSites( [ testSite ] );
+
+			const result = await runDeleteCommand( {
+				identities: [ testSite.path, testSite.id ],
+			} );
+
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( trash ).not.toHaveBeenCalled();
+			expect( result.sites.map( ( site ) => site.status ) ).toEqual( [ 'skipped', 'failed' ] );
+			expect( result.sites[ 1 ]?.error ).toBe( 'The same site was specified more than once.' );
+			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it( 'continues after a per-site mutation failure and keeps completed evidence', async () => {
+			const sites = createSites( 3 );
+			mockSites( sites );
+			vi.mocked( trash )
+				.mockResolvedValueOnce( undefined )
+				.mockRejectedValueOnce( new Error( 'File deletion failed' ) )
+				.mockResolvedValueOnce( undefined );
+
+			const result = await runDeleteCommand( {
+				identities: sites.map( ( site ) => site.path ),
+			} );
+
+			expect( connectToDaemon ).toHaveBeenCalledTimes( 1 );
+			expect( disconnectFromDaemon ).toHaveBeenCalledTimes( 1 );
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 3 );
+			expect( result.sites.map( ( site ) => site.status ) ).toEqual( [
+				'deleted',
+				'failed',
+				'deleted',
+			] );
+			expect( result.sites[ 1 ]?.error ).toBe( 'File deletion failed' );
+			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it( 'previews selected sites and file paths without starting the daemon', async () => {
+			const sites = [
+				createTestSite( {
+					id: 'site-1',
+					name: 'Site 1',
+					path: '/test/site/1',
+					technicalSiteDirectory: '/test/.studio/imports/1',
+				} ),
+				createTestSite( {
+					id: 'site-2',
+					name: 'Site 2',
+					path: '/test/site/2',
+				} ),
+			];
+			mockSites( sites );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation(
+				( filePath ) =>
+					filePath === '/test/site/1' ||
+					filePath === '/test/.studio/imports/1' ||
+					filePath === '/test/site/2'
+			);
+
+			const result = await runDeleteCommand( {
+				identities: sites.map( ( site ) => site.path ),
+				dryRun: true,
+				format: 'json',
+			} );
+
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( trash ).not.toHaveBeenCalled();
+			expect( result ).toEqual( {
+				dryRun: true,
+				deleteFiles: true,
+				sites: [
+					{
+						identity: '/test/site/1',
+						status: 'selected',
+						id: 'site-1',
+						name: 'Site 1',
+						path: '/test/site/1',
+						filePaths: [ '/test/site/1', '/test/.studio/imports/1' ],
+					},
+					{
+						identity: '/test/site/2',
+						status: 'selected',
+						id: 'site-2',
+						name: 'Site 2',
+						path: '/test/site/2',
+						filePaths: [ '/test/site/2' ],
+					},
+				],
+			} );
+		} );
+
+		it( 'emits machine-readable per-site outcomes', async () => {
+			const sites = createSites( 2 );
+			mockSites( sites );
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			const result = await runDeleteCommand( {
+				identities: sites.map( ( site ) => site.path ),
+				format: 'json',
+			} );
+
+			expect( result.sites.map( ( site ) => site.status ) ).toEqual( [ 'deleted', 'deleted' ] );
+			expect( consoleSpy ).toHaveBeenCalledWith( JSON.stringify( result ) );
+			consoleSpy.mockRestore();
 		} );
 	} );
 } );

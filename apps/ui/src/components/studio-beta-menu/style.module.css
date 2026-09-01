@@ -1,0 +1,69 @@
+/* Speech bubble anchored to the sidebar footer: brand fill, notch on the
+   bottom-left corner pointing at Settings. */
+.trigger {
+	--beta-bubble-bg: var(--wpds-color-bg-interactive-brand-strong);
+	--beta-bubble-border: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 35%, transparent);
+	/* Read by the global `button:focus:not(:focus-visible)` reset in index.css,
+	   which would otherwise repaint the bubble with WP UI's Button colors. */
+	--wp-ui-button-background-color: var(--beta-bubble-bg);
+	--wp-ui-button-border-color: var(--beta-bubble-border);
+
+	display: flex;
+	align-items: center;
+	width: max-content;
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	appearance: none;
+	background-color: var(--beta-bubble-bg);
+	border: var(--wpds-border-width-xs) solid var(--beta-bubble-border);
+	border-radius: 14px 14px 14px 4px;
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: 11px;
+	line-height: var(--wpds-typography-line-height-xs);
+	cursor: var(--wpds-cursor-control);
+	outline: none;
+	animation: beta-enter 160ms ease-out;
+}
+
+/* Darken toward the window chrome rather than toward the label. The sidebar
+   renders in a fixed dark theme scope, so `fg-content-neutral` is near-white
+   there and mixing it in would drop the label under the 4.5:1 contrast floor. */
+.trigger:hover {
+	--beta-bubble-bg: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-brand-strong) 88%,
+		var(--app-chrome-bg) 12%
+	);
+}
+
+/* Hold the resting fill while pressed or while the menu is open, including
+   under the global focus reset above, which paints `--beta-bubble-bg`. */
+.trigger:active,
+.trigger[data-popup-open] {
+	--beta-bubble-bg: var(--wpds-color-bg-interactive-brand-strong);
+}
+
+.trigger:focus-visible {
+	outline: var(--wpds-border-width-xs) solid var(--wpds-color-fg-content-neutral);
+	outline-offset: 2px;
+}
+
+.label {
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+@keyframes beta-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

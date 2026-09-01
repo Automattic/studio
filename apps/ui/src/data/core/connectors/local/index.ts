@@ -1,7 +1,9 @@
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -11,45 +13,33 @@ import type {
 	AiSessionSummary,
 	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	PullSiteProgress,
-	PushSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
-	SupportedEditor,
-	SupportedTerminal,
+	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { PushOutput } from '@studio/common/types/sync';
 
-// The in-app dark/light/system choice, persisted in the browser (there's no
-// Electron `nativeTheme` to mirror it) so it sticks across reloads.
-const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
-// Editor/terminal choices live in the browser too (no Electron user-settings
-// store); the server reads them back from each open request.
-const EDITOR_STORAGE_KEY = 'studio-local-editor';
-const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
-const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
-const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
 
-function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
-	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
-		? value
-		: undefined;
-}
+type ServerUserPreferences = Omit<
+	UserPreferences,
+	'studioCliInstalled' | 'studioCliExternallyManaged'
+>;
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -70,11 +60,8 @@ type PullProgressSseOutput = PullSiteProgress & {
 	siteId: string;
 	remoteSiteId: number;
 };
-type PushProgressSseOutput = PushSiteProgress & {
-	siteId: string;
-	remoteSiteId: number;
-};
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
@@ -83,7 +70,7 @@ type ServerEvent =
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
-	| { channel: 'sync-push'; payload: PushProgressSseOutput }
+	| { channel: 'sync-push'; payload: PushSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
@@ -108,7 +95,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
-	const pushProgressListeners = new Set< ( output: PushProgressSseOutput ) => void >();
+	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -128,8 +115,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
+			// Server errors carry a user-facing `{ error }` body — surface that
+			// message directly instead of the transport line.
+			let serverError: string | undefined;
+			try {
+				const payload: unknown = JSON.parse( text );
+				if ( payload && typeof payload === 'object' && 'error' in payload ) {
+					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+				}
+			} catch {
+				// Not JSON; fall through to the transport error.
+			}
 			throw new Error(
-				`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
+				serverError ??
+					`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
 			);
 		}
 		if ( response.status === 204 ) {
@@ -213,13 +212,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 	}
 
-	// Same correlation, for commands that report no URL (deleting a preview).
 	function awaitSnapshotCompletion( operationId: string ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const listener = ( output: SnapshotSseOutput ) => {
-				if ( output.operationId !== operationId ) {
-					return;
-				}
+				if ( output.operationId !== operationId ) return;
 				if ( output.kind === 'success' ) {
 					snapshotListeners.delete( listener );
 					resolve();
@@ -253,7 +249,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				} else if ( parsed.channel === 'sync-pull' ) {
 					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-push' ) {
-					pushProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
+					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -272,6 +268,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: true,
+			aiSettings: true,
+			studioLogs: false,
 			switchToClassicUi: false,
 		},
 
@@ -376,7 +374,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
+			lastSites = await api< SiteDetails[] >( '/sites' );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -390,6 +388,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getSiteStorageUsage( siteId, signal ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -468,7 +469,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		async updateSitesSortOrder( updates ) {
-			storeSiteOrder( updates );
+			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -551,6 +552,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
 		},
+		async getStudioAssistantTopUpPricing() {
+			// Proxied server-side for the same reason as the quota: the browser
+			// UI never holds the wpcom token.
+			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
+		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
 		},
@@ -608,26 +614,36 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, onProgress, options ) {
-			const listener = ( output: PushProgressSseOutput ) => {
-				if ( output.siteId === siteId ) {
-					onProgress?.( {
-						phase: output.phase,
-						...( output.progress === undefined ? {} : { progress: output.progress } ),
-					} );
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
+			const listener = ( output: PushSseOutput ) => {
+				if ( output.siteId === siteId && output.kind === 'phase' ) {
+					onPhase?.( output.phase, output.progress );
 				}
 			};
-			if ( onProgress ) {
-				pushProgressListeners.add( listener );
+			if ( onPhase ) {
+				pushOutputListeners.add( listener );
 			}
+			let result: { cancelled?: boolean } | undefined;
 			try {
-				await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
 					method: 'POST',
 					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
-				pushProgressListeners.delete( listener );
+				pushOutputListeners.delete( listener );
 			}
+			// The server reports a cancel instead of failing the request; turn it
+			// back into an error for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+
+		async cancelSync( siteId, remoteSiteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/sync/cancel`, {
+				method: 'POST',
+				body: JSON.stringify( { remoteSiteId } ),
+			} );
 		},
 		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
 			const listener = ( output: PullProgressSseOutput ) => {
@@ -635,19 +651,25 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					onProgress?.( {
 						message: output.message,
 						...( output.progress === undefined ? {} : { progress: output.progress } ),
+						// Drives the cancel gate — without it every pull looks cancellable.
+						...( output.action === undefined ? {} : { action: output.action } ),
 					} );
 				}
 			};
 			if ( onProgress ) {
 				pullProgressListeners.add( listener );
 			}
+			let result: { cancelled?: boolean } | undefined;
 			try {
-				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
 					method: 'POST',
 					body: JSON.stringify( { remoteSiteId, options } ),
 				} );
 			} finally {
 				pullProgressListeners.delete( listener );
+			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
 			}
 		},
 		async getLatestRewindId( remoteSiteId ) {
@@ -727,6 +749,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},
@@ -749,63 +777,23 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => placementListeners.delete( listener );
 		},
 
-		// User preferences are persisted in the browser; `locale` follows the app.
+		// Preferences come from the machine's own Studio config, the same files
+		// the desktop reads, so both front ends show one set of values.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
-			const colorScheme: ColorScheme =
-				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
-			const quitSitesBehavior = parseQuitSitesBehavior(
-				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
-			);
+			const preferences = await api< ServerUserPreferences >( '/user-preferences' );
 			return {
-				editor:
-					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
-				terminal:
-					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
-					null,
-				colorScheme,
-				quitSitesBehavior,
-				locale: undefined,
-				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
+				...preferences,
+				// This target is already running inside the CLI, not managing it.
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled:
-					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
 		async setUserPreferences( partial ) {
-			if ( partial.colorScheme ) {
-				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
-			}
-			if ( partial.editor !== undefined ) {
-				if ( partial.editor ) {
-					window.localStorage.setItem( EDITOR_STORAGE_KEY, partial.editor );
-				} else {
-					window.localStorage.removeItem( EDITOR_STORAGE_KEY );
-				}
-			}
-			if ( partial.terminal !== undefined ) {
-				if ( partial.terminal ) {
-					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
-				} else {
-					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
-				}
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				if ( partial.quitSitesBehavior ) {
-					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
-				} else {
-					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
-				}
-			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				window.localStorage.setItem(
-					AGENTIC_FEATURES_STORAGE_KEY,
-					String( partial.agenticFeaturesEnabled )
-				);
-			}
+			// JSON drops `undefined` keys, so a clear has to travel as null.
+			const patch = Object.fromEntries(
+				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+			);
+			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
 		// detection, server-side) so the preferences picker offers only what's there.
@@ -821,10 +809,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { content } = await api< { content: string } >( '/agent-instructions' );
 			return content;
 		},
-		async saveAgentInstructions( content: string ): Promise< void > {
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
 			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( { content } ),
+				body: JSON.stringify( { content, editSession: options.editSession } ),
+			} );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings' );
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
+			} );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
 			} );
 		},
 
@@ -839,29 +846,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
+		// The server resolves the preference; a 400 means none is configured and
+		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
-			const editor = window.localStorage.getItem( EDITOR_STORAGE_KEY );
-			if ( ! editor ) {
-				// Matches the desktop contract: callers route the user to Settings.
-				throw new Error( 'No preferred editor configured.' );
-			}
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
-				method: 'POST',
-				body: JSON.stringify( { editor } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},
 		async openSiteInTerminal( siteId ) {
-			const terminal = window.localStorage.getItem( TERMINAL_STORAGE_KEY ) ?? undefined;
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, {
-				method: 'POST',
-				body: JSON.stringify( { terminal } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
 		},
 
-		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
-		// local (browser) target has no Main-process choke point yet. See the design doc.
-		async trackEvent() {
-			// intentionally empty
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// The server attaches the origin and common props. Callers fire and forget, so a
+		// failure here must not become an unhandled rejection.
+		async trackEvent( eventName, props = {} ) {
+			await api< void >( '/analytics/event', {
+				method: 'POST',
+				body: JSON.stringify( { eventName, props } ),
+			} ).catch( () => undefined );
 		},
 
 		// External links work natively in the browser.
@@ -893,6 +900,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},
@@ -931,8 +941,32 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
+			return () => {};
+		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

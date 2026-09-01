@@ -143,7 +143,7 @@ describe( 'SiteToolbar', () => {
 	it( 'puts Publish in the toolbar itself rather than behind a menu', () => {
 		renderToolbar();
 
-		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.queryByText( 'No live site' ) ).not.toBeInTheDocument();
 	} );
 
@@ -151,7 +151,7 @@ describe( 'SiteToolbar', () => {
 		vi.mocked( useConnectedWpcomSites ).mockReturnValue( { data: [ liveSite() ] } as never );
 		renderToolbar();
 
-		expect( screen.getByRole( 'button', { name: 'Sync' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Sync…' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps the action in place while a push is uploading, and fills it', () => {
@@ -164,7 +164,7 @@ describe( 'SiteToolbar', () => {
 		} );
 		renderToolbar();
 
-		const sync = screen.getByRole( 'button', { name: 'Sync' } );
+		const sync = screen.getByRole( 'button', { name: 'Sync…' } );
 		expect( sync ).toBeVisible();
 		expect( sync.querySelector( '[style*="62%"]' ) ).not.toBeNull();
 	} );
@@ -189,7 +189,7 @@ describe( 'SiteToolbar', () => {
 			const user = userEvent.setup();
 			renderToolbar();
 
-			await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Sync…' } ) );
 			await user.click( await screen.findByRole( 'button', { name: /riff/ } ) );
 
 			// Each entry leads with its URL, and carries its kind and staleness
@@ -210,7 +210,7 @@ describe( 'SiteToolbar', () => {
 		const user = userEvent.setup();
 		renderToolbar();
 
-		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Sync…' } ) );
 		// The direction starts on Push, so the only "Pull" is the segment; once
 		// switched, the footer's run button reads "Pull" too and is the last.
 		await user.click( await screen.findByRole( 'button', { name: 'Pull' } ) );
@@ -231,7 +231,7 @@ describe( 'SiteToolbar', () => {
 		const user = userEvent.setup();
 		renderToolbar();
 
-		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Sync…' } ) );
 		// The direction segment and the footer's run button both read "Push".
 		const pushButtons = await screen.findAllByRole( 'button', { name: 'Push' } );
 		await user.click( pushButtons[ pushButtons.length - 1 ] );
@@ -249,7 +249,7 @@ describe( 'SiteToolbar', () => {
 		const user = userEvent.setup();
 		renderToolbar();
 
-		await user.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Sync…' } ) );
 		await user.click( await screen.findByRole( 'checkbox', { name: 'Files and folders' } ) );
 		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
 		await user.click( pushButtons[ pushButtons.length - 1 ] );
@@ -270,7 +270,7 @@ describe( 'SiteToolbar', () => {
 		renderToolbar();
 
 		// The failure is a toast; the header just offers the move again.
-		expect( screen.getByRole( 'button', { name: 'Sync' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Sync…' } ) ).toBeEnabled();
 		expect( screen.queryByText( 'Push failed' ) ).not.toBeInTheDocument();
 	} );
 } );

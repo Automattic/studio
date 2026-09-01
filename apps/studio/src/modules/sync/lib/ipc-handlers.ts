@@ -12,17 +12,13 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
-import {
-	PullSyncOptions,
-	PushSiteProgress,
-	PushSyncOptions,
-	SyncSite,
-} from '@studio/common/types/sync';
+import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
@@ -45,6 +41,8 @@ import { SyncOption } from 'src/types';
  * Key format: `${selectedSiteId}-${remoteSiteId}`
  */
 const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+
+type SyncOperationResult = { cancelled: boolean };
 
 /**
  * Registry to store TUS upload instances and their pause state for ongoing uploads.
@@ -207,6 +205,8 @@ export async function exportSiteForPush(
 			specificSelectionPaths: configuration?.specificSelectionPaths,
 			applyDeployIgnore: true,
 			abortSignal: abortController.signal,
+			// `studio_site_exported` means a user-initiated backup export — sync pushes are not counted.
+			suppressTracksEvent: true,
 		} );
 
 		if ( abortController.signal.aborted ) {
@@ -536,24 +536,47 @@ export async function pullSiteFromLive(
 	siteId: string,
 	remoteSiteId: number,
 	options?: PullSyncOptions
-): Promise< void > {
+): Promise< SyncOperationResult > {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite(
-		executeCliCommand,
-		site.details.path,
-		remoteSiteId,
-		( progress ) => {
-			sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
-				siteId,
-				...progress,
-			} );
-		},
-		options
-	);
+	// Registered under the same key the legacy renderer uses, so `cancelSyncOperation`
+	// stops an agentic pull too.
+	const operationId = `${ siteId }-${ remoteSiteId }`;
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+	try {
+		await pullSite(
+			executeCliCommand,
+			site.details.path,
+			remoteSiteId,
+			( progress ) => {
+				sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+					siteId,
+					...progress,
+				} );
+			},
+			options,
+			abortController.signal
+		);
+		return { cancelled: false };
+	} catch ( error ) {
+		// A user cancel is an intentional stop, not a failure. Rejecting here would
+		// make Electron log it as a handler error in the very log we point users at
+		// when a pull fails, so report it as a result instead — the renderer turns it
+		// back into a cancelled operation. Same reasoning as `downloadSyncBackup`.
+		if ( isSyncCancelledError( error ) ) {
+			console.log( `[Sync] Pull cancelled by user for operation: ${ operationId }` );
+			return { cancelled: true };
+		}
+		throw error;
+	} finally {
+		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
+			SYNC_ABORT_CONTROLLERS.delete( operationId );
+		}
+	}
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
@@ -566,7 +589,7 @@ export async function pushSiteToLive(
 	selectedSiteId: string,
 	remoteSiteId: number,
 	options?: PushSyncOptions
-): Promise< void > {
+): Promise< SyncOperationResult > {
 	const site = SiteServer.get( selectedSiteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -575,46 +598,57 @@ export async function pushSiteToLive(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	// The upload percentage is the only number a push produces, so it's carried
-	// forward across pause/resume rather than resetting the phase to zero.
-	let uploadProgress: number | undefined;
-	const emitPushProgress = ( progress: PushSiteProgress ) => {
-		void sendIpcEventToRenderer( 'sync-push-progress', { siteId: selectedSiteId, ...progress } );
-	};
-
-	await pushSite(
-		{
-			executeCliCommand,
-			accessToken: token.accessToken,
-			emit: ( output ) => {
-				if ( output.kind === 'phase' ) {
-					emitPushProgress( { phase: output.phase, progress: uploadProgress } );
-				} else if ( output.kind === 'upload-progress' ) {
-					uploadProgress = output.progress;
-					emitPushProgress( { phase: 'uploading', progress: output.progress } );
-					void sendIpcEventToRenderer( 'sync-upload-progress', {
-						selectedSiteId,
-						remoteSiteId,
-						progress: output.progress,
-					} );
-				} else if ( output.kind === 'network-paused' ) {
-					emitPushProgress( { phase: 'paused', progress: uploadProgress } );
-					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
-						selectedSiteId,
-						remoteSiteId,
-						error: output.error,
-					} );
-				} else if ( output.kind === 'resumed' ) {
-					emitPushProgress( { phase: 'uploading', progress: uploadProgress } );
-					void sendIpcEventToRenderer( 'sync-upload-resumed', {
-						selectedSiteId,
-						remoteSiteId,
-					} );
-				}
+	const operationId = `${ selectedSiteId }-${ remoteSiteId }`;
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+	try {
+		await pushSite(
+			{
+				executeCliCommand,
+				accessToken: token.accessToken,
+				emit: ( output ) => {
+					if ( output.kind === 'phase' ) {
+						void sendIpcEventToRenderer( 'sync-push-phase', {
+							selectedSiteId,
+							remoteSiteId,
+							phase: output.phase,
+							progress: output.progress,
+						} );
+					} else if ( output.kind === 'upload-progress' ) {
+						void sendIpcEventToRenderer( 'sync-upload-progress', {
+							selectedSiteId,
+							remoteSiteId,
+							progress: output.progress,
+						} );
+					} else if ( output.kind === 'network-paused' ) {
+						void sendIpcEventToRenderer( 'sync-upload-network-paused', {
+							selectedSiteId,
+							remoteSiteId,
+							error: output.error,
+						} );
+					} else if ( output.kind === 'resumed' ) {
+						void sendIpcEventToRenderer( 'sync-upload-resumed', {
+							selectedSiteId,
+							remoteSiteId,
+						} );
+					}
+				},
 			},
-		},
-		{ sitePath: site.details.path, remoteSiteId, options }
-	);
+			{ sitePath: site.details.path, remoteSiteId, options, signal: abortController.signal }
+		);
+		return { cancelled: false };
+	} catch ( error ) {
+		// See `pullSiteFromLive` — a cancel is reported, not thrown.
+		if ( isSyncCancelledError( error ) ) {
+			console.log( `[Sync] Push cancelled by user for operation: ${ operationId }` );
+			return { cancelled: true };
+		}
+		throw error;
+	} finally {
+		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
+			SYNC_ABORT_CONTROLLERS.delete( operationId );
+		}
+	}
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.
@@ -641,8 +675,10 @@ export async function getConnectedWpcomSites(
 
 /**
  * Latest rewind (backup) id for a remote site — used by the agentic UI's
- * selective pull to browse the remote backup file tree. Returns `null` when
- * the site has no backup yet.
+ * selective pull to browse the remote backup file tree. Rejects when the site
+ * has no backup yet (or the lookup fails), like the classic renderer's query:
+ * the dialog relies on the error state to disable per-item selection and
+ * force a full sync.
  */
 export async function getLatestRewindId(
 	_event: IpcMainInvokeEvent,
@@ -652,11 +688,7 @@ export async function getLatestRewindId(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	try {
-		return await fetchLatestRewindId( token.accessToken, remoteSiteId );
-	} catch {
-		return null;
-	}
+	return fetchLatestRewindId( token.accessToken, remoteSiteId );
 }
 
 /**

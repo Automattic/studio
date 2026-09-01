@@ -14,6 +14,7 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
@@ -52,7 +53,7 @@ function editorElements( installedApps: InstalledApps | undefined ) {
 	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
 		( editor ) => ( {
 			value: editor,
-			label: supportedEditorConfig[ editor ].label,
+			label: supportedEditorConfig[ editor ].label(),
 		} )
 	);
 }
@@ -62,7 +63,7 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 		( terminal ) => ! installedApps || installedApps[ terminal ]
 	).map( ( terminal ) => ( {
 		value: terminal,
-		label: terminalConfig[ terminal ].name,
+		label: terminalConfig[ terminal ].name(),
 	} ) );
 }
 
@@ -95,13 +96,31 @@ function SettingsHeader() {
 	// clearing: at the header's start edge in LTR, at its end edge (next to
 	// the close button) in RTL.
 	const trafficLightSpace = useTrafficLightSpace();
+	// Windows/Linux put the native window controls in the header's end corner,
+	// so the close button swaps to the start — the same move the classic UI
+	// makes in its fullscreen modal. Mutually exclusive with the traffic
+	// lights, which only ever appear on macOS.
+	const closeAtStart = useWindowControlsOverlay() !== null;
 	const onClose = useSettingsClose();
+	const closeButton = onClose ? (
+		<IconButton
+			className={ styles.headerClose }
+			variant="minimal"
+			tone="neutral"
+			size="default"
+			icon={ close }
+			label={ __( 'Close settings' ) }
+			onClick={ onClose }
+		/>
+	) : null;
 	return (
 		<div className={ styles.header }>
 			{ trafficLightSpace.start ? (
 				<div className={ styles.headerStart }>
 					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
+			) : closeAtStart && closeButton ? (
+				<div className={ clsx( styles.headerStart, styles.headerStartClose ) }>{ closeButton }</div>
 			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
@@ -113,16 +132,9 @@ function SettingsHeader() {
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
-			{ onClose ? (
+			{ closeButton && ! closeAtStart ? (
 				<div className={ styles.headerEnd }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ close }
-						label={ __( 'Close settings' ) }
-						onClick={ onClose }
-					/>
+					{ closeButton }
 					{ trafficLightSpace.end ? (
 						<span className={ styles.toggleSpacer } aria-hidden="true" />
 					) : null }
@@ -329,10 +341,14 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>
-				<PreferenceRow title={ __( 'Usage statistics' ) }>
+				<PreferenceRow
+					title={ __( 'Usage statistics' ) }
+					description={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+				>
 					<CheckboxControl
 						__nextHasNoMarginBottom
-						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						label=""
+						aria-label={ __( 'Usage statistics' ) }
 						checked={ data.analyticsEnabled }
 						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
 					/>

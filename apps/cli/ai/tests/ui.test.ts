@@ -1,10 +1,19 @@
-import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
+import { Container } from '@earendil-works/pi-tui';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	ADD_AI_CREDITS_URL,
+	fetchStudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
+
+initTheme();
 
 const ANSI_PATTERN = new RegExp( String.fromCharCode( 27 ) + '\\[[0-9;]*m', 'g' );
 
@@ -35,6 +44,23 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => {
 vi.mock( 'cli/lib/browser', () => ( {
 	openBrowser: vi.fn(),
 } ) );
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/shared-config') >();
+	return {
+		...actual,
+		readAuthToken: vi.fn(),
+	};
+} );
+
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => {
+	const actual =
+		await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >();
+	return {
+		...actual,
+		fetchStudioAssistantQuota: vi.fn(),
+	};
+} );
 
 vi.mock( 'cli/lib/site-utils', () => ( {
 	isSiteRunning: vi.fn(),
@@ -202,7 +228,7 @@ describe( 'AiChatUI interrupt handling', () => {
 		ui.editor = editor;
 		ui.interruptCallback = null;
 		ui._inAgentTurn = false;
-		ui.activeExpandablePreview = null;
+		ui.hasExpandableOutput = false;
 		ui.queuedPrompts = [];
 
 		ui.updateHints();
@@ -280,25 +306,81 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
 
-	it( 'renders each tool result directly under its matching tool row', () => {
+	// STU-2236: distinct copy — no "try again later"/reset-date framing, and no
+	// reset-date fetch, because only buying credits clears this state.
+	it( 'surfaces the out-of-credits message when an assistant error carries the 402 marker', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const hideLoader = vi.fn();
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = hideLoader;
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.showUsageCapResetDate = vi.fn( async () => undefined );
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = { setText: vi.fn() };
+		ui.currentResponseText = 'previous content';
+		ui.usageCapReached = false;
+
+		ui.handleEvent(
+			buildAssistantMessageEnd( {
+				stopReason: 'error',
+				errorMessage:
+					'402 {"code":"studio_out_of_credits","message":"studio_out_of_credits: You\'ve used your free monthly AI allowance and have no credits left. Buy credits in WordPress Studio to continue.","data":{"status":402}}',
+			} )
+		);
+
+		expect( hideLoader ).toHaveBeenCalled();
+		expect( showError ).toHaveBeenCalledWith(
+			expect.stringContaining( 'You’re out of AI credits' )
+		);
+		expect( showError ).not.toHaveBeenCalledWith(
+			expect.stringContaining( 'monthly AI usage limit' )
+		);
+		expect( showInfo ).toHaveBeenCalledWith(
+			'Add credits at the link below, then come back to continue using Studio Code:'
+		);
+		// The terminal has nothing for checkout to return to, so the URL it
+		// prints carries no return parameters.
+		expect( showInfo ).toHaveBeenCalledWith( ADD_AI_CREDITS_URL );
+		expect( ADD_AI_CREDITS_URL ).not.toContain( 'studioReturnTo' );
+		expect( ui.showUsageCapResetDate ).not.toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( true );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+	} );
+
+	const makeRenderUi = ( nowMs = 0 ) => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const messages = new Container();
+		Object.assign( ui, {
+			messages,
+			tui: { requestRender: vi.fn() },
+			pendingToolCalls: new Map(),
+			renderedToolResultIds: new Set(),
+			currentMarkdown: null,
+			currentResponseText: '',
+			currentProvider: 'anthropic-api-key',
+			replayMode: true,
+			loaderVisible: false,
+			autoSelectSiteFromToolResult: vi.fn(),
+			nowMs: () => nowMs,
+			toolOutputExpanded: false,
+			updateHints: vi.fn(),
+			fallbackProgressText: null,
+		} );
+		return { ui, messages };
+	};
 
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 0;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
+	it( 'renders each tool result directly under its matching tool row', () => {
+		const { ui, messages } = makeRenderUi();
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -365,24 +447,7 @@ describe( 'AiChatUI.handleEvent', () => {
 	} );
 
 	it( 'renders concise summaries for API, Bash, and Read tool output', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleEvent: ( e: unknown ) => unknown;
-			[ key: string ]: unknown;
-		};
-		const messages = new Container();
-
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 0;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
+		const { ui, messages } = makeRenderUi();
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -442,37 +507,23 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).toContain( 'WordPress.com API GET /posts' );
 		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
 		expect( joined ).toContain( 'Full API response hidden' );
-		expect( joined ).toContain( 'Run npm test' );
-		expect( joined ).toContain( 'Command completed: 2 tests passed' );
-		expect( joined ).toContain( 'Command output hidden' );
-		expect( joined ).toContain( 'Read theme/style.css' );
-		expect( joined ).toContain( 'Read 2 lines' );
-		expect( joined ).toContain( 'File contents hidden' );
+		expect( joined ).toContain( '$ npm test' );
+		expect( joined ).toContain( '2 tests passed' );
+		expect( joined ).toContain( 'style.css' );
 		expect( joined ).not.toContain( '"posts"' );
 		expect( joined ).not.toContain( '.wp-site-blocks' );
 	} );
 
-	it( 'attaches live progress to the active tool row before the final result', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleEvent: ( e: unknown ) => unknown;
-			setLoaderMessage: ( message: string, update?: boolean ) => void;
-			[ key: string ]: unknown;
-		};
-		const messages = new Container();
+	const progressEvent = ( toolCallId: string, message: string, update?: boolean ) => ( {
+		type: 'tool_execution_update',
+		toolCallId,
+		toolName: 'site_create',
+		args: {},
+		partialResult: { content: [], details: { studioProgress: { message, update } } },
+	} );
 
-		ui.messages = messages;
-		ui.tui = { requestRender: vi.fn() };
-		ui.pendingToolCalls = new Map();
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.currentProvider = 'anthropic-api-key';
-		ui.replayMode = true;
-		ui.loaderVisible = false;
-		ui.autoSelectSiteFromToolResult = vi.fn();
-		ui.nowMs = () => 6500;
-		ui.activeExpandablePreview = null;
-		ui.updateHints = vi.fn();
-		ui.fallbackProgressText = null;
+	it( 'attaches live progress to the matching tool row before the final result', () => {
+		const { ui, messages } = makeRenderUi( 6500 );
 
 		ui.handleEvent( {
 			type: 'message_end',
@@ -489,11 +540,11 @@ describe( 'AiChatUI.handleEvent', () => {
 			},
 		} );
 
-		ui.setLoaderMessage( 'Validating site configuration…' );
-		ui.setLoaderMessage( 'Site configuration validated' );
-		ui.setLoaderMessage( 'Starting WordPress server…' );
-		ui.setLoaderMessage( 'Starting WordPress server…' );
-		ui.setLoaderMessage( 'WordPress server started' );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Validating site configuration…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Site configuration validated' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Starting WordPress server…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'Starting WordPress server…' ) );
+		ui.handleEvent( progressEvent( 'toolu_create', 'WordPress server started' ) );
 
 		ui.handleEvent( {
 			type: 'turn_end',
@@ -533,6 +584,184 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( renderedText ).toContain( 'Full site details hidden' );
 		expect( renderedText ).not.toContain( '"name": "Auran"' );
 		expect( renderedText.match( /Starting WordPress server/g ) ).toHaveLength( 1 );
+	} );
+
+	it( 'routes interleaved progress from parallel tool calls to their own rows', () => {
+		const { ui, messages } = makeRenderUi( 1000 );
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{
+						type: 'toolCall',
+						id: 'toolu_one',
+						name: 'site_create',
+						arguments: { name: 'Alpha' },
+					},
+					{
+						type: 'toolCall',
+						id: 'toolu_two',
+						name: 'site_create',
+						arguments: { name: 'Beta' },
+					},
+				],
+			},
+		} );
+
+		ui.handleEvent( progressEvent( 'toolu_one', 'Validating Alpha…' ) );
+		ui.handleEvent( progressEvent( 'toolu_two', 'Validating Beta…' ) );
+		ui.handleEvent( progressEvent( 'toolu_one', 'Alpha server started' ) );
+		ui.handleEvent( progressEvent( 'toolu_two', 'Beta server started' ) );
+
+		const renderedText = renderedContainerText( messages );
+		const alphaRow = renderedText.indexOf( 'Create site Alpha' );
+		const alphaProgress = renderedText.indexOf( 'Validating Alpha…' );
+		const alphaDone = renderedText.indexOf( 'Alpha server started' );
+		const betaRow = renderedText.indexOf( 'Create site Beta' );
+		const betaProgress = renderedText.indexOf( 'Validating Beta…' );
+		const betaDone = renderedText.indexOf( 'Beta server started' );
+
+		expect( alphaRow ).toBeGreaterThanOrEqual( 0 );
+		expect( alphaProgress ).toBeGreaterThan( alphaRow );
+		expect( alphaDone ).toBeGreaterThan( alphaProgress );
+		expect( betaRow ).toBeGreaterThan( alphaDone );
+		expect( betaProgress ).toBeGreaterThan( betaRow );
+		expect( betaDone ).toBeGreaterThan( betaProgress );
+	} );
+
+	it( 'collapses long progress to the last lines and expands on toggle', () => {
+		const { ui, messages } = makeRenderUi();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [ { type: 'toolCall', id: 'toolu_start', name: 'site_start', arguments: {} } ],
+			},
+		} );
+		for ( let i = 1; i <= 6; i++ ) {
+			ui.handleEvent( progressEvent( 'toolu_start', `step ${ i }` ) );
+		}
+
+		const collapsed = renderedContainerText( messages );
+		expect( collapsed ).toContain( 'step 6' );
+		expect( collapsed ).toContain( 'step 3' );
+		expect( collapsed ).not.toContain( 'step 2' );
+		expect( collapsed ).toContain( 'earlier lines' );
+
+		for ( const child of messages.children ) {
+			if ( child instanceof ToolExecutionComponent ) {
+				child.setExpanded( true );
+			}
+		}
+		const expanded = renderedContainerText( messages );
+		expect( expanded ).toContain( 'step 1' );
+		expect( expanded ).not.toContain( 'earlier lines' );
+	} );
+
+	it( 'renders a result at tool_execution_end without duplicating it at turn_end', () => {
+		const { ui, messages } = makeRenderUi( 1000 );
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'toolCall', id: 'toolu_bash', name: 'Bash', arguments: { command: 'ls' } },
+				],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'tool_execution_end',
+			toolCallId: 'toolu_bash',
+			toolName: 'Bash',
+			result: { content: [ { type: 'text', text: 'file-a.txt' } ] },
+			isError: false,
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_bash',
+					isError: false,
+					content: [ { type: 'text', text: 'file-a.txt' } ],
+				},
+			],
+		} );
+
+		const renderedText = renderedContainerText( messages );
+		expect( renderedText.match( /file-a\.txt/g ) ).toHaveLength( 1 );
+	} );
+
+	it( 'shows the tail of long Bash output and expands every block on toggle', () => {
+		const { ui, messages } = makeRenderUi();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'toolCall', id: 'toolu_bash', name: 'Bash', arguments: { command: 'npm test' } },
+					{
+						type: 'toolCall',
+						id: 'toolu_skill',
+						name: 'Skill',
+						arguments: { name: 'visual-design' },
+					},
+				],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_bash',
+					isError: false,
+					content: [
+						{ type: 'text', text: 'line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7' },
+					],
+				},
+				{
+					toolCallId: 'toolu_skill',
+					isError: false,
+					content: [ { type: 'text', text: '# Visual Design\n\nPick a clear direction.' } ],
+				},
+			],
+		} );
+
+		const collapsed = renderedContainerText( messages );
+		expect( collapsed ).toContain( 'earlier lines' );
+		expect( collapsed ).toContain( 'line 7' );
+		expect( collapsed ).not.toContain( 'line 1' );
+		expect( collapsed ).toContain( 'Full skill body hidden' );
+
+		for ( const child of messages.children ) {
+			if ( child instanceof ToolExecutionComponent ) {
+				child.setExpanded( true );
+			}
+		}
+
+		const expanded = renderedContainerText( messages );
+		expect( expanded ).toContain( 'line 1' );
+		expect( expanded ).not.toContain( 'earlier lines' );
+		expect( expanded ).toContain( 'Pick a clear direction.' );
+	} );
+
+	it( 'fully strips rendered HTML tags that recombine after a single pass', () => {
+		const rendered = toolResultRenderers.wpcom_request(
+			{
+				input: { method: 'GET', path: '/sites/1/posts/1' },
+				text: JSON.stringify( {
+					title: { rendered: '<scr<script>ipt>alert(1)</scr</script>ipt>' },
+				} ),
+				isError: false,
+			},
+			false
+		);
+
+		expect( stripAnsi( rendered ?? '' ) ).not.toContain( '<' );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {
@@ -657,83 +886,109 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( false );
 	} );
-} );
 
-describe( 'AiChatUI.renderToolResultImages', () => {
-	// 1x1 transparent PNG.
-	const TINY_PNG =
-		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-	function createUiStub() {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			renderToolResultImages: ( result: unknown, target: Container ) => void;
-			[ key: string ]: unknown;
-		};
-		ui.tui = { requestRender: vi.fn() };
-		return ui;
-	}
-
-	afterEach( () => {
-		resetCapabilitiesCache();
-	} );
-
-	it( 'renders image blocks inline when the terminal supports an image protocol', () => {
-		setCapabilities( { images: 'iterm2', trueColor: true, hyperlinks: true } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
-			target
-		);
-
-		expect( target.render( 120 ).join( '\n' ) ).toContain( '1337;File=' );
-	} );
-
-	it( 'renders nothing when the terminal has no image protocol', () => {
-		setCapabilities( { images: null, trueColor: false, hyperlinks: false } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
-			target
-		);
-
-		expect( target.render( 120 ) ).toHaveLength( 0 );
-	} );
-
-	it( 'skips non-PNG images on kitty-protocol terminals', () => {
-		setCapabilities( { images: 'kitty', trueColor: true, hyperlinks: true } );
-		const ui = createUiStub();
-		const target = new Container();
-
-		ui.renderToolResultImages(
-			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/jpeg' } ] },
-			target
-		);
-
-		expect( target.render( 120 ) ).toHaveLength( 0 );
-	} );
-} );
-
-describe( 'AiChatUI.getToolResultContent', () => {
-	it( 'strips legacy media widget payload lines from replayed tool results', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			getToolResultContent: ( result: unknown ) => {
-				content: Array< { type: string; text?: string } >;
-			};
-		};
-
-		const result = ui.getToolResultContent( {
-			content: [
+	it( 'strips legacy media widget payload lines from tool results', () => {
+		const { ui, messages } = makeRenderUi();
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [ { type: 'toolCall', id: 'toolu_shot', name: 'take_screenshot', arguments: {} } ],
+			},
+		} );
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
 				{
-					type: 'text',
-					text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+					toolCallId: 'toolu_shot',
+					isError: false,
+					content: [
+						{
+							type: 'text',
+							text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+						},
+					],
 				},
 			],
 		} );
 
-		expect( result.content[ 0 ].text ).toBe( 'Screenshot captured — desktop.' );
+		const joined = renderedContainerText( messages );
+		expect( joined ).toContain( 'Screenshot captured' );
+		expect( joined ).not.toContain( 'mediaWidgetPayload' );
+	} );
+} );
+
+describe( 'AiChatUI.showTurnStats', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	const quota = ( overrides: Record< string, unknown > = {} ) =>
+		( {
+			costUsage: 5,
+			costCap: 100,
+			emailVerified: true,
+			hasPaymentMethod: true,
+			...overrides,
+		} ) as never;
+
+	function makeStatsUi( overrides: Record< string, unknown > = {} ) {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			showTurnStats: ( stats: string ) => void;
+			[ key: string ]: unknown;
+		};
+		const messages = new Container();
+		Object.assign( ui, {
+			messages,
+			tui: { requestRender: vi.fn() },
+			currentProvider: 'wpcom',
+			replayMode: false,
+			...overrides,
+		} );
+		return { ui, messages };
+	}
+
+	it( 'appends the remaining AI credit balance to the stats line', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue(
+			quota( { allowanceRemaining: 100000, purchasedRemaining: 10000 } )
+		);
+		const { ui, messages } = makeStatsUi();
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+		const formatted = new Intl.NumberFormat().format( 110000 );
+		await vi.waitFor( () => {
+			expect( renderedContainerText( messages ) ).toContain(
+				`Thought for 5s · 1 turn · ${ formatted } credits left`
+			);
+		} );
+	} );
+
+	it( 'does not fetch the quota on the Anthropic API key provider', async () => {
+		const { ui, messages } = makeStatsUi( { currentProvider: 'anthropic-api-key' } );
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+		await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+		expect( readAuthToken ).not.toHaveBeenCalled();
+		expect( fetchStudioAssistantQuota ).not.toHaveBeenCalled();
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+	} );
+
+	it( 'keeps the bare stats line when the quota has no credit pools', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( quota() );
+		const { ui, messages } = makeStatsUi();
+
+		ui.showTurnStats( 'Thought for 5s · 1 turn' );
+		await vi.waitFor( () => {
+			expect( fetchStudioAssistantQuota ).toHaveBeenCalled();
+		} );
+		await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+		expect( renderedContainerText( messages ) ).toContain( 'Thought for 5s · 1 turn' );
+		expect( renderedContainerText( messages ) ).not.toContain( 'credits left' );
 	} );
 } );

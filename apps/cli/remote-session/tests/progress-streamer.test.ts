@@ -102,9 +102,19 @@ describe( 'ProgressStreamer', () => {
 		expect( params.messageId ).toBeUndefined();
 	} );
 
-	it( 'forwards `progress` events too', async () => {
+	it( 'forwards tool progress updates', async () => {
 		const { streamer, respond } = makeStreamer();
-		streamer.onEvent( { type: 'progress', timestamp: 't', message: 'Downloading' } );
+		streamer.onEvent( {
+			type: 'message',
+			timestamp: 't',
+			message: {
+				type: 'tool_execution_update',
+				toolCallId: 'toolu_1',
+				toolName: 'site_create',
+				args: {},
+				partialResult: { content: [], details: { studioProgress: { message: 'Downloading' } } },
+			},
+		} as never );
 		await flushPromises();
 		expect( respond ).toHaveBeenCalledTimes( 1 );
 		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe( '⏳ _Downloading_' );

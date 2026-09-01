@@ -1,4 +1,8 @@
 import {
+	persistSelectedAiProvider,
+	readSelectedAiProvider,
+} from '@studio/common/ai/settings-store';
+import {
 	AI_PROVIDER_PRIORITY,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
@@ -6,7 +10,6 @@ import {
 	type AiProviderId,
 	type ResolveAiEnvironmentOptions,
 } from 'cli/ai/providers';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
 async function getPreferredReadyProvider(
 	exclude?: AiProviderId
@@ -55,7 +58,7 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 		return 'wpcom';
 	}
 
-	const { aiProvider: savedProvider } = await readCliConfig();
+	const savedProvider = await readSelectedAiProvider();
 	if ( savedProvider ) {
 		const definition = getAiProviderDefinition( savedProvider );
 		if (
@@ -79,7 +82,7 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 }
 
 export async function saveSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await updateCliConfigWithPartial( { aiProvider: provider } );
+	await persistSelectedAiProvider( provider );
 }
 
 export async function prepareAiProvider(

@@ -39,26 +39,17 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
-import { preserveUnselectedLocalContent } from 'cli/lib/pull/preserve-local-content';
 import {
-	fetchReprintPullTree,
+	getCoreRoots,
+	getReprintMetadata,
+	emptyReprintMetadata,
+	type ReprintMetadata,
+} from 'cli/lib/pull/reprint-metadata';
+import {
+	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
-	resolveOnlyPathsToAbsolute,
-	selectedSymlinksFor,
 	selectPullItems,
-	type SelectedSymlink,
 } from 'cli/lib/pull/reprint-selector';
-import {
-	getAbspathFromState,
-	getContentDirFromState,
-	getCoreRootsFromState,
-	hasLocalFilesIndex,
-	getTablePrefixFromState,
-	hasSkippedFiles,
-	markSkippedFilesPending,
-	resetEssentialFilesState,
-	setSqliteRuntimeTarget,
-} from 'cli/lib/pull/reprint-state';
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
@@ -96,17 +87,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					array: true,
 					describe: __(
-						'Restrict the pull to specific wp-content folders (e.g. plugins/akismet, themes, uploads); repeatable.'
+						'Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.'
 					),
 				} )
 				.option( 'skip-database', {
 					type: 'boolean',
 					describe: __( 'Do not pull the database (keeps the local one)' ),
-					default: false,
-				} )
-				.option( 'skip-uploads', {
-					type: 'boolean',
-					describe: __( 'Do not pull the media library (uploads)' ),
 					default: false,
 				} )
 				.option( 'verbose', {
@@ -122,7 +108,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.url, verbose, {
 					only: argv.only as string[] | undefined,
 					skipDatabase: argv[ 'skip-database' ] as boolean,
-					skipUploads: argv[ 'skip-uploads' ] as boolean,
 				} );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -144,16 +129,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 };
 
 /**
- * Where Studio stores the raw filesystem scratch space for each pulled
+ * Where Studio stores the working directories for each pulled
  * site — reprint's `.import-state.json`, the preflight cache, and the
  * raw/runtime working dirs.  Each site's pull lives in a subdirectory
  * keyed by its `siteId` (see {@link getPullTechnicalDirectory}); there is
- * no Studio-owned progress file. `studio delete` removes this scratch.
+ * no Studio-owned progress file. `studio delete` removes all of it.
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
 /**
- * The on-disk scratch layout for a site's pull, all derived from the
+ * The on-disk layout for a site's pull, all derived from the
  * site's identity (`siteId`) and layout (`SiteData`).  There is no
  * Studio-owned progress file: "where do I continue from?" is computed
  * from observable state (reprint's own `.import-state.json` cursor,
@@ -178,22 +163,13 @@ interface PullSession {
  */
 interface PullSelection {
 	skipDatabase?: boolean;
-	skipUploads?: boolean;
 	fileOnlyPaths?: string[];
-	/**
-	 * Selected entries that are symlinks on the remote. A scoped listing
-	 * follows the link (its files arrive under the target path) but never
-	 * lists the `--only` root itself, so the link is recreated after the
-	 * file pull.
-	 */
-	symlinkPaths?: SelectedSymlink[];
 }
 
-/** Raw selective-sync CLI flags (`--only`, `--skip-database`, `--skip-uploads`). */
+/** Raw selective-sync CLI flags (`--only`, `--skip-database`). */
 interface CliSelectionOptions {
 	only?: string[];
 	skipDatabase?: boolean;
-	skipUploads?: boolean;
 }
 
 /**
@@ -201,7 +177,7 @@ interface CliSelectionOptions {
  * from observable state: it is user input, and a resumed pull must reuse
  * the exact same choice (reprint refuses to resume a files-pull whose
  * `--only` set changed mid-flight). It lives in a small sidecar file in
- * the scratch directory — written when chosen, deleted when the pull
+ * the state directory — written when chosen, deleted when the pull
  * completes so the next pull asks again. It is NOT a progress cursor.
  */
 const SELECTION_FILE = 'selection.json';
@@ -254,15 +230,14 @@ class PullError extends LoggerError {
  * Orchestrates a single end-to-end pull with Reprint.phar. Pipeline:
  *
  *   resolveSourceSite (remote source only) →
- *   getPullSession (scratch layout from siteId) →
+ *   getPullSession (pull layout from siteId) →
  *   runPreflight →
  *   saveReprintOrigin (durable origin onto SiteData) →
  *   runFullPull (pull-files → pull-db (unless the database is
  *     excluded) → flat-docroot → apply-runtime) →
  *   linkPulledRuntimeToSite (wire the generated runtime onto the
  *     existing site record) →
- *   startWordPressServer →
- *   downloadSkippedFiles.
+ *   startWordPressServer.
  *
  * The local site is resolved by `--path` against an existing
  * `SiteData` record (created via `studio create`); this command never
@@ -270,9 +245,8 @@ class PullError extends LoggerError {
  * the site is marked `status: 'pulling'` up front and every phase is
  * idempotent, so a crash (or `Ctrl-C`) just leaves the site `pulling`
  * and re-running resumes by derivation — reprint resumes its own
- * pipeline from `.import-state.json`, the server-start phase keys off
- * whether the process is already running, and the skipped-files phase
- * keys off `hasSkippedFiles`.  A pull that errors or is killed lands the
+ * pipeline from Reprint's own state, and the server-start phase keys off
+ * whether the process is already running. A pull that errors or is killed lands the
  * site in `status: 'pull-failed'`; success returns it to `status:
  * 'ready'`.  Teardown is owned entirely by `studio delete`; this command
  * has no abort/rollback verb.
@@ -331,7 +305,7 @@ export async function runCommand(
 	}
 
 	// Create the `~/.studio/pulls/<siteId>` directory structure for the
-	// pull session scratch space.
+	// pull session.
 	fs.mkdirSync( studioMetadata.rawDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.stateDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.runtimeDirectory, { recursive: true } );
@@ -370,19 +344,26 @@ export async function runCommand(
 			secret,
 			verbose
 		);
+		const reprintMetadata = await getReprintMetadata( {
+			apiUrl,
+			stateDirectory: studioMetadata.stateDirectory,
+			rawDirectory: studioMetadata.rawDirectory,
+			runtime: SITE_RUNTIME_NATIVE_PHP,
+			verbose,
+		} );
 		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
 		// interactively with the wp-content folder tree + database toggle.
-		// A partial first-pull selection gets the core roots added and the
-		// unselected local content preserved. A resumed pull reuses the
+		// A partial first-pull selection gets the core roots added; the
+		// flatten step keeps whatever the pull left out. A resumed pull reuses the
 		// persisted choice without re-prompting. Runs before the site is
 		// marked `pulling` so a cancel is a clean no-op.
 		const selection = await applySelection( {
 			session: studioMetadata,
-			isFirstPull: ! site.importComplete || ! hasLocalFilesIndex( studioMetadata.stateDirectory ),
+			isFirstPull: ! site.importComplete || ! reprintMetadata.hasLocalIndex,
+			reprintMetadata,
 			cli: cliSelection,
-			apiUrl,
-			secret,
-			verbose,
+			wpComAccessToken: sourceSite.wpComToken.accessToken,
+			wpComSiteId: sourceSite.wpComSite.id,
 		} );
 		if ( ! selection ) {
 			console.log( __( 'Cancelled.' ) );
@@ -422,7 +403,8 @@ export async function runCommand(
 			secret,
 			verbose,
 			! isRepull,
-			selection
+			selection,
+			reprintMetadata
 		);
 
 		// The site record already exists (created via `studio create`) and its
@@ -460,9 +442,13 @@ export async function runCommand(
 			}
 			runtimeStartOptions = nativeStartOptions;
 		} else {
-			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
+			await ensureImportedSiteSqliteReady(
+				studioMetadata.runtimeBlueprintPath,
+				reprintMetadata.sourceSite.contentDirectory
+			);
 			runtimeStartOptions = await loadImportedRuntimeStartOptions(
-				studioMetadata.runtimeBlueprintPath
+				studioMetadata.runtimeBlueprintPath,
+				reprintMetadata.sourceSite.extraDirectories
 			);
 		}
 
@@ -532,21 +518,6 @@ export async function runCommand(
 			printSiteUrls( studioMetadata.localUrl );
 		}
 
-		// Fetch the wp-content entries the essential-files pass skipped, if
-		// any remain — unless the user excluded the media library. Keyed off
-		// observable state (`hasSkippedFiles`), not a stage cursor, so it
-		// runs exactly when there's a tail outstanding.
-		if ( ! selection.skipUploads && hasSkippedFiles( studioMetadata.stateDirectory ) ) {
-			await downloadSkippedFiles(
-				getSiteRuntime( site ),
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose,
-				selection
-			);
-		}
-
 		// The pull is done: drop the selection sidecar so the next pull asks
 		// again instead of silently reusing this run's choice.
 		clearPullSelection( studioMetadata );
@@ -605,19 +576,19 @@ export async function runCommand(
  * export roots, and on a **first pull** the raw fs-root has no WordPress
  * core yet — so any partial first-pull selection gets the
  * preflight-detected core roots prepended. The unselected wp-content
- * folders (and a skipped database) keep their local contents: they are
- * carried into the scratch before flattening (see
- * preserve-local-content.ts).
+ * folders (and a skipped database) keep their local contents: the
+ * flatten step adopts whatever the pull did not bring into the fs-root
+ * before it replaces the site's wp-content with a symlink.
  */
 async function applySelection( params: {
 	session: PullSession;
 	isFirstPull: boolean;
+	reprintMetadata: ReprintMetadata;
 	cli: CliSelectionOptions;
-	apiUrl: string;
-	secret: string;
-	verbose: boolean;
+	wpComAccessToken: string;
+	wpComSiteId: number;
 } ): Promise< PullSelection | null > {
-	const { session, isFirstPull, cli, apiUrl, secret, verbose } = params;
+	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
 
 	// A partial first-pull `--only` set must include the core roots. When
 	// preflight did not expose them, fall back to a full file pull rather
@@ -627,7 +598,7 @@ async function applySelection( params: {
 		if ( ! isFirstPull || ( fileOnlyPaths.length === 0 && ! databaseOnly ) ) {
 			return fileOnlyPaths;
 		}
-		const coreRoots = getCoreRootsFromState( session.stateDirectory );
+		const coreRoots = getCoreRoots( reprintMetadata );
 		if ( coreRoots.length === 0 ) {
 			console.log(
 				__(
@@ -643,7 +614,7 @@ async function applySelection( params: {
 	};
 
 	// Reuse the selection captured by a prior interrupted run. A folder
-	// selection can outlive the scratch that made it a delta (damage wipe):
+	// selection can outlive the fs-root that made it a delta (damage wipe):
 	// re-anchor it with the core roots so the fresh initial sync still
 	// downloads WordPress core.
 	const persisted = readPullSelection( session );
@@ -664,15 +635,14 @@ async function applySelection( params: {
 		if ( ! selection.skipDatabase ) {
 			return;
 		}
-		const contentDir = getContentDirFromState( session.stateDirectory ) ?? '';
+		const contentDir = reprintMetadata.sourceSite.contentDirectory;
+		const rawContentPath = contentDir
+			? path.join( session.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
+			: path.join( session.rawDirectory, 'wp-content' );
 		const candidates = [
 			path.join( session.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
-			path.join(
-				session.rawDirectory,
-				...contentDir.split( '/' ).filter( Boolean ),
-				'database',
-				'.ht.sqlite'
-			),
+			path.join( rawContentPath, 'database', '.ht.sqlite' ),
+			path.join( session.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
 		];
 		if ( ! candidates.some( ( candidate ) => fs.existsSync( candidate ) ) ) {
 			throw new LoggerError(
@@ -684,15 +654,14 @@ async function applySelection( params: {
 	};
 
 	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
-	const cliDriven = cliOnly.length > 0 || cli.skipDatabase || cli.skipUploads;
+	const cliDriven = cliOnly.length > 0 || cli.skipDatabase;
 
 	if ( cliDriven ) {
 		const selection: PullSelection = {
 			skipDatabase: !! cli.skipDatabase,
-			skipUploads: !! cli.skipUploads,
 		};
 		if ( cliOnly.length > 0 ) {
-			const contentDir = getContentDirFromState( session.stateDirectory );
+			const contentDir = reprintMetadata.sourceSite.contentDirectory;
 			if ( ! contentDir ) {
 				throw new LoggerError(
 					__(
@@ -700,30 +669,7 @@ async function applySelection( params: {
 					)
 				);
 			}
-			const mapped = mapCliOnlyToReprint( cliOnly, contentDir );
-			// Selected entries that are symlinks on the remote need their
-			// links recreated after the scoped pull; the remote index is the
-			// only place that knows which ones those are.
-			const { linkTargets } = await fetchReprintPullTree( {
-				stateDirectory: session.stateDirectory,
-				rawDirectory: session.rawDirectory,
-				apiUrl,
-				secret,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-				verbose,
-			} );
-			const contentRoot = contentDir.replace( /\/+$/, '' );
-			const symlinkPaths = selectedSymlinksFor(
-				resolveOnlyPathsToAbsolute( mapped, contentDir )
-					.filter( ( absolute ) => absolute.startsWith( `${ contentRoot }/` ) )
-					.map( ( absolute ) => absolute.slice( contentRoot.length + 1 ) ),
-				contentDir,
-				linkTargets
-			);
-			if ( symlinkPaths.length > 0 ) {
-				selection.symlinkPaths = symlinkPaths;
-			}
-			const withCore = withCoreRootsOnFirstPull( mapped );
+			const withCore = withCoreRootsOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
 			if ( withCore.length > 0 ) {
 				selection.fileOnlyPaths = withCore;
 			}
@@ -744,22 +690,22 @@ async function applySelection( params: {
 	// The wp-content folder tree + database toggle. On a first pull a
 	// database-only choice is meaningful (core + local files + remote
 	// database); on a delta it is rejected inside selectPullItems.
-	const { tree, contentDir, linkTargets } = await fetchReprintPullTree( {
-		stateDirectory: session.stateDirectory,
-		rawDirectory: session.rawDirectory,
-		apiUrl,
-		secret,
-		runtime: SITE_RUNTIME_NATIVE_PHP,
-		verbose,
-	} );
-	if ( tree.length === 0 || ! contentDir ) {
+	const contentDir = reprintMetadata.sourceSite.contentDirectory;
+	if ( ! contentDir ) {
 		const selection: PullSelection = {};
 		savePullSelection( session, selection );
 		return selection;
 	}
-	const picked = await selectPullItems( tree, contentDir, {
+	const tree = await fetchJetpackPullTree( wpComAccessToken, wpComSiteId );
+	if ( tree.length === 0 ) {
+		const selection: PullSelection = {};
+		savePullSelection( session, selection );
+		return selection;
+	}
+	const picked = await selectPullItems( tree, {
 		allowDatabaseOnly: isFirstPull,
-		linkTargets,
+		token: wpComAccessToken,
+		remoteSiteId: wpComSiteId,
 	} );
 	if ( ! picked ) {
 		return null;
@@ -767,13 +713,9 @@ async function applySelection( params: {
 	const fileOnlyPaths = withCoreRootsOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
 	const selection: PullSelection = {
 		skipDatabase: picked.skipDatabase,
-		skipUploads: picked.skipUploads,
 	};
 	if ( fileOnlyPaths.length > 0 ) {
 		selection.fileOnlyPaths = fileOnlyPaths;
-	}
-	if ( picked.symlinkPaths.length > 0 ) {
-		selection.symlinkPaths = picked.symlinkPaths;
 	}
 	assertLocalDatabaseAvailable( selection );
 	savePullSelection( session, selection );
@@ -879,7 +821,7 @@ async function runPreflight(
 }
 
 /**
- * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
+ * The `~/.studio/pulls/<siteId>` root for a site's pull. Keyed
  * by `siteId` (not a URL hash) so it follows the site, not the remote.
  */
 function getPullTechnicalDirectory( siteId: string ): string {
@@ -891,7 +833,7 @@ function getPullTechnicalDirectory( siteId: string ): string {
  * non-empty after a `--only`-scoped pull.
  *
  * WordPress resolves symlinks, so a pulled site boots through the raw
- * scratch: wp-load looks for wp-config.php in the raw ABSPATH, then in
+ * fs-root: wp-load looks for wp-config.php in the raw ABSPATH, then in
  * its parent. On WP Cloud the parent copy is a symlink to
  * `<document_root>/wp-config.php`, which sits outside every `--only`
  * prefix of a scoped pull — the link is recreated but its target is
@@ -900,8 +842,11 @@ function getPullTechnicalDirectory( siteId: string ): string {
  * generated runtime prepend defines the database constants, so only the
  * table prefix and the wp-settings handoff are needed.
  */
-export function ensureScopedPullWpConfig( metadata: PullSession ): void {
-	const abspath = getAbspathFromState( metadata.stateDirectory );
+export function ensureScopedPullWpConfig(
+	metadata: PullSession,
+	reprintMetadata: ReprintMetadata = emptyReprintMetadata
+): void {
+	const abspath = reprintMetadata.sourceSite.wordpressAbsolutePath;
 	if ( ! abspath ) {
 		return;
 	}
@@ -925,7 +870,7 @@ export function ensureScopedPullWpConfig( metadata: PullSession ): void {
 		}
 	}
 
-	const tablePrefix = getTablePrefixFromState( metadata.stateDirectory ) ?? 'wp_';
+	const tablePrefix = reprintMetadata.sourceSite.tablePrefix ?? 'wp_';
 	// Escape for a PHP single-quoted string: backslashes first, then single
 	// quotes (both are the only special characters there).
 	const escapedTablePrefix = tablePrefix.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -951,60 +896,37 @@ export function ensureScopedPullWpConfig( metadata: PullSession ): void {
 }
 
 /**
- * Recreate the selected symlinks in the raw scratch after a scoped file
- * pull, mirroring how reprint recreates links it finds in listings:
- * relative, so the whole scratch stays relocatable. Idempotent — an
- * existing entry is left alone.
- */
-export function restoreSelectedSymlinks(
-	metadata: PullSession,
-	symlinkPaths: SelectedSymlink[]
-): void {
-	for ( const { path: linkPath, target } of symlinkPaths ) {
-		const rawLink = path.join( metadata.rawDirectory, ...linkPath.split( '/' ).filter( Boolean ) );
-		try {
-			fs.lstatSync( rawLink );
-			continue;
-		} catch {
-			// Missing — recreate it.
-		}
-		const rawTarget = path.join( metadata.rawDirectory, ...target.split( '/' ).filter( Boolean ) );
-		fs.mkdirSync( path.dirname( rawLink ), { recursive: true } );
-		fs.symlinkSync( path.relative( path.dirname( rawLink ), rawTarget ), rawLink );
-	}
-}
-
-/**
  * Run the site-clone pipeline as separate reprint commands so the
  * selective-sync choice maps directly onto them:
  *
- *   1. `pull-files`    — preflight + file download. `--only` restricts the
- *      pull to the wp-content folders the user selected.
- *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
- *      entirely** when the user excluded the database, leaving the local
- *      database untouched.
- *   3. `flat-docroot`  — reassemble the raw download into the site
- *      directory. `--force` is passed only on the first pull, where it
- *      overwrites the blank WordPress install `studio create` produced;
- *      a delta re-pull refreshes existing symlinks and must not
- *      force-overwrite the live site.
- *   4. `apply-runtime` — server config, run last so it embeds the DB
- *      credentials `pull-db` wrote to state (or keeps the previous ones
- *      when the database was skipped).
+ *   1. `pull-files`    — file download, restricted by `--only`.
+ *   2. `pull-db`       — SQL download and import. Skipped entirely when
+ *      the user excluded the database, leaving the local one untouched.
+ *   3. `merge-wp-content` — move the wp-content entries the blank install
+ *      alone has into the fs-root, before step 4 deletes them. First pull
+ *      only: afterwards the site's wp-content is a symlink into the
+ *      fs-root, so there is nothing left of its own to move.
+ *   4. `flat-docroot`  — reassemble the fs-root into the site directory.
+ *      `--force` only on a first pull, where it replaces the blank
+ *      install. A delta re-pull passes it no flag, so it can never
+ *      overwrite a live site.
+ *   5. `apply-runtime` — server config, last so it embeds the database
+ *      credentials `pull-db` wrote to state.
  *
  * The SQLite target geometry:
  *   - If preflight exposed the remote `wp-content` (contentDir set),
  *     the database lands under `rawDirectory + contentDir`, an
  *     already-mounted host path that flat-docroot later symlinks into
  *     the flattened site.
- *   - Otherwise it falls back to `sitePath/wp-content`.
+ *   - Without that preflight path, a database pull uses
+ *     `rawDirectory/wp-content`; a database-excluded pull keeps the
+ *     existing database at `sitePath/wp-content`.
  *
- * The flattened site and runtime output directories are mounted up
- * front so the forks can write them onto the host filesystem. Each
- * command is individually resumable (exit code 2 → retry loop in
- * {@link runReprintCommandUntilComplete}) and idempotent, so the
- * orchestrator always re-invokes the sequence with no Studio-side
- * completion guard.
+ * The site and runtime output directories are mounted up front so the
+ * forks can write them onto the host filesystem. Every command is
+ * resumable (exit code 2 → retry loop in
+ * {@link runReprintCommandUntilComplete}) and idempotent, so this always
+ * re-invokes the whole sequence with no Studio-side completion guard.
  */
 export async function runFullPull(
 	runtime: SiteRuntime,
@@ -1012,18 +934,36 @@ export async function runFullPull(
 	apiUrl: string,
 	secret: string,
 	verbose: boolean,
-	force: boolean,
-	selection: PullSelection = {}
+	isFirstPull: boolean,
+	selection: PullSelection = {},
+	reprintMetadata: ReprintMetadata = emptyReprintMetadata
 ): Promise< void > {
-	const contentDir = getContentDirFromState( metadata.stateDirectory );
-	const sqlitePath = contentDir
-		? path.join(
-				metadata.rawDirectory,
-				...contentDir.split( '/' ).filter( Boolean ),
-				'database',
-				'.ht.sqlite'
-		  )
-		: path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const contentDir = reprintMetadata.sourceSite.contentDirectory;
+	let importedSqlitePath: string;
+	if ( contentDir ) {
+		importedSqlitePath = path.join(
+			metadata.rawDirectory,
+			...contentDir.split( '/' ).filter( Boolean ),
+			'database',
+			'.ht.sqlite'
+		);
+	} else if ( selection.skipDatabase ) {
+		importedSqlitePath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	} else {
+		importedSqlitePath = path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
+	}
+
+	let sqlitePath = importedSqlitePath;
+	if ( selection.skipDatabase ) {
+		const existingSqlitePath = [
+			importedSqlitePath,
+			path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
+			path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+		].find( ( candidate ) => fs.existsSync( candidate ) );
+		if ( existingSqlitePath ) {
+			sqlitePath = existingSqlitePath;
+		}
+	}
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
@@ -1044,43 +984,21 @@ export async function runFullPull(
 			}
 		);
 
-	// A non-empty raw fs-root without a local files index is a damaged or
-	// partially-written scratch: reprint refuses an initial sync into it
-	// ("Target directory is not empty and no cursor found"), and its
-	// preserve-local escape hatch silently skips every file behind a stale
-	// blocker entry. The raw directory is Studio-owned scratch, so clear it
-	// and start a clean initial sync instead (preflight state and the
-	// persisted selection survive the reset — applySelection re-anchors a
-	// folder selection with the core roots for the fresh initial sync).
-	const rawEntries = fs.existsSync( metadata.rawDirectory )
-		? fs.readdirSync( metadata.rawDirectory )
-		: [];
-	if ( rawEntries.length > 0 && ! hasLocalFilesIndex( metadata.stateDirectory ) ) {
-		fs.rmSync( metadata.rawDirectory, { recursive: true, force: true } );
-		fs.mkdirSync( metadata.rawDirectory, { recursive: true } );
-		resetEssentialFilesState( metadata.stateDirectory );
-	}
-
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	// 1. Files. `--only` restricts the download to the selected wp-content
-	// folders; essential-files defers the media library to the post-start
-	// skipped-earlier pass.
+	// 1. Files. `--only` restricts the download to selected paths.
 	await runStep( __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
 		`--secret=${ secret }`,
-		'--filter=essential-files',
 		...onlyArgs,
+		'--mode=mirror',
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 2. Database — only when selected. Skipping it keeps the local
-	// database, but apply-runtime generates the SQLite runtime section
-	// only from the target that db-apply persists — record it explicitly,
-	// pointing at the kept database.
+	// 2. Database — only when selected.
 	if ( ! selection.skipDatabase ) {
 		await runStep( __( 'Pulling database' ), [
 			'pull-db',
@@ -1093,22 +1011,6 @@ export async function runFullPull(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
-	} else {
-		setSqliteRuntimeTarget( metadata.stateDirectory, sqlitePath );
-	}
-
-	// 3. Carry the unselected local wp-content entries (and a kept
-	// database) into the scratch before flattening replaces the site's
-	// wp-content with a symlink into it. No-op once the site is flattened.
-	if ( contentDir ) {
-		preserveUnselectedLocalContent( {
-			sitePath: metadata.sitePath,
-			rawDirectory: metadata.rawDirectory,
-			contentDir,
-			selectedPrefixes: resolveOnlyPathsToAbsolute( selection.fileOnlyPaths ?? [], contentDir ),
-			skipDatabase: selection.skipDatabase,
-			skipUploads: selection.skipUploads,
-		} );
 	}
 
 	// A scoped pull can miss the real wp-config.php: on WP Cloud it lives
@@ -1116,97 +1018,50 @@ export async function runFullPull(
 	// wp-content selection — reachable only through a symlink under the
 	// core root. Synthesize a minimal one so WordPress can boot.
 	if ( ( selection.fileOnlyPaths ?? [] ).length > 0 ) {
-		ensureScopedPullWpConfig( metadata );
+		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
 
-	// Recreate the selected entries that are symlinks on the remote (wp.com
-	// serves each plugin as a symlink into a shared store): the scoped pull
-	// downloaded their targets but never the links themselves.
-	restoreSelectedSymlinks( metadata, selection.symlinkPaths ?? [] );
+	// 3. Fold the blank install's wp-content into the pulled one. The plugins,
+	// themes and uploads it alone has move into the fs-root, so the symlink
+	// step 4 puts in their place still reaches them. Reprint refuses to run
+	// this before the file pull has finished, so it has to follow step 1.
+	if ( isFirstPull ) {
+		await runStep( __( 'Merging local content' ), [
+			'merge-wp-content',
+			apiUrl,
+			`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+		] );
+	}
 
-	// 4. Flatten the raw download into the site directory. `-` is the URL
-	// placeholder for local commands.
+	// 4. Flatten the raw download into the site directory. Reprint uses the
+	// remote URL to locate the pull state, though this step makes no request.
 	await runStep( __( 'Flattening layout' ), [
 		'flat-docroot',
-		'-',
+		apiUrl,
 		`--flatten-to=${ metadata.sitePath }`,
-		...( force ? [ '--force' ] : [] ),
+		...( isFirstPull ? [ '--force' ] : [] ),
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 5. Runtime config — last, so it reads the DB credentials pull-db wrote
-	// to state. apply-runtime takes no URL positional, and
-	// --flat-document-root replaces --fs-root (they are mutually exclusive).
+	// 5. Runtime config — last. Supply the database target explicitly so
+	// Reprint can generate runtime configuration when pull-db was skipped.
+	// Reprint uses the remote URL to locate that state; --flat-document-root
+	// replaces --fs-root (they are mutually exclusive).
 	await runStep( __( 'Preparing runtime' ), [
 		'apply-runtime',
+		apiUrl,
 		`--runtime=${ reprintRuntime }`,
+		'--target-engine=sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
 		`--output-dir=${ metadata.runtimeDirectory }`,
 		`--flat-document-root=${ metadata.sitePath }`,
 		`--state-dir=${ metadata.stateDirectory }`,
 	] );
 
 	logger.reportSuccess( __( 'Site pulled' ) );
-}
-
-/**
- * Second-phase file sync: fetch the wp-content entries that the
- * essential-files pass deliberately skipped (unused plugins/themes,
- * large caches).  Runs after the site is already up so the user can
- * poke around while the tail downloads in the background.
- *
- * When reprint is already mid-way through a skipped-earlier run
- * (status=partial, stage=fetch-skipped), the state file already
- * encodes the resumption point — overwriting it would break reprint's
- * internal validation, so we leave the state alone in that case.
- */
-export async function downloadSkippedFiles(
-	runtime: SiteRuntime,
-	metadata: PullSession,
-	apiUrl: string,
-	secret: string,
-	verbose: boolean,
-	selection: PullSelection = {}
-): Promise< void > {
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
-
-	// Studio's split pipeline runs pull-db between pull-files and this
-	// tail, and pull-db's prepare_repull() resets the skipped_pending flag
-	// the tail's recovery keys on; restore it (see markSkippedFilesPending).
-	markSkippedFilesPending( metadata.stateDirectory );
-
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'files-sync',
-			apiUrl,
-			`--secret=${ secret }`,
-			// Required both to start the tail from a completed essential-files
-			// pull and to match the persisted filter when resuming into an
-			// in-progress fetch-skipped run.
-			'--filter=skipped-earlier',
-			// Carry the same `--only` set as pull-files: files-pull refuses to
-			// resume against the shared state dir with a different `--only`
-			// (its index is a union keyed by a fingerprint of the prefixes).
-			...( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
-			// Per-batch ceiling — one sub-process yields after 30 s and the
-			// client reconnects to continue.  Not a total-time budget; a slow
-			// or high-latency sync just makes more round-trips.  Kept well
-			// under common proxy/LB idle timeouts (~60 s).
-			'--max-exec=30',
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-		],
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: __( 'Remaining files' ),
-			verboseCommands: verbose,
-			runtime,
-		}
-	);
-	logger.reportSuccess( __( 'Remaining files downloaded' ) );
 }
 
 export function normalizeSiteUrl( url: string ): string {
@@ -1366,9 +1221,9 @@ export async function resolveSourceSite(
 }
 
 /**
- * Derives the on-disk scratch layout for refreshing an existing Studio
+ * Derives the on-disk layout for refreshing an existing Studio
  * `site`. Pure: identity and layout come entirely from the
- * {@link SiteData} record (the scratch directory is keyed by `site.id`)
+ * {@link SiteData} record (the pull directory is keyed by `site.id`)
  * — nothing is read from or written to disk. Resume state is computed
  * later from observable state, not from a stored cursor.
  */

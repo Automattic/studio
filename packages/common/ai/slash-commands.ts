@@ -5,7 +5,7 @@ export interface SkillSlashCommand {
 	description: string;
 }
 
-export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
+export const getAiSkillCommands = (): SkillSlashCommand[] => [
 	{ name: 'annotate', description: __( 'Annotate site elements visually in a browser' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
@@ -16,6 +16,59 @@ export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
 	},
 ];
 
+export interface SlashCommandMatches {
+	open: boolean;
+	matches: SkillSlashCommand[];
+}
+
+/**
+ * Decides whether the slash-command popup is open and which commands match.
+ * Opens when the draft ends with a `/` token at the start or after whitespace
+ * (`path/to` doesn't trigger it); the text after the `/` is matched as a
+ * case-insensitive substring of command names and descriptions.
+ */
+export function getSlashCommandMatches(
+	value: string,
+	previewPrompt: string | null | undefined
+): SlashCommandMatches {
+	if ( previewPrompt ) {
+		return { open: false, matches: [] };
+	}
+	const match = /(?:^|\s)\/([\w-]*)$/.exec( value );
+	if ( ! match ) {
+		return { open: false, matches: [] };
+	}
+	const query = match[ 1 ].toLowerCase();
+	const matches = getAiSkillCommands().filter(
+		( command ) =>
+			command.name.toLowerCase().includes( query ) ||
+			command.description.toLowerCase().includes( query )
+	);
+	if ( matches.length === 0 ) {
+		return { open: false, matches: [] };
+	}
+	return { open: true, matches };
+}
+
 export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
+}
+
+// Which predefined skill a prompt invokes, or `undefined`. Handles both shapes that reach the agent:
+// the bare `/rank-me-up` and the sentence it expands into. Only catalog names are returned —
+// callers report this to analytics.
+export function resolveSkillFromPrompt( prompt: string ): string | undefined {
+	const trimmed = prompt.trim();
+	const name = trimmed.startsWith( '/' )
+		? trimmed.slice( 1 )
+		: getAiSkillCommands().find( ( cmd ) => buildSkillInvocationPrompt( cmd.name ) === trimmed )
+				?.name;
+	return getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.name;
+}
+
+// Expand a bare skill prompt (e.g. `/rank-me-up`) into the instruction the
+// agent acts on, matching the CLI's interactive main loop.
+export function expandSkillCommandPrompt( prompt: string ): string {
+	const name = resolveSkillFromPrompt( prompt );
+	return name ? buildSkillInvocationPrompt( name ) : prompt;
 }

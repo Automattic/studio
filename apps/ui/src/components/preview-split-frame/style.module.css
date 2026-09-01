@@ -5,10 +5,15 @@
 	   plain. */
 	--panel-frame-gap: 12px;
 	--panel-frame-radius: 10px;
+	/* Windows/Linux paint the native window controls in the window's top-right
+	   corner and give no way to move them, so the chrome gap above the frame
+	   doubles as their strip and grows to fit. Overridden inline with the
+	   measured overlay height; stays --panel-frame-gap everywhere else. */
+	--panel-frame-gap-top: var(--panel-frame-gap);
 
 	box-sizing: border-box;
-	height: calc(100% - 2 * var(--panel-frame-gap));
-	margin-block: var(--panel-frame-gap);
+	height: calc(100% - var(--panel-frame-gap-top) - var(--panel-frame-gap));
+	margin-block: var(--panel-frame-gap-top) var(--panel-frame-gap);
 	margin-inline: 0 var(--panel-frame-gap);
 	min-height: 0;
 	position: relative;

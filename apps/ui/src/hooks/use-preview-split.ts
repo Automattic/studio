@@ -26,6 +26,7 @@ interface PreviewSplitHandleProps {
 
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
+	containerWidth: number | null;
 	// The value for the --preview-frame-content-width CSS var: a px width once
 	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
 	// space before the first measurement.
@@ -205,6 +206,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 
 	return {
 		rootRef,
+		containerWidth,
 		contentWidthVar,
 		isResizing: isDragging,
 		handleProps: {

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.7';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -36,6 +36,9 @@ const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 		'libraries/classes/Dbal/DbiMysqli.php',
 		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
 	],
+] );
+const PHPMYADMIN_ADDITIONAL_FILES = new Map< string, string >( [
+	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
 ] );
 
 const partialGithubReleaseSchema = z.object( {
@@ -131,14 +134,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
-			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
-			if ( ! asset ) {
-				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
-			}
-			return asset.browser_download_url;
-		},
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.4/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];
@@ -216,6 +212,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
 				await fs.writeFile( destFile, patchData );
 			}
+		}
+		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_ADDITIONAL_FILES ) {
+			await fs.copy( sourcePath, path.join( extractedPath, relativePath ), { overwrite: true } );
 		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );

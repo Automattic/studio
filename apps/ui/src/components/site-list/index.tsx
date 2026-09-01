@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
@@ -8,31 +9,36 @@ import { settings } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
+	createContext,
+	Fragment,
+	useContext,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
+	type Dispatch,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	type ReactElement,
 	type ReactNode,
+	type SetStateAction,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
-import { deriveSiteRunStatus, SiteStatusButton } from '@/components/site-status-button';
+import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
+	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOperation,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -40,6 +46,11 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import {
+	useSiteManagementActions,
+	type SiteManagementAction,
+	type SiteManagementActionId,
+} from '@/hooks/use-site-management-actions';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -50,9 +61,41 @@ type SiteRow = {
 	sessionIds: string[];
 };
 
-type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
+type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
+
+type SeenSessionTimestamps = {
+	initialized: boolean;
+	timestamps: Record< string, number >;
+};
+
+type SeenSessionTimestampsState = [
+	SeenSessionTimestamps,
+	Dispatch< SetStateAction< SeenSessionTimestamps > >,
+];
+
+const EMPTY_SEEN_SESSION_TIMESTAMPS: SeenSessionTimestamps = {
+	initialized: false,
+	timestamps: {},
+};
+
+const SeenSessionTimestampsContext = createContext< SeenSessionTimestampsState | null >( null );
+
+/**
+ * Shares the "which session updates has the user already seen" bookkeeping
+ * between SiteList instances — the expanded sidebar and the collapsed-sidebar
+ * switcher popover. Without it, each instance seeds its own state on mount,
+ * marking every site as seen and hiding the other's unread indicators.
+ */
+export function SeenSessionTimestampsProvider( { children }: { children: ReactNode } ) {
+	const state = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
+	return (
+		<SeenSessionTimestampsContext.Provider value={ state }>
+			{ children }
+		</SeenSessionTimestampsContext.Provider>
+	);
+}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -112,6 +155,7 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
 	const newMessageLabel = __( 'New message' );
 	const syncLabel = __( 'Syncing live site' );
+	const importLabel = __( 'Importing backup' );
 
 	return (
 		<span
@@ -142,8 +186,11 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 					className={ styles.siteAgentActivityMessage }
 				/>
 			) : null }
-			{ renderedActivity === 'sync' ? (
-				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+			{ renderedActivity === 'sync' || renderedActivity === 'import' ? (
+				<SiteAgentActivityTooltip
+					label={ renderedActivity === 'import' ? importLabel : syncLabel }
+					className={ styles.siteAgentActivitySync }
+				>
 					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
 						<span className={ styles.siteAgentActivitySyncDot } />
 						<span className={ styles.siteAgentActivitySyncDot } />
@@ -202,8 +249,19 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
-function SiteOverviewButton( { site }: { site: SiteDetails } ) {
+function SiteOverviewButton( {
+	site,
+	isOverviewActive,
+	onBackToChat,
+	onSiteOpen,
+}: {
+	site: SiteDetails;
+	isOverviewActive: boolean;
+	onBackToChat: () => void;
+	onSiteOpen?: () => void;
+} ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 
 	return (
 		<IconButton
@@ -212,15 +270,123 @@ function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 			size="small"
 			icon={ settings }
 			label={ __( 'Site overview' ) }
+			aria-pressed={ isOverviewActive }
 			className={ styles.siteAction }
 			onClick={ ( event ) => {
 				event.stopPropagation();
+				// Going back to chat runs handleOpenSite, which already
+				// notifies onSiteOpen; only the overview navigation needs
+				// the explicit call.
+				if ( isOverviewActive ) {
+					onBackToChat();
+					return;
+				}
+				onSiteOpen?.();
+				void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 				void navigate( {
 					to: '/sites/$siteId/overview',
 					params: { siteId: site.id },
 				} );
 			} }
 		/>
+	);
+}
+
+function SiteStatusButton( {
+	site,
+	isStarting,
+	isStopping,
+}: {
+	site: SiteDetails;
+	isStarting: boolean;
+	isStopping: boolean;
+} ) {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const busy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, operation );
+	// The recorded operation wins: it names work this window didn't start (an
+	// agent restart, another Studio window) that local start/stop state can't see.
+	const statusName = getSiteStatusName( {
+		running: site.running,
+		starting: isStarting,
+		stopping: isStopping,
+		operation,
+	} );
+	const xdebug = Boolean( site.enableXdebug );
+	const tooltipLabel = xdebug
+		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
+		: sprintf( __( 'Site status: %s' ), statusName );
+	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
+	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
+	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
+		event.stopPropagation();
+		if ( busy ) {
+			return;
+		}
+		if ( site.running ) {
+			stopSite.mutate( site.id );
+		} else {
+			startSite.mutate( site.id );
+		}
+	};
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.siteStatus }
+						aria-label={ label }
+						aria-busy={ busy || undefined }
+						aria-disabled={ busy || undefined }
+						data-state={ status }
+						data-xdebug={ xdebug || undefined }
+						onClick={ handleClick }
+					>
+						{ xdebug ? (
+							<XdebugIcon
+								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
+							/>
+						) : (
+							<svg
+								className={ styles.siteStatusGlyph }
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+								aria-hidden="true"
+								focusable="false"
+							>
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
+							</svg>
+						) }
+						{ ! busy ? (
+							site.running ? (
+								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
+									<span className={ styles.siteStatusPauseMark } />
+								</span>
+							) : (
+								<svg
+									className={ styles.siteStatusActionGlyph }
+									viewBox="0 0 10 10"
+									aria-hidden="true"
+									focusable="false"
+								>
+									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
+								</svg>
+							)
+						) : null }
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ tooltipLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 
@@ -232,14 +398,14 @@ function SiteActionsMenu( {
 	site,
 	sessionIds,
 	isStarting,
-	isStopping,
 	trigger,
+	onSiteOpen,
 }: {
 	site: SiteDetails;
 	sessionIds: string[];
 	isStarting: boolean;
-	isStopping: boolean;
 	trigger: ReactElement;
+	onSiteOpen?: () => void;
 } ) {
 	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
@@ -247,12 +413,14 @@ function SiteActionsMenu( {
 	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
-	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	// Same source as the overview screen's Manage section, so the two can't drift
+	// on what's blocked or what's in flight. Only the labels differ here.
+	const manage = useSiteManagementActions( site, { onDelete: () => setDeleteOpen( true ) } );
+	const manageById = Object.fromEntries(
+		manage.map( ( action ) => [ action.id, action ] )
+	) as Record< SiteManagementActionId, SiteManagementAction >;
 
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
@@ -261,15 +429,16 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenFolder = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 		void connector.openSiteFolder( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site folder:', error );
 		} );
 	};
 
 	const editor = userPreferences?.editor;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : null;
 	const terminal = userPreferences?.terminal;
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name() : null;
 
 	const handleOpenInEditor = () => {
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
@@ -284,12 +453,14 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenPhpMyAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 		void connector.openExternalUrl(
 			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
 		);
 	};
 
 	const handleOpenWpAdmin = () => {
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 		const siteUrl = getSiteUrl( site );
 		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
 		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
@@ -325,18 +496,23 @@ function SiteActionsMenu( {
 					) }
 					<Menu.Separator />
 					<Menu.Item
-						onClick={ () =>
+						onClick={ () => {
+							onSiteOpen?.();
+							void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 							void navigate( {
 								to: '/sites/$siteId/overview',
 								params: { siteId: site.id },
 								search: { tab: 'general' },
-							} )
-						}
+							} );
+						} }
 					>
 						{ __( 'Site settings' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					<Menu.Item
+						disabled={ manageById.duplicate.disabled }
+						onClick={ manageById.duplicate.run }
+					>
+						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
@@ -365,16 +541,20 @@ function SiteActionsMenu( {
 						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
-						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
+						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }
 					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
-						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
+					<Menu.Item
+						disabled={ manageById[ 'export-db' ].disabled }
+						onClick={ manageById[ 'export-db' ].run }
+					>
+						{ manageById[ 'export-db' ].loading ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
-						onClick={ () => setDeleteOpen( true ) }
-						disabled={ busy || copySite.isPending || isExporting }
+						destructive={ manageById.delete.destructive }
+						onClick={ manageById.delete.run }
+						disabled={ manageById.delete.disabled }
 					>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
@@ -396,15 +576,18 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate,
 	chatEnabled,
+	onSiteOpen,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
+	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
 	// Without chat, a site's home is its overview, so the context-active row
@@ -421,29 +604,39 @@ function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const status = deriveSiteRunStatus( { site, isStarting, isStopping } );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const syncActivity = useSiteSyncActivity( site.id );
-	const isLiveSyncPending =
-		syncActivity?.kind === 'pending' &&
-		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
-	const displayActivity = isLiveSyncPending
-		? 'sync'
+	// Import gets a row indicator of its own alongside push/pull: it is the only
+	// way to tell which site a long-running import belongs to when several are in
+	// flight, and it is a local operation, so it doesn't read as "syncing".
+	const pendingDirection = syncActivity?.kind === 'pending' ? syncActivity.direction : undefined;
+	const siteActivity =
+		pendingDirection === 'import'
+			? 'import'
+			: pendingDirection === 'push' || pendingDirection === 'pull'
+			? 'sync'
+			: undefined;
+	const displayActivity = siteActivity
+		? siteActivity
 		: agentActivity !== 'idle'
 		? agentActivity
 		: hasUnreadUpdate
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		onSiteOpen?.();
 		// Without chat (signed out, offline, or switched off in Settings →
 		// AI) there's no session to open; the overview is the site's home.
 		if ( ! chatEnabled ) {
+			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
 			} );
 			return;
 		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -470,7 +663,7 @@ function SiteSection( {
 				site={ site }
 				sessionIds={ row.sessionIds }
 				isStarting={ isStarting }
-				isStopping={ isStopping }
+				onSiteOpen={ onSiteOpen }
 				trigger={
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>
@@ -495,13 +688,15 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? <SiteOverviewButton site={ site } /> : null }
-							<SiteStatusButton
-								site={ site }
-								isStarting={ isStarting }
-								isStopping={ isStopping }
-								className={ styles.siteStatus }
-							/>
+							{ chatEnabled ? (
+								<SiteOverviewButton
+									site={ site }
+									isOverviewActive={ isContextActive }
+									onBackToChat={ handleOpenSite }
+									onSiteOpen={ onSiteOpen }
+								/>
+							) : null }
+							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 						</div>
 					</header>
 				}
@@ -520,7 +715,16 @@ function findSessionSiteKey(
 	return rows.find( ( row ) => row.sessionIds.includes( activeSessionId ) )?.site.id;
 }
 
-export function SiteList() {
+export function SiteList( {
+	className,
+	onSiteOpen,
+	reorderable = true,
+}: {
+	className?: string;
+	onSiteOpen?: () => void;
+	/** The collapsed-sidebar switcher renders a read-only order. */
+	reorderable?: boolean;
+} ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const { chatEnabled } = useAgenticFeatures();
@@ -530,11 +734,9 @@ export function SiteList() {
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
-		useState( false );
-	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
-		Record< string, number >
-	>( {} );
+	const sharedSeenState = useContext( SeenSessionTimestampsContext );
+	const localSeenState = useState< SeenSessionTimestamps >( EMPTY_SEEN_SESSION_TIMESTAMPS );
+	const [ seenSessionTimestamps, setSeenSessionTimestamps ] = sharedSeenState ?? localSeenState;
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -555,19 +757,19 @@ export function SiteList() {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
 		}
-		const shouldSeedSeenTimestamps = ! seenSiteSessionTimestampsInitialized;
-		setSeenSiteSessionTimestamps( ( current ) => {
-			let next = current;
+		setSeenSessionTimestamps( ( current ) => {
+			const shouldSeedSeenTimestamps = ! current.initialized;
+			let timestamps = current.timestamps;
 			let changed = false;
 
 			const updateSeenTimestamp = ( siteId: string, timestamp: number ) => {
-				if ( timestamp <= ( next[ siteId ] ?? 0 ) ) {
+				if ( timestamp <= ( timestamps[ siteId ] ?? 0 ) ) {
 					return;
 				}
-				if ( next === current ) {
-					next = { ...current };
+				if ( timestamps === current.timestamps ) {
+					timestamps = { ...current.timestamps };
 				}
-				next[ siteId ] = timestamp;
+				timestamps[ siteId ] = timestamp;
 				changed = true;
 			};
 
@@ -581,20 +783,14 @@ export function SiteList() {
 				}
 			}
 
-			return changed ? next : current;
+			if ( ! changed && current.initialized ) {
+				return current;
+			}
+			return { initialized: true, timestamps };
 		} );
-		if ( ! seenSiteSessionTimestampsInitialized ) {
-			setSeenSiteSessionTimestampsInitialized( true );
-		}
-	}, [
-		activeChatSiteKey,
-		rows,
-		seenSiteSessionTimestampsInitialized,
-		sessionsLoading,
-		sitesLoading,
-	] );
+	}, [ activeChatSiteKey, rows, sessionsLoading, setSeenSessionTimestamps, sitesLoading ] );
 	const unreadSiteIds = useMemo( () => {
-		if ( ! seenSiteSessionTimestampsInitialized ) {
+		if ( ! seenSessionTimestamps.initialized ) {
 			return new Set< string >();
 		}
 		const unread = new Set< string >();
@@ -603,12 +799,12 @@ export function SiteList() {
 				continue;
 			}
 			const latestTimestamp = getTimestamp( row.latestSession );
-			if ( latestTimestamp > ( seenSiteSessionTimestamps[ row.site.id ] ?? 0 ) ) {
+			if ( latestTimestamp > ( seenSessionTimestamps.timestamps[ row.site.id ] ?? 0 ) ) {
 				unread.add( row.site.id );
 			}
 		}
 		return unread;
-	}, [ activeChatSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	}, [ activeChatSiteKey, rows, seenSessionTimestamps ] );
 
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
@@ -622,6 +818,7 @@ export function SiteList() {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
+			onSiteOpen={ onSiteOpen }
 		/>
 	);
 
@@ -630,6 +827,14 @@ export function SiteList() {
 		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
 	} else if ( rows.length === 0 ) {
 		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
+	} else if ( ! reorderable ) {
+		listContent = (
+			<div className={ styles.sites }>
+				{ rows.map( ( row ) => (
+					<Fragment key={ row.site.id }>{ renderSiteRow( row ) }</Fragment>
+				) ) }
+			</div>
+		);
 	} else {
 		listContent = (
 			<ReorderableList
@@ -646,5 +851,5 @@ export function SiteList() {
 		);
 	}
 
-	return <div className={ styles.root }>{ listContent }</div>;
+	return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 }

@@ -3,6 +3,7 @@ import { chevronDown, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
 import * as Menu from '@/components/menu';
+import splitStyles from '@/components/split-button/style.module.css';
 import styles from './style.module.css';
 import { useOpenInDestinations } from './use-open-in-destinations';
 import type { OpenInDestination } from './use-open-in-destinations';
@@ -71,7 +72,7 @@ export function OpenInMenu( {
 
 	return (
 		<Menu.Root>
-			<div className={ styles.splitTrigger }>
+			<div className={ splitStyles.splitTrigger }>
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						render={
@@ -79,7 +80,7 @@ export function OpenInMenu( {
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								className={ styles.splitAction }
+								className={ splitStyles.splitAction }
 								aria-label={ actionLabel }
 								disabled={ lastUsedDestination.disabled }
 								onClick={ () => lastUsedDestination.open() }
@@ -101,7 +102,7 @@ export function OpenInMenu( {
 										variant="minimal"
 										tone="neutral"
 										size="small"
-										className={ styles.splitMenuButton }
+										className={ splitStyles.splitMenuButton }
 										aria-label={ __( 'Open in…' ) }
 									/>
 								}
@@ -112,7 +113,7 @@ export function OpenInMenu( {
 								<Icon
 									icon={ chevronDown }
 									size={ 12 }
-									className={ styles.chevron }
+									className={ splitStyles.chevron }
 									data-keep-size
 								/>
 							</Tooltip.Trigger>

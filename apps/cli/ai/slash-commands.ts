@@ -1,7 +1,7 @@
-import { getAiModelFamily } from '@studio/common/ai/models';
+import { getAiModelFamily, getVisibleAiModels } from '@studio/common/ai/models';
 import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -334,6 +334,12 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
 			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			const visible = new Set(
+				getVisibleAiModels( await isAutomatticianFromToken(), ctx.currentModel ).map(
+					( model ) => model.id
+				)
+			);
+			const offeredModels = availableModels.filter( ( id ) => visible.has( id ) );
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's
@@ -341,7 +347,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			// returns the other id), so we keep the label → id mapping
 			// explicit here and look up by exact match below.
 			const labelToId = new Map< string, AiModelId >();
-			const modelOptions = availableModels.map( ( id ) => {
+			const modelOptions = offeredModels.map( ( id ) => {
 				const label =
 					id === ctx.currentModel
 						? sprintf(
@@ -464,13 +470,16 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput( async () => {
-					if ( activeSnapshot ) {
-						await runUpdatePreviewCommand( site.path, activeSnapshot.url, false );
-					} else {
-						await runCreatePreviewCommand( site.path );
-					}
-				} );
+				const result = await captureCommandOutput(
+					async ( logger ) => {
+						if ( activeSnapshot ) {
+							await runUpdatePreviewCommand( site.path, activeSnapshot.url, false, logger );
+						} else {
+							await runCreatePreviewCommand( site.path, undefined, logger );
+						}
+					},
+					( message, update ) => ctx.ui.setLoaderMessage( message, update )
+				);
 
 				ctx.ui.setBusy( false );
 
@@ -561,8 +570,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput( () =>
-					runPushCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+				const result = await captureCommandOutput(
+					( logger ) => runPushCommand( site.path, [ 'all' ], String( remoteSite.id ), logger ),
+					( message, update ) => ctx.ui.setLoaderMessage( message, update )
 				);
 
 				ctx.ui.setBusy( false );
@@ -615,5 +625,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	...AI_SKILL_COMMANDS,
+	...getAiSkillCommands(),
 ];

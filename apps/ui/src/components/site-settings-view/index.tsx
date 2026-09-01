@@ -23,11 +23,18 @@ import {
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import {
+	AdminEmailControl,
+	AdminPasswordControl,
+	AdminUsernameControl,
+	SiteNameControl,
+} from './copyable-credential-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
@@ -146,7 +153,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
-			siteNameField< FormData >(),
+			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
@@ -154,9 +161,9 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
-			adminUsernameField< FormData >(),
-			adminPasswordField< FormData >(),
-			adminEmailField< FormData >(),
+			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
+			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
+			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
 			customDomainToggleField< FormData >(),
 			customDomainField< FormData >( existingDomainNames ),
 			{
@@ -238,7 +245,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	);
 
 	const xdebugBlocked = data.enableXdebug && !! xdebugConflictSiteName && ! site.enableXdebug;
-	const canSubmit = isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked;
+	// Saving restarts the server to apply a PHP/WordPress/domain change, so the
+	// CLI refuses it while anything else holds the site.
+	const isBusy = useIsSiteBusy( site );
+	const canSubmit =
+		isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked && ! isBusy;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
@@ -330,3 +341,9 @@ export function isSiteSettingsTab( value: string ): value is TabId {
 }
 
 export type SiteSettingsTabId = TabId;
+
+// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
+// Studio Classic's Settings panel; overview and debugging keep their own names.
+export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
+	return tab === 'general' ? 'settings' : tab;
+}

@@ -6,6 +6,7 @@ import {
 	addConnectedWpcomSite,
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
+import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -39,13 +40,14 @@ import { StudioArgv } from 'cli/types';
 import { handleImportEvents } from './import';
 import type { SyncOption } from '@studio/common/types/sync';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	siteIdentifier?: string,
-	syncIncludePathList?: string[]
+	syncIncludePathList?: string[],
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -104,7 +106,7 @@ export async function runCommand(
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 		logger.reportStart(
 			LoggerAction.INITIATE_BACKUP,
-			sprintf( __( 'Initializing remote backup… (%d%%)' ), 0 )
+			formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
 		);
 		const backupId = await initiateBackup( token.accessToken, remoteSite.id, {
 			optionsToSync,
@@ -137,7 +139,9 @@ export async function runCommand(
 
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.reportProgress( sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress ) );
+			logger.reportProgress(
+				formatProgressLabel( __( 'Creating remote backup…' ), backupProgress )
+			);
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
@@ -165,7 +169,7 @@ export async function runCommand(
 		}
 
 		// Download phase: 50-80%
-		logger.reportProgress( sprintf( __( 'Downloading backup… (%d%%)' ), 50 ) );
+		logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
 		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 		try {
@@ -186,7 +190,7 @@ export async function runCommand(
 				{ path: destPath, type: 'application/gzip' },
 				DEFAULT_IMPORTER_OPTIONS
 			);
-			handleImportEvents( importer );
+			handleImportEvents( importer, logger );
 			await importer.import( site );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
@@ -225,7 +229,13 @@ export async function runCommand(
 		}
 	}
 
-	if ( pullError instanceof LoggerError && restartSiteError instanceof Error ) {
+	// Attach the restart error only when the pull error has no cause of its own — overwriting an
+	// existing `previousError` would hide the root cause behind the (secondary) restart failure.
+	if (
+		pullError instanceof LoggerError &&
+		restartSiteError instanceof Error &&
+		! pullError.previousError
+	) {
 		pullError.previousError = restartSiteError;
 	}
 
@@ -257,18 +267,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'Remote site URL or ID' ),
 				} )
 				.option( 'include-path-list', {
-					type: 'string',
-					description: __(
-						'Comma-separated backup node ids to pull when using the "paths" option'
-					),
+					type: 'array',
+					description: __( 'Backup node ids to pull when using the "paths" option' ),
 					hidden: true,
-					coerce: ( val: string | undefined ) =>
-						val !== undefined
-							? val
-									.split( ',' )
-									.map( ( item ) => item.trim() )
-									.filter( Boolean )
-							: undefined,
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-path-list must be an array' ) );
+						}
+						return value.map( String );
+					},
 				} );
 		},
 		handler: async ( argv ) => {
@@ -281,10 +288,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Pull failed' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

@@ -1,5 +1,11 @@
+import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
+import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
-import type { PullSiteProgress, PushSitePhase, PushSiteProgress } from '@/data/core';
+import type { PullSiteProgress, PushPhase } from '@/data/core';
+
+// Structurally what `PullSiteProgress` already is, named for the wider set of
+// operations that report through here.
+export type ActivityProgress = PullSiteProgress;
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-
@@ -10,28 +16,31 @@ import type { PullSiteProgress, PushSitePhase, PushSiteProgress } from '@/data/c
 // `preview` covers creating or refreshing the WordPress.com-hosted preview
 // snapshot. Grouped in here alongside push/pull so the dropdown's single
 // activity indicator can surface any live-sync-like operation consistently.
-export type SyncDirection = 'push' | 'pull' | 'preview';
+//
+// `import` is not a live-site operation at all, but it is the same shape of
+// thing from the UI's point of view: long-running, scoped to one site, and it
+// rewrites that site underneath you. It lives here so a site being imported
+// reads the same way in the sidebar and dropdown as one being pulled — and so
+// two concurrent imports stay told apart by site, which a global toast can't do.
+export type SyncDirection = 'push' | 'pull' | 'preview' | 'import';
 
-// `phase` is push-only: pull describes itself with a `message` from the CLI,
-// while push reports which of its three stages it is in so the UI can label
-// it without the backend owning user-facing copy.
 export type SyncActivity =
 	| {
 			kind: 'pending';
 			direction: SyncDirection;
 			message?: string;
 			progress?: number;
-			phase?: PushSitePhase;
+			// How far a push has got; drives the cancel gate. Pull reports the
+			// equivalent through the CLI `action` behind its progress message.
+			phase?: PushPhase;
+			action?: string;
 	  }
-	// `at` is when the result landed, so the UI can age it ("3s", "4m") rather
-	// than saying "just now" for as long as it stays on screen.
-	| { kind: 'success'; direction: SyncDirection; at?: number }
-	| { kind: 'error'; direction: SyncDirection; message: string; at?: number };
+	| { kind: 'success'; direction: SyncDirection }
+	| { kind: 'cancelled'; direction: SyncDirection }
+	| { kind: 'error'; direction: SyncDirection; message: string };
 
-// How long a success stays visible before the indicator vanishes. Matches the
-// 30s requirement from the UX spec. Errors have no TTL — they persist until
-// the user acknowledges them (see `clearSyncActivity`), because a failed push
-// that quietly evaporates leaves the site in a state nobody was told about.
+// How long success/error stay visible before the indicator vanishes.
+// Matches the 30s requirement from the UX spec.
 const RESULT_TTL_MS = 30_000;
 
 const entries = new Map< string, SyncActivity >();
@@ -73,38 +82,75 @@ export function reportSyncPending( siteId: string, direction: SyncDirection ): v
 	emit();
 }
 
-export function reportPullProgress( siteId: string, progress: PullSiteProgress ): void {
+export function reportSyncProgress(
+	siteId: string,
+	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	progress: ActivityProgress
+): void {
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction: 'pull', ...progress } );
+	entries.set( siteId, { kind: 'pending', direction, ...progress } );
 	emit();
 }
 
-export function reportPushProgress( siteId: string, progress: PushSiteProgress ): void {
+// Same wording as the classic renderer's push states, so a user moving between
+// the two UIs reads the same thing. The percentage goes in the message because
+// that is how a pull already reads here — the CLI puts it in its own text.
+function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
+	const message = {
+		creatingBackup: __( 'Creating backup…' ),
+		uploading: __( 'Uploading site…' ),
+		creatingRemoteBackup: __( 'Backing up remote site…' ),
+		applyingChanges: __( 'Applying changes…' ),
+		finishing: __( 'Almost there…' ),
+	}[ phase ];
+
+	return progress ? sprintf( '%1$s (%2$d%%)', message, Math.round( progress ) ) : message;
+}
+
+export function reportPushPhase( siteId: string, phase: PushPhase, progress?: number ): void {
+	const current = entries.get( siteId );
+	if ( current?.kind !== 'pending' || current.direction !== 'push' ) {
+		return;
+	}
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction: 'push', ...progress } );
+	entries.set( siteId, { ...current, phase, message: getPushPhaseMessage( phase, progress ) } );
 	emit();
+}
+
+export function reportSyncCancelled( siteId: string, direction: SyncDirection ): void {
+	entries.set( siteId, { kind: 'cancelled', direction } );
+	scheduleExpiry( siteId );
+	emit();
+}
+
+/**
+ * Whether the in-flight operation can still be stopped. Mirrors the legacy
+ * renderer: a push is cancellable until the remote import is initiated, a pull
+ * until the CLI starts writing the local site.
+ */
+export function canCancelSyncActivity( activity: SyncActivity | null ): boolean {
+	if ( activity?.kind !== 'pending' ) {
+		return false;
+	}
+	if ( activity.direction === 'push' ) {
+		return canCancelPush( activity.phase );
+	}
+	if ( activity.direction === 'pull' ) {
+		return canCancelPull( activity.action );
+	}
+	return false;
 }
 
 export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {
-	entries.set( siteId, { kind: 'success', direction, at: Date.now() } );
+	entries.set( siteId, { kind: 'success', direction } );
 	scheduleExpiry( siteId );
 	emit();
 }
 
 export function reportSyncError( siteId: string, direction: SyncDirection, message: string ): void {
-	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'error', direction, message, at: Date.now() } );
+	entries.set( siteId, { kind: 'error', direction, message } );
+	scheduleExpiry( siteId );
 	emit();
-}
-
-// Drops whatever the site is currently reporting. The toolbar calls this when
-// the user acknowledges a failure — by opening its details or retrying — so a
-// persistent error has a way out that isn't "succeed next time".
-export function clearSyncActivity( siteId: string ): void {
-	clearExpiryTimer( siteId );
-	if ( entries.delete( siteId ) ) {
-		emit();
-	}
 }
 
 function subscribe( listener: () => void ): () => void {
@@ -120,4 +166,37 @@ export function useSiteSyncActivity( siteId: string | undefined ): SyncActivity 
 		() => ( siteId ? snapshot.get( siteId ) ?? null : null ),
 		() => null
 	);
+}
+
+/**
+ * Wording for the cancel affordance, or null when there is nothing to cancel.
+ * Shared by the dropdown trigger (always visible while a sync runs) and the
+ * progress panel inside the dropdown, so both read identically.
+ */
+export function getSyncCancelLabels(
+	activity: SyncActivity | null
+): { label: string; enabled: boolean } | null {
+	if ( activity?.kind !== 'pending' ) {
+		return null;
+	}
+
+	const enabled = canCancelSyncActivity( activity );
+	if ( activity.direction === 'push' ) {
+		return {
+			enabled,
+			label: enabled
+				? __( 'Cancel push' )
+				: __( 'Push can not be cancelled while applying changes to the remote site' ),
+		};
+	}
+	if ( activity.direction === 'pull' ) {
+		return {
+			enabled,
+			label: enabled
+				? __( 'Cancel pull' )
+				: __( 'Pull can not be cancelled while importing changes to your local site' ),
+		};
+	}
+	// Only push and pull can be stopped — a preview or an import offers nothing.
+	return null;
 }

@@ -150,6 +150,14 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'studio_present' );
 	} );
 
+	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
+		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		expect( attachedPrompt ).toContain( 'refresh_browser' );
+
+		const terminalPrompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
+	} );
+
 	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 

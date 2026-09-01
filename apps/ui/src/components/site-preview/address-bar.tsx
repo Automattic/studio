@@ -169,7 +169,11 @@ export function PreviewAddressBar( {
 							imageSrc={ site.siteIcon }
 						/>
 					) : (
-						<Icon icon={ activeRealm === 'admin' ? wordpress : databaseIcon } size={ 18 } />
+						<Icon
+							icon={ activeRealm === 'admin' ? wordpress : databaseIcon }
+							size={ 18 }
+							className={ activeRealm === 'admin' ? styles.wordpressIcon : undefined }
+						/>
 					) }
 				</span>
 				<input
@@ -211,7 +215,7 @@ export function PreviewAddressBar( {
 						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.frontend ) }</kbd>
 					</Popover.Close>
 					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'admin' ) }>
-						<Icon icon={ wordpress } size={ 18 } />
+						<Icon icon={ wordpress } size={ 18 } className={ styles.wordpressIcon } />
 						<span>{ __( 'WP Admin' ) }</span>
 						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.admin ) }</kbd>
 					</Popover.Close>

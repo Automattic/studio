@@ -28,6 +28,11 @@
 	justify-content: center;
 }
 
+.wordpressIcon {
+	color: var(--wpds-color-fg-content-neutral);
+	fill: currentColor;
+}
+
 .input {
 	box-sizing: border-box;
 	width: 100%;

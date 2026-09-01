@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { upload } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useBlueprints } from '@/data/queries/use-blueprints';
@@ -132,7 +133,7 @@ function UploadBlueprintButton( { onSelect }: { onSelect: ( bp: SelectedBlueprin
 				variant="outline"
 				tone="neutral"
 				size="small"
-				className={ isDragging ? styles.uploadButtonDragging : undefined }
+				className={ clsx( styles.uploadButton, isDragging && styles.uploadButtonDragging ) }
 				onClick={ () => inputRef.current?.click() }
 				onDragOver={ ( event ) => {
 					event.preventDefault();

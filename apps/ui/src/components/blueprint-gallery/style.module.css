@@ -151,6 +151,12 @@
 	display: none;
 }
 
+.uploadButton {
+	/* The gallery sits on the grid-lined canvas, so the button needs an opaque
+	   fill; the outline variant is transparent by default. */
+	--wp-ui-button-background-color: var( --wpds-color-bg-surface-neutral-strong );
+}
+
 .uploadButtonDragging {
 	outline: 2px solid var( --wpds-color-stroke-interactive-brand );
 	outline-offset: 2px;

@@ -620,26 +620,35 @@ function PreviewResponsiveControls( {
 		);
 	return (
 		<Menu.Root>
-			<Menu.Trigger
-				render={
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.responsiveModeTrigger }
-						aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
-					/>
-				}
-			>
-				<Icon
-					icon={ selectedIcon }
-					size={ 18 }
-					className={ styles.responsiveModeIcon }
-					data-keep-size
+			<Tooltip.Root>
+				<Menu.Trigger
+					render={
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.responsiveModeTrigger }
+									aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+								/>
+							}
+						>
+							<Icon
+								icon={ selectedIcon }
+								size={ 18 }
+								className={ styles.responsiveModeIcon }
+								data-keep-size
+							/>
+							<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
+							<Icon icon={ chevronDown } size={ 12 } className={ styles.responsiveModeChevron } />
+						</Tooltip.Trigger>
+					}
 				/>
-				<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
-				<Icon icon={ chevronDown } size={ 12 } className={ styles.responsiveModeChevron } />
-			</Menu.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+					{ __( 'Preview size' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
 					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>

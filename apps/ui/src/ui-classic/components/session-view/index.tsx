@@ -544,8 +544,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }
-					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
-					getDraft={ () => composerRef.current?.getDraft() ?? { text: '', hasAttachments: false } }
+					onPick={ ( prompt ) =>
+						composerRef.current?.replaceDraft( prompt, { suggestionBaseline: prompt } )
+					}
+					getDraft={ () =>
+						composerRef.current?.getDraft() ?? {
+							text: '',
+							hasAttachments: false,
+							suggestionBaseline: null,
+						}
+					}
 				/>
 			) : null }
 			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>

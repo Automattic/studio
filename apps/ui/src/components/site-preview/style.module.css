@@ -111,6 +111,8 @@
 }
 
 .tab {
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
 	box-sizing: border-box;
 	position: relative;
 	display: flex;
@@ -121,7 +123,7 @@
 	padding-inline: var(--wpds-dimension-padding-sm);
 	flex: 1 1 180px;
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--tab-background);
 	border: var(--wpds-border-width-xs) solid transparent;
 	border-block-end: 0;
 	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;
@@ -133,26 +135,27 @@
 }
 
 .tab:hover {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 :global(html[data-color-scheme='dark']) .tab:not(.tabSelected) {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	--tab-background: var(--wpds-color-bg-surface-neutral);
 }
 
 :global(html[data-color-scheme='dark']) .tab:not(.tabSelected):hover {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .tabSelected {
+	--tab-background: var(--wpds-color-bg-surface-neutral-strong);
+
 	z-index: 1;
 	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	border-color: var(--wpds-color-stroke-surface-neutral);
 }
 
 .tabSelected:hover {
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--tab-background: var(--wpds-color-bg-surface-neutral-strong);
 }
 
 .tabSelected::after {
@@ -189,6 +192,7 @@
 }
 
 .tabSelect {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
@@ -197,6 +201,20 @@
 	padding: 0 0 0 var(--wpds-dimension-padding-sm);
 	flex: 1;
 	text-align: start;
+}
+
+.tabSelect::after {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 0;
+	width: 24px;
+	background: linear-gradient(to right, transparent, var(--tab-background) 85%);
+	content: '';
+	pointer-events: none;
+}
+
+:global(html[dir='rtl']) .tabSelect::after {
+	background: linear-gradient(to left, transparent, var(--tab-background) 85%);
 }
 
 .tabIcon {
@@ -214,8 +232,9 @@
 }
 
 .tabTitle {
+	min-width: 0;
 	overflow: hidden;
-	text-overflow: ellipsis;
+	text-overflow: clip;
 	white-space: nowrap;
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);

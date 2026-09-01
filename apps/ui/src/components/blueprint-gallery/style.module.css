@@ -123,11 +123,15 @@
 	overflow: hidden;
 }
 
+/* Sized from the same tokens as the adjacent small Button so the two line up. */
 .searchInput {
+	box-sizing: border-box;
 	max-width: 200px;
-	padding: 6px 10px;
+	height: 24px;
+	padding-block: 0;
+	padding-inline: var( --wpds-dimension-padding-sm );
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
-	border-radius: 4px;
+	border-radius: var( --wpds-border-radius-sm );
 	background: var( --wpds-color-bg-surface-neutral-strong );
 	color: var( --wpds-color-fg-content-neutral );
 	font: inherit;

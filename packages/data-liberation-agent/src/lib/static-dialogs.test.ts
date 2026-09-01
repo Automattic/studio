@@ -45,6 +45,18 @@ describe( 'wireCapturedDialogs', () => {
 		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 2 );
 	} );
 
+	it( 'replaces the captured portal without retaining its closed source copy', () => {
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><button>Open Menu</button><div id="menu" data-visible="false"><nav><a href="/stale">Stale menu</a></nav></div><div id="other-dialog">Keep me</div></body></html>',
+			[ captured ]
+		);
+		expect( html ).not.toContain( 'Stale menu' );
+		expect( html ).not.toContain( 'id="menu"' );
+		expect( html ).toContain( '<details class="dla-disclosure">' );
+		expect( html ).toContain( 'href="/about"' );
+		expect( html ).toContain( '<div id="other-dialog">Keep me</div>' );
+	} );
+
 	it( 'does not turn an unlabeled logo control into the menu trigger', () => {
 		const html = wireCapturedDialogs(
 			'<html><head></head><body><a class="logo" role="button"><img alt="Homepage"></a><button>Open Menu</button></body></html>',

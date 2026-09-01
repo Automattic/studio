@@ -455,7 +455,7 @@ describe( 'exportWebsiteCapture', () => {
 				'<iframe src="https://hidden.example/embed" width="500" height="300"></iframe>' +
 				'<iframe src="javascript:steal()" data-dla-visual-iframe-src="javascript:steal()" data-dla-visual-iframe-width="500" data-dla-visual-iframe-height="300"></iframe>' +
 				'<iframe src="https://zero.example/embed" data-dla-visual-iframe-src="https://zero.example/embed" data-dla-visual-iframe-width="0" data-dla-visual-iframe-height="300"></iframe>' +
-			'</main></body></html>'
+				'</main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'screenshots', 'manifest.json' ),
@@ -614,7 +614,7 @@ describe( 'exportWebsiteCapture', () => {
 					'https://example.com/shop/': {
 						html: 'html/homepage.html',
 						interactions: {
-							schema: 'data-liberation/interaction-states/v1',
+							schema: 'data-liberation/interaction-states/v2',
 							sourceUrl: 'https://example.com/shop/',
 							viewport: { width: 1440, height: 900 },
 							capturedAt: '2026-08-22T00:00:00.000Z',
@@ -636,6 +636,31 @@ describe( 'exportWebsiteCapture', () => {
 										html: '<div id="contact-dialog" role="dialog"><form><input name="email"></form></div>',
 										htmlBytes: 83,
 										htmlTruncated: false,
+									},
+								},
+							],
+							initialDialogs: [
+								{
+									status: 'captured',
+									initiallyVisible: true,
+									dialog: {
+										selector: '#automatic-dialog',
+										tag: 'div',
+										id: 'automatic-dialog',
+										role: 'dialog',
+										ariaModal: true,
+										ariaLabel: 'Automatic popup',
+										html: '<div id="automatic-dialog" role="dialog"><p>Automatic popup</p><button id="automatic-close" aria-label="Close automatic popup">Close</button></div>',
+										htmlBytes: 150,
+										htmlTruncated: false,
+									},
+									dismissal: {
+										control: {
+											selector: '#automatic-close',
+											tag: 'button',
+											label: 'Close automatic popup',
+										},
+										verified: true,
 									},
 								},
 							],
@@ -761,6 +786,9 @@ describe( 'exportWebsiteCapture', () => {
 			no_dialog_count: 0,
 			click_failed_count: 0,
 			truncated_count: 0,
+			initial_dialog_count: 1,
+			initial_captured_count: 1,
+			initial_dismissal_verified_count: 1,
 		} );
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'/media/logo.png'
@@ -820,6 +848,9 @@ describe( 'exportWebsiteCapture', () => {
 			'<p>$100.00</p>'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'<details class="dla-disclosure dla-initial-dialog" open="">'
+		);
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
 			'href="/about/index.html?from=home#team"'
 		);
 		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
@@ -845,7 +876,12 @@ describe( 'exportWebsiteCapture', () => {
 		);
 		expect( interactionReport ).toMatchObject( {
 			schema: CAPTURED_INTERACTIONS_SCHEMA,
-			totals: { candidate_count: 1, captured_count: 1 },
+			totals: {
+				candidate_count: 1,
+				captured_count: 1,
+				initial_dialog_count: 1,
+				initial_dismissal_verified_count: 1,
+			},
 		} );
 		expect( artifact ).toMatchObject( {
 			schema: WEBSITE_ARTIFACT_SCHEMA,
@@ -1990,7 +2026,8 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		dirs.push( outputDir );
 		for ( const path of [ 'html', 'screenshots', 'media', 'resources/cdn' ] )
 			mkdirSync( join( outputDir, path ), { recursive: true } );
-		const sourceHtml = '<html><head><link rel="stylesheet" href="https://cdn.example/site.css"></head><body><img src="/"><p data-kind="image/x-icon">Icon</p><a href="/about/">About</a></body></html>';
+		const sourceHtml =
+			'<html><head><link rel="stylesheet" href="https://cdn.example/site.css"></head><body><img src="/"><p data-kind="image/x-icon">Icon</p><a href="/about/">About</a></body></html>';
 		writeFileSync( join( outputDir, 'html', 'homepage.html' ), sourceHtml );
 		writeFileSync( join( outputDir, 'media', 'homepage.jpg' ), 'not-an-image' );
 		writeFileSync(

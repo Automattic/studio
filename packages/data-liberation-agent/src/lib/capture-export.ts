@@ -14,18 +14,22 @@ import {
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { escapeHtmlAttr } from './html-escape.js';
-import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
 import { scopeCss } from './replicate/css-scope.js';
 import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
 import {
+	INTERACTION_STATES_SCHEMA,
+	LEGACY_INTERACTION_STATES_SCHEMA,
+	type InteractionStatesReport,
+} from './screenshot/interaction-capture.js';
+import {
 	buildLayoutGeometryProof,
 	type GeometryCapture,
 } from './screenshot/layout-geometry-proof.js';
+import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
 import { selfContainWebsite } from './self-contain.js';
 import { wireCapturedDialogs } from './static-dialogs.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
-import type { InteractionStatesReport } from './screenshot/interaction-capture.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
@@ -484,7 +488,10 @@ function assembleResponsiveHtml(
 			return withMobileViewport( desktopHtml );
 		return withMobileViewport(
 			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` )
-		).replace( /<\/head\s*>/i, `${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>` );
+		).replace(
+			/<\/head\s*>/i,
+			`${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>`
+		);
 	}
 
 	// Both documents ship in one file from here on, so their anchor targets would
@@ -545,7 +552,9 @@ function assembleResponsiveHtml(
 	return withMobileViewport( scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` ) )
 		.replace(
 			/<\/head\s*>/i,
-			`${ mobileStyles }<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss( switchWidth ) }</style></head>`
+			`${ mobileStyles }<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss(
+				switchWidth
+			) }</style></head>`
 		)
 		.replace(
 			/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
@@ -592,7 +601,9 @@ function responsiveMobileStyles(
 		.filter( Boolean )
 		.map(
 			( style ) =>
-				`<style media="(max-width:${ switchWidth }px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
+				`<style media="(max-width:${ switchWidth }px)">${
+					scope ? scopeCss( style, { scope } ) : style
+				}</style>`
 		)
 		.join( '' );
 }
@@ -1283,7 +1294,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 			interactions: entry.interactions,
 		} );
-		if ( entry.interactions?.schema === 'data-liberation/interaction-states/v1' ) {
+		if (
+			entry.interactions?.schema === INTERACTION_STATES_SCHEMA ||
+			entry.interactions?.schema === LEGACY_INTERACTION_STATES_SCHEMA
+		) {
 			interactionPages.push( entry.interactions );
 		}
 	}
@@ -1714,7 +1728,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 		const normalizedHtml = wireCapturedDialogs(
 			withoutGeometryIdentities( identityHtml ),
-			entry.interactions?.states ?? []
+			entry.interactions?.states ?? [],
+			entry.interactions?.initialDialogs ?? []
 		);
 		unresolvedAnchors.push( ...unresolvedCapturedAnchors( normalizedHtml, url ) );
 		writeFileSync( destination, normalizedHtml );
@@ -1776,6 +1791,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	);
 
 	const interactionStates = interactionPages.flatMap( ( page ) => page.states );
+	const initialDialogs = interactionPages.flatMap( ( page ) => page.initialDialogs ?? [] );
 	const interactionSummary = {
 		candidate_count: interactionStates.length,
 		captured_count: interactionStates.filter( ( state ) => state.status === 'captured' ).length,
@@ -1784,6 +1800,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			.length,
 		truncated_count: interactionStates.filter(
 			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
+		).length,
+		initial_dialog_count: initialDialogs.length,
+		initial_captured_count: initialDialogs.filter( ( state ) => state.status === 'captured' )
+			.length,
+		initial_dismissal_verified_count: initialDialogs.filter(
+			( state ) => state.dismissal?.verified
 		).length,
 	};
 	const reportFiles = [ 'diagnostics.json', 'capture-receipt.json', 'layout-geometry-report.json' ];

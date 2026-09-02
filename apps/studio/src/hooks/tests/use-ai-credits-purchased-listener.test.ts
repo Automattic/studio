@@ -68,6 +68,18 @@ describe( 'useAiCreditsPurchasedListener', () => {
 		expect( dispatched ).toEqual( [] );
 	} );
 
+	it( 'expires the confirmation from when it lands, not from when it is drawn', async () => {
+		refetchResults = [ 0, 500000 ];
+		renderHook( () => useAiCreditsPurchasedListener() );
+
+		act( () => eventHandler() );
+		await vi.advanceTimersByTimeAsync( 0 );
+		expect( dispatched ).toEqual( [ setAiCreditsAdded( 500000 ) ] );
+
+		await vi.advanceTimersByTimeAsync( 8000 );
+		expect( dispatched ).toEqual( [ setAiCreditsAdded( 500000 ), setAiCreditsAdded( null ) ] );
+	} );
+
 	it( 'no longer drags the user into the settings', async () => {
 		refetchResults = [ 0, 500000 ];
 		renderHook( () => useAiCreditsPurchasedListener() );

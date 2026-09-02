@@ -2,11 +2,15 @@ import {
 	AI_CREDITS_CONFIRM_ATTEMPTS,
 	AI_CREDITS_CONFIRM_INTERVAL_MS,
 } from '@studio/common/lib/studio-assistant-quota';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useAppDispatch } from 'src/stores';
 import { setAiCreditsAdded } from 'src/stores/ui-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
+
+// How long the confirmation stays on screen. A purchase note that outstays its
+// welcome above the composer is worse than one the user misses.
+const PURCHASE_NOTICE_TTL_MS = 8000;
 
 /**
  * Confirms an AI credits top-up after WordPress.com checkout sends the user
@@ -17,9 +21,15 @@ import { wpcomApi } from 'src/stores/wpcom-api';
  * silent, and the user is left where they were rather than pushed into the
  * settings — someone who bought from Settings → Usage is already looking at
  * the refreshed meter.
+ *
+ * The confirmation reads like a toast, so it leaves like one — and its clock
+ * starts here, when the purchase lands, not when the composer that draws it
+ * happens to mount. A top-up confirmed while Classic sits on Settings would
+ * otherwise wait, and greet a session opened hours later as fresh news.
  */
 export function useAiCreditsPurchasedListener() {
 	const dispatch = useAppDispatch();
+	const expiryTimer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
 
 	useIpcListener(
 		'ai-credits-purchased',
@@ -48,6 +58,11 @@ export function useAiCreditsPurchasedListener() {
 					const after = await readPurchased( true );
 					if ( before !== undefined && after !== undefined && after > before ) {
 						dispatch( setAiCreditsAdded( after - before ) );
+						clearTimeout( expiryTimer.current );
+						expiryTimer.current = setTimeout(
+							() => dispatch( setAiCreditsAdded( null ) ),
+							PURCHASE_NOTICE_TTL_MS
+						);
 						return;
 					}
 				}

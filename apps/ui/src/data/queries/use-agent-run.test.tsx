@@ -1,3 +1,4 @@
+import { CHAT_REPLY_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,6 +43,13 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 				<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+				<button
+					onClick={ () =>
+						run.answerQuestion( 'How should the plugin be structured?', 'Single file plugin' )
+					}
+				>
+					Answer first
+				</button>
 			</>
 		);
 	}
@@ -61,13 +69,18 @@ describe( 'useAgentRun queued handoff', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
 	let connector: Pick<
 		Connector,
-		'continueSession' | 'getActiveAgentRuns' | 'onAgentEvent' | 'interruptAgentRun'
+		| 'continueSession'
+		| 'getActiveAgentRuns'
+		| 'onAgentEvent'
+		| 'interruptAgentRun'
+		| 'answerAgentQuestion'
 	>;
 
 	beforeEach( () => {
 		connector = {
 			continueSession: vi.fn().mockResolvedValue( { runId: 'run-next' } ),
 			interruptAgentRun: vi.fn().mockResolvedValue( undefined ),
+			answerAgentQuestion: vi.fn().mockResolvedValue( undefined ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
 				agentListener = listener;
@@ -202,6 +215,126 @@ describe( 'useAgentRun queued handoff', () => {
 		);
 	} );
 
+	it( 'answers the blocked batch before it cancels the run', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [
+						{
+							question: 'How should the plugin be structured?',
+							options: [ { label: 'Single file plugin', description: 'One file.' } ],
+						},
+						{
+							question: 'What should it be called?',
+							options: [ { label: 'Suggest one', description: 'You pick.' } ],
+						},
+					],
+				},
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () =>
+			expect( connector.answerAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				'How should the plugin be structured?': CHAT_REPLY_ANSWER,
+				'What should it be called?': CHAT_REPLY_ANSWER,
+			} )
+		);
+		// Order matters: cancelling first leaves the tool call without a result,
+		// which reads to the model as a broken tool.
+		expect( vi.mocked( connector.answerAgentQuestion ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			vi.mocked( connector.interruptAgentRun ).mock.invocationCallOrder[ 0 ]
+		);
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.interrupted', timestamp: '2026-06-24T12:00:02.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+	} );
+
+	it( 'keeps the options the user already picked when it answers the rest', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [
+						{
+							question: 'How should the plugin be structured?',
+							options: [ { label: 'Single file plugin', description: 'One file.' } ],
+						},
+						{
+							question: 'What should it be called?',
+							options: [ { label: 'Suggest one', description: 'You pick.' } ],
+						},
+					],
+				},
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer first' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () =>
+			expect( connector.answerAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				'How should the plugin be structured?': 'Single file plugin',
+				'What should it be called?': CHAT_REPLY_ANSWER,
+			} )
+		);
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.interrupted', timestamp: '2026-06-24T12:00:02.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+	} );
+
 	it( 'leaves a running turn alone when no questions are pending', async () => {
 		const queryClient = createQueryClient();
 		queryClient.setQueryData< LoadedAiSession >(
@@ -226,6 +359,7 @@ describe( 'useAgentRun queued handoff', () => {
 
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
 		expect( connector.interruptAgentRun ).not.toHaveBeenCalled();
+		expect( connector.answerAgentQuestion ).not.toHaveBeenCalled();
 	} );
 
 	it( 'still invalidates when a run ends without a queued follow-up', async () => {

@@ -1,4 +1,5 @@
 // Run tests: npm test -- apps/studio/src/components/studio-code-session/tests/use-agent-run.test.tsx
+import { CHAT_REPLY_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -44,6 +45,13 @@ function renderWithAgentRun() {
 			<>
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+				<button
+					onClick={ () =>
+						run.answerQuestion( 'How should the plugin be structured?', 'Single file plugin' )
+					}
+				>
+					Answer first
+				</button>
 			</>
 		);
 	}
@@ -77,6 +85,7 @@ describe( 'useAgentRun replies while the agent is asking', () => {
 		mockIpc.listActiveAiAgentRuns.mockResolvedValue( [] );
 		mockIpc.continueAiSession.mockResolvedValue( { runId: 'run-next' } );
 		mockIpc.interruptAiAgentRun.mockResolvedValue( undefined );
+		mockIpc.answerAiAgentQuestion.mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -119,6 +128,86 @@ describe( 'useAgentRun replies while the agent is asking', () => {
 		);
 	} );
 
+	it( 'answers the blocked batch before it cancels the run', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+			emit( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-08-26T12:00:01.000Z',
+					questions: [
+						{
+							question: 'How should the plugin be structured?',
+							options: [ { label: 'Single file plugin', description: 'One file.' } ],
+						},
+						{
+							question: 'What should it be called?',
+							options: [ { label: 'Suggest one', description: 'You pick.' } ],
+						},
+					],
+				},
+			} as AgentRunEvent );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () =>
+			expect( mockIpc.answerAiAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				'How should the plugin be structured?': CHAT_REPLY_ANSWER,
+				'What should it be called?': CHAT_REPLY_ANSWER,
+			} )
+		);
+		// Order matters: cancelling first leaves the tool call without a result,
+		// which reads to the model as a broken tool.
+		expect( mockIpc.answerAiAgentQuestion.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			mockIpc.interruptAiAgentRun.mock.invocationCallOrder[ 0 ]
+		);
+		await waitFor( () => expect( mockIpc.continueAiSession ).toHaveBeenCalled() );
+	} );
+
+	it( 'keeps the options the user already picked when it answers the rest', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+			emit( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-08-26T12:00:01.000Z',
+					questions: [
+						{
+							question: 'How should the plugin be structured?',
+							options: [ { label: 'Single file plugin', description: 'One file.' } ],
+						},
+						{
+							question: 'What should it be called?',
+							options: [ { label: 'Suggest one', description: 'You pick.' } ],
+						},
+					],
+				},
+			} as AgentRunEvent );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer first' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () =>
+			expect( mockIpc.answerAiAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				'How should the plugin be structured?': 'Single file plugin',
+				'What should it be called?': CHAT_REPLY_ANSWER,
+			} )
+		);
+		await waitFor( () => expect( mockIpc.continueAiSession ).toHaveBeenCalled() );
+	} );
+
 	it( 'leaves a running turn alone when no questions are pending', async () => {
 		renderWithAgentRun();
 
@@ -131,6 +220,7 @@ describe( 'useAgentRun replies while the agent is asking', () => {
 
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
 		expect( mockIpc.interruptAiAgentRun ).not.toHaveBeenCalled();
+		expect( mockIpc.answerAiAgentQuestion ).not.toHaveBeenCalled();
 		expect( mockIpc.continueAiSession ).not.toHaveBeenCalled();
 	} );
 } );

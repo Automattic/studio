@@ -1,6 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
+import { CHAT_REPLY_ANSWER } from '@studio/common/ai/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -283,6 +284,7 @@ interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	answerPendingQuestions: ( sessionId: string ) => Promise< void >;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -683,6 +685,26 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
+	// Resolves a batch the user chose not to answer, so the blocked
+	// `AskUserQuestion` call still gets a tool result before the run is cancelled.
+	const answerPendingQuestions = useCallback(
+		async ( sessionId: string ) => {
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
+			if ( ! state.runId || state.pendingQuestions.length === 0 ) {
+				return;
+			}
+			const answers = { ...state.pendingAnswers };
+			for ( const pending of state.pendingQuestions ) {
+				if ( typeof answers[ pending.question ] !== 'string' ) {
+					answers[ pending.question ] = CHAT_REPLY_ANSWER;
+				}
+			}
+			dispatchSession( sessionId, { type: 'batch_dispatched' } );
+			await connector.answerAgentQuestion( state.runId, answers );
+		},
+		[ connector, dispatchSession, stateStore ]
+	);
+
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			stateStore,
@@ -690,8 +712,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			answerPendingQuestions,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
+		[ answerPendingQuestions, answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -709,6 +732,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		answerPendingQuestions: answerRunPendingQuestions,
 	} = store;
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
@@ -780,7 +804,9 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				} );
 				// A run blocked on `ask_user` never reaches `idle` on its own, so
 				// cancel it — the queued message then dispatches as a fresh turn.
+				// Answering first is what keeps the model using the question UI.
 				if ( pendingQuestions.length > 0 ) {
+					await answerRunPendingQuestions( sessionId );
 					await interruptRun( sessionId );
 				}
 				return;
@@ -788,6 +814,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			await startRun( sessionId, prompt, options );
 		},
 		[
+			answerRunPendingQuestions,
 			dispatchSession,
 			interruptRun,
 			phase,

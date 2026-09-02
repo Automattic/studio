@@ -75,7 +75,6 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
-	-webkit-app-region: no-drag;
 }
 
 .tabListViewport {

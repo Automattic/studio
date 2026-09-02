@@ -96,6 +96,27 @@
 	outline: none;
 }
 
+.recentSuggestion {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.recentSuggestion:hover,
+.recentSuggestion:focus-within {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.recentSuggestion .suggestion:hover,
+.recentSuggestion .suggestion:focus-visible {
+	background: transparent;
+}
+
+.removeSuggestion {
+	margin-inline-end: var(--wpds-dimension-padding-2xs);
+}
+
 .locationIcon,
 .locationSiteIcon {
 	width: 18px;

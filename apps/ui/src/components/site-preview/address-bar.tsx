@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
-import { __ } from '@wordpress/i18n';
-import { Icon, wordpress } from '@wordpress/icons';
-import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { __, sprintf } from '@wordpress/i18n';
+import { closeSmall, Icon, wordpress } from '@wordpress/icons';
+import { IconButton, Popover, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
@@ -154,6 +154,19 @@ function storeRecentLocation(
 	return locations;
 }
 
+function removeRecentLocation( siteId: string, path: string ): RecentPreviewLocation[] {
+	const locations = loadRecentLocations( siteId ).filter( ( recent ) => recent.path !== path );
+	try {
+		window.localStorage.setItem(
+			getRecentLocationsStorageKey( siteId ),
+			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
+		);
+	} catch {
+		// Keep the in-memory list removable when storage is unavailable.
+	}
+	return locations;
+}
+
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	try {
 		return new URL( path, siteUrl ).toString();
@@ -178,7 +191,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 		if ( ! popup || ! position ) {
 			return;
 		}
-		const suggestions = popup.querySelectorAll< HTMLButtonElement >( 'button' );
+		const suggestions = popup.querySelectorAll< HTMLButtonElement >( `.${ styles.suggestion }` );
 		suggestions[ position === 'first' ? 0 : suggestions.length - 1 ]?.focus();
 		pendingSuggestionFocusRef.current = null;
 	}, [] );
@@ -340,16 +353,32 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 					<div className={ styles.suggestionsSection }>
 						<div className={ styles.suggestionsLabel }>{ __( 'Recent' ) }</div>
 						{ recentLocations.map( ( recent ) => (
-							<Popover.Close
-								key={ recent.path }
-								className={ styles.suggestion }
-								title={ recent.label }
-								onClick={ () => chooseLocation( recent.path, recent ) }
-								onKeyDown={ handleSuggestionKeyDown }
-							>
-								{ renderLocationIcon( recent.path ) }
-								<span className={ styles.suggestionUrl }>{ recent.label }</span>
-							</Popover.Close>
+							<div key={ recent.path } className={ styles.recentSuggestion }>
+								<Popover.Close
+									className={ styles.suggestion }
+									title={ recent.label }
+									onClick={ () => chooseLocation( recent.path, recent ) }
+									onKeyDown={ handleSuggestionKeyDown }
+								>
+									{ renderLocationIcon( recent.path ) }
+									<span className={ styles.suggestionUrl }>{ recent.label }</span>
+								</Popover.Close>
+								<IconButton
+									className={ styles.removeSuggestion }
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ closeSmall }
+									label={ sprintf(
+										/* translators: %s: recently visited URL */
+										__( 'Remove %s from recent' ),
+										recent.label
+									) }
+									onClick={ () =>
+										setRecentLocations( removeRecentLocation( site.id, recent.path ) )
+									}
+								/>
+							</div>
 						) ) }
 					</div>
 				) : null }

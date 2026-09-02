@@ -210,4 +210,27 @@ describe( 'PreviewAddressBar', () => {
 		await user.keyboard( '{ArrowUp}' );
 		expect( screen.getByRole( 'button', { name: 'Database' } ) ).toHaveFocus();
 	} );
+
+	it( 'removes individual recent locations without closing suggestions', async () => {
+		const user = userEvent.setup();
+		window.localStorage.setItem(
+			'studio-preview-recent-locations:site-1',
+			JSON.stringify( {
+				version: 1,
+				locations: [ { path: '/about/', label: `${ SITE_URL }/about/` } ],
+			} )
+		);
+		renderAddressBar();
+
+		await user.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: `Remove ${ SITE_URL }/about/ from recent` } )
+		);
+
+		expect( screen.queryByText( 'Recent' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Destinations' ) ).toBeVisible();
+		expect(
+			JSON.parse( window.localStorage.getItem( 'studio-preview-recent-locations:site-1' )! )
+		).toEqual( { version: 1, locations: [] } );
+	} );
 } );

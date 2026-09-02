@@ -667,6 +667,12 @@
 }
 
 .aiCreditsWarningStrip {
+	--ai-credits-strip-fill: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-caution) 38%,
+		var(--wpds-color-bg-surface-neutral-strong)
+	);
+
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -675,16 +681,25 @@
 	border-block-end: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-start-start-radius: var(--composer-corner-radius);
 	border-start-end-radius: var(--composer-corner-radius);
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-caution) 38%,
-		var(--wpds-color-bg-surface-neutral-strong)
-	);
+	background: var(--ai-credits-strip-fill);
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs)
 		var(--wpds-dimension-padding-xs) var(--composer-inline-padding);
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.25;
+}
+
+/* Dark needs its own mix rather than a stronger share of the same one: every
+   wpds dark warning *surface* sits within ~1.14 contrast of the app background,
+   so the strip reads as plain grey. The vivid amber exists only as a stroke
+   token, so tint with that instead. Light already reads clearly yellow, and
+   raising the shared mix would have overcooked it. */
+:global(html[data-color-scheme='dark']) .aiCreditsWarningStrip {
+	--ai-credits-strip-fill: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-warning-strong) 16%,
+		var(--wpds-color-bg-surface-neutral-strong)
+	);
 }
 
 .aiCreditsWarningStripButton {

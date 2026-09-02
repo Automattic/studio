@@ -44,7 +44,7 @@ function srcsetCandidates( srcset: string ): string[] {
 	const candidates: string[] = [];
 	const descriptor = /(?:^|,\s*)([\s\S]*?)\s+(\d+(?:\.\d+)?[wx])(?=\s*(?:,|$))/g;
 	for ( const match of srcset.matchAll( descriptor ) ) {
-		const url = match[ 1 ].trim();
+		const url = match[ 1 ].trim().replace( /\s/g, ( whitespace ) => encodeURIComponent( whitespace ) );
 		if ( url ) candidates.push( `${ url } ${ match[ 2 ] }` );
 	}
 	return candidates.length > 0 ? candidates : srcset.split( ',' ).map( ( candidate ) => candidate.trim() );

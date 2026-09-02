@@ -20,10 +20,15 @@ export const discoverHandler: Handler = async (args, ctx) => {
   };
   const inventory = await adapter.discover(args.url as string, opts);
 
-  const { detectFeatures } = await import('../../lib/features/detect-features.js');
+  const { detectFeatures, fetchFeatureHtmlSamples } = await import(
+    '../../lib/features/detect-features.js'
+  );
   const inv = inventory as { urls?: Array<{ url: string }> };
   const urls = (inv.urls || []).map((u) => u.url);
-  const platformFeatures = detectFeatures(detection.platform, urls, []);
+  // Sample a few pages so htmlMarkers run. Without this only urlPatterns fire,
+  // which misses widget-only features (forms, chat, login bars) entirely.
+  const htmlSamples = await fetchFeatureHtmlSamples(args.url as string, urls);
+  const platformFeatures = detectFeatures(detection.platform, urls, htmlSamples);
 
   const result = { ...(inventory as object), platformFeatures } as Record<string, unknown>;
 

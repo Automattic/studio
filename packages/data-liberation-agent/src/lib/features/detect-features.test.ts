@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectFeatures, type PlatformFeature } from './detect-features.js';
+import { detectFeatures, fetchFeatureHtmlSamples } from './detect-features.js';
 
 describe('detectFeatures', () => {
   it('detects Wix Stores from URL patterns', () => {
@@ -97,5 +97,110 @@ describe('detectFeatures', () => {
     const store = features.find((f) => f.id === 'store' && f.detected);
     expect(store).toBeDefined();
     expect(store!.wpRecommendation).toBeTruthy();
+  });
+
+  // --- Weebly: previously excluded from every rule, so a Weebly site always
+  // came back feature-less. Weebly sites unpublish 27 Sep 2026; triage needs this.
+
+  it('detects a Weebly (Square) store from URL patterns', () => {
+    const urls = ['https://example.com/store/c1/Prints.html', 'https://example.com/store/p12/Riso-Print.html'];
+    const features = detectFeatures('weebly', urls, []);
+    const store = features.find((f) => f.id === 'store');
+    expect(store!.detected).toBe(true);
+    expect(store!.evidence).toEqual(['url']);
+  });
+
+  it('detects a Weebly store from wsite-com markup', () => {
+    const html = ['<div class="wsite-com-category-product-wrap"><a class="wsite-com-product-title">Print</a></div>'];
+    const features = detectFeatures('weebly', ['https://example.com/'], html);
+    expect(features.find((f) => f.id === 'store')!.detected).toBe(true);
+  });
+
+  it('detects Weebly forms from wsite-form markup', () => {
+    const html = ['<div class="wsite-form-container"><input class="wsite-form-input wsite-input" /></div>'];
+    const features = detectFeatures('weebly', [], html);
+    expect(features.find((f) => f.id === 'forms')!.detected).toBe(true);
+  });
+
+  it('detects a Weebly forum from the /forum/ path', () => {
+    const features = detectFeatures('weebly', ['https://example.com/forum/general'], []);
+    expect(features.find((f) => f.id === 'forum')!.detected).toBe(true);
+  });
+
+  it('offers store, forms, members and forum rules for Weebly', () => {
+    const ids = detectFeatures('weebly', [], []).map((f) => f.id);
+    expect(ids).toEqual(expect.arrayContaining(['store', 'forms', 'members', 'forum', 'bookings']));
+  });
+
+  // --- Evidence: lets triage distinguish a slug hit from a markup hit.
+
+  it('reports which signal fired', () => {
+    const features = detectFeatures(
+      'wix',
+      ['https://example.com/events/gala'],
+      ['<div data-hook="events-list"></div>'],
+    );
+    expect(features.find((f) => f.id === 'events')!.evidence).toEqual(['url', 'html']);
+    expect(features.find((f) => f.id === 'store')!.evidence).toEqual([]);
+  });
+
+  // --- New rules that change the DIFM triage verdict.
+
+  it('detects Wix Restaurants from markup and ordering URLs', () => {
+    const byUrl = detectFeatures('wix', ['https://example.com/online-ordering'], []);
+    expect(byUrl.find((f) => f.id === 'restaurants')!.detected).toBe(true);
+    const byHtml = detectFeatures('wix', [], ['<div data-hook="restaurants-menu"></div>']);
+    expect(byHtml.find((f) => f.id === 'restaurants')!.detected).toBe(true);
+  });
+
+  it('detects Wix Pricing Plans', () => {
+    const features = detectFeatures('wix', ['https://example.com/plans-pricing'], []);
+    expect(features.find((f) => f.id === 'pricing-plans')!.detected).toBe(true);
+  });
+
+  it('detects a multilingual Wix site from language-prefixed URLs', () => {
+    const urls = ['https://example.com/', 'https://example.com/about', 'https://example.com/es/about'];
+    const features = detectFeatures('wix', urls, []);
+    expect(features.find((f) => f.id === 'multilingual')!.detected).toBe(true);
+  });
+
+  it('does not flag two-letter section slugs as languages', () => {
+    const urls = ['https://example.com/my/account', 'https://example.com/go/somewhere'];
+    const features = detectFeatures('wix', urls, []);
+    expect(features.find((f) => f.id === 'multilingual')!.detected).toBe(false);
+  });
+
+  it('detects Velo / CMS from the Wix code runtime in page markup', () => {
+    const features = detectFeatures('wix', [], ['<script src="https://static.parastorage.com/services/wix-code-sdk/1.0/app.js"></script>']);
+    expect(features.find((f) => f.id === 'cms')!.detected).toBe(true);
+  });
+
+  it('does not offer Wix-only rules for other platforms', () => {
+    const ids = detectFeatures('weebly', [], []).map((f) => f.id);
+    expect(ids).not.toContain('restaurants');
+    expect(ids).not.toContain('cms');
+  });
+});
+
+describe('fetchFeatureHtmlSamples', () => {
+  it('fetches the homepage first, then sitemap URLs, up to the sample size', async () => {
+    const seen: string[] = [];
+    const fakeFetch = (async (input: string | URL | Request) => {
+      seen.push(String(input));
+      return new Response('<html>' + String(input) + '</html>', { status: 200 });
+    }) as typeof fetch;
+    const urls = ['https://example.com/', 'https://example.com/a', 'https://example.com/b', 'https://example.com/c', 'https://example.com/d'];
+    const samples = await fetchFeatureHtmlSamples('example.com', urls, 3, fakeFetch);
+    expect(seen).toEqual(['https://example.com', 'https://example.com/a', 'https://example.com/b']);
+    expect(samples).toHaveLength(3);
+  });
+
+  it('drops failed fetches instead of throwing', async () => {
+    const fakeFetch = (async (input: string | URL | Request) => {
+      if (String(input).endsWith('/broken')) throw new Error('boom');
+      return new Response('ok', { status: 200 });
+    }) as typeof fetch;
+    const samples = await fetchFeatureHtmlSamples('https://example.com', ['https://example.com/broken'], 2, fakeFetch);
+    expect(samples).toEqual(['ok']);
   });
 });

@@ -34,9 +34,16 @@ export const inspectHandler: Handler = async (args, ctx) => {
     result.probeResults = await adapter.probe(args.url as string, urls.slice(0, 3), opts);
   }
 
-  const { detectFeatures } = await import('../../lib/features/detect-features.js');
+  const { detectFeatures, fetchFeatureHtmlSamples } = await import(
+    '../../lib/features/detect-features.js'
+  );
   const featureUrls = urls.length > 0 ? urls : [args.url as string];
-  result.platformFeatures = detectFeatures(detection.platform, featureUrls, []);
+  // Sample the homepage plus a few sitemap pages so htmlMarkers run. URL
+  // patterns alone can't see widget-only features (forms, chat, login bars)
+  // and are only as reliable as the owner's slugs.
+  const htmlSamples = await fetchFeatureHtmlSamples(args.url as string, urls);
+  result.featureHtmlSampled = htmlSamples.length;
+  result.platformFeatures = detectFeatures(detection.platform, featureUrls, htmlSamples);
 
   return ctx.textResult(result);
 };

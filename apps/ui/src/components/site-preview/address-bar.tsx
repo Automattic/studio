@@ -3,12 +3,12 @@ import { __ } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { Popover, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -170,6 +170,18 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
+	const suggestionsPopupRef = useRef< HTMLDivElement | null >( null );
+	const pendingSuggestionFocusRef = useRef< 'first' | 'last' | null >( null );
+	const setSuggestionsPopupRef = useCallback( ( popup: HTMLDivElement | null ) => {
+		suggestionsPopupRef.current = popup;
+		const position = pendingSuggestionFocusRef.current;
+		if ( ! popup || ! position ) {
+			return;
+		}
+		const suggestions = popup.querySelectorAll< HTMLButtonElement >( 'button' );
+		suggestions[ position === 'first' ? 0 : suggestions.length - 1 ]?.focus();
+		pendingSuggestionFocusRef.current = null;
+	}, [] );
 
 	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
@@ -195,6 +207,35 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 		}
 		setSuggestionsOpen( false );
 		onNavigate( nextPath );
+	};
+	const getSuggestionElements = () =>
+		Array.from(
+			suggestionsPopupRef.current?.querySelectorAll< HTMLButtonElement >(
+				`.${ styles.suggestion }`
+			) ?? []
+		);
+	const focusSuggestion = ( position: 'first' | 'last' ): boolean => {
+		const suggestions = getSuggestionElements();
+		const suggestion = suggestions[ position === 'first' ? 0 : suggestions.length - 1 ];
+		suggestion?.focus();
+		return Boolean( suggestion );
+	};
+	const handleSuggestionKeyDown = ( event: KeyboardEvent< HTMLButtonElement > ) => {
+		if ( event.key === 'Escape' ) {
+			event.preventDefault();
+			addressBarRef.current?.querySelector( 'input' )?.focus();
+			setSuggestionsOpen( false );
+			return;
+		}
+		if ( event.key !== 'ArrowDown' && event.key !== 'ArrowUp' ) {
+			return;
+		}
+		event.preventDefault();
+		const suggestions = getSuggestionElements();
+		const currentIndex = suggestions.indexOf( event.currentTarget );
+		const direction = event.key === 'ArrowDown' ? 1 : -1;
+		const nextIndex = ( currentIndex + direction + suggestions.length ) % suggestions.length;
+		suggestions[ nextIndex ]?.focus();
 	};
 	const renderLocationIcon = ( locationPath: string ) => {
 		const realm = getPreviewRealm( locationPath );
@@ -233,8 +274,16 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 						setSuggestionsOpen( true );
 					} }
 					onKeyDown={ ( event ) => {
-						if ( event.key === 'Tab' ) {
+						if ( event.key === 'Tab' || event.key === 'Escape' ) {
 							setSuggestionsOpen( false );
+						} else if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+							event.preventDefault();
+							const position = event.key === 'ArrowDown' ? 'first' : 'last';
+							pendingSuggestionFocusRef.current = position;
+							setSuggestionsOpen( true );
+							if ( focusSuggestion( position ) ) {
+								pendingSuggestionFocusRef.current = null;
+							}
 						}
 					} }
 					aria-label={ __( 'Address' ) }
@@ -242,6 +291,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 				/>
 			</form>
 			<Popover.Popup
+				ref={ setSuggestionsPopupRef }
 				variant="unstyled"
 				initialFocus={ false }
 				finalFocus={ false }
@@ -261,13 +311,18 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 				</VisuallyHidden>
 				<div className={ styles.suggestionsSection }>
 					<div className={ styles.suggestionsLabel }>{ __( 'Destinations' ) }</div>
-					<Popover.Close className={ styles.suggestion } onClick={ () => chooseLocation( '/' ) }>
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( '/' ) }
+						onKeyDown={ handleSuggestionKeyDown }
+					>
 						{ renderLocationIcon( '/' ) }
 						<span>{ __( 'Front-end' ) }</span>
 					</Popover.Close>
 					<Popover.Close
 						className={ styles.suggestion }
 						onClick={ () => chooseLocation( getRealmNavigationPath( '/wp-admin/', siteUrl ) ) }
+						onKeyDown={ handleSuggestionKeyDown }
 					>
 						{ renderLocationIcon( '/wp-admin/' ) }
 						<span>{ __( 'WordPress' ) }</span>
@@ -275,6 +330,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 					<Popover.Close
 						className={ styles.suggestion }
 						onClick={ () => chooseLocation( DATABASE_HOME_PATH ) }
+						onKeyDown={ handleSuggestionKeyDown }
 					>
 						{ renderLocationIcon( DATABASE_HOME_PATH ) }
 						<span>{ __( 'Database' ) }</span>
@@ -289,6 +345,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 								className={ styles.suggestion }
 								title={ recent.label }
 								onClick={ () => chooseLocation( recent.path, recent ) }
+								onKeyDown={ handleSuggestionKeyDown }
 							>
 								{ renderLocationIcon( recent.path ) }
 								<span className={ styles.suggestionUrl }>{ recent.label }</span>

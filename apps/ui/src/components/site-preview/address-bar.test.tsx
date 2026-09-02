@@ -169,4 +169,45 @@ describe( 'PreviewAddressBar', () => {
 		expect( screen.getByRole( 'button', { name: 'Before address' } ) ).toHaveFocus();
 		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'closes address suggestions with Escape or an outside click', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+
+		await user.click( input );
+		await user.keyboard( '{Escape}' );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+		expect( input ).toHaveFocus();
+
+		await user.click( input );
+		await user.click( screen.getByRole( 'button', { name: 'After address' } ) );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'navigates address suggestions with the arrow keys', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+
+		await user.click( input );
+		await user.keyboard( '{ArrowDown}' );
+		expect( screen.getByRole( 'button', { name: 'Front-end' } ) ).toHaveFocus();
+
+		await user.keyboard( '{ArrowDown}' );
+		expect( screen.getByRole( 'button', { name: 'WordPress' } ) ).toHaveFocus();
+
+		await user.keyboard( '{ArrowUp}' );
+		expect( screen.getByRole( 'button', { name: 'Front-end' } ) ).toHaveFocus();
+
+		await user.keyboard( '{ArrowUp}' );
+		expect( screen.getByRole( 'button', { name: 'Database' } ) ).toHaveFocus();
+
+		await user.keyboard( '{Escape}' );
+		expect( input ).toHaveFocus();
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+
+		await user.keyboard( '{ArrowUp}' );
+		expect( screen.getByRole( 'button', { name: 'Database' } ) ).toHaveFocus();
+	} );
 } );

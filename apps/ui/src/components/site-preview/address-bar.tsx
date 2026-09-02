@@ -2,6 +2,7 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
@@ -210,13 +211,13 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 			<Icon
 				icon={ realm === 'admin' ? wordpress : databaseIcon }
 				size={ 18 }
-				className={ styles.locationIcon }
+				className={ clsx( styles.locationIcon, realm === 'admin' && styles.wordpressIcon ) }
 			/>
 		);
 	};
 
 	return (
-		<Popover.Root open={ suggestionsOpen } onOpenChange={ setSuggestionsOpen }>
+		<Popover.Root modal={ false } open={ suggestionsOpen } onOpenChange={ setSuggestionsOpen }>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
 				<input
 					className={ styles.input }
@@ -230,6 +231,11 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 						event.currentTarget.select();
 						setRecentLocations( loadRecentLocations( site.id ) );
 						setSuggestionsOpen( true );
+					} }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Tab' ) {
+							setSuggestionsOpen( false );
+						}
 					} }
 					aria-label={ __( 'Address' ) }
 					spellCheck={ false }

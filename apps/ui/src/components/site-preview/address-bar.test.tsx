@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
@@ -36,7 +37,16 @@ function renderAddressBar( {
 	onNavigate?: Mock< ( path: string ) => void >;
 } = {} ) {
 	const result = render(
-		<PreviewAddressBar site={ SITE } siteUrl={ SITE_URL } path={ path } onNavigate={ onNavigate } />
+		<>
+			<button type="button">Before address</button>
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path={ path }
+				onNavigate={ onNavigate }
+			/>
+			<button type="button">After address</button>
+		</>
 	);
 	return { ...result, onNavigate };
 }
@@ -102,7 +112,9 @@ describe( 'PreviewAddressBar', () => {
 				onNavigate={ vi.fn() }
 			/>
 		);
-		expect( input ).toHaveValue( `${ SITE_URL }/contact/` );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			`${ SITE_URL }/contact/`
+		);
 	} );
 
 	it( 'selects the URL on focus', () => {
@@ -138,5 +150,23 @@ describe( 'PreviewAddressBar', () => {
 		renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect( input.closest( 'form' )?.querySelector( 'button, img, svg' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'lets keyboard focus leave the address field while suggestions are open', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+
+		await user.click( input );
+		expect( screen.getByText( 'Destinations' ) ).toBeVisible();
+
+		await user.tab();
+		expect( screen.getByRole( 'button', { name: 'After address' } ) ).toHaveFocus();
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+
+		await user.click( input );
+		await user.tab( { shift: true } );
+		expect( screen.getByRole( 'button', { name: 'Before address' } ) ).toHaveFocus();
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
 	} );
 } );

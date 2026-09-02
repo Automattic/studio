@@ -107,6 +107,10 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+.wordpressIcon {
+	fill: currentColor;
+}
+
 .locationSiteIcon {
 	--site-icon-size: 18px;
 }

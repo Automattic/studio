@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 
 const EMPTY_CSS_URL = 'data:application/octet-stream;base64,';
 const TRANSPARENT_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+const TRANSPARENT_IMAGE_PAYLOAD = TRANSPARENT_IMAGE.slice( TRANSPARENT_IMAGE.indexOf( ',' ) + 1 );
 
 /**
  * `rel` values that make a `<link>` fetch something. `canonical` and
@@ -57,6 +58,7 @@ function withoutRemoteSrcset( srcset: string ): string {
 			return (
 				url &&
 				! PLACEHOLDER_SRCSET_CANDIDATE.test( candidate ) &&
+				url !== TRANSPARENT_IMAGE_PAYLOAD &&
 				! url.startsWith( 'data:' ) &&
 				! isRemoteAssetUrl( url )
 			);

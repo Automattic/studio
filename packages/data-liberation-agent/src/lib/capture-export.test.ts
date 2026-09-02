@@ -581,6 +581,38 @@ describe( 'exportWebsiteCapture', () => {
 		expect( $( '.hs-form-frame' ).eq( 32 ).find( 'iframe' ) ).toHaveLength( 0 );
 	} );
 
+	it( 'removes a multiline media srcset URL containing an apostrophe without leaving a malformed reference', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-quoted-media-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const imageUrl = "https://static.wixstatic.com/media/Happy%20Women's%20Day.jpg";
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body><img srcset="${ imageUrl } 1x,\n${ imageUrl } 2x"></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const $ = cheerio.load( html );
+		expect( $( 'img' ).attr( 'srcset' ) ).toBeUndefined();
+		expect( html ).not.toContain( "Women's%20Day.jpg" );
+		expect( html ).not.toContain( "R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='s%20Day.jpg" );
+	} );
+
 	it( 'exports captured routes and localized media as a website directory', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

@@ -712,14 +712,14 @@ function capturedMediaReferences( entries: CaptureEntry[] ): Map< string, Set< s
 		const html = readFileSync( entry.htmlPath, 'utf8' );
 		const references: string[] = [];
 		for ( const match of html.matchAll(
-			/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
+			/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi
 		) ) {
-			references.push( match[ 1 ] );
+			references.push( match[ 2 ] );
 		}
 		for ( const match of html.matchAll(
-			/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
+			/<(?:img|source)\b[^>]*\bsrcset\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi
 		) ) {
-			references.push( ...srcsetReferences( match[ 1 ] ) );
+			references.push( ...srcsetReferences( match[ 2 ] ) );
 		}
 		for ( const reference of references ) {
 			try {
@@ -968,21 +968,21 @@ function dependencyReferences(
 	const mediaReferences = new Set< string >();
 	const cssReferences = new Set< string >();
 	for ( const match of searchableHtml.matchAll(
-		/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi
+		/<(?:img|source|video|audio)\b[^>]*\bsrc\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi
 	) ) {
-		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
-		add( match[ 1 ] );
+		mediaReferences.add( match[ 2 ].replace( /&amp;/g, '&' ) );
+		add( match[ 2 ] );
 	}
 	for ( const match of searchableHtml.matchAll(
-		/<video\b[^>]*\bposter\s*=\s*["']([^"']+)["'][^>]*>/gi
+		/<video\b[^>]*\bposter\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi
 	) ) {
-		mediaReferences.add( match[ 1 ].replace( /&amp;/g, '&' ) );
-		add( match[ 1 ] );
+		mediaReferences.add( match[ 2 ].replace( /&amp;/g, '&' ) );
+		add( match[ 2 ] );
 	}
 	for ( const match of searchableHtml.matchAll(
-		/<(?:img|source)\b[^>]*\bsrcset\s*=\s*["']([^"']+)["'][^>]*>/gi
+		/<(?:img|source)\b[^>]*\bsrcset\s*=\s*(["'])([\s\S]*?)\1[^>]*>/gi
 	) ) {
-		for ( const reference of srcsetReferences( match[ 1 ] ) ) {
+		for ( const reference of srcsetReferences( match[ 2 ] ) ) {
 			if ( reference ) {
 				mediaReferences.add( reference.replace( /&amp;/g, '&' ) );
 				add( reference );
@@ -991,32 +991,32 @@ function dependencyReferences(
 	}
 	for ( const match of searchableHtml.matchAll( /<link\b[^>]*>/gi ) ) {
 		const tag = match[ 0 ];
-		const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
-		const as = /\bas\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].toLowerCase() ?? '';
+		const rel = /\brel\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ].toLowerCase() ?? '';
+		const as = /\bas\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ].toLowerCase() ?? '';
 		const relations = rel.split( /\s+/ );
 		if (
 			relations.some( ( value ) => value === 'stylesheet' || /(?:^|-)icon$/.test( value ) ) ||
 			( relations.includes( 'preload' ) && [ 'style', 'font', 'image', 'media' ].includes( as ) )
 		) {
-			add( /\bhref\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ] );
+			add( /\bhref\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ] );
 		}
 	}
 	for ( const match of searchableHtml.matchAll(
-		/\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g
+		/\bimport\s+(?:[^"']*?\s+from\s+)?(["'])([\s\S]*?)\1/g
 	) ) {
-		add( match[ 1 ] );
+		add( match[ 2 ] );
 	}
 	for ( const match of cssContent.matchAll(
-		/\burl\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi
+		/\burl\(\s*(?:(["'])([\s\S]*?)\1|([^\s)'";]+))\s*\)/gi
 	) ) {
-		const reference = match[ 1 ] ?? match[ 2 ];
+		const reference = match[ 2 ] ?? match[ 3 ];
 		if ( reference && ! reference.startsWith( 'data:' ) && ! reference.startsWith( '#' ) ) {
 			cssReferences.add( reference.replace( /&amp;/g, '&' ) );
 			add( reference );
 		}
 	}
-	for ( const match of cssContent.matchAll( /@import\s+(?:url\(\s*)?["']([^"']+)["']/gi ) ) {
-		const reference = match[ 1 ];
+	for ( const match of cssContent.matchAll( /@import\s+(?:url\(\s*)?(["'])([\s\S]*?)\1/gi ) ) {
+		const reference = match[ 2 ];
 		cssReferences.add( reference.replace( /&amp;/g, '&' ) );
 		add( reference );
 	}
@@ -1045,11 +1045,11 @@ function removeDanglingMediaSource( html: string, reference: string ): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
 	const withoutSources = html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
 		const element = /^<(\w+)/.exec( tag )?.[ 1 ].toLowerCase();
-		const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec( tag )?.[ 1 ].replace( /&amp;/g, '&' );
+		const src = /\bsrc\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ].replace( /&amp;/g, '&' );
 		return src === normalizedReference
 			? element === 'img'
-				? tag.replace( /\s+src\s*=\s*["'][^"']*["']/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` )
-				: tag.replace( /\s+src\s*=\s*["'][^"']*["']/i, '' )
+				? tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` )
+				: tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, '' )
 			: tag;
 	} );
 	return replaceAll(

@@ -116,6 +116,40 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'tab' ) ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
 
+	it( 'opens modifier-clicked preview links in a new tab', () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		const openLinkEvent = new Event( 'console-message' );
+		Object.defineProperty( openLinkEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'open-link-in-new-tab',
+				url: 'http://localhost:8881/about/',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, openLinkEvent );
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	} );
+
 	it( 'uses vertical wheel input to scroll an overflowing tab list', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

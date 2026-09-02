@@ -3,6 +3,7 @@ import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
+	PREVIEW_NAVIGATION_SCRIPT,
 } from './inspector-script';
 
 describe( 'site preview inspector sessions', () => {
@@ -174,6 +175,60 @@ describe( 'site preview inspector sessions', () => {
 
 		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'site preview navigation bridge', () => {
+	afterEach( () => {
+		(
+			window as Window & {
+				__studioPreviewNavigationDispose?: () => void;
+			}
+		 ).__studioPreviewNavigationDispose?.();
+		vi.restoreAllMocks();
+		document.body.replaceChildren();
+	} );
+
+	it.each( [
+		{ platform: 'MacIntel', modifier: { metaKey: true } },
+		{ platform: 'Win32', modifier: { ctrlKey: true } },
+	] )( 'opens same-site $platform links in a new preview tab', ( { platform, modifier } ) => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );
+		document.body.innerHTML = '<a href="/another-page"><span>Another page</span></a>';
+		new Function( PREVIEW_NAVIGATION_SCRIPT )();
+
+		const click = new MouseEvent( 'click', {
+			...modifier,
+			bubbles: true,
+			cancelable: true,
+			button: 0,
+		} );
+		document.querySelector( 'span' )?.dispatchEvent( click );
+
+		expect( click.defaultPrevented ).toBe( true );
+		expect( bridgeMessages( log ) ).toContainEqual( {
+			type: 'open-link-in-new-tab',
+			url: new URL( '/another-page', window.location.href ).href,
+		} );
+	} );
+
+	it( 'leaves links alone without the platform primary modifier', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( 'MacIntel' );
+		document.body.innerHTML = '<a href="/another-page">Another page</a>';
+		new Function( PREVIEW_NAVIGATION_SCRIPT )();
+		const anchor = document.querySelector( 'a' );
+		const pageClick = vi.fn( ( event: Event ) => event.preventDefault() );
+		anchor?.addEventListener( 'click', pageClick );
+
+		const click = new MouseEvent( 'click', { ctrlKey: true, bubbles: true, cancelable: true } );
+		anchor?.dispatchEvent( click );
+
+		expect( pageClick ).toHaveBeenCalledOnce();
+		expect( bridgeMessages( log ) ).not.toContainEqual(
+			expect.objectContaining( { type: 'open-link-in-new-tab' } )
+		);
 	} );
 } );
 

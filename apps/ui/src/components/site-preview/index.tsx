@@ -41,6 +41,7 @@ import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
+	PREVIEW_NAVIGATION_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
@@ -127,15 +128,23 @@ interface SingleSitePreviewProps extends SitePreviewProps {
 	initialHistoryIndex?: number;
 	hasTabBar?: boolean;
 	onAddressSuggestionsOpenChange?: ( open: boolean ) => void;
+	onOpenNewTab?: ( url: string ) => void;
 }
 
 interface InspectorEvent {
-	type: 'annotations-updated' | 'browser-command' | 'cancel-requested' | 'done' | 'state';
+	type:
+		| 'annotations-updated'
+		| 'browser-command'
+		| 'cancel-requested'
+		| 'done'
+		| 'open-link-in-new-tab'
+		| 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	hasUnsavedDraft?: boolean;
 	command?: PreviewShortcutCommandType;
+	url?: string;
 }
 
 interface InspectorState {
@@ -1651,6 +1660,10 @@ export function SitePreview( props: SitePreviewProps ) {
 								onTabCycle={ cycleTab }
 								initialHistoryEntries={ tab.historyEntries }
 								initialHistoryIndex={ tab.activeHistoryIndex }
+								onOpenNewTab={ ( url ) => {
+									const nextPath = getPathFromPreviewUrl( url, getSiteUrl( site ) );
+									if ( nextPath ) addTab( nextPath );
+								} }
 								onHistoryChange={ ( entries, activeIndex ) => {
 									setTabs( ( current ) =>
 										current.map( ( currentTab ) =>
@@ -1714,6 +1727,7 @@ function SingleSitePreview( {
 	initialHistoryIndex = -1,
 	hasTabBar = false,
 	onAddressSuggestionsOpenChange,
+	onOpenNewTab,
 	shortcutScopeRef,
 }: SingleSitePreviewProps ) {
 	const connector = useConnector();
@@ -2243,6 +2257,7 @@ function SingleSitePreview( {
 												} }
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+												onOpenNewTab={ onOpenNewTab }
 												viewport={ viewport }
 											/>
 										) : (
@@ -2297,6 +2312,7 @@ function SingleSitePreview( {
 																: null
 														}
 														onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+														onOpenNewTab={ onOpenNewTab }
 													/>
 												) : (
 													<iframe
@@ -2391,6 +2407,7 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	onOpenNewTab?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -2418,6 +2435,7 @@ function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	onOpenNewTab,
 	viewport = null,
 	inspector = true,
 }: WebviewSurfaceProps ) {
@@ -2432,6 +2450,7 @@ function WebviewSurface( {
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
+	const onOpenNewTabRef = useRef( onOpenNewTab );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
@@ -2460,6 +2479,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onOpenNewTabRef.current = onOpenNewTab;
+	}, [ onOpenNewTab ] );
 	useEffect( () => {
 		inspectorEnabledRef.current = inspector;
 	}, [ inspector ] );
@@ -2612,9 +2634,8 @@ function WebviewSurface( {
 			}
 			publishDocumentTitle();
 			publishNavigationHistory();
-			if ( ! inspectorEnabledRef.current ) {
-				return;
-			}
+			void webview.executeJavaScript( PREVIEW_NAVIGATION_SCRIPT, false ).catch( () => undefined );
+			if ( ! inspectorEnabledRef.current ) return;
 			// If annotations were collected on a previous page, seed
 			// window.__studioInspectorState before the IIFE runs so the
 			// freshly-injected inspector picks them up on init.
@@ -2648,6 +2669,12 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.type === 'open-link-in-new-tab' ) {
+				if ( typeof parsed.url === 'string' ) {
+					onOpenNewTabRef.current?.( parsed.url );
+				}
+				return;
+			}
 			if ( parsed.type === 'browser-command' ) {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );

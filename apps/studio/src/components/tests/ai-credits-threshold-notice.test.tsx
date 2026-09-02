@@ -49,6 +49,15 @@ describe( 'AiCreditsThresholdNotice', () => {
 		expect( screen.getByRole( 'button', { name: 'Add AI credits' } ) ).toBeInTheDocument();
 	} );
 
+	// The quota arrives after the composer has rendered, so the notice has to
+	// announce itself rather than wait to be found.
+	it( 'announces itself to screen readers', () => {
+		mockUsage( 170000 );
+		render( <AiCreditsThresholdNotice /> );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 83% usage' );
+	} );
+
 	// Classic has no composer strip, so its one slot carries the 90% step too.
 	it( 'escalates at 90% usage', () => {
 		mockUsage( 100000 );

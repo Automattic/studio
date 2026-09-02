@@ -32,7 +32,10 @@ function NoticeCard( {
 	onDismiss: () => void;
 } ) {
 	return (
-		<div className="border-frame-border bg-frame-surface relative mb-2 flex flex-col items-start gap-1 rounded-lg border p-3 text-left">
+		<div
+			role="status"
+			className="border-frame-border bg-frame-surface relative mb-2 flex flex-col items-start gap-1 rounded-lg border p-3 text-start"
+		>
 			<span className="text-frame-text pe-6 text-sm font-semibold">{ title }</span>
 			{ description ? (
 				<span className="text-frame-text-secondary text-xs">{ description }</span>

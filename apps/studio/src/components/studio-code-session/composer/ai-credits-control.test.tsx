@@ -8,13 +8,14 @@ import {
 } from 'src/stores/wpcom-api';
 import { AiCreditsControl } from './ai-credits-control';
 
-const { openURL, refetchQuota } = vi.hoisted( () => ( {
+const { openURL, showUserSettings, refetchQuota } = vi.hoisted( () => ( {
 	openURL: vi.fn(),
+	showUserSettings: vi.fn(),
 	refetchQuota: vi.fn(),
 } ) );
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: () => ( { openURL } ),
+	getIpcApi: () => ( { openURL, showUserSettings } ),
 } ) );
 
 vi.mock( 'src/hooks/use-auth', () => ( {
@@ -35,6 +36,11 @@ vi.mock( 'src/components/ai-credits-purchase-dialog', () => ( {
 		open ? <div role="dialog">Add AI credits</div> : null,
 } ) );
 
+vi.mock( 'src/components/ai-credits-details-dialog', () => ( {
+	AiCreditsDetailsDialog: ( { open }: { open: boolean } ) =>
+		open ? <div role="dialog">How AI credits work</div> : null,
+} ) );
+
 const useQuotaMock = vi.mocked( useGetStudioAssistantQuota );
 const usePricingMock = vi.mocked( useGetStudioAssistantTopUpPricing );
 
@@ -44,7 +50,7 @@ function mockQuota( data: Record< string, unknown > | undefined ) {
 
 async function openMenu() {
 	fireEvent.click( screen.getByRole( 'button', { name: 'AI credits' } ) );
-	await waitFor( () => expect( screen.getAllByRole( 'menuitem' ).length ).toBe( 1 ) );
+	await waitFor( () => expect( screen.getAllByRole( 'menuitem' ).length ).toBe( 3 ) );
 }
 
 describe( 'AiCreditsControl', () => {
@@ -218,5 +224,25 @@ describe( 'AiCreditsControl', () => {
 			expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Add AI credits' )
 		);
 		expect( openURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens the credits explainer from the menu', async () => {
+		render( <AiCreditsControl /> );
+
+		await openMenu();
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'How AI credits work' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'How AI credits work' )
+		);
+	} );
+
+	it( 'opens the account settings from the usage-settings item', async () => {
+		render( <AiCreditsControl /> );
+
+		await openMenu();
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Usage settings' } ) );
+
+		expect( showUserSettings ).toHaveBeenCalledWith( 'account' );
 	} );
 } );

@@ -361,6 +361,12 @@
 	font: inherit;
 }
 
+/* The credits ring is its own affordance — the shared icon-button frame
+   around it reads as a border on the circle, so it goes borderless. */
+.aiCreditsButton {
+	border: none;
+}
+
 .glyphButton {
 	font-size: 11px;
 	line-height: 1;

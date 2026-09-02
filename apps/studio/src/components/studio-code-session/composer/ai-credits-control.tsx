@@ -7,8 +7,10 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
+import { AiCreditsDetailsDialog } from 'src/components/ai-credits-details-dialog';
 import { AiCreditsPurchaseDialog } from 'src/components/ai-credits-purchase-dialog';
 import { useAuth } from 'src/hooks/use-auth';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import {
@@ -62,6 +64,7 @@ export function AiCreditsControl() {
 	const locale = useI18nLocale();
 	const { isAuthenticated } = useAuth();
 	const [ purchaseOpen, setPurchaseOpen ] = useState( false );
+	const [ detailsOpen, setDetailsOpen ] = useState( false );
 	const { data: quota, refetch: refetchQuota } = useGetStudioAssistantQuota( undefined, {
 		skip: ! isAuthenticated,
 	} );
@@ -130,7 +133,7 @@ export function AiCreditsControl() {
 					render={
 						<button
 							type="button"
-							className={ styles.iconButton }
+							className={ cx( styles.iconButton, styles.aiCreditsButton ) }
 							aria-label={ __( 'AI credits' ) }
 							title={ tooltipLabel }
 						>
@@ -161,9 +164,16 @@ export function AiCreditsControl() {
 					>
 						{ __( 'Add AI credits' ) }
 					</Menu.Item>
+					<Menu.Item onClick={ () => setDetailsOpen( true ) }>
+						{ __( 'How AI credits work' ) }
+					</Menu.Item>
+					<Menu.Item onClick={ () => void getIpcApi().showUserSettings( 'account' ) }>
+						{ __( 'Usage settings' ) }
+					</Menu.Item>
 				</Menu.Popup>
 			</Menu.Root>
 			<AiCreditsPurchaseDialog open={ purchaseOpen } onOpenChange={ setPurchaseOpen } />
+			<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
 		</>
 	);
 }

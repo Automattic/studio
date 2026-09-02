@@ -1,7 +1,5 @@
-@container site-toolbar (max-width: 440px) {
-	.label {
-		display: none;
-	}
+:global([data-site-toolbar-layout='compact']) .label {
+	display: none;
 }
 
 .popup {

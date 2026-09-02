@@ -1,3 +1,4 @@
+import { cloudUpload, Icon, login, update } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
@@ -7,6 +8,12 @@ import type { ComponentProps, CSSProperties, ElementRef } from 'react';
 
 type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	action: ToolbarAction;
+};
+
+const actionIcons = {
+	publish: cloudUpload,
+	sync: update,
+	login,
 };
 
 /**
@@ -37,6 +44,7 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, Props >( fu
 			loadingAnnouncement={ action.label }
 			disabled={ action.disabled }
 			focusableWhenDisabled
+			aria-label={ action.label }
 			{ ...props }
 			onClick={ ( event ) => {
 				if ( action.disabled || action.busy ) {
@@ -54,21 +62,20 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, Props >( fu
 			) }
 			{ /* Keyed on the action so a lifecycle change animates the swap
 				  rather than silently relabelling the button in place. */ }
+			<span className={ styles.actionIcon } aria-hidden="true">
+				<Icon icon={ actionIcons[ action.id ] } size={ 18 } />
+			</span>
 			<span key={ action.id } className={ styles.actionLabel }>
 				{ action.label }
 			</span>
 		</Button>
 	);
 
-	if ( ! action.hint ) {
-		return button;
-	}
-
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger render={ button } />
 			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-				{ action.hint }
+				{ action.hint ?? action.label }
 			</Tooltip.Popup>
 		</Tooltip.Root>
 	);

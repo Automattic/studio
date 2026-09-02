@@ -21,6 +21,8 @@
 	align-items: center;
 	gap: var(--wpds-dimension-gap-md);
 	min-width: 0;
+	flex: 1 1 auto;
+	overflow: hidden;
 }
 
 .siteIcon {
@@ -34,6 +36,7 @@
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
+	flex: 1 1 auto;
 }
 
 .siteName {
@@ -87,6 +90,13 @@
 	text-overflow: ellipsis;
 }
 
+.siteUrl > span,
+.siteUrlStatic {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .siteUrl {
 	-webkit-app-region: no-drag;
 	cursor: var(--wpds-cursor-control);
@@ -132,6 +142,32 @@
 	-webkit-app-region: no-drag;
 }
 
+.openInAction {
+	display: flex;
+	align-items: center;
+}
+
+.compactActionsTrigger {
+	display: none;
+}
+
+.compactActionsPopup {
+	min-width: 180px;
+}
+
+.compactActionsItemIcon {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.compactActionsItemIcon svg:not([fill]) {
+	fill: currentColor;
+}
+
 /* --- Primary action ------------------------------------------------------ */
 
 .action {
@@ -161,6 +197,69 @@
 	display: inline-flex;
 	align-items: center;
 	animation: actionLabelIn 200ms ease both;
+}
+
+.actionIcon {
+	display: none;
+	place-items: center;
+	color: currentColor;
+}
+
+.actionIcon svg:not([fill]),
+.shareActionIcon svg:not([fill]) {
+	fill: currentColor;
+}
+
+.shareActionIcon {
+	display: none;
+	place-items: center;
+	color: currentColor;
+}
+
+.toolbar[data-site-toolbar-layout='compact'] {
+	.shareAction {
+		min-width: 32px;
+		width: 32px;
+		padding-inline: 0;
+	}
+
+	.shareActionLabel {
+		display: none;
+	}
+
+	.shareActionIcon {
+		display: grid;
+	}
+}
+
+.toolbar:is(
+		[data-site-toolbar-layout='overflow'],
+		[data-site-toolbar-layout='minimal']
+	) {
+	.openInAction,
+	.shareAction {
+		display: none;
+	}
+
+	.compactActionsTrigger {
+		display: inline-flex;
+	}
+}
+
+.toolbar[data-site-toolbar-layout='minimal'] {
+	.action {
+		min-width: 32px;
+		width: 32px;
+		padding-inline: 0;
+	}
+
+	.actionLabel {
+		display: none;
+	}
+
+	.actionIcon {
+		display: grid;
+	}
 }
 
 @keyframes actionLabelIn {

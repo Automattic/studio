@@ -20,7 +20,20 @@
 	border: 0;
 }
 
+/* Both description lines live in ToggleControl's help so they reach the
+   toggle's accessible description. Let the help block span the full width and
+   re-apply its own 40px label indent to the sentence alone, so the installed
+   version still starts at the field's edge. */
+.updateModeControl :global(.components-toggle-control__help) {
+	display: block;
+	margin-inline-start: 0;
+}
+
+.toggleHelpText {
+	display: block;
+	margin-inline-start: 40px;
+}
+
 .installedVersion {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	display: block;
 }

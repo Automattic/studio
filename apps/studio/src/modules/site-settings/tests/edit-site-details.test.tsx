@@ -157,8 +157,13 @@ describe( 'EditSiteDetails', () => {
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeChecked();
+		const toggle = screen.getByLabelText( 'Automatic updates' );
+		expect( toggle ).toBeChecked();
 		expect( screen.getByText( /Installed version/ ) ).toHaveTextContent( 'Installed version: 6.3' );
+		// Forms mode announces only the control's label and description, so both
+		// lines under the toggle have to be part of that description.
+		expect( toggle ).toHaveAccessibleDescription( /Installed version: 6\.3/ );
+		expect( toggle ).toHaveAccessibleDescription( /on its own schedule/ );
 		// Nothing to pick while WordPress owns the version.
 		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
 	} );

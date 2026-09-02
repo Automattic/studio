@@ -8,7 +8,7 @@ import { isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-uti
 import { FormToggle, SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
@@ -47,6 +47,9 @@ export const WPVersionSelector = ( {
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	// Unique per instance, so two selectors on one screen keep their own label
+	// and description associations.
+	const toggleId = useId();
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -131,6 +134,9 @@ export const WPVersionSelector = ( {
 		// the newest stable release for a site that doesn't exist yet.
 		const pinnedFallback =
 			installedVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
+		const helpId = `${ toggleId }-help`;
+		const installedVersionId = `${ toggleId }-installed-version`;
+		const showsInstalledVersion = automaticUpdates && !! installedVersion;
 		return (
 			<div
 				role="group"
@@ -148,16 +154,21 @@ export const WPVersionSelector = ( {
 					<div className="flex justify-start items-start gap-2">
 						<FormToggle
 							className="mt-0.5"
-							id="wp-auto-update-toggle"
+							id={ toggleId }
 							checked={ automaticUpdates }
 							disabled={ disabled || isOffline }
+							// Forms mode announces only the label and the description, so
+							// both lines below the toggle have to be named here.
+							aria-describedby={
+								showsInstalledVersion ? `${ helpId } ${ installedVersionId }` : helpId
+							}
 							onChange={ ( event ) =>
 								onChange( event.target.checked ? DEFAULT_WORDPRESS_VERSION : pinnedFallback )
 							}
 						/>
 						<div className="flex flex-col gap-1">
-							<label htmlFor="wp-auto-update-toggle">{ getAutoUpdatesToggleLabel() }</label>
-							<div className="a8c-body-small text-frame-text-secondary">
+							<label htmlFor={ toggleId }>{ getAutoUpdatesToggleLabel() }</label>
+							<div id={ helpId } className="a8c-body-small text-frame-text-secondary">
 								{ getAutoUpdatesHelpText( automaticUpdates ) }
 							</div>
 						</div>
@@ -165,8 +176,8 @@ export const WPVersionSelector = ( {
 					{ /* Naming a version while the site is pinned would read as if
 					     auto-update were keeping it there — the dropdown says it. */ }
 					{ automaticUpdates ? (
-						installedVersion && (
-							<div className="a8c-body-small text-frame-text-secondary">
+						showsInstalledVersion && (
+							<div id={ installedVersionId } className="a8c-body-small text-frame-text-secondary">
 								{ getInstalledVersionLabel( installedVersion ) }
 							</div>
 						)

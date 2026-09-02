@@ -126,20 +126,28 @@ export function WpVersionControl< Item >( {
 						label={ getAutoUpdatesToggleLabel() }
 						checked={ automaticUpdates }
 						disabled={ disabled }
-						help={ getAutoUpdatesHelpText( automaticUpdates ) }
+						// Both lines go through `help` so ToggleControl points the
+						// toggle's aria-describedby at them: forms mode announces only
+						// the control's own label and description.
+						help={
+							<>
+								<span className={ styles.toggleHelpText }>
+									{ getAutoUpdatesHelpText( automaticUpdates ) }
+								</span>
+								{ /* Naming a version while the site is pinned would read as if
+								     auto-update were keeping it there — the dropdown says it. */ }
+								{ automaticUpdates && currentVersion && (
+									<span className={ styles.installedVersion }>
+										{ getInstalledVersionLabel( currentVersion.value ) }
+									</span>
+								) }
+							</>
+						}
 						onChange={ ( checked ) =>
 							updateValue( checked ? autoUpdateOption.value : defaultPinnedOption.value )
 						}
 					/>
-					{ /* Naming a version while the site is pinned would read as if
-				     auto-update were keeping it there — the dropdown says it. */ }
-					{ automaticUpdates
-						? currentVersion && (
-								<p className={ styles.installedVersion }>
-									{ getInstalledVersionLabel( currentVersion.value ) }
-								</p>
-						  )
-						: renderVersionSelect() }
+					{ ! automaticUpdates && renderVersionSelect() }
 				</fieldset>
 			</BaseControl>
 		) : (

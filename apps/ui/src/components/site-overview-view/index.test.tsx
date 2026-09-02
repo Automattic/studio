@@ -486,12 +486,17 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).toBeChecked();
+		const toggle = screen.getByRole( 'checkbox', { name: 'Automatic updates' } );
+		expect( toggle ).toBeChecked();
 		// The readout names the version the site runs now, so "latest" can't be
-		// read as "already on the newest release" (STU-2348).
+		// read as "already on the newest release" (STU-2348). It has to reach
+		// screen readers in forms mode too, where only the control's own label
+		// and description are announced.
 		expect( screen.getByText( /Installed version/ ) ).toHaveTextContent(
 			'Installed version: 6.7.2'
 		);
+		expect( toggle ).toHaveAccessibleDescription( /Installed version: 6\.7\.2/ );
+		expect( toggle ).toHaveAccessibleDescription( /on its own schedule/ );
 		// Nothing to pick while WordPress owns the version.
 		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
 	} );

@@ -195,6 +195,17 @@ describe( 'getMuPlugins error capture', () => {
 	} );
 } );
 
+describe( 'getMuPlugins admin API', () => {
+	it( 'should set the admin password only when it differs from the stored one', async () => {
+		const [ muPluginsDir ] = await getMuPlugins();
+		const content = await readFile( join( muPluginsDir, '0-studio-admin-api.php' ), 'utf8' );
+
+		// Rewriting an unchanged password produces a new hash, which invalidates
+		// the wp-admin auth cookie on every site start.
+		expect( content ).toMatch( /!\s*wp_check_password\([^)]*\)[^{]*\{\s*wp_set_password\(/ );
+	} );
+} );
+
 describe( 'getMuPlugins tunnel URL rewrite', () => {
 	it( 'should include the tunnel URL rewrite mu-plugin', async () => {
 		const [ muPluginsDir ] = await getMuPlugins( {} );

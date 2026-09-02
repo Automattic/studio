@@ -217,7 +217,6 @@
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
 	line-height: var( --wpds-typography-line-height-sm );
-	white-space: nowrap;
 }
 
 .preferenceText p {
@@ -783,10 +782,6 @@
 		flex-direction: column;
 	}
 
-	.preferenceText h2 {
-		white-space: normal;
-	}
-
 	.skillRow {
 		align-items: stretch;
 		grid-template-columns: 1fr;
@@ -907,7 +902,71 @@
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
-	background: var( --wpds-color-fg-interactive-brand );
+	background: var( --wpds-color-fg-content-neutral );
+}
+
+/* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
+   filters brighten the wpds caution/warning weak tokens toward the design's
+   yellow and orange — taken as-is from the usage-interfaces exploration. */
+.progressValueWarning {
+	background: var( --wpds-color-fg-content-caution-weak );
+	filter: saturate( 2 ) brightness( 1.8 );
+}
+
+.progressValueCritical {
+	background: var( --wpds-color-fg-content-warning-weak );
+	filter: saturate( 1.6 ) brightness( 1.35 );
+}
+
+.progressValueExhausted {
+	background: var( --wpds-color-bg-interactive-error-strong );
+}
+
+.creditMeter {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.creditMeterSummary {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditMeterCredits {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditMeterAvailable {
+	flex: none;
+	color: var( --wpds-color-fg-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditCallout {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditCallout > :first-child {
+	flex: none;
+}
+
+.creditCalloutText {
+	min-width: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .previewActionsButton {

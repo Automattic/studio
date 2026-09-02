@@ -249,6 +249,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getStudioAssistantQuota() {
 			return null;
 		},
+		async getStudioAssistantTopUpPricing() {
+			return null;
+		},
 		async deleteAllSnapshots() {
 			// No-op: hosted mode does not create WordPress.com preview sites.
 		},
@@ -486,6 +489,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},

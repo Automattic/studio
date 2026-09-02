@@ -323,7 +323,7 @@ export function getTitleBarOverlayOptions() {
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
 	// Chrome is dark in both schemes; the content surface tracks
-	// `--wpds-color-bg-surface-neutral`.
+	// `--wpds-color-background-surface-neutral`.
 	const onChrome = agenticControlsSurface === 'chrome';
 	return {
 		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',

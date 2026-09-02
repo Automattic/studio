@@ -90,7 +90,7 @@
 
 .description {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	line-height: 1.5;
 	text-wrap: pretty;
 }
@@ -157,15 +157,15 @@
 	   colour, and both tokens follow the theme. */
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 22%,
-		var(--wpds-color-bg-surface-neutral)
+		var(--wpds-color-foreground-content-neutral) 22%,
+		var(--wpds-color-background-surface-neutral)
 	);
 	transition: background 200ms ease-in-out, width 200ms ease-in-out;
 }
 
 .dotActive {
 	width: 18px;
-	background: var(--wpds-color-fg-interactive-brand);
+	background: var(--wpds-color-foreground-interactive-brand);
 }
 
 @media (prefers-reduced-motion: reduce) {

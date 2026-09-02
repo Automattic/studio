@@ -120,7 +120,7 @@
 .removeSuggestion {
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-end: var(--wpds-dimension-padding-2xs);
+	inset-inline-end: var(--wpds-dimension-padding-xs);
 	color: var(--wpds-color-fg-interactive-neutral);
 	translate: 0 -50%;
 }

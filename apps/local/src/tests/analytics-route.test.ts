@@ -1,22 +1,14 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
-const databaseAppearance = vi.hoisted( () => ( {
-	get: vi.fn< () => Promise< 'studio' | 'phpmyadmin' > >(),
-	save: vi.fn< ( appearance: 'studio' | 'phpmyadmin' ) => Promise< void > >(),
-} ) );
-
-vi.mock( '@studio/common/lib/database-appearance', () => ( {
-	getDatabaseAppearance: databaseAppearance.get,
-	saveDatabaseAppearance: databaseAppearance.save,
-} ) );
-
 const recordTracksEvent = vi.fn( async () => undefined );
 
 let server: LocalServer;
+let configDir: string;
 
 async function postEvent( body: unknown ): Promise< Response > {
 	return fetch( `${ server.url }/api/analytics/event`, {
@@ -28,8 +20,8 @@ async function postEvent( body: unknown ): Promise< Response > {
 
 beforeEach( async () => {
 	vi.clearAllMocks();
-	databaseAppearance.get.mockResolvedValue( 'studio' );
-	databaseAppearance.save.mockResolvedValue();
+	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-analytics-' ) );
+	process.env.DEV_CONFIG_DIR = configDir;
 	server = await startLocalServer( {
 		cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),
 		sessionsRoot: path.join( os.tmpdir(), 'studio-test-sessions' ),
@@ -41,14 +33,16 @@ beforeEach( async () => {
 
 afterEach( async () => {
 	await server.close();
+	delete process.env.DEV_CONFIG_DIR;
+	rmSync( configDir, { recursive: true, force: true } );
 } );
 
-describe( 'PUT /api/preferences/database-appearance', () => {
-	async function saveAppearance( appearance: string ): Promise< Response > {
-		return fetch( `${ server.url }/api/preferences/database-appearance`, {
-			method: 'PUT',
+describe( 'PATCH /api/user-preferences database appearance', () => {
+	async function saveAppearance( appearance: unknown ): Promise< Response > {
+		return fetch( `${ server.url }/api/user-preferences`, {
+			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { appearance } ),
+			body: JSON.stringify( { databaseAppearance: appearance } ),
 		} );
 	}
 
@@ -56,7 +50,6 @@ describe( 'PUT /api/preferences/database-appearance', () => {
 		const response = await saveAppearance( 'phpmyadmin' );
 
 		expect( response.status ).toBe( 204 );
-		expect( databaseAppearance.save ).toHaveBeenCalledWith( 'phpmyadmin' );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SETTING_DATABASE_APPEARANCE_CHANGE,
 			{ appearance: 'phpmyadmin', surface: 'settings' }
@@ -67,15 +60,26 @@ describe( 'PUT /api/preferences/database-appearance', () => {
 		const response = await saveAppearance( 'studio' );
 
 		expect( response.status ).toBe( 204 );
-		expect( databaseAppearance.save ).toHaveBeenCalledWith( 'studio' );
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records clearing the preference as a change back to Studio', async () => {
+		await saveAppearance( 'phpmyadmin' );
+		recordTracksEvent.mockClear();
+
+		const response = await saveAppearance( null );
+
+		expect( response.status ).toBe( 204 );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SETTING_DATABASE_APPEARANCE_CHANGE,
+			{ appearance: 'studio', surface: 'settings' }
+		);
 	} );
 
 	it( 'rejects an unsupported database appearance', async () => {
 		const response = await saveAppearance( 'something-else' );
 
 		expect( response.status ).toBe( 400 );
-		expect( databaseAppearance.save ).not.toHaveBeenCalled();
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 } );

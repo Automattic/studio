@@ -22,27 +22,30 @@ if (isset($_GET[$studio_database_cookie])) {
 define('STUDIO_DATABASE_ENABLED', $studio_database_enabled);
 
 if ($studio_database_enabled) {
-    // Use phpMyAdmin's bundled Bootstrap theme as the base for Studio's stylesheet.
+    // Use phpMyAdmin's bundled Bootstrap theme consistently in Studio.
     $cfg['ThemeDefault'] = 'bootstrap';
     $cfg['ThemeManager'] = false;
+    unset($_COOKIE['pma_theme']);
 
-    // Prefer text labels where phpMyAdmin normally repeats actions as both an icon
-    // and text. Keep these fixed so session preferences cannot restore the icons.
+    // Keep the embedded database view compact and favor readable text actions over
+    // phpMyAdmin's repeated icon and text presentation.
+    $cfg['NavigationWidth'] = 0;
     $cfg['TabsMode'] = 'text';
     $cfg['ActionLinksMode'] = 'text';
     $cfg['RowActionType'] = 'text';
-    $cfg['UserprefsDisallow'] = ['TabsMode', 'ActionLinksMode', 'RowActionType', 'ThemeDefault'];
-
-    // Start with the navigation panel collapsed: it holds only Recent and Favorites
-    // here (the database tree stays empty under the SQLite adapter), and Studio
-    // renders phpMyAdmin inside a preview pane where 240px is expensive. The
-    // collapser arrow reopens it. Note that reopening lasts for the page view only
-    // — without phpMyAdmin configuration storage, preferences live in the session,
-    // and persistOption() discards any value equal to the built-in default of 240.
-    // A width set by dragging the resizer is kept.
-    $cfg['NavigationWidth'] = 0;
+    $cfg['TableNavigationLinksMode'] = 'text';
     $cfg['ShowStats'] = false;
     $cfg['ShowColumnComments'] = false;
+    $cfg['UserprefsDisallow'] = [
+        'ThemeDefault',
+        'NavigationWidth',
+        'TabsMode',
+        'ActionLinksMode',
+        'RowActionType',
+        'TableNavigationLinksMode',
+        'ShowStats',
+        'ShowColumnComments',
+    ];
 }
 
 // Playground-specific configuration.

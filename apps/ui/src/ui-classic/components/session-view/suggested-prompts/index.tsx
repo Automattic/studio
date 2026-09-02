@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { Button, Dialog, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useRef, useState } from 'react';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import { getSuggestedPrompts } from './prompts';
 import styles from './style.module.css';
 import type { CSSProperties } from 'react';
@@ -15,7 +16,11 @@ interface SuggestedPromptsProps {
 	// Checked at click time; confirmation is only asked when the draft
 	// diverged from the last suggestion we inserted (user edits count,
 	// switching between untouched suggestions does not).
-	getDraft: () => { text: string; hasAttachments: boolean };
+	getDraft: () => {
+		text: string;
+		hasAttachments: boolean;
+		suggestionBaseline: string | null;
+	};
 }
 
 interface PendingPrompt {
@@ -51,14 +56,12 @@ export function SuggestedPrompts( {
 		__( 'Take this for a spin' ),
 	];
 	const [ pendingPrompt, setPendingPrompt ] = useState< PendingPrompt | null >( null );
+	const replaceLabel = __( 'Replace draft' );
+	const handleReplaceKeyDown = useConfirmOnEnter( replaceLabel );
 	const [ transfer, setTransfer ] = useState< PromptTransfer | null >( null );
 	const transferIdRef = useRef( 0 );
-	// Text of the last suggestion we inserted. While the draft still equals it
-	// (and no attachments were added), another suggestion may replace it freely.
-	const baselineRef = useRef< string | null >( null );
 
 	const apply = ( prompt: string ) => {
-		baselineRef.current = prompt;
 		onPick( prompt );
 	};
 
@@ -94,7 +97,7 @@ export function SuggestedPrompts( {
 		const draft = getDraft();
 		const isUntouched =
 			! draft.hasAttachments &&
-			( draft.text.trim().length === 0 || draft.text === baselineRef.current );
+			( draft.text.trim().length === 0 || draft.text === draft.suggestionBaseline );
 		if ( isUntouched ) {
 			applyWithTransfer( prompt, label, sourceRect );
 		} else {
@@ -104,7 +107,7 @@ export function SuggestedPrompts( {
 
 	return (
 		<div className={ styles.root }>
-			<div className={ styles.group }>
+			<div className={ styles.frostField }>
 				{ /* Stacked backdrop-blur layers with shrinking radial masks — the
 				     progressive-blur technique (see components/progressive-blur) —
 				     so the frost ramps up smoothly instead of cutting a hard edge.
@@ -120,6 +123,8 @@ export function SuggestedPrompts( {
 						/>
 					)
 				) }
+			</div>
+			<div className={ styles.group }>
 				<ul className={ clsx( styles.list, fadeClass ) }>
 					{ prompts.map( ( item, index ) => (
 						<li key={ item.id }>
@@ -167,7 +172,7 @@ export function SuggestedPrompts( {
 					}
 				} }
 			>
-				<Dialog.Popup size="small">
+				<Dialog.Popup size="small" onKeyDown={ handleReplaceKeyDown }>
 					<Dialog.Header>
 						<Dialog.Title>{ __( 'Replace your draft?' ) }</Dialog.Title>
 					</Dialog.Header>
@@ -194,7 +199,7 @@ export function SuggestedPrompts( {
 								setPendingPrompt( null );
 							} }
 						>
-							{ __( 'Replace draft' ) }
+							{ replaceLabel }
 						</Button>
 					</Dialog.Footer>
 				</Dialog.Popup>

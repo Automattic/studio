@@ -12,6 +12,13 @@ import type { AssistantMessageEventStream } from '@earendil-works/pi-ai';
  *
  * The code, not the status, is the gate: hosted upstreams behind the proxy
  * return their own 429s for rate limits, and those *should* keep retrying.
+ *
+ * The proxy's out-of-credits refusal (402 `studio_out_of_credits`, STU-2236)
+ * deliberately passes through unrewritten: pi only retries errors matching
+ * its transient patterns (429/5xx/transport), which the 402 message never
+ * does, and the `studio_out_of_credits` token in the message is the stable
+ * marker the UI surfaces key on (see `isOutOfCreditsError`). The tests pin
+ * both properties.
  */
 export function withUsageCapErrorRewrite(
 	source: AssistantMessageEventStream

@@ -347,10 +347,14 @@ function PreferencesPanel( {
 						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 					/>
 				</PreferenceRow>
-				<PreferenceRow title={ __( 'Usage statistics' ) }>
+				<PreferenceRow
+					title={ __( 'Usage statistics' ) }
+					description={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+				>
 					<CheckboxControl
 						__nextHasNoMarginBottom
-						label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+						label=""
+						aria-label={ __( 'Usage statistics' ) }
 						checked={ data.analyticsEnabled }
 						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
 					/>

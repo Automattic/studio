@@ -20,12 +20,14 @@ import {
 	type Ref,
 	type UIEvent,
 } from 'react';
+import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIsOutOfAiCredits } from 'src/hooks/use-is-out-of-ai-credits';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -254,6 +256,9 @@ function EmptyConversation( {
 
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
+	// Out of credits replaces the composer: there is nothing to type into
+	// until the account buys more, so the offer takes the input's place.
+	const isOutOfCredits = useIsOutOfAiCredits();
 	const { data, isLoading } = useSession( sessionId );
 	const startNewChat = useCallback( () => void newSession(), [ newSession ] );
 	const {
@@ -417,21 +422,25 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
-						<Composer
-							busy={ composerBusy }
-							isInterrupting={ isInterrupting }
-							error={ usageCapReached ? null : runError }
-							usageCapMessage={ usageCapReached ? runError : null }
-							model={ currentModel }
-							onSend={ sendMessage }
-							onInterrupt={ interrupt }
-							sessionId={ sessionId }
-							entries={ data.entries }
-							ownerSiteId={ selectedSite.id }
-							onSwitchSession={ setSessionId }
-							draftPrompt={ promptDraft }
-							previewPrompt={ previewPrompt }
-						/>
+						{ isOutOfCredits ? (
+							<OutOfCreditsNotice />
+						) : (
+							<Composer
+								busy={ composerBusy }
+								isInterrupting={ isInterrupting }
+								error={ usageCapReached ? null : runError }
+								usageCapMessage={ usageCapReached ? runError : null }
+								model={ currentModel }
+								onSend={ sendMessage }
+								onInterrupt={ interrupt }
+								sessionId={ sessionId }
+								entries={ data.entries }
+								ownerSiteId={ selectedSite.id }
+								onSwitchSession={ setSessionId }
+								draftPrompt={ promptDraft }
+								previewPrompt={ previewPrompt }
+							/>
+						) }
 					</div>
 				}
 			>
@@ -510,7 +519,7 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<QueryClientProvider client={ queryClient }>
-			<ThemeProvider density="compact">
+			<ThemeProvider>
 				<AgentRunProvider>
 					<SessionGate selectedSite={ selectedSite } />
 				</AgentRunProvider>

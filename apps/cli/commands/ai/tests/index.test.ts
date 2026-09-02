@@ -87,7 +87,6 @@ vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {},
 	LoggerError: class LoggerError extends Error {},
-	setProgressCallback: vi.fn(),
 } ) );
 
 describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {

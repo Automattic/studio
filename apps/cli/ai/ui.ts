@@ -1,5 +1,11 @@
 import {
-	TUI,
+	getMarkdownTheme,
+	ToolExecutionComponent,
+	type AgentSessionEvent,
+} from '@earendil-works/pi-coding-agent';
+import {
+	type TUI,
+	TuiMainScreen,
 	ProcessTerminal,
 	Editor,
 	Input,
@@ -17,26 +23,21 @@ import {
 	type Focusable,
 	type EditorTheme,
 	type EditorOptions,
-	type MarkdownTheme,
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
-	getCapabilities,
-	Image,
-	Spacer,
 } from '@earendil-works/pi-tui';
-import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
-import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	fetchStudioAssistantQuota,
+	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
 	formatUsageCapNotice,
+	getTotalRemainingAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -47,14 +48,17 @@ import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
+import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
+import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
-import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
@@ -62,27 +66,12 @@ const SITE_PICKER_TAB_REMOTE = 'remote' as const;
 type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
 
 const sitePickerTheme: SelectListTheme = {
-	selectedPrefix: ( text ) => chalk.blue( text ),
-	selectedText: ( text ) => chalk.bold( text ),
-	description: ( text ) => chalk.dim( text ),
-	scrollInfo: ( text ) => chalk.dim( text ),
-	noMatch: ( text ) => chalk.dim( text ),
+	selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+	selectedText: ( text ) => theme.bold( text ),
+	description: ( text ) => theme.fg( 'muted', text ),
+	scrollInfo: ( text ) => theme.fg( 'muted', text ),
+	noMatch: ( text ) => theme.fg( 'muted', text ),
 };
-
-const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
-
-interface ExpandablePreview {
-	textComponent: Text;
-	collapsedContent: string;
-	expandedContent: string;
-	isExpanded: boolean;
-}
-
-function formatToolOutputLines( lines: string[] ): string {
-	return lines
-		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
-		.join( '\n' );
-}
 
 // Faint variant of the user bubble used by `addUserMessage`, for prompts that
 // were staged during an active turn and haven't been dispatched yet.
@@ -91,7 +80,7 @@ function formatQueuedPrompt( text: string ): string {
 	return lines
 		.map( ( line, i ) => {
 			const body = i === 0 ? '↳ ' + line + ' ' : '  ' + line + ' ';
-			return ' ' + chalk.bgHex( '#e8eef5' ).hex( '#5a6b7d' )( body );
+			return ' ' + theme.bg( 'userMessageBg', theme.fg( 'muted', body ) );
 		} )
 		.join( '\n' );
 }
@@ -152,7 +141,7 @@ class PromptEditor implements Component, Focusable {
 	}
 
 	render( width: number ): string[] {
-		const promptPrefix = ' ' + chalk.bold( '〉' );
+		const promptPrefix = ' ' + theme.bold( '〉' );
 		const promptWidth = 3; // space + 〉(2 cols)
 		const innerWidth = Math.max( 1, width - promptWidth );
 		const lines = this.editor.render( innerWidth );
@@ -185,7 +174,7 @@ class PromptEditor implements Component, Focusable {
 					return (
 						' ' +
 						bc( '─'.repeat( leading ) ) +
-						chalk.hex( '#8839ef' )( label ) +
+						theme.fg( 'accent', label ) +
 						bc( '─'.repeat( trailing ) )
 					);
 				}
@@ -218,17 +207,18 @@ class PromptEditor implements Component, Focusable {
 			: this.hints.filter( ( h ) => h !== __( '↓ select site' ) );
 		const leftPart =
 			activeHints.length > 0
-				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
+				? ' ' +
+				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
 		const rightSegments: string[] = [];
 		if ( this.daemonStatusMessage ) {
-			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
 		}
 		if ( this.statusMessage ) {
-			rightSegments.push( chalk.dim( this.statusMessage ) );
+			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
 		}
 		const rightPart =
-			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
+			rightSegments.length > 0 ? rightSegments.join( theme.fg( 'muted', ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -240,63 +230,16 @@ class PromptEditor implements Component, Focusable {
 	}
 }
 
-const markdownTheme: MarkdownTheme = {
-	heading: ( text ) => chalk.bold( text ),
-	link: ( text ) => chalk.cyan.underline( text ),
-	linkUrl: ( text ) => chalk.dim( text ),
-	code: ( text ) => chalk.yellow( text ),
-	codeBlock: ( text ) => text,
-	codeBlockBorder: ( text ) => chalk.dim( text ),
-	quote: ( text ) => chalk.italic( text ),
-	quoteBorder: ( text ) => chalk.dim( text ),
-	hr: ( text ) => chalk.dim( text ),
-	listBullet: ( text ) => chalk.cyan( text ),
-	bold: ( text ) => chalk.bold( text ),
-	italic: ( text ) => chalk.italic( text ),
-	strikethrough: ( text ) => chalk.strikethrough( text ),
-	underline: ( text ) => chalk.underline( text ),
-};
-
 const editorTheme: EditorTheme = {
-	borderColor: ( text ) => chalk.white( text ),
+	borderColor: ( text ) => theme.fg( 'border', text ),
 	selectList: {
-		selectedPrefix: ( text ) => chalk.cyan( text ),
-		selectedText: ( text ) => chalk.bold( text ),
+		selectedPrefix: ( text ) => theme.fg( 'accent', text ),
+		selectedText: ( text ) => theme.bold( text ),
 		description: ( text ) => dimUnhighlighted( text ),
-		scrollInfo: ( text ) => chalk.dim( text ),
-		noMatch: ( text ) => chalk.dim( text ),
+		scrollInfo: ( text ) => theme.fg( 'muted', text ),
+		noMatch: ( text ) => theme.fg( 'muted', text ),
 	},
 };
-
-function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = chalk.bold( getToolDisplayName( name, input ) );
-	const detail = getToolDetail( name, input );
-	if ( detail ) {
-		return displayName + ' ' + chalk.dim( detail );
-	}
-	return displayName;
-}
-
-interface ToolUseResultContent {
-	// Text blocks of a pi `ToolResultMessage`; image blocks render separately.
-	content: Array< { type: string; text?: string } >;
-	isError?: boolean;
-}
-
-interface ToolRenderState {
-	container: Container;
-	rowText: Text;
-	progressText: Text | null;
-	progressLines: string[];
-}
-
-interface PendingToolCall {
-	name: string;
-	input: Record< string, unknown >;
-	label: string;
-	startedAtMs: number;
-	render: ToolRenderState | null;
-}
 
 export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
@@ -317,13 +260,18 @@ export class AiChatUI implements AiOutputAdapter {
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private _activeSite: SiteInfo | null = null;
-	private activeExpandablePreview: ExpandablePreview | null = null;
+	private toolOutputExpanded = false;
+	private hasExpandableOutput = false;
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
-	private pendingToolCalls = new Map< string, PendingToolCall >();
+	private pendingToolCalls = new Map<
+		string,
+		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
+	>();
+	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
@@ -337,13 +285,14 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
 	private optionPickerItems: SelectItem[] = [];
+	private optionPickerQuestion = '';
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
-		selectedPrefix: ( text: string ) => chalk.blue( text ),
-		selectedText: ( text: string ) => chalk.blue( text ),
-		description: ( text: string ) => chalk.dim( text ),
-		scrollInfo: ( text: string ) => chalk.dim( text ),
-		noMatch: ( text: string ) => chalk.dim( text ),
+		selectedPrefix: ( text: string ) => theme.fg( 'accent', text ),
+		selectedText: ( text: string ) => theme.fg( 'accent', text ),
+		description: ( text: string ) => theme.fg( 'muted', text ),
+		scrollInfo: ( text: string ) => theme.fg( 'muted', text ),
+		noMatch: ( text: string ) => theme.fg( 'muted', text ),
 	};
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
@@ -398,6 +347,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -408,6 +358,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -430,13 +381,14 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
-		this.messages.addChild( new Text( '\n' + chalk.bold( question ), 0, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.bold( question ), 0, 0 ) );
 		this.tui.requestRender();
 	}
 
 	constructor() {
+		initStudioTheme();
 		const terminal = new ProcessTerminal();
-		this.tui = new TUI( terminal, true );
+		this.tui = new TuiMainScreen( terminal, true );
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
@@ -449,8 +401,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.loader = new Loader(
 			this.tui,
-			( str ) => chalk.yellow( str ),
-			( str ) => chalk.yellow( str ),
+			( str ) => theme.fg( 'accent', str ),
+			( str ) => theme.fg( 'accent', str ),
 			__( 'Thinking…' )
 		);
 		// @ts-expect-error -- frames is private but has no public API to customize
@@ -628,8 +580,15 @@ export class AiChatUI implements AiOutputAdapter {
 				this.renderQueuedContainer();
 				return { consume: true };
 			}
-			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
-				this.toggleExpandablePreview();
+			if ( matchesKey( data, 'ctrl+o' ) && this.hasExpandableOutput ) {
+				this.toolOutputExpanded = ! this.toolOutputExpanded;
+				for ( const child of this.messages.children ) {
+					if ( child instanceof ToolExecutionComponent ) {
+						child.setExpanded( this.toolOutputExpanded );
+					}
+				}
+				this.updateHints();
+				this.tui.requestRender();
 				return { consume: true };
 			}
 			return undefined;
@@ -641,7 +600,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const sites: SiteData[] = config.sites ?? [];
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
-				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
+				new Text( theme.fg( 'muted', '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
 			this.tui.requestRender();
 			return;
@@ -698,7 +657,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerRemoteItems = [];
 		this.rebuildSitePickerList();
 		this.renderSitePicker();
-		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
+		this.messages.addChild( new Text( `\n${ theme.fg( 'muted', message ) }\n`, 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -740,7 +699,7 @@ export class AiChatUI implements AiOutputAdapter {
 				description: site.url?.replace( /^https?:\/\//, '' ),
 			};
 		}
-		const status = site.running ? `${ chalk.green( '●' ) } ` : '  ';
+		const status = site.running ? `${ theme.fg( 'success', '●' ) } ` : '  ';
 		return {
 			value: site.path,
 			label: `${ status }${ site.name }`,
@@ -785,13 +744,15 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
-		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const localTab = isLocal ? theme.bold( __( '[Local]' ) ) : theme.fg( 'muted', __( 'Local' ) );
+		const remoteTab = isLocal
+			? theme.fg( 'muted', 'WordPress.com' )
+			: theme.bold( '[WordPress.com]' );
 		const pad = ' ';
 		const header = `${ pad }${ localTab }  ${ remoteTab }`;
 
 		const searchLine = this.sitePickerQuery
-			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
+			? `${ pad }${ theme.fg( 'muted', __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
 		const hints = isLocal
@@ -808,7 +769,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+			lines.push( theme.fg( 'muted', `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -817,7 +778,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		lines.push( '' );
-		lines.push( chalk.dim( hints ) );
+		lines.push( theme.fg( 'muted', hints ) );
 
 		const text = lines.join( '\n' );
 		this.sitePickerContainer.addChild( new Text( text, 0, 0 ) );
@@ -841,7 +802,7 @@ export class AiChatUI implements AiOutputAdapter {
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ theme.fg( 'accent', label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -854,7 +815,9 @@ export class AiChatUI implements AiOutputAdapter {
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
 		this.refreshPromptChrome();
-		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
+		this.messages.addChild(
+			new Text( theme.fg( 'muted', __( ' ✻ Site deselected' ) ) + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
@@ -1057,14 +1020,28 @@ export class AiChatUI implements AiOutputAdapter {
 		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
-			const cursor = chalk.inverse( ' ' );
+			const cursor = theme.inverse( ' ' );
 			const display = inputText
-				? chalk.blue( inputText ) + cursor
-				: chalk.dim( __( 'Type your answer…' ) ) + cursor;
-			lines[ lines.length - 1 ] = `${ chalk.blue( '→' ) } ${ display }`;
+				? theme.fg( 'accent', inputText ) + cursor
+				: theme.fg( 'muted', __( 'Type your answer…' ) ) + cursor;
+			lines[ lines.length - 1 ] = `${ theme.fg( 'accent', '→' ) } ${ display }`;
 		}
 
-		this.optionPickerContainer.addChild( new Text( lines.join( '\n' ), 1, 0 ) );
+		const question = this.optionPickerQuestion
+			? '\n' + theme.bold( this.optionPickerQuestion ) + '\n'
+			: '';
+		this.optionPickerContainer.addChild( new Text( question + lines.join( '\n' ), 1, 0 ) );
+		this.tui.requestRender();
+	}
+
+	private echoAnsweredQuestion( question: string, answer: string ): void {
+		this.messages.addChild(
+			new Text(
+				'\n' + theme.bold( question ) + '\n' + theme.fg( 'accent', '→' ) + ' ' + answer,
+				1,
+				0
+			)
+		);
 		this.tui.requestRender();
 	}
 
@@ -1100,6 +1077,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
 		this.optionPickerItems = [];
+		this.optionPickerQuestion = '';
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1113,6 +1091,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	start(): void {
 		this.tui.start();
+		void refineStudioTheme( this.tui ).then( ( changed ) => {
+			if ( changed ) {
+				this.tui.requestRender( true );
+			}
+		} );
 		// Logger progress and daemon-status updates can request renders while
 		// the TUI is stopped for an external prompt. pi-tui leaves that request
 		// pending, so force a fresh render when resuming.
@@ -1125,7 +1108,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
 		const displayCwd = home && cwd.startsWith( home ) ? '~' + cwd.slice( home.length ) : cwd;
 
-		const b = chalk.blue;
+		const b = ( text: string ) => `\x1b[38;2;56;88;233m${ text }\x1b[39m`;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
 		const logoLines = [
@@ -1167,10 +1150,10 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const info = [
-			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim( secondLine ),
+			theme.bold( 'WordPress Studio' ) + ( version ? theme.fg( 'muted', ` v${ version }` ) : '' ),
+			theme.fg( 'muted', secondLine ),
 			'',
-			chalk.dim.italic( __( 'Code is Poetry' ) ),
+			theme.fg( 'muted', theme.italic( __( 'Code is Poetry' ) ) ),
 		];
 
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
@@ -1187,7 +1170,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 	showTosNotice(): void {
 		const lines = formatTosNoticeLines().map( ( line ) =>
-			line ? ' ' + chalk.dim( line ) : line
+			line ? ' ' + theme.fg( 'muted', line ) : line
 		);
 		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
@@ -1233,7 +1216,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 		this.messages.addChild(
-			new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 )
+			new Text(
+				'\n ' + theme.fg( 'warning', '⏺' ) + ' ' + theme.fg( 'warning', __( 'Interrupted' ) ),
+				0,
+				0
+			)
 		);
 		this.showInfo(
 			sprintf(
@@ -1267,9 +1254,11 @@ export class AiChatUI implements AiOutputAdapter {
 		const formatted = lines
 			.map( ( line, i ) => {
 				if ( i === 0 ) {
-					return ' ' + chalk.bgHex( '#ddeeff' ).black( '〉' + line + ' ' );
+					return (
+						' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '〉' + line + ' ' ) )
+					);
 				}
-				return ' ' + chalk.bgHex( '#ddeeff' ).black( '  ' + line + ' ' );
+				return ' ' + theme.bg( 'userMessageBg', theme.fg( 'userMessageText', '  ' + line + ' ' ) );
 			} )
 			.join( '\n' );
 		this.messages.addChild( new Text( '\n' + formatted, 0, 0 ) );
@@ -1292,14 +1281,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const toolCall = this.getActiveProgressToolCall();
-		if ( toolCall ) {
-			this.addToolProgress( toolCall, message, update === true );
-			this.tui.requestRender();
-			return;
-		}
-
-		const formatted = formatToolOutputLines( [ chalk.dim( message ) ] );
+		const formatted = formatToolOutputLines( [ theme.fg( 'muted', message ) ] );
 		if ( update && this.fallbackProgressText ) {
 			this.fallbackProgressText.setText( formatted );
 		} else {
@@ -1348,10 +1330,8 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! this._inAgentTurn ) {
 			hints.push( __( '↓ select site' ) );
 		}
-		if ( this.activeExpandablePreview ) {
-			hints.push(
-				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
-			);
+		if ( this.hasExpandableOutput ) {
+			hints.push( this.toolOutputExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' ) );
 		}
 		if ( this.queuedPrompts.length > 0 ) {
 			hints.push( __( 'backspace to unqueue' ) );
@@ -1396,6 +1376,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.turnStartTime = this.nowMs();
 		this.numTurns = 0;
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 	}
 
@@ -1407,6 +1388,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.renderedToolResultIds.clear();
 		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
@@ -1414,10 +1396,10 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	/**
-	 * Returns true when the current/last turn surfaced the AI usage cap
-	 * message to the user. Lets callers suppress redundant downstream
-	 * errors (e.g. the SDK's "process exited with code 1" that follows
-	 * the upstream 429).
+	 * Returns true when the current/last turn surfaced a quota refusal
+	 * notice — the usage cap or out-of-credits — to the user. Lets callers
+	 * suppress redundant downstream errors (e.g. the SDK's "process exited
+	 * with code 1" that follows the upstream 429/402).
 	 */
 	hasErrorBeenSurfaced(): boolean {
 		return this.usageCapReached;
@@ -1425,8 +1407,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 	// Follows the usage-cap notice with the date the monthly limit resets,
 	// fetched from the WordPress.com quota endpoint. Silently skips when
-	// signed out or the quota can't be fetched — the cap notice on its own is
-	// already actionable.
+	// signed out, the quota can't be fetched, or the server no longer reports a
+	// reset date — the cap notice on its own is already actionable.
 	private async showUsageCapResetDate(): Promise< void > {
 		const token = await readAuthToken();
 		if ( ! token?.accessToken ) {
@@ -1445,15 +1427,46 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
+	// Shows the end-of-turn stats line immediately, then appends the remaining
+	// AI credit balance in place once the WordPress.com quota endpoint answers.
+	private showTurnStats( stats: string ): void {
+		const line = new Text( '\n' + theme.fg( 'muted', stats ) + '\n', 1, 0 );
+		this.messages.addChild( line );
+		this.tui.requestRender();
+		void this.appendRemainingCredits( line, stats );
+	}
+
+	private async appendRemainingCredits( line: Text, stats: string ): Promise< void > {
+		if ( this.replayMode || this.currentProvider !== 'wpcom' ) {
+			return;
+		}
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			return;
+		}
+		const quota = await fetchStudioAssistantQuota( token.accessToken );
+		const remaining = quota ? getTotalRemainingAiCredits( quota ) : undefined;
+		if ( remaining === undefined ) {
+			return;
+		}
+		const credits = sprintf(
+			/* translators: %s: total number of AI credits remaining (e.g. 1,110,000). */
+			__( '%s credits left' ),
+			new Intl.NumberFormat().format( remaining )
+		);
+		line.setText( '\n' + theme.fg( 'muted', `${ stats } · ${ credits }` ) + '\n' );
+		this.tui.requestRender();
+	}
+
 	showOnboarding(): void {
 		const text =
 			' ' +
-			chalk.blue( '⏺' ) +
+			theme.fg( 'accent', '⏺' ) +
 			' ' +
 			sprintf(
 				/* translators: %s: product name (WordPress Studio) */
 				__( "Hello, I'm %s, your local WordPress agent and builder." ),
-				chalk.bold( 'WordPress Studio' )
+				theme.bold( 'WordPress Studio' )
 			);
 
 		this.messages.addChild( new Text( '\n' + text + '\n', 0, 0 ) );
@@ -1461,17 +1474,17 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	showCapabilities(): void {
-		const b = chalk.bold;
-		const d = chalk.dim;
+		const b = ( text: string ) => theme.bold( text );
+		const d = ( text: string ) => theme.fg( 'muted', text );
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
-		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// Applies bold styling to any <b>…</b> tags in a translated string, then
 		// strips the tags. Translators can place <b> anywhere in the sentence.
 		const applyBold = ( str: string ) =>
 			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
-				chalk.blue( '⏺' ) +
+				theme.fg( 'accent', '⏺' ) +
 				' ' +
 				__( "Great, you're connected now! Let me tell you what I can do:" ),
 			'',
@@ -1553,9 +1566,9 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + __( 'Just tell me what you want to build — for example:' ),
 			'',
-			'  ' + d( chalk.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
-			'  ' + d( chalk.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
-			'  ' + d( chalk.italic( __( '"Make a blog for a coffee shop"' ) ) ),
+			'  ' + d( theme.italic( __( '"Create a portfolio site for a photographer"' ) ) ),
+			'  ' + d( theme.italic( __( '"Build a landing page for a SaaS product"' ) ) ),
+			'  ' + d( theme.italic( __( '"Make a blog for a coffee shop"' ) ) ),
 			'',
 			'  ' +
 				__(
@@ -1567,19 +1580,25 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	showSuccess( message: string ): void {
-		this.messages.addChild( new Text( '\n ' + chalk.green( '⏺' ) + ' ' + message + '\n', 0, 0 ) );
+		this.messages.addChild(
+			new Text( '\n ' + theme.fg( 'success', '⏺' ) + ' ' + message + '\n', 0, 0 )
+		);
 		this.tui.requestRender();
 	}
 
 	showError( message: string ): void {
 		this.messages.addChild(
-			new Text( '\n ' + chalk.red( '⏺' ) + ' ' + chalk.red( message ) + '\n', 0, 0 )
+			new Text(
+				'\n ' + theme.fg( 'error', '⏺' ) + ' ' + theme.fg( 'error', message ) + '\n',
+				0,
+				0
+			)
 		);
 		this.tui.requestRender();
 	}
 
 	showInfo( message: string ): void {
-		this.messages.addChild( new Text( '\n' + chalk.dim( message ) + '\n', 1, 0 ) );
+		this.messages.addChild( new Text( '\n' + theme.fg( 'muted', message ) + '\n', 1, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1623,296 +1642,27 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private addExpandablePreview(
-		preview: { collapsed: string; expanded: string },
-		target: Container = this.messages
-	): void {
-		const textComponent = new Text( preview.collapsed, 0, 0 );
-		target.addChild( textComponent );
-
-		if ( preview.collapsed !== preview.expanded ) {
-			this.activeExpandablePreview = {
-				textComponent,
-				collapsedContent: preview.collapsed,
-				expandedContent: preview.expanded,
-				isExpanded: false,
-			};
-			this.updateHints();
-		}
-
-		this.tui.requestRender();
-	}
-
-	private generateExpandablePreview( lines: string[] ): { collapsed: string; expanded: string } {
-		const expanded = formatToolOutputLines( lines );
-
-		if ( lines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
-			return { collapsed: expanded, expanded };
-		}
-
-		const collapsed =
-			formatToolOutputLines( lines.slice( 0, DEFAULT_COLLAPSE_THRESHOLD_LINES ) ) +
-			'\n     ' +
-			chalk.dim(
-				sprintf(
-					/* translators: %d: number of hidden lines */
-					__( '... %d more lines · ctrl+o to expand' ),
-					lines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES
-				)
-			);
-
-		return { collapsed, expanded };
-	}
-
-	private generateHiddenDetailsPreview(
-		text: string,
-		label: string,
-		maxLength = 4000
-	): { collapsed: string; expanded: string } {
-		const expandedText =
-			text.length > maxLength
-				? text.slice( 0, maxLength ) + '\n' + __( '... output truncated' )
-				: text;
-		return {
-			collapsed: formatToolOutputLines( [ chalk.dim( label ) ] ),
-			expanded: formatToolOutputLines(
-				expandedText.split( '\n' ).map( ( line ) => chalk.dim( line ) )
-			),
-		};
-	}
-
-	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
-		const lines = content.split( '\n' );
-		const totalLines = lines.length;
-		const numWidth = String( totalLines ).length;
-
-		return this.generateExpandablePreview(
-			lines.map( ( line, i ) => {
-				const lineNum = chalk.dim( String( i + 1 ).padStart( numWidth ) );
-				return lineNum + ' ' + chalk.green( line );
-			} )
-		);
-	}
-
-	private generateDiffPreview( diff: string ): { collapsed: string; expanded: string } {
-		const rawLines = diff.replace( /\n$/, '' ).split( '\n' );
-		const coloredLines = rawLines.map( ( line ) => {
-			if ( line.startsWith( '+' ) ) {
-				return chalk.green( line );
-			}
-			if ( line.startsWith( '-' ) ) {
-				return chalk.red( line );
-			}
-			return chalk.dim( line );
-		} );
-		const expanded = formatToolOutputLines( coloredLines );
-
-		if ( rawLines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
-			return { collapsed: expanded, expanded };
-		}
-
-		// Window the collapsed view around the first change so the +/- lines
-		// are visible instead of the diff's leading context lines.
-		const firstChanged = rawLines.findIndex(
-			( line ) => line.startsWith( '+' ) || line.startsWith( '-' )
-		);
-		const start = Math.max(
-			0,
-			Math.min( firstChanged - 1, rawLines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES )
-		);
-		const windowLines = coloredLines.slice( start, start + DEFAULT_COLLAPSE_THRESHOLD_LINES );
-		const collapsed =
-			formatToolOutputLines( windowLines ) +
-			'\n     ' +
-			chalk.dim(
-				sprintf(
-					/* translators: %d: number of hidden lines */
-					__( '... %d more lines · ctrl+o to expand' ),
-					rawLines.length - windowLines.length
-				)
-			);
-
-		return { collapsed, expanded };
-	}
-
-	private toggleExpandablePreview(): void {
-		const preview = this.activeExpandablePreview;
-		if ( ! preview ) {
-			return;
-		}
-
-		preview.isExpanded = ! preview.isExpanded;
-		preview.textComponent.setText(
-			preview.isExpanded ? preview.expandedContent : preview.collapsedContent
-		);
-		this.updateHints();
-		this.tui.requestRender();
-	}
-
-	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent {
-		const blocks: Array< { type: string; text?: string } > = [];
-		for ( const block of result.content ) {
-			if ( block.type === 'text' && typeof block.text === 'string' ) {
-				// Old transcripts embed media widget payload markers in screenshot
-				// results; strip them from replayed tool output like the desktop
-				// conversation UIs do.
-				blocks.push( { type: 'text', text: stripMediaWidgetPayloadLines( block.text ) } );
-			}
-		}
-		return {
-			content: blocks,
-			isError: result.isError,
-		};
-	}
-
-	private formatToolUseLine(
-		isError: boolean,
-		label: string,
-		startedAtMs: number | null = null
-	): string {
-		const elapsed = startedAtMs === null ? 0 : this.nowMs() - startedAtMs;
-		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
-		const elapsedStr =
-			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
-		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
-
-		return '\n ' + statusIcon + ' ' + label + elapsedStr;
-	}
-
-	private renderToolUseLine(
-		isError: boolean,
-		label: string,
-		startedAtMs: number | null = null,
-		target: Container = this.messages
-	): Text {
-		const rowText = new Text( this.formatToolUseLine( isError, label, startedAtMs ), 0, 0 );
-		target.addChild( rowText );
-		return rowText;
-	}
-
-	private ensureToolRender( toolCall: PendingToolCall ): ToolRenderState {
-		if ( toolCall.render ) {
-			return toolCall.render;
-		}
-
-		const container = new Container();
-		const rowText = this.renderToolUseLine( false, toolCall.label, null, container );
-		toolCall.render = {
-			container,
-			rowText,
-			progressText: null,
-			progressLines: [],
-		};
-		this.messages.addChild( container );
-		return toolCall.render;
-	}
-
-	private finalizeToolRender( toolCall: PendingToolCall, isError: boolean ): ToolRenderState {
-		const render = this.ensureToolRender( toolCall );
-		render.rowText.setText(
-			this.formatToolUseLine( isError, toolCall.label, toolCall.startedAtMs )
-		);
-		return render;
-	}
-
-	private getActiveProgressToolCall(): PendingToolCall | null {
-		const toolCalls = Array.from( this.pendingToolCalls.values() );
-		for ( let i = toolCalls.length - 1; i >= 0; i-- ) {
-			const toolCall = toolCalls[ i ];
-			if ( toolCall.render ) {
-				return toolCall;
-			}
-		}
-		return null;
-	}
-
-	private addToolProgress( toolCall: PendingToolCall, message: string, update: boolean ): void {
-		const render = this.ensureToolRender( toolCall );
-		const lastLine = render.progressLines[ render.progressLines.length - 1 ];
-		if ( update && render.progressLines.length > 0 ) {
-			render.progressLines[ render.progressLines.length - 1 ] = message;
-		} else if ( lastLine !== message ) {
-			render.progressLines.push( message );
-		} else {
-			return;
-		}
-
-		const formatted = formatToolOutputLines(
-			render.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
-		);
-		if ( render.progressText ) {
-			render.progressText.setText( formatted );
-		} else {
-			render.progressText = new Text( formatted, 0, 0 );
-			render.container.addChild( render.progressText );
-		}
-	}
-
-	private renderToolResultText(
-		content: string | Array< { type: string; text?: string } >,
-		toolCall?: PendingToolCall,
-		isError = false,
-		target: Container = this.messages
-	): void {
-		let text: string;
-		if ( typeof content === 'string' ) {
-			text = content;
-		} else {
-			text = content
-				.filter( ( block ) => block.type === 'text' && block.text )
-				.map( ( block ) => block.text )
-				.join( '\n' );
-		}
-		if ( ! text ) {
-			return;
-		}
-
-		const toolName = toolCall?.name;
-		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
-		if ( preview ) {
-			target.addChild(
-				new Text(
-					formatToolOutputLines(
-						preview.summaryLines.map( ( line ) =>
-							isError ? chalk.red( line ) : chalk.dim( line )
-						)
-					),
-					0,
-					0
-				)
-			);
-			if ( preview.detailText ) {
-				this.addExpandablePreview(
-					this.generateHiddenDetailsPreview(
-						preview.detailText,
-						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
-						preview.detailMaxLength
-					),
-					target
-				);
-			}
-			return;
-		}
-
-		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
-		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
-		const resultLines = truncated.split( '\n' );
-		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) ),
-			target
-		);
-	}
-
-	// Finalize tool rows created at message_end and append each result inside
-	// its matching tool container.
+	// Live turns render results at `tool_execution_end`; this covers the rest
+	// (replayed sessions and results with no execution event).
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
-			const toolCall = this.pendingToolCalls.get( toolCallId );
-			this.showToolResult( toolResult, toolCall );
-			if ( toolCall ) {
+			if ( this.renderedToolResultIds.delete( toolCallId ) ) {
+				continue;
+			}
+			let pending = this.pendingToolCalls.get( toolCallId );
+			if ( ! pending ) {
+				const component = this.createToolComponent( 'tool', toolCallId, {} );
+				this.messages.addChild( component );
+				pending = { component, toolName: 'tool', input: {} };
+			} else {
 				this.pendingToolCalls.delete( toolCallId );
 			}
+			this.applyToolResult( pending, {
+				content: toolResult.content,
+				details: toolResult.details,
+				isError: toolResult.isError === true,
+			} );
 		}
 		if ( results.length > 0 ) {
 			this.currentMarkdown = null;
@@ -1920,74 +1670,40 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showToolResult( result: ToolResultMessage, toolCall?: PendingToolCall ): void {
-		const typedResult = this.getToolResultContent( result );
-		const isError = typedResult.isError === true;
-		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
-		const target = toolCall
-			? this.finalizeToolRender( toolCall, isError ).container
-			: this.messages;
-
-		// Auto-select the site that was operated on
-		if ( ! isError && toolCall ) {
-			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
-		}
-
-		if ( ! toolCall ) {
-			this.renderToolUseLine( isError, label, null, target );
-		}
-		if ( toolCall && ! isError ) {
-			let preview: { collapsed: string; expanded: string } | null = null;
-			if ( toolCall.name === 'Write' && typeof toolCall.input.content === 'string' ) {
-				preview = this.generateWritePreview( toolCall.input.content );
-			} else if ( toolCall.name === 'Edit' ) {
-				const details = result.details as { diff?: string } | undefined;
-				if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
-					preview = this.generateDiffPreview( details.diff );
-				}
-			}
-			if ( preview ) {
-				const summary = toolCall.name === 'Write' ? __( 'File written' ) : __( 'File edited' );
-				target.addChild( new Text( formatToolOutputLines( [ chalk.dim( summary ) ] ), 0, 0 ) );
-				this.addExpandablePreview( preview, target );
-				this.tui.requestRender();
-				return;
-			}
-		}
-
-		this.renderToolResultText( typedResult.content, toolCall, isError, target );
-		this.renderToolResultImages( result, target );
-		this.tui.requestRender();
+	private createToolComponent(
+		name: string,
+		toolCallId: string,
+		input: Record< string, unknown >
+	): ToolExecutionComponent {
+		const component = new ToolExecutionComponent(
+			name,
+			toolCallId,
+			input,
+			{ showImages: true, imageWidthCells: 60 },
+			getToolRenderDefinition( name ),
+			this.tui,
+			STUDIO_SITES_ROOT
+		);
+		component.setArgsComplete();
+		component.setExpanded( this.toolOutputExpanded );
+		this.hasExpandableOutput = true;
+		this.updateHints();
+		return component;
 	}
 
-	// Render image blocks (e.g. take_screenshot captures) inline when the
-	// terminal supports an image protocol. Elsewhere the saved-file progress
-	// line is the user's only handle on the capture.
-	private renderToolResultImages( result: ToolResultMessage, target: Container ): void {
-		const { images } = getCapabilities();
-		if ( ! images ) {
-			return;
+	private applyToolResult(
+		pending: {
+			component: ToolExecutionComponent;
+			toolName: string;
+			input: Record< string, unknown >;
+		},
+		result: { content: unknown; details?: unknown; isError: boolean }
+	): void {
+		pending.component.updateResult( result as never );
+		if ( ! result.isError ) {
+			void this.autoSelectSiteFromToolResult( pending.toolName, pending.input );
 		}
-		for ( const block of result.content ) {
-			if ( block.type !== 'image' || ! block.data || ! block.mimeType ) {
-				continue;
-			}
-			// The kitty graphics protocol only renders PNG and screenshots are
-			// JPEG; converting would need an optional WASM dependency we don't
-			// ship, so those terminals keep the saved-file link instead.
-			if ( images === 'kitty' && block.mimeType !== 'image/png' ) {
-				continue;
-			}
-			target.addChild( new Spacer( 1 ) );
-			target.addChild(
-				new Image(
-					block.data,
-					block.mimeType,
-					{ fallbackColor: ( value ) => chalk.dim( value ) },
-					{ maxWidthCells: 60 }
-				)
-			);
-		}
+		this.tui.requestRender();
 	}
 
 	/**
@@ -2004,14 +1720,11 @@ export class AiChatUI implements AiOutputAdapter {
 		const answers: Record< string, string > = {};
 
 		for ( const q of questions ) {
-			// Display the question
-			this.messages.addChild( new Text( '\n' + chalk.bold( q.question ), 1, 0 ) );
-			this.tui.requestRender();
-
 			if ( q.options.length > 0 ) {
+				this.hideEditor();
+				this.optionPickerQuestion = q.question;
 				// Use SelectList for option-based questions.
 				// When allowFreeForm is true, append an "Other" option with inline input.
-				this.hideEditor();
 				const selectItems: SelectItem[] = q.options.map( ( opt, i ) => ( {
 					value: opt.label,
 					label: `${ i + 1 }. ${ opt.label }`,
@@ -2057,17 +1770,22 @@ export class AiChatUI implements AiOutputAdapter {
 					};
 				} );
 
+				this.showEditor();
+
 				if ( ! selected ) {
 					return answers;
 				}
 				answers[ q.question ] = selected;
+				this.echoAnsweredQuestion( q.question, selected );
 			} else {
-				// Free-form text input
+				this.messages.addChild( new Text( '\n' + theme.bold( q.question ), 1, 0 ) );
+				this.tui.requestRender();
 				const answer = await this.waitForInput();
 				if ( ! answer ) {
 					return answers;
 				}
 				answers[ q.question ] = answer;
+				this.messages.addChild( new Text( theme.fg( 'accent', '→' ) + ' ' + answer, 1, 0 ) );
 			}
 		}
 
@@ -2103,20 +1821,27 @@ export class AiChatUI implements AiOutputAdapter {
 					return;
 				}
 
-				// Detect the AI usage cap response from the WordPress.com proxy.
-				// On wpcom a 429 is always a cap issue — pi-ai surfaces it via
-				// `stopReason: 'error'` with the upstream body in `errorMessage`.
+				// Detect the WordPress.com proxy's quota refusals — the monthly
+				// usage cap (429) and out-of-credits (402, STU-2236). pi-ai
+				// surfaces both via `stopReason: 'error'` with the upstream body
+				// in `errorMessage`. Out of credits gets its own copy: waiting
+				// for the reset doesn't clear it — buying credits does.
+				const outOfCredits = isOutOfCreditsError( message.errorMessage );
 				if (
 					message.stopReason === 'error' &&
 					this.currentProvider === 'wpcom' &&
-					isUsageCapError( message.errorMessage )
+					( outOfCredits || isUsageCapError( message.errorMessage ) )
 				) {
 					this.hideLoader();
 					this.usageCapReached = true;
-					this.showError( formatUsageCapNotice() );
-					// Async on purpose: the reset date needs a wpcom round trip and
-					// must not block rendering the cap notice.
-					void this.showUsageCapResetDate();
+					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
+					if ( outOfCredits ) {
+						this.showInfo( __( 'Use /credits to see your balance and buy more.' ) );
+					} else {
+						// Async on purpose: the reset date needs a wpcom round trip
+						// and must not block rendering the cap notice.
+						void this.showUsageCapResetDate();
+					}
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
 					return;
@@ -2124,6 +1849,10 @@ export class AiChatUI implements AiOutputAdapter {
 
 				for ( const block of message.content ) {
 					if ( block.type === 'text' ) {
+						// An empty text block before tool calls would render a bare ⏺.
+						if ( ! block.text.trim() ) {
+							continue;
+						}
 						this.hideLoader();
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
@@ -2131,7 +1860,7 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 						if ( ! this.hasShownResponseMarker ) {
 							this.hasShownResponseMarker = true;
-							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
+							this.currentMarkdown = new Markdown( '\n', 1, 0, getMarkdownTheme() );
 							this.messages.addChild( this.currentMarkdown );
 						}
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {
@@ -2139,22 +1868,14 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 						this.currentResponseText += block.text;
 						this.currentMarkdown!.setText(
-							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
+							'\n' + theme.fg( 'accent', '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
-						const startedAtMs = this.nowMs();
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
-						const toolLabel = formatToolName( block.name, input );
-						const toolCall: PendingToolCall = {
-							name: block.name,
-							input,
-							label: toolLabel,
-							startedAtMs,
-							render: null,
-						};
-						this.ensureToolRender( toolCall );
-						this.pendingToolCalls.set( block.id, toolCall );
+						const component = this.createToolComponent( block.name, block.id, input );
+						this.messages.addChild( component );
+						this.pendingToolCalls.set( block.id, { component, toolName: block.name, input } );
 					}
 				}
 				if ( ! this.replayMode && ! this.loaderVisible ) {
@@ -2165,6 +1886,36 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'turn_end': {
 				this.numTurns += 1;
 				this.renderToolResults( event.toolResults );
+				return;
+			}
+			case 'tool_execution_start': {
+				this.pendingToolCalls.get( event.toolCallId )?.component.markExecutionStarted();
+				return;
+			}
+			case 'tool_execution_update': {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
+					return;
+				}
+				pending.component.updateResult(
+					{ ...( event.partialResult as object ), isError: false } as never,
+					true
+				);
+				this.tui.requestRender();
+				return;
+			}
+			case 'tool_execution_end': {
+				const pending = this.pendingToolCalls.get( event.toolCallId );
+				if ( ! pending ) {
+					return;
+				}
+				this.pendingToolCalls.delete( event.toolCallId );
+				this.renderedToolResultIds.add( event.toolCallId );
+				this.applyToolResult( pending, {
+					content: ( event.result as { content?: unknown } | undefined )?.content ?? [],
+					details: ( event.result as { details?: unknown } | undefined )?.details,
+					isError: event.isError,
+				} );
 				return;
 			}
 			case 'auto_retry_start': {
@@ -2218,10 +1969,10 @@ export class AiChatUI implements AiOutputAdapter {
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 				if ( ! this.hasShownResponseMarker ) {
 					this.messages.addChild(
-						new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+						new Text( '\n ' + theme.fg( 'accent', '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
 					);
 				}
-				this.showInfo(
+				this.showTurnStats(
 					sprintf(
 						/* translators: 1: seconds spent thinking, 2: number of turns */
 						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', this.numTurns ),
@@ -2233,7 +1984,7 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_* / auto_retry_end — UI doesn't act on these
+				// tool_execution_end / auto_retry_end — UI doesn't act on these
 				// directly; pi events drive incremental state but the visible
 				// transitions happen at message_end / turn_end / agent_end.
 				return;

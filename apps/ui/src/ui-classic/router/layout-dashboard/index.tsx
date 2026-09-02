@@ -1,5 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
 	PreviewSplitFrame,
@@ -7,12 +8,16 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
+import { useConnector } from '@/data/core';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
 import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
 import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useResponsivePanels } from '@/hooks/use-responsive-panels';
 import {
 	pathForSite,
 	SessionUIProvider,
@@ -20,7 +25,9 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
+import { SiteWorkspace } from '@/ui-classic/components/site-workspace';
 import { rootRoute } from '../layout-root';
+import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 // Session detail routes and the site overview host the preview; on every
 // other route (settings, site settings…) the last previewed site stays
@@ -53,14 +60,36 @@ function DashboardLayout() {
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
+	const navigate = useNavigate();
+	const connector = useConnector();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+			overviewTab:
+				typeof state.location.search.tab === 'string' &&
+				isSiteSettingsTab( state.location.search.tab )
+					? state.location.search.tab
+					: undefined,
+			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId, overviewTab, openSiteDropdown } =
+		routePreviewContext;
+	const [ overviewTabsBySite, setOverviewTabsBySite ] = useState<
+		Record< string, SiteSettingsTabId >
+	>( {} );
+	useEffect( () => {
+		if ( overviewSiteId && overviewTab ) {
+			setOverviewTabsBySite( ( current ) =>
+				current[ overviewSiteId ] === overviewTab
+					? current
+					: { ...current, [ overviewSiteId ]: overviewTab }
+			);
+		}
+	}, [ overviewSiteId, overviewTab ] );
+	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
@@ -70,6 +99,11 @@ function DashboardLayoutContent() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
+	useEffect( () => {
+		if ( sessionId && agenticFeaturesReady && ! chatEnabled ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
@@ -128,6 +162,14 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
+	const { setOpen: setPreviewOpen } = preview;
+	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
+		useResponsivePanels( {
+			connector,
+			previewOpen: showPreview,
+			previewFullscreen,
+			setPreviewOpen,
+		} );
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
 	const { setFullscreen: setPreviewFullscreen } = preview;
@@ -136,10 +178,9 @@ function DashboardLayoutContent() {
 			setPreviewFullscreen( false );
 		}
 	}, [ supportsPreview, setPreviewFullscreen ] );
-	const exitPreviewFullscreen = useCallback(
-		() => setPreviewFullscreen( false ),
-		[ setPreviewFullscreen ]
-	);
+	const exitPreviewFullscreen = useCallback( () => {
+		void openSidebar().then( () => setPreviewFullscreen( false ) );
+	}, [ openSidebar, setPreviewFullscreen ] );
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -164,9 +205,52 @@ function DashboardLayoutContent() {
 			setPreviewFullscreen,
 		]
 	);
+	const activeWorkspaceView = sessionId ? 'chat' : overviewSiteId ? 'overview' : undefined;
+	const routeWorkspaceSiteId = overviewSiteId ?? sessionSite?.id;
+	const [ retainedWorkspaceSiteId, setRetainedWorkspaceSiteId ] = useState( routeWorkspaceSiteId );
+	if ( routeWorkspaceSiteId && routeWorkspaceSiteId !== retainedWorkspaceSiteId ) {
+		setRetainedWorkspaceSiteId( routeWorkspaceSiteId );
+	}
+	const workspaceSiteId =
+		routeWorkspaceSiteId ?? ( activeWorkspaceView ? retainedWorkspaceSiteId : undefined );
+	const activeOverviewTab =
+		overviewTab ??
+		( workspaceSiteId ? overviewTabsBySite[ workspaceSiteId ] : undefined ) ??
+		'overview';
+	const workspace =
+		activeWorkspaceView && workspaceSiteId ? (
+			<SiteWorkspace
+				key={ workspaceSiteId }
+				siteId={ workspaceSiteId }
+				activeView={ activeWorkspaceView }
+				sessionId={ sessionId }
+				overviewTab={ activeOverviewTab }
+				openSiteDropdown={ openSiteDropdown }
+				onOverviewTabChange={ ( next ) => {
+					setOverviewTabsBySite( ( current ) => ( {
+						...current,
+						[ workspaceSiteId ]: next,
+					} ) );
+					void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, {
+						panel: siteSettingsTabToPanel( next ),
+					} );
+					void navigate( {
+						to: '/sites/$siteId/overview',
+						params: { siteId: workspaceSiteId },
+						search: { tab: next },
+						replace: true,
+					} );
+				} }
+			/>
+		) : (
+			<Outlet />
+		);
 
 	return (
 		<SidebarLayout
+			collapsed={ sidebarCollapsed }
+			onCollapsedChange={ setSidebarCollapsed }
+			onExpand={ openSidebar }
 			forceCollapsed={ previewFullscreen }
 			onForceCollapsedToggle={ exitPreviewFullscreen }
 		>
@@ -174,8 +258,9 @@ function DashboardLayoutContent() {
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
 				preview={ renderPreview }
+				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>
-				<Outlet />
+				{ workspace }
 			</PreviewSplitFrame>
 		</SidebarLayout>
 	);

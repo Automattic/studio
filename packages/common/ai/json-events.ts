@@ -23,7 +23,6 @@ export interface AgentMessageJsonEvent {
 
 export type JsonEvent =
 	| AgentMessageJsonEvent
-	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }
@@ -79,6 +78,19 @@ export function isUsageCapError( message: string | undefined | null ): boolean {
  */
 export function isCostCapErrorMessage( message: string | undefined | null ): boolean {
 	return /\bcost_cap_exceeded\b/i.test( message ?? '' );
+}
+
+/**
+ * Returns true when the WordPress.com proxy refused the request because both
+ * AI credit pools are empty — the free monthly allowance is used up and no
+ * purchased credits remain (STU-2236). The proxy's 402 repeats the
+ * `studio_out_of_credits` code inside its message text; as with the other
+ * refusal codes, the AI SDKs surface only the message string, so the token is
+ * the load-bearing marker. Distinct from the monthly cap on purpose: waiting
+ * for the reset doesn't clear this state — the user has to buy credits.
+ */
+export function isOutOfCreditsError( message: string | undefined | null ): boolean {
+	return /studio_out_of_credits/i.test( message ?? '' );
 }
 
 /**

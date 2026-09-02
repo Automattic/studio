@@ -12,6 +12,11 @@
 	   the pending indicator is always the vivid on-dark value. */
 	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
 	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
+	/* Row hover/active/drag background. Declared here (not on an ancestor) so
+	   every mount point gets it; it resolves against whatever theme scope
+	   wraps the list — the dark chrome scope in both the sidebar and the
+	   collapsed switcher. */
+	--sidebar-row-background: var(--wpds-color-background-interactive-neutral-weak-active);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
 	   labels keep their column while selected rows have breathing room. */
@@ -164,10 +169,10 @@
 }
 
 .siteAgentActivityPixels {
-	/* Slightly tighter than the chat indicator so the 3×2 grid sits inside
-	   the 14px activity slot. */
-	--agent-pixel-size: 2.5px;
-	--agent-pixel-gap: 2px;
+	--agent-indicator-size: var(--site-list-chat-status-size);
+	--thinking-cell-size: 2.1px;
+	--thinking-cell-gap: 1.68px;
+	--thinking-min-opacity: 0.45;
 }
 
 .siteAgentActivityQuestion {
@@ -196,7 +201,7 @@
 	inline-size: 8px;
 	block-size: 6px;
 	border-radius: 3px 3px 3px 1px;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
 .siteAgentActivitySync {
@@ -239,8 +244,8 @@
 .siteName {
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
-	font-weight: var(--wpds-typography-font-weight-regular);
-	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-default);
+	color: var(--wpds-color-foreground-content-neutral);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -248,7 +253,7 @@
 }
 
 .siteNameStopped {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .siteNameStarting {
@@ -256,7 +261,7 @@
 }
 
 .siteActive .siteName {
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 }
 
 .siteActions {
@@ -273,6 +278,13 @@
 .siteAction {
 	flex-shrink: 0;
 	outline-offset: -2px;
+}
+
+.siteAction[aria-pressed='true'] {
+	--wp-ui-button-background-color: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-background-color-active: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-background-surface-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-background-surface-neutral);
 }
 
 /* Collapsed, only the trailing status button shows; hover/focus/active
@@ -324,7 +336,7 @@
 }
 
 .siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 .siteStatus:focus-visible {
@@ -367,7 +379,7 @@
 }
 
 .siteStatus[data-state='stopped'] .siteStatusXdebugGlyph {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* Hovering the status button itself (not the row) crossfades the status dot
@@ -382,7 +394,7 @@
 	block-size: 10px;
 	width: 10px;
 	height: 10px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	opacity: 0;
 	transition: opacity 100ms ease;
 }
@@ -437,7 +449,7 @@
 }
 
 .siteStatusPlayShape {
-	fill: var(--wpds-color-fg-content-neutral);
+	fill: var(--wpds-color-foreground-content-neutral);
 }
 
 .siteStatus[data-state='running'] .siteStatusShape {
@@ -464,10 +476,10 @@
 @keyframes siteNameStartingPulse {
 	0%,
 	100% {
-		color: var(--wpds-color-fg-content-neutral);
+		color: var(--wpds-color-foreground-content-neutral);
 	}
 	50% {
-		color: var(--wpds-color-fg-content-neutral-weak);
+		color: var(--wpds-color-foreground-content-neutral-weak);
 	}
 }
 
@@ -539,7 +551,7 @@
 
 .empty {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
 }

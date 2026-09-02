@@ -2,6 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './disconnect-site-dialog.module.css';
 import { stripProtocol } from './utils';
 import type { SyncSite } from '@/data/core';
@@ -16,6 +17,8 @@ type Props = {
 export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChange }: Props ) {
 	const disconnect = useDisconnectWpcomSite();
 	const [ error, setError ] = useState< string | null >( null );
+	const confirmLabel = __( 'Disconnect' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
 
 	const handleConfirm = () => {
 		setError( null );
@@ -42,7 +45,7 @@ export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChang
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
+			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
 				<Dialog.Header>
 					<Dialog.Title>
 						{ sprintf( __( 'Disconnect %s' ), stripProtocol( liveSite.url ) ) }
@@ -67,7 +70,7 @@ export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChang
 						loadingAnnouncement={ __( 'Disconnecting' ) }
 						onClick={ handleConfirm }
 					>
-						{ __( 'Disconnect' ) }
+						{ confirmLabel }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

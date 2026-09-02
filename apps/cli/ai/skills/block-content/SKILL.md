@@ -16,9 +16,11 @@ Use this skill before writing or editing page content, post content, templates, 
 - For forms or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
 - No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
+- A visual treatment repeated across instances of one block type (cards, outline buttons, framed images) is a registered block style variation, not a shared bare class. Register it in the theme's functions.php — `register_block_style( 'core/group', array( 'name' => 'card', 'label' => 'Card' ) )` — apply it with `"className":"is-style-card"`, and style it in `style.css` via `.is-style-card`. Registered variations appear in the editor's Styles switcher, so users can apply or remove the treatment without touching CSS. Keep bare custom classNames for one-off sections.
 - Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
 - No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
 - Prefer theme palette colors over hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there); when you want a color the palette lacks, prefer adding it to the palette and referencing its slug. Keeping colors on the palette keeps sections in sync with Global Styles, theme switching, and light/dark variations. A raw hex value is fine for a deliberate one-off, but it should be the exception, not the default.
+- Prefer theme font-size presets over raw values, the same way as palette colors. Apply text sizes with slug attributes — `{"fontSize":"large"}` — and in `style.css` reference them as `var(--wp--preset--font-size--<slug>)`. Discover the slugs from the active theme's `theme.json` `settings.typography.fontSizes`; when a size the scale lacks recurs, add it to the scale (e.g. an `x-small` preset) and reference its slug. A raw size is fine for a deliberate one-off, but a value repeated across blocks belongs in the scale.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
 - No emojis anywhere in generated content.
 
@@ -35,6 +37,29 @@ Use these patterns:
 - **Standard constrained content**: omit `align` and write normal blocks.
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+
+### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
+
+Constrained layouts keep children in the content column with `max-width` plus `margin-left/right: auto !important`. Auto margins only work on block-level boxes, so setting `display: inline-block` (or any `inline-*` value) on a block's wrapper class detaches it from the content column — it aligns to the edge of the full-width section instead. `width: fit-content` fails differently: the auto margins always center it, so it cannot sit left or right within the column.
+
+Never change the `display` of a block wrapper inside a constrained layout. To make a label hug its text — an eyebrow, badge, tag, or pill — wrap it in a flex row group and let flex do the shrink-wrapping:
+
+```html
+<!-- wp:group {"layout":{"type":"flex"}} -->
+<div class="wp-block-group"><!-- wp:paragraph {"className":"hero-eyebrow"} -->
+<p class="hero-eyebrow">New for 2026</p>
+<!-- /wp:paragraph --></div>
+<!-- /wp:group -->
+```
+
+The group's `justifyContent` (`left`/`center`/`right`) controls where the label sits, and stays editable in the editor. Inside the flex row the label already shrink-wraps — flex items size to their content — so the label class never needs a `display` rule:
+
+```css
+/* Wrong — never an inline-level display on a block wrapper class */
+.hero-eyebrow { display: inline-block; }
+```
+
+This holds even when it looks harmless: inside a flex row an `inline-block` or `inline-flex` declaration changes nothing (flex items blockify), but it becomes a live alignment bug the moment the user moves the block out of the wrapper in the editor. If the class already carries a `display` rule from an earlier pass, remove it when adding the wrapper.
 
 ## Root Block Gap
 
@@ -64,6 +89,14 @@ A site's home page is the usual case for this: with a static front page and no `
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
 
+## Anchor Links in Shared Parts
+
+Header and footer template parts render on **every** template — blog posts, archives, search results, the 404 page — not just the front page, even on a one-page site. A bare-hash link such as `"url":"#contact"` resolves against whatever URL the visitor is on, so it works on the front page and silently does nothing everywhere else.
+
+- In template parts and any other shared markup, write anchor links home-relative: `<!-- wp:navigation-link {"label":"Contact","url":"/#contact"} /-->`.
+- Give each target section an `anchor` attribute on its outermost block — `{"anchor":"contact","align":"full"}` renders `id="contact"` — rather than hand-writing an `id` in `core/html`.
+- A bare hash is fine only for a link living in the same page's own content, such as a hero button scrolling to a section further down that page.
+
 ## Skeleton-First Recipes
 
 For long files over about 200 lines, write a small skeleton first and fill anchors across later `Edit` calls.
@@ -89,7 +122,7 @@ For `style.css`, start with custom properties and anchor comments only:
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles.
+Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 

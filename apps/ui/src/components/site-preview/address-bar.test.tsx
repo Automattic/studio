@@ -64,7 +64,7 @@ function renderAddressBar( {
 	const queryClient = new QueryClient( {
 		defaultOptions: { queries: { retry: false } },
 	} );
-	render(
+	const renderResult = render(
 		<QueryClientProvider client={ queryClient }>
 			<Tooltip.Provider>
 				<PreviewAddressBar
@@ -79,7 +79,7 @@ function renderAddressBar( {
 			</Tooltip.Provider>
 		</QueryClientProvider>
 	);
-	return { fetchSiteRest, onNavigate, onSwitchRealm };
+	return { fetchSiteRest, onNavigate, onSwitchRealm, ...renderResult };
 }
 
 async function openOmnibox( activeRealmTitle = 'Example Site' ) {
@@ -188,6 +188,24 @@ describe( 'getRealmNavigationPath', () => {
 } );
 
 describe( 'PreviewAddressBar', () => {
+	it( 'shows the configured site icon in the front-end segment', () => {
+		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
+		const { container } = renderAddressBar( { site: { ...SITE, siteIcon } } );
+
+		expect( container.querySelector( `img[src="${ siteIcon }"]` ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows the generated fallback when the site has no icon', () => {
+		const { container } = renderAddressBar( { site: { ...SITE, siteIcon: null } } );
+		const frontEndSegment = screen.getByText( SITE.name ).closest( 'button' );
+
+		expect( frontEndSegment?.querySelector( 'img' ) ).not.toBeInTheDocument();
+		expect(
+			frontEndSegment?.querySelector< HTMLElement >( '[style*="--site-icon-color-a"]' )
+		).toBeInTheDocument();
+		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 3 );
+	} );
+
 	it( 'opens with the current path prefilled and selected', async () => {
 		renderAddressBar( { path: '/wp-admin/' } );
 

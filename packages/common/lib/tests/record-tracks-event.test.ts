@@ -107,7 +107,7 @@ describe( '__recordTracksEvent', () => {
 		const [ calledUrl, options ] = ( fetch as ReturnType< typeof vi.fn > ).mock.calls[ 0 ];
 		expect( calledUrl ).toContain( 'https://pixel.wp.com/t.gif' );
 		expect( calledUrl ).toContain( '_en=studio_app_launch' );
-		expect( options ).toMatchObject( { method: 'GET' } );
+		expect( options ).toMatchObject( { method: 'GET', signal: expect.any( AbortSignal ) } );
 	} );
 
 	it( 'no-ops in E2E', () => {

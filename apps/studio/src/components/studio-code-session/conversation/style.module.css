@@ -371,7 +371,7 @@
 	max-width: 100%;
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 4px 12px;
-	border-radius: var(--wpds-dimension-radius-md, 8px);
+	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: color-mix(in srgb, var(--color-frame-error) 8%, transparent);
 	color: var(--color-frame-error);
 	font-size: var(--wpds-typography-font-size-xs);

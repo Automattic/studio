@@ -8,7 +8,7 @@
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
 	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
 }
@@ -27,7 +27,7 @@
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
 	min-height: 32px;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
 	/* Sizes the address segments' narrow-width behavior (the title collapse
@@ -120,7 +120,7 @@
 	inset: 0;
 	display: block;
 	width: 100%;
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
 }
@@ -135,7 +135,7 @@
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 	overflow: hidden;
 }
 
@@ -148,14 +148,35 @@
 	overflow: hidden;
 }
 
+/* One stacked layer per visited realm (front end / WP Admin / database). Each
+   holds that realm's own surface at its own size, so switching segments never
+   resizes or reloads anything — it just changes which layer is visible. */
+.realmLayer {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
 /* While simulating a viewport, the preset's frame floats centered with
-   breathing room; the padding is excluded from the measured pane, so the
-   frame's fit-to-pane scale accounts for it automatically. */
-.previewViewportSimulated {
+   breathing room. The padding is mirrored by PREVIEW_PANE_PADDING, which is
+   subtracted from the measured pane before the frame's fit-to-pane scale.
+   Only this mode centers: an unsimulated surface must stay stretched, or its
+   frame collapses to the webview's intrinsic height. */
+.realmLayerSimulated {
 	align-items: safe center;
 	justify-content: safe center;
 	padding: 16px;
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
+}
+
+/* Kept mounted and laid out — so the guest holds its size, scroll position and
+   viewport emulation — but out of sight and out of reach. */
+.realmLayerHidden {
+	visibility: hidden;
+	pointer-events: none;
 }
 
 /* The letterbox behind simulated viewports carries a dot grid so it reads
@@ -164,7 +185,7 @@
 .viewportGrid {
 	position: absolute;
 	inset: 0;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	pointer-events: none;
 }
 
@@ -187,8 +208,8 @@
 	border-radius: var(--wpds-border-radius-lg);
 	box-shadow:
 		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
-		var(--wpds-elevation-md);
-	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+		0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 }
 
 /* The split view's phone pane, beside the desktop frame on the shared
@@ -213,7 +234,7 @@
 	pointer-events: none;
 	background-color: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong, #fff) 60%,
+		var(--wpds-color-background-surface-neutral-strong, #fff) 60%,
 		transparent
 	);
 }
@@ -223,7 +244,7 @@
 	height: 20px;
 	border-radius: 50%;
 	border: 2px solid var(--wpds-color-stroke-surface-neutral);
-	border-top-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-top-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	animation: sitePreviewSpin 0.8s linear infinite;
 }
 
@@ -238,7 +259,7 @@
 	width: 100%;
 	height: 100%;
 	border: 0;
-	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
 }
 
 .empty {
@@ -248,8 +269,8 @@
 	align-items: center;
 	justify-content: center;
 	padding: var(--wpds-dimension-padding-xl);
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	text-align: center;
 	overflow: hidden;
@@ -258,7 +279,7 @@
 .emptyGrid {
 	position: absolute;
 	inset: -64px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	mask-image: radial-gradient(ellipse at center, black 0%, black 32%, transparent 72%);
 	-webkit-mask-image: radial-gradient(ellipse at center, black 0%, black 32%, transparent 72%);
 }
@@ -283,8 +304,8 @@
 	overflow: hidden;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 6px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: var(--wpds-elevation-md);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 }
 
 .emptyThumbnail img {

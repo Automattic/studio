@@ -375,7 +375,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		eventCounts[ event.type ] = ( eventCounts[ event.type ] ?? 0 ) + 1;
 		options.onEvent?.( event );
 
-		if ( event.type === 'progress' || event.type === 'info' ) {
+		if ( event.type === 'info' ) {
 			logger?.event( event.type, event.message );
 		} else if ( event.type === 'error' ) {
 			lastErrorEventMessage = event.message;

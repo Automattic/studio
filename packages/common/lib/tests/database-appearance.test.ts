@@ -3,6 +3,7 @@ import { readAppConfig, updateAppConfig } from '../app-config';
 import {
 	type DatabaseAppearance,
 	getDatabaseAppearance,
+	parseDatabaseAppearance,
 	saveDatabaseAppearance,
 } from '../database-appearance';
 
@@ -26,6 +27,11 @@ describe( 'database appearance', () => {
 
 		await expect( getDatabaseAppearance() ).resolves.toBe( 'studio' );
 		await expect( getDatabaseAppearance() ).resolves.toBe( 'studio' );
+	} );
+
+	it( 'normalizes persisted values without reading the config', () => {
+		expect( parseDatabaseAppearance( 'phpmyadmin' ) ).toBe( 'phpmyadmin' );
+		expect( parseDatabaseAppearance( 'custom' ) ).toBe( 'studio' );
 	} );
 
 	it( 'returns the phpMyAdmin preference', async () => {

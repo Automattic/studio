@@ -31,13 +31,15 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
-const PHPMYADMIN_LOCAL_FILES = new Map< string, string >( [
+const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
-	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
 	[
 		'libraries/classes/Dbal/DbiMysqli.php',
 		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
 	],
+] );
+const PHPMYADMIN_ADDITIONAL_FILES = new Map< string, string >( [
+	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
 ] );
 
 const partialGithubReleaseSchema = z.object( {
@@ -133,7 +135,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.9.4/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.4/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];
@@ -207,14 +209,13 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				await fs.writeFile( destFile, step.data );
+				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
+				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
+				await fs.writeFile( destFile, patchData );
 			}
 		}
-
-		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_LOCAL_FILES ) {
-			const destinationPath = path.join( extractedPath, relativePath );
-			await fs.ensureDir( path.dirname( destinationPath ) );
-			await fs.copy( sourcePath, destinationPath, { overwrite: true } );
+		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_ADDITIONAL_FILES ) {
+			await fs.copy( sourcePath, path.join( extractedPath, relativePath ), { overwrite: true } );
 		}
 
 		console.log( `[${ name }] Building Studio stylesheet ...` );

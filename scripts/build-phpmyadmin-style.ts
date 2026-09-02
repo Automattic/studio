@@ -21,9 +21,6 @@ const DESIGN_TOKENS_PATH = fileURLToPath(
 export async function buildPhpMyAdminStyle( phpMyAdminPath: string ): Promise< void > {
 	const destination = path.join( phpMyAdminPath, 'themes' );
 
-	// Remove output from the former full-theme implementation when rebuilding
-	// an existing checkout rather than a freshly downloaded phpMyAdmin tree.
-	await fs.remove( path.join( destination, 'studio' ) );
 	await fs.ensureDir( destination );
 
 	const { css } = sass.compile( path.join( STYLE_SOURCE_PATH, 'scss', 'theme.scss' ), {

@@ -3,7 +3,6 @@ import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
-import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -14,22 +13,19 @@ import type {
 	AiSessionSummary,
 	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
-	SupportedEditor,
-	SupportedTerminal,
+	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -38,22 +34,12 @@ import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 
-// The in-app dark/light/system choice, persisted in the browser (there's no
-// Electron `nativeTheme` to mirror it) so it sticks across reloads.
-const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
-// Editor/terminal choices live in the browser too (no Electron user-settings
-// store); the server reads them back from each open request.
-const EDITOR_STORAGE_KEY = 'studio-local-editor';
-const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
-const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
-const AGENTIC_FEATURES_STORAGE_KEY = 'studio-local-agentic-features-enabled';
 
-function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
-	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
-		? value
-		: undefined;
-}
+type ServerUserPreferences = Omit<
+	UserPreferences,
+	'studioCliInstalled' | 'studioCliExternallyManaged'
+>;
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -372,7 +358,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
+			lastSites = await api< SiteDetails[] >( '/sites' );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -387,8 +373,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return api( `/sites/${ encodeURIComponent( siteId ) }/storage` );
+		async getSiteStorageUsage( siteId, signal ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -467,7 +453,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		async updateSitesSortOrder( updates ) {
-			storeSiteOrder( updates );
+			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -549,6 +535,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// The server proxies the WordPress.com quota endpoint and returns
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
+		},
+		async getStudioAssistantTopUpPricing() {
+			// Proxied server-side for the same reason as the quota: the browser
+			// UI never holds the wpcom token.
+			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
@@ -763,73 +754,23 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => placementListeners.delete( listener );
 		},
 
-		// User preferences are persisted in the browser; `locale` follows the app.
+		// Preferences come from the machine's own Studio config, the same files
+		// the desktop reads, so both front ends show one set of values.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const { appearance: databaseAppearance } = await api< {
-				appearance: UserPreferences[ 'databaseAppearance' ];
-			} >( '/preferences/database-appearance' );
-			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
-			const colorScheme: ColorScheme =
-				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
-			const quitSitesBehavior = parseQuitSitesBehavior(
-				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
-			);
+			const preferences = await api< ServerUserPreferences >( '/user-preferences' );
 			return {
-				editor:
-					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
-				terminal:
-					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
-					null,
-				colorScheme,
-				quitSitesBehavior,
-				locale: undefined,
-				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
+				...preferences,
+				// This target is already running inside the CLI, not managing it.
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled:
-					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
-				databaseAppearance,
 			};
 		},
 		async setUserPreferences( partial ) {
-			if ( partial.colorScheme ) {
-				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
-			}
-			if ( partial.editor !== undefined ) {
-				if ( partial.editor ) {
-					window.localStorage.setItem( EDITOR_STORAGE_KEY, partial.editor );
-				} else {
-					window.localStorage.removeItem( EDITOR_STORAGE_KEY );
-				}
-			}
-			if ( partial.terminal !== undefined ) {
-				if ( partial.terminal ) {
-					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
-				} else {
-					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
-				}
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				if ( partial.quitSitesBehavior ) {
-					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
-				} else {
-					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
-				}
-			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				window.localStorage.setItem(
-					AGENTIC_FEATURES_STORAGE_KEY,
-					String( partial.agenticFeaturesEnabled )
-				);
-			}
-			if ( partial.databaseAppearance ) {
-				await api< void >( '/preferences/database-appearance', {
-					method: 'PUT',
-					body: JSON.stringify( { appearance: partial.databaseAppearance } ),
-				} );
-			}
+			// JSON drops `undefined` keys, so a clear has to travel as null.
+			const patch = Object.fromEntries(
+				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+			);
+			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
 		// detection, server-side) so the preferences picker offers only what's there.
@@ -882,23 +823,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
+		// The server resolves the preference; a 400 means none is configured and
+		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
-			const editor = window.localStorage.getItem( EDITOR_STORAGE_KEY );
-			if ( ! editor ) {
-				// Matches the desktop contract: callers route the user to Settings.
-				throw new Error( 'No preferred editor configured.' );
-			}
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
-				method: 'POST',
-				body: JSON.stringify( { editor } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},
 		async openSiteInTerminal( siteId ) {
-			const terminal = window.localStorage.getItem( TERMINAL_STORAGE_KEY ) ?? undefined;
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, {
-				method: 'POST',
-				body: JSON.stringify( { terminal } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
 		},
 
 		// The CLI has no equivalent of the desktop's log file — site server output
@@ -946,6 +877,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},
@@ -982,6 +916,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onOpenSettings() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
 		},
 		async disableAgenticUi() {

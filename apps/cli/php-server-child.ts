@@ -8,6 +8,7 @@
  * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
+import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
@@ -249,7 +250,14 @@ function startSymlinkWatcher( sitePath: string ): void {
 		return;
 	}
 
-	const wpContentPath = path.join( sitePath, 'wp-content' );
+	// chokidar is configured not to follow symlinks, so watching a pulled site's
+	// wp-content link would watch the link and nothing behind it.
+	let wpContentPath = path.join( sitePath, 'wp-content' );
+	try {
+		wpContentPath = fs.realpathSync.native( wpContentPath );
+	} catch {
+		// Not there yet — the watcher simply reports nothing.
+	}
 	const watcher = new SymlinkWatcher();
 	watcher.on( 'symlink', ( target, symlinkPath ) => {
 		// Covered means an existing entry already grants the target — usually the
@@ -538,9 +546,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			// Snapshot existing symlink targets so open_basedir grants them upfront. New
 			// symlinks added while the server runs are picked up by startSymlinkWatcher
 			// below and trigger a debounced restart with an extended allowlist.
-			symlinkOpenBasedirAllowlist = new Set(
-				await collectSymlinkAllowlistEntries( config.sitePath )
-			);
+			// wp-content is scanned separately: on a Reprint-pulled site it is a symlink
+			// into the pull's raw directory, and a scan of the site alone stops on that
+			// link and never sees the symlinked plugins and themes behind it.
+			symlinkOpenBasedirAllowlist = new Set( [
+				...( await collectSymlinkAllowlistEntries( config.sitePath ) ),
+				...( await collectSymlinkAllowlistEntries( path.join( config.sitePath, 'wp-content' ) ) ),
+			] );
 			stopSignal.throwIfAborted();
 		}
 

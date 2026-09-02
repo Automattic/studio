@@ -2,11 +2,15 @@ import { readAppConfig, updateAppConfig } from './app-config';
 
 export type DatabaseAppearance = 'studio' | 'phpmyadmin';
 
-const DEFAULT_DATABASE_APPEARANCE: DatabaseAppearance = 'studio';
+export const DATABASE_APPEARANCES = [ 'studio', 'phpmyadmin' ] as const;
+export const DEFAULT_DATABASE_APPEARANCE: DatabaseAppearance = 'studio';
+
+export function parseDatabaseAppearance( value: unknown ): DatabaseAppearance {
+	return value === 'phpmyadmin' ? value : DEFAULT_DATABASE_APPEARANCE;
+}
 
 export async function getDatabaseAppearance(): Promise< DatabaseAppearance > {
-	const value = ( await readAppConfig() ).databaseAppearance;
-	return value === 'phpmyadmin' ? value : DEFAULT_DATABASE_APPEARANCE;
+	return parseDatabaseAppearance( ( await readAppConfig() ).databaseAppearance );
 }
 
 export async function saveDatabaseAppearance( appearance: DatabaseAppearance ): Promise< void > {

@@ -1,3 +1,4 @@
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
 import { __ } from '@wordpress/i18n';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -618,8 +619,7 @@ export class ProgressStreamer {
  */
 function renderEvent( event: JsonEvent, maxChars: number ): string | null {
 	switch ( event.type ) {
-		case 'info':
-		case 'progress': {
+		case 'info': {
 			const message = typeof event.message === 'string' ? event.message : '';
 			return buildItalicLine( message, '⏳ ', maxChars );
 		}
@@ -633,6 +633,12 @@ function renderEvent( event: JsonEvent, maxChars: number ): string | null {
 function renderSessionEvent( event: AgentSessionEvent, maxChars: number ): string | null {
 	if ( event.type === 'message_end' ) {
 		return formatAssistantMessage( event.message, maxChars );
+	}
+	if ( event.type === 'tool_execution_update' ) {
+		const progress = getStudioToolProgress( event.partialResult );
+		if ( progress?.message.trim() ) {
+			return buildItalicLine( progress.message, '⏳ ', maxChars );
+		}
 	}
 	return null;
 }

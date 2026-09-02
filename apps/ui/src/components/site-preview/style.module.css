@@ -52,7 +52,7 @@
 
 .tabBar::after {
 	position: absolute;
-	z-index: 0;
+	z-index: 1;
 	inset-inline: 0;
 	bottom: 0;
 	height: var(--wpds-border-width-xs);
@@ -71,8 +71,6 @@
 
 .tabGroup {
 	display: flex;
-	position: relative;
-	z-index: 1;
 	align-self: stretch;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
@@ -136,8 +134,6 @@
 }
 
 .fullPreviewButton {
-	position: relative;
-	z-index: 1;
 	margin-inline-start: auto;
 	translate: 0 calc(-1 * var(--wpds-border-width-focus));
 }
@@ -172,11 +168,12 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	min-width: 112px;
-	max-width: 240px;
+	width: 280px;
+	min-width: 160px;
+	max-width: 360px;
 	height: 32px;
 	padding-inline: var(--wpds-dimension-padding-sm);
-	flex: 1 1 180px;
+	flex: 0 1 280px;
 	color: var(--wpds-color-fg-content-neutral);
 	background-color: var(--tab-background);
 	border: var(--wpds-border-width-xs) solid transparent;
@@ -186,7 +183,7 @@
 }
 
 .tab:only-child {
-	max-width: 360px;
+	width: 360px;
 	flex-basis: 320px;
 }
 
@@ -209,7 +206,7 @@
 .tabSelected {
 	--tab-background: var(--wpds-color-bg-surface-neutral-strong);
 
-	z-index: 1;
+	z-index: 2;
 	color: var(--wpds-color-fg-content-neutral);
 	border-color: var(--wpds-color-stroke-surface-neutral);
 }

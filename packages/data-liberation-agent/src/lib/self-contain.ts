@@ -38,23 +38,28 @@ export function stripRemoteCssUrls( css: string ): string {
 }
 
 const PLACEHOLDER_SRCSET_CANDIDATE =
-	/(?:,\s*)?data:image\/gif;base64,\s*[A-Za-z0-9+/=]+\s+\d+[wx]\b/gi;
+	/data:image\/gif;base64,\s*[A-Za-z0-9+/=]+\s+\d+[wx]\b/i;
 
-function withoutPoisonedSrcset( srcset: string ): string {
-	return srcset
-		.replace( PLACEHOLDER_SRCSET_CANDIDATE, '' )
-		.replace( /,\s*,/g, ', ' )
-		.replace( /^,\s*|,\s*$/g, '' )
-		.trim();
+function srcsetCandidates( srcset: string ): string[] {
+	const candidates: string[] = [];
+	const descriptor = /(?:^|,\s*)([\s\S]*?)\s+(\d+(?:\.\d+)?[wx])(?=\s*(?:,|$))/g;
+	for ( const match of srcset.matchAll( descriptor ) ) {
+		const url = match[ 1 ].trim();
+		if ( url ) candidates.push( `${ url } ${ match[ 2 ] }` );
+	}
+	return candidates.length > 0 ? candidates : srcset.split( ',' ).map( ( candidate ) => candidate.trim() );
 }
 
 function withoutRemoteSrcset( srcset: string ): string {
-	return withoutPoisonedSrcset( srcset )
-		.split( ',' )
-		.map( ( candidate ) => candidate.trim() )
+	return srcsetCandidates( srcset )
 		.filter( ( candidate ) => {
 			const url = candidate.split( /\s+/ )[ 0 ] ?? '';
-			return url && ! url.startsWith( 'data:' ) && ! isRemoteAssetUrl( url );
+			return (
+				url &&
+				! PLACEHOLDER_SRCSET_CANDIDATE.test( candidate ) &&
+				! url.startsWith( 'data:' ) &&
+				! isRemoteAssetUrl( url )
+			);
 		} )
 		.join( ', ' );
 }

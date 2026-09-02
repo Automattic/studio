@@ -57,6 +57,21 @@ describe( 'self-contain', () => {
 		expect( html ).toContain( 'src="/files/hero.png"' );
 	} );
 
+	it( 'preserves local srcset URLs with Wix transform commas and apostrophes', () => {
+		const url = "/external/v1/crop/x_59,y_0,w_3152,h_3152/fill/w_200,h_200/Happy Women's Day.jpg";
+		const html = stripRemoteAssetRequests( `<img srcset="${ url } 1x">` );
+		expect( html ).toContain( `srcset="${ url } 1x"` );
+	} );
+
+	it( 'filters remote srcset candidates without corrupting local comma paths', () => {
+		const url = "/external/v1/crop/x_59,y_0,w_3152,h_3152/fill/w_200,h_200/Happy Women's Day.jpg";
+		const html = stripRemoteAssetRequests(
+			`<img srcset="https://cdn.example/remote.jpg 2x, ${ url } 1x">`
+		);
+		expect( html ).not.toContain( 'cdn.example' );
+		expect( html ).toContain( `srcset="${ url } 1x"` );
+	} );
+
 	it( 'neutralizes leftover remote CSS urls without touching local ones', () => {
 		expect(
 			stripRemoteCssUrls(

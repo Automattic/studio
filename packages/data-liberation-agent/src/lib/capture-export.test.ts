@@ -598,6 +598,9 @@ describe( 'exportWebsiteCapture', () => {
 				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
 			} )
 		);
+		const media = MediaStubStore.load( outputDir );
+		media.markFailure( imageUrl, 'HTTP 404' );
+		media.flush();
 		exportWebsiteCapture( {
 			outputDir,
 			sourceUrl: 'https://example.com/',

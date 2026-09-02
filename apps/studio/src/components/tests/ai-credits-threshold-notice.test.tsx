@@ -50,12 +50,15 @@ describe( 'AiCreditsThresholdNotice', () => {
 	} );
 
 	// The quota arrives after the composer has rendered, so the notice has to
-	// announce itself rather than wait to be found.
+	// announce itself rather than wait to be found. Notice carries no role of
+	// its own — it speaks into @wordpress/a11y's shared polite region instead.
 	it( 'announces itself to screen readers', () => {
 		mockUsage( 170000 );
 		render( <AiCreditsThresholdNotice /> );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'At 83% usage' );
+		expect( document.getElementById( 'a11y-speak-polite' )?.textContent ).toContain(
+			'At 83% usage'
+		);
 	} );
 
 	// Classic has no composer strip, so its one slot carries the 90% step too.

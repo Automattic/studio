@@ -7,51 +7,29 @@ import {
 	resolveAiCreditsThresholdNotice,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
-import { useEffect, type ReactNode } from 'react';
+import { privateApis } from '@wordpress/theme';
+import { Notice } from '@wordpress/ui';
+import { useEffect } from 'react';
 import { AddAiCreditsButton } from 'src/components/add-ai-credits-button';
+import { unlock } from 'src/components/studio-code-session/lock-unlock';
+import { usePrefersColorScheme } from 'src/hooks/use-prefers-color-scheme';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import { selectDismissedAiCreditsIntent, setDismissedAiCreditsIntent } from 'src/stores/ui-slice';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+
+const { ThemeProvider } = unlock( privateApis );
 
 // Classic has no composer strip and no lockout banner of its own, so this one
 // slot announces both warning steps. The agentic UI splits them across the
 // sidebar and the composer instead.
 const CLASSIC_NOTICE_INTENTS = [ 'warning', 'critical' ] as const;
 
-function NoticeCard( {
-	title,
-	description,
-	action,
-	onDismiss,
-}: {
-	title: string;
-	description?: string;
-	action?: ReactNode;
-	onDismiss: () => void;
-} ) {
-	return (
-		<div
-			role="status"
-			className="border-frame-border bg-frame-surface relative mb-2 flex flex-col items-start gap-1 rounded-lg border p-3 text-start"
-		>
-			<span className="text-frame-text pe-6 text-sm font-semibold">{ title }</span>
-			{ description ? (
-				<span className="text-frame-text-secondary text-xs">{ description }</span>
-			) : null }
-			{ action }
-			<button
-				type="button"
-				aria-label={ __( 'Dismiss' ) }
-				onClick={ onDismiss }
-				className="text-frame-text-secondary hover:text-frame-text absolute end-2 top-2"
-			>
-				<Icon icon={ close } size={ 16 } />
-			</button>
-		</div>
-	);
-}
+// @wordpress/ui derives its palette from a seed color rather than from a media
+// query, and Classic has no app-wide themed root to inherit one from — without
+// a seed the notice keeps the design system's static light colors and turns
+// into a cream card on the dark frame. Mirrors --color-frame-bg in index.css.
+const FRAME_BG_LIGHT = '#fff';
+const FRAME_BG_DARK = '#2f2f2f';
 
 /**
  * Warns above the Classic composer as the AI credit balance runs down. Classic
@@ -61,6 +39,7 @@ function NoticeCard( {
 export function AiCreditsThresholdNotice() {
 	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
+	const colorScheme = usePrefersColorScheme();
 	const dismissedIntent = useRootSelector( selectDismissedAiCreditsIntent );
 	const { data: quota } = useGetStudioAssistantQuota();
 	const meter =
@@ -83,12 +62,32 @@ export function AiCreditsThresholdNotice() {
 		return null;
 	}
 
+	const title = formatAiCreditsUsageTitle( meter.fraction, locale );
+	const description = formatAiCreditsThresholdDescription();
+
 	return (
-		<NoticeCard
-			title={ formatAiCreditsUsageTitle( meter.fraction, locale ) }
-			description={ formatAiCreditsThresholdDescription() }
-			action={ <AddAiCreditsButton className="mt-2" /> }
-			onDismiss={ () => dispatch( setDismissedAiCreditsIntent( thresholdIntent ) ) }
-		/>
+		<ThemeProvider
+			color={ { bg: colorScheme === 'dark' ? FRAME_BG_DARK : FRAME_BG_LIGHT } }
+			density="compact"
+		>
+			<Notice.Root
+				intent="warning"
+				// Announcing the rendered children would run the purchase
+				// dialog through renderToString, which fails silently and
+				// leaves nothing spoken. The two lines of copy are the message.
+				spokenMessage={ `${ title } ${ description }` }
+				className="mb-2"
+			>
+				<Notice.Title>{ title }</Notice.Title>
+				<Notice.Description>{ description }</Notice.Description>
+				<Notice.Actions>
+					<AddAiCreditsButton />
+				</Notice.Actions>
+				<Notice.CloseIcon
+					label={ __( 'Dismiss' ) }
+					onClick={ () => dispatch( setDismissedAiCreditsIntent( thresholdIntent ) ) }
+				/>
+			</Notice.Root>
+		</ThemeProvider>
 	);
 }

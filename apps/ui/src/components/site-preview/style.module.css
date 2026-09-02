@@ -39,6 +39,7 @@
 	container-name: preview-tab-bar;
 	container-type: inline-size;
 	display: grid;
+	position: relative;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
@@ -46,8 +47,18 @@
 	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	flex-shrink: 0;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
+}
+
+.tabBar::after {
+	position: absolute;
+	z-index: 0;
+	inset-inline: 0;
+	bottom: 0;
+	height: var(--wpds-border-width-xs);
+	background-color: var(--wpds-color-stroke-surface-neutral);
+	content: '';
+	pointer-events: none;
 }
 
 .tabBarTrafficLights {
@@ -60,6 +71,8 @@
 
 .tabGroup {
 	display: flex;
+	position: relative;
+	z-index: 1;
 	align-self: stretch;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
@@ -123,6 +136,8 @@
 }
 
 .fullPreviewButton {
+	position: relative;
+	z-index: 1;
 	margin-inline-start: auto;
 	translate: 0 calc(-1 * var(--wpds-border-width-focus));
 }
@@ -168,6 +183,11 @@
 	border-block-end: 0;
 	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;
 	-webkit-app-region: no-drag;
+}
+
+.tab:only-child {
+	max-width: 360px;
+	flex-basis: 320px;
 }
 
 .tabDragging {

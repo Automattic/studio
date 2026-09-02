@@ -177,6 +177,8 @@ const api: IpcApi = {
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	getWebviewNavigationHistory: ( webContentsId ) =>
 		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),
+	restoreWebviewNavigationHistory: ( webContentsId, entries, activeIndex ) =>
+		ipcRendererInvoke( 'restoreWebviewNavigationHistory', webContentsId, entries, activeIndex ),
 	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
 		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
@@ -223,6 +225,7 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
+	setTrafficLightPosition: ( position ) => ipcRendererInvoke( 'setTrafficLightPosition', position ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
 	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),

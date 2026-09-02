@@ -13,6 +13,339 @@
 	overflow: hidden;
 }
 
+.tabbedRoot {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	overflow: hidden;
+}
+
+.tabbedRootFullscreen {
+	border-inline-start: none;
+}
+
+.tabBar.browserChromeHidden,
+.header.browserChromeHidden {
+	display: none;
+}
+
+.tabBar {
+	container-name: preview-tab-bar;
+	container-type: inline-size;
+	display: grid;
+	position: relative;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	padding-top: var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	flex-shrink: 0;
+	-webkit-app-region: drag;
+}
+
+.tabBar::after {
+	position: absolute;
+	z-index: 1;
+	inset-inline: 0;
+	bottom: 0;
+	height: var(--wpds-border-width-xs);
+	background-color: var(--wpds-color-stroke-surface-neutral);
+	content: '';
+	pointer-events: none;
+}
+
+.tabBarMenuOpen {
+	-webkit-app-region: no-drag;
+}
+
+.tabBarTrafficLights {
+	padding-left: 94px;
+}
+
+.tabBar button {
+	-webkit-app-region: no-drag;
+}
+
+.tabGroup {
+	display: flex;
+	align-self: stretch;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.tabListViewport {
+	position: relative;
+	display: flex;
+	align-self: stretch;
+	max-width: calc(100% - var(--wpds-dimension-padding-3xl) - var(--wpds-dimension-gap-xs));
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+}
+
+.tabList {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	padding-block-end: var(--wpds-border-width-xs);
+	margin-block-end: calc(-1 * var(--wpds-border-width-xs));
+	width: max-content;
+	max-width: 100%;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+	display: none;
+}
+
+.tabListViewportOverflowing .tabList {
+	padding-inline-end: var(--wpds-dimension-padding-lg);
+}
+
+.tabListViewportOverflowing::after {
+	position: absolute;
+	z-index: 2;
+	inset-block: 0 var(--wpds-border-width-xs);
+	inset-inline-end: 0;
+	width: 40px;
+	background: linear-gradient(
+		to right,
+		transparent,
+		var(--wpds-color-bg-surface-neutral-weak) 85%
+	);
+	content: '';
+	pointer-events: none;
+}
+
+:global(html[dir='rtl']) .tabListViewportOverflowing::after {
+	background: linear-gradient(
+		to left,
+		transparent,
+		var(--wpds-color-bg-surface-neutral-weak) 85%
+	);
+}
+
+.newTabButton,
+.fullPreviewButton {
+	translate: 0 calc(-1 * var(--wpds-border-width-focus));
+}
+
+.fullPreviewButton {
+	margin-inline-start: auto;
+}
+
+.fullPreviewCorner {
+	--full-preview-corner-rotation: 180deg;
+
+	transform-box: fill-box;
+	transform-origin: center;
+	transform: rotate(0deg);
+	transition: transform var(--wpds-motion-duration-lg) var(--wpds-motion-easing-expressive);
+}
+
+.fullPreviewCornerReverse {
+	--full-preview-corner-rotation: -180deg;
+}
+
+.fullPreviewCornerActive {
+	transform: rotate(var(--full-preview-corner-rotation));
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fullPreviewCorner {
+		transition: none;
+	}
+}
+
+.tab {
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
+	box-sizing: border-box;
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 280px;
+	min-width: 160px;
+	max-width: 360px;
+	height: 32px;
+	padding-inline: var(--wpds-dimension-padding-sm);
+	flex: 0 1 280px;
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--tab-background);
+	border: var(--wpds-border-width-xs) solid transparent;
+	border-block-end: 0;
+	border-radius: var(--wpds-border-radius-lg) var(--wpds-border-radius-lg) 0 0;
+	-webkit-app-region: no-drag;
+}
+
+.tab:only-child {
+	width: 360px;
+	flex-basis: 320px;
+}
+
+.tabDragging {
+	opacity: 0.5;
+}
+
+.tab:hover {
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+:global(html[data-color-scheme='dark']) .tab:not(.tabSelected) {
+	--tab-background: var(--wpds-color-bg-surface-neutral);
+}
+
+:global(html[data-color-scheme='dark']) .tab:not(.tabSelected):hover {
+	--tab-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.tabSelected {
+	--tab-background: var(--wpds-color-bg-surface-neutral-strong);
+
+	z-index: 2;
+	color: var(--wpds-color-fg-content-neutral);
+	border-color: var(--wpds-color-stroke-surface-neutral);
+}
+
+.tabSelected:hover {
+	--tab-background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.tabSelected::after {
+	position: absolute;
+	inset-inline: 0;
+	bottom: calc(-1 * var(--wpds-border-width-xs));
+	height: var(--wpds-border-width-sm);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	content: '';
+}
+
+.tabSelect,
+.tabClose {
+	appearance: none;
+	color: inherit;
+	background: transparent;
+	border: 0;
+	font: inherit;
+	cursor: pointer;
+}
+
+.tabClose:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -2px;
+}
+
+.tabSelect:focus-visible {
+	outline: none;
+}
+
+.tab:has(.tabSelect:focus-visible) {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -2px;
+}
+
+.tabSelect {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	height: 100%;
+	padding: 0 0 0 var(--wpds-dimension-padding-sm);
+	flex: 1;
+	text-align: start;
+}
+
+.tabSelect::after {
+	position: absolute;
+	inset-block: calc(var(--wpds-border-width-focus) + var(--wpds-border-width-xs));
+	inset-inline-end: 0;
+	width: 24px;
+	background: linear-gradient(to right, transparent, var(--tab-background) 85%);
+	content: '';
+	pointer-events: none;
+}
+
+:global(html[dir='rtl']) .tabSelect::after {
+	background: linear-gradient(to left, transparent, var(--tab-background) 85%);
+}
+
+.tabIcon {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	color: var(--wpds-color-fg-content-neutral);
+	fill: currentColor;
+}
+
+.tabSiteIcon {
+	--site-icon-size: 18px;
+}
+
+.tabTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: clip;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.tabClose {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	margin-inline-end: var(--wpds-dimension-padding-xs);
+	border-radius: var(--wpds-border-radius-sm);
+	flex: 0 0 20px;
+	color: var(--wpds-color-fg-content-neutral);
+	opacity: 0;
+}
+
+.tabSelected .tabClose,
+.tab:hover .tabClose,
+.tab:focus-within .tabClose {
+	opacity: 1;
+}
+
+.tabClose svg {
+	fill: currentColor;
+}
+
+.tabClose:hover {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.tabPanels,
+.tabPanel {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+.tabPanelHidden {
+	display: none;
+}
+
+.rootTabbed {
+	border-inline-start: none;
+}
+
 /* Full preview: the panel spans the whole frame, so the content/preview
    separator would read as a stray line down the window's edge. */
 .rootFullscreen {
@@ -108,6 +441,10 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	flex-shrink: 0;
+}
+
+.disabledControlTooltipTarget {
+	display: inline-flex;
 }
 
 .annotationToggle {

@@ -555,6 +555,7 @@ export interface Connector {
 	// sitting on, so it can repaint them to match (see
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
 	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
+	setTrafficLightPosition?( position: 'default' | 'preview-tabs' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

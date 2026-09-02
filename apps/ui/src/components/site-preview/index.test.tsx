@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ariaKeyShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -10,6 +12,8 @@ import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
 	getBrowserShortcutCommand,
 	getDirectionalHistoryEntries,
+	getPreviewTabTitle,
+	getTabCycleDirection,
 	isOffOriginRedirect,
 	isThemeActivationUrl,
 	getPathFromPreviewUrl,
@@ -42,6 +46,10 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+
+afterEach( () => {
+	window.localStorage.clear();
+} );
 
 // Browser-style capabilities (no native dialogs, no preview annotation) — the
 // component reads `connector.capabilities` to decide which toolbar controls show.
@@ -81,6 +89,459 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'adds and closes independent browser tabs without removing the last tab', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		for ( let count = 0; count < 4; count++ ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Front-end' } ) );
+		}
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 5 );
+		expect( screen.getAllByRole( 'button', { name: 'Refresh', hidden: true } ) ).toHaveLength( 5 );
+
+		for ( let count = 0; count < 5; count++ ) {
+			fireEvent.click( screen.getAllByRole( 'button', { name: /Close Example Site/ } )[ 0 ] );
+		}
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'tab' ) ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'opens modifier-clicked preview links in a new tab', () => {
+		const originalUserAgent = navigator.userAgent;
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: `${ originalUserAgent } Electron/40.0.0`,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		const webview = container.querySelector( 'webview' );
+		const openLinkEvent = new Event( 'console-message' );
+		Object.defineProperty( openLinkEvent, 'message', {
+			value: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+				type: 'open-link-in-new-tab',
+				url: 'http://localhost:8881/about/',
+			} ) }`,
+		} );
+		fireEvent( webview as Element, openLinkEvent );
+
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
+
+		Object.defineProperty( navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	} );
+
+	it( 'uses vertical wheel input to scroll an overflowing tab list', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tabList = screen.getByRole( 'tablist' );
+		Object.defineProperties( tabList, {
+			scrollWidth: { configurable: true, value: 600 },
+			clientWidth: { configurable: true, value: 240 },
+			scrollLeft: { configurable: true, value: 0, writable: true },
+		} );
+
+		fireEvent.wheel( tabList, { deltaX: 0, deltaY: 64 } );
+		expect( tabList.scrollLeft ).toBe( 64 );
+
+		document.documentElement.dir = 'rtl';
+		fireEvent.wheel( tabList, { deltaX: 0, deltaY: 32 } );
+		expect( tabList.scrollLeft ).toBe( 32 );
+		document.documentElement.removeAttribute( 'dir' );
+	} );
+
+	it( 'temporarily makes blank tab-bar space clickable while address suggestions are open', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tabBar = screen.getByRole( 'tablist' ).parentElement?.parentElement?.parentElement;
+		const draggableClassName = tabBar?.className;
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect( tabBar?.className ).not.toBe( draggableClassName );
+		expect( screen.getByText( 'Destinations' ) ).toBeInTheDocument();
+
+		fireEvent.pointerDown( tabBar! );
+		fireEvent.mouseDown( tabBar! );
+		fireEvent.click( tabBar! );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+		expect( tabBar?.className ).toBe( draggableClassName );
+
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Address' } ), { key: 'Escape' } );
+		expect( tabBar?.className ).toBe( draggableClassName );
+	} );
+
+	it( "restores each site's open tabs, order, and active tab", () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const preview = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		const dataTransfer = {
+			effectAllowed: '',
+			dropEffect: '',
+			setData: vi.fn(),
+			getData: vi.fn(),
+		} as unknown as DataTransfer;
+		fireEvent.dragStart( tabs[ 2 ].parentElement!, { dataTransfer } );
+		fireEvent.dragOver( tabs[ 0 ].parentElement!, { dataTransfer } );
+		fireEvent.drop( tabs[ 0 ].parentElement!, { dataTransfer } );
+		preview.unmount();
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+			'wordpress · Database',
+			'Example Site',
+			'WordPress',
+		] );
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'toggles full preview directly from the tab bar', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onFullscreenChange = vi.fn();
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onFullscreenChange={ onFullscreenChange }
+			/>
+		);
+
+		const fullPreviewButton = screen.getByRole( 'button', { name: 'Full preview' } );
+		expect( fullPreviewButton ).toHaveAttribute(
+			'aria-keyshortcuts',
+			ariaKeyShortcut.primaryShift( 'f' )
+		);
+		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
+		const iconCorners = fullPreviewButton.querySelectorAll( 'path' );
+		expect( iconCorners ).toHaveLength( 4 );
+		expect( iconCorners[ 0 ] ).toHaveAttribute( 'class', iconCorners[ 2 ].getAttribute( 'class' ) );
+		expect( iconCorners[ 1 ] ).toHaveAttribute( 'class', iconCorners[ 3 ].getAttribute( 'class' ) );
+		expect( iconCorners[ 0 ].getAttribute( 'class' ) ).not.toBe(
+			iconCorners[ 1 ].getAttribute( 'class' )
+		);
+		fireEvent.click( fullPreviewButton );
+		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+	} );
+
+	it( 'moves the macOS traffic lights only while full preview is active', async () => {
+		const setTrafficLightPosition = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+			reservesTrafficLightSpace: true,
+			setTrafficLightPosition,
+		} as never );
+		const preview = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		await waitFor( () => expect( setTrafficLightPosition ).toHaveBeenLastCalledWith( 'default' ) );
+
+		preview.rerender(
+			<QueryClientProvider client={ preview.queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						fullscreen
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		await waitFor( () =>
+			expect( setTrafficLightPosition ).toHaveBeenLastCalledWith( 'preview-tabs' )
+		);
+	} );
+
+	it( 'keeps each tab at its own URL when switching between them', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		function PreviewHarness() {
+			const [ currentPath, setCurrentPath ] = useState( '/about/' );
+			return (
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path={ currentPath }
+					reloadNonce={ 0 }
+					onPathChange={ setCurrentPath }
+				/>
+			);
+		}
+
+		renderPreview( <PreviewHarness /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Front-end' } ) );
+
+		let address = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( address ).toHaveValue( 'http://localhost:8881/' );
+		fireEvent.change( address, { target: { value: 'http://localhost:8881/contact/' } } );
+		fireEvent.submit( address.closest( 'form' )! );
+		expect( address ).toHaveValue( 'http://localhost:8881/contact/' );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		fireEvent.click( tabs[ 0 ] );
+		address = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( address ).toHaveValue( 'http://localhost:8881/about/' );
+
+		fireEvent.click( tabs[ 1 ] );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			'http://localhost:8881/contact/'
+		);
+	} );
+
+	it( 'offers default destinations and remembers submitted addresses per site', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		function PreviewHarness( { site }: { site: SiteDetails } ) {
+			const [ currentPath, setCurrentPath ] = useState( '/' );
+			return (
+				<SitePreview
+					site={ site }
+					path={ currentPath }
+					reloadNonce={ 0 }
+					onPathChange={ setCurrentPath }
+				/>
+			);
+		}
+
+		const firstSite = createSite( { id: 'first-site', running: true } );
+		const preview = renderPreview( <PreviewHarness site={ firstSite } /> );
+		let address = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.focus( address );
+
+		expect( screen.getByText( 'Destinations' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Front-end' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'WordPress' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Database' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Recent' ) ).not.toBeInTheDocument();
+
+		fireEvent.change( address, {
+			target: { value: 'http://localhost:8881/contact/' },
+		} );
+		fireEvent.submit( address.closest( 'form' )! );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+
+		fireEvent.focus( address );
+		expect( screen.getByText( 'Recent' ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).toBeInTheDocument();
+		preview.unmount();
+
+		const restored = renderPreview( <PreviewHarness site={ firstSite } /> );
+		address = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.focus( address );
+		expect(
+			screen.getByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).toBeInTheDocument();
+		restored.unmount();
+
+		renderPreview(
+			<PreviewHarness site={ createSite( { id: 'second-site', port: 8882, running: true } ) } />
+		);
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect(
+			screen.queryByRole( 'button', { name: 'http://localhost:8881/contact/' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'offers each preview realm when adding a tab', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Front-end' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: 'WordPress' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
+	} );
+
+	it( 'uses realm-specific favicons in browser tabs', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
+
+		const frontend = renderPreview(
+			<SitePreview site={ createSite( { running: true, siteIcon } ) } path="/" reloadNonce={ 0 } />
+		);
+		expect( frontend.container.querySelector( '[data-realm="frontend"] img' ) ).toHaveAttribute(
+			'src',
+			siteIcon
+		);
+		frontend.unmount();
+		window.localStorage.clear();
+
+		const admin = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
+		);
+		expect( admin.container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
+		admin.unmount();
+		window.localStorage.clear();
+
+		const database = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+			/>
+		);
+		expect( database.container.querySelector( '[data-realm="database"] svg' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab' ) ).toHaveTextContent( 'wordpress · Database' );
+	} );
+
+	it( 'uses useful database and table names instead of phpMyAdmin document titles', () => {
+		expect( getPreviewTabTitle( DATABASE_HOME_PATH, 'phpMyAdmin 5.2.1', 'Example Site' ) ).toBe(
+			'wordpress · Database'
+		);
+		expect(
+			getPreviewTabTitle(
+				'/phpmyadmin/index.php?route=/table/browse&db=wordpress&table=wp_posts',
+				'phpMyAdmin 5.2.1',
+				'Example Site'
+			)
+		).toBe( 'wp_posts · wordpress' );
+	} );
+
+	it( 'reorders tabs as they are dragged over one another', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		const tabs = screen.getAllByRole( 'tab' );
+		const data = new Map< string, string >();
+		const dataTransfer = {
+			effectAllowed: '',
+			dropEffect: '',
+			setData: ( type: string, value: string ) => {
+				data.set( type, value );
+			},
+			getData: ( type: string ) => data.get( type ) ?? '',
+		} as unknown as DataTransfer;
+		fireEvent.dragStart( tabs[ 2 ].parentElement!, { dataTransfer } );
+		fireEvent.dragOver( tabs[ 0 ].parentElement!, { dataTransfer } );
+
+		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+			'wordpress · Database',
+			'Example Site',
+			'WordPress',
+		] );
+		fireEvent.drop( tabs[ 0 ].parentElement!, { dataTransfer } );
+	} );
+
+	it( 'cycles through tabs with browser-standard keyboard shortcuts', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WordPress' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Database' } ) );
+
+		fireEvent.keyDown( document, { key: 'Tab', ctrlKey: true } );
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' );
+		fireEvent.keyDown( document, { key: 'Tab', ctrlKey: true, shiftKey: true } );
+		expect( screen.getAllByRole( 'tab' )[ 2 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	} );
+
+	it( 'does not reuse back and forward shortcuts for cycling tabs', () => {
+		expect(
+			getTabCycleDirection( new KeyboardEvent( 'keydown', { key: '[', metaKey: true } ) )
+		).toBe( null );
+		expect(
+			getTabCycleDirection(
+				new KeyboardEvent( 'keydown', { key: 'Tab', ctrlKey: true, shiftKey: true } )
+			)
+		).toBe( -1 );
+	} );
+
 	it( 'orders back and forward history from the current page outward', () => {
 		const entries = [
 			{ index: 0, title: 'Home', url: 'http://localhost/' },
@@ -153,7 +614,9 @@ describe( 'SitePreview', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'WordPress' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tablist', { name: 'Preview tabs' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'New tab' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Full preview' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
 		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
@@ -187,7 +650,6 @@ describe( 'SitePreview', () => {
 		);
 
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
-		const homeButton = screen.getByRole( 'button', { name: 'Front end' } );
 		const backButton = screen.getByRole( 'button', { name: 'Back' } );
 		const forwardButton = screen.getByRole( 'button', { name: 'Forward' } );
 		expect( refreshButton ).toBeEnabled();
@@ -196,9 +658,6 @@ describe( 'SitePreview', () => {
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 		expect( forwardButton.compareDocumentPosition( refreshButton ) ).toBe(
-			Node.DOCUMENT_POSITION_FOLLOWING
-		);
-		expect( refreshButton.compareDocumentPosition( homeButton ) ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 
@@ -213,32 +672,6 @@ describe( 'SitePreview', () => {
 		fireEvent.click( refreshButton );
 
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
-	} );
-
-	it( 'returns to the front end without relying on browser history', () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent,
-			capabilities: CAPABILITIES,
-		} as never );
-		const onPathChange = vi.fn();
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/wp-admin/"
-				reloadNonce={ 0 }
-				onPathChange={ onPathChange }
-			/>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Front end' } ) );
-
-		expect( onPathChange ).toHaveBeenCalledWith( '/' );
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_in_browser', {
-			browser: 'internal',
-		} );
 	} );
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
@@ -270,7 +703,31 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( aliasReloadedIframe );
 	} );
 
-	it( 'switches realms on primary-modifier number shortcuts', () => {
+	it( 'keeps browser shortcuts active when browser chrome has focus', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tab = screen.getByRole( 'tab' );
+		tab.focus();
+		let iframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( tab, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( iframe );
+
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		address.focus();
+		iframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( address, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( iframe );
+	} );
+
+	it( 'does not reserve primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -287,84 +744,11 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
-		);
+		const event = new KeyboardEvent( 'keydown', { key: '2', ctrlKey: true, cancelable: true } );
+		document.body.dispatchEvent( event );
 
-		// Re-selecting the already-active realm is a no-op.
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
+		expect( event.defaultPrevented ).toBe( false );
 		expect( onPathChange ).not.toHaveBeenCalled();
-	} );
-
-	it( 'records an internal-browser Tracks event when switching realms', () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent,
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onPathChange={ vi.fn() }
-			/>
-		);
-
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'internal',
-		} );
-	} );
-
-	it( 'does not record a realm switch when re-selecting the active realm', () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent,
-			capabilities: CAPABILITIES,
-		} as never );
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/wp-admin/"
-				reloadNonce={ 0 }
-				onPathChange={ vi.fn() }
-			/>
-		);
-
-		// Already on the admin realm; its shortcut is a no-op.
-		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
-		expect( trackEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'switches to the database realm on its shortcut', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			capabilities: CAPABILITIES,
-		} as never );
-		const onPathChange = vi.fn();
-
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onPathChange={ onPathChange }
-			/>
-		);
-
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
 	} );
 
 	it( 'keeps the front end and WP Admin on one shared surface', () => {
@@ -432,10 +816,6 @@ describe( 'SitePreview', () => {
 		rerender( ui( '/' ) );
 		expect( container.querySelector( 'iframe' ) ).toBe( siteSurface );
 		expect( siteSurface?.closest( '[inert]' ) ).toBeNull();
-
-		onPathChange.mockClear();
-		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
-		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
 
 		rerender( ui( DATABASE_HOME_PATH ) );
 		expect( container.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
@@ -506,7 +886,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) ).toBeVisible();
 
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -648,11 +1028,11 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitemradio', { name: 'Responsive' } ) ).not.toBeInTheDocument();
+		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitem', { name: 'Fit' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitemradio', { name: 'Fit' } ) ).not.toBeInTheDocument();
 		// The orientation group only accompanies the phone frame.
 		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
 
@@ -667,9 +1047,7 @@ describe( 'SitePreview', () => {
 		const backdrop = document.querySelector( '[role="presentation"][data-base-ui-inert]' );
 		expect( backdrop ).toBeInTheDocument();
 		fireEvent.pointerDown( backdrop as Element );
-		await waitFor( () =>
-			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
-		);
+		await waitFor( () => expect( screen.queryByText( 'Viewport width' ) ).not.toBeInTheDocument() );
 	} );
 
 	it( 'disables the responsive mode controls while previewing the database realm', async () => {
@@ -687,15 +1065,20 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		const responsiveButton = screen.getByRole( 'button', {
+			name: 'Responsive mode: Fit',
+		} );
+		expect( responsiveButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( responsiveButton ).toHaveAttribute( 'aria-description', 'Not available for Database' );
+		expect( responsiveButton.parentElement ).toHaveAttribute(
+			'title',
+			'Not available for Database'
+		);
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
-		const fitPane = screen.getByRole( 'menuitem', { name: 'Responsive' } );
-		expect( fitPane ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		// Disabled radio items swallow the click — the mode doesn't change.
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
-		expect( fitPane ).toBeVisible();
+		fireEvent.click( responsiveButton );
+		expect(
+			screen.queryByRole( 'menuitem', { name: 'Mobile · 390×844' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps full preview out of the responsive controls', async () => {
@@ -709,9 +1092,9 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 
-		expect( await screen.findByText( 'Responsive mode' ) ).toBeVisible();
+		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -732,7 +1115,7 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
 		expect( onFullscreenChange ).not.toHaveBeenCalled();
@@ -762,7 +1145,7 @@ describe( 'SitePreview', () => {
 		);
 
 		const { rerender } = render( ui( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
 		rerender( ui( false ) );
@@ -826,7 +1209,7 @@ describe( 'SitePreview', () => {
 		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
 
 		expect(
-			screen.queryByRole( 'button', { name: 'Responsive mode: Responsive' } )
+			screen.queryByRole( 'button', { name: 'Responsive mode: Fit' } )
 		).not.toBeInTheDocument();
 	} );
 
@@ -851,13 +1234,13 @@ describe( 'SitePreview', () => {
 		const siteB = createSite( { id: 'site-b', running: true } );
 
 		const { rerender } = render( ui( siteA ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
 
 		// A site without a remembered mode starts from the default…
 		rerender( ui( siteB ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toHaveAttribute(
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Fit' } ) ).toHaveAttribute(
 			'aria-current',
 			'true'
 		);
@@ -1054,7 +1437,17 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	vi.stubGlobal( 'ResizeObserver', ResizeObserverStub );
 	const clearWebviewCache = vi.fn().mockResolvedValue( undefined );
 	const setWebviewViewport = vi.fn().mockResolvedValue( undefined );
-	vi.stubGlobal( 'ipcApi', { clearWebviewCache, setWebviewViewport } );
+	const restoreWebviewNavigationHistory = vi.fn().mockResolvedValue( undefined );
+	const getWebviewNavigationHistory = vi.fn().mockResolvedValue( {
+		activeIndex: 0,
+		entries: [],
+	} );
+	vi.stubGlobal( 'ipcApi', {
+		clearWebviewCache,
+		setWebviewViewport,
+		restoreWebviewNavigationHistory,
+		getWebviewNavigationHistory,
+	} );
 	useConnectorMock.mockReturnValue( {
 		startSite: vi.fn().mockResolvedValue( undefined ),
 		trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -1089,10 +1482,16 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 				</Tooltip.Provider>
 			</QueryClientProvider>
 		);
-	return { webview, clearWebviewCache, setWebviewViewport, update };
+	return {
+		webview,
+		clearWebviewCache,
+		setWebviewViewport,
+		restoreWebviewNavigationHistory,
+		update,
+	};
 }
 
-// Leaves "Responsive" for one of the simulated presets, which is what turns the
+// Leaves "Fit" for one of the simulated presets, which is what turns the
 // CDP emulation on.
 async function selectResponsiveMode( label: string ) {
 	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );
@@ -1113,6 +1512,40 @@ describe( 'SitePreview webview reload', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledTimes( 1 ) );
 		expect( clearWebviewCache ).toHaveBeenCalledWith( 7 );
 		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'restores a persisted navigation history stack', async () => {
+		window.localStorage.setItem(
+			'studio:site-preview:tabs:site-1',
+			JSON.stringify( {
+				version: 1,
+				activeTabId: 1,
+				tabs: [
+					{
+						id: 1,
+						path: '/second/',
+						title: 'Second',
+						activeHistoryIndex: 1,
+						historyEntries: [
+							{ index: 0, title: 'First', url: 'http://localhost:8881/first/' },
+							{ index: 1, title: 'Second', url: 'http://localhost:8881/second/' },
+						],
+					},
+				],
+			} )
+		);
+		const { restoreWebviewNavigationHistory } = renderWebviewPreview();
+
+		await waitFor( () =>
+			expect( restoreWebviewNavigationHistory ).toHaveBeenCalledWith(
+				7,
+				[
+					{ index: 0, title: 'First', url: 'http://localhost:8881/first/' },
+					{ index: 1, title: 'Second', url: 'http://localhost:8881/second/' },
+				],
+				1
+			)
+		);
 	} );
 
 	it( 'navigates without dropping the cache when the path changes', async () => {

@@ -106,7 +106,12 @@ import {
 } from '@studio/common/sites/blueprint-extract';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	MACOS_PREVIEW_TABS_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+} from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import {
@@ -2545,6 +2550,19 @@ export async function setWindowControlsSurface(
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
+export async function setTrafficLightPosition(
+	event: IpcMainInvokeEvent,
+	position: 'default' | 'preview-tabs'
+): Promise< void > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'darwin' ) return;
+	parentWindow.setWindowButtonPosition(
+		position === 'preview-tabs'
+			? MACOS_PREVIEW_TABS_TRAFFIC_LIGHT_POSITION
+			: MACOS_TRAFFIC_LIGHT_POSITION
+	);
+}
+
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -2758,6 +2776,33 @@ export async function getWebviewNavigationHistory(
 			url: entry.url,
 		} ) ),
 	};
+}
+
+export async function restoreWebviewNavigationHistory(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	entries: { title: string; url: string }[],
+	activeIndex: number
+): Promise< void > {
+	const history = getOwnedWebviewContents( event, webContentsId ).navigationHistory;
+	if ( ! Array.isArray( entries ) ) {
+		return;
+	}
+	const safeEntries = entries.slice( 0, 100 ).flatMap( ( entry ) => {
+		if ( ! entry || typeof entry.url !== 'string' ) return [];
+		try {
+			const url = new URL( entry.url );
+			if ( url.protocol !== 'http:' && url.protocol !== 'https:' ) return [];
+			return [ { title: typeof entry.title === 'string' ? entry.title : '', url: url.toString() } ];
+		} catch {
+			return [];
+		}
+	} );
+	if ( safeEntries.length === 0 ) return;
+	await history.restore( {
+		entries: safeEntries,
+		index: Math.max( 0, Math.min( activeIndex, safeEntries.length - 1 ) ),
+	} );
 }
 
 export async function goToWebviewNavigationHistoryEntry(

@@ -28,6 +28,54 @@
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
 export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
 
+export const PREVIEW_NAVIGATION_SCRIPT = String.raw`
+( () => {
+	if ( window.__studioPreviewNavigationMounted ) return;
+	window.__studioPreviewNavigationMounted = true;
+	const teardown = new AbortController();
+	window.__studioPreviewNavigationDispose = () => {
+		teardown.abort();
+		delete window.__studioPreviewNavigationMounted;
+		delete window.__studioPreviewNavigationDispose;
+	};
+
+	const BRIDGE_PREFIX = '${ INSPECTOR_BRIDGE_PREFIX }';
+	const isApplePlatform = /mac|iphone|ipad|ipod/i.test(
+		navigator.platform || navigator.userAgent || ''
+	);
+
+	document.addEventListener(
+		'click',
+		( event ) => {
+			if ( event.defaultPrevented || event.button !== 0 || event.altKey ) return;
+			const primaryModifier = isApplePlatform
+				? event.metaKey && ! event.ctrlKey
+				: event.ctrlKey && ! event.metaKey;
+			if ( ! primaryModifier ) return;
+
+			const target = event.target instanceof Element ? event.target : null;
+			const anchor = target?.closest( 'a[href]' );
+			if ( ! anchor || anchor.hasAttribute( 'download' ) ) return;
+
+			let url;
+			try {
+				url = new URL( anchor.href, window.location.href );
+			} catch {
+				return;
+			}
+			if ( url.origin !== window.location.origin || ! /^https?:$/.test( url.protocol ) ) return;
+
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			console.log(
+				BRIDGE_PREFIX + JSON.stringify( { type: 'open-link-in-new-tab', url: url.href } )
+			);
+		},
+		{ capture: true, signal: teardown.signal }
+	);
+} )();
+`;
+
 export const INSPECTOR_PAGE_SCRIPT =
 	String.raw`
 ( () => {
@@ -78,6 +126,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 	function getBrowserShortcutCommand( event ) {
 		if ( event.defaultPrevented || event.repeat ) return null;
 		const apple = isApplePlatform();
+		if ( event.key === 'Tab' && event.ctrlKey && ! event.altKey && ! event.metaKey ) {
+			return event.shiftKey ? 'previous-tab' : 'next-tab';
+		}
 		if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
 			/* Layout-independent back/forward aliases: the bracket chords need
 			 * Option/AltGr on many European layouts. Skipped while editing text
@@ -96,6 +147,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		 * the window — so the chord is caught here and forwarded back. */
 		if ( event.shiftKey ) {
 			if ( key === 'f' ) return 'full-preview';
+			if ( key === '[' ) return 'previous-tab';
+			if ( key === ']' ) return 'next-tab';
 			return key === 'r' ? 'reload' : null;
 		}
 		if ( key === 'r' ) return 'reload';

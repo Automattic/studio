@@ -1,13 +1,14 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, home, Icon, pencil } from '@wordpress/icons';
+import { check, chevronDown, closeSmall, Icon, pencil, plus, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
+import { SiteIcon } from '@/components/site-icon';
 import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -20,15 +21,19 @@ import {
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
+import {
+	browserBackIcon,
+	browserForwardIcon,
+	databaseIcon,
+	playIcon,
+	refreshIcon,
+} from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
-	getRealmOpenEvent,
 	PreviewAddressBar,
-	REALM_SHORTCUT_KEYS,
 	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
@@ -36,11 +41,12 @@ import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
+	PREVIEW_NAVIGATION_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, RefObject, WheelEvent } from 'react';
 
 export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
@@ -65,17 +71,80 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	// True while the preview fills the whole window (sidebar and chat hidden).
 	fullscreen?: boolean;
-	// Enters/leaves full preview. The "•••" menu only offers it when provided.
+	// Enters/leaves full preview. The tab bar toggle only renders when provided.
 	onFullscreenChange?: ( value: boolean ) => void;
 }
 
+function getFullPreviewIcon( active: boolean ) {
+	const getCornerClassName = ( reverse = false ) =>
+		clsx(
+			styles.fullPreviewCorner,
+			reverse && styles.fullPreviewCornerReverse,
+			active && styles.fullPreviewCornerActive
+		);
+
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 24 24"
+			fill="currentColor"
+			data-fullscreen={ active }
+		>
+			<path
+				className={ getCornerClassName() }
+				d="M6 4a2 2 0 0 0-2 2v3h1.5V6a.5.5 0 0 1 .5-.5h3V4H6Z"
+			/>
+			<path
+				className={ getCornerClassName( true ) }
+				d="M9 18.5H6a.5.5 0 0 1-.5-.5v-3H4v3a2 2 0 0 0 2 2h3v-1.5Z"
+			/>
+			<path
+				className={ getCornerClassName() }
+				d="M15 20v-1.5h3a.5.5 0 0 0 .5-.5v-3H20v3a2 2 0 0 1-2 2h-3Z"
+			/>
+			<path
+				className={ getCornerClassName( true ) }
+				d="M18 4a2 2 0 0 1 2 2v3h-1.5V6a.5.5 0 0 0-.5-.5h-3V4h3Z"
+			/>
+		</svg>
+	);
+}
+
+interface PreviewTab {
+	id: number;
+	path: string;
+	title: string;
+	reloadNonce: number;
+	historyEntries: BrowserHistoryEntry[];
+	activeHistoryIndex: number;
+}
+
+interface SingleSitePreviewProps extends SitePreviewProps {
+	shortcutScopeRef?: RefObject< HTMLElement | null >;
+	onTitleChange?: ( title: string | null ) => void;
+	onTabCycle?: ( direction: -1 | 1 ) => void;
+	onHistoryChange?: ( entries: BrowserHistoryEntry[], activeIndex: number ) => void;
+	initialHistoryEntries?: BrowserHistoryEntry[];
+	initialHistoryIndex?: number;
+	hasTabBar?: boolean;
+	onAddressSuggestionsOpenChange?: ( open: boolean ) => void;
+	onOpenNewTab?: ( url: string ) => void;
+}
+
 interface InspectorEvent {
-	type: 'annotations-updated' | 'browser-command' | 'cancel-requested' | 'done' | 'state';
+	type:
+		| 'annotations-updated'
+		| 'browser-command'
+		| 'cancel-requested'
+		| 'done'
+		| 'open-link-in-new-tab'
+		| 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	hasUnsavedDraft?: boolean;
 	command?: PreviewShortcutCommandType;
+	url?: string;
 }
 
 interface InspectorState {
@@ -96,6 +165,11 @@ interface BrowserHistoryEntry {
 	url: string;
 }
 
+interface PreviewTabSession {
+	tabs: PreviewTab[];
+	activeTabId: number;
+}
+
 interface BrowserNavigationState {
 	canGoBack: boolean;
 	canGoForward: boolean;
@@ -111,7 +185,11 @@ type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
 // What the guest page can forward over the console bridge: the browser
 // commands it swallows, plus the full-preview toggle (the webview covers most
 // of the window in full preview, so the host listener alone would miss it).
-type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
+type PreviewShortcutCommandType =
+	| BrowserShortcutCommandType
+	| 'full-preview'
+	| 'previous-tab'
+	| 'next-tab';
 
 interface BrowserCommand {
 	id: number;
@@ -254,6 +332,11 @@ interface PreviewWindow extends Window {
 			activeIndex: number;
 			entries: BrowserHistoryEntry[];
 		} >;
+		restoreWebviewNavigationHistory?: (
+			webContentsId: number,
+			entries: BrowserHistoryEntry[],
+			activeIndex: number
+		) => Promise< void >;
 		goToWebviewNavigationHistoryEntry?: ( webContentsId: number, index: number ) => Promise< void >;
 	};
 }
@@ -337,12 +420,6 @@ const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-};
-
 /**
  * Realms that share a browsing session share a surface.
  *
@@ -537,15 +614,18 @@ export function getBrowserShortcutCommand(
 	return null;
 }
 
-// ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
-function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
+export function getTabCycleDirection( event: globalThis.KeyboardEvent ): -1 | 1 | null {
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	for ( const realm of Object.keys( REALM_SHORTCUT_KEYS ) as PreviewRealm[] ) {
-		if ( isKeyboardEvent.primary( event, REALM_SHORTCUT_KEYS[ realm ] ) ) {
-			return realm;
-		}
+	if ( isKeyboardEvent.primaryShift( event, '[' ) ) {
+		return -1;
+	}
+	if ( isKeyboardEvent.primaryShift( event, ']' ) ) {
+		return 1;
+	}
+	if ( event.key === 'Tab' && event.ctrlKey && ! event.altKey && ! event.metaKey ) {
+		return event.shiftKey ? -1 : 1;
 	}
 	return null;
 }
@@ -553,6 +633,13 @@ function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | nul
 // ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
 // Keyboard alongside the other preview shortcuts.
 const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function getFullPreviewShortcutDescriptor() {
+	return {
+		displayShortcut: displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+		ariaKeyShortcut: ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+	};
+}
 
 function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -566,7 +653,9 @@ function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcu
 		command === 'back' ||
 		command === 'forward' ||
 		command === 'reload' ||
-		command === 'full-preview'
+		command === 'full-preview' ||
+		command === 'previous-tab' ||
+		command === 'next-tab'
 	);
 }
 
@@ -579,20 +668,23 @@ function PreviewResponsiveControls( {
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
-	// Greys out the viewport controls for a surface that can't simulate one,
+	// Disables the viewport selector for a surface that can't simulate one,
 	// keeping the chosen mode for when the preview returns to one that can.
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 } ) {
 	const viewportLabels: Record< ViewportMode, string > = {
-		fit: __( 'Responsive' ),
+		fit: __( 'Fit' ),
 		mobile: __( 'Mobile' ),
 		tablet: __( 'Tablet' ),
 		desktop: __( 'Desktop' ),
 		split: __( 'Desktop + Mobile' ),
 	};
 	const selectedLabel = viewportLabels[ viewportMode ];
+	const tooltipLabel = viewportControlsDisabled
+		? __( 'Not available for Database' )
+		: __( 'Preview size' );
 	const getPresetLabel = ( preset: ViewportPreset ) =>
 		sprintf(
 			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
@@ -608,37 +700,44 @@ function PreviewResponsiveControls( {
 	);
 	return (
 		<Menu.Root>
-			<Tooltip.Root>
-				<Menu.Trigger
-					render={
-						<Tooltip.Trigger
-							render={
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.responsiveModeTrigger }
-									aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+			<span
+				className={ styles.disabledControlTooltipTarget }
+				title={ viewportControlsDisabled ? tooltipLabel : undefined }
+			>
+				<Tooltip.Root>
+					<Menu.Trigger
+						render={
+							<Tooltip.Trigger
+								render={
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ styles.responsiveModeTrigger }
+										aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+										aria-description={ viewportControlsDisabled ? tooltipLabel : undefined }
+										disabled={ viewportControlsDisabled }
+									/>
+								}
+							>
+								<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
+								<Icon
+									icon={ chevronDown }
+									size={ 12 }
+									className={ styles.responsiveModeChevron }
+									data-keep-size
 								/>
-							}
-						>
-							<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
-							<Icon
-								icon={ chevronDown }
-								size={ 12 }
-								className={ styles.responsiveModeChevron }
-								data-keep-size
-							/>
-						</Tooltip.Trigger>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-					{ __( 'Preview size' ) }
-				</Tooltip.Popup>
-			</Tooltip.Root>
+							</Tooltip.Trigger>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ tooltipLabel }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</span>
 			<Menu.Popup side="bottom" align="end">
 				<Menu.Group>
-					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
+					<Menu.GroupLabel>{ __( 'Viewport width' ) }</Menu.GroupLabel>
 					<Menu.Group>
 						<Menu.Item
 							className={ styles.responsiveModeItem }
@@ -647,7 +746,7 @@ function PreviewResponsiveControls( {
 							onClick={ () => onViewportModeChange( 'fit' ) }
 						>
 							{ renderSelectedIndicator( 'fit' ) }
-							{ __( 'Responsive' ) }
+							{ __( 'Fit' ) }
 						</Menu.Item>
 						{ VIEWPORT_PRESETS.map( ( preset ) => (
 							<Menu.Item
@@ -707,6 +806,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft,
 	cancelRequestId,
 	disabled,
+	disabledReason,
 	onCommand,
 }: {
 	isPicking: boolean;
@@ -714,6 +814,7 @@ function PreviewAnnotationControls( {
 	hasUnsavedDraft: boolean;
 	cancelRequestId: number;
 	disabled: boolean;
+	disabledReason?: string;
 	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
 } ) {
 	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
@@ -743,29 +844,35 @@ function PreviewAnnotationControls( {
 			<div
 				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
 			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								variant="outline"
-								tone="neutral"
-								size="small"
-								className={ styles.annotationToggle }
-								aria-label={ toggleLabel }
-								disabled={ disabled }
-								onClick={ handleToggle }
-							>
-								{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
-								<span className={ styles.toolbarLabel }>
-									{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
-								</span>
-							</Button>
-						}
-					/>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				<span
+					className={ styles.disabledControlTooltipTarget }
+					title={ disabled ? disabledReason : undefined }
+				>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									className={ styles.annotationToggle }
+									aria-label={ toggleLabel }
+									aria-description={ disabled ? disabledReason : undefined }
+									disabled={ disabled }
+									onClick={ handleToggle }
+								>
+									{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
+									<span className={ styles.toolbarLabel }>
+										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
+									</span>
+								</Button>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ disabledReason ?? ( isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</span>
 				{ hasPending ? (
 					<Button
 						variant="solid"
@@ -805,7 +912,7 @@ function PreviewAnnotationControls( {
 									}
 								/>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-									{ toggleLabel }
+									{ disabledReason ?? toggleLabel }
 								</Tooltip.Popup>
 							</Tooltip.Root>
 							<Tooltip.Root>
@@ -978,7 +1085,634 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 	);
 }
 
-export function SitePreview( {
+export function getPreviewTabTitle(
+	path: string,
+	documentTitle: string | null,
+	siteName: string
+): string {
+	const realm = getPreviewRealm( path );
+	if ( realm === 'database' ) {
+		const query = path.split( '?' )[ 1 ] ?? '';
+		const params = new URLSearchParams( query );
+		const database = params.get( 'db' );
+		const table = params.get( 'table' );
+		if ( table && database ) {
+			return sprintf(
+				/* translators: 1: database table name, 2: database name */
+				__( '%1$s · %2$s' ),
+				table,
+				database
+			);
+		}
+		if ( table ) {
+			return sprintf(
+				/* translators: %s: database table name */
+				__( '%s · Database' ),
+				table
+			);
+		}
+		if ( database ) {
+			return sprintf(
+				/* translators: %s: database name */
+				__( '%s · Database' ),
+				database
+			);
+		}
+		return __( 'Database' );
+	}
+	return documentTitle || ( realm === 'admin' ? __( 'WordPress' ) : siteName );
+}
+
+const PREVIEW_TAB_SESSION_VERSION = 1;
+
+function getPreviewTabSessionStorageKey( siteId: string ): string {
+	return `studio:site-preview:tabs:${ siteId }`;
+}
+
+function createPreviewTab(
+	id: number,
+	path: string,
+	title: string,
+	reloadNonce: number,
+	historyEntries: BrowserHistoryEntry[] = [],
+	activeHistoryIndex = -1
+): PreviewTab {
+	return { id, path, title, reloadNonce, historyEntries, activeHistoryIndex };
+}
+
+function normalizeStoredHistory( entries: unknown, siteUrl: string ): BrowserHistoryEntry[] {
+	if ( ! Array.isArray( entries ) ) return [];
+	return entries.flatMap( ( entry, index ) => {
+		if ( ! entry || typeof entry !== 'object' ) return [];
+		const candidate = entry as { title?: unknown; url?: unknown };
+		if ( typeof candidate.url !== 'string' ) return [];
+		try {
+			const oldUrl = new URL( candidate.url );
+			const url = new URL(
+				`${ oldUrl.pathname }${ oldUrl.search }${ oldUrl.hash }`,
+				siteUrl
+			).toString();
+			return [
+				{
+					index,
+					title: typeof candidate.title === 'string' ? candidate.title : '',
+					url,
+				},
+			];
+		} catch {
+			return [];
+		}
+	} );
+}
+
+function loadPreviewTabSession(
+	site: SiteDetails,
+	path: string,
+	reloadNonce: number
+): PreviewTabSession {
+	const fallbackPath = getSafePath( path );
+	const fallback = {
+		tabs: [
+			createPreviewTab(
+				1,
+				fallbackPath,
+				getPreviewTabTitle( fallbackPath, null, site.name ),
+				reloadNonce
+			),
+		],
+		activeTabId: 1,
+	};
+	try {
+		const raw = window.localStorage.getItem( getPreviewTabSessionStorageKey( site.id ) );
+		if ( ! raw ) return fallback;
+		const stored = JSON.parse( raw ) as {
+			version?: unknown;
+			activeTabId?: unknown;
+			tabs?: unknown;
+		};
+		if ( stored.version !== PREVIEW_TAB_SESSION_VERSION || ! Array.isArray( stored.tabs ) ) {
+			return fallback;
+		}
+		const siteUrl = getSiteUrl( site );
+		const seenIds = new Set< number >();
+		const tabs = stored.tabs.slice( 0, 50 ).flatMap( ( value ) => {
+			if ( ! value || typeof value !== 'object' ) return [];
+			const tab = value as {
+				id?: unknown;
+				path?: unknown;
+				title?: unknown;
+				historyEntries?: unknown;
+				activeHistoryIndex?: unknown;
+			};
+			if (
+				typeof tab.id !== 'number' ||
+				! Number.isInteger( tab.id ) ||
+				tab.id < 1 ||
+				seenIds.has( tab.id ) ||
+				typeof tab.path !== 'string'
+			) {
+				return [];
+			}
+			seenIds.add( tab.id );
+			const nextPath = getSafePath( tab.path );
+			const historyEntries = normalizeStoredHistory( tab.historyEntries, siteUrl );
+			const requestedIndex =
+				typeof tab.activeHistoryIndex === 'number'
+					? tab.activeHistoryIndex
+					: historyEntries.length - 1;
+			const activeHistoryIndex =
+				historyEntries.length > 0
+					? Math.max( 0, Math.min( requestedIndex, historyEntries.length - 1 ) )
+					: -1;
+			return [
+				createPreviewTab(
+					tab.id,
+					nextPath,
+					typeof tab.title === 'string' && tab.title
+						? tab.title
+						: getPreviewTabTitle( nextPath, null, site.name ),
+					reloadNonce,
+					historyEntries,
+					activeHistoryIndex
+				),
+			];
+		} );
+		if ( tabs.length === 0 ) return fallback;
+		const activeTabId =
+			typeof stored.activeTabId === 'number' && seenIds.has( stored.activeTabId )
+				? stored.activeTabId
+				: tabs[ 0 ].id;
+		return { tabs, activeTabId };
+	} catch {
+		return fallback;
+	}
+}
+
+function storePreviewTabSession( siteId: string, tabs: PreviewTab[], activeTabId: number ): void {
+	try {
+		window.localStorage.setItem(
+			getPreviewTabSessionStorageKey( siteId ),
+			JSON.stringify( {
+				version: PREVIEW_TAB_SESSION_VERSION,
+				activeTabId,
+				tabs: tabs.map( ( tab ) => ( {
+					id: tab.id,
+					path: tab.path,
+					title: tab.title,
+					historyEntries: tab.historyEntries,
+					activeHistoryIndex: tab.activeHistoryIndex,
+				} ) ),
+			} )
+		);
+	} catch {
+		// The preview remains usable when storage is unavailable or full.
+	}
+}
+
+export function SitePreview( props: SitePreviewProps ) {
+	const { site, path, reloadNonce, onPathChange, collapsed = false, fullscreen = false } = props;
+	const connector = useConnector();
+	const [ initialSession ] = useState( () => loadPreviewTabSession( site, path, reloadNonce ) );
+	const nextTabId = useRef( Math.max( ...initialSession.tabs.map( ( tab ) => tab.id ) ) + 1 );
+	const rootRef = useRef< HTMLDivElement | null >( null );
+	const tabListRef = useRef< HTMLDivElement | null >( null );
+	const trafficLightSpace = useTrafficLightSpace();
+	const [ tabs, setTabs ] = useState< PreviewTab[] >( initialSession.tabs );
+	const [ activeTabId, setActiveTabId ] = useState( initialSession.activeTabId );
+	const [ draggedTabId, setDraggedTabId ] = useState< number | null >( null );
+	const [ tabListOverflowing, setTabListOverflowing ] = useState( false );
+	const [ addressSuggestionsOpen, setAddressSuggestionsOpen ] = useState( false );
+	const draggedTabIdRef = useRef< number | null >( null );
+	const dragOverTabIdRef = useRef< number | null >( null );
+	const activeTabIdRef = useRef( activeTabId );
+	const siteIdRef = useRef( site.id );
+	const skipStorageRef = useRef( false );
+	const skipNextExternalPathRef = useRef( true );
+	const restoredPathRef = useRef(
+		initialSession.tabs.find( ( tab ) => tab.id === initialSession.activeTabId )?.path ??
+			initialSession.tabs[ 0 ].path
+	);
+	const activeTab = tabs.find( ( tab ) => tab.id === activeTabId ) ?? tabs[ 0 ];
+	useEffect( () => {
+		activeTabIdRef.current = activeTabId;
+	}, [ activeTabId ] );
+
+	useEffect( () => {
+		if ( ! connector.reservesTrafficLightSpace || ! connector.setTrafficLightPosition ) return;
+		void connector.setTrafficLightPosition( fullscreen ? 'preview-tabs' : 'default' );
+		return () => {
+			void connector.setTrafficLightPosition?.( 'default' );
+		};
+	}, [ connector, fullscreen ] );
+
+	useEffect( () => {
+		if ( siteIdRef.current === site.id ) {
+			return;
+		}
+		siteIdRef.current = site.id;
+		const session = loadPreviewTabSession( site, path, reloadNonce );
+		skipStorageRef.current = true;
+		skipNextExternalPathRef.current = true;
+		restoredPathRef.current =
+			session.tabs.find( ( tab ) => tab.id === session.activeTabId )?.path ??
+			session.tabs[ 0 ].path;
+		setTabs( session.tabs );
+		setActiveTabId( session.activeTabId );
+		nextTabId.current = Math.max( ...session.tabs.map( ( tab ) => tab.id ) ) + 1;
+	}, [ path, reloadNonce, site ] );
+
+	useEffect( () => {
+		if ( skipNextExternalPathRef.current ) {
+			skipNextExternalPathRef.current = false;
+			if ( restoredPathRef.current !== getSafePath( path ) ) {
+				onPathChange?.( restoredPathRef.current );
+			}
+			return;
+		}
+		setTabs( ( current ) => {
+			const index = current.findIndex( ( tab ) => tab.id === activeTabIdRef.current );
+			const currentTab = current[ index ];
+			const nextPath = getSafePath( path );
+			if ( ! currentTab || currentTab.path === nextPath ) return current;
+			const next = [ ...current ];
+			next[ index ] = {
+				...currentTab,
+				path: nextPath,
+				title: getPreviewTabTitle( nextPath, null, site.name ),
+			};
+			return next;
+		} );
+	}, [ onPathChange, path, site.name ] );
+
+	useEffect( () => {
+		if ( skipStorageRef.current ) {
+			skipStorageRef.current = false;
+			return;
+		}
+		storePreviewTabSession( site.id, tabs, activeTabId );
+	}, [ activeTabId, site.id, tabs ] );
+
+	useEffect( () => {
+		setTabs( ( current ) =>
+			current.map( ( tab ) =>
+				tab.id === activeTabIdRef.current && tab.reloadNonce !== reloadNonce
+					? { ...tab, reloadNonce }
+					: tab
+			)
+		);
+	}, [ reloadNonce ] );
+
+	const selectTab = ( tab: PreviewTab ) => {
+		setActiveTabId( tab.id );
+		onPathChange?.( tab.path );
+	};
+
+	const addTab = ( nextPath: string ) => {
+		const tab = createPreviewTab(
+			nextTabId.current++,
+			nextPath,
+			getPreviewTabTitle( nextPath, null, site.name ),
+			reloadNonce
+		);
+		setTabs( ( current ) => [ ...current, tab ] );
+		setActiveTabId( tab.id );
+		onPathChange?.( tab.path );
+	};
+
+	const closeTab = ( tabId: number ) => {
+		const closingIndex = tabs.findIndex( ( tab ) => tab.id === tabId );
+		const remaining = tabs.filter( ( tab ) => tab.id !== tabId );
+		if ( remaining.length === 0 ) {
+			const replacement = createPreviewTab(
+				nextTabId.current++,
+				'/',
+				getPreviewTabTitle( '/', null, site.name ),
+				reloadNonce
+			);
+			setTabs( [ replacement ] );
+			setActiveTabId( replacement.id );
+			onPathChange?.( replacement.path );
+			return;
+		}
+		setTabs( remaining );
+		if ( tabId === activeTabId ) {
+			const replacement = remaining[ Math.min( closingIndex, remaining.length - 1 ) ];
+			setActiveTabId( replacement.id );
+			onPathChange?.( replacement.path );
+		}
+	};
+
+	const cycleTab = useCallback(
+		( direction: -1 | 1 ) => {
+			if ( tabs.length < 2 ) return;
+			const activeIndex = tabs.findIndex( ( tab ) => tab.id === activeTabIdRef.current );
+			const nextIndex = ( activeIndex + direction + tabs.length ) % tabs.length;
+			const nextTab = tabs[ nextIndex ];
+			setActiveTabId( nextTab.id );
+			onPathChange?.( nextTab.path );
+		},
+		[ onPathChange, tabs ]
+	);
+
+	useEffect( () => {
+		if ( collapsed || tabs.length < 2 ) return;
+		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			const direction = getTabCycleDirection( event );
+			if ( ! direction ) return;
+			const activeElement = document.activeElement;
+			if (
+				activeElement &&
+				activeElement !== document.body &&
+				! rootRef.current?.contains( activeElement )
+			) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			cycleTab( direction );
+		};
+		document.addEventListener( 'keydown', handleKeyDown, true );
+		return () => document.removeEventListener( 'keydown', handleKeyDown, true );
+	}, [ collapsed, cycleTab, tabs.length ] );
+
+	const handleTabListWheel = ( event: WheelEvent< HTMLDivElement > ) => {
+		const tabList = event.currentTarget;
+		if (
+			event.ctrlKey ||
+			tabList.scrollWidth <= tabList.clientWidth ||
+			Math.abs( event.deltaX ) >= Math.abs( event.deltaY )
+		) {
+			return;
+		}
+		event.preventDefault();
+		const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+		tabList.scrollLeft += event.deltaY * direction;
+	};
+
+	useEffect( () => {
+		const tabList = tabListRef.current;
+		if ( ! tabList ) return;
+
+		const updateOverflow = () => {
+			setTabListOverflowing( tabList.scrollWidth > tabList.clientWidth );
+		};
+		updateOverflow();
+
+		if ( typeof ResizeObserver === 'undefined' ) return;
+		const observer = new ResizeObserver( updateOverflow );
+		observer.observe( tabList );
+		return () => observer.disconnect();
+	}, [ tabs ] );
+
+	const reorderTab = ( sourceId: number, targetId: number ) => {
+		if ( sourceId === targetId ) return;
+		setTabs( ( current ) => {
+			const sourceIndex = current.findIndex( ( tab ) => tab.id === sourceId );
+			const targetIndex = current.findIndex( ( tab ) => tab.id === targetId );
+			if ( sourceIndex < 0 || targetIndex < 0 ) return current;
+			const reordered = [ ...current ];
+			const [ source ] = reordered.splice( sourceIndex, 1 );
+			reordered.splice( targetIndex, 0, source );
+			return reordered;
+		} );
+	};
+	const finishTabDrag = () => {
+		draggedTabIdRef.current = null;
+		dragOverTabIdRef.current = null;
+		setDraggedTabId( null );
+	};
+
+	return (
+		<div
+			ref={ rootRef }
+			className={ clsx( styles.tabbedRoot, fullscreen && styles.tabbedRootFullscreen ) }
+			aria-label={ __( 'Site preview browser' ) }
+		>
+			<div
+				hidden={ ! site.running }
+				className={ clsx(
+					styles.tabBar,
+					addressSuggestionsOpen && styles.tabBarMenuOpen,
+					! site.running && styles.browserChromeHidden,
+					fullscreen && trafficLightSpace.start && styles.tabBarTrafficLights
+				) }
+				style={ trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined }
+			>
+				<div className={ styles.tabGroup }>
+					<div
+						className={ clsx(
+							styles.tabListViewport,
+							tabListOverflowing && styles.tabListViewportOverflowing
+						) }
+					>
+						<div
+							ref={ tabListRef }
+							className={ styles.tabList }
+							role="tablist"
+							aria-label={ __( 'Preview tabs' ) }
+							onWheel={ handleTabListWheel }
+						>
+							{ tabs.map( ( tab ) => {
+								const selected = tab.id === activeTabId;
+								const realm = getPreviewRealm( tab.path );
+								return (
+									<div
+										key={ tab.id }
+										className={ clsx(
+											styles.tab,
+											selected && styles.tabSelected,
+											draggedTabId === tab.id && styles.tabDragging
+										) }
+										draggable
+										onDragStart={ ( event ) => {
+											draggedTabIdRef.current = tab.id;
+											dragOverTabIdRef.current = tab.id;
+											setDraggedTabId( tab.id );
+											event.dataTransfer.effectAllowed = 'move';
+											event.dataTransfer.setData( 'text/plain', String( tab.id ) );
+										} }
+										onDragOver={ ( event ) => {
+											event.preventDefault();
+											event.dataTransfer.dropEffect = 'move';
+											const sourceId = draggedTabIdRef.current;
+											if ( sourceId && dragOverTabIdRef.current !== tab.id ) {
+												dragOverTabIdRef.current = tab.id;
+												reorderTab( sourceId, tab.id );
+											}
+										} }
+										onDrop={ ( event ) => {
+											event.preventDefault();
+											finishTabDrag();
+										} }
+										onDragEnd={ finishTabDrag }
+									>
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.tabSelect }
+														role="tab"
+														aria-selected={ selected }
+														tabIndex={ selected ? 0 : -1 }
+														onClick={ () => selectTab( tab ) }
+													/>
+												}
+											>
+												<span className={ styles.tabIcon } data-realm={ realm } aria-hidden="true">
+													{ realm === 'frontend' ? (
+														<SiteIcon
+															className={ styles.tabSiteIcon }
+															seed={ `${ site.id }:${ site.name }:${ site.path }` }
+															imageSrc={ site.siteIcon }
+														/>
+													) : (
+														<Icon
+															icon={ realm === 'admin' ? wordpress : databaseIcon }
+															size={ 18 }
+														/>
+													) }
+												</span>
+												<span className={ styles.tabTitle }>{ tab.title }</span>
+											</Tooltip.Trigger>
+											<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+												{ tab.title }
+											</Tooltip.Popup>
+										</Tooltip.Root>
+										<button
+											type="button"
+											className={ styles.tabClose }
+											aria-label={ sprintf(
+												/* translators: %s: browser tab title */
+												__( 'Close %s' ),
+												tab.title
+											) }
+											onClick={ () => closeTab( tab.id ) }
+										>
+											<Icon icon={ closeSmall } size={ 16 } />
+										</button>
+									</div>
+								);
+							} ) }
+						</div>
+					</div>
+					<Menu.Root>
+						<Menu.Trigger
+							render={
+								<IconButton
+									className={ styles.newTabButton }
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ plus }
+									label={ __( 'New tab' ) }
+								/>
+							}
+						/>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ () => addTab( '/' ) }>{ __( 'Front-end' ) }</Menu.Item>
+							<Menu.Item
+								onClick={ () =>
+									addTab( getRealmNavigationPath( '/wp-admin/', getSiteUrl( site ) ) )
+								}
+							>
+								{ __( 'WordPress' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ () => addTab( DATABASE_HOME_PATH ) }>
+								{ __( 'Database' ) }
+							</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+				{ props.onFullscreenChange ? (
+					<IconButton
+						className={ styles.fullPreviewButton }
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ getFullPreviewIcon( fullscreen ) }
+						label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+						shortcut={ getFullPreviewShortcutDescriptor() }
+						aria-pressed={ fullscreen }
+						onClick={ () => props.onFullscreenChange?.( ! fullscreen ) }
+						positioner={ <Tooltip.Positioner side="bottom" /> }
+					/>
+				) : null }
+			</div>
+			<div className={ styles.tabPanels }>
+				{ tabs.map( ( tab ) => {
+					const selected = tab.id === activeTab?.id;
+					return (
+						<div
+							key={ tab.id }
+							className={ clsx( styles.tabPanel, ! selected && styles.tabPanelHidden ) }
+							role="tabpanel"
+							hidden={ ! selected }
+							inert={ selected ? undefined : true }
+						>
+							<SingleSitePreview
+								{ ...props }
+								path={ tab.path }
+								reloadNonce={ tab.reloadNonce }
+								collapsed={ collapsed || ! selected }
+								hasTabBar
+								onAddressSuggestionsOpenChange={ selected ? setAddressSuggestionsOpen : undefined }
+								shortcutScopeRef={ rootRef }
+								onTabCycle={ cycleTab }
+								initialHistoryEntries={ tab.historyEntries }
+								initialHistoryIndex={ tab.activeHistoryIndex }
+								onOpenNewTab={ ( url ) => {
+									const nextPath = getPathFromPreviewUrl( url, getSiteUrl( site ) );
+									if ( nextPath ) addTab( nextPath );
+								} }
+								onHistoryChange={ ( entries, activeIndex ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) =>
+											currentTab.id === tab.id
+												? {
+														...currentTab,
+														historyEntries: entries,
+														activeHistoryIndex: activeIndex,
+												  }
+												: currentTab
+										)
+									);
+								} }
+								onPathChange={ ( nextPath ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) =>
+											currentTab.id === tab.id
+												? {
+														...currentTab,
+														path: nextPath,
+														title: getPreviewTabTitle( nextPath, null, site.name ),
+												  }
+												: currentTab
+										)
+									);
+									if ( selected ) onPathChange?.( nextPath );
+								} }
+								onTitleChange={ ( title ) => {
+									setTabs( ( current ) =>
+										current.map( ( currentTab ) => {
+											if ( currentTab.id !== tab.id ) return currentTab;
+											const nextTitle = getPreviewTabTitle( currentTab.path, title, site.name );
+											return currentTab.title === nextTitle
+												? currentTab
+												: { ...currentTab, title: nextTitle };
+										} )
+									);
+								} }
+							/>
+						</div>
+					);
+				} ) }
+			</div>
+		</div>
+	);
+}
+
+function SingleSitePreview( {
 	site,
 	path,
 	reloadNonce,
@@ -987,7 +1721,16 @@ export function SitePreview( {
 	collapsed = false,
 	fullscreen = false,
 	onFullscreenChange,
-}: SitePreviewProps ) {
+	onTitleChange,
+	onTabCycle,
+	onHistoryChange,
+	initialHistoryEntries = [],
+	initialHistoryIndex = -1,
+	hasTabBar = false,
+	onAddressSuggestionsOpenChange,
+	onOpenNewTab,
+	shortcutScopeRef,
+}: SingleSitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { chatEnabled } = useAgenticFeatures();
@@ -1031,6 +1774,23 @@ export function SitePreview( {
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
+	const onTitleChangeRef = useRef( onTitleChange );
+	const onHistoryChangeRef = useRef( onHistoryChange );
+	useEffect( () => {
+		onTitleChangeRef.current = onTitleChange;
+	}, [ onTitleChange ] );
+	useEffect( () => {
+		onHistoryChangeRef.current = onHistoryChange;
+	}, [ onHistoryChange ] );
+	useEffect( () => onTitleChangeRef.current?.( browserState.title ), [ browserState.title ] );
+	useEffect( () => {
+		if ( browserState.historyEntries.length === 0 && initialHistoryEntries.length > 0 ) return;
+		onHistoryChangeRef.current?.( browserState.historyEntries, browserState.activeHistoryIndex );
+	}, [
+		browserState.activeHistoryIndex,
+		browserState.historyEntries,
+		initialHistoryEntries.length,
+	] );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
@@ -1165,6 +1925,10 @@ export function SitePreview( {
 	// bridge: browser commands go to the webview, full preview to the host.
 	const handleForwardedShortcut = useCallback(
 		( command: PreviewShortcutCommandType ) => {
+			if ( command === 'previous-tab' || command === 'next-tab' ) {
+				onTabCycle?.( command === 'previous-tab' ? -1 : 1 );
+				return;
+			}
 			if ( command === 'full-preview' ) {
 				onFullscreenChange?.( ! fullscreen );
 				return;
@@ -1174,7 +1938,7 @@ export function SitePreview( {
 			}
 			sendBrowserCommand( command );
 		},
-		[ fullscreen, inspectorState.isPicking, onFullscreenChange, sendBrowserCommand ]
+		[ fullscreen, inspectorState.isPicking, onFullscreenChange, onTabCycle, sendBrowserCommand ]
 	);
 
 	// Point the active surface at whatever path the host is asking for, creating
@@ -1213,46 +1977,6 @@ export function SitePreview( {
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
-	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
-	} );
-	useEffect( () => {
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ site.id ] );
-	useEffect( () => {
-		// Auto-login is a transient hop, not a place to return to.
-		if ( safePath.startsWith( '/studio-auto-login' ) ) {
-			return;
-		}
-		lastRealmPathsRef.current[ getPreviewRealm( safePath ) ] = safePath;
-	}, [ safePath ] );
-
-	// Realm segments (front end / WP Admin / database). Moving between the front
-	// end and WP Admin is a navigation inside the shared site surface, so they
-	// keep one history and one login; admin targets go through the site's
-	// /studio-auto-login endpoint so they never land on the login form. Moving to
-	// or from the database only swaps which surface is visible — it's already
-	// loaded, at its own size, so there's nothing to reload or resize.
-	const handleSwitchRealm = useCallback(
-		( realm: PreviewRealm ) => {
-			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
-			if ( activeRealm === realm ) {
-				return;
-			}
-			// The agentic UI opens the realm in its in-app preview panel.
-			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
-			const target = lastRealmPathsRef.current[ realm ];
-			// Returning to a surface that's already sitting on the target path just
-			// reveals it; anything else is a real navigation.
-			if ( surfaces.byKey[ getSurfaceKey( realm ) ]?.path === target ) {
-				onPathChange?.( target );
-				return;
-			}
-			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
-		},
-		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
-	);
-
 	const browserShortcuts = useMemo(
 		() => ( {
 			back: getNavigationShortcutDescriptor( 'back' ),
@@ -1314,10 +2038,9 @@ export function SitePreview( {
 		return () => observer.disconnect();
 	}, [] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) and the ⌘1/⌘2/⌘3 realm switches
-	// pressed while focus is in the host document. Shortcuts pressed inside the
-	// guest page are forwarded by the inspector script through the console
-	// bridge instead.
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed while focus is in the
+	// host document. Shortcuts pressed inside the guest page are forwarded by
+	// the inspector script through the console bridge instead.
 	useEffect( () => {
 		if ( ! canPreview || collapsed ) {
 			return;
@@ -1328,19 +2051,18 @@ export function SitePreview( {
 				event.key === 'Escape' &&
 				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
 			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
-			const realm = command || inspectorState.isPicking ? null : getRealmShortcut( event );
 			// Only claim the full-preview chord when the host actually offers
 			// the mode, so it stays available to the page otherwise.
-			const fullPreview =
-				! command && ! realm && !! onFullscreenChange && isFullPreviewShortcut( event );
-			if ( ! cancelAnnotation && ! command && ! realm && ! fullPreview ) {
+			const fullPreview = ! command && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! cancelAnnotation && ! command && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
+			const shortcutScope = shortcutScopeRef?.current ?? rootRef.current;
 			if (
 				activeElement &&
 				activeElement !== document.body &&
-				! rootRef.current?.contains( activeElement )
+				! shortcutScope?.contains( activeElement )
 			) {
 				return;
 			}
@@ -1350,8 +2072,6 @@ export function SitePreview( {
 				setAnnotationCancelRequestId( ( current ) => current + 1 );
 			} else if ( command ) {
 				sendBrowserCommand( command );
-			} else if ( realm ) {
-				handleSwitchRealm( realm );
 			} else {
 				onFullscreenChange?.( ! fullscreen );
 			}
@@ -1363,31 +2083,37 @@ export function SitePreview( {
 		canPreview,
 		collapsed,
 		fullscreen,
-		handleSwitchRealm,
 		inspectorState.isPicking,
 		onFullscreenChange,
 		sendBrowserCommand,
+		shortcutScopeRef,
 	] );
 
 	return (
 		<aside
 			ref={ rootRef }
-			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
+			className={ clsx(
+				styles.root,
+				hasTabBar && styles.rootTabbed,
+				fullscreen && styles.rootFullscreen
+			) }
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div
+				hidden={ ! canPreview }
 				// In full preview the toolbar reaches the window's physical left
 				// edge, where the macOS traffic lights sit.
 				className={ clsx(
 					styles.header,
-					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
+					! canPreview && styles.browserChromeHidden,
+					fullscreen && ! hasTabBar && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
 					// In RTL the preview pane sits at the physical left, so the
 					// header's end-side controls land under the macOS traffic
 					// lights — pad past them. Windows/Linux need nothing: their
 					// controls sit in the chrome band above the frame.
-					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
+					! hasTabBar && trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
 				}
 			>
 				{ /* Browser navigation stays at the start, the address field fills the
@@ -1418,14 +2144,6 @@ export function SitePreview( {
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ home }
-								label={ __( 'Front end' ) }
-								onClick={ () => handleSwitchRealm( 'frontend' ) }
-							/>
 						</>
 					) : null }
 				</div>
@@ -1436,7 +2154,7 @@ export function SitePreview( {
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-							onSwitchRealm={ handleSwitchRealm }
+							onSuggestionsOpenChange={ onAddressSuggestionsOpenChange }
 						/>
 					) : null }
 				</div>
@@ -1457,6 +2175,11 @@ export function SitePreview( {
 							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
+							disabledReason={
+								! isResponsiveSurface( activeSurfaceKey )
+									? __( 'Not available for Database' )
+									: undefined
+							}
 							onCommand={ sendInspectorCommand }
 						/>
 					) : null }
@@ -1522,11 +2245,20 @@ export function SitePreview( {
 												}
 												inspectorCommand={ surface.inspectorCommand }
 												browserCommand={ surface.browserCommand }
+												initialNavigationHistory={
+													key === activeSurfaceKey && initialHistoryEntries.length > 0
+														? {
+																entries: initialHistoryEntries,
+																activeIndex: initialHistoryIndex,
+														  }
+														: undefined
+												}
 												onBrowserStateChange={ ( state ) => {
 													patchSurface( key, { browser: state } );
 												} }
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+												onOpenNewTab={ onOpenNewTab }
 												viewport={ viewport }
 											/>
 										) : (
@@ -1581,6 +2313,7 @@ export function SitePreview( {
 																: null
 														}
 														onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+														onOpenNewTab={ onOpenNewTab }
 													/>
 												) : (
 													<iframe
@@ -1668,9 +2401,14 @@ interface WebviewSurfaceProps {
 	onInspectorCancelRequest?: () => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
+	initialNavigationHistory?: {
+		entries: BrowserHistoryEntry[];
+		activeIndex: number;
+	};
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	onOpenNewTab?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -1694,9 +2432,11 @@ function WebviewSurface( {
 	onInspectorCancelRequest,
 	inspectorCommand,
 	browserCommand,
+	initialNavigationHistory,
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	onOpenNewTab,
 	viewport = null,
 	inspector = true,
 }: WebviewSurfaceProps ) {
@@ -1711,12 +2451,15 @@ function WebviewSurface( {
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
+	const onOpenNewTabRef = useRef( onOpenNewTab );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
+	const initialNavigationHistoryRef = useRef( initialNavigationHistory );
+	const didRestoreNavigationHistoryRef = useRef( false );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
@@ -1737,6 +2480,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onOpenNewTabRef.current = onOpenNewTab;
+	}, [ onOpenNewTab ] );
 	useEffect( () => {
 		inspectorEnabledRef.current = inspector;
 	}, [ inspector ] );
@@ -1863,11 +2609,34 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			setDomReadyCount( ( count ) => count + 1 );
+			const storedHistory = initialNavigationHistoryRef.current;
+			if (
+				! didRestoreNavigationHistoryRef.current &&
+				storedHistory &&
+				storedHistory.entries.length > 1
+			) {
+				didRestoreNavigationHistoryRef.current = true;
+				const { ipcApi } = window as PreviewWindow;
+				let webContentsId: number;
+				try {
+					webContentsId = getWebviewContentsId( webview );
+				} catch {
+					webContentsId = 0;
+				}
+				if ( webContentsId ) {
+					void ipcApi
+						?.restoreWebviewNavigationHistory?.(
+							webContentsId,
+							storedHistory.entries,
+							storedHistory.activeIndex
+						)
+						.catch( () => undefined );
+				}
+			}
 			publishDocumentTitle();
 			publishNavigationHistory();
-			if ( ! inspectorEnabledRef.current ) {
-				return;
-			}
+			void webview.executeJavaScript( PREVIEW_NAVIGATION_SCRIPT, false ).catch( () => undefined );
+			if ( ! inspectorEnabledRef.current ) return;
 			// If annotations were collected on a previous page, seed
 			// window.__studioInspectorState before the IIFE runs so the
 			// freshly-injected inspector picks them up on init.
@@ -1901,6 +2670,12 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.type === 'open-link-in-new-tab' ) {
+				if ( typeof parsed.url === 'string' ) {
+					onOpenNewTabRef.current?.( parsed.url );
+				}
+				return;
+			}
 			if ( parsed.type === 'browser-command' ) {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );

@@ -1,14 +1,14 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
-import { __ } from '@wordpress/i18n';
-import { Icon, wordpress } from '@wordpress/icons';
-import { displayShortcut } from '@wordpress/keycodes';
-import { Button, Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
-import { useEffect, useRef, useState } from 'react';
+import { __, sprintf } from '@wordpress/i18n';
+import { closeSmall, Icon, wordpress } from '@wordpress/icons';
+import { IconButton, Popover, VisuallyHidden } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
@@ -96,18 +96,76 @@ export function useDebouncedValue< T >( value: T, delayMs: number ): T {
 	return debounced;
 }
 
-export const REALM_SHORTCUT_KEYS: Record< PreviewRealm, string > = {
-	frontend: '1',
-	admin: '2',
-	database: '3',
-};
-
 interface PreviewAddressBarProps {
 	site: SiteDetails;
 	siteUrl: string;
 	path: string;
 	onNavigate: ( path: string ) => void;
-	onSwitchRealm: ( realm: PreviewRealm ) => void;
+	onSuggestionsOpenChange?: ( open: boolean ) => void;
+}
+
+interface RecentPreviewLocation {
+	path: string;
+	label: string;
+}
+
+const RECENT_LOCATIONS_VERSION = 1;
+const RECENT_LOCATIONS_LIMIT = 8;
+
+function getRecentLocationsStorageKey( siteId: string ): string {
+	return `studio-preview-recent-locations:${ siteId }`;
+}
+
+function loadRecentLocations( siteId: string ): RecentPreviewLocation[] {
+	try {
+		const raw = window.localStorage.getItem( getRecentLocationsStorageKey( siteId ) );
+		if ( ! raw ) return [];
+		const stored = JSON.parse( raw ) as { version?: unknown; locations?: unknown };
+		if ( stored.version !== RECENT_LOCATIONS_VERSION || ! Array.isArray( stored.locations ) ) {
+			return [];
+		}
+		return stored.locations.slice( 0, RECENT_LOCATIONS_LIMIT ).flatMap( ( value ) => {
+			if ( ! value || typeof value !== 'object' ) return [];
+			const location = value as { path?: unknown; label?: unknown };
+			return typeof location.path === 'string' && typeof location.label === 'string'
+				? [ { path: location.path, label: location.label } ]
+				: [];
+		} );
+	} catch {
+		return [];
+	}
+}
+
+function storeRecentLocation(
+	siteId: string,
+	location: RecentPreviewLocation
+): RecentPreviewLocation[] {
+	const locations = [
+		location,
+		...loadRecentLocations( siteId ).filter( ( recent ) => recent.path !== location.path ),
+	].slice( 0, RECENT_LOCATIONS_LIMIT );
+	try {
+		window.localStorage.setItem(
+			getRecentLocationsStorageKey( siteId ),
+			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
+		);
+	} catch {
+		// The address bar remains usable when storage is unavailable or full.
+	}
+	return locations;
+}
+
+function removeRecentLocation( siteId: string, path: string ): RecentPreviewLocation[] {
+	const locations = loadRecentLocations( siteId ).filter( ( recent ) => recent.path !== path );
+	try {
+		window.localStorage.setItem(
+			getRecentLocationsStorageKey( siteId ),
+			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
+		);
+	} catch {
+		// Keep the in-memory list removable when storage is unavailable.
+	}
+	return locations;
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
@@ -123,15 +181,43 @@ export function PreviewAddressBar( {
 	siteUrl,
 	path,
 	onNavigate,
-	onSwitchRealm,
+	onSuggestionsOpenChange,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
-	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
-	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
+	const [ suggestionsOpen, setSuggestionsOpen ] = useState( false );
+	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
+		loadRecentLocations( site.id )
+	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
+	const suggestionsPopupRef = useRef< HTMLDivElement | null >( null );
+	const pendingSuggestionFocusRef = useRef< 'first' | 'last' | null >( null );
+	const setSuggestionsPopupRef = useCallback( ( popup: HTMLDivElement | null ) => {
+		suggestionsPopupRef.current = popup;
+		const position = pendingSuggestionFocusRef.current;
+		if ( ! popup || ! position ) {
+			return;
+		}
+		const suggestions = popup.querySelectorAll< HTMLButtonElement >( `.${ styles.suggestion }` );
+		suggestions[ position === 'first' ? 0 : suggestions.length - 1 ]?.focus();
+		pendingSuggestionFocusRef.current = null;
+	}, [] );
+	const updateSuggestionsOpen = useCallback(
+		( open: boolean ) => {
+			setSuggestionsOpen( open );
+			onSuggestionsOpenChange?.( open );
+		},
+		[ onSuggestionsOpenChange ]
+	);
 
 	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
+	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
+	useEffect(
+		() => () => {
+			onSuggestionsOpenChange?.( false );
+		},
+		[ onSuggestionsOpenChange ]
+	);
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
@@ -143,132 +229,179 @@ export function PreviewAddressBar( {
 			intent.type === 'path'
 				? getRealmNavigationPath( intent.path, siteUrl )
 				: `/?s=${ encodeURIComponent( intent.term ) }`;
-		setShortcutsOpen( false );
+		const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
+		setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
+		updateSuggestionsOpen( false );
 		onNavigate( nextPath );
 	};
-	const chooseRealm = ( realm: PreviewRealm ) => {
-		setShortcutsOpen( false );
-		onSwitchRealm( realm );
+	const chooseLocation = ( nextPath: string, recent?: RecentPreviewLocation ) => {
+		if ( recent ) {
+			setRecentLocations( storeRecentLocation( site.id, recent ) );
+		}
+		updateSuggestionsOpen( false );
+		onNavigate( nextPath );
+	};
+	const getSuggestionElements = () =>
+		Array.from(
+			suggestionsPopupRef.current?.querySelectorAll< HTMLButtonElement >(
+				`.${ styles.suggestion }`
+			) ?? []
+		);
+	const focusSuggestion = ( position: 'first' | 'last' ): boolean => {
+		const suggestions = getSuggestionElements();
+		const suggestion = suggestions[ position === 'first' ? 0 : suggestions.length - 1 ];
+		suggestion?.focus();
+		return Boolean( suggestion );
+	};
+	const handleSuggestionKeyDown = ( event: KeyboardEvent< HTMLButtonElement > ) => {
+		if ( event.key === 'Escape' ) {
+			event.preventDefault();
+			addressBarRef.current?.querySelector( 'input' )?.focus();
+			updateSuggestionsOpen( false );
+			return;
+		}
+		if ( event.key !== 'ArrowDown' && event.key !== 'ArrowUp' ) {
+			return;
+		}
+		event.preventDefault();
+		const suggestions = getSuggestionElements();
+		const currentIndex = suggestions.indexOf( event.currentTarget );
+		const direction = event.key === 'ArrowDown' ? 1 : -1;
+		const nextIndex = ( currentIndex + direction + suggestions.length ) % suggestions.length;
+		suggestions[ nextIndex ]?.focus();
+	};
+	const renderLocationIcon = ( locationPath: string ) => {
+		const realm = getPreviewRealm( locationPath );
+		if ( realm === 'frontend' ) {
+			return (
+				<SiteIcon
+					className={ styles.locationSiteIcon }
+					seed={ `${ site.id }:${ site.name }:${ site.path }` }
+					imageSrc={ site.siteIcon }
+				/>
+			);
+		}
+		return (
+			<Icon
+				icon={ realm === 'admin' ? wordpress : databaseIcon }
+				size={ 18 }
+				className={ clsx( styles.locationIcon, realm === 'admin' && styles.wordpressIcon ) }
+			/>
+		);
 	};
 
 	return (
-		<Popover.Root
-			open={ shortcutsOpen }
-			onOpenChange={ ( open ) => {
-				setShortcutsOpen( open );
-				if ( ! open ) {
-					setValue( displayUrl );
-				}
-			} }
-		>
+		<Popover.Root modal={ false } open={ suggestionsOpen } onOpenChange={ updateSuggestionsOpen }>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				<span className={ styles.siteIcon } data-realm={ activeRealm } aria-hidden="true">
-					{ activeRealm === 'frontend' ? (
-						<SiteIcon
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
-					) : (
-						<Icon
-							icon={ activeRealm === 'admin' ? wordpress : databaseIcon }
-							size={ 18 }
-							className={ activeRealm === 'admin' ? styles.wordpressIcon : undefined }
-						/>
-					) }
-				</span>
 				<input
 					className={ styles.input }
 					value={ value }
 					onChange={ ( event ) => setValue( event.target.value ) }
-					onClick={ () => setShortcutsOpen( true ) }
+					onClick={ () => {
+						setRecentLocations( loadRecentLocations( site.id ) );
+						updateSuggestionsOpen( true );
+					} }
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
+						setRecentLocations( loadRecentLocations( site.id ) );
+						updateSuggestionsOpen( true );
+					} }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Tab' || event.key === 'Escape' ) {
+							updateSuggestionsOpen( false );
+						} else if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+							event.preventDefault();
+							const position = event.key === 'ArrowDown' ? 'first' : 'last';
+							pendingSuggestionFocusRef.current = position;
+							updateSuggestionsOpen( true );
+							if ( focusSuggestion( position ) ) {
+								pendingSuggestionFocusRef.current = null;
+							}
+						}
 					} }
 					aria-label={ __( 'Address' ) }
 					spellCheck={ false }
 				/>
-				<div className={ styles.addressShortcuts }>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.addressShortcut }
-									aria-label={ __( 'Open WP Admin' ) }
-									aria-current={ activeRealm === 'admin' ? 'page' : undefined }
-									onClick={ () => chooseRealm( 'admin' ) }
-								/>
-							}
-						>
-							<Icon icon={ wordpress } size={ 16 } className={ styles.wordpressIcon } />
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ __( 'WP Admin' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.addressShortcut }
-									aria-label={ __( 'Open Database' ) }
-									aria-current={ activeRealm === 'database' ? 'page' : undefined }
-									onClick={ () => chooseRealm( 'database' ) }
-								/>
-							}
-						>
-							<Icon icon={ databaseIcon } size={ 16 } />
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-							{ __( 'Database' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				</div>
 			</form>
 			<Popover.Popup
+				ref={ setSuggestionsPopupRef }
 				variant="unstyled"
 				initialFocus={ false }
 				finalFocus={ false }
-				className={ styles.shortcutsPopup }
+				className={ styles.suggestionsPopup }
 				positioner={
 					<Popover.Positioner
 						anchor={ addressBarRef }
 						side="bottom"
 						align="start"
 						sideOffset={ 4 }
-						className={ styles.shortcutsPositioner }
+						className={ styles.suggestionsPositioner }
 					/>
 				}
 			>
-				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
-				<div className={ styles.shortcutsList }>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'frontend' ) }>
-						<SiteIcon
-							className={ styles.shortcutSiteIcon }
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
-						<span>{ __( 'Front end' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.frontend ) }</kbd>
+				<VisuallyHidden render={ <Popover.Title /> }>
+					{ __( 'Address suggestions' ) }
+				</VisuallyHidden>
+				<div className={ styles.suggestionsSection }>
+					<div className={ styles.suggestionsLabel }>{ __( 'Destinations' ) }</div>
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( '/' ) }
+						onKeyDown={ handleSuggestionKeyDown }
+					>
+						{ renderLocationIcon( '/' ) }
+						<span>{ __( 'Front-end' ) }</span>
 					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'admin' ) }>
-						<Icon icon={ wordpress } size={ 18 } className={ styles.wordpressIcon } />
-						<span>{ __( 'WP Admin' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.admin ) }</kbd>
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( getRealmNavigationPath( '/wp-admin/', siteUrl ) ) }
+						onKeyDown={ handleSuggestionKeyDown }
+					>
+						{ renderLocationIcon( '/wp-admin/' ) }
+						<span>{ __( 'WordPress' ) }</span>
 					</Popover.Close>
-					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'database' ) }>
-						<Icon icon={ databaseIcon } size={ 18 } />
+					<Popover.Close
+						className={ styles.suggestion }
+						onClick={ () => chooseLocation( DATABASE_HOME_PATH ) }
+						onKeyDown={ handleSuggestionKeyDown }
+					>
+						{ renderLocationIcon( DATABASE_HOME_PATH ) }
 						<span>{ __( 'Database' ) }</span>
-						<kbd>{ displayShortcut.primary( REALM_SHORTCUT_KEYS.database ) }</kbd>
 					</Popover.Close>
 				</div>
+				{ recentLocations.length > 0 ? (
+					<div className={ styles.suggestionsSection }>
+						<div className={ styles.suggestionsLabel }>{ __( 'Recent' ) }</div>
+						{ recentLocations.map( ( recent ) => (
+							<div key={ recent.path } className={ styles.recentSuggestion }>
+								<Popover.Close
+									className={ styles.suggestion }
+									title={ recent.label }
+									onClick={ () => chooseLocation( recent.path, recent ) }
+									onKeyDown={ handleSuggestionKeyDown }
+								>
+									{ renderLocationIcon( recent.path ) }
+									<span className={ styles.suggestionUrl }>{ recent.label }</span>
+								</Popover.Close>
+								<IconButton
+									className={ styles.removeSuggestion }
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ closeSmall }
+									label={ sprintf(
+										/* translators: %s: recently visited URL */
+										__( 'Remove %s from recent' ),
+										recent.label
+									) }
+									onClick={ () =>
+										setRecentLocations( removeRecentLocation( site.id, recent.path ) )
+									}
+								/>
+							</div>
+						) ) }
+					</div>
+				) : null }
 			</Popover.Popup>
 		</Popover.Root>
 	);

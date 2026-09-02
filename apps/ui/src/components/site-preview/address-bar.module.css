@@ -97,10 +97,14 @@
 }
 
 .recentSuggestion {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	position: relative;
+	display: block;
 	align-items: center;
 	border-radius: var(--wpds-border-radius-sm);
+}
+
+.recentSuggestion .suggestion {
+	padding-inline-end: calc(24px + var(--wpds-dimension-padding-sm));
 }
 
 .recentSuggestion:hover,
@@ -114,7 +118,15 @@
 }
 
 .removeSuggestion {
-	margin-inline-end: var(--wpds-dimension-padding-2xs);
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: var(--wpds-dimension-padding-2xs);
+	color: var(--wpds-color-fg-interactive-neutral);
+	translate: 0 -50%;
+}
+
+.removeSuggestion svg {
+	fill: currentColor;
 }
 
 .locationIcon,

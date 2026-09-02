@@ -52,6 +52,18 @@ vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
+vi.mock( '@/components/open-in-menu/use-open-in-destinations', () => ( {
+	useOpenInDestinations: () => [
+		{
+			id: 'browser',
+			label: 'Browser',
+			logo: <span />,
+			disabled: false,
+			open: vi.fn(),
+		},
+	],
+} ) );
+
 const SITE = {
 	id: 'riff',
 	name: 'Riff',
@@ -152,6 +164,16 @@ describe( 'SiteToolbar', () => {
 		renderToolbar();
 
 		expect( screen.getByRole( 'button', { name: 'Sync…' } ) ).toBeVisible();
+	} );
+
+	it( 'groups Share and Open in destinations in the compact actions menu', async () => {
+		const user = userEvent.setup();
+		renderToolbar( { browserPath: '/wp-admin/' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'More site actions' } ) );
+
+		expect( await screen.findByRole( 'menuitem', { name: 'Share…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitem', { name: 'Browser' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps the action in place while a push is uploading, and fills it', () => {

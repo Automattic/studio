@@ -825,7 +825,7 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) ).toBeVisible();
 
 		Object.defineProperty( navigator, 'userAgent', {
 			configurable: true,
@@ -967,11 +967,11 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 
 		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitemradio', { name: 'Responsive' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: 'Fit' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitemradio', { name: 'Fit' } ) ).not.toBeInTheDocument();
 		// The orientation group only accompanies the phone frame.
 		expect( screen.queryByText( 'Mobile orientation' ) ).not.toBeInTheDocument();
 
@@ -1005,7 +1005,7 @@ describe( 'SitePreview', () => {
 		);
 
 		const responsiveButton = screen.getByRole( 'button', {
-			name: 'Responsive mode: Responsive',
+			name: 'Responsive mode: Fit',
 		} );
 		expect( responsiveButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( responsiveButton ).toHaveAttribute( 'aria-description', 'Not available for Database' );
@@ -1031,7 +1031,7 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 
 		expect( await screen.findByText( 'Viewport width' ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Full preview' } ) ).not.toBeInTheDocument();
@@ -1054,7 +1054,7 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
 		expect( onFullscreenChange ).not.toHaveBeenCalled();
@@ -1084,7 +1084,7 @@ describe( 'SitePreview', () => {
 		);
 
 		const { rerender } = render( ui( true ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Desktop + Mobile' } ) );
 
 		rerender( ui( false ) );
@@ -1148,7 +1148,7 @@ describe( 'SitePreview', () => {
 		renderPreview( <SitePreview site={ createSite() } path="/" reloadNonce={ 0 } /> );
 
 		expect(
-			screen.queryByRole( 'button', { name: 'Responsive mode: Responsive' } )
+			screen.queryByRole( 'button', { name: 'Responsive mode: Fit' } )
 		).not.toBeInTheDocument();
 	} );
 
@@ -1173,13 +1173,13 @@ describe( 'SitePreview', () => {
 		const siteB = createSite( { id: 'site-b', running: true } );
 
 		const { rerender } = render( ui( siteA ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mobile · 390×844' } ) );
 
 		// A site without a remembered mode starts from the default…
 		rerender( ui( siteB ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Responsive' } ) );
-		expect( screen.getByRole( 'menuitem', { name: 'Responsive' } ) ).toHaveAttribute(
+		fireEvent.click( screen.getByRole( 'button', { name: 'Responsive mode: Fit' } ) );
+		expect( screen.getByRole( 'menuitem', { name: 'Fit' } ) ).toHaveAttribute(
 			'aria-current',
 			'true'
 		);
@@ -1430,7 +1430,7 @@ function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePrevie
 	};
 }
 
-// Leaves "Responsive" for one of the simulated presets, which is what turns the
+// Leaves "Fit" for one of the simulated presets, which is what turns the
 // CDP emulation on.
 async function selectResponsiveMode( label: string ) {
 	fireEvent.click( screen.getByRole( 'button', { name: /Responsive mode:/ } ) );

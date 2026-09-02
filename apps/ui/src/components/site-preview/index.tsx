@@ -665,7 +665,7 @@ function PreviewResponsiveControls( {
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 } ) {
 	const viewportLabels: Record< ViewportMode, string > = {
-		fit: __( 'Responsive' ),
+		fit: __( 'Fit' ),
 		mobile: __( 'Mobile' ),
 		tablet: __( 'Tablet' ),
 		desktop: __( 'Desktop' ),
@@ -736,7 +736,7 @@ function PreviewResponsiveControls( {
 							onClick={ () => onViewportModeChange( 'fit' ) }
 						>
 							{ renderSelectedIndicator( 'fit' ) }
-							{ __( 'Responsive' ) }
+							{ __( 'Fit' ) }
 						</Menu.Item>
 						{ VIEWPORT_PRESETS.map( ( preset ) => (
 							<Menu.Item

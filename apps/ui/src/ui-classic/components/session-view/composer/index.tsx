@@ -67,6 +67,7 @@ import {
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
 import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
+import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -267,11 +268,15 @@ export interface ComposerHandle {
 	appendDraft( text: string ): void;
 	replaceDraft(
 		text: string,
-		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
+		options?: {
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+			suggestionBaseline?: string;
+		}
 	): void;
 	// What replaceDraft would discard — lets callers decide whether the
 	// replacement warrants a confirmation.
-	getDraft(): { text: string; hasAttachments: boolean };
+	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -324,7 +329,7 @@ function resizeComposerTextarea(
 	return nextHeight;
 }
 
-export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
 		canSubmit = true,
@@ -341,7 +346,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	},
 	ref
 ) {
-	const [ value, setValue ] = useState( '' );
+	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
+	const [ value, setValue ] = useState( initialDraft.text );
+	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
 	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
@@ -351,6 +358,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const draftEffectInitializedRef = useRef( false );
 	const manualTextareaHeightRef = useRef< number | null >( null );
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
@@ -396,8 +404,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( initialDraft.attachments );
 	const hasAttachments = attachments.length > 0;
+
+	useEffect( () => {
+		if ( draftEffectInitializedRef.current ) {
+			saveComposerDraft( sessionId, { text: value, attachments, suggestionBaseline } );
+		} else {
+			draftEffectInitializedRef.current = true;
+		}
+	}, [ attachments, sessionId, suggestionBaseline, value ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -466,9 +482,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
-			replaceDraft( text, draftAttachments ) {
+			replaceDraft( text, options ) {
 				setValue( text );
-				restoreAttachments( toComposerDraftAttachments( draftAttachments ?? {} ) );
+				setSuggestionBaseline( options?.suggestionBaseline ?? null );
+				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => {
 					const node = textareaRef.current;
 					if ( ! node ) return;
@@ -478,10 +495,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				} );
 			},
 			getDraft() {
-				return { text: value, hasAttachments: attachments.length > 0 };
+				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
 			},
 		} ),
-		[ restoreAttachments, value, attachments ]
+		[ restoreAttachments, value, attachments, suggestionBaseline ]
 	);
 
 	const send = useCallback( async () => {
@@ -498,7 +515,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
+		const sentSuggestionBaseline = suggestionBaseline;
+		clearComposerDraft( sessionId );
 		setValue( '' );
+		setSuggestionBaseline( null );
 		clearAttachments();
 		// A send is the only thing that swaps the suggestion; it is static
 		// otherwise, so the empty composer never changes under the user.
@@ -510,10 +530,27 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// surfaces the error message via `error`. Queued sends never throw from
 			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
+			// Saved directly (not left to the state-sync effect) so the retry isn't
+			// lost if the user already switched away from this session.
+			saveComposerDraft( sessionId, {
+				text: trimmed,
+				attachments: sentAttachments,
+				suggestionBaseline: sentSuggestionBaseline,
+			} );
 			setValue( trimmed );
+			setSuggestionBaseline( sentSuggestionBaseline );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ canSubmit, value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [
+		canSubmit,
+		value,
+		attachments,
+		suggestionBaseline,
+		clearAttachments,
+		restoreAttachments,
+		onSend,
+		sessionId,
+	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -1175,3 +1212,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		</>
 	);
 } );
+
+export const Composer = forwardRef< ComposerHandle, ComposerProps >(
+	function Composer( props, ref ) {
+		return <ComposerContent key={ props.sessionId } { ...props } ref={ ref } />;
+	}
+);

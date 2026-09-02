@@ -307,7 +307,14 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				blueprint,
+				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
+				// the desktop IPC handler expects.
+				blueprint: blueprint
+					? {
+							...blueprint,
+							bundle_url: blueprint.bundleUrl,
+					  }
+					: undefined,
 				flowType,
 			} ) ) as SiteDetails;
 		},
@@ -1020,6 +1027,10 @@ export function createIpcConnector(): Connector {
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
+
+		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
+			return ipcApi.ensureMinWindowWidth( minimumWidth );
+		},
 
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );

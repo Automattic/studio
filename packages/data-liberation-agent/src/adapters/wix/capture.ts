@@ -77,7 +77,10 @@ export const capture: AdapterCapture = {
 	 */
 	prepare: async ( page ) => {
 		await page.evaluate( async () => {
-			for ( const banner of document.querySelectorAll( '[id="WIX_ADS"]' ) ) banner.remove();
+			for ( const chrome of document.querySelectorAll(
+				'[id="WIX_ADS"], [id$="-hiddenA11ySubMenuIndication"]'
+			) )
+				chrome.remove();
 
 			const linksByFragment = new Map< string, HTMLAnchorElement[] >();
 			for ( const link of document.querySelectorAll< HTMLAnchorElement >( 'a[href]' ) ) {

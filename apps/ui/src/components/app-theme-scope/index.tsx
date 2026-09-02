@@ -12,7 +12,7 @@ const APP_BG_LIGHT = '#fcfcfc';
 const APP_BG_DARK = '#1e1e1e';
 
 export function appThemeColor( colorScheme: 'light' | 'dark' ) {
-	return { bg: colorScheme === 'dark' ? APP_BG_DARK : APP_BG_LIGHT };
+	return { background: colorScheme === 'dark' ? APP_BG_DARK : APP_BG_LIGHT };
 }
 
 /**

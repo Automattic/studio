@@ -21,7 +21,7 @@
 	border-radius: 12px;
 	background: color-mix(
 		in srgb,
-		var( --wpds-color-bg-surface-neutral-strong ) var( --surface-alpha, 50% ),
+		var( --wpds-color-background-surface-neutral-strong ) var( --surface-alpha, 50% ),
 		transparent
 	);
 	backdrop-filter: blur( 12px );
@@ -41,7 +41,7 @@
 }
 
 .card:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline: 2px solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 	border-color: var( --wpds-color-stroke-interactive-brand );
 }
@@ -68,24 +68,24 @@
 
 .card:hover .cardTitle,
 .card:focus-visible .cardTitle {
-	color: var( --wpds-color-fg-interactive-brand );
+	color: var( --wpds-color-foreground-interactive-brand );
 }
 
 .cardBody {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: 1.4;
 }
 
 .cardHint {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .cardError {
 	margin-top: 4px;
-	color: var( --wpds-color-fg-content-error );
+	color: var( --wpds-color-foreground-content-error );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 

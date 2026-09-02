@@ -10,7 +10,11 @@
    existing token-based row styles adapt without per-element overrides. */
 .popup {
 	--site-dropdown-radius: var(--wpds-border-radius-lg);
-	--site-dropdown-menu-surface: var(--wpds-color-bg-interactive-neutral-strong-active);
+	/* Literal, not the matching wpds tokens: this block remaps those same
+	   tokens further down, and seeding from them would make each definition
+	   depend on itself. CSS resolves such a cycle to an invalid value, which
+	   renders the menu transparent. */
+	--site-dropdown-menu-surface: #1e1e1e;
 	--site-dropdown-menu-surface-subtle: color-mix(
 		in srgb,
 		var(--site-dropdown-menu-foreground) 7%,
@@ -21,7 +25,7 @@
 		var(--site-dropdown-menu-foreground) 13%,
 		var(--site-dropdown-menu-surface)
 	);
-	--site-dropdown-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
+	--site-dropdown-menu-foreground: #f0f0f0;
 	--site-dropdown-menu-foreground-weak: color-mix(
 		in srgb,
 		var(--site-dropdown-menu-foreground) 72%,
@@ -58,21 +62,29 @@
 	   the dark surface, royal navy on the light one. */
 	--site-dropdown-menu-brand: color-mix(
 		in srgb,
-		var(--wpds-color-bg-interactive-brand-strong, #3858e9) 65%,
+		var(--wpds-color-background-interactive-brand-strong, #3858e9) 65%,
 		var(--site-dropdown-menu-foreground)
 	);
-	--wpds-color-bg-surface-neutral: var(--site-dropdown-menu-surface-subtle);
-	--wpds-color-bg-surface-neutral-strong: var(--site-dropdown-menu-surface);
-	--wpds-color-bg-interactive-neutral-weak: transparent;
-	--wpds-color-bg-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
-	--wpds-color-bg-interactive-brand-weak-active: var(--site-dropdown-menu-hover);
-	--wpds-color-fg-interactive-brand: var(--site-dropdown-menu-brand);
-	--wpds-color-fg-content-neutral: var(--site-dropdown-menu-foreground);
-	--wpds-color-fg-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);
-	--wpds-color-fg-interactive-neutral: var(--site-dropdown-menu-foreground);
-	--wpds-color-fg-interactive-neutral-active: var(--site-dropdown-menu-foreground);
-	--wpds-color-fg-interactive-neutral-disabled: var(--site-dropdown-menu-foreground-disabled);
-	--wpds-color-stroke-focus-brand: var(--site-dropdown-menu-control-border-active);
+	--wpds-color-background-surface-neutral: var(--site-dropdown-menu-surface-subtle);
+	--wpds-color-background-surface-neutral-strong: var(--site-dropdown-menu-surface);
+	--wpds-color-background-interactive-neutral-weak: transparent;
+	--wpds-color-background-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
+	--wpds-color-background-interactive-brand-weak-active: var(--site-dropdown-menu-hover);
+	/* Buttons resolve their hover through the -strong- ramp, which stays near
+	   black globally. This surface is theme-inverted, so without these the
+	   hover fill lands on the same near-black as the text. */
+	--wpds-color-background-interactive-neutral-strong: transparent;
+	--wpds-color-background-interactive-neutral-strong-active: var(--site-dropdown-menu-hover);
+	--wpds-color-foreground-interactive-neutral-strong: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-strong-active: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-strong-disabled: var(--site-dropdown-menu-foreground-disabled);
+	--wpds-color-foreground-interactive-brand: var(--site-dropdown-menu-brand);
+	--wpds-color-foreground-content-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);
+	--wpds-color-foreground-interactive-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-active: var(--site-dropdown-menu-foreground);
+	--wpds-color-foreground-interactive-neutral-disabled: var(--site-dropdown-menu-foreground-disabled);
+	--wpds-color-stroke-focus: var(--site-dropdown-menu-control-border-active);
 	--wpds-color-stroke-interactive-neutral: var(--site-dropdown-menu-control-border);
 	--wpds-color-stroke-interactive-neutral-active: var(
 		--site-dropdown-menu-control-border-active

@@ -101,7 +101,7 @@
 	margin-block: 12px;
 	margin-inline-start: -3px;
 	border-radius: 999px;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
 /* Bottom-left of the main area. The 46px min-height and the negative bottom

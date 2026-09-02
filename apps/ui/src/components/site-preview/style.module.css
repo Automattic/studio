@@ -61,6 +61,10 @@
 	pointer-events: none;
 }
 
+.tabBarMenuOpen {
+	-webkit-app-region: no-drag;
+}
+
 .tabBarTrafficLights {
 	padding-left: 94px;
 }

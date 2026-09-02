@@ -142,6 +142,33 @@ describe( 'SitePreview', () => {
 		document.documentElement.removeAttribute( 'dir' );
 	} );
 
+	it( 'temporarily makes blank tab-bar space clickable while address suggestions are open', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const tabBar = screen.getByRole( 'tablist' ).parentElement?.parentElement?.parentElement;
+		const draggableClassName = tabBar?.className;
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect( tabBar?.className ).not.toBe( draggableClassName );
+		expect( screen.getByText( 'Destinations' ) ).toBeInTheDocument();
+
+		fireEvent.pointerDown( tabBar! );
+		fireEvent.mouseDown( tabBar! );
+		fireEvent.click( tabBar! );
+		expect( screen.queryByText( 'Destinations' ) ).not.toBeInTheDocument();
+		expect( tabBar?.className ).toBe( draggableClassName );
+
+		fireEvent.focus( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Address' } ), { key: 'Escape' } );
+		expect( tabBar?.className ).toBe( draggableClassName );
+	} );
+
 	it( "restores each site's open tabs, order, and active tab", () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

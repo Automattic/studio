@@ -126,6 +126,7 @@ interface SingleSitePreviewProps extends SitePreviewProps {
 	initialHistoryEntries?: BrowserHistoryEntry[];
 	initialHistoryIndex?: number;
 	hasTabBar?: boolean;
+	onAddressSuggestionsOpenChange?: ( open: boolean ) => void;
 }
 
 interface InspectorEvent {
@@ -1271,6 +1272,7 @@ export function SitePreview( props: SitePreviewProps ) {
 	const [ activeTabId, setActiveTabId ] = useState( initialSession.activeTabId );
 	const [ draggedTabId, setDraggedTabId ] = useState< number | null >( null );
 	const [ tabListOverflowing, setTabListOverflowing ] = useState( false );
+	const [ addressSuggestionsOpen, setAddressSuggestionsOpen ] = useState( false );
 	const draggedTabIdRef = useRef< number | null >( null );
 	const dragOverTabIdRef = useRef< number | null >( null );
 	const activeTabIdRef = useRef( activeTabId );
@@ -1481,6 +1483,7 @@ export function SitePreview( props: SitePreviewProps ) {
 				hidden={ ! site.running }
 				className={ clsx(
 					styles.tabBar,
+					addressSuggestionsOpen && styles.tabBarMenuOpen,
 					! site.running && styles.browserChromeHidden,
 					fullscreen && trafficLightSpace.start && styles.tabBarTrafficLights
 				) }
@@ -1643,6 +1646,7 @@ export function SitePreview( props: SitePreviewProps ) {
 								reloadNonce={ tab.reloadNonce }
 								collapsed={ collapsed || ! selected }
 								hasTabBar
+								onAddressSuggestionsOpenChange={ selected ? setAddressSuggestionsOpen : undefined }
 								shortcutScopeRef={ rootRef }
 								onTabCycle={ cycleTab }
 								initialHistoryEntries={ tab.historyEntries }
@@ -1709,6 +1713,7 @@ function SingleSitePreview( {
 	initialHistoryEntries = [],
 	initialHistoryIndex = -1,
 	hasTabBar = false,
+	onAddressSuggestionsOpenChange,
 	shortcutScopeRef,
 }: SingleSitePreviewProps ) {
 	const connector = useConnector();
@@ -2134,6 +2139,7 @@ function SingleSitePreview( {
 							siteUrl={ siteUrl }
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+							onSuggestionsOpenChange={ onAddressSuggestionsOpenChange }
 						/>
 					) : null }
 				</div>

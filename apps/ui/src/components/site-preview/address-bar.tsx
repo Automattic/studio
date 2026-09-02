@@ -101,6 +101,7 @@ interface PreviewAddressBarProps {
 	siteUrl: string;
 	path: string;
 	onNavigate: ( path: string ) => void;
+	onSuggestionsOpenChange?: ( open: boolean ) => void;
 }
 
 interface RecentPreviewLocation {
@@ -175,7 +176,13 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	}
 }
 
-export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewAddressBarProps ) {
+export function PreviewAddressBar( {
+	site,
+	siteUrl,
+	path,
+	onNavigate,
+	onSuggestionsOpenChange,
+}: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ suggestionsOpen, setSuggestionsOpen ] = useState( false );
@@ -195,9 +202,22 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 		suggestions[ position === 'first' ? 0 : suggestions.length - 1 ]?.focus();
 		pendingSuggestionFocusRef.current = null;
 	}, [] );
+	const updateSuggestionsOpen = useCallback(
+		( open: boolean ) => {
+			setSuggestionsOpen( open );
+			onSuggestionsOpenChange?.( open );
+		},
+		[ onSuggestionsOpenChange ]
+	);
 
 	useEffect( () => setValue( displayUrl ), [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
+	useEffect(
+		() => () => {
+			onSuggestionsOpenChange?.( false );
+		},
+		[ onSuggestionsOpenChange ]
+	);
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
@@ -211,14 +231,14 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 				: `/?s=${ encodeURIComponent( intent.term ) }`;
 		const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
 		setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
-		setSuggestionsOpen( false );
+		updateSuggestionsOpen( false );
 		onNavigate( nextPath );
 	};
 	const chooseLocation = ( nextPath: string, recent?: RecentPreviewLocation ) => {
 		if ( recent ) {
 			setRecentLocations( storeRecentLocation( site.id, recent ) );
 		}
-		setSuggestionsOpen( false );
+		updateSuggestionsOpen( false );
 		onNavigate( nextPath );
 	};
 	const getSuggestionElements = () =>
@@ -237,7 +257,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 		if ( event.key === 'Escape' ) {
 			event.preventDefault();
 			addressBarRef.current?.querySelector( 'input' )?.focus();
-			setSuggestionsOpen( false );
+			updateSuggestionsOpen( false );
 			return;
 		}
 		if ( event.key !== 'ArrowDown' && event.key !== 'ArrowUp' ) {
@@ -271,7 +291,7 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 	};
 
 	return (
-		<Popover.Root modal={ false } open={ suggestionsOpen } onOpenChange={ setSuggestionsOpen }>
+		<Popover.Root modal={ false } open={ suggestionsOpen } onOpenChange={ updateSuggestionsOpen }>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
 				<input
 					className={ styles.input }
@@ -279,21 +299,21 @@ export function PreviewAddressBar( { site, siteUrl, path, onNavigate }: PreviewA
 					onChange={ ( event ) => setValue( event.target.value ) }
 					onClick={ () => {
 						setRecentLocations( loadRecentLocations( site.id ) );
-						setSuggestionsOpen( true );
+						updateSuggestionsOpen( true );
 					} }
 					onFocus={ ( event ) => {
 						event.currentTarget.select();
 						setRecentLocations( loadRecentLocations( site.id ) );
-						setSuggestionsOpen( true );
+						updateSuggestionsOpen( true );
 					} }
 					onKeyDown={ ( event ) => {
 						if ( event.key === 'Tab' || event.key === 'Escape' ) {
-							setSuggestionsOpen( false );
+							updateSuggestionsOpen( false );
 						} else if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
 							event.preventDefault();
 							const position = event.key === 'ArrowDown' ? 'first' : 'last';
 							pendingSuggestionFocusRef.current = position;
-							setSuggestionsOpen( true );
+							updateSuggestionsOpen( true );
 							if ( focusSuggestion( position ) ) {
 								pendingSuggestionFocusRef.current = null;
 							}

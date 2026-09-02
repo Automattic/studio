@@ -4,13 +4,13 @@
 	width: 100%;
 	flex: 1 1 auto;
 	min-width: 80px;
-	height: 24px;
+	height: 32px;
 	margin: 0;
-	padding-inline-start: var(--wpds-dimension-padding-xs);
+	padding-inline: var(--wpds-dimension-padding-lg);
 	align-items: center;
-	border: var(--wpds-border-width-xs) solid transparent;
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-interactive-neutral-weak);
+	border: 0;
+	border-radius: var(--wpds-border-radius-lg);
+	background: var(--wpds-color-bg-surface-neutral-weak);
 	overflow: hidden;
 }
 

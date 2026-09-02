@@ -84,7 +84,7 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 // as the intersection of two sets:
 //   1. php_*.dll files that ship as separate DLLs in windows.php.net's
 //      prebuilt zip (plus the PECL DLLs the workflow overlays: apcu, igbinary,
-//      redis, ssh2, yaml). Everything else from the macOS list is baked into
+//      redis, ssh2, yaml, zstd). Everything else from the macOS list is baked into
 //      php.exe itself (bcmath, calendar, ctype, dom, filter, iconv, mbregex,
 //      mysqlnd, pdo, phar, session, simplexml, tokenizer, xml*, zlib) and
 //      would emit "Module already loaded" warnings if we tried to enable it
@@ -123,6 +123,7 @@ const WINDOWS_PHP_EXTENSIONS = [
 	'xsl',
 	'yaml',
 	'zip',
+	'zstd',
 ] as const;
 
 const PHP_INI_FILENAME = 'php.ini';

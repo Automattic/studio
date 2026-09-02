@@ -22,15 +22,6 @@ function autoUpdateLabels( field: ReturnType< typeof wpVersionField > ): string[
 }
 
 describe( 'wpVersionField', () => {
-	it( 'names the installed version in the auto-update option', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
-			latestValue: '',
-			installedVersion: '6.9.7',
-		} );
-
-		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (6.9.7)' ] );
-	} );
-
 	it( 'keeps the seed for a pinned site out of the auto-update group', () => {
 		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, { latestValue: '' } );
 
@@ -45,19 +36,9 @@ describe( 'wpVersionField', () => {
 		} );
 	} );
 
-	it( 'falls back to the bare mode name when the installed version is unknown', () => {
-		// `latest` is the mode, not a version — "Auto-update (latest)" says nothing.
-		for ( const installedVersion of [ undefined, '', '-', 'latest' ] ) {
-			const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
-				latestValue: '',
-				installedVersion,
-			} );
-
-			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
-		}
-	} );
-
-	it( 'uses the bare mode name on the create form, which has no site yet', () => {
+	it( 'names the auto-update option after the mode, not a version', () => {
+		// The settings form hides this option behind the Automatic updates
+		// toggle; only the create form's plain dropdown renders it.
 		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS );
 
 		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );

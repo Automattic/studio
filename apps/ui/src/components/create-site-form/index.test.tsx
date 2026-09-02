@@ -465,9 +465,11 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'Old Blueprint', wpVersion: '4.9' } );
 		openAdvancedSettings();
 
+		// Auto-update is the default, so no version is pinned and the picker stays away.
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' )
+			expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).toBeChecked()
 		);
+		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'uses a stable select control for long WordPress version lists', () => {
@@ -484,8 +486,27 @@ describe( 'CreateSiteForm', () => {
 		} );
 		renderForm( { name: 'Versioned site' } );
 		openAdvancedSettings();
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
 
-		expect( screen.getByLabelText( 'WordPress version' ).tagName ).toBe( 'SELECT' );
+		expect( screen.getByLabelText( 'Version' ).tagName ).toBe( 'SELECT' );
+	} );
+
+	it( 'pins to the newest stable release when automatic updates are turned off', () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.9', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '7.0-beta1', value: '7.0-beta1', isBeta: true, isDevelopment: false },
+				{ label: '6.9', value: '6.9', isBeta: false, isDevelopment: false },
+				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'Pinned site' } );
+		openAdvancedSettings();
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
+
+		// The list is newest-first, so the first stable entry is the newest one —
+		// a prerelease would be a surprising default for a new site.
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.9' );
 	} );
 
 	it( 'locks the WordPress version to a disabled "latest" select while offline', async () => {

@@ -80,14 +80,11 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	{
 		latestValue = DEFAULT_WORDPRESS_VERSION,
 		currentVersion,
-		installedVersion,
 		offline = false,
 		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
 	}: {
 		latestValue?: string;
 		currentVersion?: string;
-		/** Shown in the auto-update label. Only pass it for auto-updating sites. */
-		installedVersion?: string;
 		offline?: boolean;
 		offlineMessage?: string;
 	} = {}
@@ -111,44 +108,32 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	// only versions we can actually install. Otherwise the create form keeps
 	// its free-text fallback.
 	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION || offline ) {
-		let prerelease: WpVersionOption[] = offers
+		const toOption = (
+			{ value, label }: { value: string; label: string },
+			group: WpVersionOption[ 'group' ]
+		): WpVersionOption => ( { value, label, group, current: value === currentVersion } );
+		let prerelease = offers
 			.filter( ( version ) => version.isBeta || version.isDevelopment )
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'prerelease' as const,
-				current: version.value === currentVersion,
-			} ) );
-		let stable: WpVersionOption[] = offers
+			.map( ( version ) => toOption( version, 'prerelease' ) );
+		let stable = offers
 			.filter(
 				( version ) =>
 					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
 			)
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'stable' as const,
-				current: version.value === currentVersion,
-			} ) );
+			.map( ( version ) => toOption( version, 'stable' ) );
 		// The site's installed version may predate the fetched offers — keep it
 		// selectable, sorted into the right group, like the legacy selector's
 		// extraOptions.
 		if ( currentVersion && ! offers.some( ( version ) => version.value === currentVersion ) ) {
-			const option: WpVersionOption = {
-				value: currentVersion,
-				label: currentVersion,
-				group: 'stable',
-				current: true,
-			};
+			const offer = { value: currentVersion, label: currentVersion };
 			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
-				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
+				prerelease = addVersionOption( toOption( offer, 'prerelease' ), prerelease );
 			} else {
-				stable = addVersionOption( option, stable );
+				stable = addVersionOption( toOption( offer, 'stable' ), stable );
 			}
 		}
-		const autoUpdateLabel = getAutoUpdateVersionLabel( installedVersion );
 		const options: WpVersionOption[] = [
-			{ value: latestValue, label: autoUpdateLabel, group: 'latest' },
+			{ value: latestValue, label: getAutoUpdateVersionLabel(), group: 'latest' },
 			...prerelease,
 			...stable,
 		];

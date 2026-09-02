@@ -20,12 +20,7 @@
 	border: 0;
 }
 
-.updateModeControl :global(.components-radio-control) {
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-lg);
-}
-
-.pinnedVersionSelect {
-	width: min(180px, 100%);
+.installedVersion {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
 }

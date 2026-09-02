@@ -273,14 +273,15 @@ select option {
 	color: var( --wpds-color-fg-content-neutral );
 }
 
-[data-wpds-theme-provider-id] .components-radio-control__input[type='radio']:not(:checked) {
+/* FormToggle hardcodes a white track and a near-black thumb for its unchecked
+   state, which inverts against the dark palette. */
+[data-wpds-theme-provider-id] .components-form-toggle:not( .is-checked ) .components-form-toggle__track {
+	background-color: var( --wpds-color-bg-surface-neutral );
 	border-color: var( --wpds-color-stroke-surface-neutral-strong );
-	background: transparent;
 }
 
-[data-wpds-theme-provider-id] .components-radio-control__option-description {
-	color: var( --wpds-color-fg-content-neutral-weak );
-	unicode-bidi: plaintext;
+[data-wpds-theme-provider-id] .components-form-toggle:not( .is-checked ) .components-form-toggle__thumb {
+	background-color: var( --wpds-color-fg-content-neutral );
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

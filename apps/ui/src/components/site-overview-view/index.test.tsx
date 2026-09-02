@@ -486,14 +486,14 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
-		// The mode names the version the site runs now, so "latest" can't be
+		expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).toBeChecked();
+		// The readout names the version the site runs now, so "latest" can't be
 		// read as "already on the newest release" (STU-2348).
-		expect( screen.getByText( /Currently using version 6\.7\.2\./ ) ).toBeVisible();
-		const select = screen.getByLabelText( 'Version' );
-		expect( select.tagName ).toBe( 'SELECT' );
-		expect( select ).toHaveValue( '6.7.2' );
-		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
+		expect( screen.getByText( /Installed version/ ) ).toHaveTextContent(
+			'Installed version: 6.7.2'
+		);
+		// Nothing to pick while WordPress owns the version.
+		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'preselects the version picker for pinned sites', () => {
@@ -505,11 +505,26 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).not.toBeChecked();
 		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
-		// Naming the version under "Automatic updates" on a pinned site would
-		// read as if auto-update were keeping the site on it (STU-2348).
-		expect( screen.queryByText( /Currently using version/ ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
+		// Naming the installed version beside "Automatic updates" on a pinned
+		// site would read as if auto-update were keeping it there (STU-2348).
+		expect( screen.queryByText( /Installed version/ ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'reveals the version picker when automatic updates are turned off', () => {
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
+
+		renderView( 'general' );
+
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
+
+		// Seeded with the version the site already runs, so leaving auto-update
+		// doesn't quietly propose a different release.
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
+		expect( screen.queryByText( /Installed version/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves a pinned WordPress version picked from the dropdown', () => {
@@ -519,6 +534,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
 		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
@@ -636,7 +652,9 @@ describe( 'SiteOverviewView', () => {
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
-		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'checkbox', { name: 'Automatic updates' } )
+		).not.toBeInTheDocument();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -680,14 +698,14 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).not.toBeChecked();
 		// The site is pinned to files Studio can't read a version from, so the
 		// picker says so instead of showing a version the site may not run.
 		const picker = screen.getByLabelText( 'Version' ) as HTMLSelectElement;
 		expect( picker ).toHaveValue( 'latest' );
 		expect( picker.selectedOptions[ 0 ] ).toHaveTextContent( 'Unknown version' );
 
-		fireEvent.click( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
 		// 'latest' has to reach the CLI so it actually installs the newest

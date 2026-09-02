@@ -1,7 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
-import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
+import {
+	getAutoUpdatesHelpText,
+	getAutoUpdatesToggleLabel,
+	getInstalledVersionLabel,
+} from '@studio/common/lib/wordpress-version-labels';
 import { isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-utils';
-import { SelectControl, Icon } from '@wordpress/components';
+import { FormToggle, SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
@@ -9,7 +13,7 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { isWordPressDevVersion } from 'src/lib/version-utils';
+import { getLatestStableWpVersion, isWordPressDevVersion } from 'src/lib/version-utils';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
@@ -24,7 +28,10 @@ type WPVersionSelectorProps = {
 	fallbackOptions: { label: string; value: string }[];
 	/** Custom message to show when offline. If not provided, will use the default message */
 	offlineMessage?: string;
-	/** Shown in the auto-update label. Only pass it for auto-updating sites. */
+	/**
+	 * The version the site runs right now. Reported under the "Automatic
+	 * updates" toggle, and seeds the dropdown when the site leaves it.
+	 */
 	installedVersion?: string;
 };
 
@@ -76,11 +83,109 @@ export const WPVersionSelector = ( {
 		}
 	} );
 
+	// Without a fetched version list there is nothing to pin to, so the control
+	// degrades to a plain dropdown over `fallbackOptions`.
+	const usesUpdateMode = wpVersions.length > 0;
+	const automaticUpdates = selectedValue === DEFAULT_WORDPRESS_VERSION;
+
+	// A function, not an element: auto-update is the default in both forms, and
+	// there the dropdown is never rendered.
+	const renderVersionSelect = () => (
+		<SelectControl
+			className={ cx( errorMessage && 'error-select-control' ) }
+			disabled={ disabled || isOffline }
+			value={ selectedValue }
+			onChange={ onChange }
+			__next40pxDefaultSize
+			__nextHasNoMarginBottom
+		>
+			{ usesUpdateMode ? (
+				<>
+					<optgroup label={ __( 'Beta & Nightly' ) }>
+						{ betaVersions.map( ( { label, value } ) => (
+							<option key={ value } value={ value }>
+								{ label }
+							</option>
+						) ) }
+					</optgroup>
+					<optgroup label={ __( 'Stable Versions' ) }>
+						{ stableVersions.map( ( { label, value } ) => (
+							<option key={ value } value={ value }>
+								{ label }
+							</option>
+						) ) }
+					</optgroup>
+				</>
+			) : (
+				fallbackOptions.map( ( { label, value } ) => (
+					<option key={ value } value={ value }>
+						{ label }
+					</option>
+				) )
+			) }
+		</SelectControl>
+	);
+
+	if ( usesUpdateMode ) {
+		// Leaving auto-update lands on the version the site already runs, or on
+		// the newest stable release for a site that doesn't exist yet.
+		const pinnedFallback =
+			installedVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
+		return (
+			<div
+				role="group"
+				aria-label={ __( 'WordPress version' ) }
+				className="flex flex-1 flex-col gap-1.5 leading-4"
+			>
+				<span className="font-semibold">{ __( 'WordPress version' ) }</span>
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ message }
+					placement="top-start"
+					className="flex flex-1 flex-col gap-1.5"
+				>
+					<div className="flex justify-start items-start gap-2">
+						<FormToggle
+							className="mt-0.5"
+							id="wp-auto-update-toggle"
+							checked={ automaticUpdates }
+							disabled={ disabled || isOffline }
+							onChange={ ( event ) =>
+								onChange( event.target.checked ? DEFAULT_WORDPRESS_VERSION : pinnedFallback )
+							}
+						/>
+						<div className="flex flex-col gap-1">
+							<label htmlFor="wp-auto-update-toggle">{ getAutoUpdatesToggleLabel() }</label>
+							<div className="a8c-body-small text-frame-text-secondary">
+								{ getAutoUpdatesHelpText( automaticUpdates ) }
+							</div>
+						</div>
+					</div>
+					{ /* Naming a version while the site is pinned would read as if
+					     auto-update were keeping it there — the dropdown says it. */ }
+					{ automaticUpdates ? (
+						installedVersion && (
+							<div className="a8c-body-small text-frame-text-secondary">
+								{ getInstalledVersionLabel( installedVersion ) }
+							</div>
+						)
+					) : (
+						<label className="flex flex-col gap-1.5 leading-4">
+							<span className="font-semibold">{ __( 'Version' ) }</span>
+							{ renderVersionSelect() }
+						</label>
+					) }
+				</Tooltip>
+			</div>
+		);
+	}
+
 	return (
 		<label className="flex flex-1 flex-col gap-1.5 leading-4">
 			<span className="font-semibold flex items-center gap-0.5">
 				{ __( 'WordPress version' ) }
-				{ selectedValue !== DEFAULT_WORDPRESS_VERSION && (
+				{ ! automaticUpdates && (
 					<Tooltip
 						text={ __( 'WordPress Core automatic updates will be disabled for this site.' ) }
 						placement="top-start"
@@ -96,42 +201,7 @@ export const WPVersionSelector = ( {
 				placement="top-start"
 				className="flex flex-1 flex-col"
 			>
-				<SelectControl
-					className={ cx( errorMessage && 'error-select-control' ) }
-					disabled={ disabled || isOffline }
-					value={ selectedValue }
-					onChange={ onChange }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				>
-					{ wpVersions.length > 0 ? (
-						<>
-							<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
-								{ getAutoUpdateVersionLabel( installedVersion ) }
-							</option>
-							<optgroup label={ __( 'Beta & Nightly' ) }>
-								{ betaVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
-							<optgroup label={ __( 'Stable Versions' ) }>
-								{ stableVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
-						</>
-					) : (
-						fallbackOptions.map( ( { label, value } ) => (
-							<option key={ value } value={ value }>
-								{ label }
-							</option>
-						) )
-					) }
-				</SelectControl>
+				{ renderVersionSelect() }
 			</Tooltip>
 		</label>
 	);

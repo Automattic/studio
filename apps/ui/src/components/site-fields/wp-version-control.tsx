@@ -1,5 +1,10 @@
-import { BaseControl, SelectControl } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import {
+	getAutoUpdatesHelpText,
+	getAutoUpdatesToggleLabel,
+	getInstalledVersionLabel,
+} from '@studio/common/lib/wordpress-version-labels';
+import { BaseControl, SelectControl, ToggleControl } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
@@ -25,10 +30,12 @@ export type WpVersionOption = Option & {
 };
 
 /**
- * WordPress version dropdown: the auto-update option first, then the pinned
- * versions in optgroups. When the field is disabled with a description
- * (offline), the description shows as a hover tooltip like the legacy UI
- * instead of inline help text.
+ * WordPress version control. Whenever there are versions to pin to, it splits
+ * into an "Automatic updates" toggle and a version dropdown that only appears
+ * once the site leaves auto-update; without a version list it degrades to a
+ * single dropdown carrying the auto-update option. When the field is disabled
+ * with a description (offline), the description shows as a hover tooltip like
+ * the legacy UI instead of inline help text.
  */
 export function WpVersionControl< Item >( {
 	data,
@@ -43,24 +50,23 @@ export function WpVersionControl< Item >( {
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
-	const autoUpdateOption = options.find(
-		( option ) => option.group === 'latest' && ! option.hidden
-	);
+	const autoUpdateOption = options.find( ( option ) => option.group === 'latest' );
 	const pinnedOptions = options.filter(
 		( option ) => option.group !== 'latest' && ! option.hidden
 	);
 	const currentVersion = pinnedOptions.find( ( option ) => option.current );
-	// Without a version list there is nothing to pin to, so the settings form
-	// keeps the plain dropdown rather than offering an empty picker.
-	const usesUpdateModeControl = autoUpdateOption?.value === '' && pinnedOptions.length > 0;
+	// Leaving auto-update lands on the version the site already runs, or on the
+	// newest stable release for a site that doesn't exist yet. The list is
+	// newest-first, so the first stable entry is the newest one — a prerelease
+	// would be a surprising default.
+	const defaultPinnedOption =
+		currentVersion ??
+		pinnedOptions.find( ( option ) => option.group === 'stable' ) ??
+		pinnedOptions[ 0 ];
+	// Without a version list there is nothing to pin to, so the form keeps the
+	// plain dropdown rather than offering an empty picker.
+	const usesUpdateModeControl = !! autoUpdateOption && !! defaultPinnedOption;
 	const automaticUpdates = value === autoUpdateOption?.value;
-	const modeControlName = `${ String( field.id ) }-update-mode`;
-	// Outside the update-mode control the auto-update option carries its own
-	// explanation, so it needs no heading; HTML allows plain options before the
-	// first optgroup.
-	const autoUpdateOptions = usesUpdateModeControl
-		? []
-		: options.filter( ( option ) => option.group === 'latest' );
 	const groups = [
 		{
 			label: __( 'Beta & Nightly' ),
@@ -74,25 +80,24 @@ export function WpVersionControl< Item >( {
 
 	const updateValue = ( newValue: string ) =>
 		onChange( field.setValue( { item: data, value: newValue } ) );
-	const selectedVersion =
-		usesUpdateModeControl && automaticUpdates
-			? currentVersion?.value ?? pinnedOptions[ 0 ]?.value ?? value
-			: value;
-	const versionSelect = (
+	// A function, not an element: auto-update is the default in both forms, and
+	// there the dropdown is never rendered.
+	const renderVersionSelect = () => (
 		<SelectControl
 			__next40pxDefaultSize
 			__nextHasNoMarginBottom
 			label={ usesUpdateModeControl ? __( 'Version' ) : field.label }
-			hideLabelFromVision={ usesUpdateModeControl ? true : hideLabelFromVision }
-			value={ selectedVersion }
+			hideLabelFromVision={ usesUpdateModeControl ? undefined : hideLabelFromVision }
+			value={ value }
 			disabled={ disabled }
 			onChange={ updateValue }
 		>
-			{ autoUpdateOptions.map( ( option ) => (
-				<option key={ option.value } value={ option.value } hidden={ option.hidden }>
-					{ option.label }
-				</option>
-			) ) }
+			{ /* Outside the update-mode control the auto-update option carries its own
+			     explanation, so it needs no heading; HTML allows plain options before
+			     the first optgroup. */ }
+			{ ! usesUpdateModeControl && autoUpdateOption && (
+				<option value={ autoUpdateOption.value }>{ autoUpdateOption.label }</option>
+			) }
 			{ groups.map( ( group ) => (
 				<optgroup key={ group.label } label={ group.label }>
 					{ group.options.map( ( option ) => (
@@ -104,80 +109,42 @@ export function WpVersionControl< Item >( {
 			) ) }
 		</SelectControl>
 	);
-	const control = usesUpdateModeControl ? (
-		<BaseControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			hideLabelFromVision={ hideLabelFromVision }
-		>
-			<fieldset
-				className={ styles.updateModeControl }
-				disabled={ disabled }
-				aria-label={ field.label }
+	const control =
+		autoUpdateOption && defaultPinnedOption ? (
+			<BaseControl
+				__nextHasNoMarginBottom
+				label={ field.label }
+				hideLabelFromVision={ hideLabelFromVision }
 			>
-				<div className="components-radio-control">
-					<div className="components-radio-control__option">
-						<input
-							id={ `${ modeControlName }-automatic` }
-							className="components-radio-control__input"
-							type="radio"
-							name={ modeControlName }
-							value="automatic"
-							checked={ automaticUpdates }
-							onChange={ () => {
-								if ( autoUpdateOption ) updateValue( autoUpdateOption.value );
-							} }
-						/>
-						<label
-							htmlFor={ `${ modeControlName }-automatic` }
-							className="components-radio-control__label"
-						>
-							{ __( 'Automatic updates' ) }
-						</label>
-						<p className="components-radio-control__option-description">
-							{ /* Naming a version on a pinned site would read as if
-							     auto-update were keeping it there. */ }
-							{ automaticUpdates && currentVersion
-								? sprintf(
-										/* translators: %s: WordPress version the site runs now, e.g. 6.9.7 */
-										__(
-											'WordPress installs updates on its own schedule. Currently using version %s.'
-										),
-										currentVersion.value
-								  )
-								: __( 'WordPress installs updates on its own schedule.' ) }
-						</p>
-					</div>
-					<div className="components-radio-control__option">
-						<input
-							id={ `${ modeControlName }-pinned` }
-							className="components-radio-control__input"
-							type="radio"
-							name={ modeControlName }
-							value="pinned"
-							checked={ ! automaticUpdates }
-							onChange={ () =>
-								updateValue( currentVersion?.value ?? pinnedOptions[ 0 ]?.value ?? value )
-							}
-						/>
-						<label
-							htmlFor={ `${ modeControlName }-pinned` }
-							className="components-radio-control__label"
-						>
-							{ __( 'Select a version' ) }
-						</label>
-						<div
-							className={ `${ styles.pinnedVersionSelect } components-radio-control__option-description` }
-						>
-							{ versionSelect }
-						</div>
-					</div>
-				</div>
-			</fieldset>
-		</BaseControl>
-	) : (
-		versionSelect
-	);
+				<fieldset
+					className={ styles.updateModeControl }
+					disabled={ disabled }
+					aria-label={ field.label }
+				>
+					<ToggleControl
+						__nextHasNoMarginBottom
+						label={ getAutoUpdatesToggleLabel() }
+						checked={ automaticUpdates }
+						disabled={ disabled }
+						help={ getAutoUpdatesHelpText( automaticUpdates ) }
+						onChange={ ( checked ) =>
+							updateValue( checked ? autoUpdateOption.value : defaultPinnedOption.value )
+						}
+					/>
+					{ /* Naming a version while the site is pinned would read as if
+				     auto-update were keeping it there — the dropdown says it. */ }
+					{ automaticUpdates
+						? currentVersion && (
+								<p className={ styles.installedVersion }>
+									{ getInstalledVersionLabel( currentVersion.value ) }
+								</p>
+						  )
+						: renderVersionSelect() }
+				</fieldset>
+			</BaseControl>
+		) : (
+			renderVersionSelect()
+		);
 
 	if ( disabled && field.description ) {
 		// wpds narrows Tooltip.Root's props to hover-only usage; the runtime

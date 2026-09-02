@@ -1600,6 +1600,7 @@ export function SitePreview( props: SitePreviewProps ) {
 						<Menu.Trigger
 							render={
 								<IconButton
+									className={ styles.newTabButton }
 									variant="minimal"
 									tone="neutral"
 									size="small"

@@ -1,14 +1,7 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	chevronDown,
-	chevronLeft,
-	chevronRight,
-	Icon,
-	moreVertical,
-	pencil,
-} from '@wordpress/icons';
+import { chevronDown, chevronLeft, chevronRight, Icon, moreVertical } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -28,7 +21,7 @@ import {
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { annotationIcon, playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -43,7 +36,7 @@ import {
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
+	createInspectorPageScript,
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
@@ -79,11 +72,14 @@ interface SitePreviewProps {
 
 interface InspectorEvent {
 	type: 'annotations-updated' | 'browser-command' | 'done' | 'state';
+	bridgeToken?: string;
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	command?: PreviewShortcutCommandType;
 }
+
+const MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH = 1_100_000;
 
 interface InspectorState {
 	ready: boolean;
@@ -685,7 +681,7 @@ function PreviewAnnotationControls( {
 					variant="minimal"
 					tone="neutral"
 					size="small"
-					icon={ pencil }
+					icon={ annotationIcon }
 					label={ toggleLabel }
 					disabled={ disabled }
 					aria-pressed={ isPicking }
@@ -707,7 +703,7 @@ function PreviewAnnotationControls( {
 			{ hasPending ? (
 				<div className={ styles.annotationMenu }>
 					{ /* Two commands to offer, so it becomes a split button matching the
-						"Open in…" control beside it: the pencil still toggles directly,
+						"Open in…" control beside it: the annotation icon still toggles directly,
 						the chevron opens the pair. Modal for the same reason as the
 						overflow menu — the webview swallows outside clicks, so the
 						backdrop is what dismisses it. */ }
@@ -728,7 +724,7 @@ function PreviewAnnotationControls( {
 										/>
 									}
 								>
-									<Icon icon={ pencil } size={ 18 } />
+									<Icon icon={ annotationIcon } size={ 18 } />
 								</Tooltip.Trigger>
 								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 									{ toggleLabel }
@@ -1511,6 +1507,7 @@ function WebviewSurface( {
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
 	const storedAnnotationsRef = useRef< Annotation[] >( [] );
+	const inspectorBridgeTokenRef = useRef( globalThis.crypto.randomUUID() );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -1647,7 +1644,10 @@ function WebviewSurface( {
 			const preload =
 				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript(
+					preload + createInspectorPageScript( inspectorBridgeTokenRef.current ),
+					false
+				)
 				.then( () => {
 					onInspectorStateRef.current?.( {
 						ready: true,
@@ -1665,6 +1665,7 @@ function WebviewSurface( {
 			const consoleEvent = event as WebviewConsoleEvent;
 			if ( typeof consoleEvent.message !== 'string' ) return;
 			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			if ( consoleEvent.message.length > MAX_INSPECTOR_BRIDGE_MESSAGE_LENGTH ) return;
 			let parsed: InspectorEvent | null = null;
 			try {
 				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
@@ -1672,6 +1673,7 @@ function WebviewSurface( {
 				return;
 			}
 			if ( ! parsed ) return;
+			if ( parsed.bridgeToken !== inspectorBridgeTokenRef.current ) return;
 			if ( parsed.type === 'browser-command' ) {
 				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
@@ -1815,7 +1817,10 @@ function WebviewSurface( {
 		if ( ! ready || ! inspectorCommand ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		const detail = JSON.stringify( {
+			type: inspectorCommand.type,
+			bridgeToken: inspectorBridgeTokenRef.current,
+		} );
 		webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(

@@ -49,3 +49,10 @@ export const databaseIcon = (
 		/>
 	</svg>
 );
+
+export const annotationIcon = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+		<circle cx="12" cy="12" r="5.75" stroke="currentColor" strokeWidth="1" />
+		<circle cx="12" cy="12" r="1.25" fill="currentColor" />
+	</svg>
+);

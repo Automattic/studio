@@ -297,6 +297,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getDirectorySize(): Promise< never > {
 			throw new UnsupportedError( 'getDirectorySize' );
 		},
+		async isSiteOverPushSizeLimit(): Promise< never > {
+			throw new UnsupportedError( 'isSiteOverPushSizeLimit' );
+		},
 		async getFileSize(): Promise< never > {
 			throw new UnsupportedError( 'getFileSize' );
 		},

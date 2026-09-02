@@ -710,6 +710,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getFileSize( siteId, path ) ) as number;
 		},
 
+		async isSiteOverPushSizeLimit( siteId ): Promise< boolean > {
+			return ( await ipcApi.isSiteOverPushSizeLimit( siteId ) ) as boolean;
+		},
+
 		async getIsMultisite( siteId ): Promise< boolean | undefined > {
 			return ( await ipcApi.getIsMultisite( siteId ) ) as boolean | undefined;
 		},

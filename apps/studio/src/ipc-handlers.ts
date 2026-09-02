@@ -96,6 +96,7 @@ import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
+import { isSiteOverPushSizeLimit as isSiteOverPushSizeLimitForPath } from '@studio/common/lib/sync/pull-size-warning';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -2091,6 +2092,14 @@ export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, su
 		throw new Error( 'Site not found.' );
 	}
 	return calculateDirectorySizeForArchive( nodePath.join( site.details.path, ...subdir ) );
+}
+
+export async function isSiteOverPushSizeLimit( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return isSiteOverPushSizeLimitForPath( site.details.path );
 }
 
 export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {

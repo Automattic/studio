@@ -14,6 +14,7 @@ import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type {
 	ImportResponse,
+	PullEngine,
 	PullSiteProgress,
 	PullSyncOptions,
 	PushOutput,
@@ -229,41 +230,71 @@ function getExportMode( optionsToSync: SyncOption[] | undefined ): 'full' | 'con
 }
 
 /**
- * Pull a local site from its connected WordPress.com live site via the CLI
- * `pull` command. Exchanges everything (`--options all`) unless selective
- * options are provided. Resolves on success, rejects on failure.
+ * Pull a local site from its connected WordPress.com live site via the CLI.
+ * `jetpack` runs `pull`, exchanging everything (`--options all`) unless
+ * selective options are provided; `reprint` runs `pull-reprint`, which pulls
+ * everything when driven non-interactively — except when it resumes a pull
+ * that was interrupted mid-flight, which reprint requires to keep its original
+ * content selection. Both commands take the same `--remote-site` identifier.
+ * Resolves on success, rejects on failure.
+ *
+ * Both engines honour `syncOptions`, through different flags: `jetpack`
+ * selects by backup node id (`--include-path-list`), reprint by
+ * wp-content-relative path (`--only`) plus `--skip-database`. The caller
+ * carries both forms, since the engine is resolved here rather than in the UI.
+ *
+ * Only the arguments differ per engine. The progress parsing below is the
+ * CLI-wide `reportProgress` envelope plus the `(N%)` token that `pull`,
+ * `pull-reprint`, `push` and `import` all emit, so both engines share it.
  */
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	remoteSiteId: number,
-	emit?: ( output: PullSiteProgress ) => void,
-	options?: PullSyncOptions,
-	signal?: AbortSignal
+	{
+		emit,
+		engine = 'jetpack',
+		syncOptions,
+		signal,
+	}: {
+		emit?: ( output: PullSiteProgress ) => void;
+		engine?: PullEngine;
+		syncOptions?: PullSyncOptions;
+		signal?: AbortSignal;
+	} = {}
 ): Promise< void > {
+	const target = [ '--path', siteFolder, '--remote-site', String( remoteSiteId ) ];
+	const args =
+		engine === 'reprint'
+			? [
+					'pull-reprint',
+					...target,
+					// Reprint's include-list. Paths are wp-content-relative; the
+					// command turns them into `:wp-content:` sources itself.
+					...( syncOptions?.onlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
+					...( syncOptions?.skipDatabase ? [ '--skip-database' ] : [] ),
+			  ]
+			: [
+					'pull',
+					...target,
+					'--options',
+					( syncOptions?.optionsToSync?.length ? syncOptions.optionsToSync : [ 'all' ] ).join(
+						','
+					),
+					// Pass each backup node id as its own argv value — ids can contain
+					// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
+					...( syncOptions?.includePathList?.length
+						? [ '--include-path-list', ...syncOptions.includePathList ]
+						: [] ),
+			  ];
+
 	return new Promise( ( resolve, reject ) => {
 		if ( signal?.aborted ) {
 			reject( new SyncCancelledError() );
 			return;
 		}
 
-		const [ emitter, child ] = executeCliCommand(
-			[
-				'pull',
-				'--path',
-				siteFolder,
-				'--remote-site',
-				String( remoteSiteId ),
-				'--options',
-				( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
-				// Pass each backup node id as its own argv value — ids can contain
-				// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
-				...( options?.includePathList?.length
-					? [ '--include-path-list', ...options.includePathList ]
-					: [] ),
-			],
-			{ output: 'capture' }
-		);
+		const [ emitter, child ] = executeCliCommand( args, { output: 'capture' } );
 
 		const stopPull = () => {
 			// Reject even if the kill fails — otherwise a cancel would hang the

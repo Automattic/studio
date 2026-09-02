@@ -34,6 +34,7 @@ vi.mock( '@/components/selective-sync/lib/get-ipc-api', () => ( {
 vi.mock( './disconnect-site-dialog', () => ( { DisconnectSiteDialog: () => null } ) );
 vi.mock( '@/components/selective-sync/lib/convert-tree-to-sync-options', () => ( {
 	convertTreeToPullOptions: () => ( { optionsToSync: [ 'all' ], include_path_list: [] } ),
+	convertTreeToReprintPullOptions: () => ( { onlyPaths: [], skipDatabase: false } ),
 	convertTreeToPushOptions: () => ( { optionsToSync: [ 'all' ] } ),
 } ) );
 vi.mock( './publish-picker-view', () => ( { PublishPickerView: () => null } ) );
@@ -90,7 +91,9 @@ describe( 'SiteDropdown sync dialog', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Confirm pull' } ) );
 
 		expect( pullMutate ).toHaveBeenCalledWith(
-			expect.objectContaining( { siteId: site.id, remoteSiteId: liveSite.id } )
+			expect.objectContaining( { siteId: site.id, remoteSiteId: liveSite.id } ),
+			// The size check the pull hands back to, once the files are on disk.
+			expect.objectContaining( { onSuccess: expect.any( Function ) } )
 		);
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Pull from live' } ) ).toBeInTheDocument()

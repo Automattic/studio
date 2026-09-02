@@ -366,6 +366,10 @@ export interface Connector {
 	getDirectorySize( siteId: string, path: string[] ): Promise< number >;
 	getFileSize( siteId: string, path: string[] ): Promise< number >;
 	getIsMultisite( siteId: string ): Promise< boolean | undefined >;
+	// Whether a just-pulled site is too big to push back. Answered after a pull
+	// rather than before, because a Reprint pull has no single archive to size
+	// up front. See `isSiteOverPushSizeLimit` in packages/common.
+	isSiteOverPushSizeLimit( siteId: string ): Promise< boolean >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.

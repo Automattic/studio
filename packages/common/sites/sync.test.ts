@@ -33,11 +33,104 @@ vi.mock( '@studio/common/lib/sync/constants', async ( importOriginal ) => ( {
 } ) );
 
 describe( 'pullSite', () => {
+	it( 'runs the Jetpack-backup `pull` command by default', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+
+		const pulling = pullSite( execute, '/sites/local', 42 );
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[ 'pull', '--path', '/sites/local', '--remote-site', '42', '--options', 'all' ],
+			{ output: 'capture' }
+		);
+	} );
+
+	it( 'runs `pull-reprint` with the same --remote-site identifier for the reprint engine', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+
+		const pulling = pullSite( execute, '/sites/local', 42, { engine: 'reprint' } );
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[ 'pull-reprint', '--path', '/sites/local', '--remote-site', '42' ],
+			{ output: 'capture' }
+		);
+	} );
+
+	// The same selection travels in both engines' forms; reprint reads the
+	// wp-content-relative paths and ignores the backup node ids.
+	it( 'passes the selection to the reprint engine as --only and --skip-database', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+
+		const pulling = pullSite( execute, '/sites/local', 42, {
+			engine: 'reprint',
+			syncOptions: {
+				optionsToSync: [ 'paths' ],
+				includePathList: [ 'ZjE6Lw==' ],
+				onlyPaths: [ 'plugins/akismet', 'themes' ],
+				skipDatabase: true,
+			},
+		} );
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[
+				'pull-reprint',
+				'--path',
+				'/sites/local',
+				'--remote-site',
+				'42',
+				'--only=plugins/akismet',
+				'--only=themes',
+				'--skip-database',
+			],
+			{ output: 'capture' }
+		);
+	} );
+
+	it( 'keeps the database and adds no --only when everything is selected', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+
+		const pulling = pullSite( execute, '/sites/local', 42, {
+			engine: 'reprint',
+			syncOptions: { onlyPaths: [], skipDatabase: false },
+		} );
+		emitter.emit( 'success' );
+		await pulling;
+
+		expect( execute ).toHaveBeenCalledWith(
+			[ 'pull-reprint', '--path', '/sites/local', '--remote-site', '42' ],
+			{ output: 'capture' }
+		);
+	} );
+
+	it( 'leaves the reprint selection out of a jetpack pull', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( ( _args: string[] ) => [ emitter, {} ] );
+
+		const pulling = pullSite( execute as unknown as ExecuteCliCommand, '/sites/local', 42, {
+			syncOptions: { onlyPaths: [ 'plugins/akismet' ], skipDatabase: true },
+		} );
+		emitter.emit( 'success' );
+		await pulling;
+
+		const args = execute.mock.calls[ 0 ][ 0 ];
+		expect( args ).not.toContain( '--only=plugins/akismet' );
+		expect( args ).not.toContain( '--skip-database' );
+	} );
+
 	it( 'forwards live CLI messages and their percentage', async () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
 		const onProgress = vi.fn();
-		const pulling = pullSite( execute, '/sites/local', 42, onProgress );
+		const pulling = pullSite( execute, '/sites/local', 42, { emit: onProgress } );
 
 		emitter.emit( 'data', {
 			data: {
@@ -72,14 +165,7 @@ describe( 'pullSite', () => {
 		const child = { pid: 4242 };
 		const execute = vi.fn( () => [ emitter, child ] ) as unknown as ExecuteCliCommand;
 		const controller = new AbortController();
-		const pulling = pullSite(
-			execute,
-			'/sites/local',
-			42,
-			undefined,
-			undefined,
-			controller.signal
-		);
+		const pulling = pullSite( execute, '/sites/local', 42, { signal: controller.signal } );
 
 		controller.abort();
 
@@ -90,7 +176,7 @@ describe( 'pullSite', () => {
 	it( 'rejects immediately when the signal is already aborted', async () => {
 		const execute = vi.fn() as unknown as ExecuteCliCommand;
 		await expect(
-			pullSite( execute, '/sites/local', 42, undefined, undefined, AbortSignal.abort() )
+			pullSite( execute, '/sites/local', 42, { signal: AbortSignal.abort() } )
 		).rejects.toSatisfy( isSyncCancelledError );
 		expect( execute ).not.toHaveBeenCalled();
 	} );
@@ -99,9 +185,8 @@ describe( 'pullSite', () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
 		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
-		const pulling = pullSite( execute, '/sites/local', 42, undefined, {
-			optionsToSync: [ 'paths' ],
-			includePathList,
+		const pulling = pullSite( execute, '/sites/local', 42, {
+			syncOptions: { optionsToSync: [ 'paths' ], includePathList },
 		} );
 
 		emitter.emit( 'success' );

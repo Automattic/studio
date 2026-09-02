@@ -71,6 +71,8 @@ import {
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { resolvePullEngine } from '@studio/common/lib/sync/pull-engine';
+import { isSiteOverPushSizeLimit } from '@studio/common/lib/sync/pull-size-warning';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -729,6 +731,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/push-size-over-limit',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { overLimit: await isSiteOverPushSizeLimit( site.path ) } );
+		} )
+	);
+
 	// --- Site creation helpers + create ---------------------------------------
 	// Pure server-side filesystem logic (the server runs on the user's machine),
 	// plus the CLI `create`. The browser has no native folder picker, so the UI
@@ -1376,19 +1391,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pullSite(
-					execute,
-					site.path,
-					remoteSiteId,
-					( progress ) => {
+				await pullSite( execute, site.path, remoteSiteId, {
+					engine: await resolvePullEngine(),
+					emit: ( progress ) => {
 						sseSend( {
 							channel: 'sync-pull',
 							payload: { ...progress, siteId: req.params.id, remoteSiteId },
 						} );
 					},
-					options,
-					release.signal
-				);
+					syncOptions: options,
+					signal: release.signal,
+				} );
 			} catch ( error ) {
 				// A user cancel is an intentional stop, not a server error — report it
 				// as a result so it doesn't surface as a 500.

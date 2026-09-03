@@ -1,4 +1,4 @@
-import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -24,11 +24,7 @@ import {
 	siteRuntimeFromMode,
 	type SiteMode,
 } from '@studio/common/lib/site-runtime';
-import {
-	getWordPressVersionUrl,
-	isValidWordPressVersion,
-	isWordPressVersionAtLeast,
-} from '@studio/common/lib/wordpress-version-utils';
+import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -46,12 +42,12 @@ import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { setupCustomDomain } from 'cli/lib/site-utils';
-import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -423,28 +419,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					description: __(
-						'WordPress version. Use "latest" to let the site auto-update, or pin a version (e.g., "6.4", "6.4.1")'
-					),
-					coerce: ( value: string ) => {
-						if ( ! isValidWordPressVersion( value ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								__(
-									'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-								)
-							);
-						}
-						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
-							);
-						}
-						return value;
-					},
+					description: getWpVersionOptionDescription(),
+					coerce: coerceWpVersionOption,
 				} )
 				.option( 'runtime', {
 					type: 'string',

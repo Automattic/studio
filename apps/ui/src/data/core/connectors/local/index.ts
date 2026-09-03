@@ -877,6 +877,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},

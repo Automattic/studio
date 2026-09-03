@@ -37,7 +37,7 @@
 		"@php-wasm/universal": "3.1.45",
 		"@php-wasm/util": "3.1.45",
 		"@vscode/sudo-prompt": "^9.3.2",
-		"@wordpress/i18n": "^6.20.0",
+		"@wordpress/i18n": "^6.24.0",
 		"@wp-playground/blueprints": "3.1.45",
 		"@wp-playground/cli": "3.1.45",
 		"@wp-playground/storage": "3.1.45",

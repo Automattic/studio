@@ -35,6 +35,7 @@ import {
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
@@ -793,11 +794,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets.
+				// CLI resolve relative assets. `bundleUrl` triggers a server-side
+				// download so API blueprints with bundled resources resolve correctly.
 				blueprint?: {
 					blueprint?: SiteCreateOptions[ 'blueprint' ];
 					slug?: string;
 					filePath?: string;
+					bundleUrl?: string;
 				};
 			};
 			if ( ! body.name || ! body.path ) {
@@ -808,6 +811,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
 			let cleanupCreateArgs: () => void = () => undefined;
+			// If the blueprint has a bundle_url (API blueprints with bundled resources
+			// like theme zips), download and extract the bundle so the CLI can resolve
+			// relative paths. Mirrors the desktop app's ipc-handlers.ts logic.
+			let bundleTempDir: string | undefined;
+			let blueprintFilePath = body.blueprint?.filePath;
+			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
+				const result = await downloadAndExtractBlueprintBundle( body.blueprint.bundleUrl );
+				bundleTempDir = result.tempDir;
+				blueprintFilePath = result.blueprintJsonPath;
+			}
 			try {
 				const { args, cleanup } = buildSiteCreateArgs( {
 					path: body.path,
@@ -822,7 +835,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
 					blueprint: body.blueprint?.blueprint,
-					originalBlueprintPath: body.blueprint?.filePath,
+					originalBlueprintPath: blueprintFilePath,
 				} );
 				cleanupCreateArgs = cleanup;
 				await new Promise< void >( ( resolve, reject ) => {
@@ -837,6 +850,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
 						() => undefined
 					);
+				}
+				if ( bundleTempDir ) {
+					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
 				}
 			}
 

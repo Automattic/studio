@@ -5,5 +5,5 @@
 	border-radius: 50%;
 	flex-shrink: 0;
 	object-fit: cover;
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
 }

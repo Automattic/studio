@@ -3,7 +3,7 @@
 source 'https://rubygems.org'
 
 gem 'fastlane', '~> 2.238'
-gem 'fastlane-plugin-wpmreleasetoolkit', '~> 14.11'
+gem 'fastlane-plugin-wpmreleasetoolkit', '~> 15.0'
 
 gem 'aws-sdk-cloudfront', '~> 1.152'
 

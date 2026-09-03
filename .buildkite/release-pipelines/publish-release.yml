@@ -4,6 +4,8 @@
 env:
   IMAGE_ID: $IMAGE_ID
 
+priority: 1
+
 steps:
   - label: ":shipit: Publish Release"
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

@@ -465,11 +465,10 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'Old Blueprint', wpVersion: '4.9' } );
 		openAdvancedSettings();
 
-		// Auto-update is the default, so no version is pinned and the picker stays away.
+		// Auto-update is the default, so no version is pinned.
 		await waitFor( () =>
-			expect( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) ).toBeChecked()
+			expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked()
 		);
-		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'uses a stable select control for long WordPress version lists', () => {
@@ -486,8 +485,6 @@ describe( 'CreateSiteForm', () => {
 		} );
 		renderForm( { name: 'Versioned site' } );
 		openAdvancedSettings();
-		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
-
 		expect( screen.getByLabelText( 'Version' ).tagName ).toBe( 'SELECT' );
 	} );
 
@@ -502,7 +499,7 @@ describe( 'CreateSiteForm', () => {
 		} );
 		renderForm( { name: 'Pinned site' } );
 		openAdvancedSettings();
-		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Automatic updates' } ) );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
 
 		// The list is newest-first, so the first stable entry is the newest one —
 		// a prerelease would be a surprising default for a new site.

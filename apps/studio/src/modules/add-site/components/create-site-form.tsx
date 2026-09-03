@@ -514,7 +514,9 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 									</div>
+								</div>
 
+								<div className="mt-4">
 									<WPVersionSelector
 										selectedValue={ wpVersion }
 										onChange={ setWpVersion }

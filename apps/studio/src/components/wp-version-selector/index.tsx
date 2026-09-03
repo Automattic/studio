@@ -1,11 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
-	getAutoUpdatesHelpText,
-	getAutoUpdatesToggleLabel,
-	getInstalledVersionLabel,
+	getAutomaticUpdatesDescription,
+	getAutomaticUpdatesLabel,
+	getSelectAVersionLabel,
 } from '@studio/common/lib/wordpress-version-labels';
 import { isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-utils';
-import { FormToggle, SelectControl, Icon } from '@wordpress/components';
+import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useId } from 'react';
@@ -47,9 +47,9 @@ export const WPVersionSelector = ( {
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	// Unique per instance, so two selectors on one screen keep their own label
-	// and description associations.
-	const toggleId = useId();
+	// Unique per instance, so two selectors on one screen keep their own radio
+	// group and their own label/description associations.
+	const modeControlName = useId();
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -90,14 +90,25 @@ export const WPVersionSelector = ( {
 	// degrades to a plain dropdown over `fallbackOptions`.
 	const usesUpdateMode = wpVersions.length > 0;
 	const automaticUpdates = selectedValue === DEFAULT_WORDPRESS_VERSION;
+	// Leaving auto-update lands on the version the site already runs, or on the
+	// newest stable release for a site that doesn't exist yet.
+	const pinnedFallback =
+		installedVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
 
 	// A function, not an element: auto-update is the default in both forms, and
 	// there the dropdown is never rendered.
 	const renderVersionSelect = () => (
 		<SelectControl
 			className={ cx( errorMessage && 'error-select-control' ) }
+			// In update mode the "Select a version" radio introduces the dropdown
+			// visually, but it still needs its own accessible name. Outside it, the
+			// wrapping <label> already names the control.
+			label={ usesUpdateMode ? __( 'Version' ) : undefined }
+			hideLabelFromVision={ usesUpdateMode }
 			disabled={ disabled || isOffline }
-			value={ selectedValue }
+			// While "Automatic updates" is chosen the value is the mode, not a
+			// version, so preview the version the radio below would pin to.
+			value={ usesUpdateMode && automaticUpdates ? pinnedFallback : selectedValue }
 			onChange={ onChange }
 			__next40pxDefaultSize
 			__nextHasNoMarginBottom
@@ -130,13 +141,9 @@ export const WPVersionSelector = ( {
 	);
 
 	if ( usesUpdateMode ) {
-		// Leaving auto-update lands on the version the site already runs, or on
-		// the newest stable release for a site that doesn't exist yet.
-		const pinnedFallback =
-			installedVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
-		const helpId = `${ toggleId }-help`;
-		const installedVersionId = `${ toggleId }-installed-version`;
-		const showsInstalledVersion = automaticUpdates && !! installedVersion;
+		const automaticId = `${ modeControlName }-automatic`;
+		const automaticDescriptionId = `${ automaticId }-description`;
+		const pinnedId = `${ modeControlName }-pinned`;
 		return (
 			<div
 				role="group"
@@ -149,44 +156,54 @@ export const WPVersionSelector = ( {
 					icon={ offlineIcon }
 					text={ message }
 					placement="top-start"
-					className="flex flex-1 flex-col gap-1.5"
+					className="flex flex-1 flex-col"
 				>
-					<div className="flex justify-start items-start gap-2">
-						<FormToggle
-							className="mt-0.5"
-							id={ toggleId }
-							checked={ automaticUpdates }
-							disabled={ disabled || isOffline }
-							// Forms mode announces only the label and the description, so
-							// both lines below the toggle have to be named here.
-							aria-describedby={
-								showsInstalledVersion ? `${ helpId } ${ installedVersionId }` : helpId
-							}
-							onChange={ ( event ) =>
-								onChange( event.target.checked ? DEFAULT_WORDPRESS_VERSION : pinnedFallback )
-							}
-						/>
-						<div className="flex flex-col gap-1">
-							<label htmlFor={ toggleId }>{ getAutoUpdatesToggleLabel() }</label>
-							<div id={ helpId } className="a8c-body-small text-frame-text-secondary">
-								{ getAutoUpdatesHelpText( automaticUpdates ) }
+					<div className="components-radio-control">
+						<div className="components-radio-control__option">
+							<input
+								id={ automaticId }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ automaticUpdates }
+								disabled={ disabled || isOffline }
+								// Forms mode announces only the radio's label and
+								// description, so the description has to be named here.
+								aria-describedby={ automaticDescriptionId }
+								onChange={ () => onChange( DEFAULT_WORDPRESS_VERSION ) }
+							/>
+							<label htmlFor={ automaticId } className="components-radio-control__label">
+								{ getAutomaticUpdatesLabel() }
+							</label>
+							<p
+								id={ automaticDescriptionId }
+								className="components-radio-control__option-description"
+							>
+								{ /* Naming a version on a pinned site would read as if
+								     auto-update were keeping it there. */ }
+								{ getAutomaticUpdatesDescription(
+									automaticUpdates ? installedVersion : undefined
+								) }
+							</p>
+						</div>
+						<div className="components-radio-control__option">
+							<input
+								id={ pinnedId }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ ! automaticUpdates }
+								disabled={ disabled || isOffline }
+								onChange={ () => onChange( pinnedFallback ) }
+							/>
+							<label htmlFor={ pinnedId } className="components-radio-control__label">
+								{ getSelectAVersionLabel() }
+							</label>
+							<div className="components-radio-control__option-description max-w-[180px]">
+								{ renderVersionSelect() }
 							</div>
 						</div>
 					</div>
-					{ /* Naming a version while the site is pinned would read as if
-					     auto-update were keeping it there — the dropdown says it. */ }
-					{ automaticUpdates ? (
-						showsInstalledVersion && (
-							<div id={ installedVersionId } className="a8c-body-small text-frame-text-secondary">
-								{ getInstalledVersionLabel( installedVersion ) }
-							</div>
-						)
-					) : (
-						<label className="flex flex-col gap-1.5 leading-4">
-							<span className="font-semibold">{ __( 'Version' ) }</span>
-							{ renderVersionSelect() }
-						</label>
-					) }
 				</Tooltip>
 			</div>
 		);

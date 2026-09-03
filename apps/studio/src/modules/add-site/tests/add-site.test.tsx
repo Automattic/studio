@@ -405,11 +405,10 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
 
-		// New sites auto-update, so the picker only appears once that is off.
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeChecked();
-		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
+		// New sites auto-update until the user picks a version.
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
 
-		await user.click( screen.getByLabelText( 'Automatic updates' ) );
+		await user.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
 		await user.selectOptions( screen.getByLabelText( 'Version' ), '6.3.3' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
@@ -555,7 +554,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeDisabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeDisabled();
 	} );
 
 	it( 'should enable WordPress version field when online', async () => {
@@ -570,7 +569,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeEnabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeEnabled();
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
@@ -585,7 +584,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		await user.hover( screen.getByLabelText( 'Automatic updates' ) );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.getByText(
@@ -606,7 +605,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		await user.hover( screen.getByLabelText( 'Automatic updates' ) );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.queryByText(

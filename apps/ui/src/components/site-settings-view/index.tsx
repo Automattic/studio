@@ -185,11 +185,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
 				'name',
-				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
-				},
+				'phpVersion',
+				'wpVersion',
 				{
 					id: 'adminCredentials',
 					layout: { type: 'row', alignment: 'start' },

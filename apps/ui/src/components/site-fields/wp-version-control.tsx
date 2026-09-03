@@ -1,13 +1,13 @@
 import {
-	getAutoUpdatesHelpText,
-	getAutoUpdatesToggleLabel,
-	getInstalledVersionLabel,
+	getAutomaticUpdatesDescription,
+	getAutomaticUpdatesLabel,
+	getSelectAVersionLabel,
 } from '@studio/common/lib/wordpress-version-labels';
-import { BaseControl, SelectControl, ToggleControl } from '@wordpress/components';
+import { BaseControl, SelectControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import styles from './style.module.css';
 import type { DataFormControlProps, Option } from '@wordpress/dataviews';
 
@@ -31,8 +31,8 @@ export type WpVersionOption = Option & {
 
 /**
  * WordPress version control. Whenever there are versions to pin to, it splits
- * into an "Automatic updates" toggle and a version dropdown that only appears
- * once the site leaves auto-update; without a version list it degrades to a
+ * into "Automatic updates" and "Select a version" radios, with the version
+ * dropdown nested under the second one; without a version list it degrades to a
  * single dropdown carrying the auto-update option. When the field is disabled
  * with a description (offline), the description shows as a hover tooltip like
  * the legacy UI instead of inline help text.
@@ -47,6 +47,9 @@ export function WpVersionControl< Item >( {
 	// selector) because Base UI's hover detection doesn't fire over a
 	// disabled form control.
 	const [ showTooltip, setShowTooltip ] = useState( false );
+	// Unique per instance so two controls on one screen keep their own radio
+	// group and their own label/description associations.
+	const modeControlName = useId();
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
@@ -80,15 +83,15 @@ export function WpVersionControl< Item >( {
 
 	const updateValue = ( newValue: string ) =>
 		onChange( field.setValue( { item: data, value: newValue } ) );
-	// A function, not an element: auto-update is the default in both forms, and
-	// there the dropdown is never rendered.
 	const renderVersionSelect = () => (
 		<SelectControl
 			__next40pxDefaultSize
 			__nextHasNoMarginBottom
 			label={ usesUpdateModeControl ? __( 'Version' ) : field.label }
-			hideLabelFromVision={ usesUpdateModeControl ? undefined : hideLabelFromVision }
-			value={ value }
+			hideLabelFromVision={ usesUpdateModeControl ? true : hideLabelFromVision }
+			// While "Automatic updates" is chosen the field value is the mode, not
+			// a version, so preview the version the radio below would pin to.
+			value={ usesUpdateModeControl && automaticUpdates ? defaultPinnedOption.value : value }
 			disabled={ disabled }
 			onChange={ updateValue }
 		>
@@ -121,33 +124,58 @@ export function WpVersionControl< Item >( {
 					disabled={ disabled }
 					aria-label={ field.label }
 				>
-					<ToggleControl
-						__nextHasNoMarginBottom
-						label={ getAutoUpdatesToggleLabel() }
-						checked={ automaticUpdates }
-						disabled={ disabled }
-						// Both lines go through `help` so ToggleControl points the
-						// toggle's aria-describedby at them: forms mode announces only
-						// the control's own label and description.
-						help={
-							<>
-								<span className={ styles.toggleHelpText }>
-									{ getAutoUpdatesHelpText( automaticUpdates ) }
-								</span>
-								{ /* Naming a version while the site is pinned would read as if
-								     auto-update were keeping it there — the dropdown says it. */ }
-								{ automaticUpdates && currentVersion && (
-									<span className={ styles.installedVersion }>
-										{ getInstalledVersionLabel( currentVersion.value ) }
-									</span>
+					<div className="components-radio-control">
+						<div className="components-radio-control__option">
+							<input
+								id={ `${ modeControlName }-automatic` }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ automaticUpdates }
+								// Forms mode announces only the radio's label and
+								// description, so the description has to be named here.
+								aria-describedby={ `${ modeControlName }-automatic-description` }
+								onChange={ () => updateValue( autoUpdateOption.value ) }
+							/>
+							<label
+								htmlFor={ `${ modeControlName }-automatic` }
+								className="components-radio-control__label"
+							>
+								{ getAutomaticUpdatesLabel() }
+							</label>
+							<p
+								id={ `${ modeControlName }-automatic-description` }
+								className="components-radio-control__option-description"
+							>
+								{ /* Naming a version on a pinned site would read as if
+								     auto-update were keeping it there. */ }
+								{ getAutomaticUpdatesDescription(
+									automaticUpdates ? currentVersion?.value : undefined
 								) }
-							</>
-						}
-						onChange={ ( checked ) =>
-							updateValue( checked ? autoUpdateOption.value : defaultPinnedOption.value )
-						}
-					/>
-					{ ! automaticUpdates && renderVersionSelect() }
+							</p>
+						</div>
+						<div className="components-radio-control__option">
+							<input
+								id={ `${ modeControlName }-pinned` }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ ! automaticUpdates }
+								onChange={ () => updateValue( defaultPinnedOption.value ) }
+							/>
+							<label
+								htmlFor={ `${ modeControlName }-pinned` }
+								className="components-radio-control__label"
+							>
+								{ getSelectAVersionLabel() }
+							</label>
+							<div
+								className={ `${ styles.pinnedVersionSelect } components-radio-control__option-description` }
+							>
+								{ renderVersionSelect() }
+							</div>
+						</div>
+					</div>
 				</fieldset>
 			</BaseControl>
 		) : (

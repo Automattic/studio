@@ -501,11 +501,8 @@ export function CreateSiteForm( {
 					id: 'path',
 					layout: { type: 'regular', labelPosition: 'top' },
 				},
-				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
-				},
+				'phpVersion',
+				'wpVersion',
 				{
 					id: 'adminCredentials',
 					layout: { type: 'row', alignment: 'start' },

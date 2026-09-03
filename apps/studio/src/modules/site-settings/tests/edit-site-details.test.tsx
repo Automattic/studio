@@ -69,12 +69,12 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-/** New sites and auto-updating sites hide the picker behind the toggle. */
+/** The picker only applies once "Select a version" is the chosen mode. */
 const pinVersion = async (
 	user: ReturnType< typeof userEvent.setup >,
 	version: string
 ): Promise< void > => {
-	await user.click( screen.getByLabelText( 'Automatic updates' ) );
+	await user.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
 	await user.selectOptions( screen.getByLabelText( 'Version' ), version );
 };
 
@@ -157,15 +157,13 @@ describe( 'EditSiteDetails', () => {
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
-		const toggle = screen.getByLabelText( 'Automatic updates' );
-		expect( toggle ).toBeChecked();
-		expect( screen.getByText( /Installed version/ ) ).toHaveTextContent( 'Installed version: 6.3' );
-		// Forms mode announces only the control's label and description, so both
-		// lines under the toggle have to be part of that description.
-		expect( toggle ).toHaveAccessibleDescription( /Installed version: 6\.3/ );
-		expect( toggle ).toHaveAccessibleDescription( /on its own schedule/ );
-		// Nothing to pick while WordPress owns the version.
-		expect( screen.queryByLabelText( 'Version' ) ).not.toBeInTheDocument();
+		const automatic = screen.getByRole( 'radio', { name: 'Automatic updates' } );
+		expect( automatic ).toBeChecked();
+		// Forms mode announces only the radio's label and description.
+		expect( automatic ).toHaveAccessibleDescription(
+			'WordPress installs updates on its own schedule. Currently using version 6.3.'
+		);
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.3' );
 	} );
 
 	it( 'should show the version picker for pinned sites', async () => {
@@ -183,15 +181,15 @@ describe( 'EditSiteDetails', () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		} );
 
-		expect( screen.getByLabelText( 'Automatic updates' ) ).not.toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
 		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.3' );
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
-		// Naming the installed version beside "Automatic updates" on a pinned
-		// site would read as if auto-update were keeping it there (STU-2348).
-		expect( screen.queryByText( /Installed version/ ) ).not.toBeInTheDocument();
+		// Naming the version under "Automatic updates" on a pinned site would
+		// read as if auto-update were keeping the site on it (STU-2348).
+		expect( screen.queryByText( /Currently using version/ ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'should name the installed version as soon as a pinned site turns auto-update on', async () => {
+	it( 'should name the installed version as soon as a pinned site selects auto-update', async () => {
 		vi.mocked( useSiteDetails ).mockReturnValue(
 			createMock< ReturnType< typeof useSiteDetails > >( {
 				...baseMockSiteDetails,
@@ -206,9 +204,9 @@ describe( 'EditSiteDetails', () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		} );
 
-		await userEvent.setup().click( screen.getByLabelText( 'Automatic updates' ) );
+		await userEvent.setup().click( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
-		expect( screen.getByText( /Installed version/ ) ).toHaveTextContent( 'Installed version: 6.3' );
+		expect( screen.getByText( /Currently using version 6\.3\./ ) ).toBeInTheDocument();
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {
@@ -518,7 +516,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 		expect( screen.getByLabelText( 'Site name' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'PHP version' ) ).toBeDisabled();
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeDisabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toBeDisabled();
 
 		resolveUpdate();
@@ -543,7 +541,7 @@ describe( 'EditSiteDetails', () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		} );
 
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeDisabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeDisabled();
 	} );
 
 	it( 'should enable WordPress version field when online', async () => {
@@ -560,7 +558,7 @@ describe( 'EditSiteDetails', () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
 		} );
 
-		expect( screen.getByLabelText( 'Automatic updates' ) ).toBeEnabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeEnabled();
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
@@ -578,7 +576,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 		const user = userEvent.setup();
 
-		await user.hover( screen.getByLabelText( 'Automatic updates' ) );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.getByText( 'Changing WordPress version requires an internet connection.' )
@@ -597,7 +595,7 @@ describe( 'EditSiteDetails', () => {
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
-		await user.hover( screen.getByLabelText( 'Automatic updates' ) );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.queryByText( 'Changing WordPress version requires an internet connection.' )

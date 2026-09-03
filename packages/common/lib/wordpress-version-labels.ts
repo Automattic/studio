@@ -8,30 +8,35 @@ import { __, sprintf } from '@wordpress/i18n';
 
 /**
  * Names the auto-update mode in the plain version dropdown. Only the fallback
- * for a missing version list renders it — everywhere else the mode lives behind
- * the "Automatic updates" toggle.
+ * for a missing version list renders it — everywhere else the mode is one of
+ * the update-mode radios.
  */
 export function getAutoUpdateVersionLabel(): string {
 	/* translators: WordPress version dropdown option. Names the auto-update mode, not a version. */
 	return __( 'Auto-update' );
 }
 
-export function getAutoUpdatesToggleLabel(): string {
+export function getAutomaticUpdatesLabel(): string {
 	return __( 'Automatic updates' );
 }
 
-export function getAutoUpdatesHelpText( automaticUpdates: boolean ): string {
-	return automaticUpdates
-		? __(
-				'WordPress updates this site on its own schedule. New releases may not be installed immediately.'
-		  )
-		: __( 'This site stays on the version you choose.' );
+export function getSelectAVersionLabel(): string {
+	return __( 'Select a version' );
 }
 
-export function getInstalledVersionLabel( installedVersion: string ): string {
+/**
+ * @param installedVersion Version the site runs right now. Pass it only while
+ *                         auto-update is the selected mode: on a pinned site it
+ *                         would read as if auto-update were keeping the site on
+ *                         that version (STU-2348).
+ */
+export function getAutomaticUpdatesDescription( installedVersion?: string ): string {
+	if ( ! installedVersion ) {
+		return __( 'WordPress installs updates on its own schedule.' );
+	}
 	return sprintf(
 		/* translators: %s: WordPress version the site runs now, e.g. 6.9.7 */
-		__( 'Installed version: %s' ),
+		__( 'WordPress installs updates on its own schedule. Currently using version %s.' ),
 		installedVersion
 	);
 }

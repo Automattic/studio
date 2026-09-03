@@ -397,10 +397,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												></TextControlComponent>
 											</label>
 
-											<div className="flex flex-row gap-x-6">
+											{ /* A grid, not a flex row: the WordPress version control moved to
+											     its own block below, and flex-1 would stretch PHP to full width. */ }
+											<div className="grid grid-cols-2 gap-x-6">
 												<label
 													htmlFor="php-version-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
+													className="flex flex-col gap-1.5 leading-4"
 												>
 													<span className="inline-flex items-center gap-2 font-semibold">
 														{ __( 'PHP version' ) }
@@ -434,7 +436,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														__nextHasNoMarginBottom
 													/>
 												</label>
+											</div>
 
+											<div className="mt-4">
 												<WPVersionSelector
 													selectedValue={ selectedWpVersion }
 													onChange={ setSelectedWpVersion }

@@ -33,13 +33,15 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 async function runBeforeLoad(
 	sites: SiteDetails[],
 	sessions: AiSessionSummary[],
-	agenticFeaturesEnabled = true
+	agenticFeaturesEnabled = true,
+	agenticRequiresAuth = false
 ) {
 	const context = {
 		queryClient: {
 			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
 		},
 		connector: {
+			agenticRequiresAuth,
 			getSites: async () => sites,
 			getSessions: async () => sessions,
 			getAuthUser: async () => null,
@@ -112,6 +114,18 @@ describe( 'indexRoute.beforeLoad', () => {
 			false
 		);
 		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
+	} );
+
+	it( "opens the target site's Studio Code sign-in screen when signed out", async () => {
+		writeLastVisited( { siteId: 'site-2' } );
+		const redirect = await runBeforeLoad(
+			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
+			[],
+			true,
+			true
+		);
+		expect( redirect.to ).toBe( '/sites/$siteId/new' );
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 

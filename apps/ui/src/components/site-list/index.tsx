@@ -576,6 +576,7 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate,
 	chatEnabled,
+	agenticReason,
 	onSiteOpen,
 }: {
 	row: SiteRow;
@@ -583,6 +584,7 @@ function SiteSection( {
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
+	agenticReason: ReturnType< typeof useAgenticFeatures >[ 'reason' ];
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
@@ -590,11 +592,12 @@ function SiteSection( {
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
-	// Without chat, a site's home is its overview, so the context-active row
-	// is simply "the selected site" — show it solid-selected (no dashed
-	// outline, no overview shortcut), matching how chat-active looks.
-	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showContextOutline = isContextActive && chatEnabled;
+	const canOpenChatSurface = chatEnabled || agenticReason === 'signed-out';
+	// Offline users and users who switched Studio Code off use Overview as the
+	// site's home. Signed-out users still get the chat surface, where the value
+	// of logging in can be explained in context.
+	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
+	const showContextOutline = isContextActive && canOpenChatSurface;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -626,9 +629,7 @@ function SiteSection( {
 		: 'idle';
 	const handleOpenSite = () => {
 		onSiteOpen?.();
-		// Without chat (signed out, offline, or switched off in Settings →
-		// AI) there's no session to open; the overview is the site's home.
-		if ( ! chatEnabled ) {
+		if ( ! canOpenChatSurface ) {
 			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
@@ -637,6 +638,13 @@ function SiteSection( {
 			return;
 		}
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
+		if ( agenticReason === 'signed-out' ) {
+			void navigate( {
+				to: '/sites/$siteId/new',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -688,7 +696,7 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? (
+							{ canOpenChatSurface ? (
 								<SiteOverviewButton
 									site={ site }
 									isOverviewActive={ isContextActive }
@@ -727,7 +735,7 @@ export function SiteList( {
 } ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { chatEnabled } = useAgenticFeatures();
+	const { chatEnabled, reason: agenticReason } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -746,10 +754,13 @@ export function SiteList( {
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
 	);
-	const activeChatSiteKey = useMemo(
-		() => findSessionSiteKey( rows, activeSessionId ),
-		[ rows, activeSessionId ]
-	);
+	const activeChatSiteKey = useMemo( () => {
+		const sessionSiteKey = findSessionSiteKey( rows, activeSessionId );
+		if ( sessionSiteKey ) {
+			return sessionSiteKey;
+		}
+		return activeSiteId && pathname === `/sites/${ activeSiteId }/new` ? activeSiteId : undefined;
+	}, [ activeSessionId, activeSiteId, pathname, rows ] );
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
 	const activeContextSiteKey =
 		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
@@ -818,6 +829,7 @@ export function SiteList( {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
+			agenticReason={ agenticReason }
 			onSiteOpen={ onSiteOpen }
 		/>
 	);

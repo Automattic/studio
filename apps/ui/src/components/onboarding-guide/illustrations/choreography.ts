@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // The choreography system for the onboarding illustrations. Every scene runs on
 // one clock: `useTimeline` exposes elapsed time `t` (ms), and the pure helpers
@@ -28,41 +28,102 @@ export interface Timeline {
 	restart: () => void;
 }
 
+// External control over a scene's clock, for hosts that own the transport
+// (a carousel with its own replay/pause and a progress ring).
+export interface Playback {
+	/** Freeze the clock where it is; resume continues from there. */
+	paused?: boolean;
+	/** Bump to restart from zero. */
+	restartKey?: number;
+	/** Jump to a point (0→1) through `duration`; bump `key` to apply again. */
+	seek?: { to: number; key: number };
+	/** Called every frame with 0→1 progress through `duration`. */
+	onProgress?: ( progress: number ) => void;
+	/** Called once when a one-shot timeline reaches its end. */
+	onEnd?: () => void;
+}
+
 // A single requestAnimationFrame clock. Reduced motion skips the animation and
 // rests on a representative frame — the start of a loop, or the end of a
 // one-shot (its finished state).
 export function useTimeline( {
 	duration,
 	loop = false,
+	playback,
 }: {
 	duration: number;
 	loop?: boolean;
+	playback?: Playback;
 } ): Timeline {
 	const [ t, setT ] = useState( () => ( ! loop && prefersReducedMotion() ? duration : 0 ) );
 	const [ nonce, setNonce ] = useState( 0 );
 	const rafRef = useRef( 0 );
+	// Elapsed time survives a pause so resuming picks up where it stopped.
+	const elapsedRef = useRef( 0 );
+	const playbackRef = useRef( playback );
+	useLayoutEffect( () => {
+		playbackRef.current = playback;
+	} );
+	const paused = playback?.paused ?? false;
+	const restartKey = playback?.restartKey ?? 0;
+	const seekKey = playback?.seek?.key ?? 0;
 
-	const restart = useCallback( () => setNonce( ( n ) => n + 1 ), [] );
+	const restart = useCallback( () => {
+		elapsedRef.current = 0;
+		setNonce( ( n ) => n + 1 );
+	}, [] );
+
+	useEffect( () => {
+		elapsedRef.current = 0;
+	}, [ restartKey ] );
+
+	// A seek only applies when it changes after mount, so a freshly mounted
+	// scene starts from zero even if the host still holds an older seek.
+	const appliedSeekRef = useRef( seekKey );
+	useEffect( () => {
+		if ( appliedSeekRef.current === seekKey ) {
+			return;
+		}
+		appliedSeekRef.current = seekKey;
+		const seek = playbackRef.current?.seek;
+		if ( seek ) {
+			elapsedRef.current = Math.min( 0.999, Math.max( 0, seek.to ) ) * duration;
+		}
+	}, [ seekKey, duration ] );
 
 	useEffect( () => {
 		if ( prefersReducedMotion() ) {
 			setT( loop ? 0 : duration );
+			playbackRef.current?.onProgress?.( loop ? 0 : 1 );
 			return;
 		}
+		if ( paused ) {
+			// Hold the current frame — including one just scrubbed to.
+			const held = loop ? elapsedRef.current % duration : Math.min( elapsedRef.current, duration );
+			setT( held );
+			playbackRef.current?.onProgress?.( Math.min( 1, held / duration ) );
+			return;
+		}
+		const offset = elapsedRef.current;
 		let start = 0;
 		const tick = ( now: number ) => {
 			if ( ! start ) {
 				start = now;
 			}
-			const elapsed = now - start;
-			setT( loop ? elapsed % duration : Math.min( elapsed, duration ) );
+			const elapsed = offset + ( now - start );
+			elapsedRef.current = elapsed;
+			const next = loop ? elapsed % duration : Math.min( elapsed, duration );
+			setT( next );
+			playbackRef.current?.onProgress?.( Math.min( 1, next / duration ) );
 			if ( loop || elapsed < duration ) {
 				rafRef.current = requestAnimationFrame( tick );
+			} else {
+				playbackRef.current?.onEnd?.();
 			}
 		};
 		rafRef.current = requestAnimationFrame( tick );
 		return () => cancelAnimationFrame( rafRef.current );
-	}, [ duration, loop, nonce ] );
+	}, [ duration, loop, nonce, restartKey, seekKey, paused ] );
 
 	return { t, restart };
 }

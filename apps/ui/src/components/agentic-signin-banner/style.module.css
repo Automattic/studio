@@ -39,3 +39,284 @@
 	flex-shrink: 0;
 	align-self: center;
 }
+
+.promptRoot {
+	display: flex;
+	min-height: 100%;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-lg);
+}
+
+.copy {
+	display: flex;
+	width: min(100%, 500px);
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	text-align: center;
+}
+
+.promptHeading {
+	margin: 0 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-foreground-content-neutral);
+	font-size: var(--wpds-typography-font-size-xl);
+	line-height: var(--wpds-typography-line-height-xl);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
+}
+
+/* Arrows flank the stage; the transport row sits under the stage in the
+   same column, so Replay and the pager line up with its edges. */
+.carousel {
+	display: grid;
+	width: 100%;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	column-gap: var(--wpds-dimension-gap-xs);
+	row-gap: var(--wpds-dimension-gap-sm);
+}
+
+.carousel > .stage {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+/* The playback. The stage keeps the scene's aspect ratio; the scaler inside
+   is the scene's fixed design size, transformed to fit. */
+.stage {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	aspect-ratio: 460 / 345;
+	overflow: hidden;
+	border-radius: var(--wpds-border-radius-xl);
+	background: var(--wpds-color-background-surface-neutral-weak);
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.05),
+		0 4px 8px rgba(0, 0, 0, 0.05),
+		0 12px 28px rgba(0, 0, 0, 0.07);
+}
+
+.stage {
+	cursor: var(--wpds-cursor-control, pointer);
+}
+
+.slide {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	user-select: none;
+}
+
+.pausedBadge {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 2;
+	display: grid;
+	width: 44px;
+	height: 44px;
+	place-items: center;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 70%, transparent);
+	color: var(--wpds-color-background-surface-neutral-strong);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+.pausedBadge svg {
+	fill: currentColor;
+}
+
+/* Hover the bottom of the stage to reveal a scrubbable timeline. The hit area
+   is taller than the bar so it's easy to grab. */
+.scrubber {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 2;
+	height: 22px;
+	padding: 14px 12px 0;
+	box-sizing: border-box;
+	opacity: 0;
+	cursor: var(--wpds-cursor-control, pointer);
+	transition: opacity 160ms ease;
+	touch-action: none;
+}
+
+.stage:hover .scrubber,
+.scrubber:active {
+	opacity: 1;
+}
+
+.scrubberTrack {
+	height: 3px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 18%, transparent);
+}
+
+.scrubberFill {
+	width: calc(var(--progress, 0) * 100%);
+	height: 100%;
+	border-radius: 999px;
+	background: var(--wpds-color-foreground-interactive-brand);
+}
+
+.stageScaler {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform: scale(var(--stage-scale, 1));
+	transform-origin: top left;
+}
+
+.slideEnterFromRight {
+	animation: slide-enter-from-right 360ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.slideEnterFromLeft {
+	animation: slide-enter-from-left 360ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.slideExitLeft {
+	animation: slide-exit-left 360ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.slideExitRight {
+	animation: slide-exit-right 360ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes slide-enter-from-right {
+	from {
+		transform: translateX(100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-enter-from-left {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-exit-left {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-100%);
+	}
+}
+
+@keyframes slide-exit-right {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.slideEnterFromRight,
+	.slideEnterFromLeft,
+	.slideExitLeft,
+	.slideExitRight {
+		animation: none;
+	}
+}
+
+/* The pager, centered under the stage. */
+.transport {
+	display: flex;
+	grid-column: 2;
+	grid-row: 2;
+	justify-content: center;
+}
+
+.pager {
+	display: flex;
+	gap: var(--wpds-dimension-gap-md);
+}
+
+/* The global `button:focus:not(:focus-visible)` rule paints buttons with
+   --wp-ui-button-background-color, so the dots define it or they vanish after
+   a click. */
+.dot {
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 25%,
+		transparent
+	);
+	--wp-ui-button-border-color: transparent;
+	position: relative;
+	width: 6px;
+	height: 6px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: var(--wp-ui-button-background-color);
+	cursor: var(--wpds-cursor-control, pointer);
+	transition: background 150ms ease;
+}
+
+.dot:hover {
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 50%,
+		transparent
+	);
+}
+
+.dotActive,
+.dotActive:hover {
+	--wp-ui-button-background-color: var(--wpds-color-foreground-interactive-brand);
+}
+
+.dot:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 4px;
+}
+
+/* The active dot's progress ring: a conic sweep masked to a 1.25px stroke,
+   driven by --progress (0→1) that the slide's clock sets on the dot. */
+.dotActive::after {
+	content: '';
+	position: absolute;
+	inset: -3px;
+	border-radius: 50%;
+	background: conic-gradient(
+		var(--wpds-color-foreground-interactive-brand) calc(var(--progress, 0) * 360deg),
+		transparent 0
+	);
+	mask: radial-gradient(farthest-side, transparent calc(100% - 1.25px), #000 calc(100% - 1.25px));
+	-webkit-mask: radial-gradient(
+		farthest-side,
+		transparent calc(100% - 1.25px),
+		#000 calc(100% - 1.25px)
+	);
+	pointer-events: none;
+}
+
+.description {
+	max-width: 380px;
+	margin: 0;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-wrap: balance;
+}
+
+.loginButton {
+	margin-top: var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg);
+}

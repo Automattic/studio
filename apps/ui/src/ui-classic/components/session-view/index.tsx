@@ -16,6 +16,7 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -23,6 +24,7 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
@@ -46,7 +48,7 @@ import { QueuedPrompts } from './queued-prompts';
 import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
-import type { AiSessionSummary } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
@@ -62,17 +64,17 @@ export function isScrolledAwayFromLatest( node: {
 	);
 }
 
-interface SessionHeaderProps {
-	summary: AiSessionSummary;
-}
-
-function SessionHeader( { summary }: SessionHeaderProps ) {
-	const siteName = summary.ownerSiteName;
+function SessionHeader( {
+	siteName,
+	site,
+	effectiveEnvironment,
+}: {
+	siteName?: string;
+	site?: SiteDetails;
+	effectiveEnvironment: 'local' | 'live';
+} ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const { data: sites } = useSites();
-	const site = findAiSessionOwnerSite( sites, summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
 	}
@@ -226,6 +228,42 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		<SessionUIProvider>
 			<SessionViewContent sessionId={ sessionId } />
 		</SessionUIProvider>
+	);
+}
+
+export function SignedOutSessionView( { siteId }: { siteId: string } ) {
+	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const { enabled, isReady, reason } = useAgenticFeatures();
+	const previousReasonRef = useRef( reason );
+
+	useEffect( () => {
+		const previousReason = previousReasonRef.current;
+		previousReasonRef.current = reason;
+		if ( enabled && previousReason === 'signed-out' ) {
+			void navigate( { to: '/', replace: true } );
+			return;
+		}
+		if ( isReady && ! enabled && reason !== 'signed-out' ) {
+			void navigate( {
+				to: '/sites/$siteId/overview',
+				params: { siteId },
+				replace: true,
+			} );
+		}
+	}, [ enabled, isReady, navigate, reason, siteId ] );
+
+	return (
+		<SessionFrame
+			header={
+				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
+			}
+			footer={ <div aria-hidden /> }
+			footerEnd={ site ? <PreviewToggleButton /> : null }
+		>
+			<AgenticSigninPrompt />
+		</SessionFrame>
 	);
 }
 
@@ -468,7 +506,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	) {
 		return (
 			<SessionFrame
-				header={ <SessionHeader summary={ data.summary } /> }
+				header={
+					<SessionHeader
+						siteName={ data.summary.ownerSiteName }
+						site={ ownerSite }
+						effectiveEnvironment={ effectiveEnvironment }
+					/>
+				}
 				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
@@ -484,7 +528,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={ <SessionHeader summary={ data.summary } /> }
+			header={
+				<SessionHeader
+					siteName={ data.summary.ownerSiteName }
+					site={ ownerSite }
+					effectiveEnvironment={ effectiveEnvironment }
+				/>
+			}
 			composer={
 				<div
 					className={ clsx(

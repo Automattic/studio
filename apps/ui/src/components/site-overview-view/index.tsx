@@ -19,7 +19,6 @@ import {
 } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
 import { useRef, useState } from 'react';
-import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import {
 	ImportSiteDialog,
@@ -315,7 +314,6 @@ function SiteOverviewBody( {
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
-								<AgenticSigninBanner />
 								<div className={ styles.cardColumn }>
 									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 									<OverviewCard>

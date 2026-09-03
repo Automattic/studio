@@ -30,12 +30,10 @@ export const indexRoute = createRoute( {
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];
 
-		// Without chat there is nothing to open a session for; the site
-		// overview is the site's home instead (matching the sidebar).
-		const { chatEnabled } = await resolveAgenticFeatures( context );
+		const { chatEnabled, reason } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
 			throw redirect( {
-				to: '/sites/$siteId/overview',
+				to: reason === 'signed-out' ? '/sites/$siteId/new' : '/sites/$siteId/overview',
 				params: { siteId: targetSite.id },
 			} );
 		}

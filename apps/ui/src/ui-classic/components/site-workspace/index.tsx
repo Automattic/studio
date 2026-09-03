@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SiteOverviewView } from '@/components/site-overview-view';
-import { SessionView } from '@/ui-classic/components/session-view';
+import { SessionView, SignedOutSessionView } from '@/ui-classic/components/session-view';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
@@ -42,13 +42,17 @@ export function SiteWorkspace( {
 
 	return (
 		<div className={ styles.root }>
-			{ renderedSessionId ? (
+			{ chatActive || renderedSessionId ? (
 				<div
 					className={ `${ styles.layer } ${ chatActive ? styles.layerActive : '' }` }
 					inert={ ! chatActive }
 					aria-hidden={ ! chatActive || undefined }
 				>
-					<SessionView key={ renderedSessionId } sessionId={ renderedSessionId } />
+					{ renderedSessionId ? (
+						<SessionView key={ renderedSessionId } sessionId={ renderedSessionId } />
+					) : (
+						<SignedOutSessionView siteId={ siteId } />
+					) }
 				</div>
 			) : null }
 			{ overviewActive || hasVisitedOverview ? (

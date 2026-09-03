@@ -471,6 +471,24 @@ describe( 'CreateSiteForm', () => {
 		);
 	} );
 
+	// The update-mode radios replace the auto-update dropdown option, and the
+	// site does not exist yet, so the description cannot claim a version is in
+	// use. Naming the version a new site will get is left to the picker.
+	it( 'describes automatic updates without naming a version on the create form', () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'New site' } );
+		openAdvancedSettings();
+
+		expect(
+			screen.getByRole( 'radio', { name: 'Automatic updates' } )
+		).toHaveAccessibleDescription( 'WordPress installs updates on its own schedule.' );
+	} );
+
 	it( 'uses a stable select control for long WordPress version lists', () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [

@@ -16,12 +16,17 @@
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
 	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
 	   above dialogs so help text on controls inside a modal still surfaces
-	   above the containing overlay. */
+	   above the containing overlay. Every layer needs a value: @wordpress/ui
+	   falls back to `initial` (auto), which loses to any positioned chrome. */
+	--wp-ui-popover-z-index: 700;
+	--wp-ui-autocomplete-z-index: 700;
+	--wp-ui-combobox-z-index: 700;
 	--wp-ui-dialog-z-index: 700;
+	--wp-ui-drawer-z-index: 700;
 	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
 
-	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	/* Vivid status colors the wpds palette lacks: --wpds-color-foreground-content-success
 	   resolves to #002900 (reads black at dot size) and there are no
 	   caution/accent equivalents. */
 	--studio-color-status-running: #16a34a;
@@ -36,8 +41,8 @@ body {
 	font-family: var( --wpds-typography-font-family-body );
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: var( --wpds-typography-line-height-md );
-	background-color: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background-color: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
@@ -75,7 +80,7 @@ body:lang( ckb ) [class*='components-'] {
    foreground so they match the surrounding UI in both schemes. */
 .components-base-control__help,
 [class*='dataforms-layouts'] [class*='description'] {
-	color: var( --wpds-color-fg-content-neutral-weak ) !important;
+	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -91,8 +96,8 @@ h4,
 h5,
 h6 {
 	font-family: var( --wpds-typography-font-family-heading );
-	font-weight: var( --wpds-typography-font-weight-regular );
-	color: var( --wpds-color-fg-content-neutral );
+	font-weight: var( --wpds-typography-font-weight-default );
+	color: var( --wpds-color-foreground-content-neutral );
 	margin: 0;
 }
 
@@ -189,12 +194,12 @@ input[type='checkbox']:focus:not( :focus-visible ) {
    AlertDialog Cancel buttons — matching values already used by
    `tone="neutral"` `variant="minimal"` elsewhere. */
 [role='alertdialog'] button:first-child {
-	--wp-ui-button-background-color: var( --wpds-color-bg-interactive-neutral-weak );
-	--wp-ui-button-background-color-active: var( --wpds-color-bg-interactive-neutral-weak-active );
-	--wp-ui-button-background-color-disabled: var( --wpds-color-bg-interactive-neutral-weak-disabled );
-	--wp-ui-button-foreground-color: var( --wpds-color-fg-interactive-neutral );
-	--wp-ui-button-foreground-color-active: var( --wpds-color-fg-interactive-neutral-active );
-	--wp-ui-button-foreground-color-disabled: var( --wpds-color-fg-interactive-neutral-disabled );
+	--wp-ui-button-background-color: var( --wpds-color-background-interactive-neutral-weak );
+	--wp-ui-button-background-color-active: var( --wpds-color-background-interactive-neutral-weak-active );
+	--wp-ui-button-background-color-disabled: var( --wpds-color-background-interactive-neutral-weak-disabled );
+	--wp-ui-button-foreground-color: var( --wpds-color-foreground-interactive-neutral );
+	--wp-ui-button-foreground-color-active: var( --wpds-color-foreground-interactive-neutral-active );
+	--wp-ui-button-foreground-color-disabled: var( --wpds-color-foreground-interactive-neutral-disabled );
 }
 
 /* @wordpress/ui's Button loading spinner centers itself with
@@ -226,17 +231,16 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	}
 }
 
-/* Compact density: shrink icons to match the tighter spacing tokens.
-   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
-   density only shrinks padding/gap tokens, not icon sizes. Override the
-   svg width/height attributes with CSS until the design system exposes
-   a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
+/* Shrink icons to match the tighter spacing tokens. @wordpress/icons draws
+   SVGs at 24x24 by default, and nothing scales them down for us. Override the
+   svg width/height attributes with CSS until the design system exposes an
+   icon size token. */
+[data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
 }
 
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+[data-ui-mode='classic'] svg[data-keep-size] {
 	width: auto;
 	height: auto;
 }
@@ -248,8 +252,8 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 [data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
 		[aria-disabled='true']
 	) {
-	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
-	color: var( --wpds-color-fg-interactive-neutral );
+	background-color: var( --wpds-color-background-interactive-neutral-weak-active );
+	color: var( --wpds-color-foreground-interactive-neutral );
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
@@ -264,22 +268,22 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 
 .components-input-control__prefix svg,
 .components-input-control__suffix svg {
-	fill: var( --wpds-color-fg-content-neutral-weak );
+	fill: var( --wpds-color-foreground-content-neutral-weak );
 }
 
 select optgroup,
 select option {
-	background-color: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background-color: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 }
 
 [data-wpds-theme-provider-id] .components-radio-control__input[type='radio']:not(:checked) {
-	border-color: var( --wpds-color-stroke-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
 	background: transparent;
 }
 
 [data-wpds-theme-provider-id] .components-radio-control__option-description {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	unicode-bidi: plaintext;
 }
 

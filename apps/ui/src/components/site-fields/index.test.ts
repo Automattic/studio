@@ -27,7 +27,8 @@ describe( 'wpVersionField', () => {
 
 		// The settings form seeds this value when a pinned site's installed
 		// version can't be read. It has to stay selectable and unoffered, and it
-		// must not claim the site auto-updates.
+		// must not claim the site auto-updates — the update-mode radios read the
+		// auto-update group to decide what the picker can offer.
 		expect( optionsOf( field ) ).toContainEqual( {
 			value: DEFAULT_WORDPRESS_VERSION,
 			label: 'Unknown version',
@@ -36,12 +37,33 @@ describe( 'wpVersionField', () => {
 		} );
 	} );
 
-	it( 'names the auto-update option after the mode, not a version', () => {
-		// The settings form hides this option behind the Automatic updates
-		// toggle; only the create form's plain dropdown renders it.
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS );
+	it( 'names the installed version in the auto-update option', () => {
+		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
+			latestValue: '',
+			autoUpdateVersion: '6.9.7',
+		} );
 
-		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
+		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (6.9.7)' ] );
+	} );
+
+	it( 'falls back to the bare mode name when the version is unknown', () => {
+		// `latest` is the mode, not a version — "Auto-update (latest)" says nothing.
+		for ( const autoUpdateVersion of [ undefined, '', '-', 'latest' ] ) {
+			const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
+				latestValue: '',
+				autoUpdateVersion,
+			} );
+
+			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
+		}
+	} );
+
+	it( 'names the version a new site will be created with', () => {
+		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
+			autoUpdateVersion: '7.1',
+		} );
+
+		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (7.1)' ] );
 	} );
 
 	it( 'keeps prerelease and stable versions in separate groups', () => {

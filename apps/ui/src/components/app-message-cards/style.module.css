@@ -73,6 +73,6 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 	pointer-events: none;
 }

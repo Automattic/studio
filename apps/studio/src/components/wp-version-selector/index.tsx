@@ -28,11 +28,8 @@ type WPVersionSelectorProps = {
 	fallbackOptions: { label: string; value: string }[];
 	/** Custom message to show when offline. If not provided, will use the default message */
 	offlineMessage?: string;
-	/**
-	 * The version the site runs right now. Reported under the "Automatic
-	 * updates" toggle, and seeds the dropdown when the site leaves it.
-	 */
-	installedVersion?: string;
+	/** Version named in the auto-update option. Omit it on a pinned site. */
+	autoUpdateVersion?: string;
 };
 
 export const WPVersionSelector = ( {
@@ -43,7 +40,7 @@ export const WPVersionSelector = ( {
 	extraOptions,
 	fallbackOptions,
 	offlineMessage,
-	installedVersion,
+	autoUpdateVersion,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -93,7 +90,7 @@ export const WPVersionSelector = ( {
 	// Leaving auto-update lands on the version the site already runs, or on the
 	// newest stable release for a site that doesn't exist yet.
 	const pinnedFallback =
-		installedVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
+		autoUpdateVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
 
 	// A function, not an element: auto-update is the default in both forms, and
 	// there the dropdown is never rendered.
@@ -182,7 +179,7 @@ export const WPVersionSelector = ( {
 								{ /* Naming a version on a pinned site would read as if
 								     auto-update were keeping it there. */ }
 								{ getAutomaticUpdatesDescription(
-									automaticUpdates ? installedVersion : undefined
+									automaticUpdates ? autoUpdateVersion : undefined
 								) }
 							</p>
 						</div>

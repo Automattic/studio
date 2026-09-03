@@ -82,14 +82,14 @@
 	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 600;
 	line-height: var(--wpds-typography-line-height-md);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .description {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	text-wrap: balance;
 }
 
@@ -101,7 +101,7 @@
 	margin: var(--wpds-dimension-padding-lg) 0 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .actions {

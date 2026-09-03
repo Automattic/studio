@@ -167,7 +167,7 @@
 	padding: 0;
 	border: 1px solid var(--color-frame-border);
 	border-radius: 999px;
-	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
+	box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
 	cursor: pointer;
 	opacity: 0;
 	pointer-events: none;

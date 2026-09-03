@@ -31,6 +31,7 @@ vi.mock( 'src/stores/wordpress-versions-api', async () => {
 		...( actual || {} ),
 		useGetWordPressVersions: () => ( {
 			data: [
+				{ value: 'latest', isBeta: false, isDevelopment: false, label: '6.4' },
 				{
 					value: '6.5.0-beta1',
 					isBeta: true,
@@ -382,6 +383,30 @@ describe( 'AddSite', () => {
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
 		expect( screen.getByText( '/default_path/my-wordpress-website-mutated' ) ).toBeVisible();
+	} );
+
+	// The update-mode radios replace the auto-update dropdown option, and the
+	// site does not exist yet, so the description cannot claim a version is in use.
+	it( 'should describe automatic updates without naming a version', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		renderWithProvider( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByTestId( 'create-site-option-button' ) );
+		await user.click( await screen.findByRole( 'button', { name: /Empty site/ } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		expect(
+			screen.getByRole( 'radio', { name: 'Automatic updates' } )
+		).toHaveAccessibleDescription( 'WordPress installs updates on its own schedule.' );
 	} );
 
 	it( 'should display WordPress version dropdown', async () => {

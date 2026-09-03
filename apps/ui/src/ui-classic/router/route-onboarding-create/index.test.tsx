@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateSitePage } from './index';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
 	cleanup: vi.fn( async () => undefined ),
+	openExternalUrl: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
 	formProps: null as Record< string, unknown > | null,
 	uploadProps: null as Record< string, unknown > | null,
@@ -36,6 +38,7 @@ vi.mock( '@/components/create-site-form', () => ( {
 		mocks.formProps = props;
 		return (
 			<>
+				{ props.panelFooter as ReactNode }
 				<button
 					type="button"
 					onClick={ () =>
@@ -54,7 +57,10 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@/data/core') >();
 	return {
 		...actual,
-		useConnector: () => ( { cleanupBlueprintTempDir: mocks.cleanup } ),
+		useConnector: () => ( {
+			cleanupBlueprintTempDir: mocks.cleanup,
+			openExternalUrl: mocks.openExternalUrl,
+		} ),
 	};
 } );
 
@@ -66,6 +72,17 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: [] } ),
 	useCreateSite: () => ( { mutateAsync: mocks.mutateAsync, isPending: false } ),
+} ) );
+
+vi.mock( '@/data/queries/use-wordpress-org-package-name', () => ( {
+	useWordPressOrgPackageName: ( kind?: 'plugin' | 'theme', slug?: string ) => ( {
+		data:
+			kind === 'plugin' && slug === 'query-monitor'
+				? 'Query Monitor'
+				: kind === 'theme' && slug === 'twentytwentyfour'
+				? 'Twenty Twenty-Four'
+				: null,
+	} ),
 } ) );
 
 const formValues: CreateSiteFormValues = {
@@ -143,6 +160,61 @@ describe( 'CreateSitePage', () => {
 		act( () => ( mocks.uploadProps?.onRemove as () => void )() );
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/second' );
 		expect( mocks.formProps?.submitLabel ).toBeUndefined();
+	} );
+
+	it( 'shows what the selected Blueprint will create', () => {
+		const { container } = render( <CreateSitePage /> );
+		const selected: SelectedBlueprint = {
+			slug: 'development',
+			title: 'Theme & plugin development',
+			excerpt: 'Development tools pre-installed.',
+			image: 'https://example.com/development.png',
+			blueprint: {
+				preferredVersions: { php: '8.3', wp: 'latest' },
+				steps: [
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'query-monitor' },
+					},
+					{
+						step: 'installTheme',
+						themeData: { resource: 'bundled', path: './twentytwentyfour.zip' },
+					},
+				],
+			},
+			file: { name: 'Development', size: 0 },
+		};
+
+		act( () =>
+			( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected )
+		);
+
+		expect(
+			screen.getByRole( 'heading', { name: 'Theme & plugin development' } )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Blueprint' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Development tools pre-installed.' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: '1 plugin' } ) ).toBeInTheDocument();
+		const pluginLink = screen.getByRole( 'link', { name: 'Query Monitor' } );
+		expect( pluginLink ).toHaveAttribute( 'href', 'https://wordpress.org/plugins/query-monitor/' );
+		expect( pluginLink ).toHaveAttribute( 'title', 'Open on WordPress.org' );
+		expect( screen.getByRole( 'heading', { name: '1 theme' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Twenty Twenty-Four' ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'link', { name: 'Twenty Twenty-Four' } ) ).not.toBeInTheDocument();
+		expect( container.querySelector( 'img' ) ).toHaveAttribute(
+			'src',
+			'https://example.com/development.png'
+		);
+		fireEvent.click( pluginLink );
+		expect( mocks.openExternalUrl ).toHaveBeenCalledWith(
+			'https://wordpress.org/plugins/query-monitor/'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
+		expect(
+			screen.queryByRole( 'heading', { name: 'Theme & plugin development' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'blueprint-upload' ) ).toBeInTheDocument();
 	} );
 
 	it( 'blocks submission while the Blueprint upload is invalid', () => {

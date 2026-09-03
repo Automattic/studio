@@ -80,11 +80,14 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	{
 		latestValue = DEFAULT_WORDPRESS_VERSION,
 		currentVersion,
+		autoUpdateVersion,
 		offline = false,
 		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
 	}: {
 		latestValue?: string;
 		currentVersion?: string;
+		/** Version named in the auto-update option. Omit it on a pinned site. */
+		autoUpdateVersion?: string;
 		offline?: boolean;
 		offlineMessage?: string;
 	} = {}
@@ -132,8 +135,9 @@ export function wpVersionField< T extends { wpVersion: string } >(
 				stable = addVersionOption( toOption( offer, 'stable' ), stable );
 			}
 		}
+		const autoUpdateLabel = getAutoUpdateVersionLabel( autoUpdateVersion );
 		const options: WpVersionOption[] = [
-			{ value: latestValue, label: getAutoUpdateVersionLabel(), group: 'latest' },
+			{ value: latestValue, label: autoUpdateLabel, group: 'latest' },
 			...prerelease,
 			...stable,
 		];

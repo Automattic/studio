@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/main';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { isDevRelease } from 'src/lib/version-utils';
-import { getMainWindow } from 'src/main-window';
+import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { switchToNightlyAndUpdate } from 'src/updates';
 
@@ -69,7 +69,11 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 	const buttons = [ SWITCH, NOT_NOW ];
 
 	isPromptOpen = true;
-	const mainWindow = await getMainWindow();
+	const mainWindow = getExistingMainWindow();
+	if ( ! mainWindow ) {
+		isPromptOpen = false;
+		return;
+	}
 	const { response, checkboxChecked } = await dialog.showMessageBox( mainWindow, {
 		type: 'question',
 		buttons,

@@ -4,6 +4,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { LoggerError } from 'cli/logger';
 import { runCommand as runPull } from '../pull';
 import { runCommand as runPush } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -108,6 +109,35 @@ describe( 'CLI: studio pull Tracks events', () => {
 		await runPull( testSite.path, [ 'all' ] );
 
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
+	} );
+
+	// The remote steps in `sync-api` tag their own failures. Without those codes a
+	// remote failure inherited the emitter's fallback and was misreported as a
+	// local import that never ran.
+	it( 'attributes a remote-side failure to the remote step, not the local import', async () => {
+		vi.mocked( fetchSyncableSites ).mockRejectedValue(
+			new LoggerError( 'Failed to fetch WordPress.com sites', undefined, 'site_fetch' )
+		);
+
+		await expect( runPull( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { success: false, failure_reason: 'site_fetch' } )
+		);
+	} );
+
+	it( 'attributes a backup-initiation failure to the remote backup', async () => {
+		vi.mocked( initiateBackup ).mockRejectedValue(
+			new LoggerError( 'Failed to initiate backup', undefined, 'remote_backup' )
+		);
+
+		await expect( runPull( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { success: false, failure_reason: 'remote_backup' } )
+		);
 	} );
 } );
 

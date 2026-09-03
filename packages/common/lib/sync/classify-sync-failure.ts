@@ -76,8 +76,9 @@ const UNTRANSLATED_BUCKETS: Array< [ string[], TracksSyncFailureReason ] > = [
  * Coarse, low-cardinality classification of a sync failure for the
  * `failure_reason` Tracks prop.
  *
- * Precedence, highest first: an explicit `code` the call site is certain of, the
- * HTTP status, an untranslated substring match, then the phase the sync was in.
+ * Precedence, highest first: an untranslated substring match (an environment
+ * failure outranks the step it interrupted), then an explicit `code` the call
+ * site is certain of, the HTTP status, and finally the phase the sync was in.
  *
  * The raw error is never returned — it can embed site names, URLs, and
  * filesystem paths, and its cardinality would make the prop unqueryable.
@@ -86,6 +87,17 @@ export function classifySyncFailure(
 	error: unknown,
 	hint?: SyncFailureHint
 ): TracksSyncFailureReason {
+	// Substrings first, matching `classifyFailure` in `apps/cli/lib/utils.ts`: an
+	// environment failure like a full disk is more actionable than the step it
+	// happened to interrupt, so it wins over that step's own bucket.
+	const message = error instanceof Error ? error.message : String( error ?? '' );
+	const normalized = message.toLowerCase();
+	for ( const [ substrings, bucket ] of UNTRANSLATED_BUCKETS ) {
+		if ( substrings.some( ( substring ) => normalized.includes( substring ) ) ) {
+			return bucket;
+		}
+	}
+
 	if ( hint?.code && isFailureReason( hint.code ) ) {
 		return hint.code;
 	}
@@ -94,14 +106,6 @@ export function classifySyncFailure(
 		const fromHttpStatus = fromStatus( hint.status );
 		if ( fromHttpStatus ) {
 			return fromHttpStatus;
-		}
-	}
-
-	const message = error instanceof Error ? error.message : String( error ?? '' );
-	const normalized = message.toLowerCase();
-	for ( const [ substrings, bucket ] of UNTRANSLATED_BUCKETS ) {
-		if ( substrings.some( ( substring ) => normalized.includes( substring ) ) ) {
-			return bucket;
 		}
 	}
 

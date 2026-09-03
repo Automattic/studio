@@ -204,7 +204,13 @@ export async function runCommand(
 				DEFAULT_IMPORTER_OPTIONS
 			);
 			handleImportEvents( importer, logger );
-			await importer.import( site );
+			try {
+				await importer.import( site );
+			} catch ( error ) {
+				// Tagged so the failure is attributed to the local import rather than
+				// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
+				throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
+			}
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.
@@ -253,7 +259,7 @@ export async function runCommand(
 				startedAt,
 				site: remoteSite,
 				error: pullError,
-				hint: { phase: 'local_import', code: findFailureCode( pullError ) },
+				hint: { code: findFailureCode( pullError ) },
 			} )
 		);
 	}

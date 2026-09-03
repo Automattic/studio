@@ -394,10 +394,15 @@ never learns the hosting kind, and reporting the placeholder's hardcoded value w
 `remote_import`, `upload`, `network`, `payload_too_large`, `auth`, `not_found`, `local_import`,
 `local_export`, `disk_full`, `storage_write`, `site_fetch`, `unknown`. Classified by
 `classifySyncFailure` (`packages/common/lib/sync/classify-sync-failure.ts`), shared by all three
-surfaces. It prefers a bucket the call site is certain of, then the HTTP status, then an
-**untranslated** substring match (`ENOSPC`, `ECONNRESET`, …), then the phase the sync was in. Only
+surfaces. It prefers an **untranslated** substring match (`ENOSPC`, `ECONNRESET`, …) — an
+environment failure like a full disk is more actionable than whichever step it interrupted — then a
+bucket the call site is certain of, the HTTP status, and finally the phase the sync was in. Only
 untranslated system/library substrings are matched — `__()` display text is locale-dependent and
 embeds site names and filesystem paths.
+
+In the CLI those certain buckets come from the `LoggerError` codes the `sync-api` wrappers attach
+(`apps/cli/lib/sync-api.ts`), so a remote-side failure is attributed to the step that actually broke
+rather than inheriting the caller's fallback.
 
 #### Settings-change events
 

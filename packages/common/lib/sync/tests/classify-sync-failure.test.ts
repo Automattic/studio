@@ -28,9 +28,9 @@ describe( 'classifySyncFailure', () => {
 		);
 	} );
 
-	it( 'prefers an explicit code over a status, substring, or phase', () => {
+	it( 'prefers an explicit code over a status or phase', () => {
 		expect(
-			classifySyncFailure( new Error( 'read ECONNRESET' ), {
+			classifySyncFailure( new Error( 'something opaque' ), {
 				code: 'sql_import',
 				status: 413,
 				phase: 'upload',
@@ -38,10 +38,17 @@ describe( 'classifySyncFailure', () => {
 		).toBe( 'sql_import' );
 	} );
 
-	it( 'prefers a substring match over the phase', () => {
+	// Matches `classifyFailure` in `apps/cli/lib/utils.ts`: a full disk is more
+	// actionable than whichever step it happened to interrupt.
+	it( 'prefers an environment substring over the step that was running', () => {
 		expect(
 			classifySyncFailure( new Error( 'ENOSPC: no space left on device' ), {
 				phase: 'local_export',
+			} )
+		).toBe( 'disk_full' );
+		expect(
+			classifySyncFailure( new Error( 'ENOSPC: no space left on device' ), {
+				code: 'local_import',
 			} )
 		).toBe( 'disk_full' );
 	} );

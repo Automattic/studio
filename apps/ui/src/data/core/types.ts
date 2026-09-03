@@ -494,6 +494,12 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// The site's WordPress debug log, resolved host-side from the site id. Its
+	// existence is a query, not a `SiteDetails` field: the file comes and goes
+	// while the UI is open. False where the host can't reach the filesystem.
+	siteDebugLogExists( siteId: string ): Promise< boolean >;
+	openSiteDebugLog( siteId: string ): Promise< void >;
+
 	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
 	openStudioLogs(): Promise< void >;
 

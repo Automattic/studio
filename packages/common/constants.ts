@@ -66,3 +66,6 @@ export const ARCHIVER_OPTIONS = {
 		gzipOptions: { level: 9 },
 	},
 };
+
+// Shared so the desktop and the local server can't drift on the path.
+export const DEBUG_LOG_RELATIVE_PATH = 'wp-content/debug.log';

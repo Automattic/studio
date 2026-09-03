@@ -990,6 +990,25 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 
 			signal.throwIfAborted();
 
+			// The remote gave up on the backup. Without this the response falls through
+			// to the progress branch below, which stops the poller (the status is no
+			// longer `in-progress`) but records nothing — inflating pull success rates
+			// against push, whose poller handles the symmetric case explicitly.
+			if ( response.status === 'failed' ) {
+				recordSyncEvent( 'pull', {
+					startedAt: currentPullState.startedAt,
+					remoteIsPressable: currentPullState.remoteIsPressable,
+					error: new Error( 'Remote backup failed' ),
+					hint: { phase: 'remote_backup' },
+				} );
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+					message: __(
+						'An error occurred while creating the backup on the remote site. If this problem persists, please contact support.'
+					),
+				} );
+			}
+
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 

@@ -155,7 +155,10 @@ export const WPVersionSelector = ( {
 					placement="top-start"
 					className="flex flex-1 flex-col"
 				>
-					<div className="components-radio-control">
+					{ /* `.components-radio-control` sets no gap of its own, so the first
+					     option's description would butt against the second radio.
+					     16px matches the agentic UI's --wpds-dimension-padding-lg. */ }
+					<div className="components-radio-control flex flex-col gap-4">
 						<div className="components-radio-control__option">
 							<input
 								id={ automaticId }

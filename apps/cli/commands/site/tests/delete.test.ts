@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -16,7 +17,7 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
@@ -199,13 +200,6 @@ describe( 'CLI: studio site delete', () => {
 			vi.mocked( stopWordPressServer ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when file deletion fails', async () => {
-			vi.mocked( trash ).mockRejectedValueOnce( new Error( 'File deletion failed' ) );
-
-			await expect( runCommand( testSiteFolder, true ) ).rejects.toThrow( 'File deletion failed' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -400,6 +394,17 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should proceed and still emit the deleted event when moving files to trash fails', async () => {
+			vi.mocked( trash ).mockRejectedValueOnce( new Error( 'File deletion failed' ) );
+
+			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
+			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( emitCliEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( { event: SITE_EVENTS.DELETED } )
+			);
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
 		it( 'should not remove domain or certificate if no custom domain', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
@@ -524,9 +529,9 @@ describe( 'CLI: studio site delete', () => {
 		it( 'continues after a per-site mutation failure and keeps completed evidence', async () => {
 			const sites = createSites( 3 );
 			mockSites( sites );
-			vi.mocked( trash )
+			vi.mocked( saveCliConfig )
 				.mockResolvedValueOnce( undefined )
-				.mockRejectedValueOnce( new Error( 'File deletion failed' ) )
+				.mockRejectedValueOnce( new Error( 'Config write failed' ) )
 				.mockResolvedValueOnce( undefined );
 
 			const result = await runDeleteCommand( {
@@ -541,7 +546,7 @@ describe( 'CLI: studio site delete', () => {
 				'failed',
 				'deleted',
 			] );
-			expect( result.sites[ 1 ]?.error ).toBe( 'File deletion failed' );
+			expect( result.sites[ 1 ]?.error ).toBe( 'Config write failed' );
 			expect( process.exitCode ).toBe( 1 );
 		} );
 

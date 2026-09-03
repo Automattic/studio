@@ -451,8 +451,18 @@ async function deleteSite(
 		// both if they exist.
 		if ( filePaths.length > 0 ) {
 			logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-			await trash( filePaths );
-			logger.reportSuccess( __( 'Site files moved to trash' ) );
+			// The site is already out of the config by this point, so a trash failure must not
+			// abort the rest of the delete — otherwise the DELETED event never fires and the UI
+			// keeps showing a site that no longer exists.
+			try {
+				await trash( filePaths );
+				logger.reportSuccess( __( 'Site files moved to trash' ) );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to move site files to trash. Proceeding anyway…' ), error ),
+					false
+				);
+			}
 		} else {
 			logger.reportSuccess( __( 'Site files already removed' ) );
 		}

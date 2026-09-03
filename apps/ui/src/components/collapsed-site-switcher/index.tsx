@@ -1,15 +1,12 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Popover, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState, type ReactElement } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { SiteList } from '@/components/site-list';
-import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 // A short pause before opening so incidental pointer travel across the
 // toggle doesn't flash the list, and a longer grace period before closing
@@ -54,7 +51,7 @@ export function CollapsedSiteSwitcher( {
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
 				{ /* Same dark theme scope as the expanded sidebar so the list
 				     renders identically on the window-chrome background. */ }
-				<ThemeProvider density="compact" color={ { bg: backgroundColor } }>
+				<ThemeProvider color={ { background: backgroundColor } }>
 					<div className={ styles.surface } style={ { backgroundColor } }>
 						<div className={ styles.scrollArea }>
 							<SiteList

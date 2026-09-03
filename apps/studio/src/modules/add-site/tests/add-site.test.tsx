@@ -31,6 +31,7 @@ vi.mock( 'src/stores/wordpress-versions-api', async () => {
 		...( actual || {} ),
 		useGetWordPressVersions: () => ( {
 			data: [
+				{ value: 'latest', isBeta: false, isDevelopment: false, label: '6.4' },
 				{
 					value: '6.5.0-beta1',
 					isBeta: true,
@@ -382,6 +383,26 @@ describe( 'AddSite', () => {
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
 		expect( screen.getByText( '/default_path/my-wordpress-website-mutated' ) ).toBeVisible();
+	} );
+
+	it( 'should name the version a new site will be created with', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		renderWithProvider( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByTestId( 'create-site-option-button' ) );
+		await user.click( await screen.findByRole( 'button', { name: /Empty site/ } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		expect( screen.getByRole( 'option', { name: 'Auto-update (6.4)' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'should display WordPress version dropdown', async () => {

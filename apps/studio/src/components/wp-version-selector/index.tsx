@@ -1,4 +1,5 @@
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import { isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-utils';
 import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
@@ -23,6 +24,8 @@ type WPVersionSelectorProps = {
 	fallbackOptions: { label: string; value: string }[];
 	/** Custom message to show when offline. If not provided, will use the default message */
 	offlineMessage?: string;
+	/** Version named in the auto-update option. Omit it on a pinned site. */
+	autoUpdateVersion?: string;
 };
 
 export const WPVersionSelector = ( {
@@ -33,6 +36,7 @@ export const WPVersionSelector = ( {
 	extraOptions,
 	fallbackOptions,
 	offlineMessage,
+	autoUpdateVersion,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -76,7 +80,7 @@ export const WPVersionSelector = ( {
 		<label className="flex flex-1 flex-col gap-1.5 leading-4">
 			<span className="font-semibold flex items-center gap-0.5">
 				{ __( 'WordPress version' ) }
-				{ selectedValue !== 'latest' && (
+				{ selectedValue !== DEFAULT_WORDPRESS_VERSION && (
 					<Tooltip
 						text={ __( 'WordPress Core automatic updates will be disabled for this site.' ) }
 						placement="top-start"
@@ -102,11 +106,9 @@ export const WPVersionSelector = ( {
 				>
 					{ wpVersions.length > 0 ? (
 						<>
-							<optgroup label={ __( 'Auto-updating' ) }>
-								<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
-									{ __( 'latest' ) }
-								</option>
-							</optgroup>
+							<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
+								{ getAutoUpdateVersionLabel( autoUpdateVersion ) }
+							</option>
 							<optgroup label={ __( 'Beta & Nightly' ) }>
 								{ betaVersions.map( ( { label, value } ) => (
 									<option key={ value } value={ value }>

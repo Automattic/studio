@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '@studio/common/constants';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX, LOCAL_DOMAIN_SUFFIX } from '@studio/common/constants';
 import { sanitizeFolderName } from './sanitize-folder-name';
 
 const DOMAIN_PATTERN =
@@ -18,8 +18,8 @@ export const stripLocalDomainSuffix = ( domain: string ): string => {
 	if ( domain.endsWith( DEFAULT_CUSTOM_DOMAIN_SUFFIX ) ) {
 		return domain.slice( 0, -DEFAULT_CUSTOM_DOMAIN_SUFFIX.length );
 	}
-	if ( domain.endsWith( '.local' ) ) {
-		return domain.slice( 0, -'.local'.length );
+	if ( domain.endsWith( LOCAL_DOMAIN_SUFFIX ) ) {
+		return domain.slice( 0, -LOCAL_DOMAIN_SUFFIX.length );
 	}
 	return domain;
 };
@@ -49,7 +49,7 @@ export const getDomainNameValidationError = (
 		return __( 'The domain name is too long' );
 	}
 
-	if ( ! domainName.endsWith( '.local' ) ) {
+	if ( ! domainName.endsWith( LOCAL_DOMAIN_SUFFIX ) ) {
 		return __( 'The domain name must end with .local' );
 	}
 

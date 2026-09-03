@@ -440,10 +440,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
-		// Queried on mount, so answer rather than throw. There is no local file
-		// to open here anyway.
 		async siteDebugLogExists() {
-			return false;
+			throw new UnsupportedError( 'siteDebugLogExists' );
 		},
 		async openSiteDebugLog() {
 			throw new UnsupportedError( 'openSiteDebugLog' );

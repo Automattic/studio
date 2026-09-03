@@ -496,7 +496,7 @@ export interface Connector {
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
-	// while the UI is open. False where the host can't reach the filesystem.
+	// while the UI is open. Both are gated on `capabilities.openInOS`.
 	siteDebugLogExists( siteId: string ): Promise< boolean >;
 	openSiteDebugLog( siteId: string ): Promise< void >;
 

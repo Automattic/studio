@@ -275,6 +275,9 @@ export function OnboardingConnectPage() {
 					pullSite.mutateAsync( {
 						siteId: localSiteId,
 						remoteSiteId: selectedSite.id,
+						// The local site is created by this flow, so the connected-sites
+						// cache the hook would otherwise read has nothing for it yet.
+						syncSite: selectedSite,
 					} ),
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );

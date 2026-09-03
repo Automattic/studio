@@ -283,6 +283,29 @@ describe( 'OnboardingConnectPage', () => {
 		expect( mocks.toastError ).not.toHaveBeenCalled();
 	} );
 
+	// The local site is created by this flow, so the connected-sites cache the pull
+	// hook reads is empty for it. Without the site passed through, every
+	// onboarding pull reported `sync_type: unknown`.
+	it( 'passes the remote site to the pull so its sync type is known', async () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1, { isPressable: true } ) ];
+
+		render( <OnboardingConnectPage /> );
+		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		fireEvent.click( connectButton );
+
+		await waitFor( () =>
+			expect( mocks.pullSite ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					siteId: 'local-1',
+					remoteSiteId: 1,
+					syncSite: expect.objectContaining( { isPressable: true } ),
+				} )
+			)
+		);
+	} );
+
 	it( 'opens the local site while pull and start continue in the background', async () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteSites = [ site( 1, { name: 'Remote site' } ) ];

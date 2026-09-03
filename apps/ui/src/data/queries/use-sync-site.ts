@@ -27,12 +27,19 @@ export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 // `onMutate`'s return value, handed back to `onSuccess`/`onError` by react-query.
 type SyncTracksContext = { startedAt: number };
 
-// Reads the connected site out of the query cache to derive the `sync_type`
-// Tracks prop. Cache-only so telemetry never costs a request; an unpopulated
-// cache reports `unknown` rather than guessing.
+// Resolves the connected site behind a sync, to derive the `sync_type` Tracks
+// prop. Callers that already hold the remote site pass it as `syncSite` — the
+// onboarding flow creates its local site as it goes, so nothing has ever
+// populated the cache for it. Otherwise this reads the cache, which costs no
+// request; a miss reports `unknown` rather than guessing.
 function useFindConnectedSite() {
 	const queryClient = useQueryClient();
-	return ( localSiteId: string, remoteSiteId: number ): SyncSite | undefined =>
+	return (
+		localSiteId: string,
+		remoteSiteId: number,
+		syncSite?: Pick< SyncSite, 'isPressable' >
+	): Pick< SyncSite, 'isPressable' > | undefined =>
+		syncSite ??
 		queryClient
 			.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( localSiteId ) )
 			?.find( ( site ) => site.id === remoteSiteId );
@@ -42,6 +49,8 @@ type PushToLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
 	options?: PushSyncOptions;
+	// Supplied by callers whose site isn't in the connected-sites cache yet.
+	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
 export function usePushSiteToLive() {
@@ -58,7 +67,7 @@ export function usePushSiteToLive() {
 			reportSyncPending( siteId, 'push' );
 			return { startedAt: Date.now() };
 		},
-		onSuccess: ( _result, { siteId, remoteSiteId }, context ) => {
+		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
 			reportSyncSuccess( siteId, 'push' );
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
@@ -67,12 +76,12 @@ export function usePushSiteToLive() {
 				TRACKS_EVENTS.SYNC_PUSH,
 				buildSyncEventProps( {
 					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId ),
+					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 				} )
 			);
 			toast.success( __( 'Push complete' ) );
 		},
-		onError: ( error, { siteId, remoteSiteId }, context ) => {
+		onError: ( error, { siteId, remoteSiteId, syncSite }, context ) => {
 			if ( isSyncCancelledError( error ) ) {
 				reportSyncCancelled( siteId, 'push' );
 				toast.success( __( 'Push cancelled' ) );
@@ -84,7 +93,7 @@ export function usePushSiteToLive() {
 				TRACKS_EVENTS.SYNC_PUSH,
 				buildSyncEventProps( {
 					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId ),
+					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 					error,
 				} )
 			);
@@ -133,6 +142,8 @@ type PullFromLiveVariables = {
 	remoteSiteId: number;
 	onProgress?: ( progress: PullSiteProgress ) => void;
 	options?: PullSyncOptions;
+	// Supplied by callers whose site isn't in the connected-sites cache yet.
+	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
 export function usePullSiteFromLive() {
@@ -155,7 +166,7 @@ export function usePullSiteFromLive() {
 			reportSyncPending( siteId, 'pull' );
 			return { startedAt: Date.now() };
 		},
-		onSuccess: ( _result, { siteId, remoteSiteId }, context ) => {
+		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
 			reportSyncSuccess( siteId, 'pull' );
 			// The CLI may have stopped/started the server during the import,
 			// and the site's database + themes just changed — refresh the
@@ -165,12 +176,12 @@ export function usePullSiteFromLive() {
 				TRACKS_EVENTS.SYNC_PULL,
 				buildSyncEventProps( {
 					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId ),
+					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 				} )
 			);
 			toast.success( __( 'Pull complete' ) );
 		},
-		onError: ( _error, { siteId, remoteSiteId }, context ) => {
+		onError: ( _error, { siteId, remoteSiteId, syncSite }, context ) => {
 			if ( isSyncCancelledError( _error ) ) {
 				reportSyncCancelled( siteId, 'pull' );
 				// The CLI restarts the site server on its way out, so the local
@@ -191,7 +202,7 @@ export function usePullSiteFromLive() {
 				TRACKS_EVENTS.SYNC_PULL,
 				buildSyncEventProps( {
 					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId ),
+					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 					// Classify the raw error — `message` above is translated display text.
 					error: _error,
 				} )

@@ -276,6 +276,51 @@ describe( 'sync Tracks events', () => {
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
+	// The onboarding flow creates its local site as it goes, so nothing has ever
+	// populated the connected-sites cache for it.
+	it( 'uses a caller-supplied site when the cache has nothing for it', async () => {
+		const trackEvent = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: false },
+			trackEvent,
+			pullSiteFromLive: vi.fn().mockResolvedValue( undefined ),
+		} as unknown as Connector );
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+		} );
+		function Harness() {
+			const pull = usePullSiteFromLive();
+			return (
+				<button
+					type="button"
+					onClick={ () =>
+						pull.mutate( {
+							siteId: 'site-1',
+							remoteSiteId: 42,
+							syncSite: { isPressable: true } as never,
+						} )
+					}
+				>
+					Pull
+				</button>
+			);
+		}
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<Harness />
+			</QueryClientProvider>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+
+		await waitFor( () =>
+			expect( trackEvent ).toHaveBeenCalledWith(
+				'studio_sync_pull',
+				expect.objectContaining( { sync_type: 'pressable' } )
+			)
+		);
+	} );
+
 	it( 'reports `unknown` sync type when the site is not in the cache', async () => {
 		const trackEvent = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {

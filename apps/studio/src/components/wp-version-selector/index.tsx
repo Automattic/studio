@@ -24,8 +24,8 @@ type WPVersionSelectorProps = {
 	fallbackOptions: { label: string; value: string }[];
 	/** Custom message to show when offline. If not provided, will use the default message */
 	offlineMessage?: string;
-	/** Shown in the auto-update label. Only pass it for auto-updating sites. */
-	installedVersion?: string;
+	/** Version named in the auto-update option. Omit it on a pinned site. */
+	autoUpdateVersion?: string;
 };
 
 export const WPVersionSelector = ( {
@@ -36,7 +36,7 @@ export const WPVersionSelector = ( {
 	extraOptions,
 	fallbackOptions,
 	offlineMessage,
-	installedVersion,
+	autoUpdateVersion,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
@@ -107,7 +107,7 @@ export const WPVersionSelector = ( {
 					{ wpVersions.length > 0 ? (
 						<>
 							<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
-								{ getAutoUpdateVersionLabel( installedVersion ) }
+								{ getAutoUpdateVersionLabel( autoUpdateVersion ) }
 							</option>
 							<optgroup label={ __( 'Beta & Nightly' ) }>
 								{ betaVersions.map( ( { label, value } ) => (

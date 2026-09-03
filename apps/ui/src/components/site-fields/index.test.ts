@@ -25,7 +25,7 @@ describe( 'wpVersionField', () => {
 	it( 'names the installed version in the auto-update option', () => {
 		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
 			latestValue: '',
-			installedVersion: '6.9.7',
+			autoUpdateVersion: '6.9.7',
 		} );
 
 		expect( autoUpdateLabels( field ) ).toEqual( [
@@ -36,22 +36,24 @@ describe( 'wpVersionField', () => {
 		] );
 	} );
 
-	it( 'falls back to the bare mode name when the installed version is unknown', () => {
+	it( 'falls back to the bare mode name when the version is unknown', () => {
 		// `latest` is the mode, not a version — "Auto-update (latest)" says nothing.
-		for ( const installedVersion of [ undefined, '', '-', 'latest' ] ) {
+		for ( const autoUpdateVersion of [ undefined, '', '-', 'latest' ] ) {
 			const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
 				latestValue: '',
-				installedVersion,
+				autoUpdateVersion,
 			} );
 
 			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update', 'Auto-update' ] );
 		}
 	} );
 
-	it( 'uses the bare mode name on the create form, which has no site yet', () => {
-		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS );
+	it( 'names the version a new site will be created with', () => {
+		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
+			autoUpdateVersion: '7.1',
+		} );
 
-		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
+		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (7.1)' ] );
 	} );
 
 	it( 'keeps prerelease and stable versions in separate groups', () => {

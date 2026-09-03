@@ -112,6 +112,7 @@ export const takeScreenshotTool = defineTool(
 					return {
 						viewportType,
 						colorScheme,
+						path: screenshotFile.path,
 						buffer: capture.buffer,
 						documentHeight: capture.documentHeight,
 						capturedHeight: capture.capturedHeight,
@@ -150,7 +151,11 @@ export const takeScreenshotTool = defineTool(
 				}
 				return `${ label }: captured full page (${ capture.documentHeight }px tall).`;
 			};
-			const captureLines = captures.map( describeCapture );
+			// The saved path lets the agent reuse a capture as a file — e.g. copying
+			// the final desktop capture to a scaffolded theme's screenshot.jpg.
+			const captureLines = captures.map(
+				( capture ) => `${ describeCapture( capture ) } Saved to ${ capture.path }`
+			);
 			const textLines =
 				captures.length === 1
 					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]

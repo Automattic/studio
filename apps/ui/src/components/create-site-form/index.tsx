@@ -502,20 +502,32 @@ export function CreateSiteForm( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
 				{
-					id: 'path',
-					layout: { type: 'regular', labelPosition: 'top' },
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [
+						{ id: 'path', layout: { type: 'regular', labelPosition: 'top' } },
+						'wpVersion',
+					],
 				},
-				'phpVersion',
-				'wpVersion',
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'phpVersion' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'wordpressAdmin',
+					label: __( 'WordPress admin' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
+				},
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]

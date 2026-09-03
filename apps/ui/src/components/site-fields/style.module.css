@@ -29,3 +29,7 @@
 .pinnedVersionSelect {
 	width: min(180px, 100%);
 }
+
+.compactSelect {
+	width: min(180px, 100%);
+}

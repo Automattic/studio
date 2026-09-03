@@ -19,6 +19,7 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -45,6 +46,7 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 		type: 'text',
 		label: __( 'PHP version' ),
 		elements: PHP_VERSION_ELEMENTS,
+		Edit: CompactSelectControl,
 	};
 }
 

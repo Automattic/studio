@@ -541,15 +541,9 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
-
-		const comboboxes = screen.getAllByRole( 'combobox' );
-		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
-
-		const phpVersionDropdown = comboboxes[ 0 ];
-		expect( phpVersionDropdown ).toBeInTheDocument();
-
-		await user.selectOptions( phpVersionDropdown, '8.2' );
+		// By label, not by position: the WordPress version control sits above
+		// PHP version now, so a positional lookup picks the wrong select.
+		await user.selectOptions( screen.getByLabelText( 'PHP version' ), '8.2' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',

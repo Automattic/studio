@@ -4,8 +4,11 @@
 	--user-menu-leading-offset: calc(
 		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
 	);
+	/* The sidebar toggle pulls back by `sm`, so this lands its trailing edge on
+	   `lg` — the same column the site rows' status buttons and the header's
+	   add button end on. Keep in sync with sidebar-header. */
 	--user-menu-trailing-offset: calc(
-		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+		var(--wpds-dimension-padding-lg) + var(--wpds-dimension-padding-sm)
 	);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's

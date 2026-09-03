@@ -1,5 +1,11 @@
+import { load } from 'cheerio';
 import { describe, expect, it } from 'vitest';
-import { stripShowcaseMarkup, wixMediaVariant, wixStaticMediaUrl } from './capture.js';
+import {
+	stripShowcaseMarkup,
+	wixMediaVariant,
+	wixStaticMediaUrl,
+	WIX_CAPTURE_CHROME_SELECTOR,
+} from './capture.js';
 
 const variant =
 	'https://static.wixstatic.com/media/8e80e7_e9cc2e6993d7493ca165d9fa3e8f503d~mv2.jpg/v1/fill/w_390,h_844,al_c/8e80e7_e9cc2e6993d7493ca165d9fa3e8f503d~mv2.jpg';
@@ -66,5 +72,25 @@ describe( 'stripShowcaseMarkup', () => {
 			'.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow'
 		);
 		expect( css ).toContain( '@keyframes dla-slideshow' );
+	} );
+} );
+
+describe( 'WIX_CAPTURE_CHROME_SELECTOR', () => {
+	it( 'removes Wix overflow and accessibility helpers while preserving authored More controls', () => {
+		const $ = load( `
+			<nav>
+				<button id="authored-more">More</button>
+				<li id="menu__more__" aria-hidden="true"><p id="menu__more__label">More</p></li>
+				<span id="menu-hiddenA11ySubMenuIndication">Use tab to navigate</span>
+			</nav>
+			<div id="WIX_ADS">Built with Wix</div>
+		` );
+
+		$( WIX_CAPTURE_CHROME_SELECTOR ).remove();
+
+		expect( $( '#menu__more__' ) ).toHaveLength( 0 );
+		expect( $( '#menu-hiddenA11ySubMenuIndication' ) ).toHaveLength( 0 );
+		expect( $( '#WIX_ADS' ) ).toHaveLength( 0 );
+		expect( $( '#authored-more' ).text() ).toBe( 'More' );
 	} );
 } );

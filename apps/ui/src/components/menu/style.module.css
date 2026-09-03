@@ -10,35 +10,15 @@
 	outline: none;
 }
 
-/* Menus portal to document.body, escaping whatever light/dark scope they
-   opened from. Force the same dark, theme-independent surface everywhere
-   (matching the sidebar's fixed-dark chrome) instead of falling through to
-   the app's light/dark toggle — same technique as site-dropdown's `.popup`.
-   Literal colors, not the matching wpds tokens: this block remaps those same
-   tokens below, so seeding from them would make each definition depend on
-   itself. */
+/* Color comes from the ThemeProvider that `Popup` wraps the portal in, so the
+   tokens below resolve against the trigger's own light/dark scope. */
 .popup {
-	--menu-surface: #1e1e1e;
-	--menu-foreground: #f0f0f0;
-	--menu-surface-subtle: color-mix(in srgb, var(--menu-foreground) 7%, var(--menu-surface));
-	--menu-foreground-weak: color-mix(in srgb, var(--menu-foreground) 72%, transparent);
-	--menu-foreground-disabled: color-mix(in srgb, var(--menu-foreground) 38%, transparent);
-	--menu-border: color-mix(in srgb, var(--menu-foreground) 11%, transparent);
-	--menu-divider: color-mix(in srgb, var(--menu-foreground) 16%, transparent);
-	--wpds-color-background-surface-neutral-strong: var(--menu-surface);
-	--wpds-color-background-surface-neutral: var(--menu-surface-subtle);
-	--wpds-color-stroke-surface-neutral-weak: var(--menu-border);
-	--wpds-color-stroke-surface-neutral: var(--menu-divider);
-	--wpds-color-foreground-content-neutral: var(--menu-foreground);
-	--wpds-color-foreground-content-neutral-weak: var(--menu-foreground-weak);
-	--wpds-color-foreground-interactive-neutral-disabled: var(--menu-foreground-disabled);
-
 	min-width: 160px;
 	padding: var(--wpds-dimension-padding-xs);
 	background: var(--wpds-color-background-surface-neutral-strong);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	box-shadow: var(--wpds-elevation-md);
 	color: var(--wpds-color-foreground-content-neutral);
 	display: flex;
 	flex-direction: column;

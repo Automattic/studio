@@ -1,12 +1,26 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { CheckboxControl } from '@wordpress/components';
+import { BaseControl, CheckboxControl, RadioControl, SelectControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { info } from '@wordpress/icons';
+import { Button, Notice, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LearnHowLink } from '@/components/learn-more';
 import {
 	adminEmailField,
@@ -44,6 +58,8 @@ type TabId = 'overview' | 'general' | 'debugging';
 interface FormData {
 	name: string;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	// Empty string means "auto-update"; anything else pins the site to that
 	// version. Only forwarded on save when the user actually changed it.
 	wpVersion: string;
@@ -73,6 +89,8 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 	return {
 		name: site.name,
 		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
+		runtime: getSiteRuntime( site ),
+		fileAccess: getSiteFileAccess( site ),
 		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
@@ -105,12 +123,135 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
+function PhpVersionControl( {
+	data: item,
+	field,
+	onChange,
+	hideLabelFromVision,
+}: DataFormControlProps< FormData > ) {
+	const value = field.getValue( { item } ) ?? '';
+	return (
+		<SelectControl
+			__next40pxDefaultSize
+			__nextHasNoMarginBottom
+			className={ styles.phpVersionControl }
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+			value={ value }
+			disabled={ field.isDisabled( { item, field } ) }
+			onChange={ ( nextValue ) => onChange( field.setValue( { item, value: nextValue } ) ) }
+		>
+			{ field.elements?.map( ( option ) => (
+				<option key={ option.value } value={ option.value }>
+					{ option.label }
+				</option>
+			) ) }
+		</SelectControl>
+	);
+}
+
+function PhpRuntimeControl( {
+	data: item,
+	field,
+	onChange,
+	hideLabelFromVision,
+}: DataFormControlProps< FormData > ) {
+	return (
+		<RadioControl
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+			selected={ item.runtime }
+			disabled={ field.isDisabled( { item, field } ) }
+			options={ [
+				{
+					label: __( 'Native' ),
+					value: SITE_RUNTIME_NATIVE_PHP,
+					description: __( 'Runs the site with native PHP for the best performance.' ),
+				},
+				{
+					label: __( 'Sandbox' ),
+					value: SITE_RUNTIME_PLAYGROUND,
+					description: __( 'Runs the site in an isolated WordPress Playground sandbox.' ),
+				},
+			] }
+			onChange={ ( runtime ) => onChange( { runtime: runtime as SiteRuntime } ) }
+		/>
+	);
+}
+
+function FileAccessControl( {
+	data: item,
+	field,
+	onChange,
+	hideLabelFromVision,
+}: DataFormControlProps< FormData > ) {
+	const sandboxed = item.runtime === SITE_RUNTIME_PLAYGROUND;
+	const options = (
+		<RadioControl
+			label={ field.label }
+			hideLabelFromVision
+			selected={ item.fileAccess }
+			disabled={ field.isDisabled( { item, field } ) }
+			options={ [
+				{
+					label: __( 'Site directory' ),
+					value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					description: __( "Restricts PHP's file access to this site's directory." ),
+				},
+				{
+					label: __( 'All files' ),
+					value: SITE_FILE_ACCESS_ALL_FILES,
+					description: __( 'PHP can access any file on your system.' ),
+				},
+			] }
+			onChange={ ( fileAccess ) => onChange( { fileAccess: fileAccess as SiteFileAccess } ) }
+		/>
+	);
+	return (
+		<div className={ styles.fileAccessControl }>
+			{ ! hideLabelFromVision && (
+				<BaseControl.VisualLabel>{ field.label }</BaseControl.VisualLabel>
+			) }
+			{ sandboxed && (
+				<Notice.Root className={ styles.fileAccessNotice } icon={ info }>
+					<Notice.Description>
+						{ __( 'The sandbox can only access the site directory.' ) }
+					</Notice.Description>
+				</Notice.Root>
+			) }
+			{ sandboxed ? (
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={ <div className={ styles.disabledFileAccess } tabIndex={ 0 } /> }
+					>
+						{ options }
+					</Tooltip.Trigger>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" align="start" /> }>
+						{ __( 'Requires the Native PHP runtime' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			) : (
+				options
+			) }
+		</div>
+	);
+}
+
 /**
  * The site settings form (General + Debugging), rendered as tab panels inside
  * a `Tabs.Root` owned by the caller — the site overview view. One instance
  * spans both panels so unsaved edits survive tab switches.
  */
-export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
+export function SiteSettingsForm( {
+	site,
+	activeTab,
+	footerActionsElement,
+}: {
+	site: SiteDetails;
+	activeTab: TabId;
+	footerActionsElement: HTMLElement | null;
+} ) {
+	const formId = `site-settings-${ site.id }`;
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -154,16 +295,37 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
 			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
-			phpVersionField< FormData >(),
+			{ ...phpVersionField< FormData >(), Edit: PhpVersionControl },
+			{
+				id: 'runtime',
+				type: 'text',
+				label: __( 'PHP runtime' ),
+				Edit: PhpRuntimeControl,
+			},
+			{
+				id: 'fileAccess',
+				type: 'text',
+				label: __( 'File access' ),
+				isDisabled: data.runtime === SITE_RUNTIME_PLAYGROUND,
+				Edit: FileAccessControl,
+			},
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
-			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
-			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
-			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
+			{
+				...adminUsernameField< FormData >(),
+				label: __( 'Username' ),
+				Edit: AdminUsernameControl,
+			},
+			{
+				...adminPasswordField< FormData >(),
+				label: __( 'Password' ),
+				Edit: AdminPasswordControl,
+			},
+			{ ...adminEmailField< FormData >(), label: __( 'Email' ), Edit: AdminEmailControl },
 			customDomainToggleField< FormData >(),
 			customDomainField< FormData >( existingDomainNames ),
 			{
@@ -177,28 +339,44 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			data.runtime,
+			existingDomainNames,
+			installedWpVersion,
+			isOffline,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
-				'name',
 				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'regular', labelPosition: 'top' },
+					children: [ 'name', 'wpVersion' ],
 				},
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'regular', labelPosition: 'top' },
+					children: [ 'phpVersion', 'runtime', 'fileAccess' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'administrator',
+					label: __( 'Administrator' ),
+					layout: { type: 'regular', labelPosition: 'top' },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
+				},
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'regular', labelPosition: 'top' },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]
@@ -227,6 +405,9 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			// the input with a default derived from the current site name.
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
+			}
+			if ( next.runtime === SITE_RUNTIME_PLAYGROUND ) {
+				next.fileAccess = SITE_FILE_ACCESS_SITE_DIRECTORY;
 			}
 			return next;
 		} );
@@ -263,6 +444,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			...site,
 			name: data.name,
 			phpVersion: data.phpVersion,
+			runtime: data.runtime,
+			fileAccess: data.fileAccess,
 			isWpAutoUpdating: ! wpPinned,
 			customDomain: usedCustomDomain,
 			enableHttps: !! usedCustomDomain && data.enableHttps,
@@ -293,43 +476,49 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	};
 
 	return (
-		<form onSubmit={ handleSubmit } className={ styles.form }>
+		<form id={ formId } onSubmit={ handleSubmit } className={ styles.form }>
 			<Tabs.Panel tabId="general">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ generalForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
+				<div className={ `${ styles.settingsColumn } ${ styles.generalSections }` }>
+					<DataForm< FormData >
+						data={ data }
+						fields={ fields }
+						form={ generalForm }
+						onChange={ handleChange }
+						validity={ validity }
+					/>
+				</div>
 			</Tabs.Panel>
 			<Tabs.Panel tabId="debugging">
-				<DataForm< FormData >
-					data={ data }
-					fields={ fields }
-					form={ debuggingForm }
-					onChange={ handleChange }
-					validity={ validity }
-				/>
+				<div className={ styles.settingsColumn }>
+					<DataForm< FormData >
+						data={ data }
+						fields={ fields }
+						form={ debuggingForm }
+						onChange={ handleChange }
+						validity={ validity }
+					/>
+				</div>
 			</Tabs.Panel>
 
 			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-			{ /* The save actions apply to the form tabs only, not Overview. */ }
-			{ activeTab !== 'overview' && (
-				<div className={ styles.actions }>
-					<Button
-						type="submit"
-						variant="solid"
-						tone="brand"
-						disabled={ ! canSubmit }
-						loading={ updateSite.isPending }
-						loadingAnnouncement={ __( 'Saving settings' ) }
-					>
-						{ __( 'Save settings' ) }
-					</Button>
-				</div>
-			) }
+			{ /* The save action shares the fixed footer with the preview toggle. */ }
+			{ footerActionsElement && activeTab !== 'overview'
+				? createPortal(
+						<Button
+							form={ formId }
+							type="submit"
+							variant="solid"
+							tone="brand"
+							disabled={ ! canSubmit }
+							loading={ updateSite.isPending }
+							loadingAnnouncement={ __( 'Saving settings' ) }
+						>
+							{ __( 'Save settings' ) }
+						</Button>,
+						footerActionsElement
+				  )
+				: null }
 		</form>
 	);
 }

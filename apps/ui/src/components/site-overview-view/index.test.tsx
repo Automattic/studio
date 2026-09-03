@@ -445,7 +445,7 @@ describe( 'SiteOverviewView', () => {
 	it( 'keeps the admin password visibility toggle', () => {
 		renderView( 'general' );
 
-		const password = screen.getByLabelText( 'Admin password' );
+		const password = screen.getByLabelText( 'Password' );
 		const showPassword = screen.getByRole( 'button', { name: 'Show password' } );
 		const copyPassword = screen.getByRole( 'button', { name: 'Copy admin password' } );
 		expect( password ).toHaveAttribute( 'type', 'password' );
@@ -463,33 +463,35 @@ describe( 'SiteOverviewView', () => {
 		renderView( 'general' );
 
 		expect( screen.getByLabelText( 'Site name' ) ).toBeRequired();
-		expect( screen.getByLabelText( 'Admin username' ) ).toBeRequired();
-		expect( screen.getByLabelText( 'Admin password' ) ).toBeRequired();
-		expect( screen.getByLabelText( 'Admin email' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Username' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Password' ) ).toBeRequired();
+		expect( screen.getByLabelText( 'Email' ) ).toBeRequired();
 		expect( screen.queryByText( /\(Required\)/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'marks the admin email control for RTL alignment', () => {
 		renderView( 'general' );
 
+		expect( screen.getByLabelText( 'Email' ).closest( '.components-input-control' ) ).toHaveClass(
+			settingsStyles.emailControl
+		);
 		expect(
-			screen.getByLabelText( 'Admin email' ).closest( '.components-input-control' )
-		).toHaveClass( settingsStyles.emailControl );
-		expect(
-			screen.getByLabelText( 'Admin username' ).closest( '.components-input-control' )
+			screen.getByLabelText( 'Username' ).closest( '.components-input-control' )
 		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
-	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
+	it( 'shows automatic updates with the installed version and a separate version picker', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.8' } );
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
-		expect( select ).toHaveValue( '' );
+		expect( select ).toHaveValue( '6.8' );
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
+		expect( screen.getByText( /Currently using version 6\.8\./ ) ).toBeVisible();
 		expect( screen.getByRole( 'option', { name: '6.7.2' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'group', { name: 'Auto-updating' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
 	} );
 
@@ -500,7 +502,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
@@ -524,7 +526,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select ).toHaveValue( '6.5.2' );
 		expect( screen.getByRole( 'option', { name: '6.5.2' } ) ).toBeInTheDocument();
 	} );
@@ -569,7 +571,7 @@ describe( 'SiteOverviewView', () => {
 
 		const { showSite } = renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 
@@ -580,7 +582,7 @@ describe( 'SiteOverviewView', () => {
 		} );
 		showSite( 'site-1' );
 
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
 	} );
 
 	it( 'keeps a pinned site pinned when saving other settings while offline', () => {
@@ -612,9 +614,9 @@ describe( 'SiteOverviewView', () => {
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
-		expect( select ).toHaveValue( '' );
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -629,7 +631,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toBeDisabled();
 		expect( select ).toHaveValue( '6.5.2' );
@@ -651,6 +653,7 @@ describe( 'SiteOverviewView', () => {
 		const updateSiteMutate = vi.fn();
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.8' } );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
 			isLoading: false,
@@ -658,10 +661,9 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
-		expect( select ).toHaveValue( 'latest' );
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
 
-		fireEvent.change( select, { target: { value: '' } } );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
 		// 'latest' has to reach the CLI so it actually installs the newest

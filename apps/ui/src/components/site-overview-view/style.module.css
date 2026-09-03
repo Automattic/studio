@@ -1,6 +1,9 @@
 .root {
 	--overview-content-width: 1120px;
 	--overview-card-column-width: 320px;
+	--overview-footer-height: calc(
+		40px + var(--wpds-dimension-padding-sm) + var(--wpds-dimension-padding-lg)
+	);
 
 	/* Anchor for the footer toolbar + its progressive blur. */
 	position: relative;
@@ -104,14 +107,25 @@
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	min-height: 46px;
+	min-height: var(--overview-footer-height);
 	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl);
+	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	padding-inline: var(--wpds-dimension-padding-xl);
 	pointer-events: none;
 }
 
 .footerBar > * {
 	pointer-events: auto;
+}
+
+.footerActions {
+	display: flex;
+	align-items: center;
+	margin-inline-end: auto;
+}
+
+.footerActionsSidebarCollapsed {
+	margin-inline-start: calc(40px + var(--wpds-dimension-padding-md));
 }
 
 /* Shorter sibling of the chat panel's composer blur: just the toolbar strip
@@ -121,7 +135,7 @@
 	inset-inline-end: 14px;
 	bottom: 0;
 	z-index: 1;
-	height: calc(46px + var(--wpds-dimension-padding-lg));
+	height: calc(var(--overview-footer-height) + var(--wpds-dimension-padding-3xl));
 }
 
 .content {
@@ -134,7 +148,7 @@
 	/* Extra bottom padding keeps the last content clear of the overlaid
 	   footer toolbar. */
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-2xl) + 46px);
+		calc(var(--wpds-dimension-padding-2xl) + var(--overview-footer-height));
 }
 
 .columnHeading {

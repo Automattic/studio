@@ -271,9 +271,20 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	fill: var( --wpds-color-foreground-content-neutral-weak );
 }
 
+select optgroup,
 select option {
 	background-color: var( --wpds-color-background-surface-neutral );
 	color: var( --wpds-color-foreground-content-neutral );
+}
+
+[data-wpds-theme-provider-id] .components-radio-control__input[type='radio']:not(:checked) {
+	border-color: var( --wpds-color-stroke-surface-neutral-strong );
+	background: transparent;
+}
+
+[data-wpds-theme-provider-id] .components-radio-control__option-description {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	unicode-bidi: plaintext;
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

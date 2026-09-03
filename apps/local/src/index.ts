@@ -68,6 +68,15 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	siteModeFromRuntime,
+	SITE_RUNTIME_PLAYGROUND,
+} from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -187,6 +196,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
+		fileAccess: site.fileAccess,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -891,7 +902,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Edit a site's settings — the same CLI `site set` the desktop uses, built
 	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded (the agentic UI doesn't edit runtime/file-access).
+	// fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -921,6 +932,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( updated.phpVersion !== undefined && updated.phpVersion !== current.phpVersion ) {
 				options.php = updated.phpVersion;
+			}
+			const currentRuntime = getSiteRuntime( current );
+			const updatedRuntime = getSiteRuntime( updated );
+			if ( updated.runtime !== undefined && updatedRuntime !== currentRuntime ) {
+				options.runtime = siteModeFromRuntime( updatedRuntime );
+			}
+			const currentFileAccess = getSiteFileAccess( current );
+			const updatedFileAccess =
+				updatedRuntime === SITE_RUNTIME_PLAYGROUND
+					? SITE_FILE_ACCESS_SITE_DIRECTORY
+					: getSiteFileAccess( updated );
+			if ( updated.fileAccess !== undefined && updatedFileAccess !== currentFileAccess ) {
+				options.fileAccess = updatedFileAccess;
 			}
 			if ( wpVersion ) {
 				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;

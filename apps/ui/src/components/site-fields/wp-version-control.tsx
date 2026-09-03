@@ -1,5 +1,5 @@
-import { SelectControl } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { BaseControl, SelectControl } from '@wordpress/components';
+import { __, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
 import { useState } from 'react';
@@ -21,6 +21,7 @@ const offlineIcon = (
 export type WpVersionOption = Option & {
 	group: 'latest' | 'prerelease' | 'stable';
 	hidden?: boolean;
+	current?: boolean;
 };
 
 /**
@@ -42,30 +43,51 @@ export function WpVersionControl< Item >( {
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
+	const autoUpdateOption = options.find(
+		( option ) => option.group === 'latest' && ! option.hidden
+	);
+	const pinnedOptions = options.filter(
+		( option ) => option.group !== 'latest' && ! option.hidden
+	);
+	const currentVersion = pinnedOptions.find( ( option ) => option.current );
+	const usesUpdateModeControl = autoUpdateOption?.value === '';
+	const automaticUpdates = value === autoUpdateOption?.value;
+	const modeControlName = `${ String( field.id ) }-update-mode`;
 	const groups = [
 		{
+			key: 'latest',
 			label: __( 'Auto-updating' ),
 			options: options.filter( ( option ) => option.group === 'latest' ),
 		},
 		{
+			key: 'prerelease',
 			label: __( 'Beta & Nightly' ),
 			options: options.filter( ( option ) => option.group === 'prerelease' ),
 		},
 		{
+			key: 'stable',
 			label: __( 'Stable Versions' ),
 			options: options.filter( ( option ) => option.group === 'stable' ),
 		},
-	].filter( ( group ) => group.options.length > 0 );
+	].filter(
+		( group ) => group.options.length > 0 && ( ! usesUpdateModeControl || group.key !== 'latest' )
+	);
 
-	const select = (
+	const updateValue = ( newValue: string ) =>
+		onChange( field.setValue( { item: data, value: newValue } ) );
+	const selectedVersion =
+		usesUpdateModeControl && automaticUpdates
+			? currentVersion?.value ?? pinnedOptions[ 0 ]?.value ?? value
+			: value;
+	const versionSelect = (
 		<SelectControl
 			__next40pxDefaultSize
 			__nextHasNoMarginBottom
-			label={ field.label }
-			hideLabelFromVision={ hideLabelFromVision }
-			value={ value }
+			label={ usesUpdateModeControl ? __( 'Version' ) : field.label }
+			hideLabelFromVision={ usesUpdateModeControl ? true : hideLabelFromVision }
+			value={ selectedVersion }
 			disabled={ disabled }
-			onChange={ ( newValue ) => onChange( field.setValue( { item: data, value: newValue } ) ) }
+			onChange={ updateValue }
 		>
 			{ groups.map( ( group ) => (
 				<optgroup key={ group.label } label={ group.label }>
@@ -77,6 +99,74 @@ export function WpVersionControl< Item >( {
 				</optgroup>
 			) ) }
 		</SelectControl>
+	);
+	const control = usesUpdateModeControl ? (
+		<BaseControl
+			__nextHasNoMarginBottom
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+		>
+			<fieldset className={ styles.updateModeControl } disabled={ disabled }>
+				<div className="components-radio-control">
+					<div className="components-radio-control__option">
+						<input
+							id={ `${ modeControlName }-automatic` }
+							className="components-radio-control__input"
+							type="radio"
+							name={ modeControlName }
+							value="automatic"
+							checked={ automaticUpdates }
+							onChange={ () => {
+								if ( autoUpdateOption ) updateValue( autoUpdateOption.value );
+							} }
+						/>
+						<label
+							htmlFor={ `${ modeControlName }-automatic` }
+							className="components-radio-control__label"
+						>
+							{ __( 'Automatic updates' ) }
+						</label>
+						<p className="components-radio-control__option-description">
+							{ currentVersion
+								? sprintf(
+										/* translators: %s: currently installed WordPress version. */
+										__(
+											'WordPress installs updates on its own schedule. Currently using version %s.'
+										),
+										currentVersion.label
+								  )
+								: __( 'WordPress installs updates on its own schedule.' ) }
+						</p>
+					</div>
+					<div className="components-radio-control__option">
+						<input
+							id={ `${ modeControlName }-pinned` }
+							className="components-radio-control__input"
+							type="radio"
+							name={ modeControlName }
+							value="pinned"
+							checked={ ! automaticUpdates }
+							onChange={ () =>
+								updateValue( currentVersion?.value ?? pinnedOptions[ 0 ]?.value ?? value )
+							}
+						/>
+						<label
+							htmlFor={ `${ modeControlName }-pinned` }
+							className="components-radio-control__label"
+						>
+							{ __( 'Select a version' ) }
+						</label>
+						<div
+							className={ `${ styles.pinnedVersionSelect } components-radio-control__option-description` }
+						>
+							{ versionSelect }
+						</div>
+					</div>
+				</div>
+			</fieldset>
+		</BaseControl>
+	) : (
+		versionSelect
 	);
 
 	if ( disabled && field.description ) {
@@ -96,7 +186,7 @@ export function WpVersionControl< Item >( {
 							onMouseEnter={ () => setShowTooltip( true ) }
 							onMouseLeave={ () => setShowTooltip( false ) }
 						>
-							<div style={ { pointerEvents: 'none' } }>{ select }</div>
+							<div style={ { pointerEvents: 'none' } }>{ control }</div>
 						</div>
 					}
 				/>
@@ -110,5 +200,5 @@ export function WpVersionControl< Item >( {
 			</Tooltip.Root>
 		);
 	}
-	return select;
+	return control;
 }

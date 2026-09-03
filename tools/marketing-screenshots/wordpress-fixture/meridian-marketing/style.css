@@ -1,0 +1,277 @@
+/*
+Theme Name: Meridian Marketing
+Description: WordPress theme used by Studio's isolated marketing screenshot site.
+Version: 1.0.0
+Text Domain: meridian-marketing
+*/
+
+:root {
+	color: #173f35;
+	background: #f5f0e5;
+	font-family: Arial, Helvetica, sans-serif;
+	font-synthesis: none;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	width: 100%;
+	max-width: 100%;
+	overflow-x: hidden;
+}
+
+body {
+	min-width: 320px;
+	margin: 0;
+	background: #f5f0e5;
+}
+
+.wp-site-blocks {
+	padding: 0;
+}
+
+.wp-site-blocks > * {
+	margin-block-start: 0;
+}
+
+.meridian-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 72px;
+	padding: 0 5vw;
+	color: #fffaf0;
+	background: #173f35;
+}
+
+.meridian-brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-size: 15px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+}
+
+.meridian-brand-mark {
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	border-radius: 50%;
+	color: #173f35;
+	background: #e6be75;
+	font-family: Georgia, serif;
+	font-size: 19px;
+}
+
+.meridian-navigation {
+	display: flex;
+	gap: 28px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+}
+
+.meridian-hero {
+	position: relative;
+	display: grid;
+	min-height: min( 610px, 70vh );
+	overflow: hidden;
+	grid-template-columns: minmax( 0, 1.05fr ) minmax( 240px, 0.95fr );
+	background: #cf8b56;
+}
+
+.meridian-hero::after {
+	position: absolute;
+	right: -10%;
+	bottom: -32%;
+	width: 72%;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	background: #dfa476;
+	content: '';
+}
+
+.meridian-hero-copy {
+	position: relative;
+	z-index: 1;
+	min-width: 0;
+	align-self: center;
+	padding: clamp( 52px, 8vw, 110px ) 5vw;
+}
+
+.meridian-eyebrow {
+	margin: 0 0 22px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.meridian-hero h1 {
+	max-width: 680px;
+	margin: 0;
+	color: #fffaf0;
+	font-family: Georgia, 'Times New Roman', serif;
+	font-size: clamp( 48px, 6.4vw, 94px );
+	font-weight: 700;
+	letter-spacing: -0.045em;
+	line-height: 0.95;
+}
+
+.meridian-intro {
+	max-width: 500px;
+	margin: 28px 0 32px;
+	color: #fff3df;
+	font-family: Georgia, 'Times New Roman', serif;
+	font-size: clamp( 17px, 1.8vw, 24px );
+	line-height: 1.45;
+}
+
+.meridian-cta {
+	display: inline-flex;
+	align-items: center;
+	min-height: 48px;
+	padding: 0 24px;
+	border-radius: 999px;
+	color: #fffaf0;
+	background: #173f35;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-decoration: none;
+	text-transform: uppercase;
+}
+
+.meridian-product-stage {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	min-width: 0;
+	place-items: center;
+}
+
+.meridian-sun {
+	position: absolute;
+	top: 12%;
+	right: 11%;
+	width: clamp( 120px, 16vw, 230px );
+	aspect-ratio: 1;
+	border-radius: 50%;
+	background: #efd7ad;
+}
+
+.meridian-bag {
+	position: relative;
+	z-index: 1;
+	width: min( 58%, 330px );
+	min-width: 190px;
+	padding: 24px 22px 32px;
+	transform: rotate( 3deg );
+	box-shadow: 0 28px 55px rgb( 70 40 24 / 24% );
+	background: #f6ead1;
+	text-align: center;
+}
+
+.meridian-bag::before {
+	display: block;
+	height: 11px;
+	margin: -17px -14px 28px;
+	background: repeating-linear-gradient( 90deg, #173f35 0 8px, transparent 8px 15px );
+	content: '';
+}
+
+.meridian-bag-kicker {
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+}
+
+.meridian-bag h2 {
+	margin: 25px 0 8px;
+	font-family: Georgia, serif;
+	font-size: clamp( 30px, 4vw, 53px );
+	line-height: 0.95;
+}
+
+.meridian-origin {
+	margin: 24px 0 0;
+	border-top: 1px solid #bcae91;
+	padding-top: 18px;
+	font-size: 11px;
+	letter-spacing: 0.11em;
+	text-transform: uppercase;
+}
+
+.meridian-principles {
+	display: grid;
+	grid-template-columns: repeat( 3, 1fr );
+}
+
+.meridian-principles article {
+	min-height: 180px;
+	padding: 34px 5vw;
+	background: #fffaf0;
+}
+
+.meridian-principles article:nth-child( 2 ) {
+	background: #e7dfcd;
+}
+
+.meridian-principles article:nth-child( 3 ) {
+	color: #fffaf0;
+	background: #173f35;
+}
+
+.meridian-number {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.13em;
+}
+
+.meridian-principles h3 {
+	margin: 32px 0 0;
+	font-family: Georgia, serif;
+	font-size: clamp( 20px, 2vw, 30px );
+}
+
+@media ( max-width: 900px ) {
+	.meridian-hero {
+		min-height: 560px;
+		grid-template-columns: 1fr;
+	}
+
+	.meridian-hero-copy {
+		align-self: center;
+		padding: 48px 7vw;
+	}
+
+	.meridian-hero h1 {
+		max-width: 540px;
+		font-size: clamp( 38px, 6vw, 48px );
+		line-height: 1.04;
+	}
+
+	.meridian-intro {
+		max-width: 440px;
+		font-size: 18px;
+	}
+
+	.meridian-product-stage {
+		display: none;
+	}
+}
+
+@media ( max-width: 720px ) {
+	.meridian-navigation {
+		display: none;
+	}
+
+	.meridian-principles {
+		grid-template-columns: 1fr;
+	}
+}

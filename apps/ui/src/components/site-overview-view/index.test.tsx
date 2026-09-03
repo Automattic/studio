@@ -1043,6 +1043,17 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteDebugLog ).toHaveBeenCalledWith( 'site-1' );
 		} );
 
+		// Turning logging off stops WordPress writing, but leaves the file behind.
+		it( 'still offers the log after logging is turned off', () => {
+			useSitesMock.mockReturnValue( {
+				data: [ createSite( { running: true, enableDebugLog: false } ) ],
+			} );
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
 		// The custom control replaces DataForm's rendering of the description.
 		it( 'keeps the field description', () => {
 			useDebugLogExistsMock.mockReturnValue( { data: true } );

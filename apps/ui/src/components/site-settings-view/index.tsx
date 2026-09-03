@@ -164,7 +164,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const connector = useConnector();
 	const updateSite = useUpdateSite();
-	const { data: logExists } = useDebugLogExists( site.id, site.enableDebugLog ?? false );
+	const { data: logExists } = useDebugLogExists( site.id );
 	const handleOpenLog = useCallback( () => {
 		void connector.openSiteDebugLog( site.id ).catch( ( error ) => {
 			// The file can vanish between the check and the click.

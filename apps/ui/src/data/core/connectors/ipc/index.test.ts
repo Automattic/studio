@@ -306,8 +306,8 @@ describe( 'createIpcConnector Connect contracts', () => {
 	} );
 } );
 
-// Guards the IPC call shape: drifting from the shared relative path would hide
-// the "Open log file" button on this front end only.
+// `window.ipcApi` is untyped, so only a test catches a drifting method name or
+// argument order here. The relative path is shared with the local server.
 describe( 'createIpcConnector debug log', () => {
 	const getAbsolutePathFromSite = vi.fn();
 	const openLocalPath = vi.fn();
@@ -322,30 +322,20 @@ describe( 'createIpcConnector debug log', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'reports the log exists when main resolves a path', async () => {
+	it( 'resolves the log through main, then opens what it resolved', async () => {
 		getAbsolutePathFromSite.mockResolvedValue( '/sites/demo/wp-content/debug.log' );
 
 		await expect( createIpcConnector().siteDebugLogExists( 'site-1' ) ).resolves.toBe( true );
 		expect( getAbsolutePathFromSite ).toHaveBeenCalledWith( 'site-1', 'wp-content/debug.log' );
-	} );
-
-	it( 'reports no log when main resolves null', async () => {
-		getAbsolutePathFromSite.mockResolvedValue( null );
-
-		await expect( createIpcConnector().siteDebugLogExists( 'site-1' ) ).resolves.toBe( false );
-	} );
-
-	it( 'opens the resolved log path', async () => {
-		getAbsolutePathFromSite.mockResolvedValue( '/sites/demo/wp-content/debug.log' );
 
 		await createIpcConnector().openSiteDebugLog( 'site-1' );
-
 		expect( openLocalPath ).toHaveBeenCalledWith( '/sites/demo/wp-content/debug.log' );
 	} );
 
-	it( 'rejects without opening anything when the log is gone', async () => {
+	it( 'reports no log, and opens nothing, when main resolves null', async () => {
 		getAbsolutePathFromSite.mockResolvedValue( null );
 
+		await expect( createIpcConnector().siteDebugLogExists( 'site-1' ) ).resolves.toBe( false );
 		await expect( createIpcConnector().openSiteDebugLog( 'site-1' ) ).rejects.toThrow();
 		expect( openLocalPath ).not.toHaveBeenCalled();
 	} );

@@ -500,7 +500,7 @@
 }
 
 .aiCreditsSummary[data-exhausted] strong {
-	color: var(--wpds-color-fg-content-error);
+	color: var(--wpds-color-foreground-content-error);
 }
 
 .aiCreditsRingTrack {
@@ -508,22 +508,22 @@
 }
 
 .aiCreditsRingValue {
-	stroke: var(--wpds-color-bg-interactive-brand-strong);
+	stroke: var(--wpds-color-background-interactive-brand-strong);
 }
 
 /* Same escalation colors as the Settings → Usage meter. */
 .aiCreditsRing[data-intent='warning'] .aiCreditsRingValue {
-	stroke: var(--wpds-color-fg-content-caution-weak);
+	stroke: var(--wpds-color-foreground-content-caution-weak);
 	filter: saturate(2) brightness(1.8);
 }
 
 .aiCreditsRing[data-intent='critical'] .aiCreditsRingValue {
-	stroke: var(--wpds-color-fg-content-warning-weak);
+	stroke: var(--wpds-color-foreground-content-warning-weak);
 	filter: saturate(1.6) brightness(1.35);
 }
 
 .aiCreditsRing[data-intent='exhausted'] .aiCreditsRingValue {
-	stroke: var(--wpds-color-bg-interactive-error-strong);
+	stroke: var(--wpds-color-background-interactive-error-strong);
 }
 
 @media not (prefers-reduced-motion) {

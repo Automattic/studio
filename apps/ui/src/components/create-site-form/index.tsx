@@ -35,7 +35,7 @@ import type {
 	FormField,
 	FormValidity,
 } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -66,6 +66,7 @@ interface CreateSiteFormProps {
 	submitLabel?: string;
 	cancelLabel?: string;
 	loadingAnnouncement?: string;
+	panelFooter?: ReactNode;
 }
 
 interface FormData {
@@ -402,6 +403,7 @@ export function CreateSiteForm( {
 	submitLabel,
 	cancelLabel,
 	loadingAnnouncement,
+	panelFooter,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
@@ -713,6 +715,8 @@ export function CreateSiteForm( {
 						) }
 					</div>
 				) }
+
+				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
 			</div>
 
 			<OnboardingFooter>{ actions }</OnboardingFooter>

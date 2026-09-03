@@ -99,7 +99,7 @@ export function SitesIllustration() {
 	const runningTip = envelope( t, 6820, 330, 8580, 440 );
 
 	return (
-		<ThemeProvider color={ { bg: chromeBg } }>
+		<ThemeProvider color={ { background: chromeBg } }>
 			<div
 				className={ styles.sitesScene }
 				style={ { '--sites-chrome-bg': chromeBg } as CSSProperties }

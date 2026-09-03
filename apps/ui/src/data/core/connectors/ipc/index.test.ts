@@ -3,6 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
 
+describe( 'createIpcConnector window sizing', () => {
+	const ensureMinWindowWidth = vi.fn().mockResolvedValue( 640 );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', { ensureMinWindowWidth } );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'asks the main process to grow the desktop window', async () => {
+		const result = await createIpcConnector().ensureWindowWidth( 640 );
+
+		expect( ensureMinWindowWidth ).toHaveBeenCalledWith( 640 );
+		expect( result ).toBe( 640 );
+	} );
+} );
+
 // Guards the renderer ↔ main IPC call shape: `exportSite` must be invoked as
 // ( siteId, destinationPath, options ) to match the main-process handler in
 // apps/studio/src/modules/import-export/lib/ipc-handlers.ts.

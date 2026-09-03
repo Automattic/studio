@@ -54,7 +54,7 @@ export function CollapsedSiteSwitcher( {
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
 				{ /* Same dark theme scope as the expanded sidebar so the list
 				     renders identically on the window-chrome background. */ }
-				<ThemeProvider density="compact" color={ { bg: backgroundColor } }>
+				<ThemeProvider color={ { background: backgroundColor } }>
 					<div className={ styles.surface } style={ { backgroundColor } }>
 						<div className={ styles.scrollArea }>
 							<SiteList

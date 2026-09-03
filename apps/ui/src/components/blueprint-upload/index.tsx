@@ -1,10 +1,10 @@
 import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BlueprintErrorDialog } from '@/components/blueprint-error-dialog';
 import { useConnector } from '@/data/core';
-import { createSelectedBlueprint } from '@/lib/blueprint-selection';
+import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from '@/lib/load-blueprint-file';
 import styles from './style.module.css';
-import type { Connector } from '@/data/core';
 import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { ChangeEvent } from 'react';
 
@@ -15,51 +15,6 @@ interface BlueprintUploadProps {
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
 	onValidityChange: ( isValid: boolean ) => void;
-}
-
-const FILE_ACCEPT = 'application/json,.json,application/zip,.zip';
-
-async function loadBlueprintFile( file: File, connector: Connector ): Promise< SelectedBlueprint > {
-	const lowerName = file.name.toLowerCase();
-	const isJson = file.type === 'application/json' || lowerName.endsWith( '.json' );
-	const isZip = file.type === 'application/zip' || lowerName.endsWith( '.zip' );
-
-	if ( isJson ) {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse( await file.text() );
-		} catch {
-			throw new Error(
-				__(
-					'This Blueprint JSON file could not be read. Check that it contains valid JSON and try again.'
-				)
-			);
-		}
-		return createSelectedBlueprint( parsed, file );
-	}
-
-	if ( ! isZip ) {
-		throw new Error(
-			__( 'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.' )
-		);
-	}
-
-	const extracted = await connector.extractBlueprintBundle( file ).catch( () => {
-		throw new Error(
-			__(
-				'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
-			)
-		);
-	} );
-	try {
-		return await createSelectedBlueprint( extracted.blueprintJson, file, {
-			filePath: extracted.blueprintJsonPath,
-			tempDir: extracted.tempDir,
-		} );
-	} catch ( error ) {
-		await connector.cleanupBlueprintTempDir( extracted.tempDir ).catch( () => undefined );
-		throw error;
-	}
 }
 
 function hasFiles( event: DragEvent ): boolean {
@@ -165,7 +120,7 @@ export function BlueprintUpload( {
 				<input
 					ref={ fileInputRef }
 					type="file"
-					accept={ FILE_ACCEPT }
+					accept={ BLUEPRINT_FILE_ACCEPT }
 					onChange={ handleInputChange }
 					className={ styles.fileInput }
 				/>
@@ -202,22 +157,7 @@ export function BlueprintUpload( {
 								}
 						  ) }
 				</p>
-				{ error && (
-					<p role="alert" className={ styles.error }>
-						<span>
-							{ sprintf(
-								// translators: %s is the Blueprint validation or upload error.
-								__( 'Blueprint error: %s' ),
-								error
-							) }
-						</span>
-						{ ! selected && (
-							<button type="button" className={ styles.action } onClick={ handleRemove }>
-								{ __( 'Remove' ) }
-							</button>
-						) }
-					</p>
-				) }
+				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
 			</div>
 			{ isDragging && (
 				<div className={ styles.fullScreenDrop } aria-hidden="true">

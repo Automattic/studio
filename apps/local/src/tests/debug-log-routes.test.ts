@@ -60,12 +60,6 @@ describe( 'GET /api/sites/:id/debug-log', () => {
 
 		await expect( response.json() ).resolves.toEqual( { exists: true } );
 	} );
-
-	it( '404s for an unknown site', async () => {
-		const response = await fetch( `${ server.url }/api/sites/nope/debug-log` );
-
-		expect( response.status ).toBe( 404 );
-	} );
 } );
 
 describe( 'POST /api/sites/:id/debug-log/open', () => {

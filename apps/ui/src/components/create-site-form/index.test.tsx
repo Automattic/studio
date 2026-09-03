@@ -470,6 +470,19 @@ describe( 'CreateSiteForm', () => {
 		);
 	} );
 
+	it( 'names the version a new site will be created with in the auto-update option', () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'New site' } );
+		openAdvancedSettings();
+
+		expect( screen.getByRole( 'option', { name: 'Auto-update (6.8)' } ) ).toBeInTheDocument();
+	} );
+
 	it( 'uses a stable select control for long WordPress version lists', () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [

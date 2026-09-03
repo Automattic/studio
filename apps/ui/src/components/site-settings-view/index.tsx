@@ -159,6 +159,10 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				// Current selection, not `site.isWpAutoUpdating`: the persisted flag
+				// lags a save by a site-updated event, which would drop the version
+				// from the label right after switching to auto-update.
+				autoUpdateVersion: data.wpVersion === '' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
 			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
@@ -177,7 +181,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			data.wpVersion,
+			existingDomainNames,
+			installedWpVersion,
+			isOffline,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(

@@ -1,4 +1,4 @@
-import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -18,6 +18,8 @@ import {
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
+import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
@@ -39,6 +41,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
 import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
@@ -90,6 +93,9 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const { data: wpVersions } = useGetWordPressVersions( {
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
+	} );
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
@@ -517,8 +523,9 @@ export const CreateSiteForm = ( {
 									<WPVersionSelector
 										selectedValue={ wpVersion }
 										onChange={ setWpVersion }
+										autoUpdateVersion={ getLatestVersionLabel( wpVersions ) }
 										fallbackOptions={ [
-											{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+											{ label: getAutoUpdateVersionLabel(), value: DEFAULT_WORDPRESS_VERSION },
 										] }
 										offlineMessage={ __(
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'

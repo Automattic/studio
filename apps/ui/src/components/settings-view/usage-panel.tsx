@@ -1,15 +1,23 @@
 import {
 	clampQuotaFraction,
+	formatAiCreditsAvailableLabel,
+	formatAiCreditsCallout,
+	formatAiCreditsUsedLabel,
 	formatQuotaPercentage,
 	formatQuotaResetDate,
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
+import { help, moreHorizontal } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useState } from 'react';
+import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { SigninNotice } from '@/components/agentic-signin-banner';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-required-notice';
+import { AiCreditsDetailsDialog } from '@/components/ai-credits-details-dialog';
 import * as Menu from '@/components/menu';
 import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
@@ -39,18 +47,52 @@ function UnavailableSection( { title }: { title: string } ) {
 	);
 }
 
-function UsageProgressBar( { fraction }: { fraction: number } ) {
+function UsageProgressBar( {
+	fraction,
+	valueClassName,
+}: {
+	fraction: number;
+	valueClassName?: string;
+} ) {
 	return (
 		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
-			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
+			<div
+				className={ clsx( styles.progressValue, valueClassName ) }
+				style={ { inlineSize: `${ fraction * 100 }%` } }
+			/>
 		</div>
 	);
 }
 
+// The meter's fill color escalates with the fraction spent, matching the
+// callout copy's thresholds.
+const METER_INTENT_CLASS_NAMES: Record< string, string | undefined > = {
+	ok: undefined,
+	warning: styles.progressValueWarning,
+	critical: styles.progressValueCritical,
+	exhausted: styles.progressValueExhausted,
+};
+
 function AiCreditsSummary() {
 	const locale = useUserLocale();
-	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+	const [ detailsOpen, setDetailsOpen ] = useState( false );
+	// The balance may have changed outside the app (e.g. a credits purchase on
+	// WordPress.com), so opening the panel always fetches a fresh figure.
+	const {
+		data: quota,
+		isLoading,
+		isError,
+	} = useStudioAssistantQuota( { refetchOnMount: 'always' } );
 	const accessState = quota ? getStudioCodeAiAccessState( quota ) : 'available';
+	// The server includes the per-pool balances only when AI credits are
+	// enabled for the account (STU-2235); their absence — not a 0 — means the
+	// pre-credits design should render.
+	const showsCreditBalances =
+		! isLoading &&
+		! isError &&
+		accessState === 'available' &&
+		!! quota &&
+		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined );
 
 	let content;
 	if ( isLoading ) {
@@ -76,17 +118,81 @@ function AiCreditsSummary() {
 				) }
 			</div>
 		);
+	} else if ( quota && showsCreditBalances ) {
+		const meter = getAiCreditsMeter( quota );
+		const intent = meter ? getAiCreditsMeterIntent( meter.fraction ) : 'ok';
+		const credits = new Intl.NumberFormat( locale );
+		content = (
+			<>
+				{ meter ? (
+					<div className={ styles.creditMeter }>
+						<div className={ styles.creditMeterSummary }>
+							<span className={ styles.creditMeterCredits }>
+								{ formatAiCreditsUsedLabel( meter, locale ) }
+							</span>
+							<strong className={ styles.creditMeterAvailable }>
+								{ formatAiCreditsAvailableLabel( meter, locale ) }
+							</strong>
+						</div>
+						<UsageProgressBar
+							fraction={ meter.fraction }
+							valueClassName={ METER_INTENT_CLASS_NAMES[ intent ] }
+						/>
+					</div>
+				) : (
+					// No usable denominator (e.g. billing unreachable): plain
+					// figures instead of a bar, and only the known ones.
+					<div className={ styles.creditBalances }>
+						{ quota.allowanceRemaining !== undefined ? (
+							<div className={ styles.previewUsageText }>
+								{ sprintf(
+									/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+									__( 'Free credits remaining: %s' ),
+									credits.format( quota.allowanceRemaining )
+								) }
+							</div>
+						) : null }
+						{ quota.purchasedRemaining !== undefined ? (
+							<div className={ styles.previewUsageText }>
+								{ sprintf(
+									/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+									__( 'Purchased credits remaining: %s' ),
+									credits.format( quota.purchasedRemaining )
+								) }
+							</div>
+						) : null }
+					</div>
+				) }
+				<div className={ styles.creditCallout }>
+					<AddAiCreditsButton
+						variant={ intent === 'exhausted' ? 'solid' : 'outline' }
+						tone={ intent === 'exhausted' ? 'brand' : 'neutral' }
+					/>
+					{ meter ? (
+						<span className={ styles.creditCalloutText }>
+							{ formatAiCreditsCallout( quota, meter, locale ) }
+						</span>
+					) : null }
+				</div>
+			</>
+		);
 	} else if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
 		content = (
 			<>
 				<div className={ styles.previewUsageText }>
-					{ sprintf(
-						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
-						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatQuotaPercentage( fraction, locale ),
-						formatQuotaResetDate( quota.costResetDate, locale )
-					) }
+					{ quota.costResetDate
+						? sprintf(
+								/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
+								__( '%1$s of monthly limit used (resets on %2$s)' ),
+								formatQuotaPercentage( fraction, locale ),
+								formatQuotaResetDate( quota.costResetDate, locale )
+						  )
+						: sprintf(
+								/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
+								__( '%s of monthly limit used' ),
+								formatQuotaPercentage( fraction, locale )
+						  ) }
 				</div>
 				<UsageProgressBar fraction={ fraction } />
 			</>
@@ -109,9 +215,25 @@ function AiCreditsSummary() {
 	return (
 		<section className={ styles.usageSection }>
 			<div className={ styles.usageSectionHeader }>
-				<h2>{ __( 'AI credits' ) }</h2>
+				<div className={ styles.aiCreditsHeading }>
+					<h2>{ __( 'AI credits' ) }</h2>
+					{ showsCreditBalances ? (
+						<IconButton
+							className={ styles.aiCreditsDetailsButton }
+							icon={ help }
+							label={ __( 'How AI credits work' ) }
+							size="small"
+							variant="minimal"
+							tone="neutral"
+							onClick={ () => setDetailsOpen( true ) }
+						/>
+					) : null }
+				</div>
 			</div>
 			{ content }
+			{ showsCreditBalances ? (
+				<AiCreditsDetailsDialog open={ detailsOpen } onOpenChange={ setDetailsOpen } />
+			) : null }
 		</section>
 	);
 }

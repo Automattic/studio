@@ -6,12 +6,10 @@
 
 .sidebar {
 	width: var(--sidebar-width, 320px);
-	/* The 240px floor is owned by useResizablePanel, which clamps
-	   --sidebar-width on every path. A CSS min-width here would be redundant
-	   while open and, because it can't transition in lockstep with width, would
-	   snap the panel to 240px at the start of the open animation. */
+	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
+	   on every path. CSS min/max widths would compete with that single source
+	   of truth and can crush the sidebar below its 240px floor on narrow windows. */
 	min-width: 0;
-	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--app-chrome-bg);
 	display: flex;
@@ -22,14 +20,12 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+	-webkit-app-region: drag;
 }
 
-/* Inside the sidebar's dark ThemeProvider; generates no box, but declares
-   the row background here so it resolves against the dark ramp (declared on
-   .sidebar it would resolve against the outer light theme). */
+/* Inside the sidebar's dark ThemeProvider; generates no box. */
 .sidebarThemeScope {
 	display: contents;
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -49,6 +45,7 @@
 	bottom: 0;
 	z-index: 1;
 	background-color: var(--app-chrome-bg);
+	-webkit-app-region: no-drag;
 }
 
 .sidebarCollapsed {
@@ -104,7 +101,7 @@
 	margin-block: 12px;
 	margin-inline-start: -3px;
 	border-radius: 999px;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
 /* Bottom-left of the main area. The 46px min-height and the negative bottom
@@ -138,6 +135,21 @@
 .floatingToggleButton {
 	position: relative;
 	display: inline-flex;
+}
+
+/* Replicates @wordpress/ui IconButton's internal sizing (see
+   node_modules/@wordpress/ui/src/icon-button/style.module.css, including the
+   -1px border compensation on the icon) — IconButton itself isn't used
+   because its unconditional tooltip would fight the hover-opened site
+   switcher popover. Keep in sync with upstream. */
+.floatingToggleControl {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: unset;
+}
+
+.floatingToggleIcon {
+	margin: -1px;
 }
 
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits

@@ -98,7 +98,9 @@ const api: IpcApi = {
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
-	getSiteStorageUsage: ( id ) => ipcRendererInvoke( 'getSiteStorageUsage', id ),
+	getSiteStorageUsage: ( id, requestId ) =>
+		ipcRendererInvoke( 'getSiteStorageUsage', id, requestId ),
+	cancelSiteStorageUsage: ( requestId ) => ipcRendererInvoke( 'cancelSiteStorageUsage', requestId ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
@@ -138,6 +140,8 @@ const api: IpcApi = {
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
 		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
+	ensureMinWindowWidth: ( minimumWidth ) =>
+		ipcRendererInvoke( 'ensureMinWindowWidth', minimumWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>
@@ -257,6 +261,8 @@ const api: IpcApi = {
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
+	setAiSessionProvider: ( sessionId, provider, model ) =>
+		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

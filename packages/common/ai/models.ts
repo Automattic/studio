@@ -1,7 +1,7 @@
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'openai';
+export type AiModelFamily = 'anthropic' | 'openai' | 'hosted';
 
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
@@ -10,6 +10,19 @@ export interface AiModel {
 	label: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
+	/**
+	 * Whether the model accepts image input. Defaults to true. Set false for
+	 * text-only models so the runtime doesn't advertise vision they lack —
+	 * screenshot tool results are images.
+	 */
+	supportsImages?: boolean;
+	/**
+	 * Hide the model from pickers for non-Automatticians. Visibility only —
+	 * the wpcom proxy is what actually refuses these upstreams, so this never
+	 * gates `isAiModelId`: a session that already recorded one must still
+	 * resolve rather than silently snap back to the default.
+	 */
+	requiresAutomattician?: boolean;
 }
 
 // Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
@@ -21,6 +34,50 @@ export const AI_MODELS = [
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
+	// Hosted models keep their vendor-prefixed ids — the proxy passes them
+	// upstream verbatim.
+	{ id: 'moonshotai/Kimi-K3', label: 'Kimi K3', family: 'hosted', requiresAutomattician: true },
+	{
+		id: 'moonshotai/Kimi-K2.6',
+		label: 'Kimi K2.6',
+		family: 'hosted',
+		requiresAutomattician: true,
+	},
+	{
+		id: 'zai-org/GLM-5.3-Flash',
+		label: 'GLM 5.3 Flash',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
+	{
+		id: 'zai-org/GLM-5.2',
+		label: 'GLM 5.2',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
+	{
+		id: 'zai-org/GLM-5.2-Fast',
+		label: 'GLM 5.2 Fast',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
+	{
+		id: 'deepseek-ai/DeepSeek-V4-Pro',
+		label: 'DeepSeek V4 Pro',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
+	{
+		id: 'deepseek-ai/DeepSeek-V4-Flash-0731',
+		label: 'DeepSeek V4 Flash',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
@@ -54,6 +111,35 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 
 export function getAiModelLabel( id: AiModelId ): string {
 	return getAiModel( id ).label;
+}
+
+// Widened to AiModel: `as const satisfies` narrows each entry to its own
+// literal type, so the optional flags aren't on the union.
+const ALL_MODELS = AI_MODELS as readonly AiModel[];
+const UNRESTRICTED_MODELS = ALL_MODELS.filter( ( model ) => ! model.requiresAutomattician );
+
+/**
+ * The models to offer in a picker. Restricted models stay in `AI_MODELS` (so
+ * ids keep validating) but are withheld from anyone who isn't an Automattician.
+ *
+ * `keepId` is always offered even when restricted, so a picker never hides the
+ * value it is currently displaying.
+ */
+export function getVisibleAiModels(
+	isAutomattician: boolean,
+	keepId?: AiModelId
+): readonly AiModel[] {
+	const visible = isAutomattician ? ALL_MODELS : UNRESTRICTED_MODELS;
+	if ( ! keepId || visible.some( ( model ) => model.id === keepId ) ) {
+		return visible;
+	}
+	return [ ...visible, getAiModel( keepId ) ];
+}
+
+// Tolerates ids outside AI_MODELS — callers can reach here with a cast, and
+// image support is the safe default.
+export function aiModelSupportsImages( id: AiModelId ): boolean {
+	return MODEL_BY_ID.get( id )?.supportsImages ?? true;
 }
 
 /**

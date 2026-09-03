@@ -96,7 +96,7 @@ describe( 'CLI: studio pull Tracks events', () => {
 		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
 
 		await expect(
-			runPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, true )
+			runPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
 		).rejects.toThrow();
 
 		expect( recordTracksEvent ).not.toHaveBeenCalled();

@@ -17,12 +17,15 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, name?: string ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	name?: string,
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+): Promise< void > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
-	const logger = new Logger< LoggerAction >();
 	const startedAt = Date.now();
 
 	try {

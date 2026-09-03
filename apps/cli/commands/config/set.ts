@@ -423,7 +423,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					description: __( 'WordPress version' ),
+					description: __(
+						'WordPress version. Use "latest" to let the site auto-update, or pin a version (e.g., "6.4", "6.4.1")'
+					),
 					coerce: ( value: string ) => {
 						if ( ! isValidWordPressVersion( value ) ) {
 							throw new ValidationError(

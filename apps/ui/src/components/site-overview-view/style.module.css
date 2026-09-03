@@ -9,13 +9,16 @@
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	background: var(--wpds-color-bg-surface-neutral);
+	/* All scrolling lives in .scroll; prevent the outer contentColumn
+	   (preview-split-frame) from seeing overflow and drawing a second bar. */
+	overflow: hidden;
+	color: var(--wpds-color-foreground-content-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 }
 
 .state {
 	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .header {
@@ -29,7 +32,7 @@
 	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	-webkit-app-region: drag;
 }
 
@@ -138,8 +141,8 @@
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .cardColumn {
@@ -206,13 +209,13 @@
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	text-align: start;
 }
 
 .overviewButton:not([data-disabled]):is(:hover, :focus-visible) {
 	border-color: var(--wpds-color-stroke-interactive-neutral);
-	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 .overviewButton[data-disabled] {
@@ -243,23 +246,23 @@
 	text-overflow: ellipsis;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
-	color: var(--wpds-color-fg-content-error);
+	color: var(--wpds-color-foreground-content-error);
 }
 
 .destructiveButton {
-	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-error-weak);
+	--wp-ui-button-background-color-active: var(--wpds-color-background-surface-error-weak);
 	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-error);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-error);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-error);
 }
 
 .destructiveButton:not([data-disabled]):is(:hover, :focus-visible, :active) {
 	border-color: var(--wpds-color-stroke-surface-error);
-	background: var(--wpds-color-bg-surface-error-weak);
+	background: var(--wpds-color-background-surface-error-weak);
 }
 
 /* The rules above pin an explicit colour on the icon and label, which would
@@ -268,7 +271,31 @@
    destructive rule, so Delete mutes too. */
 .overviewButton:is([data-disabled], :disabled) .overviewButtonIcon,
 .overviewButton:is([data-disabled], :disabled) .overviewButtonLabel {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
+}
+
+.buttonSkeleton {
+	width: 100%;
+	height: 36px;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-background-surface-neutral-weak);
+	animation: buttonSkeletonPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes buttonSkeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.buttonSkeleton {
+		animation: none;
+	}
 }
 
 @media (max-width: 760px) {

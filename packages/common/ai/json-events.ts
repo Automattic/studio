@@ -23,7 +23,6 @@ export interface AgentMessageJsonEvent {
 
 export type JsonEvent =
 	| AgentMessageJsonEvent
-	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }
@@ -58,34 +57,40 @@ export function buildUsageCapErrorMessage( originalMessage: string ): string {
 	return `${ USAGE_CAP_ERROR_PREFIX }: ${ originalMessage }`;
 }
 
-// Raw HTTP 429 shapes as the SDKs format them: the Anthropic SDK produces
-// "429 <body>", pi-ai's OpenAI path "OpenAI API error (429): <body>", plus
-// legacy Claude Code SDK forms.
-const HTTP_429_ERROR_PATTERN =
-	/(?:^429\b|\(429\)|API Error:\s*429\b|status code\s+429\b|"status"\s*:\s*429\b)/i;
+const USAGE_CAP_PATTERN = new RegExp( `(?:${ USAGE_CAP_ERROR_PREFIX }|cost_cap_exceeded)`, 'i' );
 
 /**
- * Returns true when an error message reports an HTTP 429, whatever SDK
- * formatted it. Callers are responsible for provider gating: only on the
- * WordPress.com proxy does a 429 mean the usage cap.
- */
-export function isHttp429ErrorMessage( message: string | undefined | null ): boolean {
-	return HTTP_429_ERROR_PATTERN.test( message ?? '' );
-}
-
-const USAGE_CAP_PATTERN = new RegExp(
-	`(?:${ USAGE_CAP_ERROR_PREFIX }|API Error:\\s*429\\b|status code\\s+429\\b|"status"\\s*:\\s*429\\b)`,
-	'i'
-);
-
-/**
- * Returns true when an error message indicates the user hit the AI usage cap
- * (HTTP 429 from the WordPress.com proxy). Raw, un-rewritten 429 messages
- * (e.g. from a user-supplied Anthropic API key, where a 429 is a transient
- * rate limit rather than a monthly cap) intentionally don't match.
+ * Returns true when an error message indicates the user hit the AI usage cap:
+ * either the runtime stamped the canonical prefix, or the proxy's
+ * `cost_cap_exceeded` code survived verbatim. A bare 429 deliberately doesn't
+ * match — it may be a hosted upstream's rate limit, or a user-supplied API key
+ * being throttled, and both of those are retryable.
  */
 export function isUsageCapError( message: string | undefined | null ): boolean {
 	return USAGE_CAP_PATTERN.test( message ?? '' );
+}
+
+/**
+ * Returns true when a proxy error is the account's monthly cost cap rather than
+ * a transient rate limit. Hosted upstreams behind the proxy return their own
+ * 429s for token-per-minute limits, which retrying does clear, so the status
+ * alone can't tell the two apart — the `cost_cap_exceeded` code can.
+ */
+export function isCostCapErrorMessage( message: string | undefined | null ): boolean {
+	return /\bcost_cap_exceeded\b/i.test( message ?? '' );
+}
+
+/**
+ * Returns true when the WordPress.com proxy refused the request because both
+ * AI credit pools are empty — the free monthly allowance is used up and no
+ * purchased credits remain (STU-2236). The proxy's 402 repeats the
+ * `studio_out_of_credits` code inside its message text; as with the other
+ * refusal codes, the AI SDKs surface only the message string, so the token is
+ * the load-bearing marker. Distinct from the monthly cap on purpose: waiting
+ * for the reset doesn't clear this state — the user has to buy credits.
+ */
+export function isOutOfCreditsError( message: string | undefined | null ): boolean {
+	return /studio_out_of_credits/i.test( message ?? '' );
 }
 
 /**

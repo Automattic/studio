@@ -26,6 +26,12 @@ import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers
 import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import {
+	AdminEmailControl,
+	AdminPasswordControl,
+	AdminUsernameControl,
+	SiteNameControl,
+} from './copyable-credential-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
@@ -147,17 +153,21 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
-			siteNameField< FormData >(),
+			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				// Current selection, not `site.isWpAutoUpdating`: the persisted flag
+				// lags a save by a site-updated event, which would drop the version
+				// from the label right after switching to auto-update.
+				autoUpdateVersion: data.wpVersion === '' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
-			adminUsernameField< FormData >(),
-			adminPasswordField< FormData >(),
-			adminEmailField< FormData >(),
+			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
+			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
+			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
 			customDomainToggleField< FormData >(),
 			customDomainField< FormData >( existingDomainNames ),
 			{
@@ -171,7 +181,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			data.wpVersion,
+			existingDomainNames,
+			installedWpVersion,
+			isOffline,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(

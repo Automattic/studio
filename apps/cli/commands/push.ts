@@ -40,12 +40,13 @@ import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncSite } from '@studio/common/types/sync';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	remoteSiteIdentifier?: string
+	remoteSiteIdentifier?: string,
+	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
@@ -55,7 +56,7 @@ export async function runCommand(
 	const pushed: PushOutcome = {};
 
 	try {
-		await runPush( siteFolder, syncOptions, remoteSiteIdentifier, pushed );
+		await runPush( siteFolder, syncOptions, remoteSiteIdentifier, logger, pushed );
 	} catch ( error ) {
 		await recordSyncPushEvent(
 			buildSyncEventProps( {
@@ -81,6 +82,7 @@ async function runPush(
 	siteFolder: string,
 	syncOptions: SyncOption[] | undefined,
 	remoteSiteIdentifier: string | undefined,
+	logger: Logger< LoggerAction >,
 	pushed: PushOutcome
 ): Promise< void > {
 	let remoteSite: SyncSite | undefined;
@@ -177,7 +179,7 @@ async function runPush(
 			);
 		}
 
-		handleExportEvents( exporter );
+		handleExportEvents( exporter, logger );
 		await exporter.export();
 
 		const archiveSize = fs.statSync( archivePath ).size;
@@ -366,10 +368,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( argv.path, argv.options, argv.remoteSite );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Push failed' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

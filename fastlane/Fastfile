@@ -87,7 +87,6 @@ lane :notarize_binary do
 
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio-*.dmg')].each do |path|
     notarize(
-      bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
       api_key: app_store_connect_api_key,
       print_log: true
@@ -106,7 +105,13 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 
   sh('rm', '-rf', pot_dir)
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
-  sh(
+
+  # `wp-babel-makepot` hardcodes its Babel `cwd` to its own package directory, so it never reads a
+  # config from this repo. It also runs every file through `@babel/preset-env` and then discards the
+  # generated code, keeping only the AST. Targeting the current Node turns those pointless downlevel
+  # transforms off — with default targets they choke on modern syntax such as `await using`.
+  output = sh(
+    { 'BROWSERSLIST' => 'current node' },
     'npx', 'wp-babel-makepot',
     "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
@@ -114,6 +119,8 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
     '--dir', pot_dir,
     '--output', POT_FILE_PATH
   )
+  # makepot logs the files it fails to parse and still exits 0, silently dropping their strings.
+  UI.user_error!("wp-babel-makepot failed to parse some files, so #{POT_FILE_PATH} is incomplete:\n#{output}") if output.match?(/BABEL_\w+_ERROR/)
 
   if commit_message && (skip_confirm || UI.confirm('Commit updated strings?'))
     git_add(path: [POT_FILE_PATH])

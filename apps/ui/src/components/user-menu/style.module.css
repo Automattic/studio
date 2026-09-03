@@ -9,9 +9,11 @@
 	);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
-	   left edge on the same column as the site icons. */
-	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
-		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
+	   inline edge on the same column as the site icons. Account for the button's
+	   internal border so the visible block-end gap matches the inline-start gap. */
+	padding-block: var(--wpds-dimension-padding-sm)
+		calc(var(--user-menu-leading-offset) + var(--wpds-border-width-xs));
+	padding-inline: var(--user-menu-leading-offset) var(--user-menu-trailing-offset);
 }
 
 .row {
@@ -21,7 +23,7 @@
 }
 
 .userName {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -29,7 +31,7 @@
 }
 
 .sidebarToggle {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
@@ -39,18 +41,11 @@
 	transform: scaleX(-1);
 }
 
-.row:hover .userName,
-.row:hover .sidebarToggle,
-.row:focus-within .userName,
-.row:focus-within .sidebarToggle {
-	color: var(--wpds-color-fg-content-neutral);
-}
-
 .userTrigger {
 	--user-menu-avatar-offset: 2px;
 
 	flex: 1;
-	font-weight: var(--wpds-typography-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-default);
 	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
 }
@@ -65,8 +60,8 @@
 	height: 20px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .settingsAvatar svg {

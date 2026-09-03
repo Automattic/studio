@@ -31,8 +31,12 @@
 	background: rgb(0 0 0 / 70%);
 }
 
-/* Over a dark full-bleed illustration the default (dark) icon vanishes; force a
-   light icon so Skip stays legible. */
+/* This artwork stays dark in both themes, so match the dark theme's neutral
+   hover fill and keep the icon light in both themes. */
+.closeOnDark {
+	--wp-ui-button-background-color-active: #282828;
+}
+
 .closeOnDark,
 .closeOnDark svg {
 	color: #fff;
@@ -86,7 +90,7 @@
 
 .description {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	line-height: 1.5;
 	text-wrap: pretty;
 }
@@ -153,15 +157,15 @@
 	   colour, and both tokens follow the theme. */
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 22%,
-		var(--wpds-color-bg-surface-neutral)
+		var(--wpds-color-foreground-content-neutral) 22%,
+		var(--wpds-color-background-surface-neutral)
 	);
 	transition: background 200ms ease-in-out, width 200ms ease-in-out;
 }
 
 .dotActive {
 	width: 18px;
-	background: var(--wpds-color-fg-interactive-brand);
+	background: var(--wpds-color-foreground-interactive-brand);
 }
 
 @media (prefers-reduced-motion: reduce) {

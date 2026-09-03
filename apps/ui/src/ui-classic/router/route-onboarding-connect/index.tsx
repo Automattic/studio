@@ -184,7 +184,7 @@ export function OnboardingConnectPage() {
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
 	const pullSite = usePullSiteFromLive();
-	const startSite = useStartSite();
+	const startSite = useStartSite( { silent: true } );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
 	const [ selectedId, setSelectedId ] = useState< number | null >( null );
 	const [ isConnecting, setIsConnecting ] = useState( false );

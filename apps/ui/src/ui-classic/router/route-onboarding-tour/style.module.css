@@ -27,7 +27,7 @@
 
 .tourAuthText {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* The agent step's pixel field sits bare — no card, no glass — so it reads

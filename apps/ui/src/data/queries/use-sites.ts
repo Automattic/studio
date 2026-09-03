@@ -1,3 +1,4 @@
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -104,9 +105,18 @@ export function useExportDatabase() {
 	} );
 }
 
+export interface StartSiteOptions {
+	// Set by callers whose start is a side effect of something else — boot
+	// auto-start, the connect-site lifecycle, opening a link on a stopped site.
+	// The site's own status already reports the start, and a batch of them
+	// would otherwise fill the shelf with notifications nobody asked for.
+	// Failures still surface: a site that never came up is worth a toast.
+	silent?: boolean;
+}
+
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state.
-export function useStartSite() {
+export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
@@ -126,7 +136,7 @@ export function useStartSite() {
 			return true;
 		},
 		onSuccess: ( started ) => {
-			if ( started ) {
+			if ( started && ! silent ) {
 				toast.success( __( 'Site started' ) );
 			}
 		},
@@ -209,12 +219,16 @@ export function useUpdateSite() {
 			// in-memory details.
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
-			// Seed the applied version rather than refetching it: the CLI keeps
-			// restarting the site after this resolves, and a disk read landing
-			// mid-restart still reports the pre-edit version, which would flash
-			// the old value back into the settings form.
-			if ( wpVersion ) {
+			// Seed the applied version rather than refetching, which can still
+			// report the pre-edit version and flash it back into the form.
+			// `latest` is the auto-update mode, not a version, so there is
+			// nothing to seed — refetch and let the read report what landed.
+			if ( wpVersion && wpVersion !== DEFAULT_WORDPRESS_VERSION ) {
 				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
+			} else if ( wpVersion ) {
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...WP_VERSION_QUERY_KEY, site.id ],
+				} );
 			}
 			toast.success( __( 'Settings saved' ) );
 		},
@@ -340,7 +354,7 @@ export function useSyncSitesWithEvents(): void {
 // with stale flags can't trigger starts.
 export function useAutoStartSites(): void {
 	const { data: sites, isFetchedAfterMount } = useSites();
-	const { mutate: startSite } = useStartSite();
+	const { mutate: startSite } = useStartSite( { silent: true } );
 	const startedRef = useRef( false );
 	useEffect( () => {
 		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {

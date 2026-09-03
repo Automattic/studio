@@ -44,13 +44,14 @@ import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
 
-const logger = new Logger< LoggerAction >();
+const defaultLogger = new Logger< LoggerAction >();
 
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
+	logger: Logger< LoggerAction > = defaultLogger,
 	suppressTracksEvent = false
 ): Promise< void > {
 	let site: SiteData | undefined;
@@ -202,7 +203,7 @@ export async function runCommand(
 				{ path: destPath, type: 'application/gzip' },
 				DEFAULT_IMPORTER_OPTIONS
 			);
-			handleImportEvents( importer );
+			handleImportEvents( importer, logger );
 			await importer.import( site );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
@@ -326,14 +327,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.options as SyncOption[] | undefined,
 					argv.remoteSite,
 					argv.includePathList as string[] | undefined,
+					defaultLogger,
 					argv.suppressTracksEvent
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
+					defaultLogger.reportError( error );
 				} else {
 					const loggerError = new LoggerError( __( 'Pull failed' ), error );
-					logger.reportError( loggerError );
+					defaultLogger.reportError( loggerError );
 				}
 			}
 		},

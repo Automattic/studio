@@ -67,7 +67,7 @@ export function AiCreditsThresholdNotice() {
 
 	return (
 		<ThemeProvider
-			color={ { bg: colorScheme === 'dark' ? FRAME_BG_DARK : FRAME_BG_LIGHT } }
+			color={ { background: colorScheme === 'dark' ? FRAME_BG_DARK : FRAME_BG_LIGHT } }
 			density="compact"
 		>
 			<Notice.Root

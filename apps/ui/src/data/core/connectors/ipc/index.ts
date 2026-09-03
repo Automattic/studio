@@ -1,3 +1,4 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -952,6 +953,18 @@ export function createIpcConnector(): Connector {
 		async openSiteInTerminal( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			await ipcApi.openTerminalAtPath( sitePath );
+		},
+
+		async siteDebugLogExists( siteId ): Promise< boolean > {
+			return Boolean( await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH ) );
+		},
+
+		async openSiteDebugLog( siteId ): Promise< void > {
+			const logPath = await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH );
+			if ( ! logPath ) {
+				throw new Error( 'Debug log not found.' );
+			}
+			ipcApi.openLocalPath( logPath );
 		},
 
 		async openStudioLogs(): Promise< void > {

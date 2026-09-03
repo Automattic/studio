@@ -8,6 +8,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -110,6 +111,11 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-debug-log', () => ( {
+	debugLogExistsQueryKey: ( siteId: string ) => [ 'debug-log-exists', siteId ],
+	useDebugLogExists: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
 	siteThumbnailQueryKey: ( siteId: string ) => [ 'site-thumbnail', siteId ],
 	useSiteThumbnail: vi.fn(),
@@ -161,6 +167,7 @@ const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useDebugLogExistsMock = vi.mocked( useDebugLogExists, { partial: true } );
 const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
 const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
@@ -178,6 +185,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const openSiteDebugLog = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const copyText = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
@@ -193,6 +201,7 @@ describe( 'SiteOverviewView', () => {
 		openSiteFolder,
 		openSiteInEditor,
 		openSiteInTerminal,
+		openSiteDebugLog,
 		trackEvent,
 		copyText,
 		getFilePath,
@@ -274,6 +283,7 @@ describe( 'SiteOverviewView', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
 		useWpVersionMock.mockReturnValue( { data: undefined } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
+		useDebugLogExistsMock.mockReturnValue( { data: false } );
 	} );
 
 	function renderView(
@@ -1006,6 +1016,55 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
 		).not.toBeInTheDocument();
+	} );
+
+	// Driven by a lookup rather than the setting: the log may not exist yet.
+	describe( 'debug log shortcut', () => {
+		it( 'offers to open the log once one exists', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
+		it( 'stays hidden while the site has no log yet', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: false } );
+			renderView( 'debugging' );
+
+			expect( screen.queryByRole( 'button', { name: 'Open log file' } ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'asks the host to open the log', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Open log file' } ) );
+
+			expect( openSiteDebugLog ).toHaveBeenCalledWith( 'site-1' );
+		} );
+
+		// Turning logging off stops WordPress writing, but leaves the file behind.
+		it( 'still offers the log after logging is turned off', () => {
+			useSitesMock.mockReturnValue( {
+				data: [ createSite( { running: true, enableDebugLog: false } ) ],
+			} );
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
+		// The custom control replaces DataForm's rendering of the description.
+		it( 'keeps the field description', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect(
+				screen.getByText(
+					"Log PHP errors and warnings to a debug.log file in your site's wp-content directory."
+				)
+			).toBeVisible();
+		} );
 	} );
 
 	it( 'shows a not-found state for unknown sites', () => {

@@ -1,11 +1,13 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { SyncSite } from '@studio/common/types/sync';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { SYNC_OPTIONS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
@@ -21,6 +23,7 @@ const mockPushSiteThunk = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/components/dot-grid', () => ( { DotGrid: () => null } ) );
 vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/analytics', () => ( { recordRendererTracksEvent: vi.fn() } ) );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 	const actual = await vi.importActual< typeof import('src/stores/sync/wpcom-sites') >(
@@ -142,6 +145,8 @@ describe( 'ContentTabSync', () => {
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 			getDirectorySize: vi.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: vi.fn(),
+			disconnectWpcomSites: vi.fn(),
+			showErrorMessageBox: vi.fn(),
 			getWpVersion: vi.fn().mockResolvedValue( '6.4.3' ),
 			getIsMultisite: vi.fn().mockResolvedValue( false ),
 			listLocalFileTree: vi.fn().mockResolvedValue( [
@@ -260,6 +265,53 @@ describe( 'ContentTabSync', () => {
 
 		fireEvent.click( freeAccountButton );
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
+	} );
+
+	// The RTK Query trigger resolves with `{ error }` rather than rejecting, so
+	// without `.unwrap()` a failed disconnect was recorded as a success.
+	it( 'records no disconnect event when the disconnect fails', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		const ipc = vi.mocked( getIpcApi )();
+		// Confirm the "are you sure?" dialog (button 0 is Disconnect).
+		vi.mocked( ipc.showMessageBox, { partial: true } ).mockResolvedValue( {
+			response: 0,
+			checkboxChecked: false,
+		} );
+		vi.mocked( ipc.disconnectWpcomSites, { partial: true } ).mockRejectedValue(
+			new Error( 'User not authenticated' )
+		);
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		await screen.findByText( fakeSyncSite.name );
+		fireEvent.click( screen.getByRole( 'button', { name: /Disconnect/i } ) );
+
+		await waitFor( () => expect( ipc.showErrorMessageBox ).toHaveBeenCalled() );
+		expect( recordRendererTracksEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_DISCONNECT,
+			expect.anything()
+		);
+		expect( recordRendererTracksEvent ).not.toHaveBeenCalledWith( TRACKS_EVENTS.SYNC_DISCONNECT );
+	} );
+
+	it( 'records a disconnect event when the disconnect succeeds', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		const ipc = vi.mocked( getIpcApi )();
+		vi.mocked( ipc.showMessageBox, { partial: true } ).mockResolvedValue( {
+			response: 0,
+			checkboxChecked: false,
+		} );
+		vi.mocked( ipc.disconnectWpcomSites, { partial: true } ).mockResolvedValue( undefined );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		await screen.findByText( fakeSyncSite.name );
+		fireEvent.click( screen.getByRole( 'button', { name: /Disconnect/i } ) );
+
+		await waitFor( () =>
+			expect( recordRendererTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SYNC_DISCONNECT )
+		);
+		expect( ipc.showErrorMessageBox ).not.toHaveBeenCalled();
 	} );
 
 	it( 'displays the list of connected sites', async () => {

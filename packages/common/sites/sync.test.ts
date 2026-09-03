@@ -118,6 +118,7 @@ describe( 'pullSite', () => {
 				'paths',
 				'--include-path-list',
 				...includePathList,
+				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
 		);
@@ -143,7 +144,7 @@ describe( 'pushSite', () => {
 			{ executeCliCommand: execute, accessToken: 'token', emit },
 			{ sitePath: '/sites/local', remoteSiteId: 42 }
 		);
-		return { emit, pushing };
+		return { emit, execute, pushing };
 	}
 
 	const working = ( status: string, progress: Partial< ImportResponse > = {} ) =>
@@ -176,6 +177,16 @@ describe( 'pushSite', () => {
 			{ kind: 'phase', phase: 'finishing' },
 		] );
 		expect( pollImportStatus ).toHaveBeenCalledTimes( 4 );
+	} );
+
+	// `studio_site_exported` means a user-initiated backup export. The export this
+	// runs is an implementation detail of the push, so it must not be counted.
+	it( 'suppresses the export Tracks event for the archive it builds', async () => {
+		const { execute, pushing } = startPush( [ working( 'finished' ) ] );
+
+		await pushing;
+
+		expect( vi.mocked( execute ).mock.calls[ 0 ][ 0 ] ).toContain( '--suppress-tracks-event' );
 	} );
 
 	it( 'rejects with the reason the remote import failed', async () => {

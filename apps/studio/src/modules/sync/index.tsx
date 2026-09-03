@@ -220,7 +220,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
 						disconnectSite={ async ( id ) => {
-							await disconnectSite( { siteId: id, localSiteId: selectedSite.id } );
+							try {
+								// `.unwrap()` so a failed disconnect rejects — the trigger otherwise
+								// resolves with `{ error }` and would be recorded as a success.
+								await disconnectSite( { siteId: id, localSiteId: selectedSite.id } ).unwrap();
+							} catch {
+								// Callers invoke this fire-and-forget, so the rejection stops here.
+								getIpcApi().showErrorMessageBox( {
+									title: __( 'Failed to disconnect site' ),
+									message: __( 'Please try again.' ),
+								} );
+								return;
+							}
 							recordRendererTracksEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
 						} }
 					/>

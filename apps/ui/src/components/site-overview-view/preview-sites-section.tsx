@@ -14,6 +14,7 @@ import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
 import {
 	CardEmptyState,
+	CardLoadingState,
 	ButtonTooltip,
 	CardHeaderAction,
 	CardResourceRow,
@@ -125,7 +126,7 @@ export function PreviewSitePublishAction( {
 
 export function PreviewSitesList( { site }: { site: SiteDetails } ) {
 	const { data: authUser } = useAuthUser();
-	const { data: allSnapshots } = useSnapshots( authUser?.id );
+	const { data: allSnapshots, isLoading } = useSnapshots( authUser?.id );
 	const snapshots = useMemo(
 		() =>
 			( allSnapshots ?? [] )
@@ -143,6 +144,8 @@ export function PreviewSitesList( { site }: { site: SiteDetails } ) {
 				<CardEmptyState>
 					{ __( 'Sign in to publish a preview site and share your work.' ) }
 				</CardEmptyState>
+			) : isLoading && ! allSnapshots ? (
+				<CardLoadingState label={ __( 'Loading preview sites…' ) } />
 			) : ! snapshots.length && ! pendingPreview ? (
 				<CardEmptyState>
 					{ sprintf(

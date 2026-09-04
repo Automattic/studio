@@ -87,7 +87,17 @@
 
 .empty {
 	margin: 0;
-	text-wrap: balance;
+	text-wrap: pretty;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.loadingState {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-height: var(--wpds-typography-line-height-sm);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-foreground-content-neutral-weak);
@@ -237,19 +247,6 @@
 
 .itemIcon svg {
 	fill: currentColor;
-}
-
-.connectionSkeleton {
-	height: 10px;
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-background-surface-neutral-weak);
-	animation: connection-loading 1.4s ease-in-out infinite alternate;
-}
-
-@keyframes connection-loading {
-	to {
-		opacity: 0.55;
-	}
 }
 
 .themeMenuAnchor {
@@ -513,8 +510,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.storageSkeleton,
-	.storageLegend,
-	.connectionSkeleton {
+	.storageLegend {
 		animation: none;
 		transition: none;
 	}

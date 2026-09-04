@@ -14,6 +14,7 @@ import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
 import {
 	CardEmptyState,
+	CardLoadingState,
 	ButtonTooltip,
 	CardHeaderAction,
 	CardResourceRow,
@@ -54,7 +55,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 						{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
 					</CardEmptyState>
 				) : isLoading && ! connections ? (
-					<div className={ styles.connectionSkeleton } />
+					<CardLoadingState label={ __( 'Loading connections…' ) } />
 				) : ! hasConnections ? (
 					<CardEmptyState>
 						{ __(

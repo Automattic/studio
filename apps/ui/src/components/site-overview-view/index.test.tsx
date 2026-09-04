@@ -514,11 +514,12 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Preview sites' } ).closest( 'section' ) ).toBe(
 			overviewCard
 		);
-		expect(
-			screen.getByText(
-				'Pull a live site into Studio, then push your local changes when they are ready.'
-			)
-		).toBeVisible();
+		const emptyConnectionCopy = screen.getByText(
+			'Pull a live site into Studio, then push your local changes when they are ready.'
+		);
+		expect( emptyConnectionCopy ).toBeVisible();
+		const readyIndex = emptyConnectionCopy.textContent?.indexOf( 'ready.' ) ?? -1;
+		expect( emptyConnectionCopy.textContent?.charCodeAt( readyIndex - 1 ) ).toBe( 160 );
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeVisible();
 	} );
 
@@ -528,6 +529,22 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Connect site' } ) );
 
 		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Connect site dialog' );
+	} );
+
+	it( 'shows loading states before connections and previews resolve', () => {
+		useConnectedWpcomSitesMock.mockReturnValue( { data: undefined, isLoading: true } );
+		useSnapshotsMock.mockReturnValue( { data: undefined, isLoading: true } );
+
+		renderView();
+
+		expect( screen.getByRole( 'status', { name: 'Loading connections…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'status', { name: 'Loading preview sites…' } ) ).toBeVisible();
+		expect(
+			screen.queryByText(
+				'Pull a live site into Studio, then push your local changes when they are ready.'
+			)
+		).not.toBeInTheDocument();
+		expect( screen.queryByText( /No preview site yet/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'offers login from Connections when signed out', () => {

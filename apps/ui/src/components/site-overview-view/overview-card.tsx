@@ -1,3 +1,4 @@
+import { Spinner } from '@wordpress/components';
 import { Badge, Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import styles from './cards.module.css';
@@ -39,7 +40,21 @@ export function CardSectionFooter( { children }: { children: ReactNode } ) {
 }
 
 export function CardEmptyState( { children }: { children: ReactNode } ) {
-	return <p className={ styles.empty }>{ children }</p>;
+	if ( typeof children !== 'string' ) {
+		return <p className={ styles.empty }>{ children }</p>;
+	}
+
+	const orphanSafeText = children.replace( /(\S+)\s+(\S+)\s*$/, '$1\u00a0$2' );
+	return <p className={ styles.empty }>{ orphanSafeText }</p>;
+}
+
+export function CardLoadingState( { label }: { label: string } ) {
+	return (
+		<div className={ styles.loadingState } role="status" aria-label={ label }>
+			<Spinner />
+			<span>{ label }</span>
+		</div>
+	);
 }
 
 export function CardRows( { children }: { children: ReactNode } ) {

@@ -82,8 +82,8 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
-/* The beta affordance stays in normal footer flow, below transient/persistent
-   messages and above Settings, so it never overlays a toast or checklist.
+/* The beta affordance stays in normal footer flow, at the top of the footer
+   so notices sit directly above the Settings row and its bell.
    Margin, not padding: this class lands on the bubble itself, which owns its
    own padding. */
 .sidebarBeta {

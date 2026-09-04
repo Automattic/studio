@@ -1,0 +1,79 @@
+/* Same weight as the sidebar toggle beside it (user-menu's `.sidebarToggle`);
+   the button paints its own foreground, so the color has to land on it. */
+.bell {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+/* The chrome's header padding puts a full gap between the title and the
+   intro paragraph; tighten it so the two read as one block, and put the
+   space below the paragraph instead. Text zeroes the paragraph's own margin,
+   so it has to be set here. */
+.header {
+	padding-block-end: var(--wpds-dimension-gap-xs);
+}
+
+.intro {
+	margin-block-end: var(--wpds-dimension-gap-lg);
+}
+
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.notice {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Notice sizes its title row for a 24px icon, but at this density the glyph
+   renders smaller and sits high; center it on the title row instead. */
+.notice > svg {
+	align-self: center;
+}
+
+/* The toast clamps this; here it runs in full, but a stack trace can be
+   hundreds of lines, so past ~a dozen the entry scrolls on its own rather
+   than pushing every other notice off screen. Error text can be a long,
+   unbroken path or JSON, so let it wrap anywhere. */
+.description {
+	/* Run under the timestamp's column too; it only occupies the title row. */
+	grid-column: 2 / -1;
+	max-height: 240px;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* Notice lays out as `auto 1fr auto`; the timestamp takes the trailing cell
+   on the title row, aligned to the title's own text padding. */
+.time {
+	grid-column: 3;
+	grid-row: 1;
+	padding-block: var(--text-vertical-padding);
+	margin-inline-start: var(--wpds-dimension-gap-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* EmptyState.Root is a max-width block, so it sits at the content box's
+   start until it is centered. The min-height gives it enough room to read as
+   a state rather than a stub, with the stack centered in it. */
+.empty {
+	margin-inline: auto;
+	justify-content: center;
+	min-height: 200px;
+	padding-block: var(--wpds-dimension-padding-2xl);
+}
+
+/* Footer actions sit at the end; push the destructive-ish one to the start. */
+.clearAll {
+	margin-inline-end: auto;
+}

@@ -180,7 +180,7 @@ describe( 'SiteList', () => {
 		const stoppedButton = screen.getByRole( 'button', {
 			name: 'Site status: Stopped. Start site',
 		} );
-		const statusGlyph = stoppedButton.querySelector( 'svg:first-of-type' );
+		const statusGlyph = stoppedButton.querySelector( '[class*="siteStatusDefaultGlyph"]' );
 
 		expect( statusGlyph ).toHaveAttribute( 'viewBox', '0 0 10 10' );
 		expect( statusGlyph?.querySelector( 'path' ) ).toHaveAttribute( 'd', 'M2.5 1 L9 5 L2.5 9 Z' );
@@ -201,7 +201,8 @@ describe( 'SiteList', () => {
 		} );
 		const actionGlyph = runningButton.querySelector( 'span[aria-hidden="true"]' );
 
-		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
+		// The hidden Xdebug glyph stays mounted so it can crawl in when the setting changes.
+		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 2 );
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
 	} );
 
@@ -393,18 +394,25 @@ describe( 'SiteList', () => {
 		const xdebugButton = screen.getByRole( 'button', {
 			name: 'Site status: Running. Xdebug enabled. Stop site',
 		} );
-		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const xdebugGlyph = xdebugButton.querySelector( '[class*="siteStatusXdebugGlyph"]' );
 		const plainButton = screen.getByRole( 'button', {
 			name: 'Site status: Running. Stop site',
 		} );
 
 		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph ).toHaveAttribute( 'data-active', 'true' );
 		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
 		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
-		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+		expect(
+			plainButton.querySelector( '[class*="siteStatusDefaultGlyph"] rect' )
+		).toBeInTheDocument();
 
 		fireEvent.click( xdebugButton );
 		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
+		expect( xdebugButton.querySelector( '[class*="siteStatusXdebugGlyph"]' ) ).toHaveAttribute(
+			'data-motion',
+			'both'
+		);
 	} );
 
 	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
@@ -431,7 +439,46 @@ describe( 'SiteList', () => {
 		// set alongside `data-state`; assert that DOM contract.
 		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
 		expect( button ).toHaveAttribute( 'data-xdebug' );
-		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		const xdebugGlyph = button.querySelector( '[class*="siteStatusXdebugGlyph"]' );
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph ).not.toHaveAttribute( 'data-active' );
+	} );
+
+	it( 'keeps the Xdebug glyph mounted while it crawls in and out', () => {
+		const site = createSite( {
+			id: 'xdebug-transition-site',
+			name: 'Xdebug Transition Site',
+			path: '/Users/example/Studio/xdebug-transition-site',
+			running: false,
+			enableXdebug: false,
+		} );
+		useSitesMock.mockReturnValue( { data: [ site ], isLoading: false } );
+
+		const { rerender } = render( <SiteList /> );
+
+		site.enableXdebug = true;
+		rerender( <SiteList /> );
+
+		let button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button ).toHaveAttribute( 'data-xdebug-present' );
+		expect( button.querySelector( '[class*="siteStatusXdebugGlyph"]' ) ).toHaveAttribute(
+			'data-crawl',
+			'in'
+		);
+
+		site.enableXdebug = false;
+		rerender( <SiteList /> );
+
+		button = screen.getByRole( 'button', { name: 'Site status: Stopped. Start site' } );
+		expect( button ).not.toHaveAttribute( 'data-xdebug' );
+		expect( button ).toHaveAttribute( 'data-xdebug-present' );
+		expect( button.querySelector( '[class*="siteStatusXdebugGlyph"]' ) ).toHaveAttribute(
+			'data-crawl',
+			'out'
+		);
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {

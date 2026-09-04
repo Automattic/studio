@@ -270,6 +270,7 @@
 	justify-content: flex-end;
 	flex-shrink: 0;
 	gap: 0;
+	block-size: var(--site-list-row-height);
 	max-width: 24px;
 	overflow: hidden;
 	transition: max-width 100ms ease;
@@ -331,7 +332,7 @@
 
 /* Xdebug is a persistent single-site setting worth spotting at a glance, so
    its (greyed) glyph stays visible even while the site is stopped. */
-.siteStatus[data-xdebug][data-state='stopped'] {
+.siteStatus[data-xdebug-present][data-state='stopped'] {
 	opacity: 1;
 }
 
@@ -357,7 +358,21 @@
 	height: 8px;
 	flex-shrink: 0;
 	overflow: visible;
-	transition: opacity 100ms ease;
+	transition: opacity 100ms ease,
+		transform var( --xdebug-crawl-duration, 0.8s ) linear;
+}
+
+.siteStatus[data-xdebug-present] .siteStatusDefaultGlyph,
+.siteStatus:not([data-xdebug]) .siteStatusXdebugGlyph {
+	opacity: 0;
+}
+
+.siteStatus[data-xdebug-present] .siteStatusDefaultGlyph {
+	transform: scale( 0.7 );
+}
+
+.siteStatus:not([data-xdebug]) .siteStatusXdebugGlyph {
+	transform: translateY( -14px ) rotate( -5deg ) scale( 0.92 );
 }
 
 /* Classic's Xdebug bug replaces the status dot; its color tracks the same
@@ -367,6 +382,30 @@
 	block-size: 20px;
 	width: 20px;
 	height: 20px;
+}
+
+.siteStatus[data-xdebug] .siteStatusXdebugGlyph {
+	transition-duration: 160ms, var( --xdebug-crawl-duration, 0.8s );
+	transition-delay: 0ms, 0ms;
+}
+
+.siteStatus:not([data-xdebug]) .siteStatusXdebugGlyph {
+	transition-duration: 160ms, var( --xdebug-crawl-duration, 0.8s );
+	transition-delay: calc( var( --xdebug-crawl-duration, 0.8s ) - 160ms ), 0ms;
+}
+
+.siteStatus[data-xdebug-present]:not([data-state='transitioning']):is(:hover, :focus-visible)
+	.siteStatusXdebugGlyph {
+	transition-duration: 100ms, var( --xdebug-crawl-duration, 0.8s );
+	transition-delay: 520ms, 0ms;
+}
+
+.siteStatus .siteStatusXdebugGlyph[data-crawl='in'] {
+	animation: siteStatusXdebugCrawlIn var( --xdebug-crawl-duration, 0.8s ) linear both;
+}
+
+.siteStatus .siteStatusXdebugGlyph[data-crawl='out'] {
+	animation: siteStatusXdebugCrawlOut var( --xdebug-crawl-duration, 0.8s ) linear both;
 }
 
 .siteStatus[data-state='running'] .siteStatusXdebugGlyph {
@@ -405,6 +444,11 @@
 
 .siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
 	opacity: 1;
+}
+
+.siteStatus[data-xdebug-present]:not([data-state='transitioning']):is(:hover, :focus-visible)
+	.siteStatusActionGlyph {
+	transition-delay: 520ms;
 }
 
 .siteStatusPauseMark,
@@ -483,6 +527,52 @@
 	}
 }
 
+@keyframes siteStatusXdebugCrawlIn {
+	0% {
+		opacity: 0;
+		transform: translateY( 14px ) rotate( 5deg ) scale( 0.92 );
+	}
+	20% {
+		opacity: 0.35;
+		transform: translateY( 11px ) rotate( 3deg ) scale( 0.94 );
+	}
+	45% {
+		opacity: 0.65;
+		transform: translateY( 7px ) rotate( -2deg ) scale( 0.96 );
+	}
+	70% {
+		opacity: 0.85;
+		transform: translateY( 3px ) rotate( 1deg ) scale( 0.98 );
+	}
+	100% {
+		opacity: 1;
+		transform: translateY( 0 ) rotate( 0deg ) scale( 1 );
+	}
+}
+
+@keyframes siteStatusXdebugCrawlOut {
+	0% {
+		opacity: 1;
+		transform: translateY( 0 ) rotate( 0deg ) scale( 1 );
+	}
+	30% {
+		opacity: 0.85;
+		transform: translateY( -4px ) rotate( -1deg ) scale( 0.98 );
+	}
+	55% {
+		opacity: 0.65;
+		transform: translateY( -8px ) rotate( 2deg ) scale( 0.96 );
+	}
+	80% {
+		opacity: 0.3;
+		transform: translateY( -12px ) rotate( -3deg ) scale( 0.94 );
+	}
+	100% {
+		opacity: 0;
+		transform: translateY( -14px ) rotate( -5deg ) scale( 0.92 );
+	}
+}
+
 @keyframes siteAgentSyncHalfTurn {
 	0%,
 	38% {
@@ -514,6 +604,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.siteStatus .siteStatusGlyph.siteStatusGlyph {
+		transition: none;
+	}
+
 	.siteStatusShape {
 		transition: none;
 		animation: none;

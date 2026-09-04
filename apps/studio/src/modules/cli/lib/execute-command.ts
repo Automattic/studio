@@ -173,8 +173,16 @@ export function executeCliCommand(
 				}
 			}
 		} );
+		// Unlike stdout, stderr is always echoed: it carries diagnostics rather than payloads, and
+		// a command that recovers from a failure still exits 0, so this is the only place a
+		// non-fatal problem becomes visible.
 		child.stderr?.on( 'data', ( data: Buffer ) => {
-			stderr += data.toString();
+			const text = data.toString();
+			stderr += text;
+			const trimmed = text.trimEnd();
+			if ( trimmed ) {
+				console.error( `${ logPrefix ?? '[CLI]' } ${ trimmed }` );
+			}
 		} );
 	}
 

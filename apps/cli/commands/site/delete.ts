@@ -458,6 +458,9 @@ async function deleteSite(
 				await trash( filePaths );
 				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} catch ( error ) {
+				// `reportError` with `isFatal: false` leaves the exit code at 0, and the desktop app
+				// only surfaces CLI IPC failures for non-zero exits, so log to stderr as well.
+				console.error( 'Failed to move site files to trash:', error );
 				logger.reportError(
 					new LoggerError( __( 'Failed to move site files to trash. Proceeding anyway…' ), error ),
 					false

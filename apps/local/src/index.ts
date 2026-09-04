@@ -746,15 +746,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites/:id/thumbnail',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const thumbnailsRoot = path.join( getDesktopDataDirectory(), 'thumbnails' );
-			const thumbnailPath = confineToRoot(
-				thumbnailsRoot,
-				path.join( thumbnailsRoot, `${ req.params.id }.png` )
+			const site = ( await listSites( execute ) ).find(
+				( candidate ) => candidate.id === req.params.id
 			);
-			if ( ! thumbnailPath ) {
-				res.status( 400 ).json( { error: 'Invalid site id' } );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
+			const thumbnailsRoot = path.join( getDesktopDataDirectory(), 'thumbnails' );
+			const thumbnailPath = path.join( thumbnailsRoot, `${ site.id }.png` );
 			try {
 				res.type( 'png' ).send( await readFile( thumbnailPath ) );
 			} catch ( error ) {

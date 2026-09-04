@@ -210,6 +210,14 @@ describe( 'local web server Connect contracts', () => {
 		}
 	} );
 
+	it( 'does not resolve a thumbnail path for an unknown site', async () => {
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/not-a-site/thumbnail`
+		);
+
+		expect( response.status ).toBe( 404 );
+	} );
+
 	afterEach( async () => {
 		await server.close();
 		nock.disableNetConnect();

@@ -58,7 +58,7 @@ export function PreviewSitePublishAction( {
 	if ( presentation === 'dialog' ) {
 		return (
 			<Button
-				variant="solid"
+				variant="minimal"
 				tone="brand"
 				size="small"
 				disabled={ disabled }

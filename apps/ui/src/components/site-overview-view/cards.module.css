@@ -57,6 +57,10 @@
 }
 
 .headerAction {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-weak);
+	--wp-ui-button-background-color-active: var(
+		--wpds-color-background-interactive-neutral-weak-active
+	);
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
 	--wp-ui-button-min-width: 0;

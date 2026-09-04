@@ -35,7 +35,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	const connectAction = authUser ? (
 		<>
 			<Button
-				variant="solid"
+				variant="minimal"
 				tone="neutral"
 				size="small"
 				className={ styles.headerAction }

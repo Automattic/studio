@@ -16,6 +16,12 @@ else
   bash .buildkite/commands/install-node-dependencies.sh
 fi
 
+echo '--- :wordpress: Download language packs'
+# Shipped builds bundle these (see forge.config.ts). Without them, creating a non-English site
+# downloads its translations from wordpress.org mid-test, which is where the localization e2e
+# test flaked. `cli:build` copies wp-files into dist, so this has to run first.
+STUDIO_LANGUAGE_PACK_LOCALES=ja npm run download-language-packs
+
 echo '--- :node: Build CLI'
 npm run cli:build
 

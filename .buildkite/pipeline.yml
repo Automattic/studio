@@ -6,8 +6,19 @@
 env:
   IMAGE_ID: $IMAGE_ID
 
+# Retry a job whose agent stopped or was lost before or while it ran (e.g. a fresh Windows
+# instance recycled mid-checkout). Genuine command failures still fail immediately.
+infra_retry: &infra_retry
+  automatic:
+    - exit_status: -1
+      signal_reason: none
+      limit: 2
+    - signal_reason: agent_stop
+      limit: 2
+
 e2e_config: &e2e_config
   timeout_in_minutes: 100
+  retry: *infra_retry
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
@@ -31,6 +42,7 @@ steps:
     agents:
       queue: mac
     key: lint
+    retry: *infra_retry
     command: bash .buildkite/commands/run-lint.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
@@ -41,6 +53,7 @@ steps:
     agents:
       queue: mac
     key: data-liberation
+    retry: *infra_retry
     command: bash .buildkite/commands/run-data-liberation-checks.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
@@ -51,6 +64,7 @@ steps:
     agents:
       queue: default
     key: fastlane_tests
+    retry: *infra_retry
     command: bash .buildkite/commands/run-fastlane-tests.sh
     plugins:
       - $DOCKER_PLUGIN:
@@ -66,6 +80,7 @@ steps:
     steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
+        retry: *infra_retry
         command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         agents:
@@ -83,6 +98,7 @@ steps:
       # Windows share queue/plugin defaults that Linux doesn't.
       - label: Unit Tests on linux
         key: unit_tests_linux
+        retry: *infra_retry
         command: bash .buildkite/commands/run-unit-tests.sh "linux"
         agents:
           queue: default
@@ -115,6 +131,7 @@ steps:
       # Mac and Windows share queue/plugin defaults that Linux doesn't.
       - label: E2E Tests on linux-x64
         key: e2e_tests_linux
+        retry: *infra_retry
         command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         agents:
           queue: default
@@ -142,6 +159,9 @@ steps:
     steps:
       - label: CLI E2E Tests on {{matrix}}
         key: cli_e2e_tests_mac_windows
+        retry: *infra_retry
+        artifact_paths:
+          - test-results/cli-e2e-daemon-logs/**/*.log
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
         agents:
           queue: "{{matrix}}"
@@ -155,6 +175,9 @@ steps:
       # defaults that Linux doesn't. Same pattern as the unit-test group.
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
+        retry: *infra_retry
+        artifact_paths:
+          - test-results/cli-e2e-daemon-logs/**/*.log
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
         agents:
           queue: default
@@ -167,6 +190,7 @@ steps:
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics
+    retry: *infra_retry
     agents:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
@@ -194,6 +218,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
+        retry: *infra_retry
         agents:
           queue: mac
         command: |
@@ -253,6 +278,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
+        retry: *infra_retry
         agents:
           queue: windows
         env:
@@ -281,6 +307,7 @@ steps:
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Linux Dev Build - {{matrix}}
+        retry: *infra_retry
         agents:
           queue: default
         command: |
@@ -327,6 +354,7 @@ steps:
           - arm64
 
   - label: ":rocket: Distribute Dev Builds"
+    retry: *infra_retry
     command: |
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .

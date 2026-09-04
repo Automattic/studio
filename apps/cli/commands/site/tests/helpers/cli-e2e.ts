@@ -82,9 +82,52 @@ export function setupCliEnv(): CliEnv {
 	return { root, configDir, sitesDir, cliConfigPath, daemonHome };
 }
 
+// Where each run's daemon logs are kept for post-mortems (gitignored; CI uploads it as a build
+// artifact). Resolved from the repo root so the artifact glob in .buildkite/pipeline.yml matches
+// no matter which directory vitest runs from.
+const DAEMON_LOGS_ARCHIVE_DIR = path.resolve(
+	import.meta.dirname,
+	'../../../../../..',
+	'test-results',
+	'cli-e2e-daemon-logs'
+);
+const MAX_ARCHIVED_LOG_BYTES = 20 * 1024 * 1024;
+
 export function cleanupCliEnv( env: CliEnv ): void {
+	preserveDaemonLogs( env );
 	fs.rmSync( env.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 	fs.rmSync( env.daemonHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
+}
+
+/**
+ * Copies the run's daemon logs (the WordPress server child's stdout/stderr) out of the env
+ * before it is deleted. They are the only record of why a server died: the CLI's own stderr
+ * rarely says more than "exited unexpectedly".
+ */
+function preserveDaemonLogs( env: CliEnv ): void {
+	const logsDir = path.join( env.daemonHome, 'logs' );
+	try {
+		if ( ! fs.existsSync( logsDir ) ) {
+			return;
+		}
+		const archiveDir = path.join( DAEMON_LOGS_ARCHIVE_DIR, path.basename( env.daemonHome ) );
+		for ( const entry of fs.readdirSync( logsDir, { withFileTypes: true } ) ) {
+			if ( ! entry.isFile() ) {
+				continue;
+			}
+			const source = path.join( logsDir, entry.name );
+			// A child stuck in a logging loop can emit hundreds of MB in seconds; don't ship that.
+			if ( fs.statSync( source ).size > MAX_ARCHIVED_LOG_BYTES ) {
+				console.warn( `Skipping oversized daemon log ${ source }` );
+				continue;
+			}
+			fs.mkdirSync( archiveDir, { recursive: true } );
+			fs.copyFileSync( source, path.join( archiveDir, entry.name ) );
+		}
+	} catch ( error ) {
+		// Best effort: losing a log copy must never fail the test run.
+		console.warn( `Could not preserve daemon logs from ${ logsDir }:`, error );
+	}
 }
 
 /**

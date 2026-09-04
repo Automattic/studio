@@ -7,6 +7,14 @@ import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/wi
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
+// Optional comma-separated subset of WP_LOCALES, e.g. `STUDIO_LANGUAGE_PACK_LOCALES=ja` for a CI
+// job that needs a single language pack. Unset (the release builds) downloads every locale.
+const requestedLocales = ( process.env.STUDIO_LANGUAGE_PACK_LOCALES ?? '' )
+	.split( ',' )
+	.map( ( locale ) => locale.trim() )
+	.filter( ( locale ) => WP_LOCALES.includes( locale ) );
+const LOCALES_TO_DOWNLOAD = requestedLocales.length > 0 ? requestedLocales : WP_LOCALES;
+
 interface TranslationEntry {
 	language: string;
 	package: string;
@@ -56,7 +64,7 @@ async function downloadTranslationsFromApi(
 	} );
 
 	const translationsToDownload = data.translations.filter( ( t ) =>
-		WP_LOCALES.includes( t.language )
+		LOCALES_TO_DOWNLOAD.includes( t.language )
 	);
 
 	console.log(

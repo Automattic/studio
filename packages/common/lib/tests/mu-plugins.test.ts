@@ -205,3 +205,17 @@ describe( 'getMuPlugins admin API', () => {
 		expect( content ).toMatch( /!\s*wp_check_password\([^)]*\)[^{]*\{\s*wp_set_password\(/ );
 	} );
 } );
+
+describe( 'getMuPlugins tunnel URL rewrite', () => {
+	it( 'should include the tunnel URL rewrite mu-plugin', async () => {
+		const [ muPluginsDir ] = await getMuPlugins( {} );
+		const files = await readdir( muPluginsDir );
+		expect( files ).toContain( '0-tunnel-url-rewrite.php' );
+
+		const content = await readFile( join( muPluginsDir, '0-tunnel-url-rewrite.php' ), 'utf8' );
+		expect( content ).toContain( 'HTTP_X_FORWARDED_HOST' );
+		expect( content ).toContain( "'home_url'" );
+		expect( content ).toContain( "'site_url'" );
+		expect( content ).toContain( 'redirect_canonical' );
+	} );
+} );

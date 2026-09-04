@@ -207,6 +207,95 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	// Dynamic tunnel URL rewriting for ngrok, cloudflared, localtunnel, etc.
+	// When a request arrives through a tunnel proxy, dynamically rewrites WordPress
+	// URLs to use the tunnel host so links, assets, and redirects all work.
+	muPlugins.push( {
+		filename: '0-tunnel-url-rewrite.php',
+		content: `<?php
+		$forwarded_host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? '';
+		if ( empty( $forwarded_host ) ) {
+			return;
+		}
+
+		// Take first host if comma-separated (multiple proxies)
+		$forwarded_host = trim( explode( ',', $forwarded_host )[0] );
+
+		// Determine protocol from X-Forwarded-Proto, default to https
+		$forwarded_proto = 'https';
+		if ( ! empty( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) {
+			$forwarded_proto = strpos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https' ) !== false
+				? 'https' : 'http';
+		}
+
+		$tunnel_url = $forwarded_proto . '://' . $forwarded_host;
+
+		// Pre-parse tunnel URL components once (avoids repeated parse_url in filter callbacks)
+		$tunnel_scheme = $forwarded_proto;
+		$tunnel_host = $forwarded_host;
+		$tunnel_port = parse_url( $tunnel_url, PHP_URL_PORT );
+		$tunnel_origin = $tunnel_scheme . '://' . $tunnel_host;
+		if ( $tunnel_port ) {
+			$tunnel_origin .= ':' . $tunnel_port;
+		}
+
+		// Rewrite site_url() and home_url() output (works even when WP_SITEURL/WP_HOME constants are defined)
+		foreach ( array( 'home_url', 'site_url' ) as $filter ) {
+			add_filter( $filter, function( $url ) use ( $tunnel_scheme, $tunnel_host, $tunnel_port ) {
+				return studio_tunnel_replace_host( $url, $tunnel_scheme, $tunnel_host, $tunnel_port );
+			}, 1, 1 );
+		}
+
+		// Rewrite asset URLs
+		foreach ( array( 'content_url', 'plugins_url', 'script_loader_src', 'style_loader_src', 'rest_url' ) as $filter ) {
+			add_filter( $filter, function( $url ) use ( $tunnel_scheme, $tunnel_host, $tunnel_port ) {
+				return studio_tunnel_replace_host( $url, $tunnel_scheme, $tunnel_host, $tunnel_port );
+			}, 1 );
+		}
+
+		// Rewrite upload URLs
+		add_filter( 'upload_dir', function( $uploads ) use ( $tunnel_scheme, $tunnel_host, $tunnel_port ) {
+			$uploads['url'] = studio_tunnel_replace_host( $uploads['url'], $tunnel_scheme, $tunnel_host, $tunnel_port );
+			$uploads['baseurl'] = studio_tunnel_replace_host( $uploads['baseurl'], $tunnel_scheme, $tunnel_host, $tunnel_port );
+			return $uploads;
+		}, 1 );
+
+		// Suppress canonical redirect only when WordPress would redirect to the local host
+		add_filter( 'redirect_canonical', function( $redirect_url ) use ( $tunnel_host ) {
+			$redirect_host = parse_url( $redirect_url, PHP_URL_HOST );
+			if ( $redirect_host && $redirect_host !== $tunnel_host ) {
+				return false;
+			}
+			return $redirect_url;
+		}, 1 );
+
+		// Allow tunnel host in wp_safe_redirect
+		add_filter( 'allowed_redirect_hosts', function( $hosts ) use ( $forwarded_host ) {
+			$hosts[] = $forwarded_host;
+			return $hosts;
+		}, 1 );
+
+		function studio_tunnel_replace_host( $url, $tunnel_scheme, $tunnel_host, $tunnel_port ) {
+			$parsed = parse_url( $url );
+			if ( ! $parsed || empty( $parsed['host'] ) ) {
+				return $url;
+			}
+			$result = $tunnel_scheme . '://' . $tunnel_host;
+			if ( $tunnel_port ) {
+				$result .= ':' . $tunnel_port;
+			}
+			$result .= $parsed['path'] ?? '/';
+			if ( isset( $parsed['query'] ) ) {
+				$result .= '?' . $parsed['query'];
+			}
+			if ( isset( $parsed['fragment'] ) ) {
+				$result .= '#' . $parsed['fragment'];
+			}
+			return $result;
+		}
+		`,
+	} );
+
 	// Redirect to SITEURL constant
 	muPlugins.push( {
 		filename: '0-redirect-to-siteurl-constant.php',
@@ -802,6 +891,7 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-thumbnails.php',
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
+	'0-tunnel-url-rewrite.php',
 	'0-wp-admin-trailing-slash.php',
 	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',

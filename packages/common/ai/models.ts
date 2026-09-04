@@ -44,6 +44,13 @@ export const AI_MODELS = [
 		requiresAutomattician: true,
 	},
 	{
+		id: 'zai-org/GLM-5.3-Flash',
+		label: 'GLM 5.3 Flash',
+		family: 'hosted',
+		supportsImages: false,
+		requiresAutomattician: true,
+	},
+	{
 		id: 'zai-org/GLM-5.2',
 		label: 'GLM 5.2',
 		family: 'hosted',

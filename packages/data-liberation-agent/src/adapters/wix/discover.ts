@@ -1,6 +1,8 @@
 import { classifyUrl, parseSitemapXml } from '../../lib/extraction/sitemap.js';
 import { ensureUrlScheme } from '../../lib/url/index.js';
 import { launchBrowser } from '../../lib/browser-kit/index.js';
+import { withTimeout } from '../../lib/concurrency.js';
+import { RENDERER_CALL_TIMEOUT_MS } from './page.js';
 import type { InventoryUrl } from '../shared.js';
 import type { NavLink } from '../../lib/html-extract/index.js';
 import type { WixAdapterOpts, Inventory } from './types.js';
@@ -76,7 +78,7 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
             fail(lastErr ?? 'unknown');
             return;
           }
-          const text = await p.content();
+          const text = await withTimeout(p.content(), RENDERER_CALL_TIMEOUT_MS, 'wix discover sitemap content');
           const locs = parseSitemapXml(text);
           for (const loc of locs) {
             if (loc.endsWith('.xml')) {
@@ -126,7 +128,7 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
         await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await p.waitForTimeout(4000);
         const origin = new URL(url).origin;
-        allUrls = (await p.evaluate((orig: unknown) => {
+        allUrls = (await withTimeout(p.evaluate((orig: unknown) => {
           const o = orig as string;
           return [
             ...new Set(
@@ -135,7 +137,7 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
                 .filter((h) => h.startsWith(o) && !h.includes('#'))
             ),
           ];
-        }, origin)) as string[];
+        }, origin), RENDERER_CALL_TIMEOUT_MS, 'wix discover homepage links')) as string[];
       } catch {
         // crawl failed
       }
@@ -150,7 +152,7 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
         .goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
         .catch(() => {});
       await p.waitForTimeout(4000);
-      navigation = (await p.evaluate(() => {
+      navigation = (await withTimeout(p.evaluate(() => {
         const navLinks: Array<{ text: string; href: string }> = [];
         document
           .querySelectorAll('nav a, header a, [role="navigation"] a')
@@ -163,7 +165,7 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
             }
           });
         return navLinks;
-      })) as NavLink[];
+      }), RENDERER_CALL_TIMEOUT_MS, 'wix discover nav')) as NavLink[];
     } catch {
       // nav extraction failed
     }
@@ -176,12 +178,12 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
     //    like "Home | Gilded Carat Main" instead of "Gilded Carat".
     let siteTitle = '';
     try {
-      siteTitle = (await p.evaluate(() => {
+      siteTitle = (await withTimeout(p.evaluate(() => {
         const t = document.title;
         const pipeIdx = t.lastIndexOf(' | ');
         const sitePart = pipeIdx > 0 ? t.slice(pipeIdx + 3).trim() : t;
         return sitePart.replace(/ Main$/, '').trim();
-      })) as string;
+      }), RENDERER_CALL_TIMEOUT_MS, 'wix discover title')) as string;
     } catch {
       // title extraction failed
     }

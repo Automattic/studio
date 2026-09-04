@@ -586,10 +586,14 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
 
 					if ( $user ) {
-						if ( $has_password ) {
+						// Write only a changed password: wp_set_password() stores a new hash
+						// each time and WordPress derives auth cookies from it, so rewriting
+						// the same password logs the user out on every start. No user ID is
+						// passed: with one, older WordPress rehashes legacy hashes here.
+						if ( $has_password && ! wp_check_password( $_POST['password'], $user->user_pass ) ) {
 							wp_set_password( $_POST['password'], $user->ID );
 						}
-						if ( $provided_email ) {
+						if ( $provided_email && $provided_email !== $user->user_email ) {
 							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
 						}
 					} else {

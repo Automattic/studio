@@ -15,6 +15,7 @@ import type {
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -63,6 +64,10 @@ export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-set
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+export type {
+	StudioAssistantTopUpOption,
+	StudioAssistantTopUpPricing,
+} from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
@@ -229,7 +234,10 @@ export interface Connector {
 	getThemeDetails?( siteId: string ): Promise< SiteDetails[ 'themeDetails' ] >;
 	// Size of the local site's files, grouped for the overview's disk summary.
 	// Hosted sites return null because their storage is not on this machine.
-	getSiteStorageUsage( siteId: string ): Promise< SiteStorageUsage | null >;
+	// Measuring walks the whole site directory, so `signal` is honored all the
+	// way down: aborting it stops the walk rather than leaving it to finish for
+	// a site the user has already left.
+	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -285,6 +293,10 @@ export interface Connector {
 	// when the quota can't be determined (signed out, or the host has no
 	// quota source) so callers can fall back to static copy.
 	getStudioAssistantQuota(): Promise< StudioAssistantQuota | null >;
+	// AI credit top-up options priced for the signed-in account. Resolves
+	// `null` when pricing can't be fetched (signed out, or the host has no
+	// pricing source) so callers can fall back to the single fixed top-up.
+	getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
@@ -482,6 +494,12 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// The site's WordPress debug log, resolved host-side from the site id. Its
+	// existence is a query, not a `SiteDetails` field: the file comes and goes
+	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	siteDebugLogExists( siteId: string ): Promise< boolean >;
+	openSiteDebugLog( siteId: string ): Promise< void >;
+
 	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
 	openStudioLogs(): Promise< void >;
 
@@ -545,6 +563,7 @@ export interface Connector {
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
+	ensureWindowWidth( minimumWidth: number ): Promise< number | null >;
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 
@@ -692,9 +711,12 @@ export interface CreateSiteParams {
 	skipStart?: boolean;
 	// Optional blueprint payload. `filePath` points at the extracted
 	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
+	// `bundleUrl` is set for API blueprints that bundle resources (theme zips, WXR
+	// files); the server downloads and extracts it to resolve relative paths.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
 		filePath?: string;
+		bundleUrl?: string;
 	};
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.

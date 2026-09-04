@@ -1,3 +1,4 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -5,6 +6,7 @@ import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
@@ -31,6 +33,7 @@ import type {
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -305,7 +308,14 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				blueprint,
+				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
+				// the desktop IPC handler expects.
+				blueprint: blueprint
+					? {
+							...blueprint,
+							bundle_url: blueprint.bundleUrl,
+					  }
+					: undefined,
 				flowType,
 			} ) ) as SiteDetails;
 		},
@@ -446,8 +456,27 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
-		async getSiteStorageUsage( siteId ) {
-			return ipcApi.getSiteStorageUsage( siteId );
+		async getSiteStorageUsage( siteId, signal ) {
+			if ( ! signal ) {
+				return ipcApi.getSiteStorageUsage( siteId );
+			}
+			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
+			// call telling the main process to stop this measurement. The
+			// `throwIfAborted` calls turn the abort into the rejection React
+			// Query recognizes as a cancellation rather than a failed query.
+			const requestId = crypto.randomUUID();
+			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
+			signal.addEventListener( 'abort', cancel, { once: true } );
+			try {
+				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
+				signal.throwIfAborted();
+				return usage;
+			} catch ( error ) {
+				signal.throwIfAborted();
+				throw error;
+			} finally {
+				signal.removeEventListener( 'abort', cancel );
+			}
 		},
 
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
@@ -530,6 +559,11 @@ export function createIpcConnector(): Connector {
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
 			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
 			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+		},
+
+		async getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null > {
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchStudioAssistantTopUpPricing( token.accessToken ) : null;
 		},
 
 		async deleteAllSnapshots(): Promise< void > {
@@ -921,6 +955,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		async siteDebugLogExists( siteId ): Promise< boolean > {
+			return Boolean( await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH ) );
+		},
+
+		async openSiteDebugLog( siteId ): Promise< void > {
+			const logPath = await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH );
+			if ( ! logPath ) {
+				throw new Error( 'Debug log not found.' );
+			}
+			ipcApi.openLocalPath( logPath );
+		},
+
 		async openStudioLogs(): Promise< void > {
 			ipcApi.openStudioLogs();
 		},
@@ -994,6 +1040,10 @@ export function createIpcConnector(): Connector {
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
+
+		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
+			return ipcApi.ensureMinWindowWidth( minimumWidth );
+		},
 
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );

@@ -149,6 +149,47 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
+		expect( screen.getByRole( 'option', { name: 'Auto-update (6.3)' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'should omit the installed version from the auto-update option for pinned sites', async () => {
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				selectedSite: { ...baseMockSiteDetails.selectedSite, isWpAutoUpdating: false },
+				isEditModalOpen: true,
+			} )
+		);
+
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+		} );
+
+		expect( screen.getByRole( 'option', { name: 'Auto-update' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: 'Auto-update (6.3)' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should name the installed version as soon as a pinned site selects auto-update', async () => {
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				selectedSite: { ...baseMockSiteDetails.selectedSite, isWpAutoUpdating: false },
+				isEditModalOpen: true,
+			} )
+		);
+
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+		} );
+
+		await userEvent.setup().selectOptions( screen.getByLabelText( 'WordPress version' ), 'latest' );
+
+		expect( screen.getByRole( 'option', { name: 'Auto-update (6.3)' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {

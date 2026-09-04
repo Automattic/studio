@@ -49,6 +49,8 @@ const primaryStyles = `
 
 const secondaryStyles = `
 [&.is-secondary]:text-frame-text
+[&.is-secondary]:border-transparent
+[&.is-secondary]:hover:border-transparent
 [&.is-secondary]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary]:shadow-a8c-gray-5
 [&.is-secondary]:focus:shadow-a8c-gray-5

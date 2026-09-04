@@ -29,8 +29,8 @@
 	padding: 10px 12px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
 	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-error-weak);
-	color: var(--wpds-color-fg-content-error);
+	background: var(--wpds-color-background-surface-error-weak);
+	color: var(--wpds-color-foreground-content-error);
 }
 
 @media (max-width: 600px) {

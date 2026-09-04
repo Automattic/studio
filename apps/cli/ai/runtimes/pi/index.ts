@@ -47,6 +47,7 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -326,9 +327,10 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
-	const [ userInstructions, runtime ] = await Promise.all( [
+	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+		isImageGenerationAvailable(),
 	] );
 
 	const systemPrompt = buildSystemPrompt(
@@ -347,10 +349,16 @@ async function createStudioAgentSession(
 					remoteSession,
 					runtime,
 					userInstructions,
+					imageGenerationEnabled,
 			  }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		remoteSession,
+		imageGenerationEnabled
+	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -667,7 +675,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean
+	remoteSession: boolean,
+	imageGenerationEnabled: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -728,6 +737,7 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
+		imageGeneration: imageGenerationEnabled,
 	} ) as unknown as AgentToolAny[];
 	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );
 }

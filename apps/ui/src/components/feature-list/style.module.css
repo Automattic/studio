@@ -28,20 +28,20 @@
 	/* Must be set: the global `h3` rule's line-height is sized for `lg` text
 	   and leaves a huge gap between wrapped lines at 13px. */
 	line-height: 1.4;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	margin: 0 0 2px;
 	text-wrap: balance;
 }
 
 .featureTitle svg {
-	fill: var(--wpds-color-fg-interactive-brand);
+	fill: var(--wpds-color-foreground-interactive-brand);
 	flex-shrink: 0;
 	/* Optically centre the 16px glyph on the first line of text. */
 	margin-top: calc((1.4em - 16px) / 2);
 }
 
 .featureBody {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: 12px;
 	line-height: 1.4;
 	margin: 0;

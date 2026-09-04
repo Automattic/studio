@@ -29,6 +29,10 @@ vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( { isAuthenticated: true, authenticate: vi.fn() } ),
 } ) );
 
+vi.mock( 'src/stores', () => ( {
+	useI18nLocale: () => 'en',
+} ) );
+
 vi.mock( 'src/stores/wpcom-api', () => ( {
 	useGetStudioAssistantQuota: () => quotaState,
 } ) );
@@ -80,10 +84,8 @@ vi.mock( '../use-example-prompts', () => ( {
 	useExamplePrompts: () => [],
 } ) );
 
-vi.mock( '../lock-unlock', () => ( {
-	unlock: () => ( {
-		ThemeProvider: ( { children }: { children: React.ReactNode } ) => children,
-	} ),
+vi.mock( '@wordpress/theme', () => ( {
+	ThemeProvider: ( { children }: { children: React.ReactNode } ) => children,
 } ) );
 
 const selectedSite = { id: 'site-1', name: 'Test Site', path: '/tmp/site-1' } as SiteDetails;

@@ -1,3 +1,5 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
@@ -8,6 +10,7 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
@@ -184,7 +187,27 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
-			await handleConnect( selectedSiteFromList );
+			// `studio_sync_connect` belongs here rather than in `handleConnect`: push and
+			// pull call that too, to refresh the stored metadata, and those aren't connects.
+			try {
+				await connectSite( { site: selectedSiteFromList, localSiteId: selectedSite.id } ).unwrap();
+				recordRendererTracksEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+					success: true,
+					// Counted after this connect, so a first connection reports 1.
+					num_of_sites:
+						connectedSites.filter( ( { id } ) => id !== selectedSiteFromList.id ).length + 1,
+				} );
+			} catch ( error ) {
+				recordRendererTracksEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+					success: false,
+					failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+					num_of_sites: connectedSites.length,
+				} );
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to connect to site' ),
+					message: __( 'Please try again.' ),
+				} );
+			}
 			dispatch( connectedSitesActions.closeModal() );
 		}
 	};
@@ -196,9 +219,21 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<SyncConnectedSites
 						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
-						disconnectSite={ ( id ) =>
-							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
-						}
+						disconnectSite={ async ( id ) => {
+							try {
+								// `.unwrap()` so a failed disconnect rejects — the trigger otherwise
+								// resolves with `{ error }` and would be recorded as a success.
+								await disconnectSite( { siteId: id, localSiteId: selectedSite.id } ).unwrap();
+							} catch {
+								// Callers invoke this fire-and-forget, so the rejection stops here.
+								getIpcApi().showErrorMessageBox( {
+									title: __( 'Failed to disconnect site' ),
+									message: __( 'Please try again.' ),
+								} );
+								return;
+							}
+							recordRendererTracksEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
+						} }
 					/>
 					<div className="sticky bottom-0 bg-frame/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton

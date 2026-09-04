@@ -1,6 +1,8 @@
 import { resolve } from 'path';
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig } from './vite.config.base';
+import { baseConfig } from './vite.config.base.ts';
+
+const __dirname = import.meta.dirname;
 
 export default mergeConfig(
 	baseConfig,

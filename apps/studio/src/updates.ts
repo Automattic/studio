@@ -6,7 +6,7 @@ import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { isDevRelease } from 'src/lib/version-utils';
-import { getMainWindow } from 'src/main-window';
+import { getExistingMainWindow, getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import type { IpcMainInvokeEvent } from 'electron';
 
@@ -270,8 +270,15 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
-	const mainWindow = await getMainWindow();
-	const { response } = await dialog.showMessageBox( mainWindow, {
+	// Only show the restart dialog if a window is already open. If the user
+	// closed the window while an update was downloading, don't recreate it —
+	// the update will be applied on the next launch or when the user reopens
+	// the app from the dock.
+	const existingWindow = getExistingMainWindow();
+	if ( ! existingWindow ) {
+		return;
+	}
+	const { response } = await dialog.showMessageBox( existingWindow, {
 		type: 'info',
 		buttons: [ __( 'Restart' ), __( 'Later' ) ],
 		title: __( 'Application Update' ),
@@ -359,7 +366,10 @@ function rescheduleLinuxOrFinish() {
 }
 
 async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
-	const mainWindow = await getMainWindow();
+	const mainWindow = getExistingMainWindow();
+	if ( ! mainWindow ) {
+		return;
+	}
 
 	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
 	const actionDescription = __(
@@ -445,8 +455,11 @@ async function showReadOnlyVolumeError( err: Error ) {
 		console.error( err );
 	}
 
-	const mainWindow = await getMainWindow();
-	await dialog.showMessageBox( mainWindow, {
+	const existingWindow = getExistingMainWindow();
+	if ( ! existingWindow ) {
+		return;
+	}
+	await dialog.showMessageBox( existingWindow, {
 		type: 'warning',
 		buttons: [ __( 'OK' ) ],
 		message: __( 'Error updating Studio' ),

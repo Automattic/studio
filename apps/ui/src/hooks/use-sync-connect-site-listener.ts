@@ -1,3 +1,5 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
@@ -42,7 +44,22 @@ export function useSyncConnectSiteListener(): void {
 							lastPushTimestamp: null,
 					  };
 				await connector.connectWpcomSite( studioSiteId, siteToSave );
+				const connected =
+					queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ??
+					[];
+				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+					success: true,
+					num_of_sites: connected.filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+				} );
 			} catch ( error ) {
+				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+					success: false,
+					// The site lookup and the storage write are both in this try.
+					failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
+					num_of_sites:
+						queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) )
+							?.length ?? 0,
+				} );
 				console.error( 'Failed to persist deep-link connection:', error );
 			} finally {
 				void queryClient.invalidateQueries( {

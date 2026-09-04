@@ -2703,8 +2703,9 @@ async function sendDebuggerCommand< T >(
 // Simulates a viewport for the preview webview via the CDP device-metrics
 // override that DevTools device mode is built on: the guest lays out at
 // `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// to fit the webview, remapping input coordinates to match. `null` returns
-// the guest to the webview's natural size.
+// (down to fit the webview, or up for a zoomed preview), remapping input
+// coordinates to match. `null` returns the guest to the webview's natural
+// size.
 export async function setWebviewViewport(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
@@ -2719,8 +2720,9 @@ export async function setWebviewViewport(
 	const { width, height, scale, mobile } = viewport;
 	const isValidDimension = ( value: number ) =>
 		Number.isInteger( value ) && value > 0 && value <= 10000;
+	// Capped at Chromium's own zoom ceiling.
 	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
 	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
 		throw new Error( 'Unsupported webview viewport.' );
 	}

@@ -165,10 +165,13 @@
    subtracted from the measured pane before the frame's fit-to-pane scale.
    Only this mode centers: an unsimulated surface must stay stretched, or its
    frame collapses to the webview's intrinsic height. */
+/* A frame held at a fixed zoom can outgrow the pane; the layer then scrolls,
+   and the `safe` alignment keeps its top-left corner reachable. */
 .realmLayerSimulated {
 	align-items: safe center;
 	justify-content: safe center;
 	padding: 16px;
+	overflow: auto;
 	background-color: var(--wpds-color-background-surface-neutral);
 }
 

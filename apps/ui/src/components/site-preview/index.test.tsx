@@ -14,6 +14,7 @@ import {
 	getPathFromPreviewUrl,
 	getFrameSize,
 	getSimulatedViewport,
+	getZoomedPaneViewport,
 	SitePreview,
 } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -942,6 +943,43 @@ describe( 'getSimulatedViewport', () => {
 	} );
 } );
 
+describe( 'getSimulatedViewport at a fixed zoom', () => {
+	it( 'holds the preset at the zoom instead of fitting the pane', () => {
+		expect(
+			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 }, 1, 1.5 )
+		).toEqual( {
+			width: 1440,
+			height: 900,
+			scale: 1.5,
+			mobile: false,
+		} );
+	} );
+} );
+
+describe( 'getZoomedPaneViewport', () => {
+	it( 'shows the pane as is at automatic and 100%', () => {
+		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 'auto' ) ).toBe( null );
+		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1 ) ).toBe( null );
+		expect( getZoomedPaneViewport( null, 1, 1.5 ) ).toBe( null );
+	} );
+
+	it( 'lays the page out at the pane device size over the zoom and renders it back up', () => {
+		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1.5 ) ).toEqual( {
+			width: 600,
+			height: 467,
+			scale: 1.5,
+			mobile: false,
+		} );
+		// The pane is measured in zoomed CSS px; its device size is what the zoom divides.
+		expect( getZoomedPaneViewport( { width: 720, height: 560 }, 1.25, 0.5 ) ).toEqual( {
+			width: 1800,
+			height: 1400,
+			scale: 0.5,
+			mobile: false,
+		} );
+	} );
+} );
+
 describe( 'getFrameSize', () => {
 	it( 'lays the scaled device box out in the host document CSS px', () => {
 		const viewport = { width: 1440, height: 900, scale: 0.5 };
@@ -1149,6 +1187,52 @@ describe( 'SitePreview responsive emulation', () => {
 		expect( webview.parentElement ).toHaveStyle( {
 			width: `${ ( 1440 * scale ) / 1.25 }px`,
 		} );
+	} );
+
+	it( 'zooms the natural view by laying it out at the pane size over the zoom', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview();
+
+		await selectResponsiveMode( '150%' );
+
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenCalledWith( 7, {
+				width: 600,
+				height: 467,
+				scale: 1.5,
+				mobile: false,
+			} )
+		);
+		// No device frame: the zoomed page still fills the pane.
+		expect( webview.parentElement ).not.toHaveAttribute( 'style' );
+	} );
+
+	it( 'holds a preset at a fixed zoom, larger than the pane if need be', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview();
+
+		await selectResponsiveMode( 'Desktop · 1440×900' );
+		// Radio items keep the menu open, so the zoom level is one more click.
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: '150%' } ) );
+
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith( 7, {
+				width: 1440,
+				height: 900,
+				scale: 1.5,
+				mobile: false,
+			} )
+		);
+		expect( webview.parentElement ).toHaveStyle( { width: '2160px', height: '1350px' } );
+	} );
+
+	it( 'keeps the comparison at automatic zoom, which sizes its own frames', async () => {
+		renderWebviewPreview( { onFullscreenChange: vi.fn(), fullscreen: true } );
+
+		await selectResponsiveMode( 'Desktop + Mobile' );
+
+		expect( screen.getByRole( 'menuitemradio', { name: '150%' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	} );
 
 	it( 're-applies the simulated viewport after each load', async () => {

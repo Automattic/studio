@@ -34,7 +34,7 @@ export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 	const publishAction = <PreviewSitePublishAction site={ site } presentation="overview" />;
 
 	return (
-		<CardSection title={ __( 'Preview sites' ) }>
+		<CardSection>
 			<PreviewSitesList site={ site } />
 			{ authUser ? <CardSectionFooter>{ publishAction }</CardSectionFooter> : null }
 		</CardSection>

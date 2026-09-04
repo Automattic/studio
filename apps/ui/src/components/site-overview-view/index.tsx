@@ -42,7 +42,7 @@ import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AboutSection } from './about-section';
 import { ConnectionsSection } from './connections-section';
-import { CardSectionDivider, OverviewCard } from './overview-card';
+import { OverviewCard } from './overview-card';
 import { PreviewSitesSection } from './preview-sites-section';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -156,6 +156,15 @@ function ButtonSection( {
 	);
 }
 
+function DetailCard( { title, children }: { title: string; children: ReactNode } ) {
+	return (
+		<div className={ styles.detailCard }>
+			<h2 className={ styles.columnHeading }>{ title }</h2>
+			<OverviewCard aria-label={ title }>{ children }</OverviewCard>
+		</div>
+	);
+}
+
 export function SiteOverviewView( { siteId, activeTab, onTabChange }: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
@@ -240,18 +249,19 @@ function SiteOverviewBody( {
 								<OfflineBanner />
 								<AgenticSigninBanner />
 								<div className={ styles.cardColumn }>
-									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
-									<OverviewCard>
+									<DetailCard title={ __( 'About' ) }>
 										<AboutSection
 											site={ site }
 											wpVersion={ wpVersion }
 											themeDetails={ themeDetails }
 										/>
-										<CardSectionDivider />
+									</DetailCard>
+									<DetailCard title={ __( 'Connections' ) }>
 										<ConnectionsSection site={ site } busy={ busy } />
-										<CardSectionDivider />
+									</DetailCard>
+									<DetailCard title={ __( 'Preview sites' ) }>
 										<PreviewSitesSection site={ site } />
-									</OverviewCard>
+									</DetailCard>
 								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection

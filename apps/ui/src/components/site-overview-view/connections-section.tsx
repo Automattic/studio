@@ -49,7 +49,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 
 	return (
 		<>
-			<CardSection title={ __( 'Connections' ) }>
+			<CardSection>
 				{ ! authUser ? (
 					<CardEmptyState>
 						{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }

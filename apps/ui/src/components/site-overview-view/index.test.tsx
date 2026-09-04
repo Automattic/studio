@@ -504,16 +504,14 @@ describe( 'SiteOverviewView', () => {
 	it( 'offers a complete empty state for connecting a live site', () => {
 		renderView();
 
-		expect( screen.getByRole( 'heading', { name: 'Connections' } ) ).toBeVisible();
-		const overviewCard = screen
-			.getByRole( 'button', { name: 'Open site in browser' } )
-			.closest( 'section' );
-		expect( screen.getByRole( 'heading', { name: 'Connections' } ).closest( 'section' ) ).toBe(
-			overviewCard
-		);
-		expect( screen.getByRole( 'heading', { name: 'Preview sites' } ).closest( 'section' ) ).toBe(
-			overviewCard
-		);
+		const aboutCard = screen.getByRole( 'region', { name: 'About' } );
+		const connectionsCard = screen.getByRole( 'region', { name: 'Connections' } );
+		const previewsCard = screen.getByRole( 'region', { name: 'Preview sites' } );
+		expect( aboutCard ).toBeVisible();
+		expect( connectionsCard ).toBeVisible();
+		expect( previewsCard ).toBeVisible();
+		expect( connectionsCard ).not.toBe( aboutCard );
+		expect( previewsCard ).not.toBe( connectionsCard );
 		const emptyConnectionCopy = screen.getByText(
 			'Pull a live site into Studio, then push your local changes when they are ready.'
 		);

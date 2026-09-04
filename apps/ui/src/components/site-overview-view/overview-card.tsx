@@ -5,8 +5,12 @@ import styles from './cards.module.css';
 import { RowLink } from './row-link';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
-export function OverviewCard( { children }: { children: ReactNode } ) {
-	return <section className={ styles.card }>{ children }</section>;
+export function OverviewCard( { children, ...props }: ComponentProps< 'section' > ) {
+	return (
+		<section className={ styles.card } { ...props }>
+			{ children }
+		</section>
+	);
 }
 
 export function CardSection( {
@@ -29,10 +33,6 @@ export function CardSection( {
 			{ children }
 		</div>
 	);
-}
-
-export function CardSectionDivider() {
-	return <div className={ styles.sectionDivider } />;
 }
 
 export function CardSectionFooter( { children }: { children: ReactNode } ) {

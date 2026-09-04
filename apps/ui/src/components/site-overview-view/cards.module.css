@@ -17,11 +17,6 @@
 	min-width: 0;
 }
 
-.sectionDivider {
-	height: var(--wpds-border-width-xs);
-	background: var(--wpds-color-stroke-surface-neutral);
-}
-
 .sectionFooter {
 	display: flex;
 	align-items: center;

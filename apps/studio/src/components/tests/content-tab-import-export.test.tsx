@@ -65,7 +65,7 @@ describe( 'ContentTabImportExport Import', () => {
 		act( () => {
 			fireEvent.dragOver( dropZone );
 		} );
-		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
+		expect( await screen.findByText( /Drop file/i ) ).toBeInTheDocument();
 	} );
 
 	test( 'should display initial text on drop leave', async () => {
@@ -78,7 +78,7 @@ describe( 'ContentTabImportExport Import', () => {
 		expect( dropZone ).toBeInTheDocument();
 
 		fireEvent.dragOver( dropZone );
-		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
+		expect( await screen.findByText( /Drop file/i ) ).toBeInTheDocument();
 
 		vi.useFakeTimers();
 		act( () => {

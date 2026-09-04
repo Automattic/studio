@@ -41,6 +41,9 @@ export type DeleteSiteOutcome = {
 	path?: string;
 	filePaths?: string[];
 	error?: string;
+	// Non-fatal problems: the site was deleted, but something was left behind (e.g. its files
+	// could not be moved to trash). Machine consumers need these to distinguish a clean delete.
+	warnings?: string[];
 };
 
 export type DeleteCommandResult = {
@@ -151,7 +154,8 @@ function resolveSiteIdentity(
 function outcomeForSite(
 	item: ResolvedSite,
 	status: DeleteSiteStatus,
-	error?: string
+	error?: string,
+	warnings?: string[]
 ): DeleteSiteOutcome {
 	const outcome: DeleteSiteOutcome = {
 		identity: item.identity,
@@ -164,6 +168,10 @@ function outcomeForSite(
 
 	if ( error ) {
 		outcome.error = error;
+	}
+
+	if ( warnings?.length ) {
+		outcome.warnings = warnings;
 	}
 
 	return outcome;
@@ -324,8 +332,8 @@ export async function runDeleteCommand(
 
 					for ( const item of resolved ) {
 						try {
-							await deleteSite( item.site, item.filePaths, deleteFiles, logger );
-							outcomes.push( outcomeForSite( item, 'deleted' ) );
+							const warnings = await deleteSite( item.site, item.filePaths, deleteFiles, logger );
+							outcomes.push( outcomeForSite( item, 'deleted', undefined, warnings ) );
 						} catch ( error ) {
 							const message = error instanceof Error ? error.message : String( error );
 							logger.reportError( new LoggerError( message, error ), false );
@@ -379,7 +387,8 @@ async function deleteSite(
 	filePaths: string[],
 	deleteFiles: boolean,
 	logger: Logger< LoggerAction >
-): Promise< void > {
+): Promise< string[] > {
+	const warnings: string[] = [];
 	const runningProcess = await isServerRunning( site.id );
 	if ( runningProcess ) {
 		logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
@@ -451,8 +460,23 @@ async function deleteSite(
 		// both if they exist.
 		if ( filePaths.length > 0 ) {
 			logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-			await trash( filePaths );
-			logger.reportSuccess( __( 'Site files moved to trash' ) );
+			// The site is already out of the config by this point, so a trash failure must not
+			// abort the rest of the delete — otherwise the DELETED event never fires and the UI
+			// keeps showing a site that no longer exists.
+			try {
+				await trash( filePaths );
+				logger.reportSuccess( __( 'Site files moved to trash' ) );
+			} catch ( error ) {
+				// `reportError` with `isFatal: false` leaves the exit code at 0, and the desktop app
+				// only surfaces CLI IPC failures for non-zero exits, so log to stderr as well.
+				console.error( 'Failed to move site files to trash:', error );
+				const failure = new LoggerError(
+					__( 'Failed to move site files to trash. Proceeding anyway…' ),
+					error
+				);
+				warnings.push( failure.message );
+				logger.reportError( failure, false );
+			}
 		} else {
 			logger.reportSuccess( __( 'Site files already removed' ) );
 		}
@@ -471,6 +495,8 @@ async function deleteSite(
 	} catch {
 		// Best-effort telemetry — never block or fail a delete.
 	}
+
+	return warnings;
 }
 
 function collectIdentities( argv: { sites?: string | string[]; path: string } ): string[] {

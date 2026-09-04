@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	clearNoticeHistory,
 	dismissToast,
+	getNoticeHistory,
 	getQueuedToastCount,
 	getVisibleToasts,
 	notifyRendererMounted,
@@ -223,5 +225,43 @@ describe( 'app-messages', () => {
 
 		vi.advanceTimersByTime( 4_500 );
 		expect( getQueuedToastCount() ).toBe( 0 );
+	} );
+
+	describe( 'notice history', () => {
+		const historyTitles = () => getNoticeHistory().map( ( item ) => item.title );
+
+		it( 'records every toast newest first, with the full description', () => {
+			toast.success( 'Saved' );
+			toast.error( 'Failed', { description: 'Long error text' } );
+			expect( historyTitles() ).toEqual( [ 'Failed', 'Saved' ] );
+			expect( getNoticeHistory()[ 0 ].description ).toBe( 'Long error text' );
+		} );
+
+		it( 'folds an in-place replacement into the original record', () => {
+			showToast( { id: 'sync', intent: 'info', title: 'Pushing to live' } );
+			showToast( { id: 'sync', intent: 'success', title: 'Push complete' } );
+			expect( historyTitles() ).toEqual( [ 'Push complete' ] );
+		} );
+
+		it( 'keeps a notice after its toast expires', () => {
+			toast.success( 'Saved' );
+			vi.advanceTimersByTime( 4_500 );
+			settleExit();
+			expect( titles() ).toEqual( [] );
+			expect( historyTitles() ).toEqual( [ 'Saved' ] );
+		} );
+
+		it( 'clears the list and dismisses the toasts still showing or queued', () => {
+			for ( let i = 0; i < 5; i++ ) {
+				toast.success( `Saved ${ i }` );
+			}
+			expect( getQueuedToastCount() ).toBe( 2 );
+
+			clearNoticeHistory();
+			expect( historyTitles() ).toEqual( [] );
+			expect( getQueuedToastCount() ).toBe( 0 );
+			settleExit();
+			expect( titles() ).toEqual( [] );
+		} );
 	} );
 } );

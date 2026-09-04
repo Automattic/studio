@@ -1,8 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { NoticeHistoryDialog } from '@/components/notice-history';
 import { showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { AppToasts } from './index';
+
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
+} ) );
 
 describe( 'AppToasts', () => {
 	afterEach( () => {
@@ -56,5 +61,24 @@ describe( 'AppToasts', () => {
 		} );
 
 		expect( screen.getByText( 'Pulling from live' ) ).toBeVisible();
+	} );
+
+	it( 'offers Copy and More only on error toasts with details', () => {
+		render(
+			<>
+				<AppToasts />
+				<NoticeHistoryDialog />
+			</>
+		);
+
+		act( () => {
+			showToast( { intent: 'success', title: 'Saved', description: 'All good.' } );
+			showToast( { intent: 'error', title: 'Failed', description: 'Stack trace…' } );
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'More' } ) );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Stack trace…' ) ).toHaveLength( 2 );
 	} );
 } );

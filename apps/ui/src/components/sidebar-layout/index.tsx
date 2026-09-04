@@ -4,8 +4,10 @@ import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
+import { appThemeColor } from '@/components/app-theme-scope';
 import { AppToasts } from '@/components/app-toasts';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
+import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SeenSessionTimestampsProvider, SiteList } from '@/components/site-list';
@@ -154,15 +156,21 @@ export function SidebarLayout( {
 								<SidebarHeader />
 								<SiteList />
 								<div className={ styles.sidebarFooter }>
+									{ ! effectiveCollapsed ? (
+										<StudioBetaMenu className={ styles.sidebarBeta } />
+									) : null }
 									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-									{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 									{ ! effectiveCollapsed ? (
-										<AppMessageCards className={ styles.sidebarCards } />
-									) : null }
-									{ ! effectiveCollapsed ? (
-										<StudioBetaMenu className={ styles.sidebarBeta } />
+										// Notices sit on the dark chrome, so they take the app's
+										// own theme (a step up from the chrome in both schemes) and
+										// keep their intent tints instead of flattening to a
+										// chrome-on-chrome neutral card.
+										<ThemeProvider color={ appThemeColor( colorScheme ) }>
+											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
+											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
+										</ThemeProvider>
 									) : null }
 									<UserMenu onToggleSidebar={ toggleSidebar } />
 								</div>
@@ -236,6 +244,7 @@ export function SidebarLayout( {
 						) : null }
 					</main>
 					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+					<NoticeHistoryDialog />
 				</div>
 			</SeenSessionTimestampsProvider>
 		</SidebarCollapsedContext.Provider>

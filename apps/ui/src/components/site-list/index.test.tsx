@@ -238,6 +238,7 @@ describe( 'SiteList', () => {
 
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
+			appearance: 'studio',
 		} );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
 			browser: 'external',

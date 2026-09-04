@@ -811,6 +811,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
+				databaseAppearance,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -822,6 +823,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
 				ipcApi.getAgenticFeaturesEnabled(),
+				ipcApi.getDatabaseAppearance(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -833,6 +835,7 @@ export function createIpcConnector(): Connector {
 				boolean,
 				boolean,
 				boolean,
+				UserPreferences[ 'databaseAppearance' ],
 			];
 			return {
 				editor,
@@ -845,6 +848,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
+				databaseAppearance,
 			};
 		},
 
@@ -882,6 +886,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+			}
+			if ( partial.databaseAppearance ) {
+				writes.push( ipcApi.saveDatabaseAppearance( partial.databaseAppearance ) );
 			}
 			await Promise.all( writes );
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
@@ -1125,6 +1132,10 @@ export function createIpcConnector(): Connector {
 
 		onShowWhatsNew( listener ) {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		onShowDatabaseIntro( listener ) {
+			return ipcListener.subscribe( 'show-database-intro', () => listener() );
 		},
 
 		async getLastSeenVersion() {

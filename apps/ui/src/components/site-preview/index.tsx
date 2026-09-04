@@ -25,18 +25,21 @@ import { OpenInMenu } from '@/components/open-in-menu';
 import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
+	getDatabaseHomePath,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -46,6 +49,7 @@ import {
 	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
+import { DatabaseIntro } from './database-intro';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -152,6 +156,8 @@ const isElectron = (): boolean => {
 	if ( typeof navigator === 'undefined' ) return false;
 	return /\bElectron\//.test( navigator.userAgent );
 };
+
+const DATABASE_INTRO_VERSION = 2;
 
 interface ViewportPreset {
 	id: 'mobile' | 'tablet' | 'desktop';
@@ -332,11 +338,13 @@ const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-};
+function getDefaultRealmPaths( databasePath = DATABASE_HOME_PATH ): Record< PreviewRealm, string > {
+	return {
+		frontend: '/',
+		admin: '/wp-admin/',
+		database: databasePath,
+	};
+}
 
 /**
  * Realms that share a browsing session share a surface.
@@ -805,6 +813,10 @@ export function SitePreview( {
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { data: userPreferences } = useUserPreferences();
+	const { data: onboardingHints } = useOnboardingHints();
+	const setOnboardingHints = useSetOnboardingHints();
+	const databaseHomePath = getDatabaseHomePath( userPreferences?.databaseAppearance ?? 'studio' );
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -819,6 +831,13 @@ export function SitePreview( {
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
 	const activeRealm = getPreviewRealm( safePath );
+	const [ databaseIntroReplay, setDatabaseIntroReplay ] = useState( false );
+	const showDatabaseIntro =
+		canPreview &&
+		activeRealm === 'database' &&
+		( databaseIntroReplay ||
+			( onboardingHints !== undefined &&
+				onboardingHints.databaseIntroDismissedVersion !== DATABASE_INTRO_VERSION ) );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
@@ -1013,11 +1032,33 @@ export function SitePreview( {
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
 	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
+		...getDefaultRealmPaths( databaseHomePath ),
 	} );
+	const realmPathsSiteIdRef = useRef( site.id );
 	useEffect( () => {
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ site.id ] );
+		if ( realmPathsSiteIdRef.current === site.id ) {
+			return;
+		}
+		realmPathsSiteIdRef.current = site.id;
+		lastRealmPathsRef.current = getDefaultRealmPaths( databaseHomePath );
+	}, [ databaseHomePath, site.id ] );
+	const previousDatabaseHomePathRef = useRef( databaseHomePath );
+	useEffect( () => {
+		if ( previousDatabaseHomePathRef.current === databaseHomePath ) {
+			return;
+		}
+		previousDatabaseHomePathRef.current = databaseHomePath;
+		lastRealmPathsRef.current.database = databaseHomePath;
+		if ( activeRealm === 'database' ) {
+			onPathChange?.( databaseHomePath );
+		}
+	}, [ activeRealm, databaseHomePath, onPathChange ] );
+	useEffect( () => {
+		return connector.onShowDatabaseIntro?.( () => {
+			setDatabaseIntroReplay( true );
+			onPathChange?.( databaseHomePath );
+		} );
+	}, [ connector, databaseHomePath, onPathChange ] );
 	useEffect( () => {
 		// Auto-login is a transient hop, not a place to return to.
 		if ( safePath.startsWith( '/studio-auto-login' ) ) {
@@ -1039,7 +1080,12 @@ export function SitePreview( {
 				return;
 			}
 			// The agentic UI opens the realm in its in-app preview panel.
-			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
+			void connector.trackEvent( getRealmOpenEvent( realm ), {
+				browser: 'internal',
+				...( realm === 'database'
+					? { appearance: userPreferences?.databaseAppearance ?? 'studio' }
+					: {} ),
+			} );
 			const target = lastRealmPathsRef.current[ realm ];
 			// Returning to a surface that's already sitting on the target path just
 			// reveals it; anything else is a real navigation.
@@ -1049,7 +1095,7 @@ export function SitePreview( {
 			}
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
+		[ activeRealm, connector, onPathChange, siteUrl, surfaces, userPreferences?.databaseAppearance ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -1076,7 +1122,7 @@ export function SitePreview( {
 				onFullscreenChange?.( true );
 			}
 		},
-		[ onFullscreenChange, site.id ]
+		[ onFullscreenChange, setViewportMode, site.id ]
 	);
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
@@ -1086,7 +1132,7 @@ export function SitePreview( {
 				orientation,
 			};
 		},
-		[ site.id ]
+		[ setMobileOrientation, site.id ]
 	);
 
 	// The comparison is a full-preview mode: leaving full preview (or landing
@@ -1458,6 +1504,16 @@ export function SitePreview( {
 						</div>
 					) }
 				</div>
+				{ showDatabaseIntro ? (
+					<DatabaseIntro
+						onDismiss={ () => {
+							setDatabaseIntroReplay( false );
+							setOnboardingHints.mutate( {
+								databaseIntroDismissedVersion: DATABASE_INTRO_VERSION,
+							} );
+						} }
+					/>
+				) : null }
 			</div>
 		</aside>
 	);

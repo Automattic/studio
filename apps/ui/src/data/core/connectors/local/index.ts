@@ -950,6 +950,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onShowDatabaseIntro() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 		async getLastSeenVersion() {
 			return readLastSeenVersion();
 		},

@@ -44,6 +44,10 @@ import {
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import {
+	getDatabaseAppearance,
+	parseDatabaseAppearance,
+} from '@studio/common/lib/database-appearance';
+import {
 	arePathsEqual,
 	confineToRoot,
 	isEmptyDir,
@@ -1233,8 +1237,24 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid preferences' } );
 				return;
 			}
+			const nextDatabaseAppearance =
+				parsed.data.databaseAppearance === undefined
+					? undefined
+					: parseDatabaseAppearance( parsed.data.databaseAppearance );
+			const previousDatabaseAppearance = nextDatabaseAppearance
+				? await getDatabaseAppearance()
+				: undefined;
 			await writeUserPreferences( parsed.data );
 			res.status( 204 ).end();
+			if (
+				nextDatabaseAppearance !== undefined &&
+				nextDatabaseAppearance !== previousDatabaseAppearance
+			) {
+				trackEvent( TRACKS_EVENTS.SETTING_DATABASE_APPEARANCE_CHANGE, {
+					appearance: nextDatabaseAppearance,
+					surface: 'settings',
+				} );
+			}
 		} )
 	);
 

@@ -1,0 +1,102 @@
+// Consume WordPress Design System's static tokens. The short aliases below keep
+// this standalone stylesheet readable while mapping to the canonical light
+// values; dark values are supplied explicitly because phpMyAdmin cannot run the
+// ThemeProvider that normally computes them at runtime.
+@use 'design-tokens.css';
+
+:root {
+	--wpds-border-radius-sm: 4px;
+	--wpds-color-bg-interactive-brand-strong: var( --wpds-color-background-interactive-brand-strong );
+	--wpds-color-bg-interactive-brand-strong-active: var(
+		--wpds-color-background-interactive-brand-strong-active
+	);
+	--wpds-color-bg-interactive-brand-weak-active: var(
+		--wpds-color-background-interactive-brand-weak-active
+	);
+	--wpds-color-bg-interactive-error-active: var( --wpds-color-background-interactive-error-active );
+	--wpds-color-bg-interactive-error-strong: var( --wpds-color-background-interactive-error-strong );
+	--wpds-color-bg-interactive-error-strong-active: var(
+		--wpds-color-background-interactive-error-strong-active
+	);
+	--wpds-color-bg-interactive-neutral-strong-disabled: var(
+		--wpds-color-background-interactive-neutral-strong-disabled
+	);
+	--wpds-color-bg-interactive-neutral-weak-active: var(
+		--wpds-color-background-interactive-neutral-weak-active
+	);
+	--wpds-color-bg-surface-error-weak: var( --wpds-color-background-surface-error-weak );
+	--wpds-color-bg-surface-info-weak: var( --wpds-color-background-surface-info-weak );
+	--wpds-color-bg-surface-neutral: var( --wpds-color-background-surface-neutral );
+	--wpds-color-bg-surface-neutral-strong: var( --wpds-color-background-surface-neutral-strong );
+	--wpds-color-bg-surface-neutral-weak: var( --wpds-color-background-surface-neutral-weak );
+	--wpds-color-bg-surface-success-weak: var( --wpds-color-background-surface-success-weak );
+	--wpds-color-bg-surface-warning-weak: var( --wpds-color-background-surface-warning-weak );
+	--wpds-color-bg-thumb-neutral-weak: var( --wpds-color-background-thumb-neutral-weak );
+	--wpds-color-fg-content-error: var( --wpds-color-foreground-content-error );
+	--wpds-color-fg-content-info: var( --wpds-color-foreground-content-info );
+	--wpds-color-fg-content-neutral: var( --wpds-color-foreground-content-neutral );
+	--wpds-color-fg-content-neutral-weak: var( --wpds-color-foreground-content-neutral-weak );
+	--wpds-color-fg-content-success: var( --wpds-color-foreground-content-success );
+	--wpds-color-fg-content-warning: var( --wpds-color-foreground-content-warning );
+	--wpds-color-fg-interactive-brand: var( --wpds-color-foreground-interactive-brand );
+	--wpds-color-fg-interactive-brand-active: var( --wpds-color-foreground-interactive-brand-active );
+	--wpds-color-fg-interactive-error: var( --wpds-color-foreground-interactive-error );
+	--wpds-color-fg-interactive-neutral: var( --wpds-color-foreground-interactive-neutral );
+	--wpds-color-fg-interactive-neutral-active: var(
+		--wpds-color-foreground-interactive-neutral-active
+	);
+	--wpds-color-fg-interactive-neutral-disabled: var(
+		--wpds-color-foreground-interactive-neutral-disabled
+	);
+	--wpds-color-stroke-focus-brand: var( --wpds-color-stroke-focus );
+	--wpds-dimension-margin-lg: var( --wpds-dimension-gap-lg );
+	--wpds-dimension-margin-sm: var( --wpds-dimension-gap-sm );
+	--wpds-elevation-md: 0 4px 12px
+		color-mix( in srgb, var( --wpds-color-fg-content-neutral ) 12%, transparent );
+	--wpds-elevation-lg: 0 8px 24px
+		color-mix( in srgb, var( --wpds-color-fg-content-neutral ) 16%, transparent );
+	--wpds-typography-font-weight-medium: var( --wpds-typography-font-weight-emphasis );
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wpds-color-bg-interactive-brand-strong: #3858e9;
+		--wpds-color-bg-interactive-brand-strong-active: #4367f9;
+		--wpds-color-bg-interactive-brand-weak-active: #122062;
+		--wpds-color-bg-interactive-error-active: #36100c;
+		--wpds-color-bg-interactive-error-strong: #cc1818;
+		--wpds-color-bg-interactive-error-strong-active: #dd3029;
+		--wpds-color-bg-interactive-neutral-strong-disabled: #2d2d2d;
+		--wpds-color-bg-interactive-neutral-weak-active: #282828;
+		--wpds-color-bg-surface-error-weak: #36100c;
+		--wpds-color-bg-surface-info-weak: #021f3b;
+		--wpds-color-bg-surface-neutral: #1e1e1e;
+		--wpds-color-bg-surface-neutral-strong: #242424;
+		--wpds-color-bg-surface-neutral-weak: #171717;
+		--wpds-color-bg-surface-success-weak: #0d2412;
+		--wpds-color-bg-surface-warning-weak: #251d0d;
+		--wpds-color-bg-thumb-neutral-weak: #6e6e6e;
+		--wpds-color-fg-content-error: #ffe6e0;
+		--wpds-color-fg-content-info: #dcf3ff;
+		--wpds-color-fg-content-neutral: #f0f0f0;
+		--wpds-color-fg-content-neutral-weak: #b4b4b4;
+		--wpds-color-fg-content-success: #b9ffc6;
+		--wpds-color-fg-content-warning: #ffebb0;
+		--wpds-color-fg-interactive-brand: #8eb0ff;
+		--wpds-color-fg-interactive-brand-active: #8eb0ff;
+		--wpds-color-fg-interactive-error: #ff8879;
+		--wpds-color-fg-interactive-neutral: #f0f0f0;
+		--wpds-color-fg-interactive-neutral-active: #f0f0f0;
+		--wpds-color-fg-interactive-neutral-disabled: #6e6e6e;
+		--wpds-color-stroke-focus-brand: #8eb0ff;
+		--wpds-color-stroke-interactive-neutral: #6e6e6e;
+		--wpds-color-stroke-interactive-neutral-active: #8c8c8c;
+		--wpds-color-stroke-interactive-neutral-disabled: #343434;
+		--wpds-color-stroke-surface-error: #964d44;
+		--wpds-color-stroke-surface-info: #2c4e73;
+		--wpds-color-stroke-surface-neutral: #343434;
+		--wpds-color-stroke-surface-neutral-weak: #2e2e2e;
+		--wpds-color-stroke-surface-success: #426548;
+		--wpds-color-stroke-surface-warning: #837151;
+	}
+}

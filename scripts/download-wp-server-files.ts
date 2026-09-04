@@ -8,6 +8,7 @@ import {
 import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { buildPhpMyAdminStyle } from './build-phpmyadmin-style.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
 const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
@@ -216,6 +217,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_ADDITIONAL_FILES ) {
 			await fs.copy( sourcePath, path.join( extractedPath, relativePath ), { overwrite: true } );
 		}
+
+		console.log( `[${ name }] Building Studio stylesheet ...` );
+		await buildPhpMyAdminStyle( extractedPath );
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );

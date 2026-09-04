@@ -1,0 +1,23 @@
+// Breadcrumbs always render icons even when phpMyAdmin's native action and
+// tab modes are text-only.
+.breadcrumb-navbar .breadcrumb-item > img.icon {
+	display: none;
+}
+
+// The bundled Bootstrap theme uses black sprite icons. Keep those upstream
+// assets and adapt them for dark surfaces instead of carrying a second copy.
+@media ( prefers-color-scheme: dark ) {
+	img.icon {
+		filter: invert( 1 ) hue-rotate( 180deg );
+	}
+
+	// This control is rendered against the page background rather than within
+	// a component surface, so keep the stronger selector intentionally.
+	#goto_pagetop .ic_s_top {
+		filter: invert( 1 );
+	}
+
+	.selectallarrow {
+		filter: invert( 1 );
+	}
+}

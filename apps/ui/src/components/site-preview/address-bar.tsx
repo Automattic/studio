@@ -13,7 +13,7 @@ import { useSiteSearch } from '@/data/queries/use-site-search';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
-import type { SiteDetails } from '@/data/core';
+import type { DatabaseAppearance, SiteDetails } from '@/data/core';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement, RefObject, SVGProps } from 'react';
 
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
@@ -36,7 +36,13 @@ export type PreviewRealm = 'frontend' | 'admin' | 'database';
 
 // The phpMyAdmin landing the database segment opens by default: straight to
 // the WordPress database.
-export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+const DATABASE_HOME_BASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+export function getDatabaseHomePath( appearance: DatabaseAppearance = 'studio' ): string {
+	return `${ DATABASE_HOME_BASE_PATH }&studio_database=${ appearance === 'studio' ? '1' : '0' }`;
+}
+
+export const DATABASE_HOME_PATH = getDatabaseHomePath();
 
 // A deliberately nonexistent front-end path, offering a way to preview the
 // theme's 404 template.

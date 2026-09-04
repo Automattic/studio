@@ -63,12 +63,18 @@ afterEach( async () => {
 
 describe( 'GET/PATCH /api/user-preferences', () => {
 	it( 'reports what the desktop stored', async () => {
-		writeAppConfig( { preferredEditor: 'zed', preferredTerminal: 'iterm', colorScheme: 'dark' } );
+		writeAppConfig( {
+			preferredEditor: 'zed',
+			preferredTerminal: 'iterm',
+			colorScheme: 'dark',
+			databaseAppearance: 'phpmyadmin',
+		} );
 
 		await expect( getPreferences() ).resolves.toMatchObject( {
 			editor: 'zed',
 			terminal: 'iterm',
 			colorScheme: 'dark',
+			databaseAppearance: 'phpmyadmin',
 			analyticsEnabled: true,
 		} );
 	} );
@@ -79,6 +85,7 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 			colorScheme: 'light',
 			analyticsEnabled: true,
 			agenticFeaturesEnabled: true,
+			databaseAppearance: 'studio',
 			defaultSiteDirectory: path.join( os.tmpdir(), 'studio-test-sites' ),
 		} );
 	} );
@@ -95,12 +102,17 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 	} );
 
 	it( 'persists a patch under the field names the desktop reads', async () => {
-		const response = await patchPreferences( { colorScheme: 'dark', terminal: 'iterm' } );
+		const response = await patchPreferences( {
+			colorScheme: 'dark',
+			terminal: 'iterm',
+			databaseAppearance: 'phpmyadmin',
+		} );
 
 		expect( response.status ).toBe( 204 );
 		expect( readAppConfigFile() ).toMatchObject( {
 			colorScheme: 'dark',
 			preferredTerminal: 'iterm',
+			databaseAppearance: 'phpmyadmin',
 		} );
 	} );
 
@@ -128,6 +140,7 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 
 	it.each( [
 		[ 'a value outside the supported set', { colorScheme: 'chartreuse' } ],
+		[ 'an unsupported database appearance', { databaseAppearance: 'custom' } ],
 		[ 'a locale with no translations', { locale: 'xx-fake' } ],
 	] )( 'rejects %s instead of storing it', async ( _label, body ) => {
 		const response = await patchPreferences( body );

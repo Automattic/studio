@@ -4,6 +4,7 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import {
+	getDatabaseHomePath,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
@@ -136,6 +137,10 @@ describe( 'parseOmniboxInput', () => {
 } );
 
 describe( 'getPreviewRealm', () => {
+	it( 'builds database paths for both appearances', () => {
+		expect( getDatabaseHomePath() ).toContain( 'studio_database=1' );
+		expect( getDatabaseHomePath( 'phpmyadmin' ) ).toContain( 'studio_database=0' );
+	} );
 	it( 'classifies front-end paths', () => {
 		expect( getPreviewRealm( '/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/about/?preview=1' ) ).toBe( 'frontend' );

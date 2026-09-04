@@ -29,6 +29,7 @@ import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
+import { getDatabaseHomePath } from '@/components/site-preview/address-bar';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -453,9 +454,14 @@ function SiteActionsMenu( {
 	};
 
 	const handleOpenPhpMyAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
+		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
+			browser: 'external',
+			appearance: userPreferences?.databaseAppearance ?? 'studio',
+		} );
 		void connector.openExternalUrl(
-			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
+			`${ getSiteUrl( site ) }${ getDatabaseHomePath(
+				userPreferences?.databaseAppearance ?? 'studio'
+			) }`
 		);
 	};
 

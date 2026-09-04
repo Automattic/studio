@@ -215,6 +215,7 @@ none fits, and flag it for registration.
 | `arch` | CPU architecture | `arm64`, `x64`, … |
 | `app_version` | Product version | e.g. `1.15.0` |
 | `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (legacy), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli`. No standard slot — must be registered as a Studio-custom property. |
+| `appearance` | **Custom (Studio-only):** selected database presentation | `studio`, `phpmyadmin` |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
 wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
@@ -316,7 +317,7 @@ enumerated prop values below.
 | `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
 | `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
-| `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`); agentic UI entry points also send `appearance` (`studio`/`phpmyadmin`) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
 
@@ -406,14 +407,16 @@ rather than inheriting the caller's fallback.
 
 #### Settings-change events
 
-All fire from Desktop Main **only on a real change** (the handler compares against the persisted value
-first), and all carry a `surface` prop identifying where the change was made — `settings` unless noted.
+All fire **only on a real change** (the handler compares against the persisted value first), and all
+carry a `surface` prop identifying where the change was made — `settings` unless noted. Most are
+emitted by Desktop Main; settings also available in `studio ui` are emitted by its local server.
 Sensitive values are never sent as strings (see `is_default` and the directory note below).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_setting_telemetry_change` | `saveAnalyticsEnabled` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
 | `studio_setting_appearance_change` | `saveColorScheme` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
+| `studio_setting_database_appearance_change` | Desktop `saveDatabaseAppearance` / `studio ui` local server | `appearance` (`studio`/`phpmyadmin`), `surface` (`settings`) |
 | `studio_setting_language_change` | `saveUserLocale` | `locale`, `surface` (`settings`) |
 | `studio_setting_code_editor_change` | `saveUserEditor` | `editor`, `surface` (`settings`) |
 | `studio_setting_terminal_change` | `saveUserTerminal` | `terminal`, `surface` (`settings`) |

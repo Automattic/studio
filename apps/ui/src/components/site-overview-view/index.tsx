@@ -31,7 +31,7 @@ import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-des
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
-import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
+import { getDatabaseHomePath } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
@@ -211,8 +211,9 @@ function OpenInSection( {
 					// Opens in the in-app preview panel, not the OS browser.
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
 						browser: 'internal',
+						appearance: preferences?.databaseAppearance ?? 'studio',
 					} );
-					void openSiteUrl( DATABASE_HOME_PATH );
+					void openSiteUrl( getDatabaseHomePath( preferences?.databaseAppearance ?? 'studio' ) );
 				} }
 			/>
 		</ButtonSection>

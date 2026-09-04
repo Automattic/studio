@@ -1,4 +1,8 @@
 import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import {
+	DATABASE_APPEARANCES,
+	parseDatabaseAppearance,
+} from '@studio/common/lib/database-appearance';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import {
 	isAnalyticsOptedOutInConfig,
@@ -14,6 +18,7 @@ import {
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import { z } from 'zod';
+import type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { InstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -35,6 +40,7 @@ export interface UserPreferences {
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	agenticFeaturesEnabled: boolean;
+	databaseAppearance: DatabaseAppearance;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -61,6 +67,7 @@ export const userPreferencesPatchSchema = z.object( {
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
 	agenticFeaturesEnabled: z.boolean().nullish(),
+	databaseAppearance: z.enum( DATABASE_APPEARANCES ).nullish(),
 } );
 
 export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
@@ -73,6 +80,7 @@ const APP_CONFIG_KEYS = [
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
+	[ 'databaseAppearance', 'databaseAppearance' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
 export async function readUserPreferences( {
@@ -92,6 +100,7 @@ export async function readUserPreferences( {
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot,
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
+		databaseAppearance: parseDatabaseAppearance( config.databaseAppearance ),
 	};
 }
 

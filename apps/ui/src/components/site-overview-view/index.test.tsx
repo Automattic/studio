@@ -782,10 +782,11 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
 		expect( openSiteUrl ).toHaveBeenCalledWith(
 			'site-1',
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress&studio_database=1'
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'internal',
+			appearance: 'studio',
 		} );
 	} );
 

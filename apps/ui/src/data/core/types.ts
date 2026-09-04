@@ -5,6 +5,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -63,6 +64,7 @@ export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { DatabaseAppearance } from '@studio/common/lib/database-appearance';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type {
 	StudioAssistantTopUpOption,
@@ -609,6 +611,10 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
 
+	// Fires when the user picks Help ▸ About the Database in the application
+	// menu (desktop only). No-ops where there's no OS menu.
+	onShowDatabaseIntro( listener: () => void ): () => void;
+
 	// App version the user last dismissed the What's New announcements on. The
 	// same value the classic renderer reads, so the two UIs never show the same
 	// announcements twice.
@@ -637,6 +643,9 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// Version of the database introduction the user dismissed. Bump the current
+	// version when its guidance changes enough to warrant showing it again.
+	databaseIntroDismissedVersion?: number;
 }
 
 export interface SnapshotUsage {
@@ -670,6 +679,8 @@ export interface UserPreferences {
 	// Whether chat/agent features are offered at all. Unrelated to which
 	// renderer is running — switching to the classic UI is `disableAgenticUi`.
 	agenticFeaturesEnabled: boolean;
+	// Optional for backwards-compatible persisted query caches; absent means Studio.
+	databaseAppearance?: DatabaseAppearance;
 }
 
 export interface AppGlobals {

@@ -387,6 +387,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled:
 					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
+				databaseAppearance: 'studio',
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -544,6 +545,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onShowWhatsNew() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
+		onShowDatabaseIntro() {
 			// No application menu on the hosted surface.
 			return () => {};
 		},

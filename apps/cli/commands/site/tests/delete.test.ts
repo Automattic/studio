@@ -405,6 +405,28 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should report a warning in the result when moving files to trash fails', async () => {
+			vi.mocked( trash ).mockRejectedValueOnce( new Error( 'File deletion failed' ) );
+
+			const result = await runDeleteCommand( {
+				identities: [ testSiteFolder ],
+				deleteFiles: true,
+			} );
+
+			expect( result.sites[ 0 ]?.status ).toBe( 'deleted' );
+			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( 'File deletion failed' );
+		} );
+
+		it( 'should not report warnings on a clean delete', async () => {
+			const result = await runDeleteCommand( {
+				identities: [ testSiteFolder ],
+				deleteFiles: true,
+			} );
+
+			expect( result.sites[ 0 ]?.status ).toBe( 'deleted' );
+			expect( result.sites[ 0 ]?.warnings ).toBeUndefined();
+		} );
+
 		it( 'should not remove domain or certificate if no custom domain', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
@@ -529,9 +551,11 @@ describe( 'CLI: studio site delete', () => {
 		it( 'continues after a per-site mutation failure and keeps completed evidence', async () => {
 			const sites = createSites( 3 );
 			mockSites( sites );
-			vi.mocked( saveCliConfig )
+			// Fails after the config write, so the middle site is left partially mutated —
+			// removed from the config but never announced as deleted.
+			vi.mocked( emitCliEvent )
 				.mockResolvedValueOnce( undefined )
-				.mockRejectedValueOnce( new Error( 'Config write failed' ) )
+				.mockRejectedValueOnce( new Error( 'Daemon event failed' ) )
 				.mockResolvedValueOnce( undefined );
 
 			const result = await runDeleteCommand( {
@@ -546,7 +570,7 @@ describe( 'CLI: studio site delete', () => {
 				'failed',
 				'deleted',
 			] );
-			expect( result.sites[ 1 ]?.error ).toBe( 'Config write failed' );
+			expect( result.sites[ 1 ]?.error ).toBe( 'Daemon event failed' );
 			expect( process.exitCode ).toBe( 1 );
 		} );
 

@@ -99,23 +99,6 @@ describe( 'useDragAndDropFile', () => {
 		expect( onFileDrop ).toHaveBeenCalledWith( file );
 	} );
 
-	test( 'should keep responding to dragover after a re-render with a new callback', () => {
-		const { getByTestId, getByText } = render(
-			<InlineCallbackDragComponent onFileDrop={ onFileDrop } />
-		);
-		const dropZone = getByTestId( 'test-drop-zone' );
-
-		act( () => {
-			fireEvent.click( getByText( 'rerender' ) );
-		} );
-
-		act( () => {
-			fireEvent( dropZone, createEvent.dragOver( dropZone ) );
-		} );
-
-		expect( getByText( 'Dragging Over' ) ).toBeInTheDocument();
-	} );
-
 	test( 'should call the latest callback on drop after a re-render', () => {
 		const { getByTestId, getByText } = render(
 			<InlineCallbackDragComponent onFileDrop={ onFileDrop } />
@@ -150,5 +133,28 @@ describe( 'useDragAndDropFile', () => {
 		} );
 
 		expect( getByText( 'Dragging Over' ) ).toBeInTheDocument();
+	} );
+
+	test( 'should release listeners on the old node when the drop node is replaced', () => {
+		const { getByTestId, getByText } = render(
+			<RemountingDragComponent onFileDrop={ onFileDrop } />
+		);
+		const detachedNode = getByTestId( 'test-drop-zone' );
+
+		act( () => {
+			fireEvent.click( getByText( 'remount' ) );
+		} );
+
+		expect( getByTestId( 'test-drop-zone' ) ).not.toBe( detachedNode );
+
+		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
+		act( () => {
+			fireEvent(
+				detachedNode,
+				createEvent.drop( detachedNode, { dataTransfer: { files: [ file ] } } )
+			);
+		} );
+
+		expect( onFileDrop ).not.toHaveBeenCalled();
 	} );
 } );

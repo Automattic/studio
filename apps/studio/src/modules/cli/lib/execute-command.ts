@@ -102,12 +102,19 @@ type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
 	env?: NodeJS.ProcessEnv;
+	// Set by callers that hand the captured stderr to their own caller, so it isn't logged twice.
+	suppressStderrEcho?: boolean;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
+	options: {
+		output: 'capture';
+		logPrefix?: string;
+		env?: NodeJS.ProcessEnv;
+		suppressStderrEcho?: boolean;
+	}
 ): [ CliCommandEventEmitter< true >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
@@ -173,12 +180,15 @@ export function executeCliCommand(
 				}
 			}
 		} );
-		// Unlike stdout, stderr is always echoed: it carries diagnostics rather than payloads, and
-		// a command that recovers from a failure still exits 0, so this is the only place a
-		// non-fatal problem becomes visible.
+		// Unlike stdout, stderr is echoed by default: it carries diagnostics rather than payloads,
+		// and a command that recovers from a failure still exits 0, so this is otherwise the only
+		// place a non-fatal problem would become visible.
 		child.stderr?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stderr += text;
+			if ( options.suppressStderrEcho ) {
+				return;
+			}
 			const trimmed = text.trimEnd();
 			if ( trimmed ) {
 				console.error( `${ logPrefix ?? '[CLI]' } ${ trimmed }` );

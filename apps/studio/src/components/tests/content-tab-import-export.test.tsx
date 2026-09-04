@@ -78,7 +78,7 @@ describe( 'ContentTabImportExport Import', () => {
 		expect( dropZone ).toBeInTheDocument();
 
 		fireEvent.dragOver( dropZone );
-		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
+		expect( await screen.findByText( /Drop file/i ) ).toBeInTheDocument();
 
 		vi.useFakeTimers();
 		act( () => {

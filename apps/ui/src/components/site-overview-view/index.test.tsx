@@ -461,7 +461,7 @@ describe( 'SiteOverviewView', () => {
 		expect( login ).toHaveBeenCalled();
 	} );
 
-	it( 'shows a connected site and exposes pull and push actions', async () => {
+	it( 'shows a connected site with direct sync actions and its type', () => {
 		useConnectedWpcomSitesMock.mockReturnValue( {
 			data: [ CONNECTED_SITE ],
 			isLoading: false,
@@ -471,14 +471,16 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByText( 'demo.example.com' ) ).toBeVisible();
 		expect( screen.getByText( 'Never synced' ) ).toBeVisible();
+		expect( screen.getByText( 'Production' ) ).toBeVisible();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-		fireEvent.click( await screen.findByText( 'Pull from live' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 		expect( pullSiteFromLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-		fireEvent.click( await screen.findByText( 'Push to live' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
 		expect( pushSiteToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy' } ) );
+		expect( copyText ).toHaveBeenCalledWith( 'https://demo.example.com' );
 	} );
 
 	it( 'reflects sync work started from another surface', () => {
@@ -490,10 +492,8 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByRole( 'button', { name: 'Pushing…' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
+		expect( screen.getByRole( 'button', { name: 'Pushing…' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeDisabled();
 	} );
 
 	it( 'shows preview expiry and account usage', () => {
@@ -514,8 +514,11 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect( screen.getByText( 'demo-preview.wp.build' ) ).toBeVisible();
+		expect( screen.getByText( 'Published 5d ago' ) ).toBeVisible();
 		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
 		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Open' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 	} );
 
 	it( 'publishes a preview site from its empty state', () => {

@@ -249,11 +249,9 @@ function SiteOverviewBody( {
 											themeDetails={ themeDetails }
 										/>
 									</OverviewCard>
-									<h2 className={ styles.columnHeading }>{ __( 'Connections' ) }</h2>
 									<OverviewCard>
 										<ConnectionsSection site={ site } busy={ busy } />
 									</OverviewCard>
-									<h2 className={ styles.columnHeading }>{ __( 'Preview sites' ) }</h2>
 									<OverviewCard>
 										<PreviewSitesSection site={ site } />
 									</OverviewCard>

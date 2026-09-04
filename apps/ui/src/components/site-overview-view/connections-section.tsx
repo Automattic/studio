@@ -1,14 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowDown,
-	arrowUp,
-	copy,
-	external,
-	Icon,
-	moreVertical,
-	plus,
-	reusableBlock,
-} from '@wordpress/icons';
+import { plus } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
@@ -56,7 +47,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	) : null;
 
 	return (
-		<CardSection action={ connectAction }>
+		<CardSection title={ __( 'Connections' ) } action={ connectAction }>
 			{ ! authUser ? (
 				<>
 					<CardEmptyState>
@@ -115,7 +106,7 @@ function ConnectionRow( {
 
 	return (
 		<div className={ styles.row }>
-			<div className={ styles.rowText }>
+			<div className={ styles.rowLine }>
 				<RowLink
 					label={ stripProtocol( connection.url ) }
 					tooltip={ connection.name }
@@ -123,71 +114,44 @@ function ConnectionRow( {
 				/>
 				<span className={ clsx( styles.rowMeta, sync.stale && styles.stale ) }>{ sync.label }</span>
 			</div>
-			<div className={ styles.rowActions }>
-				<Menu.Root>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ reusableBlock }
-								label={ isPulling ? __( 'Pulling…' ) : isPushing ? __( 'Pushing…' ) : __( 'Sync' ) }
-								disabled={ disabled }
-								loading={ syncing }
-							/>
+			<div className={ styles.rowLine }>
+				<div className={ styles.rowActions }>
+					<button
+						type="button"
+						className={ styles.rowAction }
+						disabled={ disabled }
+						onClick={ () =>
+							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
-					/>
-					<Menu.Popup side="bottom" align="end">
-						<Menu.Item
-							onClick={ () =>
-								pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
-							}
-						>
-							<span className={ styles.itemIcon } aria-hidden="true">
-								<Icon icon={ arrowDown } size={ 18 } />
-							</span>
-							{ __( 'Pull from live' ) }
-						</Menu.Item>
-						<Menu.Item
-							onClick={ () =>
-								pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
-							}
-						>
-							<span className={ styles.itemIcon } aria-hidden="true">
-								<Icon icon={ arrowUp } size={ 18 } />
-							</span>
-							{ __( 'Push to live' ) }
-						</Menu.Item>
-					</Menu.Popup>
-				</Menu.Root>
-				<Menu.Root>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ moreVertical }
-								label={ __( 'More options' ) }
-							/>
+					>
+						{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
+					</button>
+					<button
+						type="button"
+						className={ styles.rowAction }
+						disabled={ disabled }
+						onClick={ () =>
+							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
-					/>
-					<Menu.Popup side="bottom" align="end">
-						<Menu.Item onClick={ () => void connector.openExternalUrl( url ) }>
-							<span className={ styles.itemIcon } aria-hidden="true">
-								<Icon icon={ external } size={ 18 } />
-							</span>
-							{ __( 'Open live site' ) }
-						</Menu.Item>
-						<Menu.Item onClick={ () => void connector.copyText( url ) }>
-							<span className={ styles.itemIcon } aria-hidden="true">
-								<Icon icon={ copy } size={ 18 } />
-							</span>
-							{ __( 'Copy URL' ) }
-						</Menu.Item>
-					</Menu.Popup>
-				</Menu.Root>
+					>
+						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
+					</button>
+					<button
+						type="button"
+						className={ styles.rowAction }
+						onClick={ () => void connector.copyText( url ) }
+					>
+						{ __( 'Copy' ) }
+					</button>
+				</div>
+				<span
+					className={ clsx(
+						styles.rowBadge,
+						connection.isStaging ? styles.rowBadgeStaging : styles.rowBadgeProduction
+					) }
+				>
+					{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
+				</span>
 			</div>
 		</div>
 	);

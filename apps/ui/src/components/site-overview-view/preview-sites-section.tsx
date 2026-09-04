@@ -1,16 +1,16 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { copy, external, Icon, moreVertical, plus, update } from '@wordpress/icons';
+import { plus } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useMemo } from 'react';
-import * as Menu from '@/components/menu';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useOffline } from '@/hooks/use-offline';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
 import { CardEmptyState, CardRows, CardSection, RowDivider } from './overview-card';
 import { RowLink } from './row-link';
@@ -74,7 +74,7 @@ export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 	) : null;
 
 	return (
-		<CardSection action={ publishAction }>
+		<CardSection title={ __( 'Preview sites' ) } action={ publishAction }>
 			{ ! authUser ? (
 				<CardEmptyState>
 					{ __( 'Sign in to publish a preview site and share your work.' ) }
@@ -111,6 +111,10 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 	const publishPreviewSite = usePublishPreviewSite();
 	const life = describeLife( snapshot );
 	const url = ensureProtocol( snapshot.url );
+	const published = sprintf(
+		__( 'Published %s ago' ),
+		formatRelativeTime( new Date( snapshot.date ).toISOString() )
+	);
 
 	const republish = () =>
 		publishPreviewSite.mutate( {
@@ -120,7 +124,7 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 
 	return (
 		<div className={ styles.row }>
-			<div className={ styles.rowText }>
+			<div className={ styles.rowLine }>
 				{ life.expired ? (
 					<span className={ clsx( styles.rowTitle, styles.rowTitleExpired ) } title={ url }>
 						{ stripProtocol( snapshot.url ) }
@@ -128,70 +132,51 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 				) : (
 					<RowLink label={ stripProtocol( snapshot.url ) } url={ url } />
 				) }
+				<span className={ styles.rowMeta }>{ published }</span>
+			</div>
+			<div className={ styles.rowLine }>
+				<div className={ styles.rowActions }>
+					{ ! life.expired && (
+						<button
+							type="button"
+							className={ styles.rowAction }
+							onClick={ () => void connector.openExternalUrl( url ) }
+						>
+							{ __( 'Open' ) }
+						</button>
+					) }
+					<button
+						type="button"
+						className={ styles.rowAction }
+						onClick={ () => void connector.copyText( url ) }
+					>
+						{ __( 'Copy' ) }
+					</button>
+					<button
+						type="button"
+						className={ styles.rowAction }
+						disabled={ publishPreviewSite.isPending || isOffline }
+						onClick={ republish }
+					>
+						{ publishPreviewSite.isPending
+							? __( 'Publishing…' )
+							: life.expired
+							? __( 'Republish' )
+							: __( 'Update' ) }
+					</button>
+				</div>
 				<span
 					className={ clsx(
-						styles.rowMeta,
-						life.expired ? styles.expired : life.endingSoon && styles.stale
+						styles.rowBadge,
+						life.expired
+							? styles.rowBadgeExpired
+							: life.endingSoon
+							? styles.rowBadgeStaging
+							: styles.rowBadgeActive
 					) }
 				>
 					{ life.label }
 				</span>
-			</div>
-			<div className={ styles.rowActions }>
-				{ life.expired ? (
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ update }
-						label={ __( 'Republish' ) }
-						disabled={ publishPreviewSite.isPending || isOffline }
-						loading={ publishPreviewSite.isPending }
-						loadingAnnouncement={ __( 'Publishing preview site' ) }
-						onClick={ republish }
-					/>
-				) : (
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ external }
-						label={ __( 'Open preview site' ) }
-						onClick={ () => void connector.openExternalUrl( url ) }
-					/>
-				) }
-				<Menu.Root>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ moreVertical }
-								label={ __( 'More options' ) }
-							/>
-						}
-					/>
-					<Menu.Popup side="bottom" align="end">
-						<Menu.Item onClick={ () => void connector.copyText( url ) }>
-							<span className={ styles.itemIcon } aria-hidden="true">
-								<Icon icon={ copy } size={ 18 } />
-							</span>
-							{ __( 'Copy link' ) }
-						</Menu.Item>
-						{ ! life.expired && (
-							<Menu.Item
-								disabled={ publishPreviewSite.isPending || isOffline }
-								onClick={ republish }
-							>
-								<span className={ styles.itemIcon } aria-hidden="true">
-									<Icon icon={ update } size={ 18 } />
-								</span>
-								{ __( 'Update preview' ) }
-							</Menu.Item>
-						) }
-					</Menu.Popup>
-				</Menu.Root>
 			</div>
 		</div>
 	);

@@ -17,6 +17,10 @@
    Literal colors, not the matching wpds tokens: this block remaps those same
    tokens below, so seeding from them would make each definition depend on
    itself. */
+.positionerAboveOverlays {
+	z-index: var(--wp-ui-select-z-index, 750);
+}
+
 .popup {
 	--menu-surface: #1e1e1e;
 	--menu-foreground: #f0f0f0;

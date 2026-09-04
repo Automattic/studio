@@ -3,15 +3,30 @@
    "Open in…" control and the collapsed annotation control, which sit next
    to each other and have to read as the same kind of thing. */
 .splitTrigger {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
 	gap: 1px;
 	flex: 0 0 auto;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	/* The buttons' own radius plus the border width, so the halves' rounded
-	   outer corners nest flush against the frame. */
-	border-radius: calc(var(--wpds-border-radius-sm) + var(--wpds-border-width-xs));
+	border-radius: var(--wpds-border-radius-sm);
 	-webkit-app-region: no-drag;
+}
+
+/* WPDS buttons include their border inside the fixed control height. Draw the
+   shared split-button frame as an inset overlay too, so it stays 24px tall
+   rather than adding a pixel above and below the two button halves. */
+.splitTrigger::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border: var(--wpds-border-width-xs) solid transparent;
+	border-radius: inherit;
+	pointer-events: none;
+	transition: border-color 100ms ease;
+}
+
+.splitTrigger:is(:hover, :focus-within)::after {
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
 }
 
 /* Size the halves so the pair reads as one compact button: normal padding
@@ -20,6 +35,10 @@
    as one control split in two. */
 .splitAction {
 	--wp-ui-button-min-width: unset;
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
 
 	padding-inline: var(--wpds-dimension-padding-xs) 1px;
 	border-start-end-radius: 0;
@@ -28,6 +47,8 @@
 
 .splitMenuButton {
 	--wp-ui-button-min-width: unset;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
 
 	padding-inline: 1px 3px;
 	border-start-start-radius: 0;

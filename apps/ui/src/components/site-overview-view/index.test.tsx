@@ -44,7 +44,7 @@ import type {
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
-const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const siteToolbarMock = vi.hoisted( () => vi.fn() );
 const importSiteFromBackup = vi.hoisted( () => vi.fn() );
 const reportSyncProgressMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
@@ -83,14 +83,9 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 		open ? <div role="dialog">Delete dialog</div> : null,
 } ) );
 
-vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( props: {
-		site: SiteDetails;
-		showSiteIcon?: boolean;
-		showStatus?: boolean;
-		defaultOpen?: boolean;
-	} ) => {
-		siteDropdownMock( props );
+vi.mock( '@/components/site-toolbar', () => ( {
+	SiteToolbar: ( props: { site: SiteDetails } ) => {
+		siteToolbarMock( props );
 		return <div>{ props.site.name }</div>;
 	},
 } ) );
@@ -396,8 +391,8 @@ describe( 'SiteOverviewView', () => {
 	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { showSiteIcon: true, showStatus: false } )
+		expect( siteToolbarMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
 		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
@@ -593,12 +588,10 @@ describe( 'SiteOverviewView', () => {
 		expect( onTabChange ).toHaveBeenCalledWith( 'general' );
 	} );
 
-	it( 'opens site status when requested by the route', () => {
+	it( 'keeps the permanent toolbar when the route requests the old dropdown', () => {
 		renderView( 'overview', true );
 
-		expect( siteDropdownMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { defaultOpen: true } )
-		);
+		expect( siteToolbarMock ).toHaveBeenCalled();
 	} );
 
 	it( 'renders the settings form with save actions on the general tab', () => {

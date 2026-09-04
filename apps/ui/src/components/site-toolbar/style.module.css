@@ -1,0 +1,337 @@
+.toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	padding-inline: var(--wpds-dimension-padding-lg);
+	/* Fills whatever header row hosts it, so the action stays pinned to the
+	   panel's right edge, and takes the row's full height so the actions have a
+	   top to align to. */
+	flex: 1;
+	align-self: stretch;
+	min-width: 0;
+	/* The window drags by the toolbar's empty space; its controls opt back out
+	   below so clicks reach them. */
+	-webkit-app-region: drag;
+	container: site-toolbar / inline-size;
+}
+
+.identity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	min-width: 0;
+	flex: 1 1 auto;
+	overflow: hidden;
+}
+
+.siteIcon {
+	flex: 0 0 auto;
+	inline-size: 32px;
+	block-size: 32px;
+	border-radius: var(--wpds-border-radius-sm);
+}
+
+.identityText {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.siteName {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: 1.25;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteStatusRow {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	line-height: 1.25;
+}
+
+/* Pull the status target back so its dot optically aligns with the site name
+   above rather than with the button's padded edge. Only when the button is
+   there — without it the URL would hang past the name. */
+.siteStatusRowWithButton {
+	margin-inline-start: -4px;
+}
+
+/* Doubled for specificity over the shared button's own 24px sizing: the
+   toolbar sits the control inside a line of text, where a 24px hit area
+   would overlap the site icon on hover. */
+.siteStatusButton.siteStatusButton {
+	flex-basis: 16px;
+	inline-size: 16px;
+	block-size: 16px;
+	-webkit-app-region: no-drag;
+}
+
+.siteUrl,
+.siteUrlStatic {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteUrl > span,
+.siteUrlStatic {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteUrl {
+	-webkit-app-region: no-drag;
+	cursor: var(--wpds-cursor-control);
+	border-radius: 2px;
+	transition: color 100ms ease;
+}
+
+.siteUrl:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteUrl:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 2px;
+}
+
+.siteUrlIcon {
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+/* The icon SVGs carry no fill of their own, so they paint black in both colour
+   schemes unless told to follow the text. */
+.siteUrlIcon {
+	fill: currentColor;
+}
+
+.siteUrl:is(:hover, :focus-visible) .siteUrlIcon {
+	opacity: 1;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-xs);
+	flex: 0 0 auto;
+	/* Pinned to the top of the header rather than centred against the site's
+	   two-line identity block, and inset to line up with the preview pane's
+	   toolbar buttons. Both panels start at the split frame's top edge; the
+	   preview header pads 4px and then centres its controls in a 32px row. */
+	align-self: flex-start;
+	padding-block-start: var(--wpds-dimension-padding-md);
+	-webkit-app-region: no-drag;
+}
+
+.openInAction {
+	display: flex;
+	align-items: center;
+}
+
+.compactActionsTrigger {
+	display: none;
+}
+
+.compactActionsPopup {
+	min-width: 180px;
+}
+
+.compactActionsItemIcon {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.compactActionsItemIcon svg:not([fill]) {
+	fill: currentColor;
+}
+
+/* --- Primary action ------------------------------------------------------ */
+
+.action {
+	position: relative;
+	/* A stable floor so the label can change without the toolbar reflowing
+	   around it. */
+	min-width: 64px;
+	justify-content: center;
+	/* Keeps the progress fill inside the button's rounded edge. */
+	overflow: hidden;
+	transition: min-width 200ms ease;
+}
+
+/* Fills from the leading edge as the sync advances. Drawn from the button's
+   own foreground so it works on the solid and the outline button alike. */
+.actionProgress {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	inline-size: var(--action-progress, 0%);
+	background: color-mix(in srgb, currentColor 22%, transparent);
+	transition: inline-size 400ms ease;
+	pointer-events: none;
+}
+
+.actionLabel {
+	display: inline-flex;
+	align-items: center;
+	animation: actionLabelIn 200ms ease both;
+}
+
+.actionIcon {
+	display: none;
+	place-items: center;
+	color: currentColor;
+}
+
+.actionIcon svg:not([fill]),
+.shareActionIcon svg:not([fill]) {
+	fill: currentColor;
+}
+
+.shareActionIcon {
+	display: none;
+	place-items: center;
+	color: currentColor;
+}
+
+.toolbar[data-site-toolbar-layout='compact'] {
+	.shareAction {
+		min-width: 32px;
+		width: 32px;
+		padding-inline: 0;
+	}
+
+	.shareActionLabel {
+		display: none;
+	}
+
+	.shareActionIcon {
+		display: grid;
+	}
+}
+
+.toolbar:is(
+		[data-site-toolbar-layout='overflow'],
+		[data-site-toolbar-layout='minimal']
+	) {
+	.openInAction,
+	.shareAction {
+		display: none;
+	}
+
+	.compactActionsTrigger {
+		display: inline-flex;
+	}
+}
+
+.toolbar[data-site-toolbar-layout='minimal'] {
+	.action {
+		min-width: 32px;
+		width: 32px;
+		padding-inline: 0;
+	}
+
+	.actionLabel {
+		display: none;
+	}
+
+	.actionIcon {
+		display: grid;
+	}
+}
+
+@keyframes actionLabelIn {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* --- Details menu -------------------------------------------------------- */
+
+.menu {
+	min-width: 240px;
+	max-width: 320px;
+}
+
+.menuDetail {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuDetailError {
+	color: var(--wpds-color-fg-content-error);
+}
+
+/* Names the list of connections a push or pull could run against. */
+.menuGroupLabel {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.menuItemStack {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.menuItemSub {
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menuItemMeta {
+	margin-inline-start: auto;
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.action,
+	.actionProgress,
+	.siteUrl,
+	.siteUrlIcon {
+		transition: none;
+	}
+
+	.actionLabel {
+		animation: none;
+	}
+}

@@ -30,9 +30,9 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
-import { SiteDropdown } from '@/components/site-dropdown';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
+import { SiteToolbar } from '@/components/site-toolbar';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useIsSiteBusy, useSites } from '@/data/queries/use-sites';
@@ -73,13 +73,7 @@ interface OverviewButtonProps {
 	transitionName?: string;
 }
 
-function OverviewHeader( {
-	site,
-	openSiteDropdown,
-}: {
-	site: SiteDetails;
-	openSiteDropdown: boolean;
-} ) {
+function OverviewHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 
@@ -91,13 +85,7 @@ function OverviewHeader( {
 					: styles.header
 			}
 		>
-			<SiteDropdown
-				site={ site }
-				showSiteIcon
-				showStatus={ sidebarCollapsed }
-				floating={ false }
-				defaultOpen={ openSiteDropdown }
-			/>
+			<SiteToolbar site={ site } />
 		</div>
 	);
 }
@@ -221,12 +209,7 @@ function OpenInSection( {
 	);
 }
 
-export function SiteOverviewView( {
-	siteId,
-	activeTab,
-	openSiteDropdown = false,
-	onTabChange,
-}: SiteOverviewViewProps ) {
+export function SiteOverviewView( { siteId, activeTab, onTabChange }: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 
@@ -243,25 +226,16 @@ export function SiteOverviewView( {
 		);
 	}
 
-	return (
-		<SiteOverviewBody
-			site={ site }
-			activeTab={ activeTab }
-			openSiteDropdown={ openSiteDropdown }
-			onTabChange={ onTabChange }
-		/>
-	);
+	return <SiteOverviewBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
 }
 
 function SiteOverviewBody( {
 	site,
 	activeTab,
-	openSiteDropdown,
 	onTabChange,
 }: {
 	site: SiteDetails;
 	activeTab: SiteSettingsTabId;
-	openSiteDropdown: boolean;
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
@@ -294,7 +268,7 @@ function SiteOverviewBody( {
 
 	return (
 		<div className={ styles.root }>
-			<OverviewHeader site={ site } openSiteDropdown={ openSiteDropdown } />
+			<OverviewHeader site={ site } />
 			<div className={ styles.tabsFrame }>
 				<Tabs.Root
 					selectedTabId={ activeTab }

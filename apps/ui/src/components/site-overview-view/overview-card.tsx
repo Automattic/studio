@@ -122,6 +122,41 @@ export function CardRowBadge( { className, ...props }: ComponentProps< typeof Ba
 	return <Badge className={ clsx( styles.rowBadge, className ) } { ...props } />;
 }
 
+export function CardOperationProgress( {
+	label,
+	message,
+	progress,
+}: {
+	label: string;
+	message: string;
+	progress?: number;
+} ) {
+	const boundedProgress =
+		progress === undefined ? undefined : Math.min( 100, Math.max( 0, progress ) );
+
+	return (
+		<div className={ styles.operationProgress }>
+			<span>{ message }</span>
+			<div
+				className={ styles.operationProgressTrack }
+				role="progressbar"
+				aria-label={ label }
+				aria-valuemin={ 0 }
+				aria-valuemax={ 100 }
+				aria-valuenow={ boundedProgress }
+			>
+				<span
+					className={ styles.operationProgressValue }
+					data-indeterminate={ boundedProgress === undefined ? true : undefined }
+					style={
+						boundedProgress === undefined ? undefined : { inlineSize: `${ boundedProgress }%` }
+					}
+				/>
+			</div>
+		</div>
+	);
+}
+
 export function CardResourceRow( {
 	label,
 	url,

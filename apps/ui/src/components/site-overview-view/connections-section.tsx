@@ -9,6 +9,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { formatRelativeTime } from '@/lib/format-relative-time';
@@ -16,6 +17,7 @@ import styles from './cards.module.css';
 import {
 	CardEmptyState,
 	CardLoadingState,
+	CardOperationProgress,
 	ButtonTooltip,
 	CardHeaderAction,
 	CardResourceRow,
@@ -27,6 +29,7 @@ import {
 	RowDivider,
 } from './overview-card';
 import type { SiteDetails, SyncSite } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
 const STALE_SYNC_MS = 14 * 24 * 60 * 60 * 1000;
@@ -41,6 +44,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 		targetId: number;
 	} | null >( null );
 	const { data: connections, isLoading } = useConnectedWpcomSites( site.id );
+	const activity = useSiteSyncActivity( site.id );
 	const hasConnections = Boolean( connections?.length );
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
@@ -91,6 +95,13 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 									site={ site }
 									connection={ connection }
 									busy={ busy }
+									activity={
+										activity?.kind === 'pending' &&
+										( activity.direction === 'push' || activity.direction === 'pull' ) &&
+										activity.remoteSiteId === connection.id
+											? activity
+											: null
+									}
 									onSync={ ( direction ) =>
 										setSyncRequest( { direction, targetId: connection.id } )
 									}
@@ -145,11 +156,13 @@ function ConnectionRow( {
 	site,
 	connection,
 	busy,
+	activity,
 	onSync,
 }: {
 	site: SiteDetails;
 	connection: SyncSite;
 	busy: boolean;
+	activity: SyncActivity | null;
 	onSync: ( direction: SyncDirection ) => void;
 } ) {
 	const connector = useConnector();
@@ -159,6 +172,13 @@ function ConnectionRow( {
 	const disabled = syncing || busy || isOffline;
 	const sync = describeLastSync( connection );
 	const url = ensureProtocol( connection.url );
+	const syncDirection =
+		activity?.kind === 'pending' &&
+		( activity.direction === 'push' || activity.direction === 'pull' )
+			? activity.direction
+			: null;
+	const syncLabel =
+		syncDirection === 'push' ? __( 'Pushing' ) : syncDirection === 'pull' ? __( 'Pulling' ) : '';
 
 	return (
 		<CardResourceRow
@@ -168,36 +188,61 @@ function ConnectionRow( {
 			meta={ sync.label }
 			metaClassName={ clsx( sync.stale && styles.stale ) }
 			actions={
-				<>
-					<CardRowAction
-						type="button"
-						tooltip={ sprintf( __( 'Pull changes from %s' ), stripProtocol( connection.url ) ) }
-						disabled={ disabled }
-						onClick={ () => onSync( 'pull' ) }
-					>
-						{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
-					</CardRowAction>
-					<CardRowAction
-						type="button"
-						tooltip={ sprintf( __( 'Push local changes to %s' ), stripProtocol( connection.url ) ) }
-						disabled={ disabled }
-						onClick={ () => onSync( 'push' ) }
-					>
-						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
-					</CardRowAction>
-					<CardRowAction
-						type="button"
-						tooltip={ __( 'Copy the live site URL' ) }
-						onClick={ () => void connector.copyText( url ) }
-					>
-						{ __( 'Copy URL' ) }
-					</CardRowAction>
-				</>
+				syncDirection ? (
+					<CardOperationProgress
+						label={ sprintf(
+							__( '%1$s changes for %2$s' ),
+							syncLabel,
+							stripProtocol( connection.url )
+						) }
+						message={
+							activity?.kind === 'pending' && activity.message
+								? activity.message
+								: syncDirection === 'push'
+								? __( 'Preparing push…' )
+								: __( 'Preparing pull…' )
+						}
+						progress={ activity?.kind === 'pending' ? activity.progress : undefined }
+					/>
+				) : (
+					<>
+						<CardRowAction
+							type="button"
+							tooltip={ sprintf(
+								__( 'Push local changes to %s' ),
+								stripProtocol( connection.url )
+							) }
+							disabled={ disabled }
+							onClick={ () => onSync( 'push' ) }
+						>
+							{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
+						</CardRowAction>
+						<CardRowAction
+							type="button"
+							tooltip={ sprintf( __( 'Pull changes from %s' ), stripProtocol( connection.url ) ) }
+							disabled={ disabled }
+							onClick={ () => onSync( 'pull' ) }
+						>
+							{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
+						</CardRowAction>
+						<CardRowAction
+							type="button"
+							tooltip={ __( 'Copy the live site URL' ) }
+							onClick={ () => void connector.copyText( url ) }
+						>
+							{ __( 'Copy URL' ) }
+						</CardRowAction>
+					</>
+				)
 			}
 			status={
-				<CardRowBadge intent={ connection.isStaging ? 'medium' : 'stable' }>
-					{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
-				</CardRowBadge>
+				syncDirection ? (
+					<CardRowBadge intent="medium">{ syncLabel }</CardRowBadge>
+				) : (
+					<CardRowBadge intent={ connection.isStaging ? 'medium' : 'stable' }>
+						{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
+					</CardRowBadge>
+				)
 			}
 		/>
 	);

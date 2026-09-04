@@ -15,7 +15,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 } );
 
 vi.mock( '@/data/app-messages', () => ( {
-	toast: { success: vi.fn(), error: vi.fn() },
+	toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -69,6 +69,11 @@ describe( 'usePullSiteFromLive', () => {
 		await waitFor( () =>
 			expect( screen.getByText( 'Creating remote backup… (24%)' ) ).toBeVisible()
 		);
+		expect( toast.info ).toHaveBeenCalledWith( 'Pulling site…', {
+			id: 'site-sync-pull-site-1',
+			description: 'Creating remote backup… (24%)',
+			durationMs: 0,
+		} );
 
 		finishPull();
 		await waitFor( () => expect( screen.getByText( 'success' ) ).toBeVisible() );
@@ -104,6 +109,7 @@ describe( 'usePullSiteFromLive', () => {
 		await waitFor( () => expect( screen.getByText( message ) ).toBeVisible() );
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
 		expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
+			id: 'site-sync-pull-site-1',
 			description: message,
 			action: { label: 'Open Studio Logs', onClick: expect.any( Function ) },
 		} );
@@ -131,6 +137,7 @@ describe( 'usePullSiteFromLive', () => {
 
 		await waitFor( () =>
 			expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
+				id: 'site-sync-pull-site-1',
 				description: "Studio couldn't copy the live site. Try again.",
 				action: undefined,
 			} )
@@ -227,7 +234,11 @@ describe( 'sync Tracks events', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 
-		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Pull cancelled' ) );
+		await waitFor( () =>
+			expect( toast.success ).toHaveBeenCalledWith( 'Pull cancelled', {
+				id: 'site-sync-pull-site-1',
+			} )
+		);
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 
@@ -246,6 +257,24 @@ describe( 'sync Tracks events', () => {
 			} )
 		);
 		expect( trackEvent.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'failure_reason' );
+	} );
+
+	it( 'keeps a persistent push notice updated with reported progress', async () => {
+		renderSync( {
+			pushSiteToLive: vi.fn( async ( _siteId, _remoteSiteId, _options, onProgress ) => {
+				onProgress?.( 'uploading', 42 );
+			} ),
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
+
+		await waitFor( () =>
+			expect( toast.info ).toHaveBeenCalledWith( 'Pushing site…', {
+				id: 'site-sync-push-site-1',
+				description: 'Uploading site… (42%)',
+				durationMs: 0,
+			} )
+		);
 	} );
 
 	it( 'records a failed push with a classified reason', async () => {
@@ -272,7 +301,11 @@ describe( 'sync Tracks events', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
 
-		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Push cancelled' ) );
+		await waitFor( () =>
+			expect( toast.success ).toHaveBeenCalledWith( 'Push cancelled', {
+				id: 'site-sync-push-site-1',
+			} )
+		);
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 

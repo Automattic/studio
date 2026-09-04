@@ -19,8 +19,8 @@ describe( 'sync activity progress', () => {
 		const siteId = 'background-pull-site';
 		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
 
-		act( () => reportSyncPending( siteId, 'pull' ) );
-		expect( result.current ).toEqual( { kind: 'pending', direction: 'pull' } );
+		act( () => reportSyncPending( siteId, 'pull', 42 ) );
+		expect( result.current ).toEqual( { kind: 'pending', direction: 'pull', remoteSiteId: 42 } );
 
 		act( () =>
 			reportSyncProgress( siteId, 'pull', {
@@ -31,6 +31,7 @@ describe( 'sync activity progress', () => {
 		expect( result.current ).toEqual( {
 			kind: 'pending',
 			direction: 'pull',
+			remoteSiteId: 42,
 			message: 'Downloading backup… (50%)',
 			progress: 50,
 		} );
@@ -47,14 +48,18 @@ describe( 'sync activity progress', () => {
 		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
 
 		act( () => reportSyncPending( siteId, 'push' ) );
-		act( () => reportPushPhase( siteId, 'creatingRemoteBackup', 40 ) );
+		act( () => {
+			reportPushPhase( siteId, 'creatingRemoteBackup', 40 );
+		} );
 		expect( result.current ).toMatchObject( {
 			phase: 'creatingRemoteBackup',
 			message: 'Backing up remote site… (40%)',
 		} );
 
 		// The remote does not report a percentage for every phase.
-		act( () => reportPushPhase( siteId, 'finishing' ) );
+		act( () => {
+			reportPushPhase( siteId, 'finishing' );
+		} );
 		expect( result.current ).toMatchObject( { phase: 'finishing', message: 'Almost there…' } );
 	} );
 } );

@@ -19,6 +19,7 @@ import styles from './cards.module.css';
 import {
 	CardEmptyState,
 	CardLoadingState,
+	CardOperationProgress,
 	ButtonTooltip,
 	CardHeaderAction,
 	CardResourceRow,
@@ -256,28 +257,15 @@ export function PreviewSitesList( { site }: { site: SiteDetails } ) {
 }
 
 function PreviewPublishingRow( { message, progress }: { message: string; progress: number } ) {
-	const boundedProgress = Math.min( 100, Math.max( 0, progress ) );
-
 	return (
 		<CardResourceRow
 			label={ __( 'New preview' ) }
 			actions={
-				<div className={ styles.previewProgress }>
-					<span>{ message }</span>
-					<div
-						className={ styles.previewProgressTrack }
-						role="progressbar"
-						aria-label={ __( 'Publishing preview' ) }
-						aria-valuemin={ 0 }
-						aria-valuemax={ 100 }
-						aria-valuenow={ boundedProgress }
-					>
-						<span
-							className={ styles.previewProgressValue }
-							style={ { inlineSize: `${ boundedProgress }%` } }
-						/>
-					</div>
-				</div>
+				<CardOperationProgress
+					label={ __( 'Publishing preview' ) }
+					message={ message }
+					progress={ progress }
+				/>
 			}
 			status={ <CardRowBadge intent="medium">{ __( 'In progress' ) }</CardRowBadge> }
 		/>

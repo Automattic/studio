@@ -578,9 +578,17 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'demo.example.com' ) ).toBeVisible();
+		const connectionUrl = screen.getByText( 'demo.example.com' );
+		expect( connectionUrl ).toBeVisible();
 		expect( screen.getByText( 'Never synced' ) ).toBeVisible();
 		expect( screen.getByText( 'Production' ) ).toBeVisible();
+		const connectionRow = connectionUrl.closest( 'div' )?.parentElement;
+		expect( connectionRow ).not.toBeNull();
+		expect(
+			within( connectionRow! )
+				.getAllByRole( 'button' )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'demo.example.com', 'Push', 'Pull', 'Copy URL' ] );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Sync this site' );
@@ -629,6 +637,29 @@ describe( 'SiteOverviewView', () => {
 			'aria-disabled',
 			'true'
 		);
+	} );
+
+	it( 'shows live push and pull progress in the active connection row', () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [ CONNECTED_SITE ],
+			isLoading: false,
+		} );
+		reportSyncPending( 'site-1', 'pull', 42 );
+		reportSyncProgress( 'site-1', 'pull', {
+			message: 'Downloading backup…',
+			progress: 37,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'Downloading backup…' ) ).toBeVisible();
+		expect( screen.getByText( 'Pulling' ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'progressbar', { name: 'Pulling changes for demo.example.com' } )
+		).toHaveAttribute( 'aria-valuenow', '37' );
+		expect( screen.queryByRole( 'button', { name: 'Copy URL' } ) ).not.toBeInTheDocument();
+
+		reportSyncSuccess( 'site-1', 'pull' );
 	} );
 
 	it( 'shows preview expiry and account usage', () => {

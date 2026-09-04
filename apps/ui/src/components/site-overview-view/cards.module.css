@@ -178,7 +178,7 @@
 	white-space: nowrap;
 }
 
-.previewProgress {
+.operationProgress {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
@@ -188,7 +188,7 @@
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-.previewProgressTrack {
+.operationProgressTrack {
 	width: 80px;
 	height: 4px;
 	overflow: hidden;
@@ -196,12 +196,26 @@
 	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
-.previewProgressValue {
+.operationProgressValue {
 	display: block;
 	height: 100%;
 	border-radius: inherit;
 	background: var(--wpds-color-background-interactive-brand-strong);
 	transition: inline-size 160ms ease;
+}
+
+.operationProgressValue[data-indeterminate] {
+	width: 35%;
+	animation: operation-progress 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes operation-progress {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(285%);
+	}
 }
 
 .rowDivider {
@@ -513,7 +527,8 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.storageSkeleton,
-	.storageLegend {
+	.storageLegend,
+	.operationProgressValue[data-indeterminate] {
 		animation: none;
 		transition: none;
 	}

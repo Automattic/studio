@@ -519,7 +519,6 @@ describe( 'SiteOverviewView', () => {
 				'Pull a live site into Studio, then push your local changes when they are ready.'
 			)
 		).toBeVisible();
-		expect( screen.getByText( 'Connect a live site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeVisible();
 	} );
 

@@ -14,6 +14,8 @@ import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
 import {
 	CardEmptyState,
+	ButtonTooltip,
+	CardHeaderAction,
 	CardResourceRow,
 	CardRowAction,
 	CardRowBadge,
@@ -34,16 +36,13 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	const hasConnections = Boolean( connections?.length );
 
 	const connectButton = (
-		<Button
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ styles.headerAction }
+		<CardHeaderAction
+			tooltip={ __( 'Connect this local site to a live site' ) }
 			disabled={ isOffline }
 			onClick={ () => setConnectOpen( true ) }
 		>
 			{ __( 'Connect site' ) }
-		</Button>
+		</CardHeaderAction>
 	);
 
 	return (
@@ -58,31 +57,30 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 							{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
 						</CardEmptyState>
 						<div>
-							<Button
-								variant="outline"
-								tone="neutral"
-								size="small"
-								disabled={ login.isPending || isOffline }
-								onClick={ () => login.mutate() }
-							>
-								{ __( 'Log in with WordPress.com' ) }
-							</Button>
+							<ButtonTooltip tooltip={ __( 'Sign in to connect a live site' ) }>
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									disabled={ login.isPending || isOffline }
+									onClick={ () => login.mutate() }
+								>
+									{ __( 'Log in with WordPress.com' ) }
+								</Button>
+							</ButtonTooltip>
 						</div>
 					</>
 				) : isLoading && ! connections ? (
 					<div className={ styles.connectionSkeleton } />
 				) : ! hasConnections ? (
-					<div className={ styles.connectionEmpty }>
-						<div className={ styles.connectionEmptyCopy }>
-							<p className={ styles.connectionEmptyTitle }>{ __( 'Connect a live site' ) }</p>
-							<p className={ styles.empty }>
-								{ __(
-									'Pull a live site into Studio, then push your local changes when they are ready.'
-								) }
-							</p>
-						</div>
-						{ connectButton }
-					</div>
+					<>
+						<CardEmptyState>
+							{ __(
+								'Pull a live site into Studio, then push your local changes when they are ready.'
+							) }
+						</CardEmptyState>
+						<div className={ styles.emptyAction }>{ connectButton }</div>
+					</>
 				) : (
 					<CardRows>
 						{ connections?.map( ( connection, index ) => (
@@ -131,6 +129,7 @@ function ConnectionRow( {
 				<>
 					<CardRowAction
 						type="button"
+						tooltip={ sprintf( __( 'Pull changes from %s' ), stripProtocol( connection.url ) ) }
 						disabled={ disabled }
 						onClick={ () =>
 							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
@@ -140,6 +139,7 @@ function ConnectionRow( {
 					</CardRowAction>
 					<CardRowAction
 						type="button"
+						tooltip={ sprintf( __( 'Push local changes to %s' ), stripProtocol( connection.url ) ) }
 						disabled={ disabled }
 						onClick={ () =>
 							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
@@ -147,7 +147,11 @@ function ConnectionRow( {
 					>
 						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
 					</CardRowAction>
-					<CardRowAction type="button" onClick={ () => void connector.copyText( url ) }>
+					<CardRowAction
+						type="button"
+						tooltip={ __( 'Copy the live site URL' ) }
+						onClick={ () => void connector.copyText( url ) }
+					>
 						{ __( 'Copy URL' ) }
 					</CardRowAction>
 				</>

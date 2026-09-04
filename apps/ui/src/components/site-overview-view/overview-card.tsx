@@ -1,8 +1,8 @@
-import { Badge, Button } from '@wordpress/ui';
+import { Badge, Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import styles from './cards.module.css';
 import { RowLink } from './row-link';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
 export function OverviewCard( { children }: { children: ReactNode } ) {
 	return <section className={ styles.card }>{ children }</section>;
@@ -46,15 +46,56 @@ export function RowDivider() {
 	return <div className={ styles.rowDivider } />;
 }
 
-export function CardRowAction( { className, ...props }: ComponentProps< typeof Button > ) {
+export function ButtonTooltip( {
+	tooltip,
+	children,
+}: {
+	tooltip: string;
+	children: ReactElement;
+} ) {
 	return (
-		<Button
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			className={ clsx( styles.rowAction, className ) }
-			{ ...props }
-		/>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={ <span className={ styles.buttonTooltipTrigger }>{ children }</span> }
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
+export function CardHeaderAction( {
+	tooltip,
+	className,
+	...props
+}: ComponentProps< typeof Button > & { tooltip: string } ) {
+	return (
+		<ButtonTooltip tooltip={ tooltip }>
+			<Button
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className={ clsx( styles.headerAction, className ) }
+				{ ...props }
+			/>
+		</ButtonTooltip>
+	);
+}
+
+export function CardRowAction( {
+	tooltip,
+	className,
+	...props
+}: ComponentProps< typeof Button > & { tooltip: string } ) {
+	return (
+		<ButtonTooltip tooltip={ tooltip }>
+			<Button
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className={ clsx( styles.rowAction, className ) }
+				{ ...props }
+			/>
+		</ButtonTooltip>
 	);
 }
 

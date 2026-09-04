@@ -124,6 +124,42 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
+	it( 'loads theme details from the local server', async () => {
+		const theme = {
+			name: 'Twenty Twenty-Five',
+			path: '/sites/site-1/wp-content/themes/twentytwentyfive',
+			slug: 'twentytwentyfive',
+			isBlockTheme: true,
+		};
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( theme ) ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getThemeDetails?.( 'site-1' ) ).resolves.toEqual( theme );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/sites/site-1/theme',
+			expect.any( Object )
+		);
+	} );
+
+	it( 'loads the cached site thumbnail as a data URL', async () => {
+		fetchMock.mockResolvedValue(
+			new Response( new Uint8Array( [ 1, 2, 3 ] ), { headers: { 'Content-Type': 'image/png' } } )
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getSiteThumbnail( 'site-1' ) ).resolves.toBe(
+			'data:image/png;base64,AQID'
+		);
+		expect( fetchMock ).toHaveBeenCalledWith( 'http://localhost:8081/api/sites/site-1/thumbnail' );
+	} );
+
+	it( 'treats a missing cached thumbnail as an empty thumbnail', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 404 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getSiteThumbnail( 'site-1' ) ).resolves.toBeNull();
+	} );
+
 	it( 'forwards matching pull progress from the local server event stream', async () => {
 		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
 		class MockEventSource {

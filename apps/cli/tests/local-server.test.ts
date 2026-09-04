@@ -3,6 +3,9 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { InvalidAnthropicApiKeyError } from '@studio/common/ai/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
@@ -145,6 +148,66 @@ describe( 'local web server Connect contracts', () => {
 
 		expect( response.status ).toBe( 404 );
 		expect( mocks.measureSiteStorage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports the active theme through the site CLI', async () => {
+		const theme = {
+			name: 'Twenty Twenty-Five',
+			path: '/sites/local-a/wp-content/themes/twentytwentyfive',
+			slug: 'twentytwentyfive',
+			isBlockTheme: true,
+		};
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () =>
+				emitter.emit( 'success', { result: { stdout: JSON.stringify( theme ) } } )
+			);
+			return [ emitter, {} ];
+		} );
+
+		const response = await fetch(
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/theme`
+		);
+
+		expect( response.status ).toBe( 200 );
+		await expect( response.json() ).resolves.toEqual( theme );
+		expect( mocks.execute ).toHaveBeenCalledWith(
+			[ 'wp', 'studio', 'get-theme-details', '--path', '/sites/local-a' ],
+			{ output: 'capture' }
+		);
+	} );
+
+	it( 'serves the cached desktop thumbnail when one exists', async () => {
+		const appDataRoot = await mkdtemp( path.join( os.tmpdir(), 'studio-thumbnail-test-' ) );
+		const previousE2E = process.env.E2E;
+		const previousAppDataPath = process.env.E2E_APP_DATA_PATH;
+		process.env.E2E = '1';
+		process.env.E2E_APP_DATA_PATH = appDataRoot;
+		try {
+			const thumbnailsPath = path.join( appDataRoot, 'Studio', 'thumbnails' );
+			await mkdir( thumbnailsPath, { recursive: true } );
+			await writeFile( path.join( thumbnailsPath, 'local-a.png' ), Buffer.from( [ 1, 2, 3 ] ) );
+
+			const response = await fetch(
+				`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a/thumbnail`
+			);
+
+			expect( response.status ).toBe( 200 );
+			expect( response.headers.get( 'content-type' ) ).toBe( 'image/png' );
+			expect( Buffer.from( await response.arrayBuffer() ) ).toEqual( Buffer.from( [ 1, 2, 3 ] ) );
+		} finally {
+			if ( previousE2E === undefined ) {
+				delete process.env.E2E;
+			} else {
+				process.env.E2E = previousE2E;
+			}
+			if ( previousAppDataPath === undefined ) {
+				delete process.env.E2E_APP_DATA_PATH;
+			} else {
+				process.env.E2E_APP_DATA_PATH = previousAppDataPath;
+			}
+			await rm( appDataRoot, { recursive: true, force: true } );
+		}
 	} );
 
 	afterEach( async () => {

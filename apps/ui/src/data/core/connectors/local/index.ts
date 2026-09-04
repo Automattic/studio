@@ -386,8 +386,24 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
-		async getSiteThumbnail(): Promise< string | null > {
-			return null;
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			const response = await fetch( `${ base }/sites/${ encodeURIComponent( siteId ) }/thumbnail` );
+			if ( response.status === 404 ) {
+				return null;
+			}
+			if ( ! response.ok ) {
+				throw new Error( `GET thumbnail failed (${ response.status })` );
+			}
+			const blob = await response.blob();
+			return new Promise( ( resolve, reject ) => {
+				const reader = new FileReader();
+				reader.onload = () => resolve( typeof reader.result === 'string' ? reader.result : null );
+				reader.onerror = () => reject( reader.error );
+				reader.readAsDataURL( blob );
+			} );
+		},
+		async getThemeDetails( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/theme` );
 		},
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );

@@ -52,7 +52,7 @@
     "jsdom": "^26.1.0",
     "single-file-cli": "^2.0.83",
     "tsx": "^4.19.0",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vitest": "^4.1.10"
   }
 }

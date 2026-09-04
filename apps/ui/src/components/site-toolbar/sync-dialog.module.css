@@ -13,7 +13,7 @@
 	align-items: center;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-interactive-neutral-weak);
+	background: var(--wpds-color-background-interactive-neutral-weak);
 	line-height: 1;
 }
 
@@ -26,7 +26,7 @@
 	inline-size: 50%;
 	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-interactive-neutral-weak);
+	background: var(--wpds-color-background-interactive-neutral-weak);
 	pointer-events: none;
 	transform: translateX(
 		calc(var(--direction-active-index, 0) * 100% + var(--direction-edge-shift, 0px))
@@ -70,7 +70,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -79,11 +79,11 @@
 
 .directionButton:hover,
 .directionButtonActive {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .directionButton:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -116,11 +116,11 @@
 }
 
 .destinationTrigger:hover {
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 }
 
 .destinationTrigger:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -134,7 +134,7 @@
 
 .destinationChevron {
 	flex: 0 0 auto;
-	fill: var(--wpds-color-fg-content-neutral-weak);
+	fill: var(--wpds-color-foreground-content-neutral-weak);
 	width: 16px;
 	height: 16px;
 }
@@ -162,7 +162,7 @@
 .destinationUrl {
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -171,14 +171,14 @@
 .destinationMeta {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .consequence {
 	margin: var(--wpds-dimension-gap-sm) 0 var(--wpds-dimension-padding-lg);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .whatToSync {
@@ -190,7 +190,7 @@
 .legend {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* A stable floor so Push and Pull are the same width and the footer doesn't

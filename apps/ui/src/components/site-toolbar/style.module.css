@@ -43,7 +43,7 @@
 	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 600;
 	line-height: 1.25;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -84,7 +84,7 @@
 	border: 0;
 	background: transparent;
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -105,7 +105,7 @@
 }
 
 .siteUrl:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .siteUrl:focus-visible {
@@ -161,7 +161,7 @@
 	width: 18px;
 	height: 18px;
 	flex: 0 0 18px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .compactActionsItemIcon svg:not([fill]) {
@@ -284,11 +284,11 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .menuDetailError {
-	color: var(--wpds-color-fg-content-error);
+	color: var(--wpds-color-foreground-content-error);
 }
 
 /* Names the list of connections a push or pull could run against. */
@@ -296,7 +296,7 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
 		var(--wpds-dimension-padding-xs);
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .menuItemStack {
@@ -308,7 +308,7 @@
 
 .menuItemSub {
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -317,7 +317,7 @@
 .menuItemMeta {
 	margin-inline-start: auto;
 	padding-inline-start: var(--wpds-dimension-padding-md);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;

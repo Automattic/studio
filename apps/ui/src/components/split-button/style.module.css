@@ -36,7 +36,7 @@
 .splitAction {
 	--wp-ui-button-min-width: unset;
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
-	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
 	--wp-ui-button-background-color: transparent;
 	--wp-ui-button-border-color: transparent;
 

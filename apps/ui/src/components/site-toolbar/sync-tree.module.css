@@ -27,16 +27,16 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	cursor: var(--wpds-cursor-control);
 }
 
 .twisty:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .twisty:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 }
 
 /* Keeps the row's text aligned with its siblings when a node can't be opened,
@@ -69,7 +69,7 @@
 	flex: 1;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	cursor: var(--wpds-cursor-control);
 }
 
@@ -85,7 +85,7 @@
 
 .nodeIcon {
 	flex: 0 0 auto;
-	fill: var(--wpds-color-fg-content-neutral-weak);
+	fill: var(--wpds-color-foreground-content-neutral-weak);
 	width: 16px;
 	height: 16px;
 }
@@ -114,5 +114,5 @@
 	padding: var(--wpds-dimension-padding-xs) 0;
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }

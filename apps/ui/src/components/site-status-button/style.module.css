@@ -14,7 +14,7 @@
 }
 
 .status:not([aria-disabled='true']):is(:hover, :focus-visible) {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 .status:focus-visible {
@@ -57,7 +57,7 @@
 }
 
 .status[data-state='stopped'] .xdebugGlyph {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* Hovering the button crossfades the status dot into the action it triggers:
@@ -72,7 +72,7 @@
 	block-size: 10px;
 	width: 10px;
 	height: 10px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	opacity: 0;
 	transition: opacity 100ms ease;
 }
@@ -127,7 +127,7 @@
 }
 
 .playShape {
-	fill: var(--wpds-color-fg-content-neutral);
+	fill: var(--wpds-color-foreground-content-neutral);
 }
 
 .status[data-state='running'] .shape {

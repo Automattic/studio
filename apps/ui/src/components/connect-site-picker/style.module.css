@@ -3,7 +3,7 @@
 
 .state p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .state {
@@ -38,13 +38,13 @@
 	padding: 0 12px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .search:focus-within {
-	border-color: var(--wpds-color-stroke-focus-brand);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus-brand);
+	border-color: var(--wpds-color-stroke-focus);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus);
 }
 
 .search input {
@@ -54,12 +54,12 @@
 	border: 0;
 	outline: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 }
 
 .search input::placeholder {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .helperLinks {
@@ -67,7 +67,7 @@
 	align-items: center;
 	gap: 2px;
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .helperLinks button {
@@ -99,7 +99,7 @@
 
 .sectionHeader p {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
@@ -133,7 +133,7 @@
 	border: 0;
 	border-radius: 12px;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	cursor: pointer;
 	text-align: start;
 }
@@ -148,7 +148,7 @@
 }
 
 .siteCard:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline: 2px solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
@@ -159,7 +159,7 @@
 	aspect-ratio: 3 / 2;
 	overflow: hidden;
 	border-radius: 8px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 	box-shadow: 0 0 0 var(--wpds-border-width-xs) var(--wpds-color-stroke-surface-neutral);
 	transition: box-shadow 0.15s ease;
 }
@@ -191,7 +191,7 @@
 
 .siteUrl {
 	overflow: hidden;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -199,7 +199,7 @@
 
 .siteStatus {
 	margin-top: 4px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 1.4;
 }

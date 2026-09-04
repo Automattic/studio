@@ -15,9 +15,23 @@ Understand the context and commit to a clear aesthetic direction:
 - **Purpose**: What problem does this interface solve? Who uses it?
 - **Tone**: Pick a specific direction, such as brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, or another direction that fits the user's brief.
 - **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
-- **Differentiation**: Decide what should make the site memorable.
+- **Signature concept**: Pick one concept from the shortlist below (see "Signature Concept") — the single idea that makes the site memorable.
 
 Choose a conceptual direction and execute it with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
+
+## Signature Concept
+
+A direction sets the tone; a signature concept is the one specific idea a visitor remembers — a cover made of four tiles, a plant that grows as you scroll, a palette that follows the time of day. Every site gets exactly one, chosen before any code is written.
+
+The shortlist at the end of this runbook is a random sample from a larger catalog, and it changes on every load. Work from it like this:
+
+1. Shortlist the two or three entries that fit the brief, the tone, and the audience. Do not default to the first entry or the flashiest one.
+2. Pick one and adapt it to the site: change the subject, the trigger, or the shape so it belongs to this brand rather than to the catalog. Name the twist.
+3. If nothing on the shortlist fits, or the brief clearly calls for something else, invent a concept in the same shape (what it is, why it fits, how it is built, how it degrades).
+4. State the pick in the Site Spec as `Concept: <name> — <one-line adaptation>` so the user sees it before the build.
+5. Build the concept early — in the hero or first template — not as a finishing touch, and follow the entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, a mobile layout, and `prefers-reduced-motion` respected.
+
+One concept per site. Supporting motion and detail should serve it, not compete with it.
 
 ## Implementation Priorities
 
@@ -51,3 +65,9 @@ Interpret the user's brief creatively and make choices that feel specific to the
 ## Match Complexity To The Vision
 
 Maximalist designs need enough layered detail, motion, and visual systems to feel intentional. Minimalist or refined designs need restraint, exact spacing, strong typography, and careful hierarchy. Do not confuse minimal with unfinished.
+
+## Concept Shortlist
+
+A random, category-spread sample for this build. Pick and adapt per "Signature Concept" above.
+
+{{concept-shortlist}}

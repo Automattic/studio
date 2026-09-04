@@ -83,8 +83,9 @@ vi.mock( '@/components/site-toolbar', () => ( {
 	},
 } ) );
 
-vi.mock( '@/components/site-dropdown/publish-picker-view', () => ( {
-	PublishPickerView: () => <div>Connection picker</div>,
+vi.mock( '@/components/site-toolbar/publish-site-dialog', () => ( {
+	PublishSiteDialog: ( { open }: { open: boolean } ) =>
+		open ? <div role="dialog">Connect site dialog</div> : null,
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -503,6 +504,14 @@ describe( 'SiteOverviewView', () => {
 			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
 		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Connect a site' } ) ).toBeVisible();
+	} );
+
+	it( 'opens the full site connection dialog from Connections', () => {
+		renderView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect a site' } ) );
+
+		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Connect site dialog' );
 	} );
 
 	it( 'offers login from Connections when signed out', () => {

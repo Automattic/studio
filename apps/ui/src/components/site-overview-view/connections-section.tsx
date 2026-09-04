@@ -3,9 +3,8 @@ import { plus } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
-import * as Menu from '@/components/menu';
-import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
+import { PublishSiteDialog } from '@/components/site-toolbar/publish-site-dialog';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -31,26 +30,23 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	const { data: authUser } = useAuthUser();
 	const login = useLogin( { source: 'overview_tab' } );
 	const isOffline = useOffline();
-	const [ pickerOpen, setPickerOpen ] = useState( false );
+	const [ connectOpen, setConnectOpen ] = useState( false );
 	const { data: connections, isLoading } = useConnectedWpcomSites( site.id );
 
 	const connectAction = authUser ? (
-		<Menu.Root open={ pickerOpen } onOpenChange={ setPickerOpen }>
-			<Menu.Trigger
-				render={
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ plus }
-						label={ __( 'Connect a site' ) }
-					/>
-				}
+		<>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ plus }
+				label={ __( 'Connect a site' ) }
+				onClick={ () => setConnectOpen( true ) }
 			/>
-			<Menu.Popup side="bottom" align="end" className={ styles.pickerPopup }>
-				<PublishPickerView site={ site } onClose={ () => setPickerOpen( false ) } />
-			</Menu.Popup>
-		</Menu.Root>
+			{ connectOpen ? (
+				<PublishSiteDialog site={ site } open onOpenChange={ setConnectOpen } />
+			) : null }
+		</>
 	) : null;
 
 	return (

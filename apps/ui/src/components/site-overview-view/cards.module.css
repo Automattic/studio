@@ -192,11 +192,6 @@
 	}
 }
 
-.pickerPopup {
-	width: 320px;
-	padding: 0;
-}
-
 .themeMenuAnchor {
 	position: absolute;
 	top: var(--wpds-dimension-padding-lg);

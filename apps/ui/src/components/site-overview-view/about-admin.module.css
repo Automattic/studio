@@ -41,7 +41,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -68,26 +68,26 @@
 
 .copyText:hover,
 .copyText:focus-visible {
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .copyText:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 1px;
 }
 
 .copyText[data-copied='true'] {
-	color: var(--wpds-color-fg-content-success);
+	color: var(--wpds-color-foreground-content-success);
 }
 
 .copyText:disabled {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	cursor: not-allowed;
 }
 
 .sep {
 	flex: 0 0 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .menu {
@@ -103,7 +103,7 @@
 .menuItemSub {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .visuallyHidden {

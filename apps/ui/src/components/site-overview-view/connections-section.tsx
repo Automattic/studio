@@ -150,7 +150,7 @@ function ConnectionRow( {
 						className={ styles.rowAction }
 						onClick={ () => void connector.copyText( url ) }
 					>
-						{ __( 'Copy' ) }
+						{ __( 'Copy URL' ) }
 					</Button>
 				</div>
 				<Badge className={ styles.rowBadge } intent={ connection.isStaging ? 'medium' : 'stable' }>

@@ -42,7 +42,7 @@ import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AboutSection } from './about-section';
 import { ConnectionsSection } from './connections-section';
-import { OverviewCard } from './overview-card';
+import { CardSectionDivider, OverviewCard } from './overview-card';
 import { PreviewSitesSection } from './preview-sites-section';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
@@ -247,11 +247,9 @@ function SiteOverviewBody( {
 											wpVersion={ wpVersion }
 											themeDetails={ themeDetails }
 										/>
-									</OverviewCard>
-									<OverviewCard>
+										<CardSectionDivider />
 										<ConnectionsSection site={ site } busy={ busy } />
-									</OverviewCard>
-									<OverviewCard>
+										<CardSectionDivider />
 										<PreviewSitesSection site={ site } />
 									</OverviewCard>
 								</div>

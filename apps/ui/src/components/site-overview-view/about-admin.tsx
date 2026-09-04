@@ -29,8 +29,10 @@ function CopyText( {
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					render={
-						<button
+						<Button
 							type="button"
+							variant="unstyled"
+							tone="neutral"
 							className={ wrap ? `${ styles.copyText } ${ styles.wrap }` : styles.copyText }
 							data-copied={ copied ? 'true' : undefined }
 							aria-label={ copyLabel }
@@ -38,7 +40,7 @@ function CopyText( {
 							onClick={ copy }
 						>
 							{ display }
-						</button>
+						</Button>
 					}
 				/>
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>

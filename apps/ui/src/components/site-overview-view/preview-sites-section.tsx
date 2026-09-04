@@ -154,16 +154,6 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 						tone="neutral"
 						size="small"
 						className={ styles.rowAction }
-						onClick={ () => void connector.copyText( url ) }
-					>
-						{ __( 'Copy' ) }
-					</Button>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
 						disabled={ publishPreviewSite.isPending || isOffline }
 						onClick={ republish }
 					>
@@ -172,6 +162,16 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 							: life.expired
 							? __( 'Republish' )
 							: __( 'Update' ) }
+					</Button>
+					<Button
+						type="button"
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.rowAction }
+						onClick={ () => void connector.copyText( url ) }
+					>
+						{ __( 'Copy URL' ) }
 					</Button>
 				</div>
 				<Badge

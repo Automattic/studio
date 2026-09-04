@@ -403,7 +403,10 @@ describe( 'SiteOverviewView', () => {
 	it( 'disables copying the password when the site has none set', () => {
 		renderView( 'overview' );
 
-		expect( screen.getByRole( 'button', { name: 'Copy admin password' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Copy admin password' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	} );
 
 	it( 'copies the admin email from the Login options menu', async () => {
@@ -489,6 +492,15 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect( screen.getByRole( 'heading', { name: 'Connections' } ) ).toBeVisible();
+		const overviewCard = screen
+			.getByRole( 'button', { name: 'Open site in browser' } )
+			.closest( 'section' );
+		expect( screen.getByRole( 'heading', { name: 'Connections' } ).closest( 'section' ) ).toBe(
+			overviewCard
+		);
+		expect( screen.getByRole( 'heading', { name: 'Preview sites' } ).closest( 'section' ) ).toBe(
+			overviewCard
+		);
 		expect(
 			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
 		).toBeVisible();
@@ -527,7 +539,7 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
 		expect( pushSiteToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Copy' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy URL' } ) );
 		expect( copyText ).toHaveBeenCalledWith( 'https://demo.example.com' );
 	} );
 
@@ -567,12 +579,18 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'demo-preview.wp.build' ) ).toBeVisible();
+		const previewUrl = screen.getByText( 'demo-preview.wp.build' );
+		expect( previewUrl ).toBeVisible();
 		expect( screen.getByText( 'Published 5d ago' ) ).toBeVisible();
 		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
 		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Open' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
+		const previewRow = previewUrl.closest( 'div' )?.parentElement;
+		expect( previewRow ).not.toBeNull();
+		expect(
+			within( previewRow! )
+				.getAllByRole( 'button' )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'demo-preview.wp.build', 'Open', 'Update', 'Copy URL' ] );
 	} );
 
 	it( 'publishes a preview site from its empty state', () => {

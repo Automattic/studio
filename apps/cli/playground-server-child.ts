@@ -58,6 +58,23 @@ import {
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
+/**
+ * Best-effort notification to the daemon. Once the IPC channel is closed (the daemon is gone or
+ * asked us to stop), `process.send` would emit an 'error' on `process`; the uncaughtException
+ * handler below logs that to stderr, and stderr writes report activity, so the child would loop
+ * forever writing stack traces. Skip the send instead, and route any late failure to a callback.
+ */
+function notifyDaemon(
+	message: { topic: 'activity' } | { topic: 'console-message'; message: string }
+) {
+	if ( ! process.connected ) {
+		return;
+	}
+	process.send!( message, () => {
+		// The channel can close between the check and the send; nothing useful to do.
+	} );
+}
+
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -66,33 +83,33 @@ const originalConsoleWarn = console.warn;
 console.log = ( ...args: unknown[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
 	const message = args.join( ' ' );
-	process.send!( { topic: 'activity' } );
+	notifyDaemon( { topic: 'activity' } );
 	const formattedMessage = formatPlaygroundCliMessage( message );
 	if ( formattedMessage !== message ) {
-		process.send!( { topic: 'console-message', message: formattedMessage } );
+		notifyDaemon( { topic: 'console-message', message: formattedMessage } );
 	}
 };
 
 console.error = ( ...args: unknown[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
-	process.send!( { topic: 'activity' } );
+	notifyDaemon( { topic: 'activity' } );
 };
 
 console.warn = ( ...args: unknown[] ) => {
 	originalConsoleWarn( '[playground-cli]', ...args );
-	process.send!( { topic: 'activity' } );
+	notifyDaemon( { topic: 'activity' } );
 };
 
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
-	process.send!( { topic: 'activity' } );
+	notifyDaemon( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
 
 process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
-	process.send!( { topic: 'activity' } );
+	notifyDaemon( { topic: 'activity' } );
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
 
@@ -702,6 +719,20 @@ process.on( 'uncaughtException', ( error ) => {
 
 process.on( 'unhandledRejection', ( reason ) => {
 	errorToConsole( 'Unhandled rejection in child process:', reason );
+} );
+
+// On Windows the daemon has no SIGTERM equivalent, so it asks a child to stop by closing the IPC
+// channel. Without this handler the process lingered until the daemon force-killed it 2.5 s
+// later, which can interrupt a SQLite write mid-flight.
+process.on( 'disconnect', () => {
+	logToConsole( 'IPC channel disconnected, shutting down' );
+	const forceExitTimer = setTimeout( () => process.exit( 1 ), STOP_SERVER_TIMEOUT + 1_000 );
+	void stopServer()
+		.catch( ( error ) => errorToConsole( 'Failed to stop server on disconnect:', error ) )
+		.finally( () => {
+			clearTimeout( forceExitTimer );
+			process.exit( 0 );
+		} );
 } );
 
 if ( process.send ) {

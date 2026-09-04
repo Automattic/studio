@@ -1,5 +1,5 @@
 import { defineConfig, mergeConfig } from 'vite';
-import { baseConfig, buildLocalUiPlugin } from './vite.config.base';
+import { baseConfig, buildLocalUiPlugin } from './vite.config.base.ts';
 
 export default mergeConfig(
 	baseConfig,

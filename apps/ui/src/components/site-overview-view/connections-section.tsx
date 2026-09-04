@@ -21,6 +21,7 @@ import {
 	CardRowBadge,
 	CardRows,
 	CardSection,
+	CardSectionFooter,
 	RowDivider,
 } from './overview-card';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -47,16 +48,32 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 
 	return (
 		<>
-			<CardSection
-				title={ __( 'Connections' ) }
-				action={ authUser && hasConnections ? connectButton : null }
-			>
+			<CardSection title={ __( 'Connections' ) }>
 				{ ! authUser ? (
-					<>
-						<CardEmptyState>
-							{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
-						</CardEmptyState>
-						<div>
+					<CardEmptyState>
+						{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
+					</CardEmptyState>
+				) : isLoading && ! connections ? (
+					<div className={ styles.connectionSkeleton } />
+				) : ! hasConnections ? (
+					<CardEmptyState>
+						{ __(
+							'Pull a live site into Studio, then push your local changes when they are ready.'
+						) }
+					</CardEmptyState>
+				) : (
+					<CardRows>
+						{ connections?.map( ( connection, index ) => (
+							<Fragment key={ connection.id }>
+								{ index > 0 && <RowDivider /> }
+								<ConnectionRow site={ site } connection={ connection } busy={ busy } />
+							</Fragment>
+						) ) }
+					</CardRows>
+				) }
+				{ ! isLoading || connections ? (
+					<CardSectionFooter>
+						{ ! authUser ? (
 							<ButtonTooltip tooltip={ __( 'Sign in to connect a live site' ) }>
 								<Button
 									variant="outline"
@@ -68,29 +85,11 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 									{ __( 'Log in with WordPress.com' ) }
 								</Button>
 							</ButtonTooltip>
-						</div>
-					</>
-				) : isLoading && ! connections ? (
-					<div className={ styles.connectionSkeleton } />
-				) : ! hasConnections ? (
-					<>
-						<CardEmptyState>
-							{ __(
-								'Pull a live site into Studio, then push your local changes when they are ready.'
-							) }
-						</CardEmptyState>
-						<div className={ styles.emptyAction }>{ connectButton }</div>
-					</>
-				) : (
-					<CardRows>
-						{ connections?.map( ( connection, index ) => (
-							<Fragment key={ connection.id }>
-								{ index > 0 && <RowDivider /> }
-								<ConnectionRow site={ site } connection={ connection } busy={ busy } />
-							</Fragment>
-						) ) }
-					</CardRows>
-				) }
+						) : (
+							connectButton
+						) }
+					</CardSectionFooter>
+				) : null }
 			</CardSection>
 			{ connectOpen ? (
 				<PublishSiteDialog site={ site } open onOpenChange={ setConnectOpen } />

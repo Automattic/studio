@@ -564,6 +564,11 @@ describe( 'SiteOverviewView', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Copy URL' } ) );
 		expect( copyText ).toHaveBeenCalledWith( 'https://demo.example.com' );
+		expect(
+			screen
+				.getByText( 'demo.example.com' )
+				.compareDocumentPosition( screen.getByRole( 'button', { name: 'Connect site' } ) )
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
 	it( 'reflects sync work started from another surface', () => {
@@ -607,6 +612,9 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Published 5d ago' ) ).toBeVisible();
 		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
 		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
+		expect(
+			previewUrl.compareDocumentPosition( screen.getByRole( 'button', { name: 'New preview' } ) )
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 		const previewRow = previewUrl.closest( 'div' )?.parentElement;
 		expect( previewRow ).not.toBeNull();
 		expect(

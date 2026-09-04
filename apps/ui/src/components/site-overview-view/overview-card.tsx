@@ -34,6 +34,10 @@ export function CardSectionDivider() {
 	return <div className={ styles.sectionDivider } />;
 }
 
+export function CardSectionFooter( { children }: { children: ReactNode } ) {
+	return <div className={ styles.sectionFooter }>{ children }</div>;
+}
+
 export function CardEmptyState( { children }: { children: ReactNode } ) {
 	return <p className={ styles.empty }>{ children }</p>;
 }

@@ -21,25 +21,21 @@ import {
 	CardRowBadge,
 	CardRows,
 	CardSection,
+	CardSectionFooter,
 	RowDivider,
 } from './overview-card';
 import type { SiteDetails, Snapshot } from '@/data/core';
-import type { ReactNode } from 'react';
 
 const LIFETIME_MS = DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
 
 export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 	const { data: authUser } = useAuthUser();
-	const { data: allSnapshots } = useSnapshots( authUser?.id );
-	const activity = useSiteSyncActivity( site.id );
-	const hasPreviews =
-		( allSnapshots ?? [] ).some( ( snapshot ) => snapshot.localSiteId === site.id ) ||
-		( activity?.kind === 'pending' && activity.direction === 'preview' );
 	const publishAction = <PreviewSitePublishAction site={ site } presentation="overview" />;
 
 	return (
-		<CardSection title={ __( 'Preview sites' ) } action={ hasPreviews ? publishAction : null }>
-			<PreviewSitesList site={ site } emptyAction={ publishAction } />
+		<CardSection title={ __( 'Preview sites' ) }>
+			<PreviewSitesList site={ site } />
+			{ authUser ? <CardSectionFooter>{ publishAction }</CardSectionFooter> : null }
 		</CardSection>
 	);
 }
@@ -90,6 +86,15 @@ export function PreviewSitePublishAction( {
 
 	return (
 		<div className={ styles.headerActions }>
+			<CardHeaderAction
+				tooltip={ tooltip }
+				disabled={ disabled }
+				loading={ publishPreviewSite.isPending }
+				loadingAnnouncement={ __( 'Publishing preview site' ) }
+				onClick={ publish }
+			>
+				{ __( 'New preview' ) }
+			</CardHeaderAction>
 			{ usage && usage.siteLimit > 0 ? (
 				<Tooltip.Root>
 					<Tooltip.Trigger
@@ -114,26 +119,11 @@ export function PreviewSitePublishAction( {
 					</Tooltip.Popup>
 				</Tooltip.Root>
 			) : null }
-			<CardHeaderAction
-				tooltip={ tooltip }
-				disabled={ disabled }
-				loading={ publishPreviewSite.isPending }
-				loadingAnnouncement={ __( 'Publishing preview site' ) }
-				onClick={ publish }
-			>
-				{ __( 'New preview' ) }
-			</CardHeaderAction>
 		</div>
 	);
 }
 
-export function PreviewSitesList( {
-	site,
-	emptyAction,
-}: {
-	site: SiteDetails;
-	emptyAction?: ReactNode;
-} ) {
+export function PreviewSitesList( { site }: { site: SiteDetails } ) {
 	const { data: authUser } = useAuthUser();
 	const { data: allSnapshots } = useSnapshots( authUser?.id );
 	const snapshots = useMemo(
@@ -154,20 +144,17 @@ export function PreviewSitesList( {
 					{ __( 'Sign in to publish a preview site and share your work.' ) }
 				</CardEmptyState>
 			) : ! snapshots.length && ! pendingPreview ? (
-				<>
-					<CardEmptyState>
-						{ sprintf(
-							// translators: %d: number of days a preview site stays online.
-							_n(
-								'No preview site yet. Publishing one gives you a shareable link for %d day.',
-								'No preview site yet. Publishing one gives you a shareable link for %d days.',
-								DEMO_SITE_EXPIRATION_DAYS
-							),
+				<CardEmptyState>
+					{ sprintf(
+						// translators: %d: number of days a preview site stays online.
+						_n(
+							'No preview site yet. Publishing one gives you a shareable link for %d day.',
+							'No preview site yet. Publishing one gives you a shareable link for %d days.',
 							DEMO_SITE_EXPIRATION_DAYS
-						) }
-					</CardEmptyState>
-					{ emptyAction ? <div className={ styles.emptyAction }>{ emptyAction }</div> : null }
-				</>
+						),
+						DEMO_SITE_EXPIRATION_DAYS
+					) }
+				</CardEmptyState>
 			) : (
 				<CardRows>
 					{ pendingPreview && (

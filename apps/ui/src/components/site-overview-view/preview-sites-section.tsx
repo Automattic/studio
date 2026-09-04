@@ -1,7 +1,7 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { plus } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { Badge, Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useMemo } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
@@ -137,24 +137,30 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 			<div className={ styles.rowLine }>
 				<div className={ styles.rowActions }>
 					{ ! life.expired && (
-						<button
+						<Button
 							type="button"
-							className={ styles.rowAction }
+							variant="minimal"
+							tone="neutral"
+							size="small"
 							onClick={ () => void connector.openExternalUrl( url ) }
 						>
 							{ __( 'Open' ) }
-						</button>
+						</Button>
 					) }
-					<button
+					<Button
 						type="button"
-						className={ styles.rowAction }
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						onClick={ () => void connector.copyText( url ) }
 					>
 						{ __( 'Copy' ) }
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className={ styles.rowAction }
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						disabled={ publishPreviewSite.isPending || isOffline }
 						onClick={ republish }
 					>
@@ -163,20 +169,11 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 							: life.expired
 							? __( 'Republish' )
 							: __( 'Update' ) }
-					</button>
+					</Button>
 				</div>
-				<span
-					className={ clsx(
-						styles.rowBadge,
-						life.expired
-							? styles.rowBadgeExpired
-							: life.endingSoon
-							? styles.rowBadgeStaging
-							: styles.rowBadgeActive
-					) }
-				>
+				<Badge intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }>
 					{ life.label }
-				</span>
+				</Badge>
 			</div>
 		</div>
 	);

@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { plus } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { Badge, Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
 import * as Menu from '@/components/menu';
@@ -116,42 +116,43 @@ function ConnectionRow( {
 			</div>
 			<div className={ styles.rowLine }>
 				<div className={ styles.rowActions }>
-					<button
+					<Button
 						type="button"
-						className={ styles.rowAction }
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						disabled={ disabled }
 						onClick={ () =>
 							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
 					>
 						{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className={ styles.rowAction }
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						disabled={ disabled }
 						onClick={ () =>
 							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
 					>
 						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
-						className={ styles.rowAction }
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						onClick={ () => void connector.copyText( url ) }
 					>
 						{ __( 'Copy' ) }
-					</button>
+					</Button>
 				</div>
-				<span
-					className={ clsx(
-						styles.rowBadge,
-						connection.isStaging ? styles.rowBadgeStaging : styles.rowBadgeProduction
-					) }
-				>
+				<Badge intent={ connection.isStaging ? 'medium' : 'stable' }>
 					{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
-				</span>
+				</Badge>
 			</div>
 		</div>
 	);

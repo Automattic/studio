@@ -492,8 +492,14 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByRole( 'button', { name: 'Pushing…' } ) ).toBeDisabled();
-		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Pushing…' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	} );
 
 	it( 'shows preview expiry and account usage', () => {

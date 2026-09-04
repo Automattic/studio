@@ -111,59 +111,8 @@
 .rowActions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-xs);
 	flex: 0 0 auto;
-}
-
-.rowAction {
-	appearance: none;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	background: none;
-	font-family: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	color: var(--wpds-color-foreground-interactive-neutral);
-	cursor: var(--wpds-cursor-control);
-}
-
-.rowAction:hover,
-.rowAction:focus-visible {
-	color: var(--wpds-color-foreground-interactive-brand);
-	text-decoration: underline;
-}
-
-.rowAction:disabled {
-	color: var(--wpds-color-foreground-interactive-neutral-disabled);
-	cursor: not-allowed;
-	text-decoration: none;
-}
-
-.rowBadge {
-	flex: 0 0 auto;
-	padding: 2px var(--wpds-dimension-padding-xs);
-	border-radius: 9999px;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	font-weight: var(--wpds-typography-font-weight-emphasis);
-	white-space: nowrap;
-}
-
-.rowBadgeProduction,
-.rowBadgeActive {
-	background: var(--wpds-color-background-surface-success-weak);
-	color: var(--wpds-color-foreground-content-success);
-}
-
-.rowBadgeStaging {
-	background: var(--wpds-color-background-surface-warning-weak);
-	color: var(--wpds-color-foreground-content-warning);
-}
-
-.rowBadgeExpired {
-	background: var(--wpds-color-background-surface-error-weak);
-	color: var(--wpds-color-foreground-content-error);
 }
 
 .rowDivider {

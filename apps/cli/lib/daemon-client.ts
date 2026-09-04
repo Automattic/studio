@@ -11,6 +11,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_HOME,
+	getWindowsPipePath,
 } from 'cli/lib/paths';
 import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'cli/lib/socket';
 import {
@@ -33,7 +34,7 @@ const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
 export const SITE_EVENTS_SOCKET_PATH =
 	process.platform === 'win32'
-		? '\\\\.\\pipe\\studio-events.sock'
+		? getWindowsPipePath( 'studio-events' )
 		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
 
 function ensureProcessManagerHome() {

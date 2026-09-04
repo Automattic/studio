@@ -56,6 +56,12 @@
 	cursor: default;
 }
 
+.headerAction {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-min-width: 0;
+}
+
 .empty {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -122,6 +128,10 @@
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
 	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-xs);
 	--wp-ui-button-min-width: 0;
+}
+
+.rowActionDestructive {
+	--wp-ui-button-color: var(--wpds-color-foreground-content-error);
 }
 
 .rowBadge {

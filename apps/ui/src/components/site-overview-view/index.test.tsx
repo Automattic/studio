@@ -10,7 +10,7 @@ import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
-import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import { useDeletePreviewSite, usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -107,6 +107,7 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
+	useDeletePreviewSite: vi.fn(),
 	usePublishPreviewSite: vi.fn(),
 } ) );
 
@@ -199,6 +200,7 @@ const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
 const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
 const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite, { partial: true } );
+const useDeletePreviewSiteMock = vi.mocked( useDeletePreviewSite, { partial: true } );
 const useSnapshotsMock = vi.mocked( useSnapshots, { partial: true } );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage, { partial: true } );
 const useLoginMock = vi.mocked( useLogin, { partial: true } );
@@ -237,6 +239,7 @@ describe( 'SiteOverviewView', () => {
 	const pullSiteFromLive = vi.fn();
 	const pushSiteToLive = vi.fn();
 	const publishPreviewSite = vi.fn();
+	const deletePreviewSite = vi.fn();
 	const onTabChange = vi.fn();
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
@@ -296,6 +299,10 @@ describe( 'SiteOverviewView', () => {
 		usePublishPreviewSiteMock.mockReturnValue( {
 			isPending: false,
 			mutate: publishPreviewSite,
+		} );
+		useDeletePreviewSiteMock.mockReturnValue( {
+			isPending: false,
+			mutateAsync: deletePreviewSite,
 		} );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullSiteFromLive } );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushSiteToLive } );
@@ -510,13 +517,13 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
 		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Connect a site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeVisible();
 	} );
 
 	it( 'opens the full site connection dialog from Connections', () => {
 		renderView();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Connect a site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect site' } ) );
 
 		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Connect site dialog' );
 	} );
@@ -604,7 +611,35 @@ describe( 'SiteOverviewView', () => {
 			within( previewRow! )
 				.getAllByRole( 'button' )
 				.map( ( button ) => button.textContent )
-		).toEqual( [ 'demo-preview.wp.build', 'Open', 'Update', 'Copy URL' ] );
+		).toEqual( [ 'demo-preview.wp.build', 'Open', 'Update', 'Copy URL', 'Delete' ] );
+	} );
+
+	it( 'confirms before deleting a preview site', async () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'demo-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now(),
+				},
+			],
+		} );
+		renderView();
+
+		const previewUrl = screen.getByText( 'demo-preview.wp.build' );
+		const previewRow = previewUrl.closest( 'div' )?.parentElement;
+		expect( previewRow ).not.toBeNull();
+		fireEvent.click( within( previewRow! ).getByRole( 'button', { name: 'Delete' } ) );
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Delete demo-preview.wp.build?' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete preview' } ) );
+
+		await waitFor( () =>
+			expect( deletePreviewSite ).toHaveBeenCalledWith( {
+				hostname: 'demo-preview.wp.build',
+			} )
+		);
 	} );
 
 	it( 'publishes a preview site from its empty state', () => {

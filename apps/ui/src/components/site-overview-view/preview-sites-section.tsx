@@ -1,13 +1,14 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { Button, Tooltip } from '@wordpress/ui';
-import { Fragment, useMemo } from 'react';
+import { AlertDialog, Button, Tooltip } from '@wordpress/ui';
+import { Fragment, useMemo, useState } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import { useDeletePreviewSite, usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import { useOffline } from '@/hooks/use-offline';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
@@ -97,9 +98,10 @@ export function PreviewSitePublishAction( {
 				</Tooltip.Root>
 			) : null }
 			<Button
-				variant="minimal"
+				variant="solid"
 				tone="neutral"
 				size="small"
+				className={ styles.headerAction }
 				disabled={ disabled }
 				loading={ publishPreviewSite.isPending }
 				loadingAnnouncement={ __( 'Publishing preview site' ) }
@@ -199,8 +201,13 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 	const connector = useConnector();
 	const isOffline = useOffline();
 	const publishPreviewSite = usePublishPreviewSite();
+	const deletePreviewSite = useDeletePreviewSite();
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const life = describeLife( snapshot );
 	const url = ensureProtocol( snapshot.url );
+	const hostname = stripProtocol( snapshot.url );
+	const confirmDeleteLabel = __( 'Delete preview' );
+	const handleDeleteKeyDown = useConfirmOnEnter( confirmDeleteLabel );
 	const published = sprintf(
 		__( 'Published %s ago' ),
 		formatRelativeTime( new Date( snapshot.date ).toISOString() )
@@ -213,40 +220,76 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 		} );
 
 	return (
-		<CardResourceRow
-			label={ stripProtocol( snapshot.url ) }
-			url={ url }
-			meta={ published }
-			expired={ life.expired }
-			actions={
-				<>
-					{ ! life.expired && (
-						<CardRowAction type="button" onClick={ () => void connector.openExternalUrl( url ) }>
-							{ __( 'Open' ) }
+		<>
+			<CardResourceRow
+				label={ stripProtocol( snapshot.url ) }
+				url={ url }
+				meta={ published }
+				expired={ life.expired }
+				actions={
+					<>
+						{ ! life.expired && (
+							<CardRowAction type="button" onClick={ () => void connector.openExternalUrl( url ) }>
+								{ __( 'Open' ) }
+							</CardRowAction>
+						) }
+						<CardRowAction
+							type="button"
+							disabled={ publishPreviewSite.isPending || isOffline }
+							onClick={ republish }
+						>
+							{ publishPreviewSite.isPending
+								? __( 'Publishing…' )
+								: life.expired
+								? __( 'Republish' )
+								: __( 'Update' ) }
 						</CardRowAction>
+						<CardRowAction type="button" onClick={ () => void connector.copyText( url ) }>
+							{ __( 'Copy URL' ) }
+						</CardRowAction>
+						<CardRowAction
+							type="button"
+							className={ styles.rowActionDestructive }
+							disabled={ deletePreviewSite.isPending || publishPreviewSite.isPending || isOffline }
+							onClick={ () => setDeleteOpen( true ) }
+						>
+							{ __( 'Delete' ) }
+						</CardRowAction>
+					</>
+				}
+				status={
+					<CardRowBadge intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }>
+						{ life.label }
+					</CardRowBadge>
+				}
+			/>
+			<AlertDialog.Root
+				open={ deleteOpen }
+				onOpenChange={ setDeleteOpen }
+				onConfirm={ async () => {
+					try {
+						await deletePreviewSite.mutateAsync( { hostname } );
+					} catch ( error ) {
+						return {
+							error:
+								error instanceof Error
+									? error.message
+									: __( 'Unable to delete the preview. Please try again.' ),
+						};
+					}
+				} }
+			>
+				<AlertDialog.Popup
+					onKeyDown={ handleDeleteKeyDown }
+					intent="irreversible"
+					title={ sprintf( __( 'Delete %s?' ), hostname ) }
+					description={ __(
+						'This preview site and its shareable URL will be permanently deleted.'
 					) }
-					<CardRowAction
-						type="button"
-						disabled={ publishPreviewSite.isPending || isOffline }
-						onClick={ republish }
-					>
-						{ publishPreviewSite.isPending
-							? __( 'Publishing…' )
-							: life.expired
-							? __( 'Republish' )
-							: __( 'Update' ) }
-					</CardRowAction>
-					<CardRowAction type="button" onClick={ () => void connector.copyText( url ) }>
-						{ __( 'Copy URL' ) }
-					</CardRowAction>
-				</>
-			}
-			status={
-				<CardRowBadge intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }>
-					{ life.label }
-				</CardRowBadge>
-			}
-		/>
+					confirmButtonText={ confirmDeleteLabel }
+				/>
+			</AlertDialog.Root>
+		</>
 	);
 }
 

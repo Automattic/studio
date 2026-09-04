@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { plus } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
@@ -35,14 +34,15 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 
 	const connectAction = authUser ? (
 		<>
-			<IconButton
-				variant="minimal"
+			<Button
+				variant="solid"
 				tone="neutral"
 				size="small"
-				icon={ plus }
-				label={ __( 'Connect a site' ) }
+				className={ styles.headerAction }
 				onClick={ () => setConnectOpen( true ) }
-			/>
+			>
+				{ __( 'Connect site' ) }
+			</Button>
 			{ connectOpen ? (
 				<PublishSiteDialog site={ site } open onOpenChange={ setConnectOpen } />
 			) : null }

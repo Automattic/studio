@@ -380,22 +380,20 @@ describe( 'SiteOverviewView', () => {
 		} );
 		renderView( 'overview' );
 
-		// Password renders as masked dots until revealed from the overflow menu.
 		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
 		expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Login options' } ) );
-		// Checked by default (password hidden) — unchecking reveals it.
-		fireEvent.click( await screen.findByRole( 'menuitemcheckbox', { name: 'Hide password' } ) );
+		expect( await screen.findByText( 'Password' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Show' } ) );
 
 		const revealed = await screen.findByText( 'secret-pw' );
 		expect( revealed ).toBeVisible();
 		fireEvent.click( revealed );
 		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'secret-pw' ) );
 
-		// The menu stays open throughout (closeOnClick is false) — checking the
-		// box again re-hides the password without reopening the menu.
-		fireEvent.click( screen.getByRole( 'menuitemcheckbox', { name: 'Hide password' } ) );
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) );
 		await waitFor( () => expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument() );
 		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
 	} );

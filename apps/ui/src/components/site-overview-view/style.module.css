@@ -1,5 +1,6 @@
 .root {
 	--overview-content-width: 1120px;
+	--overview-details-column-max-width: 620px;
 	--overview-actions-column-min-width: 220px;
 
 	/* Anchor for the footer toolbar + its progressive blur. */
@@ -59,7 +60,7 @@
 .panel {
 	outline: none;
 	display: grid;
-	grid-template-columns: minmax(320px, 1fr)
+	grid-template-columns: minmax(320px, var(--overview-details-column-max-width))
 		minmax(var(--overview-actions-column-min-width), 30%);
 	align-items: start;
 	gap: var(--wpds-dimension-padding-3xl);

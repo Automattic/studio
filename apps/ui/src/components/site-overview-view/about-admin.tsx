@@ -122,8 +122,6 @@ export function LoginMenuButton( {
 					</Tooltip.Popup>
 				</Tooltip.Root>
 				<Menu.Popup side="bottom" align="end" className={ styles.menu }>
-					{ /* Stays open on click, like the checkbox below, so the
-					     "Copied" feedback is visible before the user dismisses it. */ }
 					<Menu.Item
 						onClick={ copyEmail }
 						closeOnClick={ false }
@@ -134,13 +132,21 @@ export function LoginMenuButton( {
 							<span className={ styles.menuItemSub }>{ email }</span>
 						</span>
 					</Menu.Item>
-					<Menu.CheckboxItem
-						checked={ passwordHidden }
-						onCheckedChange={ setPasswordHidden }
-						closeOnClick={ false }
-					>
-						{ __( 'Hide password' ) }
-					</Menu.CheckboxItem>
+					<Menu.Separator />
+					<Menu.Group>
+						<Menu.GroupLabel>{ __( 'Password' ) }</Menu.GroupLabel>
+						<Menu.RadioGroup
+							value={ passwordHidden ? 'hidden' : 'shown' }
+							onValueChange={ ( value ) => setPasswordHidden( value === 'hidden' ) }
+						>
+							<Menu.RadioItem value="hidden" closeOnClick={ false }>
+								{ __( 'Hide' ) }
+							</Menu.RadioItem>
+							<Menu.RadioItem value="shown" closeOnClick={ false }>
+								{ __( 'Show' ) }
+							</Menu.RadioItem>
+						</Menu.RadioGroup>
+					</Menu.Group>
 				</Menu.Popup>
 			</Menu.Root>
 			<span className={ styles.visuallyHidden } role="status" aria-live="polite" aria-atomic="true">

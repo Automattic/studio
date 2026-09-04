@@ -1,8 +1,7 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { plus } from '@wordpress/icons';
-import { Badge, Button, IconButton, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { Fragment, useMemo } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
@@ -12,8 +11,15 @@ import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useOffline } from '@/hooks/use-offline';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
-import { CardEmptyState, CardRows, CardSection, RowDivider } from './overview-card';
-import { RowLink } from './row-link';
+import {
+	CardEmptyState,
+	CardResourceRow,
+	CardRowAction,
+	CardRowBadge,
+	CardRows,
+	CardSection,
+	RowDivider,
+} from './overview-card';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
 const LIFETIME_MS = DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
@@ -123,37 +129,20 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 		} );
 
 	return (
-		<div className={ styles.row }>
-			<div className={ styles.rowLine }>
-				{ life.expired ? (
-					<span className={ clsx( styles.rowTitle, styles.rowTitleExpired ) } title={ url }>
-						{ stripProtocol( snapshot.url ) }
-					</span>
-				) : (
-					<RowLink label={ stripProtocol( snapshot.url ) } url={ url } />
-				) }
-				<span className={ styles.rowMeta }>{ published }</span>
-			</div>
-			<div className={ styles.rowLine }>
-				<div className={ styles.rowActions }>
+		<CardResourceRow
+			label={ stripProtocol( snapshot.url ) }
+			url={ url }
+			meta={ published }
+			expired={ life.expired }
+			actions={
+				<>
 					{ ! life.expired && (
-						<Button
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							className={ styles.rowAction }
-							onClick={ () => void connector.openExternalUrl( url ) }
-						>
+						<CardRowAction type="button" onClick={ () => void connector.openExternalUrl( url ) }>
 							{ __( 'Open' ) }
-						</Button>
+						</CardRowAction>
 					) }
-					<Button
+					<CardRowAction
 						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
 						disabled={ publishPreviewSite.isPending || isOffline }
 						onClick={ republish }
 					>
@@ -162,26 +151,18 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 							: life.expired
 							? __( 'Republish' )
 							: __( 'Update' ) }
-					</Button>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
-						onClick={ () => void connector.copyText( url ) }
-					>
+					</CardRowAction>
+					<CardRowAction type="button" onClick={ () => void connector.copyText( url ) }>
 						{ __( 'Copy URL' ) }
-					</Button>
-				</div>
-				<Badge
-					className={ styles.rowBadge }
-					intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }
-				>
+					</CardRowAction>
+				</>
+			}
+			status={
+				<CardRowBadge intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }>
 					{ life.label }
-				</Badge>
-			</div>
-		</div>
+				</CardRowBadge>
+			}
+		/>
 	);
 }
 

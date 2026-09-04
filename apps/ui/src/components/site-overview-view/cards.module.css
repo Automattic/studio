@@ -249,8 +249,7 @@
 }
 
 .thumbnail:hover .thumbnailOverlay,
-.thumbnail:focus-visible .thumbnailOverlay,
-.thumbnail[data-empty] .thumbnailOverlay {
+.thumbnail:focus-visible .thumbnailOverlay {
 	opacity: 0.94;
 }
 

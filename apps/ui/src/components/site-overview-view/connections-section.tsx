@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { plus } from '@wordpress/icons';
-import { Badge, Button, IconButton } from '@wordpress/ui';
+import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
 import * as Menu from '@/components/menu';
@@ -14,8 +14,15 @@ import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
-import { CardEmptyState, CardRows, CardSection, RowDivider } from './overview-card';
-import { RowLink } from './row-link';
+import {
+	CardEmptyState,
+	CardResourceRow,
+	CardRowAction,
+	CardRowBadge,
+	CardRows,
+	CardSection,
+	RowDivider,
+} from './overview-card';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 const STALE_SYNC_MS = 14 * 24 * 60 * 60 * 1000;
@@ -105,59 +112,43 @@ function ConnectionRow( {
 	const url = ensureProtocol( connection.url );
 
 	return (
-		<div className={ styles.row }>
-			<div className={ styles.rowLine }>
-				<RowLink
-					label={ stripProtocol( connection.url ) }
-					tooltip={ connection.name }
-					url={ url }
-				/>
-				<span className={ clsx( styles.rowMeta, sync.stale && styles.stale ) }>{ sync.label }</span>
-			</div>
-			<div className={ styles.rowLine }>
-				<div className={ styles.rowActions }>
-					<Button
+		<CardResourceRow
+			label={ stripProtocol( connection.url ) }
+			tooltip={ connection.name }
+			url={ url }
+			meta={ sync.label }
+			metaClassName={ clsx( sync.stale && styles.stale ) }
+			actions={
+				<>
+					<CardRowAction
 						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
 						disabled={ disabled }
 						onClick={ () =>
 							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
 					>
 						{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
-					</Button>
-					<Button
+					</CardRowAction>
+					<CardRowAction
 						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
 						disabled={ disabled }
 						onClick={ () =>
 							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
 						}
 					>
 						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
-					</Button>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.rowAction }
-						onClick={ () => void connector.copyText( url ) }
-					>
+					</CardRowAction>
+					<CardRowAction type="button" onClick={ () => void connector.copyText( url ) }>
 						{ __( 'Copy URL' ) }
-					</Button>
-				</div>
-				<Badge className={ styles.rowBadge } intent={ connection.isStaging ? 'medium' : 'stable' }>
+					</CardRowAction>
+				</>
+			}
+			status={
+				<CardRowBadge intent={ connection.isStaging ? 'medium' : 'stable' }>
 					{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
-				</Badge>
-			</div>
-		</div>
+				</CardRowBadge>
+			}
+		/>
 	);
 }
 

@@ -1,6 +1,8 @@
+import { Badge, Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import styles from './cards.module.css';
-import type { ReactNode } from 'react';
+import { RowLink } from './row-link';
+import type { ComponentProps, ReactNode } from 'react';
 
 export function OverviewCard( { children }: { children: ReactNode } ) {
 	return <section className={ styles.card }>{ children }</section>;
@@ -42,4 +44,59 @@ export function CardRows( { children }: { children: ReactNode } ) {
 
 export function RowDivider() {
 	return <div className={ styles.rowDivider } />;
+}
+
+export function CardRowAction( { className, ...props }: ComponentProps< typeof Button > ) {
+	return (
+		<Button
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			className={ clsx( styles.rowAction, className ) }
+			{ ...props }
+		/>
+	);
+}
+
+export function CardRowBadge( { className, ...props }: ComponentProps< typeof Badge > ) {
+	return <Badge className={ clsx( styles.rowBadge, className ) } { ...props } />;
+}
+
+export function CardResourceRow( {
+	label,
+	url,
+	tooltip,
+	meta,
+	metaClassName,
+	expired = false,
+	actions,
+	status,
+}: {
+	label: string;
+	url: string;
+	tooltip?: string;
+	meta?: ReactNode;
+	metaClassName?: string;
+	expired?: boolean;
+	actions: ReactNode;
+	status?: ReactNode;
+} ) {
+	return (
+		<div className={ styles.row }>
+			<div className={ styles.rowLine }>
+				{ expired ? (
+					<span className={ clsx( styles.rowTitle, styles.rowTitleExpired ) } title={ url }>
+						{ label }
+					</span>
+				) : (
+					<RowLink label={ label } tooltip={ tooltip } url={ url } />
+				) }
+				{ meta ? <span className={ clsx( styles.rowMeta, metaClassName ) }>{ meta }</span> : null }
+			</div>
+			<div className={ styles.rowLine }>
+				<div className={ styles.rowActions }>{ actions }</div>
+				{ status }
+			</div>
+		</div>
+	);
 }

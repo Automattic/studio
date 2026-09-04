@@ -1,116 +1,175 @@
 .btn {
-  --bs-btn-bg: transparent;
-  --bs-btn-border-color: var(--wpds-color-stroke-interactive-neutral);
-  --bs-btn-color: var(--wpds-color-fg-interactive-neutral);
-  --bs-btn-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
-  --bs-btn-hover-border-color: var(--wpds-color-stroke-interactive-neutral-active);
-  --bs-btn-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+	--bs-btn-bg: transparent;
+	--bs-btn-border-color: var( --wpds-color-stroke-interactive-neutral );
+	--bs-btn-color: var( --wpds-color-fg-interactive-neutral );
+	--bs-btn-hover-bg: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--bs-btn-hover-border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	--bs-btn-hover-color: var( --wpds-color-fg-interactive-neutral-active );
+	--bs-btn-active-bg: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--bs-btn-active-border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	--bs-btn-active-color: var( --wpds-color-fg-interactive-neutral-active );
+	--bs-btn-disabled-bg: transparent;
+	--bs-btn-disabled-border-color: var( --wpds-color-stroke-interactive-neutral-disabled );
+	--bs-btn-disabled-color: var( --wpds-color-fg-interactive-neutral-disabled );
 
-  min-height: 28px;
+	min-height: 32px;
+	border-radius: var( --wpds-border-radius-md );
 }
 
 .btn-primary {
-  --bs-btn-bg: var(--wpds-color-bg-interactive-brand-strong);
-  --bs-btn-border-color: var(--wpds-color-bg-interactive-brand-strong);
-  --bs-btn-hover-bg: var(--wpds-color-bg-interactive-brand-strong-active);
-  --bs-btn-hover-border-color: var(--wpds-color-bg-interactive-brand-strong-active);
+	--bs-btn-bg: var( --wpds-color-bg-interactive-brand-strong );
+	--bs-btn-border-color: var( --wpds-color-bg-interactive-brand-strong );
+	--bs-btn-hover-bg: var( --wpds-color-bg-interactive-brand-strong-active );
+	--bs-btn-hover-border-color: var( --wpds-color-bg-interactive-brand-strong-active );
+	--bs-btn-active-bg: var( --wpds-color-bg-interactive-brand-strong-active );
+	--bs-btn-active-border-color: var( --wpds-color-bg-interactive-brand-strong-active );
+	--bs-btn-color: white;
+	--bs-btn-hover-color: white;
 }
 
 .btn-danger {
-  --bs-btn-bg: var(--wpds-color-bg-interactive-error-strong);
-  --bs-btn-border-color: var(--wpds-color-bg-interactive-error-strong);
-  --bs-btn-hover-bg: var(--wpds-color-bg-interactive-error-strong-active);
-  --bs-btn-hover-border-color: var(--wpds-color-bg-interactive-error-strong-active);
+	--bs-btn-bg: var( --wpds-color-bg-interactive-error-strong );
+	--bs-btn-border-color: var( --wpds-color-bg-interactive-error-strong );
+	--bs-btn-hover-bg: var( --wpds-color-bg-interactive-error-strong-active );
+	--bs-btn-hover-border-color: var( --wpds-color-bg-interactive-error-strong-active );
+	--bs-btn-active-bg: var( --wpds-color-bg-interactive-error-strong-active );
+	--bs-btn-active-border-color: var( --wpds-color-bg-interactive-error-strong-active );
+	--bs-btn-color: white;
+	--bs-btn-hover-color: white;
 }
 
 .btn-secondary,
 .btn-outline-secondary,
 .btn-light,
 .btn-outline-primary {
-  --bs-btn-bg: transparent;
-  --bs-btn-border-color: var(--wpds-color-stroke-interactive-neutral);
-  --bs-btn-color: var(--wpds-color-fg-interactive-neutral);
-  --bs-btn-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
-  --bs-btn-hover-border-color: var(--wpds-color-stroke-interactive-neutral-active);
-  --bs-btn-hover-color: var(--wpds-color-fg-interactive-neutral-active);
+	--bs-btn-bg: transparent;
+	--bs-btn-border-color: var( --wpds-color-stroke-interactive-neutral );
+	--bs-btn-color: var( --wpds-color-fg-interactive-neutral );
+	--bs-btn-hover-bg: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--bs-btn-hover-border-color: var( --wpds-color-stroke-interactive-neutral-active );
+	--bs-btn-hover-color: var( --wpds-color-fg-interactive-neutral-active );
 }
 
 .btn-link {
-  --bs-btn-color: var(--wpds-color-fg-interactive-brand);
-  --bs-btn-hover-color: var(--wpds-color-fg-interactive-brand-active);
+	--bs-btn-color: var( --wpds-color-fg-interactive-brand );
+	--bs-btn-hover-color: var( --wpds-color-fg-interactive-brand-active );
+}
+
+.nav-pills {
+	gap: var( --wpds-dimension-gap-xs );
+	margin-block: var( --wpds-dimension-margin-sm );
+
+	.nav-link {
+		border: 1px solid transparent;
+		border-radius: var( --wpds-border-radius-md );
+		color: var( --wpds-color-fg-interactive-neutral );
+	}
+
+	.nav-link:hover,
+	.nav-link:focus-visible {
+		background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	}
+
+	.nav-link.active,
+	.show > .nav-link {
+		background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+		border-color: var( --wpds-color-stroke-surface-neutral );
+		color: var( --wpds-color-fg-content-neutral );
+	}
 }
 
 .drop_button.btn {
-  background-color: transparent;
-  border-color: var(--wpds-color-stroke-interactive-neutral);
-  color: var(--wpds-color-fg-interactive-neutral);
+	background-color: transparent;
+	border-color: var( --wpds-color-stroke-interactive-neutral );
+	color: var( --wpds-color-fg-interactive-neutral );
 
-  &:hover {
-    background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
-  }
+	&:hover {
+		background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	}
 }
 
 .form-control,
 .form-select,
 .input-group-text,
 input:not(
-  [type="checkbox"],
-  [type="radio"],
-  [type="submit"],
-  [type="button"],
-  [type="reset"],
-  [type="file"],
-  [type="image"],
-  [type="range"],
-  [type="color"]
-),
+		[type='checkbox'],
+		[type='radio'],
+		[type='submit'],
+		[type='button'],
+		[type='reset'],
+		[type='file'],
+		[type='image'],
+		[type='range'],
+		[type='color']
+	),
 select,
 textarea {
-  background-color: var(--wpds-color-bg-surface-neutral-strong);
-  border-color: var(--wpds-color-stroke-interactive-neutral);
-  color: var(--wpds-color-fg-content-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-interactive-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.form-control:focus,
+.form-select:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-focus-brand );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.form-control:disabled,
+.form-select:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+	background-color: var( --wpds-color-bg-interactive-neutral-strong-disabled );
+	border-color: var( --wpds-color-stroke-interactive-neutral-disabled );
+	color: var( --wpds-color-fg-interactive-neutral-disabled );
+	opacity: 1;
 }
 
 input:not(
-  [type="checkbox"],
-  [type="radio"],
-  [type="submit"],
-  [type="button"],
-  [type="reset"],
-  [type="file"],
-  [type="image"],
-  [type="range"],
-  [type="color"]
-),
+		[type='checkbox'],
+		[type='radio'],
+		[type='submit'],
+		[type='button'],
+		[type='reset'],
+		[type='file'],
+		[type='image'],
+		[type='range'],
+		[type='color']
+	),
 select,
 textarea {
-  border-style: solid;
-  border-width: 1px;
-  border-radius: var(--wpds-border-radius-md);
-  padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	border-style: solid;
+	border-width: 1px;
+	border-radius: var( --wpds-border-radius-md );
+	padding: var( --wpds-dimension-padding-xs ) var( --wpds-dimension-padding-sm );
 }
 
 select option {
-  background-color: var(--wpds-color-bg-surface-neutral-strong);
-  color: var(--wpds-color-fg-content-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .form-check-input:checked {
-  background-color: var(--wpds-color-bg-interactive-brand-strong);
-  border-color: var(--wpds-color-bg-interactive-brand-strong);
+	background-color: var( --wpds-color-bg-interactive-brand-strong );
+	border-color: var( --wpds-color-bg-interactive-brand-strong );
 }
 
 .form-label,
 .col-form-label {
-  color: var(--wpds-color-fg-content-neutral);
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .form-text,
 input::placeholder,
 textarea::placeholder {
-  color: var(--wpds-color-fg-content-neutral-weak);
+	color: var( --wpds-color-fg-content-neutral-weak );
 }
 
 fieldset {
-  border-color: var(--wpds-color-stroke-surface-neutral);
+	border-color: var( --wpds-color-stroke-surface-neutral );
 }

@@ -1121,6 +1121,10 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
 		},
 
+		onShowDatabaseIntro( listener ) {
+			return ipcListener.subscribe( 'show-database-intro', () => listener() );
+		},
+
 		async getLastSeenVersion() {
 			return ipcApi.getLastSeenVersion();
 		},

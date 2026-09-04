@@ -1,0 +1,82 @@
+.CodeMirror,
+.CodeMirror-gutters,
+code.sql,
+code.php,
+div.sqlvalidate,
+#PMA_slidingMessage code.sql {
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	font-family: var( --wpds-typography-font-family-mono );
+}
+
+.CodeMirror {
+	border-radius: var( --wpds-border-radius-lg );
+}
+
+.CodeMirror-gutters {
+	border-inline-end-color: var( --wpds-color-stroke-surface-neutral );
+}
+
+.CodeMirror-linenumber,
+.CodeMirror-placeholder,
+.CodeMirror-hint,
+.cm-comment {
+	color: var( --wpds-color-fg-content-neutral-weak );
+}
+
+.CodeMirror-cursor {
+	border-inline-start-color: var( --wpds-color-fg-content-neutral );
+}
+
+.CodeMirror-selected,
+.CodeMirror-focused .CodeMirror-selected {
+	background-color: var( --wpds-color-bg-interactive-brand-weak-active );
+}
+
+.CodeMirror-hints,
+.CodeMirror-lint-tooltip {
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	box-shadow: var( --wpds-elevation-md );
+}
+
+li.CodeMirror-hint-active {
+	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.cm-keyword,
+.cm-statement-verb,
+.cm-builtin {
+	color: var( --wpds-color-fg-interactive-brand );
+}
+
+.cm-variable,
+.cm-variable-2,
+.cm-variable-3,
+.cm-mysql-word {
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.cm-mysql-string,
+.cm-string {
+	color: var( --wpds-color-fg-content-success );
+}
+
+.cm-number,
+.cm-atom {
+	color: var( --wpds-color-fg-content-info );
+}
+
+.cm-operator,
+.cm-separator {
+	color: var( --wpds-color-fg-content-warning );
+}
+
+.result_query div.sqlOuter {
+	overflow: hidden;
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: var( --wpds-border-radius-lg ) var( --wpds-border-radius-lg ) 0 0;
+}

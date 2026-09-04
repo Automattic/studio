@@ -1,19 +1,28 @@
 html {
-  color-scheme: light dark;
-  max-width: 100%;
-  overflow-x: hidden;
+	color-scheme: light dark;
+	max-width: 100%;
+	overflow-x: hidden;
 }
 
 body {
-  max-width: 100%;
-  overflow-x: hidden;
-  background-color: var(--wpds-color-bg-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
-  font-family: var(--wpds-typography-font-family-body);
-  font-size: var(--wpds-typography-font-size-md);
-  line-height: var(--wpds-typography-line-height-md);
-  scrollbar-color: var(--wpds-color-bg-thumb-neutral-weak) transparent;
-  scrollbar-width: thin;
+	max-width: 100%;
+	overflow-x: hidden;
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+	scrollbar-color: var( --wpds-color-bg-thumb-neutral-weak ) transparent;
+	scrollbar-width: thin;
+}
+
+#page_content {
+	margin: 0;
+	padding: var( --wpds-dimension-padding-lg );
+}
+
+::selection {
+	background-color: var( --wpds-color-bg-interactive-brand-weak-active );
 }
 
 h1,
@@ -23,8 +32,8 @@ h4,
 h5,
 h6,
 legend {
-  color: var(--wpds-color-fg-content-neutral);
-  font-weight: var(--wpds-typography-font-weight-medium);
+	color: var( --wpds-color-fg-content-neutral );
+	font-weight: var( --wpds-typography-font-weight-medium );
 }
 
 b,
@@ -32,20 +41,29 @@ strong,
 .fw-bold,
 .fw-bolder,
 th {
-  font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var( --wpds-typography-font-weight-medium );
 }
 
 a {
-  color: var(--wpds-color-fg-interactive-brand);
+	color: var( --wpds-color-fg-interactive-brand );
 }
 
 a:hover {
-  color: var(--wpds-color-fg-interactive-brand-active);
+	color: var( --wpds-color-fg-interactive-brand-active );
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+	border-radius: var( --wpds-border-radius-sm );
 }
 
 :focus-visible {
-  outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
-  outline-offset: 1px;
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: 1px;
 }
 
 .btn:focus,
@@ -53,25 +71,30 @@ a:hover {
 .form-select:focus,
 .form-check-input:focus,
 .page-link:focus {
-  box-shadow: none;
+	box-shadow: none;
 }
 
 hr {
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  opacity: 1;
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	opacity: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+.text-muted,
+.text-secondary {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+@media ( prefers-color-scheme: dark ) {
+	html {
+		color-scheme: dark;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

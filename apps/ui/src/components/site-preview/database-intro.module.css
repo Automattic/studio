@@ -1,0 +1,39 @@
+.positioner {
+	position: absolute;
+	inset-block-start: var(--wpds-dimension-padding-md);
+	inset-inline: var(--wpds-dimension-padding-md);
+	z-index: 10;
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.notice {
+	width: min(560px, 100%);
+	box-sizing: border-box;
+	pointer-events: auto;
+	box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+	animation: database-intro-enter 140ms ease-out;
+}
+
+.notice > svg {
+	margin-block-start: 2px;
+}
+
+@keyframes database-intro-enter {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.notice {
+		animation: none;
+	}
+}

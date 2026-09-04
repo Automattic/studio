@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -400,6 +400,73 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).toHaveBeenCalledWith(
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress&studio_database=1'
 		);
+	} );
+
+	it( 'introduces phpMyAdmin on the first database visit and remembers dismissal', async () => {
+		const setOnboardingHints = vi.fn().mockResolvedValue( undefined );
+		const openExternalUrl = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			getOnboardingHints: vi.fn().mockResolvedValue( {} ),
+			setOnboardingHints,
+			openExternalUrl,
+			onShowDatabaseIntro: vi.fn( () => () => {} ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+			/>
+		);
+
+		expect( await screen.findByText( 'About the Database' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'link', { name: 'About phpMyAdmin' } ) );
+		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://www.phpmyadmin.net/' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Got it' } ) );
+
+		await waitFor( () =>
+			expect( setOnboardingHints ).toHaveBeenCalledWith( {
+				databaseIntroDismissedVersion: 2,
+			} )
+		);
+		expect( screen.queryByText( 'About the Database' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'replays the database introduction from the application Help menu', async () => {
+		let replay: () => void = () => {};
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			getOnboardingHints: vi.fn().mockResolvedValue( { databaseIntroDismissedVersion: 2 } ),
+			setOnboardingHints: vi.fn().mockResolvedValue( undefined ),
+			onShowDatabaseIntro: vi.fn( ( listener ) => {
+				replay = listener;
+				return () => {};
+			} ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path={ DATABASE_HOME_PATH }
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
+		await waitFor( () =>
+			expect( screen.queryByText( 'About the Database' ) ).not.toBeInTheDocument()
+		);
+
+		act( () => replay() );
+
+		expect( screen.getByText( 'About the Database' ) ).toBeVisible();
+		expect( onPathChange ).toHaveBeenCalledWith( DATABASE_HOME_PATH );
 	} );
 
 	it( 'keeps the front end and WP Admin on one shared surface', () => {

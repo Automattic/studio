@@ -30,20 +30,24 @@ if ($studio_database_enabled) {
     // Keep the embedded database view compact and favor readable text actions over
     // phpMyAdmin's repeated icon and text presentation.
     $cfg['NavigationWidth'] = 0;
+    $cfg['NavigationTreeEnableGrouping'] = false;
     $cfg['TabsMode'] = 'text';
     $cfg['ActionLinksMode'] = 'text';
     $cfg['RowActionType'] = 'text';
     $cfg['TableNavigationLinksMode'] = 'text';
     $cfg['ShowStats'] = false;
+    $cfg['ShowServerInfo'] = false;
     $cfg['ShowColumnComments'] = false;
     $cfg['UserprefsDisallow'] = [
         'ThemeDefault',
         'NavigationWidth',
+        'NavigationTreeEnableGrouping',
         'TabsMode',
         'ActionLinksMode',
         'RowActionType',
         'TableNavigationLinksMode',
         'ShowStats',
+        'ShowServerInfo',
         'ShowColumnComments',
     ];
 }

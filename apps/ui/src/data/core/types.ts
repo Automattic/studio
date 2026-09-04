@@ -605,6 +605,10 @@ export interface Connector {
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;
 
+	// Fires when the user picks Help ▸ About the Database in the application
+	// menu (desktop only). No-ops where there's no OS menu.
+	onShowDatabaseIntro( listener: () => void ): () => void;
+
 	// App version the user last dismissed the What's New announcements on. The
 	// same value the classic renderer reads, so the two UIs never show the same
 	// announcements twice.
@@ -633,6 +637,9 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
+	// Version of the database introduction the user dismissed. Bump the current
+	// version when its guidance changes enough to warrant showing it again.
+	databaseIntroDismissedVersion?: number;
 }
 
 export interface SnapshotUsage {

@@ -15,7 +15,9 @@ the active theme when the Studio database appearance is enabled.
 the fixed base theme. Studio disables phpMyAdmin's theme picker so the design
 layer is always applied against the theme it targets. Choosing phpMyAdmin in
 Studio's global settings restores phpMyAdmin's default theme and interface
-options instead.
+options instead. Studio mode also collapses the navigation tree, disables
+prefix grouping, and hides server-only details that add little value for a
+single local WordPress database.
 
 ## Working on the styles
 
@@ -26,9 +28,8 @@ npm run phpmyadmin:style
 npm run cli:build
 ```
 
-Restart the site and hard reload phpMyAdmin after rebuilding. phpMyAdmin uses
-its application version as the stylesheet cache key, so changing the local
-stylesheet does not change the URL.
+Restart the site after rebuilding. The stylesheet's modification time is used
+as its cache key, so a normal reload picks up a newly built version.
 
 The stylesheet follows `prefers-color-scheme` because phpMyAdmin 5.2 has no
 theme-mode switcher. Electron reflects Studio's effective light or dark mode

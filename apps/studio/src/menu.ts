@@ -463,6 +463,13 @@ async function getAppMenu(
 					},
 					enabled: ! needsOnboarding,
 				},
+				{
+					label: __( 'About the Database' ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-database-intro' );
+					},
+					enabled: ! needsOnboarding,
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [

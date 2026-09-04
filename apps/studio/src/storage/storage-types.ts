@@ -77,6 +77,7 @@ export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
 	migratedFromClassic?: boolean;
+	databaseIntroDismissedVersion?: number;
 }
 
 export const EMPTY_USER_DATA: UserData = {

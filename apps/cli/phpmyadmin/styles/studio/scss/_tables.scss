@@ -1,43 +1,75 @@
 .table {
-  --bs-table-bg: var(--wpds-color-bg-surface-neutral);
-  --bs-table-color: var(--wpds-color-fg-content-neutral);
-  --bs-table-border-color: var(--wpds-color-stroke-surface-neutral-weak);
-  --bs-table-striped-bg: var(--wpds-color-bg-surface-neutral-weak);
-  --bs-table-striped-color: var(--wpds-color-fg-content-neutral);
-  --bs-table-active-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
-  --bs-table-active-color: var(--wpds-color-fg-content-neutral);
-  --bs-table-hover-bg: var(--wpds-color-bg-interactive-neutral-weak-active);
-  --bs-table-hover-color: var(--wpds-color-fg-content-neutral);
+	--bs-table-bg: var( --wpds-color-bg-surface-neutral );
+	--bs-table-color: var( --wpds-color-fg-content-neutral );
+	--bs-table-border-color: var( --wpds-color-stroke-surface-neutral-weak );
+	--bs-table-striped-bg: var( --wpds-color-bg-surface-neutral );
+	--bs-table-striped-color: var( --wpds-color-fg-content-neutral );
+	--bs-table-active-bg: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--bs-table-active-color: var( --wpds-color-fg-content-neutral );
+	--bs-table-hover-bg: var( --wpds-color-bg-interactive-neutral-weak-active );
+	--bs-table-hover-color: var( --wpds-color-fg-content-neutral );
 
-  color: var(--wpds-color-fg-content-neutral);
-  text-shadow: none;
+	color: var( --wpds-color-fg-content-neutral );
+	text-shadow: none;
 
-  * {
-    text-shadow: none;
-  }
+	* {
+		text-shadow: none;
+	}
 
-  > thead > tr > * {
-    background-color: var(--wpds-color-bg-surface-neutral);
-    border-color: var(--wpds-color-stroke-surface-neutral);
-    color: var(--wpds-color-fg-content-neutral);
-  }
+	> thead > tr > * {
+		background-color: var( --wpds-color-bg-surface-neutral );
+		border-color: var( --wpds-color-stroke-surface-neutral );
+		color: var( --wpds-color-fg-content-neutral );
+	}
 
-  caption,
-  .no-rows {
-    color: var(--wpds-color-fg-content-neutral-weak);
-  }
+	> :not( caption ) > * > * {
+		padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
+	}
+
+	> thead a {
+		color: var( --wpds-color-fg-content-neutral );
+		text-decoration: none;
+	}
+
+	caption,
+	.no-rows {
+		color: var( --wpds-color-fg-content-neutral-weak );
+	}
+}
+
+#tablesForm tbody td.text-center a,
+.table_results .edit_row_anchor a,
+.table_results .del_row a,
+#tablestructure td.action a,
+#tablestructure td.edit a,
+#tablestructure td.drop a {
+	color: var( --wpds-color-fg-interactive-neutral );
+	text-decoration: none;
+}
+
+#tablesForm tbody td.text-center a:hover,
+.table_results .edit_row_anchor a:hover,
+#tablestructure td.action a:hover,
+#tablestructure td.edit a:hover {
+	color: var( --wpds-color-fg-interactive-brand-active );
+}
+
+#tablesForm .drop_table_anchor:hover,
+.table_results .del_row a:hover,
+#tablestructure td.drop a:hover {
+	color: var( --wpds-color-fg-interactive-error );
 }
 
 .table > tbody > tr.marked > *,
 tr.marked > td,
 tr.marked > th {
-  background-color: var(--wpds-color-bg-interactive-brand-weak-active) !important;
-  color: var(--wpds-color-fg-content-neutral);
+	background-color: var( --wpds-color-bg-interactive-brand-weak-active ) !important;
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .table .cell-selected {
-  outline: 1px solid var(--wpds-color-stroke-focus-brand);
-  outline-offset: -1px;
+	outline: 1px solid var( --wpds-color-stroke-focus-brand );
+	outline-offset: -1px;
 }
 
 // phpMyAdmin applies Bootstrap's content-sized w-auto utility to its primary
@@ -47,24 +79,25 @@ tr.marked > th {
 .table_results,
 #tablestructure,
 #table_index {
-  width: 100% !important;
+	width: 100% !important;
 }
 
 #page_content > .table-responsive-md,
 #fieldsForm > .table-responsive-md {
-  width: 100%;
-  max-width: 100%;
+	width: 100%;
+	max-width: 100%;
 }
 
 table.navigation {
-  background: var(--wpds-color-bg-surface-neutral-weak);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
+	background: var( --wpds-color-bg-surface-neutral-weak );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
-@media only screen and (width >= 768px) {
-  .table th.position-sticky {
-    top: $breadcrumb-bar-height + $topbar-height;
-    background-color: var(--wpds-color-bg-surface-neutral);
-  }
+@media only screen and ( width >= 768px ) {
+	.table th.position-sticky {
+		top: $breadcrumb-bar-height + $topbar-height;
+		background-color: var( --wpds-color-bg-surface-neutral );
+		z-index: 8;
+	}
 }

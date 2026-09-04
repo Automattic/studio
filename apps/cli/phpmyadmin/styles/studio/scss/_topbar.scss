@@ -1,66 +1,98 @@
 .breadcrumb-navbar {
-  min-height: $breadcrumb-bar-height;
-  margin-bottom: 0;
-  padding-left: calc(20px + var(--wpds-dimension-padding-lg));
-  background-color: var(--wpds-color-bg-surface-neutral-weak);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral-weak);
+	min-height: $breadcrumb-bar-height;
+	margin-bottom: 0;
+	padding-inline: calc( 20px + var( --wpds-dimension-padding-lg ) )
+		var( --wpds-dimension-padding-lg );
+	background-color: var( --wpds-color-bg-surface-neutral-weak );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral-weak );
 
-  .breadcrumb-item:last-of-type a {
-    color: var(--wpds-color-fg-content-neutral);
-  }
+	// Studio always connects to one local server, so that crumb adds no useful
+	// context once a database or table is selected.
+	.breadcrumb-item:first-child:not( :last-child ) {
+		display: none;
+	}
+
+	.breadcrumb-item:nth-child( 2 )::before {
+		display: none;
+	}
+
+	a {
+		color: var( --wpds-color-fg-content-neutral-weak );
+		text-decoration: none;
+	}
+
+	.breadcrumb-item:last-of-type a {
+		color: var( --wpds-color-fg-content-neutral );
+	}
 }
 
 #topmenucontainer {
-  background-color: var(--wpds-color-bg-surface-neutral);
-  border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral );
+	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
 
-  .navbar {
-    min-height: $topbar-height;
-    padding: 0 0 0 calc(20px + var(--wpds-dimension-padding-md));
-  }
+	.navbar {
+		min-height: $topbar-height;
+		padding: 0 var( --wpds-dimension-padding-lg ) 0
+			calc( 20px + var( --wpds-dimension-padding-md ) );
+	}
 
-  .navbar.bg-light {
-    background-color: var(--wpds-color-bg-surface-neutral) !important;
-  }
+	.navbar.bg-light {
+		background-color: var( --wpds-color-bg-surface-neutral ) !important;
+	}
 }
 
 #topmenu {
-  .nav-item {
-    position: relative;
-  }
+	.nav-item {
+		position: relative;
+	}
 
-  .nav-link {
-    display: flex;
-    align-items: center;
-    height: $topbar-height;
-    padding: 0 var(--wpds-dimension-padding-md);
-    color: var(--wpds-color-fg-content-neutral-weak);
-    border-radius: 0;
-  }
+	.nav-link {
+		display: flex;
+		align-items: center;
+		height: $topbar-height;
+		padding: 0 var( --wpds-dimension-padding-md );
+		color: var( --wpds-color-fg-content-neutral-weak );
+		border-radius: 0;
+	}
 
-  .nav-link:hover,
-  .nav-item.active > .nav-link {
-    background-color: transparent;
-    color: var(--wpds-color-fg-content-neutral);
-  }
+	.nav-link:hover,
+	.nav-link:focus-visible,
+	.nav-item.active > .nav-link {
+		background-color: transparent;
+		color: var( --wpds-color-fg-content-neutral );
+	}
 
-  .nav-item.active::after {
-    position: absolute;
-    right: var(--wpds-dimension-padding-md);
-    bottom: -1px;
-    left: var(--wpds-dimension-padding-md);
-    height: 2px;
-    background-color: var(--wpds-color-fg-content-neutral);
-    content: "";
-  }
+	.nav-item.active::after {
+		position: absolute;
+		right: var( --wpds-dimension-padding-md );
+		bottom: -1px;
+		left: var( --wpds-dimension-padding-md );
+		height: 2px;
+		background-color: var( --wpds-color-fg-content-neutral );
+		content: '';
+	}
+}
+
+#page_nav_icons {
+	display: none;
 }
 
 #floating_menubar {
-  background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral );
 }
 
 .navbar-toggler {
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+@media only screen and ( width < 992px ) {
+	#topmenucontainer .navbar {
+		padding-block: var( --wpds-dimension-padding-xs );
+	}
+
+	#topmenu .nav-link {
+		height: 36px;
+	}
 }

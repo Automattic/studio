@@ -10,5 +10,5 @@
 // order without breaking the reveal: jQuery's `.show()` writes an inline
 // `display`, which outranks this rule but would lose to an `!important` one.
 .hide {
-  display: none;
+	display: none;
 }

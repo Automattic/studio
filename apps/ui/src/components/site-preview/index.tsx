@@ -19,6 +19,7 @@ import { OpenInMenu } from '@/components/open-in-menu';
 import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -42,6 +43,7 @@ import {
 	useDebouncedValue,
 	type PreviewRealm,
 } from './address-bar';
+import { DatabaseIntro } from './database-intro';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -148,6 +150,8 @@ const isElectron = (): boolean => {
 	if ( typeof navigator === 'undefined' ) return false;
 	return /\bElectron\//.test( navigator.userAgent );
 };
+
+const DATABASE_INTRO_VERSION = 2;
 
 interface ViewportPreset {
 	id: 'mobile' | 'tablet' | 'desktop';
@@ -801,6 +805,8 @@ export function SitePreview( {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { data: userPreferences } = useUserPreferences();
+	const { data: onboardingHints } = useOnboardingHints();
+	const setOnboardingHints = useSetOnboardingHints();
 	const databaseHomePath = getDatabaseHomePath( userPreferences?.databaseAppearance ?? 'studio' );
 	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
@@ -816,6 +822,13 @@ export function SitePreview( {
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
 	const activeRealm = getPreviewRealm( safePath );
+	const [ databaseIntroReplay, setDatabaseIntroReplay ] = useState( false );
+	const showDatabaseIntro =
+		canPreview &&
+		activeRealm === 'database' &&
+		( databaseIntroReplay ||
+			( onboardingHints !== undefined &&
+				onboardingHints.databaseIntroDismissedVersion !== DATABASE_INTRO_VERSION ) );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
@@ -1031,6 +1044,12 @@ export function SitePreview( {
 			onPathChange?.( databaseHomePath );
 		}
 	}, [ activeRealm, databaseHomePath, onPathChange ] );
+	useEffect( () => {
+		return connector.onShowDatabaseIntro?.( () => {
+			setDatabaseIntroReplay( true );
+			onPathChange?.( databaseHomePath );
+		} );
+	}, [ connector, databaseHomePath, onPathChange ] );
 	useEffect( () => {
 		// Auto-login is a transient hop, not a place to return to.
 		if ( safePath.startsWith( '/studio-auto-login' ) ) {
@@ -1476,6 +1495,16 @@ export function SitePreview( {
 						</div>
 					) }
 				</div>
+				{ showDatabaseIntro ? (
+					<DatabaseIntro
+						onDismiss={ () => {
+							setDatabaseIntroReplay( false );
+							setOnboardingHints.mutate( {
+								databaseIntroDismissedVersion: DATABASE_INTRO_VERSION,
+							} );
+						} }
+					/>
+				) : null }
 			</div>
 		</aside>
 	);

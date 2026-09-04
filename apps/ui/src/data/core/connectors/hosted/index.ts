@@ -542,6 +542,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu on the hosted surface.
 			return () => {};
 		},
+		onShowDatabaseIntro() {
+			// No application menu on the hosted surface.
+			return () => {};
+		},
 		async getLastSeenVersion() {
 			return readLastSeenVersion();
 		},

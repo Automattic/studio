@@ -1,0 +1,39 @@
+@media print {
+	html,
+	body,
+	#page_content,
+	.card,
+	.pma-fieldset,
+	.result_query div.sqlOuter,
+	.table,
+	.table > thead > tr > *,
+	code.sql,
+	code.php {
+		background: white !important;
+		color: black !important;
+	}
+
+	.table {
+		--bs-table-bg: white;
+		--bs-table-color: black;
+		--bs-table-striped-bg: #f3f3f3;
+		--bs-table-striped-color: black;
+		--bs-table-active-bg: #e8e8e8;
+		--bs-table-active-color: black;
+		--bs-table-hover-bg: white;
+		--bs-table-hover-color: black;
+	}
+
+	.table,
+	.table > :not( caption ) > * > *,
+	.card,
+	.pma-fieldset,
+	.result_query div.sqlOuter {
+		border-color: #777 !important;
+	}
+
+	a,
+	.table > thead a {
+		color: black !important;
+	}
+}

@@ -4,96 +4,123 @@
 .list-group-item,
 .accordion-item,
 .accordion-button {
-  background-color: var(--wpds-color-bg-surface-neutral-strong);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
+.card,
+.modal-content,
+.accordion-item,
+.alert {
+	border-radius: var( --wpds-border-radius-lg );
 }
 
 .card-header {
-  background-color: var(--wpds-color-bg-surface-neutral-weak);
-  border-color: var(--wpds-color-stroke-surface-neutral);
+	background-color: var( --wpds-color-bg-surface-neutral-weak );
+	border-color: var( --wpds-color-stroke-surface-neutral );
 }
 
 .card-footer,
 .modal-header,
 .modal-footer,
 .dropdown-divider {
-  border-color: var(--wpds-color-stroke-surface-neutral);
+	border-color: var( --wpds-color-stroke-surface-neutral );
 }
 
 .dropdown-menu {
-  box-shadow: var(--wpds-elevation-md);
+	box-shadow: var( --wpds-elevation-md );
 }
 
 .dropdown-item {
-  color: var(--wpds-color-fg-content-neutral);
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .dropdown-item:hover,
 .dropdown-item:focus,
-.accordion-button:not(.collapsed) {
-  background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
-  color: var(--wpds-color-fg-content-neutral);
+.accordion-button:not( .collapsed ) {
+	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 .modal-content {
-  box-shadow: var(--wpds-elevation-lg);
+	box-shadow: var( --wpds-elevation-lg );
+}
+
+.alert {
+	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
 }
 
 .alert-success {
-  --bs-alert-bg: var(--wpds-color-bg-surface-success-weak);
-  --bs-alert-border-color: var(--wpds-color-stroke-surface-success);
-  --bs-alert-color: var(--wpds-color-fg-content-success);
+	--bs-alert-bg: var( --wpds-color-bg-surface-success-weak );
+	--bs-alert-border-color: var( --wpds-color-stroke-surface-success );
+	--bs-alert-color: var( --wpds-color-fg-content-success );
 }
 
 .alert-info,
 .alert-primary {
-  --bs-alert-bg: var(--wpds-color-bg-surface-info-weak);
-  --bs-alert-border-color: var(--wpds-color-stroke-surface-info);
-  --bs-alert-color: var(--wpds-color-fg-content-info);
+	--bs-alert-bg: var( --wpds-color-bg-surface-info-weak );
+	--bs-alert-border-color: var( --wpds-color-stroke-surface-info );
+	--bs-alert-color: var( --wpds-color-fg-content-info );
 }
 
 .alert-warning {
-  --bs-alert-bg: var(--wpds-color-bg-surface-warning-weak);
-  --bs-alert-border-color: var(--wpds-color-stroke-surface-warning);
-  --bs-alert-color: var(--wpds-color-fg-content-warning);
+	--bs-alert-bg: var( --wpds-color-bg-surface-warning-weak );
+	--bs-alert-border-color: var( --wpds-color-stroke-surface-warning );
+	--bs-alert-color: var( --wpds-color-fg-content-warning );
 }
 
 .alert-danger {
-  --bs-alert-bg: var(--wpds-color-bg-surface-error-weak);
-  --bs-alert-border-color: var(--wpds-color-stroke-surface-error);
-  --bs-alert-color: var(--wpds-color-fg-content-error);
+	--bs-alert-bg: var( --wpds-color-bg-surface-error-weak );
+	--bs-alert-border-color: var( --wpds-color-stroke-surface-error );
+	--bs-alert-color: var( --wpds-color-fg-content-error );
 }
 
 .progress {
-  background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var( --wpds-color-bg-surface-neutral-weak );
 }
 
 .progress-bar {
-  background-color: var(--wpds-color-bg-interactive-brand-strong);
+	background-color: var( --wpds-color-bg-interactive-brand-strong );
 }
 
 // Older phpMyAdmin screens use custom panels instead of Bootstrap components.
 .pma-fieldset,
 .result_query div.sqlOuter {
-  background: var(--wpds-color-bg-surface-neutral-strong);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
-  text-shadow: none;
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	text-shadow: none;
+}
+
+.pma-fieldset {
+	margin-top: var( --wpds-dimension-margin-lg );
+	padding: var( --wpds-dimension-padding-md );
+	border-radius: var( --wpds-border-radius-lg );
+	box-shadow: none;
 }
 
 .pma-fieldset legend {
-  background: var(--wpds-color-bg-surface-neutral-strong);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  box-shadow: none;
-  color: var(--wpds-color-fg-content-neutral);
-  text-shadow: none;
+	background: var( --wpds-color-bg-surface-neutral-strong );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	box-shadow: none;
+	color: var( --wpds-color-fg-content-neutral );
+	text-shadow: none;
+	width: auto;
+	margin: 0;
+	padding: 0 var( --wpds-dimension-padding-xs );
+	border: 0;
+	font-size: var( --wpds-typography-font-size-lg );
 }
 
 .pma-fieldset.tblFooters,
 .result_query > .tools {
-  background: var(--wpds-color-bg-surface-neutral-weak);
-  border-color: var(--wpds-color-stroke-surface-neutral);
-  color: var(--wpds-color-fg-content-neutral);
-  text-shadow: none;
+	background: var( --wpds-color-bg-surface-neutral-weak );
+	border-color: var( --wpds-color-stroke-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	text-shadow: none;
+}
+
+.result_query > .tools {
+	padding: var( --wpds-dimension-padding-xs ) var( --wpds-dimension-padding-md );
 }

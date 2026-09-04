@@ -197,6 +197,52 @@ describe( 'createLocalConnector Connect contracts', () => {
 			progress: 20,
 		} );
 	} );
+
+	it( 'forwards preview publishing progress from the snapshot event stream', async () => {
+		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
+		class MockEventSource {
+			set onmessage( listener: ( ( event: MessageEvent ) => void ) | null ) {
+				onMessage = listener;
+			}
+
+			close() {}
+		}
+		vi.stubGlobal( 'EventSource', MockEventSource );
+		fetchMock.mockResolvedValue(
+			new Response( JSON.stringify( { operationId: 'preview-operation' } ) )
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const onProgress = vi.fn();
+		await connector.init?.();
+
+		const publishing = connector.publishPreviewSite( 'site-1', undefined, onProgress );
+		await vi.waitFor( () => expect( fetchMock ).toHaveBeenCalled() );
+		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+		const emitSnapshot = ( payload: object ) =>
+			onMessage?.(
+				new MessageEvent( 'message', {
+					data: JSON.stringify( { channel: 'snapshot', payload } ),
+				} )
+			);
+		emitSnapshot( {
+			kind: 'output',
+			operationId: 'preview-operation',
+			data: { action: 'upload', status: 'inprogress', message: 'Uploading archive' },
+		} );
+		emitSnapshot( {
+			kind: 'key-value',
+			operationId: 'preview-operation',
+			data: { key: 'url', value: 'preview.wp.build' },
+		} );
+		emitSnapshot( { kind: 'success', operationId: 'preview-operation' } );
+
+		await expect( publishing ).resolves.toEqual( { url: 'preview.wp.build' } );
+		expect( onProgress ).toHaveBeenCalledWith( {
+			action: 'upload',
+			status: 'inprogress',
+			message: 'Uploading archive',
+		} );
+	} );
 } );
 
 // Missing routes make `api()` throw and the button silently never appear, so

@@ -28,6 +28,7 @@ import {
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { reportSyncPending, reportSyncProgress, reportSyncSuccess } from '@/data/sync-activity';
 import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { useThemeDetails } from '@/hooks/use-theme-details';
@@ -170,10 +171,16 @@ vi.mock( '@/hooks/use-theme-details', () => ( {
 	useThemeDetails: vi.fn(),
 } ) );
 
-vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
-	reportSyncProgress: reportSyncProgressMock,
-} ) );
+vi.mock( '@/data/sync-activity', async ( importOriginal ) => {
+	const original = await importOriginal< typeof import('@/data/sync-activity') >();
+	return {
+		...original,
+		reportSyncProgress: ( ...args: Parameters< typeof original.reportSyncProgress > ) => {
+			reportSyncProgressMock( ...args );
+			return original.reportSyncProgress( ...args );
+		},
+	};
+} );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
@@ -603,7 +610,7 @@ describe( 'SiteOverviewView', () => {
 	it( 'publishes a preview site from its empty state', () => {
 		renderView();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Publish a preview site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New preview' } ) );
 
 		expect( publishPreviewSite ).toHaveBeenCalledWith( { siteId: 'site-1' } );
 	} );
@@ -616,9 +623,25 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.getByText( 'Sign in to publish a preview site and share your work.' )
 		).toBeVisible();
-		expect(
-			screen.queryByRole( 'button', { name: 'Publish a preview site' } )
-		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'New preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows preview publishing progress before the preview has a URL', () => {
+		reportSyncPending( 'site-1', 'preview' );
+		reportSyncProgress( 'site-1', 'preview', {
+			message: 'Uploading archive…',
+			progress: 40,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'Uploading archive…' ) ).toBeVisible();
+		expect( screen.getByText( 'In progress' ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar', { name: 'Publishing preview' } ) ).toHaveAttribute(
+			'aria-valuenow',
+			'40'
+		);
+		reportSyncSuccess( 'site-1', 'preview' );
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

@@ -1,13 +1,13 @@
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { plus } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { Fragment, useMemo } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/hooks/use-offline';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './cards.module.css';
@@ -25,21 +25,52 @@ import type { SiteDetails, Snapshot } from '@/data/core';
 const LIFETIME_MS = DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
 
 export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
+	return (
+		<CardSection
+			title={ __( 'Preview sites' ) }
+			action={ <PreviewSitePublishAction site={ site } presentation="overview" /> }
+		>
+			<PreviewSitesList site={ site } />
+		</CardSection>
+	);
+}
+
+export function PreviewSitePublishAction( {
+	site,
+	presentation,
+}: {
+	site: SiteDetails;
+	presentation: 'overview' | 'dialog';
+} ) {
 	const { data: authUser } = useAuthUser();
 	const isOffline = useOffline();
-	const { data: allSnapshots } = useSnapshots( authUser?.id );
 	const { data: usage } = useSnapshotUsage( authUser?.id );
 	const publishPreviewSite = usePublishPreviewSite();
 
-	const snapshots = useMemo(
-		() =>
-			( allSnapshots ?? [] )
-				.filter( ( snapshot ) => snapshot.localSiteId === site.id )
-				.sort( ( a, b ) => b.date - a.date ),
-		[ allSnapshots, site.id ]
-	);
+	if ( ! authUser ) {
+		return null;
+	}
 
-	const publishAction = authUser ? (
+	const disabled = publishPreviewSite.isPending || isOffline || usage?.siteCreationBlocked === true;
+	const publish = () => publishPreviewSite.mutate( { siteId: site.id } );
+
+	if ( presentation === 'dialog' ) {
+		return (
+			<Button
+				variant="solid"
+				tone="brand"
+				size="small"
+				disabled={ disabled }
+				loading={ publishPreviewSite.isPending }
+				loadingAnnouncement={ __( 'Publishing preview site' ) }
+				onClick={ publish }
+			>
+				{ __( 'New preview' ) }
+			</Button>
+		);
+	}
+
+	return (
 		<div className={ styles.headerActions }>
 			{ usage && usage.siteLimit > 0 ? (
 				<Tooltip.Root>
@@ -65,27 +96,42 @@ export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 					</Tooltip.Popup>
 				</Tooltip.Root>
 			) : null }
-			<IconButton
+			<Button
 				variant="minimal"
 				tone="neutral"
 				size="small"
-				icon={ plus }
-				label={ __( 'Publish a preview site' ) }
-				disabled={ publishPreviewSite.isPending || isOffline }
+				disabled={ disabled }
 				loading={ publishPreviewSite.isPending }
 				loadingAnnouncement={ __( 'Publishing preview site' ) }
-				onClick={ () => publishPreviewSite.mutate( { siteId: site.id } ) }
-			/>
+				onClick={ publish }
+			>
+				{ __( 'New preview' ) }
+			</Button>
 		</div>
-	) : null;
+	);
+}
+
+export function PreviewSitesList( { site }: { site: SiteDetails } ) {
+	const { data: authUser } = useAuthUser();
+	const { data: allSnapshots } = useSnapshots( authUser?.id );
+	const snapshots = useMemo(
+		() =>
+			( allSnapshots ?? [] )
+				.filter( ( snapshot ) => snapshot.localSiteId === site.id )
+				.sort( ( a, b ) => b.date - a.date ),
+		[ allSnapshots, site.id ]
+	);
+	const activity = useSiteSyncActivity( site.id );
+	const pendingPreview =
+		activity?.kind === 'pending' && activity.direction === 'preview' ? activity : null;
 
 	return (
-		<CardSection title={ __( 'Preview sites' ) } action={ publishAction }>
+		<>
 			{ ! authUser ? (
 				<CardEmptyState>
 					{ __( 'Sign in to publish a preview site and share your work.' ) }
 				</CardEmptyState>
-			) : ! snapshots.length ? (
+			) : ! snapshots.length && ! pendingPreview ? (
 				<CardEmptyState>
 					{ sprintf(
 						// translators: %d: number of days a preview site stays online.
@@ -99,6 +145,15 @@ export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 				</CardEmptyState>
 			) : (
 				<CardRows>
+					{ pendingPreview && (
+						<>
+							<PreviewPublishingRow
+								message={ pendingPreview.message ?? __( 'Preparing site…' ) }
+								progress={ pendingPreview.progress ?? 5 }
+							/>
+							{ snapshots.length > 0 && <RowDivider /> }
+						</>
+					) }
 					{ snapshots.map( ( snapshot, index ) => (
 						<Fragment key={ snapshot.url }>
 							{ index > 0 && <RowDivider /> }
@@ -107,7 +162,36 @@ export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 					) ) }
 				</CardRows>
 			) }
-		</CardSection>
+		</>
+	);
+}
+
+function PreviewPublishingRow( { message, progress }: { message: string; progress: number } ) {
+	const boundedProgress = Math.min( 100, Math.max( 0, progress ) );
+
+	return (
+		<CardResourceRow
+			label={ __( 'New preview' ) }
+			actions={
+				<div className={ styles.previewProgress }>
+					<span>{ message }</span>
+					<div
+						className={ styles.previewProgressTrack }
+						role="progressbar"
+						aria-label={ __( 'Publishing preview' ) }
+						aria-valuemin={ 0 }
+						aria-valuemax={ 100 }
+						aria-valuenow={ boundedProgress }
+					>
+						<span
+							className={ styles.previewProgressValue }
+							style={ { inlineSize: `${ boundedProgress }%` } }
+						/>
+					</div>
+				</div>
+			}
+			status={ <CardRowBadge intent="medium">{ __( 'In progress' ) }</CardRowBadge> }
+		/>
 	);
 }
 

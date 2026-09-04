@@ -84,7 +84,7 @@ export function reportSyncPending( siteId: string, direction: SyncDirection ): v
 
 export function reportSyncProgress(
 	siteId: string,
-	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	direction: Extract< SyncDirection, 'pull' | 'preview' | 'import' >,
 	progress: ActivityProgress
 ): void {
 	clearExpiryTimer( siteId );

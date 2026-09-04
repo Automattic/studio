@@ -2,3 +2,10 @@
 	width: min(640px, calc(100vw - 32px));
 	max-width: 640px;
 }
+
+.intro {
+	margin: 0 0 var(--wpds-dimension-padding-lg);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}

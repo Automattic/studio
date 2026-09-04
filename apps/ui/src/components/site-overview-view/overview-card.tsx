@@ -73,7 +73,7 @@ export function CardResourceRow( {
 	status,
 }: {
 	label: string;
-	url: string;
+	url?: string;
 	tooltip?: string;
 	meta?: ReactNode;
 	metaClassName?: string;
@@ -84,7 +84,9 @@ export function CardResourceRow( {
 	return (
 		<div className={ styles.row }>
 			<div className={ styles.rowLine }>
-				{ expired ? (
+				{ ! url ? (
+					<span className={ styles.rowTitle }>{ label }</span>
+				) : expired ? (
 					<span className={ clsx( styles.rowTitle, styles.rowTitleExpired ) } title={ url }>
 						{ label }
 					</span>

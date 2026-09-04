@@ -16,6 +16,7 @@ export type {
 	LoadedAiSession,
 	OnboardingHintsState,
 	ProposedSitePath,
+	PreviewSiteProgress,
 	PullSiteProgress,
 	PullSyncOptions,
 	PushPhase,

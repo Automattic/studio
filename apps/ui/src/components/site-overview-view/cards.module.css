@@ -131,6 +131,32 @@
 	white-space: nowrap;
 }
 
+.previewProgress {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.previewProgressTrack {
+	width: 80px;
+	height: 4px;
+	overflow: hidden;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-background-surface-neutral-weak);
+}
+
+.previewProgressValue {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--wpds-color-background-interactive-brand-strong);
+	transition: inline-size 160ms ease;
+}
+
 .rowDivider {
 	height: var(--wpds-border-width-xs);
 	background: var(--wpds-color-stroke-surface-neutral-weak);

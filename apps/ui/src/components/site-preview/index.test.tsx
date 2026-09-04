@@ -943,22 +943,8 @@ describe( 'getSimulatedViewport', () => {
 	} );
 } );
 
-describe( 'getSimulatedViewport at a fixed zoom', () => {
-	it( 'holds the preset at the zoom instead of fitting the pane', () => {
-		expect(
-			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 }, 1, 1.5 )
-		).toEqual( {
-			width: 1440,
-			height: 900,
-			scale: 1.5,
-			mobile: false,
-		} );
-	} );
-} );
-
 describe( 'getZoomedPaneViewport', () => {
-	it( 'shows the pane as is at automatic and 100%', () => {
-		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 'auto' ) ).toBe( null );
+	it( 'shows the pane as is at 100%', () => {
 		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1 ) ).toBe( null );
 		expect( getZoomedPaneViewport( null, 1, 1.5 ) ).toBe( null );
 	} );
@@ -1206,32 +1192,35 @@ describe( 'SitePreview responsive emulation', () => {
 		expect( webview.parentElement ).not.toHaveAttribute( 'style' );
 	} );
 
-	it( 'holds a preset at a fixed zoom, larger than the pane if need be', async () => {
-		const { webview, setWebviewViewport } = renderWebviewPreview();
+	it( 'offers zoom for the natural view only, and keeps it for the return trip', async () => {
+		const { setWebviewViewport } = renderWebviewPreview();
 
-		await selectResponsiveMode( 'Desktop · 1440×900' );
-		// Radio items keep the menu open, so the zoom level is one more click.
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: '150%' } ) );
-
+		await selectResponsiveMode( '150%' );
 		await waitFor( () =>
-			expect( setWebviewViewport ).toHaveBeenLastCalledWith( 7, {
-				width: 1440,
-				height: 900,
-				scale: 1.5,
-				mobile: false,
-			} )
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { scale: 1.5 } )
+			)
 		);
-		expect( webview.parentElement ).toHaveStyle( { width: '2160px', height: '1350px' } );
-	} );
 
-	it( 'keeps the comparison at automatic zoom, which sizes its own frames', async () => {
-		renderWebviewPreview( { onFullscreenChange: vi.fn(), fullscreen: true } );
+		// A preset is already a device frame scaled to fit, so the zoom group
+		// gives way (radio items keep the menu open).
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Desktop · 1440×900' } ) );
+		expect( screen.queryByText( 'Zoom' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { width: 1440, scale: ( PANE_SIZE.width - 32 ) / 1440 } )
+			)
+		);
 
-		await selectResponsiveMode( 'Desktop + Mobile' );
-
-		expect( screen.getByRole( 'menuitemradio', { name: '150%' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: '150%' } ) ).toBeChecked();
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { width: 600, scale: 1.5 } )
+			)
 		);
 	} );
 

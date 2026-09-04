@@ -177,10 +177,10 @@ const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
 // the side-by-side comparison of the desktop and mobile presets.
 type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
 
-// How large the previewed page renders: 'auto' fits the pane (a simulated
-// preset scales down to fit; the natural view is 1:1), or a fixed number of
-// device px per page CSS px — browser zoom, for the preview alone.
-export type PreviewZoom = 'auto' | number;
+// How large the natural (fit-to-pane) view renders its page, in device px
+// per page CSS px — browser zoom, for the preview alone. Simulated presets
+// always fit the pane, so it doesn't apply to them.
+export type PreviewZoom = number;
 
 export const PREVIEW_ZOOM_LEVELS = [ 0.5, 0.75, 1, 1.25, 1.5, 2 ] as const;
 
@@ -236,8 +236,8 @@ export interface PreviewViewport {
 
 /**
  * The viewport to simulate for a preset inside a pane of the given size:
- * the preset's exact dimensions, scaled down (never up) to fit both axes
- * like a device frame, or held at a fixed `zoom`.
+ * the preset's exact dimensions, scaled down (never up) to fit both axes,
+ * like a device frame.
  *
  * The pane is measured in the host document's CSS px, which the app's zoom
  * scales; the preset is in device px, which it doesn't. `zoomFactor` converts
@@ -246,40 +246,35 @@ export interface PreviewViewport {
 export function getSimulatedViewport(
 	preset: { width: number; height: number; mobile?: boolean } | null,
 	pane: { width: number; height: number } | null,
-	zoomFactor = 1,
-	zoom: PreviewZoom = 'auto'
+	zoomFactor = 1
 ): PreviewViewport | null {
 	if ( ! preset || ! pane || pane.width <= 0 || pane.height <= 0 ) {
 		return null;
 	}
-	const scale =
-		zoom === 'auto'
-			? Math.min(
-					1,
-					( pane.width * zoomFactor ) / preset.width,
-					( pane.height * zoomFactor ) / preset.height
-			  )
-			: zoom;
 	return {
 		width: preset.width,
 		height: preset.height,
-		scale,
+		scale: Math.min(
+			1,
+			( pane.width * zoomFactor ) / preset.width,
+			( pane.height * zoomFactor ) / preset.height
+		),
 		mobile: Boolean( preset.mobile ),
 	};
 }
 
 /**
- * The viewport to simulate for the natural (fit-to-pane) view at a fixed
- * zoom: the page lays out at the pane's device size divided by the zoom and
- * renders back up to fill it — browser zoom in emulation terms, which keeps
- * the guest itself at 1:1. Null at 'auto' and 100%, where the pane shows as is.
+ * The viewport to simulate for the natural (fit-to-pane) view at a zoom
+ * other than 100%: the page lays out at the pane's device size divided by
+ * the zoom and renders back up to fill it — browser zoom in emulation terms,
+ * which keeps the guest itself at 1:1. Null at 100%, where the pane shows as is.
  */
 export function getZoomedPaneViewport(
 	pane: { width: number; height: number } | null,
 	zoomFactor: number,
 	zoom: PreviewZoom
 ): PreviewViewport | null {
-	if ( zoom === 'auto' || zoom === 1 || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+	if ( zoom === 1 || ! pane || pane.width <= 0 || pane.height <= 0 ) {
 		return null;
 	}
 	return {
@@ -703,6 +698,32 @@ function PreviewOverflowMenu( {
 						<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
 					</Menu.RadioGroup>
 				</Menu.Group>
+				{ viewportMode === 'fit' ? (
+					// Zoom belongs to the natural view alone: a preset is already a
+					// device frame scaled to fit, so it takes the group's place in
+					// the menu, the way the phone frame brings its orientation.
+					<>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Zoom' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ String( previewZoom ) }
+								onValueChange={ ( next ) => onPreviewZoomChange( Number( next ) ) }
+								disabled={ viewportControlsDisabled }
+							>
+								{ PREVIEW_ZOOM_LEVELS.map( ( level ) => (
+									<Menu.RadioItem key={ level } value={ String( level ) }>
+										{ sprintf(
+											/* translators: %d: zoom level as a percentage */
+											__( '%d%%' ),
+											level * 100
+										) }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Group>
+					</>
+				) : null }
 				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
 					<>
 						<Menu.Separator />
@@ -719,30 +740,6 @@ function PreviewOverflowMenu( {
 						</Menu.Group>
 					</>
 				) : null }
-				<Menu.Separator />
-				<Menu.Group>
-					<Menu.GroupLabel>{ __( 'Zoom' ) }</Menu.GroupLabel>
-					<Menu.RadioGroup
-						value={ String( previewZoom ) }
-						onValueChange={ ( next ) =>
-							onPreviewZoomChange( next === 'auto' ? 'auto' : Number( next ) )
-						}
-						// The comparison sizes both frames to share the pane, so a
-						// fixed zoom has nowhere to apply until a single-frame mode.
-						disabled={ viewportControlsDisabled || viewportMode === 'split' }
-					>
-						<Menu.RadioItem value="auto">{ __( 'Automatic' ) }</Menu.RadioItem>
-						{ PREVIEW_ZOOM_LEVELS.map( ( level ) => (
-							<Menu.RadioItem key={ level } value={ String( level ) }>
-								{ sprintf(
-									/* translators: %d: zoom level as a percentage */
-									__( '%d%%' ),
-									level * 100
-								) }
-							</Menu.RadioItem>
-						) ) }
-					</Menu.RadioGroup>
-				</Menu.Group>
 				{ onFullscreenChange ? (
 					<>
 						<Menu.Separator />
@@ -931,7 +928,7 @@ export function SitePreview( {
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
-	const [ previewZoom, setPreviewZoom ] = useState< PreviewZoom >( 'auto' );
+	const [ previewZoom, setPreviewZoom ] = useState< PreviewZoom >( 1 );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
@@ -998,18 +995,17 @@ export function SitePreview( {
 	// The viewport a responsive surface simulates. No emulation while the site
 	// is stopped: the empty state renders in the plain pane, and the chosen mode
 	// re-applies on start.
-	// The comparison sizes both frames to share the pane, so it keeps the
-	// automatic zoom; the picked level applies again in a single-frame mode.
-	const effectiveZoom: PreviewZoom = splitPreview ? 'auto' : previewZoom;
+	// A preset fits the pane; only the natural view carries the zoom, which
+	// waits for the preview to return to it.
 	const previewViewport = useMemo( () => {
 		if ( ! canPreview ) {
 			return null;
 		}
 		if ( activePreset ) {
-			return getSimulatedViewport( activePreset, primaryPaneSize, zoomFactor, effectiveZoom );
+			return getSimulatedViewport( activePreset, primaryPaneSize, zoomFactor );
 		}
-		return getZoomedPaneViewport( paneSize, zoomFactor, effectiveZoom );
-	}, [ activePreset, canPreview, effectiveZoom, paneSize, primaryPaneSize, zoomFactor ] );
+		return getZoomedPaneViewport( paneSize, zoomFactor, previewZoom );
+	}, [ activePreset, canPreview, paneSize, previewZoom, primaryPaneSize, zoomFactor ] );
 
 	const patchSurface = useCallback(
 		( key: PreviewSurfaceKey, patch: Partial< PreviewSurfaceState > ) => {
@@ -1219,7 +1215,7 @@ export function SitePreview( {
 		const remembered = viewportBySiteRef.current[ site.id ];
 		setViewportMode( remembered?.mode ?? 'fit' );
 		setMobileOrientation( remembered?.orientation ?? 'portrait' );
-		setPreviewZoom( remembered?.zoom ?? 'auto' );
+		setPreviewZoom( remembered?.zoom ?? 1 );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to

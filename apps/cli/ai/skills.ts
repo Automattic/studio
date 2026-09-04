@@ -72,6 +72,7 @@ export function findSkill( name: string ): Skill | undefined {
 }
 
 export interface DesignConcept {
+	role: string;
 	category: string;
 	name: string;
 	body: string;
@@ -79,8 +80,9 @@ export interface DesignConcept {
 
 let cachedConcepts: DesignConcept[] | null = null;
 
-// Parses `visual-design/concepts.md`: `## ` headings are categories and
-// `### ` headings are concepts, each keeping its own markdown body.
+// Parses `visual-design/concepts.md`: `## ` headings are roles (Moment,
+// System, Detail), `### ` headings are categories within a role, and
+// `#### ` headings are concepts, each keeping its own markdown body.
 export function loadDesignConcepts(): DesignConcept[] {
 	if ( cachedConcepts ) return cachedConcepts;
 	const conceptsPath = getSkillPath( 'visual-design', 'concepts.md' );
@@ -89,17 +91,20 @@ export function loadDesignConcepts(): DesignConcept[] {
 		return cachedConcepts;
 	}
 	const concepts: DesignConcept[] = [];
+	let role = '';
 	let category = '';
 	for ( const section of fs.readFileSync( conceptsPath, 'utf-8' ).split( /^(?=##+ )/m ) ) {
 		const heading = section.match( /^(##+) (.+)$/m );
 		if ( ! heading ) continue;
 		const [ , level, title ] = heading;
 		if ( level === '##' ) {
+			role = title.trim();
+			category = '';
+		} else if ( level === '###' ) {
 			category = title.trim();
-			continue;
-		}
-		if ( level === '###' && category ) {
+		} else if ( level === '####' && role && category ) {
 			concepts.push( {
+				role,
 				category,
 				name: title.trim(),
 				body: section.slice( heading[ 0 ].length ).trim(),
@@ -119,41 +124,51 @@ function shuffle< T >( items: T[], random: () => number ): T[] {
 	return result;
 }
 
-// Picks `count` concepts spread across categories (round-robin over a
-// shuffled category order, one random concept per category per round) and
-// returns them in random order, so neither the pick nor its position in
-// the list is stable between two loads of the skill.
+function groupBy( concepts: DesignConcept[], key: 'role' | 'category' ): DesignConcept[][] {
+	const groups = new Map< string, DesignConcept[] >();
+	for ( const concept of concepts ) {
+		groups.set( concept[ key ], [ ...( groups.get( concept[ key ] ) ?? [] ), concept ] );
+	}
+	return [ ...groups.values() ];
+}
+
+// Picks `perRole` concepts for each role, spread across that role's
+// categories (round-robin over a shuffled category order, one random
+// concept per category per round) and shuffled within the role, so neither
+// the pick nor its position in the list is stable between two loads.
 export function sampleDesignConcepts(
-	count: number,
+	perRole: number,
 	random: () => number = Math.random
 ): DesignConcept[] {
-	const byCategory = new Map< string, DesignConcept[] >();
-	for ( const concept of loadDesignConcepts() ) {
-		byCategory.set( concept.category, [
-			...( byCategory.get( concept.category ) ?? [] ),
-			concept,
-		] );
-	}
-	const pools = shuffle( [ ...byCategory.values() ], random ).map( ( pool ) =>
-		shuffle( pool, random )
-	);
-	const picked: DesignConcept[] = [];
-	while ( picked.length < count && pools.some( ( pool ) => pool.length > 0 ) ) {
-		for ( const pool of pools ) {
-			if ( picked.length >= count ) break;
-			const concept = pool.pop();
-			if ( concept ) picked.push( concept );
+	return groupBy( loadDesignConcepts(), 'role' ).flatMap( ( roleConcepts ) => {
+		const pools = shuffle( groupBy( roleConcepts, 'category' ), random ).map( ( pool ) =>
+			shuffle( pool, random )
+		);
+		const picked: DesignConcept[] = [];
+		while ( picked.length < perRole && pools.some( ( pool ) => pool.length > 0 ) ) {
+			for ( const pool of pools ) {
+				if ( picked.length >= perRole ) break;
+				const concept = pool.pop();
+				if ( concept ) picked.push( concept );
+			}
 		}
-	}
-	return shuffle( picked, random );
+		return shuffle( picked, random );
+	} );
 }
 
 export const CONCEPT_SHORTLIST_PLACEHOLDER = '{{concept-shortlist}}';
-const CONCEPT_SHORTLIST_SIZE = 10;
+const CONCEPTS_PER_ROLE = 4;
 
 function renderConceptShortlist(): string {
-	return sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE )
-		.map( ( concept ) => `#### ${ concept.name } (${ concept.category })\n${ concept.body }` )
+	return groupBy( sampleDesignConcepts( CONCEPTS_PER_ROLE ), 'role' )
+		.map( ( concepts ) =>
+			[
+				`### ${ concepts[ 0 ].role }`,
+				...concepts.map(
+					( concept ) => `#### ${ concept.name } (${ concept.category })\n${ concept.body }`
+				),
+			].join( '\n\n' )
+		)
 		.join( '\n\n' );
 }
 

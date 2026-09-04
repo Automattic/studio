@@ -7,6 +7,8 @@ import {
 	sampleDesignConcepts,
 } from '../skills';
 
+const ROLES = [ 'Moment', 'System', 'Detail' ];
+
 function seededRandom( seed: number ): () => number {
 	let state = seed;
 	return () => {
@@ -18,9 +20,15 @@ function seededRandom( seed: number ): () => number {
 describe( 'design concepts catalog', () => {
 	const concepts = loadDesignConcepts();
 
-	it( 'holds at least 100 concepts spread over at least 10 categories', () => {
-		expect( concepts.length ).toBeGreaterThanOrEqual( 100 );
-		expect( new Set( concepts.map( ( c ) => c.category ) ).size ).toBeGreaterThanOrEqual( 10 );
+	it( 'holds at least 130 concepts over three roles with several categories each', () => {
+		expect( concepts.length ).toBeGreaterThanOrEqual( 130 );
+		expect( [ ...new Set( concepts.map( ( c ) => c.role ) ) ] ).toEqual( ROLES );
+		for ( const role of ROLES ) {
+			const categories = new Set(
+				concepts.filter( ( c ) => c.role === role ).map( ( c ) => c.category )
+			);
+			expect( categories.size, role ).toBeGreaterThanOrEqual( 3 );
+		}
 	} );
 
 	it( 'gives every concept a unique name and fit, build, and fallback notes', () => {
@@ -34,26 +42,38 @@ describe( 'design concepts catalog', () => {
 } );
 
 describe( 'sampleDesignConcepts', () => {
-	it( 'returns the requested count with one concept per category', () => {
-		const sample = sampleDesignConcepts( 10, seededRandom( 1 ) );
-		expect( sample ).toHaveLength( 10 );
-		expect( new Set( sample.map( ( c ) => c.category ) ).size ).toBe( 10 );
+	it( 'returns the requested count per role, spread across its categories', () => {
+		const sample = sampleDesignConcepts( 4, seededRandom( 1 ) );
+		expect( sample ).toHaveLength( 12 );
+		for ( const role of ROLES ) {
+			const forRole = sample.filter( ( c ) => c.role === role );
+			const categoryCount = new Set(
+				loadDesignConcepts()
+					.filter( ( c ) => c.role === role )
+					.map( ( c ) => c.category )
+			).size;
+			expect( forRole, role ).toHaveLength( 4 );
+			expect( new Set( forRole.map( ( c ) => c.category ) ).size, role ).toBe(
+				Math.min( 4, categoryCount )
+			);
+		}
 	} );
 
 	it( 'changes between loads', () => {
 		const names = ( seed: number ) =>
-			sampleDesignConcepts( 10, seededRandom( seed ) ).map( ( c ) => c.name );
+			sampleDesignConcepts( 4, seededRandom( seed ) ).map( ( c ) => c.name );
 		expect( names( 1 ) ).not.toEqual( names( 2 ) );
 	} );
 } );
 
 describe( 'renderSkillBody', () => {
-	it( 'fills the visual-design shortlist with a fresh sample', () => {
+	it( 'fills the visual-design shortlist with a fresh sample grouped by role', () => {
 		const skill = findSkill( 'visual-design' );
 		expect( skill?.body ).toContain( CONCEPT_SHORTLIST_PLACEHOLDER );
 		const rendered = renderSkillBody( skill! );
 		expect( rendered ).not.toContain( CONCEPT_SHORTLIST_PLACEHOLDER );
-		expect( rendered.match( /^#### .+ \(.+\)$/gm ) ).toHaveLength( 10 );
+		expect( rendered.match( /^### (Moment|System|Detail)$/gm ) ).toHaveLength( 3 );
+		expect( rendered.match( /^#### .+ \(.+\)$/gm ) ).toHaveLength( 12 );
 	} );
 
 	it( 'leaves skills without placeholders untouched', () => {

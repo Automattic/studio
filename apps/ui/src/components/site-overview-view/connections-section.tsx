@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { Fragment, useState } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { PublishSiteDialog } from '@/components/site-toolbar/publish-site-dialog';
+import { SyncDialog, type SyncDirection } from '@/components/site-toolbar/sync-dialog';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -26,6 +27,7 @@ import {
 	RowDivider,
 } from './overview-card';
 import type { SiteDetails, SyncSite } from '@/data/core';
+import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
 const STALE_SYNC_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -34,8 +36,26 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	const login = useLogin( { source: 'overview_tab' } );
 	const isOffline = useOffline();
 	const [ connectOpen, setConnectOpen ] = useState( false );
+	const [ syncRequest, setSyncRequest ] = useState< {
+		direction: SyncDirection;
+		targetId: number;
+	} | null >( null );
 	const { data: connections, isLoading } = useConnectedWpcomSites( site.id );
 	const hasConnections = Boolean( connections?.length );
+	const pushSiteToLive = usePushSiteToLive();
+	const pullSiteFromLive = usePullSiteFromLive();
+
+	const runSync = (
+		direction: SyncDirection,
+		target: SyncSite,
+		options: PushSyncOptions | PullSyncOptions | undefined
+	) => {
+		if ( direction === 'pull' ) {
+			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: target.id, options } );
+			return;
+		}
+		pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: target.id, options } );
+	};
 
 	const connectButton = (
 		<CardHeaderAction
@@ -67,7 +87,14 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 						{ connections?.map( ( connection, index ) => (
 							<Fragment key={ connection.id }>
 								{ index > 0 && <RowDivider /> }
-								<ConnectionRow site={ site } connection={ connection } busy={ busy } />
+								<ConnectionRow
+									site={ site }
+									connection={ connection }
+									busy={ busy }
+									onSync={ ( direction ) =>
+										setSyncRequest( { direction, targetId: connection.id } )
+									}
+								/>
 							</Fragment>
 						) ) }
 					</CardRows>
@@ -95,6 +122,21 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 			{ connectOpen ? (
 				<PublishSiteDialog site={ site } open onOpenChange={ setConnectOpen } />
 			) : null }
+			{ syncRequest && connections ? (
+				<SyncDialog
+					siteId={ site.id }
+					connections={ connections }
+					open
+					initialDirection={ syncRequest.direction }
+					initialTargetId={ syncRequest.targetId }
+					onOpenChange={ ( open ) => {
+						if ( ! open ) {
+							setSyncRequest( null );
+						}
+					} }
+					onRun={ runSync }
+				/>
+			) : null }
 		</>
 	);
 }
@@ -103,15 +145,15 @@ function ConnectionRow( {
 	site,
 	connection,
 	busy,
+	onSync,
 }: {
 	site: SiteDetails;
 	connection: SyncSite;
 	busy: boolean;
+	onSync: ( direction: SyncDirection ) => void;
 } ) {
 	const connector = useConnector();
 	const isOffline = useOffline();
-	const pushSiteToLive = usePushSiteToLive();
-	const pullSiteFromLive = usePullSiteFromLive();
 	const { push: isPushing, pull: isPulling } = useIsSiteSyncing( site.id );
 	const syncing = isPushing || isPulling;
 	const disabled = syncing || busy || isOffline;
@@ -131,9 +173,7 @@ function ConnectionRow( {
 						type="button"
 						tooltip={ sprintf( __( 'Pull changes from %s' ), stripProtocol( connection.url ) ) }
 						disabled={ disabled }
-						onClick={ () =>
-							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
-						}
+						onClick={ () => onSync( 'pull' ) }
 					>
 						{ isPulling ? __( 'Pulling…' ) : __( 'Pull' ) }
 					</CardRowAction>
@@ -141,9 +181,7 @@ function ConnectionRow( {
 						type="button"
 						tooltip={ sprintf( __( 'Push local changes to %s' ), stripProtocol( connection.url ) ) }
 						disabled={ disabled }
-						onClick={ () =>
-							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
-						}
+						onClick={ () => onSync( 'push' ) }
 					>
 						{ isPushing ? __( 'Pushing…' ) : __( 'Push' ) }
 					</CardRowAction>

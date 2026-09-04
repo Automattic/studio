@@ -570,7 +570,7 @@ describe( 'SiteOverviewView', () => {
 		expect( login ).toHaveBeenCalled();
 	} );
 
-	it( 'shows a connected site with direct sync actions and its type', () => {
+	it( 'opens the sync modal from a connected site action', () => {
 		useConnectedWpcomSitesMock.mockReturnValue( {
 			data: [ CONNECTED_SITE ],
 			isLoading: false,
@@ -583,10 +583,25 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Production' ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-		expect( pullSiteFromLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Sync this site' );
+		expect( pullSiteFromLive ).not.toHaveBeenCalled();
+		const pullButtons = screen.getAllByRole( 'button', { name: 'Pull' } );
+		fireEvent.click( pullButtons[ pullButtons.length - 1 ] );
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( {
+			siteId: 'site-1',
+			remoteSiteId: 42,
+			options: undefined,
+		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
-		expect( pushSiteToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+		expect( pushSiteToLive ).not.toHaveBeenCalled();
+		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
+		fireEvent.click( pushButtons[ pushButtons.length - 1 ] );
+		expect( pushSiteToLive ).toHaveBeenCalledWith( {
+			siteId: 'site-1',
+			remoteSiteId: 42,
+			options: undefined,
+		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Copy URL' } ) );
 		expect( copyText ).toHaveBeenCalledWith( 'https://demo.example.com' );

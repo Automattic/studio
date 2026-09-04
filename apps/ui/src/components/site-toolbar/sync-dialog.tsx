@@ -20,6 +20,8 @@ type Props = {
 	siteId: string;
 	connections: SyncSite[];
 	open: boolean;
+	initialDirection?: SyncDirection;
+	initialTargetId?: number | null;
 	onOpenChange: ( open: boolean ) => void;
 	onRun: (
 		direction: SyncDirection,
@@ -62,10 +64,18 @@ function describeConnection( connection: SyncSite, direction: SyncDirection ): s
  * connection is stored, so two connections can both read "Production". The URL
  * is always right.
  */
-export function SyncDialog( { siteId, connections, open, onOpenChange, onRun }: Props ) {
+export function SyncDialog( {
+	siteId,
+	connections,
+	open,
+	initialDirection = 'push',
+	initialTargetId = null,
+	onOpenChange,
+	onRun,
+}: Props ) {
 	const connector = useConnector();
-	const [ direction, setDirection ] = useState< SyncDirection >( 'push' );
-	const [ targetId, setTargetId ] = useState< number | null >( null );
+	const [ direction, setDirection ] = useState< SyncDirection >( initialDirection );
+	const [ targetId, setTargetId ] = useState< number | null >( initialTargetId );
 	const [ tree, setTree ] = useState< TreeNode[] >( createInitialTree );
 
 	const target = connections.find( ( candidate ) => candidate.id === targetId ) ?? connections[ 0 ];

@@ -31,60 +31,73 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 	const isOffline = useOffline();
 	const [ connectOpen, setConnectOpen ] = useState( false );
 	const { data: connections, isLoading } = useConnectedWpcomSites( site.id );
+	const hasConnections = Boolean( connections?.length );
 
-	const connectAction = authUser ? (
+	const connectButton = (
+		<Button
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			className={ styles.headerAction }
+			disabled={ isOffline }
+			onClick={ () => setConnectOpen( true ) }
+		>
+			{ __( 'Connect site' ) }
+		</Button>
+	);
+
+	return (
 		<>
-			<Button
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ styles.headerAction }
-				onClick={ () => setConnectOpen( true ) }
+			<CardSection
+				title={ __( 'Connections' ) }
+				action={ authUser && hasConnections ? connectButton : null }
 			>
-				{ __( 'Connect site' ) }
-			</Button>
+				{ ! authUser ? (
+					<>
+						<CardEmptyState>
+							{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
+						</CardEmptyState>
+						<div>
+							<Button
+								variant="outline"
+								tone="neutral"
+								size="small"
+								disabled={ login.isPending || isOffline }
+								onClick={ () => login.mutate() }
+							>
+								{ __( 'Log in with WordPress.com' ) }
+							</Button>
+						</div>
+					</>
+				) : isLoading && ! connections ? (
+					<div className={ styles.connectionSkeleton } />
+				) : ! hasConnections ? (
+					<div className={ styles.connectionEmpty }>
+						<div className={ styles.connectionEmptyCopy }>
+							<p className={ styles.connectionEmptyTitle }>{ __( 'Connect a live site' ) }</p>
+							<p className={ styles.empty }>
+								{ __(
+									'Pull a live site into Studio, then push your local changes when they are ready.'
+								) }
+							</p>
+						</div>
+						{ connectButton }
+					</div>
+				) : (
+					<CardRows>
+						{ connections?.map( ( connection, index ) => (
+							<Fragment key={ connection.id }>
+								{ index > 0 && <RowDivider /> }
+								<ConnectionRow site={ site } connection={ connection } busy={ busy } />
+							</Fragment>
+						) ) }
+					</CardRows>
+				) }
+			</CardSection>
 			{ connectOpen ? (
 				<PublishSiteDialog site={ site } open onOpenChange={ setConnectOpen } />
 			) : null }
 		</>
-	) : null;
-
-	return (
-		<CardSection title={ __( 'Connections' ) } action={ connectAction }>
-			{ ! authUser ? (
-				<>
-					<CardEmptyState>
-						{ __( 'Sign in to connect this site to WordPress.com and sync it.' ) }
-					</CardEmptyState>
-					<div>
-						<Button
-							variant="outline"
-							tone="neutral"
-							size="small"
-							disabled={ login.isPending || isOffline }
-							onClick={ () => login.mutate() }
-						>
-							{ __( 'Log in with WordPress.com' ) }
-						</Button>
-					</div>
-				</>
-			) : isLoading && ! connections ? (
-				<div className={ styles.connectionSkeleton } />
-			) : ! connections?.length ? (
-				<CardEmptyState>
-					{ __( 'Not connected to a live site yet. Connect one to pull or push changes.' ) }
-				</CardEmptyState>
-			) : (
-				<CardRows>
-					{ connections.map( ( connection, index ) => (
-						<Fragment key={ connection.id }>
-							{ index > 0 && <RowDivider /> }
-							<ConnectionRow site={ site } connection={ connection } busy={ busy } />
-						</Fragment>
-					) ) }
-				</CardRows>
-			) }
-		</CardSection>
 	);
 }
 

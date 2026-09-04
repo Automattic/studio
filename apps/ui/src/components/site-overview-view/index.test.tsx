@@ -515,8 +515,11 @@ describe( 'SiteOverviewView', () => {
 			overviewCard
 		);
 		expect(
-			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
+			screen.getByText(
+				'Pull a live site into Studio, then push your local changes when they are ready.'
+			)
 		).toBeVisible();
+		expect( screen.getByText( 'Connect a live site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeVisible();
 	} );
 

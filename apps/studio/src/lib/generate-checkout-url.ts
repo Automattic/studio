@@ -1,4 +1,4 @@
-import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '@studio/common/constants';
+import { stripLocalDomainSuffix } from '@studio/common/lib/domains';
 
 export function generateCheckoutUrl(
 	selectedSite?: SiteDetails,
@@ -15,7 +15,7 @@ export function generateCheckoutUrl(
 	}
 
 	const suggestedName = selectedSite.customDomain
-		? selectedSite.customDomain.replace( DEFAULT_CUSTOM_DOMAIN_SUFFIX, '' )
+		? stripLocalDomainSuffix( selectedSite.customDomain )
 		: selectedSite.name;
 
 	url.searchParams.set( 'studioSiteId', String( selectedSite.id ) );

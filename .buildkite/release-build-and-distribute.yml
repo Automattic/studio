@@ -54,6 +54,7 @@ steps:
 
           echo "--- :package: Building standalone CLI bundle"
           npm run cli:bundle -- darwin {{matrix}}
+        priority: 1
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
@@ -85,6 +86,7 @@ steps:
           - apps\studio\out\**\*.appx
           - standalone-bundles\studio-cli-*.tgz
           - standalone-bundles\studio-cli-*.tgz.sha256
+        priority: 1
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -127,6 +129,7 @@ steps:
           - apps/studio/out/make/deb/**/*.deb
           - standalone-bundles/studio-cli-*.tgz
           - standalone-bundles/studio-cli-*.tgz.sha256
+        priority: 1
         plugins:
           # Same Docker-on-default-queue pattern as the dev Linux build group
           # (see .buildkite/pipeline.yml): Amazon Linux on `default` lacks
@@ -177,6 +180,7 @@ steps:
       - step: release-mac
       - step: release-windows
       - step: release-linux
+    priority: 1
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

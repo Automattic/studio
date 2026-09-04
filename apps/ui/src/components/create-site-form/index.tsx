@@ -1,6 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
+import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -470,6 +471,7 @@ export function CreateSiteForm( {
 			},
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
 				offline: isOffline,
 			} ),
 			adminUsernameField< FormData >(),

@@ -441,6 +441,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
+		async siteDebugLogExists() {
+			throw new UnsupportedError( 'siteDebugLogExists' );
+		},
+		async openSiteDebugLog() {
+			throw new UnsupportedError( 'openSiteDebugLog' );
+		},
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
 		},

@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/hooks/tests/use-drag-and-drop-file.test.tsx` from the root directory
 
 import { render, createEvent, fireEvent, renderHook, act } from '@testing-library/react';
+import { useState } from 'react';
 import { vi } from 'vitest';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 
@@ -9,6 +10,36 @@ const DragComponent = ( { onFileDrop }: { onFileDrop: () => void } ) => {
 	return (
 		<div data-testid="test-drop-zone" ref={ dropRef }>
 			{ isDraggingOver ? 'Dragging Over' : 'Not Dragging Over' }
+		</div>
+	);
+};
+
+// Mirrors the real caller, which passes a new inline callback on every render.
+const InlineCallbackDragComponent = ( { onFileDrop }: { onFileDrop: ( file: File ) => void } ) => {
+	const [ renderCount, setRenderCount ] = useState( 0 );
+	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
+		onFileDrop: ( file: File ) => onFileDrop( file ),
+	} );
+	return (
+		<div data-testid="test-drop-zone" ref={ dropRef }>
+			<button onClick={ () => setRenderCount( renderCount + 1 ) }>rerender</button>
+			{ isDraggingOver ? 'Dragging Over' : 'Not Dragging Over' }
+		</div>
+	);
+};
+
+// The ref'd node is replaced rather than updated in place, as a branch swap would do.
+const RemountingDragComponent = ( { onFileDrop }: { onFileDrop: ( file: File ) => void } ) => {
+	const [ nodeKey, setNodeKey ] = useState( 0 );
+	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
+		onFileDrop: ( file: File ) => onFileDrop( file ),
+	} );
+	return (
+		<div>
+			<button onClick={ () => setNodeKey( nodeKey + 1 ) }>remount</button>
+			<div key={ nodeKey } data-testid="test-drop-zone" ref={ dropRef }>
+				{ isDraggingOver ? 'Dragging Over' : 'Not Dragging Over' }
+			</div>
 		</div>
 	);
 };
@@ -66,5 +97,64 @@ describe( 'useDragAndDropFile', () => {
 		} );
 		expect( onFileDrop ).toHaveBeenCalledTimes( 1 );
 		expect( onFileDrop ).toHaveBeenCalledWith( file );
+	} );
+
+	test( 'should call the latest callback on drop after a re-render', () => {
+		const { getByTestId, getByText } = render(
+			<InlineCallbackDragComponent onFileDrop={ onFileDrop } />
+		);
+		const dropZone = getByTestId( 'test-drop-zone' );
+		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
+
+		act( () => {
+			fireEvent.click( getByText( 'rerender' ) );
+		} );
+
+		act( () => {
+			fireEvent( dropZone, createEvent.drop( dropZone, { dataTransfer: { files: [ file ] } } ) );
+		} );
+
+		expect( onFileDrop ).toHaveBeenCalledTimes( 1 );
+		expect( onFileDrop ).toHaveBeenCalledWith( file );
+	} );
+
+	test( 'should keep responding to dragover after the drop node is remounted', () => {
+		const { getByTestId, getByText } = render(
+			<RemountingDragComponent onFileDrop={ onFileDrop } />
+		);
+
+		act( () => {
+			fireEvent.click( getByText( 'remount' ) );
+		} );
+
+		const dropZone = getByTestId( 'test-drop-zone' );
+		act( () => {
+			fireEvent( dropZone, createEvent.dragOver( dropZone ) );
+		} );
+
+		expect( getByText( 'Dragging Over' ) ).toBeInTheDocument();
+	} );
+
+	test( 'should release listeners on the old node when the drop node is replaced', () => {
+		const { getByTestId, getByText } = render(
+			<RemountingDragComponent onFileDrop={ onFileDrop } />
+		);
+		const detachedNode = getByTestId( 'test-drop-zone' );
+
+		act( () => {
+			fireEvent.click( getByText( 'remount' ) );
+		} );
+
+		expect( getByTestId( 'test-drop-zone' ) ).not.toBe( detachedNode );
+
+		const file = new File( [ 'file contents' ], 'backup.zip', { type: 'application/zip' } );
+		act( () => {
+			fireEvent(
+				detachedNode,
+				createEvent.drop( detachedNode, { dataTransfer: { files: [ file ] } } )
+			);
+		} );
+
+		expect( onFileDrop ).not.toHaveBeenCalled();
 	} );
 } );

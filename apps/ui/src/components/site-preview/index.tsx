@@ -9,7 +9,13 @@ import {
 	moreVertical,
 	pencil,
 } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
+import {
+	ariaKeyShortcut,
+	displayShortcut,
+	isAppleOS,
+	isKeyboardEvent,
+	shortcutAriaLabel,
+} from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -473,6 +479,7 @@ function getBrowserShortcutDescriptor( key: string ) {
 	return {
 		displayShortcut: displayShortcut.primary( key ),
 		ariaKeyShortcut: ariaKeyShortcut.primary( key ),
+		label: shortcutAriaLabel.primary( key ),
 	};
 }
 
@@ -481,11 +488,13 @@ function getNavigationShortcutDescriptor( direction: 'back' | 'forward' ) {
 	const arrow = direction === 'back' ? '←' : '→';
 	const arrowKey = direction === 'back' ? 'ArrowLeft' : 'ArrowRight';
 	const bracket = direction === 'back' ? '[' : ']';
+	const arrowLabel = direction === 'back' ? __( 'Left Arrow' ) : __( 'Right Arrow' );
 	return {
 		displayShortcut: isApple ? `⌘${ arrow }` : `Alt+${ arrow }`,
 		ariaKeyShortcut: `${ isApple ? 'Meta' : 'Alt' }+${ arrowKey } ${ ariaKeyShortcut.primary(
 			bracket
 		) }`,
+		label: isApple ? `${ __( 'Command' ) } ${ arrowLabel }` : `${ __( 'Alt' ) } + ${ arrowLabel }`,
 	};
 }
 

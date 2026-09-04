@@ -5,7 +5,11 @@ import { Fragment, useMemo, useState } from 'react';
 import { ensureProtocol, stripProtocol } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useDeletePreviewSite, usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import {
+	useDeletePreviewSite,
+	useDeletePreviewSites,
+	usePublishPreviewSite,
+} from '@/data/queries/use-preview-site';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
@@ -31,13 +35,83 @@ const LIFETIME_MS = DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
 
 export function PreviewSitesSection( { site }: { site: SiteDetails } ) {
 	const { data: authUser } = useAuthUser();
+	const { data: allSnapshots } = useSnapshots( authUser?.id );
+	const expiredSnapshots = ( allSnapshots ?? [] ).filter(
+		( snapshot ) => snapshot.localSiteId === site.id && describeLife( snapshot ).expired
+	);
 	const publishAction = <PreviewSitePublishAction site={ site } presentation="overview" />;
 
 	return (
 		<CardSection>
 			<PreviewSitesList site={ site } />
-			{ authUser ? <CardSectionFooter>{ publishAction }</CardSectionFooter> : null }
+			{ authUser ? (
+				<CardSectionFooter>
+					{ publishAction }
+					{ expiredSnapshots.length ? (
+						<DeleteExpiredPreviewSitesAction snapshots={ expiredSnapshots } />
+					) : null }
+				</CardSectionFooter>
+			) : null }
 		</CardSection>
+	);
+}
+
+function DeleteExpiredPreviewSitesAction( { snapshots }: { snapshots: Snapshot[] } ) {
+	const isOffline = useOffline();
+	const deletePreviewSites = useDeletePreviewSites();
+	const [ confirmOpen, setConfirmOpen ] = useState( false );
+	const confirmLabel = __( 'Delete all expired' );
+	const handleConfirmKeyDown = useConfirmOnEnter( confirmLabel );
+	const count = snapshots.length;
+
+	return (
+		<>
+			<ButtonTooltip tooltip={ __( 'Permanently delete all expired preview sites' ) }>
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.footerDestructiveAction }
+					disabled={ deletePreviewSites.isPending || isOffline }
+					onClick={ () => setConfirmOpen( true ) }
+				>
+					{ deletePreviewSites.isPending ? __( 'Deleting expired…' ) : confirmLabel }
+				</Button>
+			</ButtonTooltip>
+			<AlertDialog.Root
+				open={ confirmOpen }
+				onOpenChange={ setConfirmOpen }
+				onConfirm={ async () => {
+					try {
+						await deletePreviewSites.mutateAsync(
+							snapshots.map( ( snapshot ) => stripProtocol( snapshot.url ) )
+						);
+					} catch ( error ) {
+						return {
+							error:
+								error instanceof Error
+									? error.message
+									: __( 'Unable to delete the expired previews. Please try again.' ),
+						};
+					}
+				} }
+			>
+				<AlertDialog.Popup
+					onKeyDown={ handleConfirmKeyDown }
+					intent="irreversible"
+					title={ __( 'Delete all expired previews?' ) }
+					description={ sprintf(
+						_n(
+							'This will permanently delete %d expired preview site and its URL.',
+							'This will permanently delete %d expired preview sites and their URLs.',
+							count
+						),
+						count
+					) }
+					confirmButtonText={ confirmLabel }
+				/>
+			</AlertDialog.Root>
+		</>
 	);
 }
 
@@ -266,13 +340,15 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 								? __( 'Republish' )
 								: __( 'Update' ) }
 						</CardRowAction>
-						<CardRowAction
-							type="button"
-							tooltip={ __( 'Copy the preview URL' ) }
-							onClick={ () => void connector.copyText( url ) }
-						>
-							{ __( 'Copy URL' ) }
-						</CardRowAction>
+						{ ! life.expired && (
+							<CardRowAction
+								type="button"
+								tooltip={ __( 'Copy the preview URL' ) }
+								onClick={ () => void connector.copyText( url ) }
+							>
+								{ __( 'Copy URL' ) }
+							</CardRowAction>
+						) }
 						<CardRowAction
 							type="button"
 							className={ styles.rowActionDestructive }

@@ -96,3 +96,22 @@ export function useDeletePreviewSite() {
 		},
 	} );
 }
+
+export function useDeletePreviewSites() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: async ( hostnames: string[] ) => {
+			const results = await Promise.allSettled(
+				hostnames.map( ( hostname ) => connector.deletePreviewSite( hostname ) )
+			);
+			const failed = results.filter( ( result ) => result.status === 'rejected' );
+			if ( failed.length ) {
+				throw new Error( __( 'Some expired previews could not be deleted.' ) );
+			}
+		},
+		onSettled: () => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+		},
+	} );
+}

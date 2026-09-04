@@ -10,7 +10,11 @@ import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
-import { useDeletePreviewSite, usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import {
+	useDeletePreviewSite,
+	useDeletePreviewSites,
+	usePublishPreviewSite,
+} from '@/data/queries/use-preview-site';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -108,6 +112,7 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
 	useDeletePreviewSite: vi.fn(),
+	useDeletePreviewSites: vi.fn(),
 	usePublishPreviewSite: vi.fn(),
 } ) );
 
@@ -201,6 +206,7 @@ const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
 const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite, { partial: true } );
 const useDeletePreviewSiteMock = vi.mocked( useDeletePreviewSite, { partial: true } );
+const useDeletePreviewSitesMock = vi.mocked( useDeletePreviewSites, { partial: true } );
 const useSnapshotsMock = vi.mocked( useSnapshots, { partial: true } );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage, { partial: true } );
 const useLoginMock = vi.mocked( useLogin, { partial: true } );
@@ -240,6 +246,7 @@ describe( 'SiteOverviewView', () => {
 	const pushSiteToLive = vi.fn();
 	const publishPreviewSite = vi.fn();
 	const deletePreviewSite = vi.fn();
+	const deletePreviewSites = vi.fn();
 	const onTabChange = vi.fn();
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
@@ -303,6 +310,10 @@ describe( 'SiteOverviewView', () => {
 		useDeletePreviewSiteMock.mockReturnValue( {
 			isPending: false,
 			mutateAsync: deletePreviewSite,
+		} );
+		useDeletePreviewSitesMock.mockReturnValue( {
+			isPending: false,
+			mutateAsync: deletePreviewSites,
 		} );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullSiteFromLive } );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushSiteToLive } );
@@ -664,6 +675,46 @@ describe( 'SiteOverviewView', () => {
 			expect( deletePreviewSite ).toHaveBeenCalledWith( {
 				hostname: 'demo-preview.wp.build',
 			} )
+		);
+	} );
+
+	it( 'omits Copy URL for expired previews and can delete all expired previews', async () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'active-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now(),
+				},
+				{
+					url: 'expired-one.wp.build',
+					atomicSiteId: 2,
+					localSiteId: 'site-1',
+					date: Date.now() - 8 * 24 * 60 * 60 * 1000,
+				},
+				{
+					url: 'expired-two.wp.build',
+					atomicSiteId: 3,
+					localSiteId: 'site-1',
+					date: Date.now() - 9 * 24 * 60 * 60 * 1000,
+				},
+			],
+		} );
+
+		renderView();
+
+		expect( screen.getAllByRole( 'button', { name: 'Copy URL' } ) ).toHaveLength( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all expired' } ) );
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Delete all expired previews?' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete all expired' } ) );
+
+		await waitFor( () =>
+			expect( deletePreviewSites ).toHaveBeenCalledWith( [
+				'expired-one.wp.build',
+				'expired-two.wp.build',
+			] )
 		);
 	} );
 

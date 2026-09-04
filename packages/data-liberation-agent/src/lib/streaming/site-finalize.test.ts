@@ -83,13 +83,14 @@ describe('finalizeSite', () => {
       };
       const res = await finalizeSite({ payload, studioSitePath: sitePath });
       expect(res.ok).toBe(true);
-      // One exec: studio wp --path <site> eval-file <scriptVfs> <payloadVfs>.
+      // One exec: studio wp --path <site> eval-file <scriptHost> <payloadHost>.
       expect(execCalls).toHaveLength(1);
       const { cmd, args } = execCalls[0];
       expect(cmd).toBe('studio');
       expect(args.slice(0, 4)).toEqual(['wp', '--path', sitePath, 'eval-file']);
-      expect(args[4]).toBe('/wordpress/.dla-scripts/site-finalize.php');
-      expect(args[5]).toMatch(/^\/wordpress\/\.dla-scripts\/site-finalize-.*\.json$/);
+      expect(args[4]).toBe(join(sitePath, '.dla-scripts', 'site-finalize.php'));
+      expect(args[5]).toMatch(/\/\.dla-scripts\/site-finalize-.*\.json$/);
+      expect(args[5].startsWith(join(sitePath, '.dla-scripts'))).toBe(true);
       // Script copied into the site dir; payload file round-trips the input.
       const scriptsDir = join(sitePath, '.dla-scripts');
       expect(existsSync(join(scriptsDir, 'site-finalize.php'))).toBe(true);

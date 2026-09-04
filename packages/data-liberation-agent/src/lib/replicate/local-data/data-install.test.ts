@@ -135,12 +135,12 @@ describe('installLocalData', () => {
     // payload + script staged under the mounted site dir
     expect(existsSync(join(sitePath, '.dla-scripts', 'install-data.php'))).toBe(true);
     expect(existsSync(join(sitePath, '.dla-scripts', 'install-data-fixed.json'))).toBe(true);
-    // eval-file invoked with VFS paths
+    // eval-file invoked with host paths
     expect(calls).toHaveLength(1);
     expect(calls[0].args).toEqual([
       'wp', '--path', sitePath, 'eval-file',
-      '/wordpress/.dla-scripts/install-data.php',
-      '/wordpress/.dla-scripts/install-data-fixed.json',
+      join(sitePath, '.dla-scripts', 'install-data.php'),
+      join(sitePath, '.dla-scripts', 'install-data-fixed.json'),
     ]);
   });
 

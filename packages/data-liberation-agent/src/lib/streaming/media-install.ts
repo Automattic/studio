@@ -44,13 +44,6 @@ const INSTALL_MEDIA_SCRIPT = resolve(
   'install-media.php',
 );
 
-/**
- * Studio mounts the host site directory at VFS path `/wordpress` (mirrors
- * studio.ts's STUDIO_VFS_ROOT constant). Re-declared here to avoid a
- * cross-module dependency for a path constant.
- */
-const STUDIO_VFS_ROOT = '/wordpress';
-
 const SCRIPTS_SUBDIR = '.dla-scripts';
 const PAYLOADS_SUBDIR = '.dla-scripts/payloads';
 
@@ -529,8 +522,7 @@ function wpExecFor(opts: MediaInstallOpts): ExecFn {
 }
 
 async function installViaStudio(opts: Pick<MediaFilesInstallOpts, 'wpRoot' | '_studioBin' | '_execFile'>, entries: PayloadEntry[]): Promise<{ stdout: string; resultHostPath: string }> {
-  // The PHP script must be readable inside Studio's VFS. Studio mounts the
-  // *site* directory at /wordpress. Studio sites exist in two layouts:
+  // Studio sites exist in two layouts:
   //   - flat:   <site>/wp-content
   //   - nested: <site>/wordpress/wp-content
   // The watch runner passes the WP root, so resolve it back to the Studio
@@ -551,18 +543,14 @@ async function installViaStudio(opts: Pick<MediaFilesInstallOpts, 'wpRoot' | '_s
   const payloadHostPath = join(payloadsDir, payloadFilename);
   writeFileSync(payloadHostPath, JSON.stringify(entries), 'utf8');
 
-  const scriptVfsPath = `${STUDIO_VFS_ROOT}/${SCRIPTS_SUBDIR}/install-media.php`;
-  const payloadVfsPath = `${STUDIO_VFS_ROOT}/${PAYLOADS_SUBDIR}/${payloadFilename}`;
-
   const studioBin = opts._studioBin ?? 'studio';
   const exec = opts._execFile ?? defaultExec;
   const out = await exec(studioBin, [
     'wp', '--path', sitePath,
-    'eval-file', scriptVfsPath, payloadVfsPath,
+    'eval-file', scriptHostPath, payloadHostPath,
   ]);
-  // The script writes its full response to `<payload>.result.json` on the host
-  // FS (Studio mounts the site dir), so we can read it directly and bypass the
-  // 64KB stdout cap.
+  // The script writes its full response to `<payload>.result.json`, so we
+  // can read it directly and bypass the 64KB stdout cap.
   return { stdout: out.stdout, resultHostPath: `${payloadHostPath}.result.json` };
 }
 
@@ -601,8 +589,8 @@ function formatExecError(err: unknown): string {
  *   1. A `{ resultFile: "<path>" }` pointer — the script wrote the full
  *      response to a sidecar file (default; bypasses Studio's 64KB stdout cap).
  *      We read that file off the host FS. `resultHostPath` is the host path the
- *      caller knows; we prefer it over the (VFS) path the script reports so the
- *      read works regardless of mount mapping.
+ *      caller knows; we prefer it over the path the script reports so the
+ *      read works regardless of where the site lives on disk.
  *   2. Inline JSON (backward-compatible fallback for small payloads or when the
  *      sidecar write failed).
  */

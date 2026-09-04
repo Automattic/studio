@@ -93,7 +93,7 @@ The step-3 driver already writes this (`buildOutputCarryWxr`): it copies the FUL
 
 ### 5. Swap content into the live site + activate
 
-- **Do NOT re-import `output-carry.wxr` to update content** — the WXR importer skips items whose GUID already exists, so it won't overwrite content already in the site. Instead swap directly. The step-3 driver already wrote the islands + a `_swap.php` into `<studioSitePath>/wp-content/uploads/_carry-islands/`; run it: `studio wp --path <studioSitePath> --user=admin eval-file /wordpress/wp-content/uploads/_carry-islands/_swap.php` (VFS path — Studio mounts the site at `/wordpress`; `--user=admin` gives `unfiltered_html` so KSES doesn't strip carried markup). It finds each post by `post_name` across `['page','post']` and `wp_update_post`s its `post_content`, publishing it.
+- **Do NOT re-import `output-carry.wxr` to update content** — the WXR importer skips items whose GUID already exists, so it won't overwrite content already in the site. Instead swap directly. The step-3 driver already wrote the islands + a `_swap.php` into `<studioSitePath>/wp-content/uploads/_carry-islands/`; run it: `studio wp --path <studioSitePath> --user=admin eval-file <studioSitePath>/wp-content/uploads/_carry-islands/_swap.php` (host path; `--user=admin` gives `unfiltered_html` so KSES doesn't strip carried markup). It finds each post by `post_name` across `['page','post']` and `wp_update_post`s its `post_content`, publishing it.
 - Activate the carry theme (`studio wp --path <studioSitePath> theme activate <themeSlug>`). Set the static front page (`option update show_on_front page` + `option update page_on_front <homepage id>`) and `rewrite flush`.
 
 ### 5a. Enrich product marketing (stores only)

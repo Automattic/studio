@@ -7,18 +7,7 @@ import { join } from 'node:path';
 // here we test it through the public interface the way it'll actually be used
 // by importing from the module. The module exports `stageArtifacts` for test
 // access explicitly.
-import { stageArtifacts, toVfsPath, updateStudioSiteOptions } from './studio.js';
-
-describe('toVfsPath', () => {
-  it('prefixes site-relative paths with /wordpress', () => {
-    expect(toVfsPath('.dla-scripts/import-wxr.php')).toBe('/wordpress/.dla-scripts/import-wxr.php');
-    expect(toVfsPath('wp-content/uploads/liberation/output.wxr')).toBe('/wordpress/wp-content/uploads/liberation/output.wxr');
-  });
-  it('normalizes leading slashes', () => {
-    expect(toVfsPath('/foo/bar')).toBe('/wordpress/foo/bar');
-    expect(toVfsPath('///x')).toBe('/wordpress/x');
-  });
-});
+import { stageArtifacts, updateStudioSiteOptions } from './studio.js';
 
 describe('stageArtifacts', () => {
   let outDir: string;

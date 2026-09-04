@@ -4,7 +4,7 @@
 // Applies the post-install site finalization writes — option updates
 // (blogname etc.), per-page _wp_page_template assigns, and the static
 // front-page pair — in ONE `studio wp eval-file site-finalize.php <json>`
-// call, via the same VFS bridging install-post.ts uses.
+// call, staged the same way install-post.ts stages its script.
 //
 // Why one call: Studio's IPC layer flakes on bursts of individual argv
 // commands ("Timeout waiting for response to message wp-cli-command: No
@@ -33,7 +33,6 @@ const SITE_FINALIZE_SCRIPT_HOST = resolve(
 );
 
 const SCRIPTS_SUBDIR = '.dla-scripts';
-const SCRIPTS_VFS_PREFIX = '/wordpress';
 
 export interface SiteFinalizePayload {
   /** wp option updates to apply (blogname etc.). */
@@ -104,14 +103,11 @@ export async function finalizeSite(opts: FinalizeSiteOpts): Promise<SiteFinalize
     return { ok: true, applied: { options: [], templates: [], frontPage: false }, errors: [] };
   }
 
-  // Stage the script + JSON payload under <sitePath>/.dla-scripts/.
-  // Studio's wp-cli rejects host paths, so payloads must live inside the
-  // mounted site dir (same bridging install-post.ts uses).
+  // Stage the script + JSON payload under <sitePath>/.dla-scripts/ so they
+  // travel with the site (same pattern install-post.ts uses).
   const scriptsDir = join(studioSitePath, SCRIPTS_SUBDIR);
   mkdirSync(scriptsDir, { recursive: true });
-  const scriptVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/site-finalize.php`;
   const payloadHost = join(scriptsDir, `site-finalize-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
-  const payloadVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/${payloadHost.split('/').pop()}`;
 
   // Copy script in (overwrite-safe; matches install-post.ts pattern).
   const scriptHost = join(scriptsDir, 'site-finalize.php');
@@ -121,7 +117,7 @@ export async function finalizeSite(opts: FinalizeSiteOpts): Promise<SiteFinalize
   try {
     const { stdout } = await execFileAsync(
       'studio',
-      ['wp', '--path', studioSitePath, 'eval-file', scriptVfs, payloadVfs],
+      ['wp', '--path', studioSitePath, 'eval-file', scriptHost, payloadHost],
       { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
     );
     return parseFinalizeStdout(stdout);

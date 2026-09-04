@@ -87,6 +87,9 @@ vi.mock( 'electron', () => {
 		screen: {
 			getAllDisplays: vi.fn().mockReturnValue( [] ),
 		},
+		webContents: {
+			getAllWebContents: vi.fn().mockReturnValue( [] ),
+		},
 		BrowserWindow: MockBrowserWindow,
 		shell: {
 			trashItem: vi.fn(),

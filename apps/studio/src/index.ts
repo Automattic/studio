@@ -29,7 +29,7 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
+import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -217,6 +217,12 @@ async function appBoot() {
 						applyAppZoomCommand( window.webContents, zoomCommand );
 					}
 				} );
+			} );
+			// Electron re-applies the embedder's zoom to a guest after each of its
+			// navigations, from an observer that runs after this event — so the
+			// reset waits a tick.
+			contents.on( 'did-navigate', () => {
+				setImmediate( () => resetPreviewZoom( contents ) );
 			} );
 		}
 

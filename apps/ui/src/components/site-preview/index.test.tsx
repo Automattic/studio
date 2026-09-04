@@ -12,6 +12,7 @@ import {
 	isOffOriginRedirect,
 	isThemeActivationUrl,
 	getPathFromPreviewUrl,
+	getFrameSize,
 	getSimulatedViewport,
 	SitePreview,
 } from './index';
@@ -917,6 +918,38 @@ describe( 'getSimulatedViewport', () => {
 			mobile: false,
 		} );
 	} );
+
+	it( 'fits the pane in device px when the app UI is zoomed', () => {
+		// At 1.25× the pane measures 720 CSS px but is really 900 device px
+		// wide, and that's the space a 1440 px desktop has to fit into.
+		expect(
+			getSimulatedViewport( { width: 1440, height: 900 }, { width: 720, height: 800 }, 1.25 )
+		).toEqual( {
+			width: 1440,
+			height: 900,
+			scale: 0.625,
+			mobile: false,
+		} );
+		// A phone that fits at device size still never scales up.
+		expect(
+			getSimulatedViewport( { width: 390, height: 844 }, { width: 400, height: 900 }, 1.25 )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 1,
+			mobile: false,
+		} );
+	} );
+} );
+
+describe( 'getFrameSize', () => {
+	it( 'lays the scaled device box out in the host document CSS px', () => {
+		const viewport = { width: 1440, height: 900, scale: 0.5 };
+
+		expect( getFrameSize( viewport ) ).toEqual( { width: 720, height: 450 } );
+		// The app's zoom scales CSS px up, so the same device box takes fewer of them.
+		expect( getFrameSize( viewport, 1.25 ) ).toEqual( { width: 576, height: 360 } );
+	} );
 } );
 
 describe( 'getPathFromPreviewUrl', () => {
@@ -970,12 +1003,19 @@ class ResizeObserverStub {
 	disconnect() {}
 }
 
-function renderWebviewPreview( props: Partial< ComponentProps< typeof SitePreview > > = {} ) {
+function renderWebviewPreview(
+	props: Partial< ComponentProps< typeof SitePreview > > = {},
+	{ zoomFactor }: { zoomFactor?: number } = {}
+) {
 	setUserAgent( `${ REAL_USER_AGENT } Electron/38.0.0` );
 	vi.stubGlobal( 'ResizeObserver', ResizeObserverStub );
 	const clearWebviewCache = vi.fn().mockResolvedValue( undefined );
 	const setWebviewViewport = vi.fn().mockResolvedValue( undefined );
-	vi.stubGlobal( 'ipcApi', { clearWebviewCache, setWebviewViewport } );
+	vi.stubGlobal( 'ipcApi', {
+		clearWebviewCache,
+		setWebviewViewport,
+		...( zoomFactor === undefined ? {} : { getAppZoomFactor: () => zoomFactor } ),
+	} );
 	useConnectorMock.mockReturnValue( {
 		startSite: vi.fn().mockResolvedValue( undefined ),
 		trackEvent: vi.fn().mockResolvedValue( undefined ),
@@ -1089,6 +1129,26 @@ describe( 'SitePreview responsive emulation', () => {
 				mobile: false,
 			} )
 		);
+	} );
+
+	it( 'keeps a preset at device size while the app UI is zoomed', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview( {}, { zoomFactor: 1.25 } );
+
+		await selectResponsiveMode( 'Desktop · 1440×900' );
+
+		// The padded pane measures 1.25× narrower in CSS px than the device
+		// space the desktop has to fit, so the emulation scale comes from the
+		// latter, and the frame is laid out in the former.
+		const scale = ( ( PANE_SIZE.width - 32 ) * 1.25 ) / 1440;
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenCalledWith(
+				7,
+				expect.objectContaining( { width: 1440, height: 900, scale } )
+			)
+		);
+		expect( webview.parentElement ).toHaveStyle( {
+			width: `${ ( 1440 * scale ) / 1.25 }px`,
+		} );
 	} );
 
 	it( 're-applies the simulated viewport after each load', async () => {

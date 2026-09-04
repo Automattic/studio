@@ -8,6 +8,7 @@ import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
 import { DATABASE_HOME_PATH } from './address-bar';
 import {
+	applyWebviewColorScheme,
 	getBrowserShortcutCommand,
 	isOffOriginRedirect,
 	isThemeActivationUrl,
@@ -80,6 +81,30 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'SitePreview', () => {
+	it( 'applies a preview color scheme before reloading the webview', async () => {
+		const setWebviewColorScheme = vi.fn().mockResolvedValue( undefined );
+		const reload = vi.fn();
+		const previewWindow = window as typeof window & { ipcApi?: unknown };
+		const previousIpcApi = previewWindow.ipcApi;
+		previewWindow.ipcApi = { setWebviewColorScheme };
+
+		try {
+			await applyWebviewColorScheme(
+				{ getWebContentsId: () => 42, reload } as never,
+				'dark',
+				true
+			);
+
+			expect( setWebviewColorScheme ).toHaveBeenCalledWith( 42, 'dark' );
+			expect( reload ).toHaveBeenCalledOnce();
+			expect( setWebviewColorScheme.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				reload.mock.invocationCallOrder[ 0 ]
+			);
+		} finally {
+			previewWindow.ipcApi = previousIpcApi;
+		}
+	} );
+
 	it( 'recognizes WordPress theme activation navigations', () => {
 		expect(
 			isThemeActivationUrl( 'http://localhost:8881/wp-admin/themes.php?activated=true' )
@@ -560,6 +585,51 @@ describe( 'SitePreview', () => {
 		await waitFor( () =>
 			expect( screen.queryByText( 'Responsive mode' ) ).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'offers preview appearance modes from the More options menu', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+		expect( await screen.findByText( 'Appearance' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'System' } ) ).toBeChecked();
+
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) );
+
+		expect( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) ).toBeChecked();
+	} );
+
+	it( 'keeps the preview appearance controls usable in RTL', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		document.documentElement.dir = 'rtl';
+
+		try {
+			renderPreview(
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			);
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+
+			const menu = await screen.findByRole( 'menu', { name: 'More options' } );
+			expect( menu.matches( ':dir(rtl)' ) ).toBe( true );
+			fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) );
+			expect( screen.getByRole( 'menuitemradio', { name: 'Dark' } ) ).toBeChecked();
+		} finally {
+			document.documentElement.dir = '';
+		}
 	} );
 
 	it( 'disables the responsive mode controls while previewing the database realm', async () => {

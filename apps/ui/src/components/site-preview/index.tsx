@@ -183,6 +183,7 @@ const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
 // The phone frame's orientation, shared by the mobile preset and the split
 // view. Landscape rotates the frame a quarter turn (844×390).
 type MobileOrientation = 'portrait' | 'landscape';
+type PreviewColorScheme = 'system' | 'light' | 'dark';
 
 const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
 	...MOBILE_PRESET,
@@ -252,6 +253,10 @@ interface PreviewWindow extends Window {
 			webContentsId: number,
 			viewport: PreviewViewport | null
 		) => Promise< void >;
+		setWebviewColorScheme?: (
+			webContentsId: number,
+			colorScheme: PreviewColorScheme
+		) => Promise< void >;
 		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 	};
 }
@@ -312,6 +317,18 @@ async function applyWebviewViewport(
 ): Promise< void > {
 	const { ipcApi } = window as PreviewWindow;
 	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
+}
+
+export async function applyWebviewColorScheme(
+	webview: WebviewTag,
+	colorScheme: PreviewColorScheme,
+	reload = false
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
+	if ( reload ) {
+		webview.reload?.();
+	}
 }
 
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
@@ -409,9 +426,13 @@ function getFrameStyle( viewport: PreviewViewport | null ): CSSProperties | unde
 // The iframe fallback has no device emulation, so scaling is a CSS transform
 // instead: lay out at full size, scale down to fit; the frame clips the
 // transform's leftover layout box.
-function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | undefined {
+function getIframeStyle(
+	viewport: PreviewViewport | null,
+	colorScheme: PreviewColorScheme = 'system'
+): CSSProperties | undefined {
+	const colorSchemeStyle: CSSProperties = colorScheme === 'system' ? {} : { colorScheme };
 	if ( ! viewport || viewport.scale === 1 ) {
-		return undefined;
+		return colorScheme === 'system' ? undefined : colorSchemeStyle;
 	}
 	return {
 		flex: '0 0 auto',
@@ -419,6 +440,7 @@ function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | und
 		height: viewport.height,
 		transform: `scale(${ viewport.scale })`,
 		transformOrigin: 'top left',
+		...colorSchemeStyle,
 	};
 }
 
@@ -574,6 +596,8 @@ function PreviewOverflowMenu( {
 	viewportControlsDisabled,
 	mobileOrientation,
 	onMobileOrientationChange,
+	colorScheme,
+	onColorSchemeChange,
 	fullscreen,
 	onFullscreenChange,
 }: {
@@ -584,6 +608,8 @@ function PreviewOverflowMenu( {
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+	colorScheme: PreviewColorScheme;
+	onColorSchemeChange: ( colorScheme: PreviewColorScheme ) => void;
 	fullscreen: boolean;
 	onFullscreenChange?: ( value: boolean ) => void;
 } ) {
@@ -653,6 +679,18 @@ function PreviewOverflowMenu( {
 						</Menu.Group>
 					</>
 				) : null }
+				<Menu.Separator />
+				<Menu.Group>
+					<Menu.GroupLabel>{ __( 'Appearance' ) }</Menu.GroupLabel>
+					<Menu.RadioGroup
+						value={ colorScheme }
+						onValueChange={ ( next ) => onColorSchemeChange( next as PreviewColorScheme ) }
+					>
+						<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+					</Menu.RadioGroup>
+				</Menu.Group>
 				{ onFullscreenChange ? (
 					<>
 						<Menu.Separator />
@@ -841,6 +879,7 @@ export function SitePreview( {
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ colorScheme, setColorScheme ] = useState< PreviewColorScheme >( 'system' );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
@@ -1061,15 +1100,25 @@ export function SitePreview( {
 		[]
 	);
 
-	// Per-site viewport memory (session-lived, like the parent's per-site
-	// path memory): returning to a site restores its last responsive mode.
-	const viewportBySiteRef = useRef<
-		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation } >
+	// Per-site preview option memory (session-lived, like the parent's per-site
+	// path memory): returning to a site restores its last browser setup.
+	const previewOptionsBySiteRef = useRef<
+		Record<
+			string,
+			{
+				mode?: ViewportMode;
+				orientation?: MobileOrientation;
+				colorScheme?: PreviewColorScheme;
+			}
+		>
 	>( {} );
 	const handleViewportModeChange = useCallback(
 		( mode: ViewportMode ) => {
 			setViewportMode( mode );
-			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
+				mode,
+			};
 			// Two frames side by side need the room — a desktop page beside a
 			// phone is unreadable in the narrow panel.
 			if ( mode === 'split' ) {
@@ -1081,9 +1130,19 @@ export function SitePreview( {
 	const handleMobileOrientationChange = useCallback(
 		( orientation: MobileOrientation ) => {
 			setMobileOrientation( orientation );
-			viewportBySiteRef.current[ site.id ] = {
-				...viewportBySiteRef.current[ site.id ],
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
 				orientation,
+			};
+		},
+		[ site.id ]
+	);
+	const handleColorSchemeChange = useCallback(
+		( nextColorScheme: PreviewColorScheme ) => {
+			setColorScheme( nextColorScheme );
+			previewOptionsBySiteRef.current[ site.id ] = {
+				...previewOptionsBySiteRef.current[ site.id ],
+				colorScheme: nextColorScheme,
 			};
 		},
 		[ site.id ]
@@ -1100,9 +1159,10 @@ export function SitePreview( {
 	}, [ fullscreen, handleViewportModeChange, onFullscreenChange, viewportMode ] );
 
 	useEffect( () => {
-		const remembered = viewportBySiteRef.current[ site.id ];
+		const remembered = previewOptionsBySiteRef.current[ site.id ];
 		setViewportMode( remembered?.mode ?? 'fit' );
 		setMobileOrientation( remembered?.orientation ?? 'portrait' );
+		setColorScheme( remembered?.colorScheme ?? 'system' );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to
@@ -1267,6 +1327,8 @@ export function SitePreview( {
 							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
+							colorScheme={ colorScheme }
+							onColorSchemeChange={ handleColorSchemeChange }
 							fullscreen={ fullscreen }
 							onFullscreenChange={ onFullscreenChange }
 						/>
@@ -1336,6 +1398,7 @@ export function SitePreview( {
 												onBrowserCommand={ handleForwardedShortcut }
 												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 												viewport={ viewport }
+												colorScheme={ colorScheme }
 											/>
 										) : (
 											// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1345,7 +1408,7 @@ export function SitePreview( {
 													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
 												}` }
 												className={ styles.iframe }
-												style={ getIframeStyle( viewport ) }
+												style={ getIframeStyle( viewport, colorScheme ) }
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
@@ -1382,6 +1445,7 @@ export function SitePreview( {
 														reloadNonce={ surface.reloadNonce }
 														inspector={ false }
 														viewport={ splitMobileViewport }
+														colorScheme={ colorScheme }
 														browserCommand={
 															surface.browserCommand?.type === 'reload'
 																? surface.browserCommand
@@ -1393,7 +1457,7 @@ export function SitePreview( {
 													<iframe
 														key={ `${ surfaceUrl }#${ surface.reloadNonce }` }
 														className={ styles.iframe }
-														style={ getIframeStyle( splitMobileViewport ) }
+														style={ getIframeStyle( splitMobileViewport, colorScheme ) }
 														src={ surfaceUrl }
 														title={ sprintf(
 															/* translators: %s: site name */
@@ -1479,6 +1543,7 @@ interface WebviewSurfaceProps {
 	onNavigate?: ( url: string ) => void;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
+	colorScheme?: PreviewColorScheme;
 	// Whether to inject the annotation inspector into the guest page. Off for
 	// surfaces that can't be annotated (phpMyAdmin, the split companion).
 	inspector?: boolean;
@@ -1503,6 +1568,7 @@ function WebviewSurface( {
 	onBrowserCommand,
 	onNavigate,
 	viewport = null,
+	colorScheme = 'system',
 	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
@@ -1872,6 +1938,16 @@ function WebviewSurface( {
 		appliedViewportRef.current = Boolean( debouncedViewport );
 		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
 	}, [ debouncedViewport, domReadyCount ] );
+
+	const appliedColorSchemeRef = useRef( colorScheme );
+	useEffect( () => {
+		if ( ! ready ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		const shouldReload = appliedColorSchemeRef.current !== colorScheme;
+		appliedColorSchemeRef.current = colorScheme;
+		void applyWebviewColorScheme( webview, colorScheme, shouldReload ).catch( () => undefined );
+	}, [ colorScheme, ready ] );
 
 	return (
 		<>

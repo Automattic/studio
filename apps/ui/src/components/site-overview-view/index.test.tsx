@@ -444,7 +444,7 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
 		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Connect a WordPress.com site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Connect a site' } ) ).toBeVisible();
 	} );
 
 	it( 'offers login from Connections when signed out', () => {

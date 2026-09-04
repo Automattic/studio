@@ -142,6 +142,7 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 							variant="minimal"
 							tone="neutral"
 							size="small"
+							className={ styles.rowAction }
 							onClick={ () => void connector.openExternalUrl( url ) }
 						>
 							{ __( 'Open' ) }
@@ -152,6 +153,7 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.rowAction }
 						onClick={ () => void connector.copyText( url ) }
 					>
 						{ __( 'Copy' ) }
@@ -161,6 +163,7 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.rowAction }
 						disabled={ publishPreviewSite.isPending || isOffline }
 						onClick={ republish }
 					>
@@ -171,7 +174,10 @@ function PreviewRow( { site, snapshot }: { site: SiteDetails; snapshot: Snapshot
 							: __( 'Update' ) }
 					</Button>
 				</div>
-				<Badge intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }>
+				<Badge
+					className={ styles.rowBadge }
+					intent={ life.expired ? 'high' : life.endingSoon ? 'medium' : 'stable' }
+				>
 					{ life.label }
 				</Badge>
 			</div>

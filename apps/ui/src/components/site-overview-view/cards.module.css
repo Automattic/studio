@@ -115,6 +115,21 @@
 	flex: 0 0 auto;
 }
 
+.rowAction {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-weak);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-xs);
+	--wp-ui-button-min-width: 0;
+}
+
+.rowBadge {
+	padding: 1px 6px;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
+}
+
 .rowDivider {
 	height: var(--wpds-border-width-xs);
 	background: var(--wpds-color-stroke-surface-neutral-weak);

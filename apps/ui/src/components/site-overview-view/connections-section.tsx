@@ -36,7 +36,7 @@ export function ConnectionsSection( { site, busy }: { site: SiteDetails; busy: b
 						tone="neutral"
 						size="small"
 						icon={ plus }
-						label={ __( 'Connect a WordPress.com site' ) }
+						label={ __( 'Connect a site' ) }
 					/>
 				}
 			/>
@@ -121,6 +121,7 @@ function ConnectionRow( {
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.rowAction }
 						disabled={ disabled }
 						onClick={ () =>
 							pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
@@ -133,6 +134,7 @@ function ConnectionRow( {
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.rowAction }
 						disabled={ disabled }
 						onClick={ () =>
 							pushSiteToLive.mutate( { siteId: site.id, remoteSiteId: connection.id } )
@@ -145,12 +147,13 @@ function ConnectionRow( {
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.rowAction }
 						onClick={ () => void connector.copyText( url ) }
 					>
 						{ __( 'Copy' ) }
 					</Button>
 				</div>
-				<Badge intent={ connection.isStaging ? 'medium' : 'stable' }>
+				<Badge className={ styles.rowBadge } intent={ connection.isStaging ? 'medium' : 'stable' }>
 					{ connection.isStaging ? __( 'Staging' ) : __( 'Production' ) }
 				</Badge>
 			</div>

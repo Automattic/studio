@@ -70,3 +70,96 @@ export function loadSkills(): Skill[] {
 export function findSkill( name: string ): Skill | undefined {
 	return loadSkills().find( ( skill ) => skill.name === name );
 }
+
+export interface DesignConcept {
+	category: string;
+	name: string;
+	body: string;
+}
+
+let cachedConcepts: DesignConcept[] | null = null;
+
+// Parses `visual-design/concepts.md`: `## ` headings are categories and
+// `### ` headings are concepts, each keeping its own markdown body.
+export function loadDesignConcepts(): DesignConcept[] {
+	if ( cachedConcepts ) return cachedConcepts;
+	const conceptsPath = getSkillPath( 'visual-design', 'concepts.md' );
+	if ( ! fs.existsSync( conceptsPath ) ) {
+		cachedConcepts = [];
+		return cachedConcepts;
+	}
+	const concepts: DesignConcept[] = [];
+	let category = '';
+	for ( const section of fs.readFileSync( conceptsPath, 'utf-8' ).split( /^(?=##+ )/m ) ) {
+		const heading = section.match( /^(##+) (.+)$/m );
+		if ( ! heading ) continue;
+		const [ , level, title ] = heading;
+		if ( level === '##' ) {
+			category = title.trim();
+			continue;
+		}
+		if ( level === '###' && category ) {
+			concepts.push( {
+				category,
+				name: title.trim(),
+				body: section.slice( heading[ 0 ].length ).trim(),
+			} );
+		}
+	}
+	cachedConcepts = concepts;
+	return concepts;
+}
+
+function shuffle< T >( items: T[], random: () => number ): T[] {
+	const result = [ ...items ];
+	for ( let i = result.length - 1; i > 0; i-- ) {
+		const j = Math.floor( random() * ( i + 1 ) );
+		[ result[ i ], result[ j ] ] = [ result[ j ], result[ i ] ];
+	}
+	return result;
+}
+
+// Picks `count` concepts spread across categories (round-robin over a
+// shuffled category order, one random concept per category per round) and
+// returns them in random order, so neither the pick nor its position in
+// the list is stable between two loads of the skill.
+export function sampleDesignConcepts(
+	count: number,
+	random: () => number = Math.random
+): DesignConcept[] {
+	const byCategory = new Map< string, DesignConcept[] >();
+	for ( const concept of loadDesignConcepts() ) {
+		byCategory.set( concept.category, [
+			...( byCategory.get( concept.category ) ?? [] ),
+			concept,
+		] );
+	}
+	const pools = shuffle( [ ...byCategory.values() ], random ).map( ( pool ) =>
+		shuffle( pool, random )
+	);
+	const picked: DesignConcept[] = [];
+	while ( picked.length < count && pools.some( ( pool ) => pool.length > 0 ) ) {
+		for ( const pool of pools ) {
+			if ( picked.length >= count ) break;
+			const concept = pool.pop();
+			if ( concept ) picked.push( concept );
+		}
+	}
+	return shuffle( picked, random );
+}
+
+export const CONCEPT_SHORTLIST_PLACEHOLDER = '{{concept-shortlist}}';
+const CONCEPT_SHORTLIST_SIZE = 10;
+
+function renderConceptShortlist(): string {
+	return sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE )
+		.map( ( concept ) => `#### ${ concept.name } (${ concept.category })\n${ concept.body }` )
+		.join( '\n\n' );
+}
+
+// Skill bodies are static except for placeholders that are re-rendered on
+// every load — the concept shortlist is a fresh random sample each time.
+export function renderSkillBody( skill: Skill ): string {
+	if ( ! skill.body.includes( CONCEPT_SHORTLIST_PLACEHOLDER ) ) return skill.body;
+	return skill.body.replace( CONCEPT_SHORTLIST_PLACEHOLDER, renderConceptShortlist() );
+}

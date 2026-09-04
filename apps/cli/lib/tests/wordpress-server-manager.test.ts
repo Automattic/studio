@@ -358,11 +358,29 @@ describe( 'WordPress Server Manager', () => {
 						pm_id: mockProcessDescription.pmId,
 					},
 					event: 'exit',
+					exitCode: 1,
 				} );
 			} );
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
-				/exited before becoming ready/
+				/exited before becoming ready \(exit code 1\)/
+			);
+		} );
+
+		it( 'should name the signal when the child process was killed before becoming ready', async () => {
+			emitExitWhenSubscribed( () => {
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+					signal: 'SIGKILL',
+				} );
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+				/exited before becoming ready \(signal SIGKILL\)/
 			);
 		} );
 

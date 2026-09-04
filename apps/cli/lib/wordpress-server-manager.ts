@@ -429,10 +429,26 @@ async function withCapturedPhpErrors(
 	return error;
 }
 
-function buildChildExitedError( processName: string, stderrTail?: string ): Error {
-	let message = `Server child process "${ processName }" exited before becoming ready.`;
-	if ( stderrTail?.trim() ) {
-		message += `\n${ stderrTail.trimEnd() }`;
+type ProcessExitEvent = Pick<
+	DaemonBusEventMap[ 'process-event' ],
+	'stderrTail' | 'exitCode' | 'signal'
+>;
+
+function describeProcessExit( { exitCode, signal }: ProcessExitEvent ): string {
+	if ( signal ) {
+		return ` (signal ${ signal })`;
+	}
+	if ( typeof exitCode === 'number' ) {
+		return ` (exit code ${ exitCode })`;
+	}
+	return '';
+}
+
+function buildChildExitedError( processName: string, event: ProcessExitEvent ): Error {
+	const exitDescription = describeProcessExit( event );
+	let message = `Server child process "${ processName }" exited before becoming ready${ exitDescription }.`;
+	if ( event.stderrTail?.trim() ) {
+		message += `\n${ event.stderrTail.trimEnd() }`;
 	}
 	return new Error( message );
 }
@@ -452,7 +468,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 	const pendingReady: Array< DaemonBusEventMap[ 'process-message' ] > = [];
 	const pendingExits: Array< DaemonBusEventMap[ 'process-event' ] > = [];
 	let onReady: () => void = () => {};
-	let onExit: ( stderrTail?: string ) => void = () => {};
+	let onExit: ( event: ProcessExitEvent ) => void = () => {};
 	let waiting = false;
 
 	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
@@ -470,7 +486,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 			return;
 		}
 		if ( waiting ) {
-			onExit( event.stderrTail );
+			onExit( event );
 		} else {
 			pendingExits.push( event );
 		}
@@ -494,14 +510,14 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 			};
 
 			onReady = () => resolve();
-			onExit = ( stderrTail ) => reject( buildChildExitedError( processName, stderrTail ) );
+			onExit = ( event ) => reject( buildChildExitedError( processName, event ) );
 
 			abortController.signal.addEventListener( 'abort', abortListener );
 
 			// Replay any events we buffered before pmId was known.
 			const bufferedExit = pendingExits.find( ( event ) => event.process.pm_id === pmId );
 			if ( bufferedExit ) {
-				onExit( bufferedExit.stderrTail );
+				onExit( bufferedExit );
 				return;
 			}
 			const bufferedReady = pendingReady.find( ( packet ) => packet.process.pm_id === pmId );
@@ -532,7 +548,10 @@ const messageActivityTrackers = new Map<
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
-const CHILD_EXIT_ERROR_GRACE_MS = 100;
+// After the child's exit event, wait this long for its own `error` IPC packet (sent just before
+// it exits) before falling back to a generic message. The packet and the exit event travel
+// through different channels, so on a busy host the exit can arrive first.
+const CHILD_EXIT_ERROR_GRACE_MS = 1_000;
 
 export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
@@ -592,7 +611,8 @@ export async function sendMessage(
 		processEventHandler = ( event ) => {
 			if ( event.process.name === processName && event.event === 'exit' ) {
 				exitRejectTimeoutId = setTimeout( () => {
-					let errorMessage = 'WordPress server process exited unexpectedly';
+					const exitDescription = describeProcessExit( event );
+					let errorMessage = `WordPress server process exited unexpectedly${ exitDescription }`;
 					if ( event.stderrTail?.trim() ) {
 						errorMessage += `\n${ event.stderrTail.trimEnd() }`;
 					}

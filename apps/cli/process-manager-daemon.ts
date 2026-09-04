@@ -27,6 +27,9 @@ import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 2_500;
+// How long to wait after a child's 'exit' for its stdio pipes to drain before giving up on the
+// 'close' event: a descendant that inherited the pipes can hold them open indefinitely.
+const EXIT_STDIO_DRAIN_TIMEOUT_MS = 1_000;
 
 // In-memory tail of stderr kept per child so we can include the current invocation's error
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
@@ -321,11 +324,19 @@ export class ProcessManagerDaemon {
 			for ( const line of errorText.split( '\n' ) ) {
 				this.recordStderrLine( managedProcess, line );
 			}
-			void this.handleProcessExit( managedProcess );
+			void this.handleProcessExit( managedProcess, {} );
 		} );
 
-		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess );
+		// Report the exit on 'close', once stdout/stderr have drained, so the stderr tail in the
+		// event is complete: 'exit' alone can fire while the last lines are still in the pipe.
+		// The timer is a fallback for pipes that a surviving descendant keeps open.
+		child.on( 'close', ( code, signal ) => {
+			void this.handleProcessExit( managedProcess, { code, signal } );
+		} );
+		child.on( 'exit', ( code, signal ) => {
+			setTimeout( () => {
+				void this.handleProcessExit( managedProcess, { code, signal } );
+			}, EXIT_STDIO_DRAIN_TIMEOUT_MS ).unref();
 		} );
 
 		await this.broadcastEvent( {
@@ -367,7 +378,10 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private async handleProcessExit( managedProcess: ManagedProcess ) {
+	private async handleProcessExit(
+		managedProcess: ManagedProcess,
+		{ code, signal }: { code?: number | null; signal?: NodeJS.Signals | null }
+	) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -386,6 +400,8 @@ export class ProcessManagerDaemon {
 				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
 				event: 'exit',
 				...( stderrTail ? { stderrTail } : {} ),
+				...( typeof code === 'number' ? { exitCode: code } : {} ),
+				...( signal ? { signal } : {} ),
 			},
 		} );
 	}

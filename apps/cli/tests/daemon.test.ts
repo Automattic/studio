@@ -19,7 +19,8 @@ class MockChildProcess extends EventEmitter {
 	);
 	kill = vi.fn( () => {
 		this.connected = false;
-		this.emit( 'exit', 0 );
+		this.emit( 'exit', 0, null );
+		this.emit( 'close', 0, null );
 		return true;
 	} );
 }
@@ -145,7 +146,7 @@ describe( 'ProcessManagerDaemon', () => {
 		);
 	} );
 
-	it( 'includes captured stderr in the exit event payload', async () => {
+	it( 'includes captured stderr and the exit code in the exit event payload', async () => {
 		const child = new MockChildProcess();
 		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
@@ -173,7 +174,8 @@ describe( 'ProcessManagerDaemon', () => {
 		// Let readline consume the lines before triggering exit.
 		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
 
-		child.emit( 'exit', 1 );
+		child.emit( 'exit', 1, null );
+		child.emit( 'close', 1, null );
 		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
 
 		const exitCall = broadcastSpy.mock.calls.find( ( [ event ] ) => {
@@ -182,9 +184,62 @@ describe( 'ProcessManagerDaemon', () => {
 		} );
 
 		expect( exitCall ).toBeDefined();
-		const payload = ( exitCall![ 0 ] as { payload: { stderrTail?: string } } ).payload;
+		const payload = (
+			exitCall![ 0 ] as { payload: { stderrTail?: string; exitCode?: number; signal?: string } }
+		 ).payload;
 		expect( payload.stderrTail ).toContain( 'SyntaxError: boom' );
 		expect( payload.stderrTail ).toContain( 'at Module._compile' );
+		expect( payload.exitCode ).toBe( 1 );
+		expect( payload.signal ).toBeUndefined();
+	} );
+
+	it( 'reports the exit once and waits for stdio to drain before doing so', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< unknown >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		const broadcastSpy = vi
+			.spyOn( daemonInternal, 'broadcastEvent' )
+			.mockResolvedValue( undefined );
+
+		await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		const exitEvents = () =>
+			broadcastSpy.mock.calls.filter( ( [ event ] ) => {
+				const payload = ( event as { payload: { event: string } } ).payload;
+				return payload.event === 'exit';
+			} );
+
+		// 'exit' fires first; the last stderr lines can still be in flight at that point.
+		child.emit( 'exit', null, 'SIGKILL' );
+		child.stderr.write( 'late line\n' );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+		expect( exitEvents() ).toHaveLength( 0 );
+
+		child.emit( 'close', null, 'SIGKILL' );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+		expect( exitEvents() ).toHaveLength( 1 );
+
+		const payload = (
+			exitEvents()[ 0 ][ 0 ] as {
+				payload: { stderrTail?: string; exitCode?: number; signal?: string };
+			}
+		 ).payload;
+		expect( payload.stderrTail ).toContain( 'late line' );
+		expect( payload.signal ).toBe( 'SIGKILL' );
+		expect( payload.exitCode ).toBeUndefined();
 	} );
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {

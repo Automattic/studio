@@ -2,9 +2,10 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { buildAiSessionFileName } from './file-naming';
-import { migrateLegacyFileInPlace } from './migration';
+import { readJsonlLines } from './jsonl';
+import { migrateLegacyFileInPlace, PI_SESSION_CWD, PI_SESSION_VERSION } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
-import { readAiSessionSummaryFromEntries } from './summary';
+import { readAiSessionSummaryFromEntries, readAiSessionSummaryFromFile } from './summary';
 import type { StudioCustomEntryDataMap, StudioCustomEntryType } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -12,29 +13,47 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 // Migrates the file in place on first read, then parses the (now-pi-format)
 // JSONL into pi `SessionEntry` records.
 export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
-	let content: string;
+	const entries: SessionEntry[] = [];
 	try {
-		content = await fs.readFile( filePath, 'utf8' );
+		await migrateLegacyFileInPlace( filePath );
+		for await ( const line of readJsonlLines( filePath ) ) {
+			try {
+				entries.push( JSON.parse( line ) as SessionEntry );
+			} catch {
+				// malformed line
+			}
+		}
 	} catch ( error ) {
 		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return [];
 		throw error;
 	}
-	if ( ! content.trim() ) return [];
-
-	await migrateLegacyFileInPlace( filePath, '~/Studio' );
-	const refreshed = await fs.readFile( filePath, 'utf8' );
-
-	const entries: SessionEntry[] = [];
-	for ( const line of refreshed.split( '\n' ) ) {
-		const trimmed = line.trim();
-		if ( ! trimmed ) continue;
-		try {
-			entries.push( JSON.parse( trimmed ) as SessionEntry );
-		} catch {
-			// malformed line
-		}
-	}
 	return entries;
+}
+
+interface SessionSummaryCacheEntry {
+	size: number;
+	mtimeMs: number;
+	summary: AiSessionSummary | undefined;
+}
+
+const sessionSummaryCache = new Map< string, SessionSummaryCacheEntry >();
+
+interface ActiveSessionListing {
+	promise: Promise< AiSessionSummary[] >;
+	writeGeneration: number;
+}
+
+const activeSessionListings = new Map< string, ActiveSessionListing >();
+
+// Bumped on every session mutation. A caller that writes and then lists must
+// never be handed an in-flight listing that started scanning before its write.
+let sessionWriteGeneration = 0;
+
+function noteSessionWrite( mutatedFilePath?: string ): void {
+	sessionWriteGeneration += 1;
+	if ( mutatedFilePath ) {
+		sessionSummaryCache.delete( mutatedFilePath );
+	}
 }
 
 async function listSessionFilesRecursively( directory: string ): Promise< string[] > {
@@ -123,22 +142,80 @@ async function pruneEmptySessionDirectories(
 }
 
 export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const active = activeSessionListings.get( rootDirectory );
+	// Join an in-flight listing only if no write landed after it started; a
+	// stale one may have scanned past the caller's own write.
+	if ( active && active.writeGeneration === sessionWriteGeneration ) {
+		return active.promise;
+	}
+
+	const listing: ActiveSessionListing = {
+		promise: listAiSessionsUncached( rootDirectory ),
+		writeGeneration: sessionWriteGeneration,
+	};
+	activeSessionListings.set( rootDirectory, listing );
+	try {
+		return await listing.promise;
+	} finally {
+		if ( activeSessionListings.get( rootDirectory ) === listing ) {
+			activeSessionListings.delete( rootDirectory );
+		}
+	}
+}
+
+// Bounds memory (a handful of files in flight, streamed line by line) without
+// serializing the whole cold scan behind each file's I/O latency.
+const CONCURRENT_SUMMARY_READS = 8;
+
+async function readSessionSummaryCached(
+	filePath: string
+): Promise< AiSessionSummary | undefined > {
+	try {
+		const stats = await fs.stat( filePath );
+		const cached = sessionSummaryCache.get( filePath );
+		if ( cached && cached.size === stats.size && cached.mtimeMs === stats.mtimeMs ) {
+			return cached.summary;
+		}
+
+		const summary = await readAiSessionSummaryFromFile( filePath );
+		// Cache under the pre-read stats: if the file changed while being read,
+		// the next listing re-reads it (one redundant read) instead of pairing
+		// post-change stats with a pre-change summary and serving that stale
+		// summary until the file changes again.
+		sessionSummaryCache.set( filePath, { size: stats.size, mtimeMs: stats.mtimeMs, summary } );
+		return summary;
+	} catch {
+		// Ignore files that disappear or cannot be parsed while listing.
+		return undefined;
+	}
+}
+
+async function listAiSessionsUncached( rootDirectory: string ): Promise< AiSessionSummary[] > {
 	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
-	const results = await Promise.allSettled(
-		sessionFiles.map( async ( filePath ) => {
-			const entries = await readPiFileEntries( filePath );
-			return readAiSessionSummaryFromEntries( filePath, entries );
-		} )
+	const sessionFileSet = new Set( sessionFiles );
+
+	const summaries: Array< AiSessionSummary | undefined > = new Array( sessionFiles.length );
+	let nextFileIndex = 0;
+	const worker = async (): Promise< void > => {
+		while ( nextFileIndex < sessionFiles.length ) {
+			const index = nextFileIndex;
+			nextFileIndex += 1;
+			summaries[ index ] = await readSessionSummaryCached( sessionFiles[ index ] );
+		}
+	};
+	await Promise.all(
+		Array.from( { length: Math.min( CONCURRENT_SUMMARY_READS, sessionFiles.length ) }, worker )
 	);
 
-	const sessions = results
-		.filter(
-			( result ): result is PromiseFulfilledResult< AiSessionSummary | undefined > =>
-				result.status === 'fulfilled'
-		)
-		.map( ( result ) => result.value )
-		.filter( ( session ): session is AiSessionSummary => !! session );
+	for ( const cachedPath of sessionSummaryCache.keys() ) {
+		if ( cachedPath.startsWith( rootDirectory + path.sep ) && ! sessionFileSet.has( cachedPath ) ) {
+			sessionSummaryCache.delete( cachedPath );
+		}
+	}
 
+	const sessions = summaries.filter(
+		( summary ): summary is AiSessionSummary => summary !== undefined
+	);
 	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
 }
 
@@ -161,9 +238,6 @@ export interface CreateAiSessionOptions {
 		wpcomSiteId?: number;
 	};
 }
-
-const PI_SESSION_VERSION = 3;
-const PI_SESSION_CWD = '~/Studio';
 
 function shortId(): string {
 	return crypto.randomUUID().slice( 0, 8 );
@@ -213,6 +287,7 @@ export async function createAiSession(
 	}
 
 	await fs.writeFile( filePath, lines.join( '\n' ) + '\n', { encoding: 'utf8' } );
+	noteSessionWrite();
 
 	const allEntries = [
 		{
@@ -258,6 +333,7 @@ export async function appendStudioEntry< T extends StudioCustomEntryType >(
 		data,
 	};
 	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
+	noteSessionWrite();
 }
 
 export async function appendModelChangeEntry(
@@ -277,6 +353,7 @@ export async function appendModelChangeEntry(
 		modelId,
 	};
 	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
+	noteSessionWrite();
 }
 
 export async function deleteAiSession(
@@ -285,6 +362,7 @@ export async function deleteAiSession(
 ): Promise< AiSessionSummary > {
 	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
+	noteSessionWrite( sessionToDelete.filePath );
 
 	// Sweep sidecars sharing the JSONL's stem: legacy files like
 	// `.openai-state.json` and directories like `.screenshots`. Best-effort.

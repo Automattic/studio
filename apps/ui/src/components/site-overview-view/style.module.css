@@ -163,15 +163,15 @@
 	}
 
 	.cardColumn {
-		order: 2;
+		order: 1;
 	}
 
 	.actionsColumn {
-		order: 1;
+		order: 2;
 	}
 }
 
-/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
+/* Each section is a full-width row (Customize, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;

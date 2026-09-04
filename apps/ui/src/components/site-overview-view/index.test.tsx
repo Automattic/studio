@@ -27,20 +27,13 @@ import {
 } from '@/data/queries/use-sites';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
 import { SiteOverviewView } from './index';
-import type {
-	ConnectorCapabilities,
-	SiteDetails,
-	SupportedEditor,
-	SyncSite,
-	UserPreferences,
-} from '@/data/core';
+import type { ConnectorCapabilities, SiteDetails, SyncSite } from '@/data/core';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
@@ -84,7 +77,7 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-toolbar', () => ( {
-	SiteToolbar: ( props: { site: SiteDetails } ) => {
+	SiteToolbar: ( props: { site: SiteDetails; browserPath?: string } ) => {
 		siteToolbarMock( props );
 		return <div>{ props.site.name }</div>;
 	},
@@ -157,10 +150,6 @@ vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
 	useSiteStorageUsage: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-user-preferences', () => ( {
-	useUserPreferences: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePullSiteFromLive: vi.fn(),
 	usePushSiteToLive: vi.fn(),
@@ -222,7 +211,6 @@ const useOfflineMock = vi.mocked( useOffline );
 const useThemeDetailsMock = vi.mocked( useThemeDetails );
 const usePullSiteFromLiveMock = vi.mocked( usePullSiteFromLive, { partial: true } );
 const usePushSiteToLiveMock = vi.mocked( usePushSiteToLive, { partial: true } );
-const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
@@ -230,9 +218,6 @@ const useIsSiteSyncingMock = vi.mocked( useIsSiteSyncing );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
-	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
-	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
-	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
 	const openSiteDebugLog = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const copyText = vi.fn().mockResolvedValue( undefined );
@@ -250,9 +235,6 @@ describe( 'SiteOverviewView', () => {
 
 	const connectorStub = ( openInOS = true ) => ( {
 		openSiteUrl,
-		openSiteFolder,
-		openSiteInEditor,
-		openSiteInTerminal,
 		openSiteDebugLog,
 		trackEvent,
 		copyText,
@@ -261,9 +243,6 @@ describe( 'SiteOverviewView', () => {
 		openExternalUrl,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
-
-	const preferencesStub = ( editor: SupportedEditor | null ) =>
-		( { editor, terminal: 'terminal' } ) as UserPreferences;
 
 	let queryClient: QueryClient;
 
@@ -293,7 +272,6 @@ describe( 'SiteOverviewView', () => {
 		useThemeDetailsMock.mockImplementation( ( site ) =>
 			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
 		);
-		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
@@ -392,7 +370,10 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect( siteToolbarMock ).toHaveBeenCalledWith(
-			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
+			expect.objectContaining( {
+				browserPath: '/',
+				site: expect.objectContaining( { id: 'site-1' } ),
+			} )
 		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
@@ -931,45 +912,6 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByText( 'Pages' ).closest( 'button' )! );
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php' );
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/edit.php?post_type=page' );
-	} );
-
-	it( 'offers the configured apps and phpMyAdmin under Open in…', () => {
-		renderView();
-
-		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
-		expect( screen.getByText( 'Finder' ) ).toBeVisible();
-		expect( screen.getByText( 'Visual Studio Code' ) ).toBeVisible();
-		expect( screen.getByText( 'Terminal' ) ).toBeVisible();
-		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByText( 'Finder' ).closest( 'button' )! );
-		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
-
-		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
-		expect( openSiteUrl ).toHaveBeenCalledWith(
-			'site-1',
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-		);
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'internal',
-		} );
-	} );
-
-	it( 'hides the editor shortcut until an editor is configured', () => {
-		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( null ) } );
-
-		renderView();
-
-		expect( screen.queryByText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Finder' ) ).toBeVisible();
-	} );
-
-	it( 'drops the Open in… section on hosts that cannot open local apps', () => {
-		useConnectorMock.mockReturnValue( connectorStub( false ) );
-
-		renderView();
-
-		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

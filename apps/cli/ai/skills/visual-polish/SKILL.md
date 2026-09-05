@@ -32,6 +32,7 @@ The most important rule: **do not fix issues one at a time as you find them.** F
 3. Go **section by section**. For each, call `inspect_design` on the relevant selectors and compare the rendered DOM and computed styles against your intent and the theme's `style.css` (read it). The screenshot is the symptom; `inspect_design` is the cause — never diagnose from the screenshot alone, because subtle issues like doubled button padding barely show in pixels. Inspect even sections that look roughly right, and always inspect:
    - every section wrapper — for width and centering,
    - every button — BOTH `.wp-block-button` and `.wp-block-button__link`, with `includeHover: true`.
+   - every block that paints its own box (background, border, shadow — cards, panels, tinted sections) and every non-constrained full-width section — for `padding-left`/`padding-right`, which must not be `0px` when the box holds text.
 4. List the **complete** set of issues before fixing anything — a concise checklist, one short line per issue: the section, the root cause from the DOM, and the exact fix (file, selector, change). A list, not prose.
 
 Do not make a single edit until you have diagnosed every section and listed every issue. **A complete diagnosis is the gate into Phase 2.**
@@ -72,6 +73,12 @@ Inspect BOTH selectors with `includeHover: true` and compare their computed styl
 
 - If padding/background/border is set on BOTH the wrapper and the link, the button renders with **doubled padding and looks too big** — remove that styling from the wrapper (or its custom class) and put it on `.wp-element-button` / `.wp-block-button__link`.
 - There must be exactly ONE hover rule, on the inner element (`.wp-element-button:hover` or `.wp-block-button__link:hover`), never the `.wp-block-button` wrapper. If both have hover styles you get **two conflicting hover effects** — delete the wrapper hover. Use the `hover` block in the inspect output to confirm only the inner element changes.
+
+### Text touches a background, border, or the viewport edge
+
+Symptom: copy sits flush against the edge of a card, a tinted panel, a bordered box, or the window — most visible on mobile.
+
+Inspect the box and read `padding-left`/`padding-right`. WordPress pads only full-width constrained groups (the root gutter via `.has-global-padding`) and zeroes it on constrained groups nested inside them; a group, column, or cover with its own background or border gets no padding, and neither does a full-width section with a `default`, `flex`, or `grid` layout. Fix it by giving the block's class horizontal padding in `style.css` (reuse `var(--wp--style--root--padding-left)` for a section gutter) or by moving the text into a constrained inner group — never with margins on the text blocks.
 
 ### Spacing between blocks differs from intent
 

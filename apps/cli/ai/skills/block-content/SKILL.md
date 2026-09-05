@@ -38,6 +38,13 @@ Use these patterns:
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
 
+### Horizontal Padding
+
+WordPress supplies horizontal padding in exactly one place: the root gutter (`styles.spacing.padding`) lands on full-width constrained groups via `.has-global-padding`, and core zeroes it again on constrained groups nested inside them. Every other box gets none — a full-width section with a `default`, `flex`, or `grid` layout, and any group, column, or cover that paints its own background, border, or shadow (a card, a callout, a tinted panel). Block themes do not load core's default `.has-background` padding either. Text sitting flush against its own background, border, or the viewport edge is the most common tell of an unfinished section, so:
+
+- Whenever a block paints its own box, give its class horizontal padding in `style.css` — `.is-style-card { padding: 1.5rem; }`.
+- Give a non-constrained full-width section the same gutter as the rest of the page — `padding-inline: var(--wp--style--root--padding-left);` — or place its text inside a constrained inner group, which keeps the gutter when it sits directly in a full-width `default` group.
+
 ### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
 
 Constrained layouts keep children in the content column with `max-width` plus `margin-left/right: auto !important`. Auto margins only work on block-level boxes, so setting `display: inline-block` (or any `inline-*` value) on a block's wrapper class detaches it from the content column — it aligns to the edge of the full-width section instead. `width: fit-content` fails differently: the auto margins always center it, so it cannot sit left or right within the column.

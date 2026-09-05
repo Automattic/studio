@@ -348,11 +348,11 @@ describe( 'exportWebsiteCapture', () => {
 			mkdirSync( join( outputDir, path ), { recursive: true } );
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			'<html><head><base href="https://evil.example/"><meta http-equiv="refresh" content="0;url=https://evil.example/"><link rel="stylesheet" href="https://cdn.example/site.css"><style>.desktop{display:block}</style></head><body class="desktop-body" style="margin:3px;padding:4px"><main><div data-dla-geometry-id="desktop-wrapper-0" onclick="discard()"><section data-dla-geometry-id="desktop-target-0">Desktop<a href="javascript:discard()">Unsafe</a><form action="https://evil.example/"><button formaction="javascript:discard()">Send</button></form><iframe src="https://evil.example/"></iframe></section></div><script>discard()</script></main></body></html>'
+			'<html><head><base href="https://evil.example/"><meta http-equiv="refresh" content="0;url=https://evil.example/"><link rel="stylesheet" href="https://cdn.example/site.css"><style>.desktop{display:block}</style></head><body class="responsive desktop-body" style="margin:3px;padding:4px"><main><div data-dla-geometry-id="desktop-wrapper-0" onclick="discard()"><section data-dla-geometry-id="desktop-target-0">Desktop<a href="javascript:discard()">Unsafe</a><form action="https://evil.example/"><button formaction="javascript:discard()">Send</button></form><iframe src="https://evil.example/"></iframe></section></div><script>discard()</script></main></body></html>'
 		);
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<html><head><style>.mobile{display:block}</style></head><body class="mobile-body" style="margin:5px;padding:6px"><main><div data-dla-geometry-id="mobile-wrapper-0"><section data-dla-geometry-id="mobile-target-0">Mobile</section></div></main></body></html>'
+			'<html><head><style>.mobile{display:block}</style></head><body class="responsive mobile-body" style="margin:5px;padding:6px"><main><div data-dla-geometry-id="mobile-wrapper-0"><section data-dla-geometry-id="mobile-target-0">Mobile</section></div></main></body></html>'
 		);
 		const observation = ( viewport: number, identity: string ) => ( {
 			wrapperIdentity: `${ identity }-wrapper-0`,
@@ -420,11 +420,12 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( 'http-equiv="refresh"' );
 		expect( html ).not.toContain( 'javascript:' );
 		expect( html ).not.toContain( 'action="https://evil.example/' );
+		expect( html ).toContain( '<body class="responsive">' );
 		expect( html ).toContain(
-			'class="data-liberation-desktop-document desktop-body" style="margin:3px;padding:4px"'
+			'class="data-liberation-desktop-document responsive desktop-body" style="margin:3px;padding:4px"'
 		);
 		expect( html ).toContain(
-			'class="data-liberation-mobile-document mobile-body" style="margin:5px;padding:6px"'
+			'class="data-liberation-mobile-document responsive mobile-body" style="margin:5px;padding:6px"'
 		);
 		expect( html ).toContain( 'href="/cdn/site.css"' );
 		expect( artifact.layout_geometry_proof.reductions ).toHaveLength( 2 );
@@ -2161,6 +2162,104 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( diagnostics.unresolvedMedia ).toContainEqual( {
 			url: 'https://cdn.example/second.png',
 			error: 'removed because the aggregate portable media limit was reached',
+		} );
+	} );
+
+	it( 'does not treat empty img src as page-URL media or rewrite every slash', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-empty-src-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<!doctype html><html><body><div class="hero"><p>Home</p><img alt="Wix placeholder" src=""><img src="https://cdn.example/logo.png"></div></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'media', 'image-1788009152544.jpg' ),
+			Buffer.alloc( 6 * 1024 * 1024, 1 )
+		);
+		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'png' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess(
+			'https://example.com/',
+			join( outputDir, 'media', 'image-1788009152544.jpg' )
+		);
+		media.markSuccess( 'https://cdn.example/logo.png', join( outputDir, 'media', 'logo.png' ) );
+		media.flush();
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( '</div>' );
+		expect( html ).toContain( '</p>' );
+		expect( html ).not.toContain( '<https://example.com/div>' );
+		expect( html ).not.toContain( '<https://example.com/p>' );
+		expect( html ).toContain( '/media/logo.png' );
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.assets.map( ( asset: { sourceUrl: string } ) => asset.sourceUrl ) ).toEqual( [
+			'https://cdn.example/logo.png',
+		] );
+		expect( existsSync( join( outputDir, 'website', 'media', 'image-1788009152544.jpg' ) ) ).toBe(
+			false
+		);
+	} );
+
+	it( 'preserves document syntax when a replacement map includes a bare slash', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-degenerate-slash-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><div class="hero-wrap"><div class="hero-inner"><img src="/hero.png"><img src="https://cdn.example/logo.png"></div></div><style>.hero-inner{background-image:url(/)}</style></body></html>'
+		);
+		writeFileSync( join( outputDir, 'media', 'hero.png' ), 'hero' );
+		writeFileSync( join( outputDir, 'media', 'logo.png' ), 'logo' );
+		writeFileSync( join( outputDir, 'media', 'root.png' ), 'root' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://example.com/', join( outputDir, 'media', 'root.png' ) );
+		media.markSuccess( 'https://example.com/hero.png', join( outputDir, 'media', 'hero.png' ) );
+		media.markSuccess( 'https://cdn.example/logo.png', join( outputDir, 'media', 'logo.png' ) );
+		media.flush();
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( html ).toContain( '</div>' );
+		expect( html ).not.toMatch( /<\/(?:https?:|media\/)/ );
+		expect( html ).not.toContain( '<https://' );
+		expect( html ).toContain( '/media/hero.png' );
+		expect( html ).toContain( '/media/logo.png' );
+		expect( diagnostics.unresolvedMedia ).toContainEqual( {
+			url: '/',
+			error: 'skipped degenerate replacement key',
 		} );
 	} );
 } );

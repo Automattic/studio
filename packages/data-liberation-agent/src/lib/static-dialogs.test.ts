@@ -66,6 +66,17 @@ describe( 'wireCapturedDialogs', () => {
 		expect( html ).toContain( '<a class="logo" role="button"><img alt="Homepage"></a>' );
 	} );
 
+	it( 'keeps global attributes without copying element-specific behavior to summary', () => {
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><a class="menu" aria-label="Open Menu" data-menu="primary" href="/" target="_self" rel="home">Menu</a></body></html>',
+			[ captured ]
+		);
+		expect( html ).toContain(
+			'<summary class="menu" aria-label="Open Menu" data-menu="primary">Menu</summary>'
+		);
+		expect( html ).not.toMatch( /<summary[^>]+(?:href|target|rel)=/ );
+	} );
+
 	it( 'leaves the page alone when nothing was captured', () => {
 		const input = '<html><body><button>Open Menu</button></body></html>';
 		expect( wireCapturedDialogs( input, [] ) ).toBe( input );

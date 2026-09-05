@@ -13,6 +13,37 @@ const DISCLOSURE_CSS =
 	'details.dla-initial-dialog>summary{position:fixed;z-index:2147483647;right:1rem;top:1rem}' +
 	'details.dla-initial-dialog:not([open])>summary{display:none!important}';
 
+const GLOBAL_ATTRIBUTES = new Set( [
+	'accesskey',
+	'autocapitalize',
+	'autofocus',
+	'class',
+	'contenteditable',
+	'dir',
+	'draggable',
+	'enterkeyhint',
+	'hidden',
+	'id',
+	'inert',
+	'inputmode',
+	'itemid',
+	'itemprop',
+	'itemref',
+	'itemscope',
+	'itemtype',
+	'lang',
+	'nonce',
+	'part',
+	'popover',
+	'role',
+	'slot',
+	'spellcheck',
+	'style',
+	'tabindex',
+	'title',
+	'translate',
+] );
+
 export function wireCapturedDialogs(
 	html: string,
 	states: CapturedDialogInteraction[],
@@ -31,7 +62,12 @@ export function wireCapturedDialogs(
 			const summary = $( '<summary></summary>' );
 			const attrs = trigger.attr() ?? {};
 			for ( const [ name, value ] of Object.entries( attrs ) ) {
-				if ( name === 'type' ) continue;
+				if (
+					! GLOBAL_ATTRIBUTES.has( name ) &&
+					! name.startsWith( 'aria-' ) &&
+					! name.startsWith( 'data-' )
+				)
+					continue;
 				summary.attr( name, value );
 			}
 			summary.html( trigger.html() ?? '' );

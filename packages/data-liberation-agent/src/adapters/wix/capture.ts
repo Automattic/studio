@@ -16,14 +16,14 @@ const WIX_FILL_VARIANT = /static\.wixstatic\.com\/.+\/fill\/w_\d+,h_\d+/;
  *
  * Pure, so the URL shape this depends on is testable without a browser.
  */
-export function wixStaticMediaUrl( uri: string, size?: { width: number; height: number } ): string {
+export function wixStaticMediaUrl(
+	uri: string,
+	size?: { width: number; height: number }
+): string {
 	if ( /^https?:/i.test( uri ) ) return uri;
 	if ( ! size ) return `https://static.wixstatic.com/media/${ uri }`;
 	const file = uri.split( '/' ).pop() || uri;
-	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max(
-		1,
-		Math.round( size.width )
-	) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
+	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max( 1, Math.round( size.width ) ) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
 }
 
 function escapeAttr( value: string ): string {
@@ -40,9 +40,7 @@ export function stripShowcaseMarkup(
 	const imgs = items
 		.map( ( item ) => {
 			const alt = escapeAttr( item.alt || item.title || '' );
-			return `<img src="${ escapeAttr(
-				wixStaticMediaUrl( item.uri, { width, height } )
-			) }" alt="${ alt }">`;
+			return `<img src="${ escapeAttr( wixStaticMediaUrl( item.uri, { width, height } ) ) }" alt="${ alt }">`;
 		} )
 		.join( '' );
 	const html = `<div class="dla-slideshow"><div class="dla-slideshow-track">${ imgs }</div></div>`;
@@ -57,9 +55,7 @@ export function stripShowcaseMarkup(
 	frames += '100%{transform:translateX(0)}';
 	const css =
 		'.dla-slideshow{overflow:hidden;width:100%;height:100%;position:relative}' +
-		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${
-			count * 2
-		}s infinite}` +
+		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${ count * 2 }s infinite}` +
 		'.dla-slideshow-track img{flex:0 0 100%;width:100%;height:100%;object-fit:cover}' +
 		`@keyframes dla-slideshow{${ frames }}` +
 		'@media (prefers-reduced-motion:reduce){.dla-slideshow{overflow-x:auto;scroll-snap-type:x mandatory}.dla-slideshow-track{animation:none}.dla-slideshow-track img{scroll-snap-align:start}}';
@@ -207,10 +203,8 @@ export const capture: AdapterCapture = {
 						.filter( ( name ) => name.includes( '/pages/thunderbolt' ) )
 				),
 			];
-			const itemsByComp: Record<
-				string,
-				Array< { uri: string; alt?: string; title?: string } >
-			> = {};
+			const itemsByComp: Record< string, Array< { uri: string; alt?: string; title?: string } > > =
+				{};
 			for ( const url of urls ) {
 				try {
 					const data = ( await ( await fetch( url ) ).json() ) as {
@@ -287,8 +281,7 @@ export const capture: AdapterCapture = {
 		// Deciding which are Wix variants happens here, where it can be tested.
 		const urls = await page.evaluate( () =>
 			[ ...document.querySelectorAll( 'img' ) ].map(
-				( image ) =>
-					( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
+				( image ) => ( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
 			)
 		);
 		const variants: Record< string, string > = {};

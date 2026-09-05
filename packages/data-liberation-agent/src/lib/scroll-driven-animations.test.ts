@@ -93,7 +93,7 @@ describe( 'appendScrollDrivenAnimations', () => {
 		expect( out ).toContain( '@supports (animation-timeline: view())' );
 		expect( out ).toContain( 'animation-timeline:view()' );
 		expect( out ).toContain( 'animation-play-state:running' );
-		expect( out ).not.toContain( ':not([data-motion-enter="done"])' );
+		expect( out ).toContain( ':not([data-motion-enter="done"])' );
 	} );
 
 	it( 'returns the sheet unchanged when nothing is gated', () => {
@@ -101,10 +101,12 @@ describe( 'appendScrollDrivenAnimations', () => {
 		expect( appendScrollDrivenAnimations( css, '.a{color:red}' ) ).toBe( css );
 	} );
 
-	it( 'removes capture-time completion gates from the self-driving rule', () => {
+	it( 'keeps the source completion gate on the self-driving rule', () => {
 		const out = appendScrollDrivenAnimations( '', gatedEntrance );
-		expect( out ).toContain( '#main :where(.comp-a){' );
-		expect( out ).not.toContain( ':not([data-motion-enter="done"])' );
+		expect( out ).toContain(
+			'#main :where(.comp-a):not([data-motion-enter="done"]){'
+		);
+		expect( out ).not.toContain( '#main :where(.comp-a){' );
 	} );
 
 	// A real two-layer entrance rule, as builders emit it. The emitted override

@@ -385,6 +385,30 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
+	muPlugins.push( {
+		filename: '0-local-admin-dashboard-health.php',
+		content: `<?php
+		add_filter( 'pre_http_request', function( $preempt, $parsed_args, $url ) {
+			global $pagenow;
+			if ( ! is_admin() || is_network_admin() || 'index.php' !== $pagenow ) {
+				return $preempt;
+			}
+
+			if (
+				str_contains( $url, 'api.wordpress.org/core/browse-happy/1.1/' ) ||
+				str_contains( $url, 'api.wordpress.org/core/serve-happy/1.0/' )
+			) {
+				return new WP_Error(
+					'studio_dashboard_health_check_deferred',
+					'Health checks are available from Tools > Site Health.'
+				);
+			}
+
+			return $preempt;
+		}, 10, 3 );
+		`,
+	} );
+
 	// HTTP request timeout
 	muPlugins.push( {
 		filename: '0-http-request-timeout.php',

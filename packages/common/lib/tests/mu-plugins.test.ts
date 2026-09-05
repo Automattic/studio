@@ -162,6 +162,30 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 	} );
 } );
 
+describe( 'local admin performance mu-plugin', () => {
+	it( 'skips remote health checks only on the regular Dashboard', async () => {
+		const [ muPluginsDir ] = await getMuPlugins( {} );
+		const pluginContent = await readFile(
+			join( muPluginsDir, '0-local-admin-dashboard-health.php' ),
+			'utf8'
+		);
+
+		expect( pluginContent ).toContain(
+			"! is_admin() || is_network_admin() || 'index.php' !== $pagenow"
+		);
+		expect( pluginContent ).toContain(
+			"str_contains( $url, 'api.wordpress.org/core/browse-happy/1.1/' )"
+		);
+		expect( pluginContent ).toContain(
+			"str_contains( $url, 'api.wordpress.org/core/serve-happy/1.0/' )"
+		);
+		expect( pluginContent ).toContain( 'new WP_Error(' );
+		expect( pluginContent ).not.toContain( "'upgrade'" );
+		expect( pluginContent ).not.toContain( "'is_supported'" );
+		expect( pluginContent ).not.toContain( "remove_action( 'admin_init'" );
+	} );
+} );
+
 describe( 'getMuPlugins error capture', () => {
 	it( 'should write the error-capture mu-plugin only when errorLogPath is set', async () => {
 		const [ withCapture ] = await getMuPlugins( {

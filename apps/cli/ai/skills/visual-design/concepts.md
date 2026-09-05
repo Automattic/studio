@@ -38,3 +38,43 @@ Fallback: cells stack in source order on mobile with the rules kept as 12px band
 Sections deliberately overlap and break the column grid: an image tucked under a headline, a caption hanging into the margin, a quote laid across two sections, a small photo pinned over the corner of a large one. Nothing lines up on purpose, and the page reads like a pinboard.
 Build: constrained groups with negative `margin-block-start` and `margin-inline` on selected blocks, `z-index` layering, `alignwide` and `alignfull` for the elements that escape the column, a few `rotate(-2deg)` accents; a pattern per section keeps the overlaps repeatable.
 Fallback: overlaps and rotations removed with a `max-width: 782px` rule that resets margins.
+
+## Sticky split
+The page is two half-width panes. The left pane is pinned to the viewport and holds one large image that changes as each section passes; the right pane scrolls the content. Every section owns an image, so the left pane is never blank and the split is visible from the first pixel to the footer.
+Build: a two-column group (`grid-template-columns: 1fr 1fr; align-items: start`); the left column `position: sticky; top: 0; height: 100dvh` holding one absolutely positioned image per section stacked with `opacity: 0`; an IntersectionObserver on each right-hand section toggles `is-active` on its image; the header floats over the split.
+Fallback: single column on mobile, each section's image shown above its text.
+
+## Poster pages
+Every section is a full-viewport poster: one full-bleed image, one headline, one line of text, one link, nothing else, and the page snaps from poster to poster. The site reads like a campaign rather than a document.
+Build: `scroll-snap-type: y mandatory` on the page, each section a cover block with `height: 100dvh; scroll-snap-align: start`, content bottom-left with a gradient scrim; the footer is the last poster.
+Fallback: snap disabled and heights relaxed to `min-height: 70dvh` on screens shorter than 640px.
+
+## Ledger
+Two columns all the way down: a narrow sticky left column carrying only the section number, its label, and a hairline rule, and a wide right column carrying the content. Nothing ever sits outside the two columns, so the page reads like a ledger.
+Build: a grid with `grid-template-columns: minmax(160px, 1fr) 3fr`; each section a group spanning both columns with its label group `position: sticky; top: var(--wp--preset--spacing--40)`; a monospace label with the number, a `border-top` rule on both columns.
+Fallback: label sits above its content on mobile, still numbered.
+
+## Interrupted column
+A narrow reading column runs down the page and is interrupted, at regular intervals, by full-bleed bands that run edge to edge: an image, a wide quote, a row of products. The rhythm of narrow, wide, narrow is the layout.
+Build: `settings.layout.contentSize` set narrow (`640px`) in `theme.json`; text sections as constrained groups; every second or third section an `alignfull` group or cover block with its own background; no `alignwide` anywhere, so only the two widths exist.
+Fallback: none needed; both widths already work on mobile.
+
+## Shingles
+Each section overlaps the one before it by a fixed amount, with rounded top corners and a soft shadow, like sheets of paper laid one over the next down the page. The overlap is the same everywhere, so the whole page reads as a stack.
+Build: sections as `alignfull` groups with `margin-block-start: -48px; border-radius: 32px 32px 0 0; box-shadow: 0 -12px 32px rgb(0 0 0 / .08)`, increasing `z-index` down the page, each with its own opaque background and `padding-block-start` at least 96px so content clears the overlap.
+Fallback: overlap reduced to 24px and radius to 16px on mobile.
+
+## Book spreads
+The site is a sequence of open two-page spreads: a left page and a right page side by side with a visible gutter, page numbers in the outer corners, and each section filling one spread. Scrolling moves to the next spread.
+Build: each section a two-column group with `gap: 0`, a gutter via `border-inline-start` on the right page plus an inner shadow gradient toward the center, page numbers as small paragraphs positioned bottom-left and bottom-right, `min-height: 100dvh` per spread with `scroll-snap-align: start`.
+Fallback: pages stack in reading order on mobile, page numbers kept.
+
+## Index landing
+The home page is a numbered table of contents: each entry is a large numeral, a title, a one-line summary, and a link, and nothing else is on the page above the footer. The content lives below the index or on inner pages.
+Build: a constrained group of entry rows (`display: grid; grid-template-columns: auto 1fr auto; align-items: baseline`), numerals at `clamp(2rem, 6vw, 5rem)` in a display font, hairline rules between rows, hover reveals an arrow on the right; the entries link to sections or pages.
+Fallback: none needed.
+
+## Sidebar site
+A fixed column one-third wide holds the brand, the navigation, and one live detail such as opening hours or a short note; everything else lives in the remaining two-thirds and scrolls past it. The proportion never changes, so the site is recognizably asymmetric on every screen.
+Build: a two-column group (`grid-template-columns: 1fr 2fr`); the sidebar column `position: sticky; top: 0; height: 100dvh` with its own background; header and footer parts live inside the sidebar, not above or below the content.
+Fallback: sidebar becomes a top bar on mobile, the live detail moves to the footer.

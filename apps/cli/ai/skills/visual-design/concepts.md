@@ -26,12 +26,12 @@ Fallback: the ring unrolls into a vertical stack on screens narrower than 900px.
 
 ## Checkerboard
 The whole page is a strict full-width checkerboard: square cells alternating between image and text, no gutters, no margins, the pattern running edge to edge from the top of the page to the footer. Headlines sit inside cells like everything else.
-Build: a `core/grid` or group with `grid-template-columns: repeat(4, 1fr); gap: 0` and the theme block gap zeroed inside it (`--wp--style--block-gap: 0` on the grid group, or a stripe of page background opens between the rows), every cell `aspect-ratio: 1`, image cells as cover blocks with `object-fit: cover`, text cells as groups with palette backgrounds alternating by `:nth-child` rules; image tiles may respond to hover with a slow scale of the image inside its clipped cell (`overflow: hidden` on the cell, `transform: scale(1.04)` on the image over 600ms), never a change of the cell's own size.
+Build: a `core/grid` or group with `grid-template-columns: repeat(4, 1fr); gap: 0` and the theme block gap zeroed inside it (`--wp--style--block-gap: 0` on the grid group, or a stripe of page background opens between the rows), every cell `aspect-ratio: 1`, image cells as cover blocks with `object-fit: cover`, text cells as groups with palette backgrounds alternating by `:nth-child` rules; the header is a slim fixed bar (`position: sticky; top: 0`) with its own opaque or translucent background so it never merges with the cell or row behind it. image tiles may respond to hover with a slow scale of the image inside its clipped cell (`overflow: hidden` on the cell, `transform: scale(1.04)` on the image over 600ms), never a change of the cell's own size.
 Fallback: two columns on mobile, still gutterless.
 
 ## Mondrian
 The page is a full-bleed composition of a few rectangles of very different sizes, separated by thick dark rules: one dominant cell holds the hero, and each other cell is either an image, a flat color field, or a single line of text. There is no repeating pattern and no gutters; the same composition, rotated, opens each section.
-Build: a CSS grid with `grid-template-areas` describing the composition (for example a 4×3 grid where the hero spans 3×2), `gap: 12px` with the page background as the dark rule color, every cell a group or cover block with `min-height: 0` so images crop; section openers reuse the grid with the areas rotated; image tiles may respond to hover with a slow scale of the image inside its clipped cell (`overflow: hidden` on the cell, `transform: scale(1.04)` on the image over 600ms), never a change of the cell's own size.
+Build: a CSS grid with `grid-template-areas` describing the composition (for example a 4×3 grid where the hero spans 3×2), `gap: 12px` with the page background as the dark rule color, every cell a group or cover block with `min-height: 0` so images crop; section openers reuse the grid with the areas rotated; the header is a slim fixed bar (`position: sticky; top: 0`) with its own opaque or translucent background so it never merges with the cell or row behind it. image tiles may respond to hover with a slow scale of the image inside its clipped cell (`overflow: hidden` on the cell, `transform: scale(1.04)` on the image over 600ms), never a change of the cell's own size.
 Fallback: cells stack in source order on mobile with the rules kept as 12px bands.
 
 ## Collage
@@ -51,7 +51,7 @@ Fallback: snap disabled and heights relaxed to `min-height: 70dvh` on screens sh
 
 ## Ledger
 Two columns all the way down: a narrow sticky left column carrying only the section number, its label, and a hairline rule, and a wide right column carrying the content. Nothing ever sits outside the two columns, so the page reads like a ledger.
-Build: a grid with `grid-template-columns: minmax(160px, 1fr) 3fr`; each section a group spanning both columns with its label group `position: sticky; top: var(--wp--preset--spacing--40)`; a monospace label with the number, a `border-top` rule on both columns.
+Build: a grid with `grid-template-columns: minmax(160px, 1fr) 3fr`; each section a group spanning both columns with its label group `position: sticky; top: var(--wp--preset--spacing--40)`; a monospace label with the number, a `border-top` rule on both columns; the header is a slim fixed bar (`position: sticky; top: 0`) with its own opaque or translucent background so it never merges with the cell or row behind it.
 Fallback: label sits above its content on mobile, still numbered.
 
 ## Interrupted column
@@ -66,5 +66,5 @@ Fallback: pages stack in reading order on mobile, page numbers kept.
 
 ## Sidebar site
 A fixed column one-third wide holds the brand, the navigation, and one live detail such as opening hours or a short note; everything else lives in the remaining two-thirds and scrolls past it. The proportion never changes, so the site is recognizably asymmetric on every screen.
-Build: a two-column group (`grid-template-columns: 1fr 2fr`); the sidebar column `position: sticky; top: 0; height: 100dvh` with its own background; header and footer parts live inside the sidebar, not above or below the content; sidebar links to sections scroll smoothly (`html { scroll-behavior: smooth }`, off under reduced motion) rather than jumping, and the link for the section in view is marked current via a small IntersectionObserver.
+Build: a two-column group (`grid-template-columns: 1fr 2fr`); the sidebar column `position: sticky; top: 0; height: 100dvh` with its own background, so the page scrolls while the sidebar stays put — do not make the content column its own scroll container (`overflow-y: auto`), which breaks anchor links, scroll restoration, and mobile; header and footer parts live inside the sidebar, not above or below the content; sidebar links to sections scroll smoothly (`html { scroll-behavior: smooth }`, off under reduced motion) rather than jumping, and the link for the section in view is marked current via a small IntersectionObserver.
 Fallback: sidebar becomes a top bar on mobile, the live detail moves to the footer.

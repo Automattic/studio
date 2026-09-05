@@ -64,11 +64,6 @@ The site is a sequence of open two-page spreads: a left page and a right page si
 Build: each section a two-column group with `gap: 0`, a gutter via `border-inline-start` on the right page plus an inner shadow gradient toward the center, page numbers as small paragraphs positioned bottom-left and bottom-right, `min-height: 100dvh` per spread with `scroll-snap-align: start`; zero the theme block gap between spreads (`margin-block-start: 0` on the spread groups, or `--wp--style--block-gap: 0` on their parent), or a stripe of page background opens between consecutive spreads and the book reads as separate cards.
 Fallback: pages stack in reading order on mobile, page numbers kept.
 
-## Index landing
-The home page is a numbered table of contents: each entry is a large numeral, a title, a one-line summary, and a link, and nothing else is on the page above the footer. The content lives below the index or on inner pages.
-Build: a constrained group of entry rows (`display: grid; grid-template-columns: auto 1fr auto; align-items: baseline`), numerals at `clamp(2rem, 6vw, 5rem)` in a display font, hairline rules between rows, hover reveals an arrow on the right; the entries link to sections or pages.
-Fallback: none needed.
-
 ## Sidebar site
 A fixed column one-third wide holds the brand, the navigation, and one live detail such as opening hours or a short note; everything else lives in the remaining two-thirds and scrolls past it. The proportion never changes, so the site is recognizably asymmetric on every screen.
 Build: a two-column group (`grid-template-columns: 1fr 2fr`); the sidebar column `position: sticky; top: 0; height: 100dvh` with its own background; header and footer parts live inside the sidebar, not above or below the content.

@@ -72,17 +72,14 @@ export function findSkill( name: string ): Skill | undefined {
 }
 
 export interface DesignConcept {
-	role: string;
-	category: string;
 	name: string;
 	body: string;
 }
 
 let cachedConcepts: DesignConcept[] | null = null;
 
-// Parses `visual-design/concepts.md`: `## ` headings are roles (Moment,
-// System, Detail), `### ` headings are categories within a role, and
-// `#### ` headings are concepts, each keeping its own markdown body.
+// Parses `visual-design/concepts.md`: each `## ` heading is one concept
+// keeping its own markdown body.
 export function loadDesignConcepts(): DesignConcept[] {
 	if ( cachedConcepts ) return cachedConcepts;
 	const conceptsPath = getSkillPath( 'visual-design', 'concepts.md' );
@@ -91,25 +88,13 @@ export function loadDesignConcepts(): DesignConcept[] {
 		return cachedConcepts;
 	}
 	const concepts: DesignConcept[] = [];
-	let role = '';
-	let category = '';
-	for ( const section of fs.readFileSync( conceptsPath, 'utf-8' ).split( /^(?=##+ )/m ) ) {
-		const heading = section.match( /^(##+) (.+)$/m );
+	for ( const section of fs.readFileSync( conceptsPath, 'utf-8' ).split( /^(?=## )/m ) ) {
+		const heading = section.match( /^## (.+)$/m );
 		if ( ! heading ) continue;
-		const [ , level, title ] = heading;
-		if ( level === '##' ) {
-			role = title.trim();
-			category = '';
-		} else if ( level === '###' ) {
-			category = title.trim();
-		} else if ( level === '####' && role && category ) {
-			concepts.push( {
-				role,
-				category,
-				name: title.trim(),
-				body: section.slice( heading[ 0 ].length ).trim(),
-			} );
-		}
+		concepts.push( {
+			name: heading[ 1 ].trim(),
+			body: section.slice( heading[ 0 ].length ).trim(),
+		} );
 	}
 	cachedConcepts = concepts;
 	return concepts;
@@ -124,51 +109,21 @@ function shuffle< T >( items: T[], random: () => number ): T[] {
 	return result;
 }
 
-function groupBy( concepts: DesignConcept[], key: 'role' | 'category' ): DesignConcept[][] {
-	const groups = new Map< string, DesignConcept[] >();
-	for ( const concept of concepts ) {
-		groups.set( concept[ key ], [ ...( groups.get( concept[ key ] ) ?? [] ), concept ] );
-	}
-	return [ ...groups.values() ];
-}
-
-// Picks `perRole` concepts for each role, spread across that role's
-// categories (round-robin over a shuffled category order, one random
-// concept per category per round) and shuffled within the role, so neither
-// the pick nor its position in the list is stable between two loads.
+// Picks `count` random concepts in random order, so neither the pick nor
+// its position in the list is stable between two loads of the skill.
 export function sampleDesignConcepts(
-	perRole: number,
+	count: number,
 	random: () => number = Math.random
 ): DesignConcept[] {
-	return groupBy( loadDesignConcepts(), 'role' ).flatMap( ( roleConcepts ) => {
-		const pools = shuffle( groupBy( roleConcepts, 'category' ), random ).map( ( pool ) =>
-			shuffle( pool, random )
-		);
-		const picked: DesignConcept[] = [];
-		while ( picked.length < perRole && pools.some( ( pool ) => pool.length > 0 ) ) {
-			for ( const pool of pools ) {
-				if ( picked.length >= perRole ) break;
-				const concept = pool.pop();
-				if ( concept ) picked.push( concept );
-			}
-		}
-		return shuffle( picked, random );
-	} );
+	return shuffle( loadDesignConcepts(), random ).slice( 0, count );
 }
 
 export const CONCEPT_SHORTLIST_PLACEHOLDER = '{{concept-shortlist}}';
-const CONCEPTS_PER_ROLE = 4;
+const CONCEPT_SHORTLIST_SIZE = 4;
 
 function renderConceptShortlist(): string {
-	return groupBy( sampleDesignConcepts( CONCEPTS_PER_ROLE ), 'role' )
-		.map( ( concepts ) =>
-			[
-				`### ${ concepts[ 0 ].role }`,
-				...concepts.map(
-					( concept ) => `#### ${ concept.name } (${ concept.category })\n${ concept.body }`
-				),
-			].join( '\n\n' )
-		)
+	return sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE )
+		.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` )
 		.join( '\n\n' );
 }
 

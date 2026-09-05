@@ -207,6 +207,30 @@ describe( 'Composer menu', () => {
 		expect( await screen.findByText( 'Stop' ) ).toBeInTheDocument();
 	} );
 
+	it( 'blocks sending and queueing while submission is unavailable', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onSend } );
+
+		const textarea = screen.getByRole( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'sneak one past the lockout' } } );
+
+		// The Enter path reaches send() directly, bypassing the button's state.
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Queue' } ) ).toBeDisabled() );
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps Stop working while submission is unavailable', () => {
+		const onInterrupt = vi.fn< () => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onInterrupt } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'uses a queue-focused placeholder while busy', () => {
 		renderComposer( { busy: true } );
 

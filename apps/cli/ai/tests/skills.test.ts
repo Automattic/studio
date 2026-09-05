@@ -18,13 +18,13 @@ function seededRandom( seed: number ): () => number {
 describe( 'design concepts catalog', () => {
 	const concepts = loadDesignConcepts();
 
-	it( 'holds ten concepts with unique names and fit, build, and fallback notes', () => {
+	it( 'holds ten concepts with unique names and build and fallback notes, no fit hints', () => {
 		expect( concepts ).toHaveLength( 10 );
 		expect( new Set( concepts.map( ( c ) => c.name ) ).size ).toBe( concepts.length );
 		for ( const concept of concepts ) {
-			expect( concept.body, concept.name ).toMatch( /^Fits: /m );
 			expect( concept.body, concept.name ).toMatch( /^Build: /m );
 			expect( concept.body, concept.name ).toMatch( /^Fallback: /m );
+			expect( concept.body, concept.name ).not.toMatch( /^Fits: /m );
 		}
 	} );
 } );

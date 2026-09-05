@@ -33,10 +33,11 @@ WordPress constrains children of `core/post-content` and any constrained-layout 
 Use these patterns:
 
 - **Full-bleed section, constrained inner content**: for a full-width hero, banner, or CTA with centered content, use an outer `core/group` with `{"align":"full","layout":{"type":"constrained"}}`, then place normal inner blocks inside it.
+- **Full-bleed section, wide inner content**: for multi-column rows, card grids, feature grids, and galleries, keep the same outer group and add `"align":"wide"` on the inner `core/columns`, `core/group`, or `core/gallery` so it spans `wideSize` instead of the reading column. Without it, a three-column row is squeezed into `contentSize`. Reserve the plain reading column for text-only blocks.
 - **Full-bleed section, full-bleed inner content**: for image grids, edge-to-edge galleries, and similar layouts, use outer and inner `core/group` blocks with `{"align":"full","layout":{"type":"default"}}`.
 - **Standard constrained content**: omit `align` and write normal blocks.
 
-The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+The common failures are a hero or banner that was intended to be full-width but still renders in the narrow content column, and a columns or grid block left at the reading width when it should be `"align":"wide"`. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
 
 ### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
 

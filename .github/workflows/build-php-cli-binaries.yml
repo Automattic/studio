@@ -58,7 +58,7 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib,zstd
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
@@ -84,7 +84,7 @@ jobs:
             runner: windows-2022
             artifact_platform: windows
             artifact_arch: x86_64
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib,zstd
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
@@ -480,6 +480,7 @@ jobs:
           Add-PECLExtension -Name redis
           Add-PECLExtension -Name ssh2
           Add-PECLExtension -Name yaml
+          Add-PECLExtension -Name zstd
 
           # PHP's stock Windows builds require the Visual C++ runtime. Deploy it
           # app-locally so php.exe also works on systems without the machine-wide
@@ -553,6 +554,7 @@ jobs:
             -d "extension=sqlite3" `
             -d "extension=ssh2" `
             -d "extension=yaml" `
+            -d "extension=zstd" `
             -r "echo PHP_VERSION, PHP_EOL;"
           if ( $LASTEXITCODE -ne 0 ) {
             exit $LASTEXITCODE

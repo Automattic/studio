@@ -7,6 +7,22 @@ describe( 'getNativePhpIniContents', () => {
 
 		expect( contents.split( /\r?\n/ ) ).toContain( 'max_execution_time=0' );
 	} );
+
+	it( 'enables the packaged zstd extension on Windows', () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+
+		try {
+			const contents = getNativePhpIniContents( '8.4' );
+
+			expect( contents.split( /\r?\n/ ) ).toContain( 'extension=zstd' );
+		} finally {
+			Object.defineProperty( process, 'platform', {
+				value: originalPlatform,
+				configurable: true,
+			} );
+		}
+	} );
 } );
 
 describe( 'getDefaultPhpArgs', () => {

@@ -6,27 +6,12 @@ These concepts are about layout only: the spatial structure of the page, how sec
 
 ## Four-tile cover
 The viewport is divided into four equal squares that together form the cover: one holds the headline, one an image, one a solid field with a single line, one the call to action. Nothing scrolls until the visitor moves past the tiles, and the same 2×2 grid reappears as a motif for section openers.
-Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block; every tile carries its own opaque background (a palette color, a gradient, or an image) — a tile that inherits the page background reads as empty space and the cover bleeds into the header; section openers reuse a half-height 2×2 pattern.
+Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block; every tile carries its own opaque background (a palette color, a gradient, or an image) — a tile that inherits the page background reads as empty space and the cover bleeds into the header; `gap: 0` on the grid and zero the theme block gap inside it (`--wp--style--block-gap: 0` on the grid group), or a stripe of page background opens between the rows; section openers reuse a half-height 2×2 pattern, never in two consecutive sections, or the page turns into a checkerboard.
 Fallback: tiles stack into a single column on small screens.
-
-## Single-screen site
-The whole site fits in one viewport and never scrolls. Navigation swaps panels in place: the hero, the offer, the story, and the contact each occupy the same stage, and the current panel's name is written large along one edge.
-Build: `height: 100dvh; overflow: hidden` group with panels as absolutely positioned groups toggled by `:target` (nav links point at panel ids) and CSS transitions; the current panel name via `writing-mode: vertical-rl` along the left edge.
-Fallback: panels stack and scroll normally on screens shorter than 640px.
 
 ## Horizontal site
 The site is laid out left to right instead of top to bottom: sections stand side by side like rooms in a row, the wheel scrolls sideways, and a thin progress line along the bottom shows how far along the row the visitor is.
-Build: a flex row of full-viewport sections (`width: 100vw; height: 100dvh`) inside a container with `overflow-x: auto; scroll-snap-type: x mandatory`; a 10-line script maps vertical wheel events to horizontal scroll; the progress line's width tracks `scrollLeft`.
-Fallback: sections stack vertically on mobile.
-
-## Desktop windows
-Sections are overlapping windows on a desktop, each with a title bar, close and zoom buttons, and a drop shadow; clicking a window brings it to the front, and a dock along the bottom reopens closed ones. The hero is the largest window sitting slightly askew over the others.
-Build: absolutely positioned groups with a title-bar group and a content group, `z-index` raised by a 25-line script on click, drag via pointer events on the title bar; the dock is a fixed flex row of buttons.
-Fallback: windows become a vertical stack of cards with their title bars on mobile.
-
-## Infinite canvas
-Sections are scattered across a large two-dimensional canvas, like notes on a board, and the visitor pans around by dragging; a small minimap in a corner shows where they are, and the hero sits in the middle with paths of dots leading to each section.
-Build: a `overflow: auto` stage twice the viewport in both directions with absolutely positioned section groups, drag-to-pan via a 20-line pointer script, dotted SVG paths between the hero and sections; the minimap is a scaled copy of the section positions with a viewport rectangle updated on scroll.
+Build: a flex row of full-viewport sections (`width: 100vw; height: 100dvh`) inside a container with `overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth`; a 10-line script turns the ordinary up-and-down wheel and trackpad scrolling into horizontal movement of the track (`deltaY` added to `scrollLeft`, with `preventDefault`), so the visitor never has to scroll sideways themselves; navigation links scroll the track to the section smoothly rather than jumping; the progress line's width tracks `scrollLeft`.
 Fallback: sections stack vertically on mobile.
 
 ## Broadsheet
@@ -41,7 +26,7 @@ Fallback: the ring unrolls into a vertical stack on screens narrower than 900px.
 
 ## Checkerboard
 The whole page is a strict full-width checkerboard: square cells alternating between image and text, no gutters, no margins, the pattern running edge to edge from the top of the page to the footer. Headlines sit inside cells like everything else.
-Build: a `core/grid` or group with `grid-template-columns: repeat(4, 1fr); gap: 0`, every cell `aspect-ratio: 1`, image cells as cover blocks with `object-fit: cover`, text cells as groups with palette backgrounds alternating by `:nth-child` rules.
+Build: a `core/grid` or group with `grid-template-columns: repeat(4, 1fr); gap: 0` and the theme block gap zeroed inside it (`--wp--style--block-gap: 0` on the grid group, or a stripe of page background opens between the rows), every cell `aspect-ratio: 1`, image cells as cover blocks with `object-fit: cover`, text cells as groups with palette backgrounds alternating by `:nth-child` rules.
 Fallback: two columns on mobile, still gutterless.
 
 ## Mondrian

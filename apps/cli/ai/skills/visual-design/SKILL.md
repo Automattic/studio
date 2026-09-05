@@ -27,7 +27,7 @@ The shortlist at the end of this runbook is a random sample from a small catalog
 
 1. Read every entry on the shortlist as a candidate. Any of them can work for any site; do not default to the first entry, the most familiar one, or the flashiest one.
 2. Pick one and adapt it to the site: change the subject, the proportions, or the content that fills each slot so it belongs to this brand rather than to the catalog. Name the twist.
-3. Pick from the shortlist. Inventing a concept is the exception, allowed only when the user's brief names a layout of its own; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
+3. Pick from the shortlist — unless the user's brief names a concept. A named catalog concept is used as-is, whether or not it is on the shortlist; its build and fallback notes are in the "Catalog Reference" section at the end of this runbook. Inventing a concept is the other exception, allowed only when the brief describes a layout of its own; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
 4. Choose the boldest entry you can execute well — the one a visitor would describe to a friend — not the safest. The quietest option is for explicitly minimal briefs only, and even then pick one rather than skipping the concept.
 5. State it in the Site Spec as `Concept: <catalog name> — <one-line adaptation>`, using the entry's name verbatim so the user can find it, then the twist.
 6. Follow the Concept line with a **Layout map**: one line per section of the page, in page order, saying what the concept does to that section — which slot of the layout it fills, how it is positioned relative to the viewport and its neighbors, what it must not fall back to. Every section gets a line, including the header, the footer, and any form; a section the concept does not shape must say so explicitly and justify why. The map is the plan the build follows, so write it before any code.
@@ -71,3 +71,9 @@ Maximalist designs need enough layered detail, motion, and visual systems to fee
 A random sample for this build. Pick one and adapt it per "Signature Concept" above.
 
 {{concept-shortlist}}
+
+## Catalog Reference
+
+The remaining catalog entries. Do not pick from these — they are here only so that a concept the user names in the brief comes with its build and fallback notes.
+
+{{concept-catalog}}

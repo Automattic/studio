@@ -44,12 +44,14 @@ describe( 'sampleDesignConcepts', () => {
 } );
 
 describe( 'renderSkillBody', () => {
-	it( 'fills the visual-design shortlist with a fresh sample', () => {
+	it( 'fills the shortlist with a fresh sample and the reference with the rest', () => {
 		const skill = findSkill( 'visual-design' );
 		expect( skill?.body ).toContain( CONCEPT_SHORTLIST_PLACEHOLDER );
 		const rendered = renderSkillBody( skill! );
-		expect( rendered ).not.toContain( CONCEPT_SHORTLIST_PLACEHOLDER );
-		expect( rendered.match( /^### .+$/gm ) ).toHaveLength( 4 );
+		expect( rendered ).not.toMatch( /\{\{concept-/ );
+		const [ shortlist, reference ] = rendered.split( '## Catalog Reference' );
+		expect( shortlist.match( /^### .+$/gm ) ).toHaveLength( 4 );
+		expect( reference.match( /^### .+$/gm ) ).toHaveLength( loadDesignConcepts().length - 4 );
 	} );
 
 	it( 'leaves skills without placeholders untouched', () => {

@@ -9,11 +9,6 @@ The viewport is divided into four equal squares that together form the cover: on
 Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block with its own palette color; section openers reuse a half-height 2×2 pattern.
 Fallback: tiles stack into a single column on small screens.
 
-## Staircase
-Each section is narrower than the viewport and sits further to the right than the one before it, so the sections step down the page diagonally like a staircase. The empty space to the left of each step holds only the section's number or a one-word label, and the last step lands flush against the right edge above the footer.
-Build: sections as groups with `width: 62vw` and `margin-inline-start: calc(var(--step) * 7vw)` where `--step` is set per section via a block style class (`is-step-1` … `is-step-5`); the label is an absolutely positioned paragraph at `left: calc(-1 * var(--step) * 7vw)`; the footer resets to full width.
-Fallback: sections go full width and stack flat below 782px, labels move above each section.
-
 ## Single-screen site
 The whole site fits in one viewport and never scrolls. Navigation swaps panels in place: the hero, the offer, the story, and the contact each occupy the same stage, and the current panel's name is written large along one edge.
 Build: `height: 100dvh; overflow: hidden` group with panels as absolutely positioned groups toggled by `:target` (nav links point at panel ids) and CSS transitions; the current panel name via `writing-mode: vertical-rl` along the left edge.

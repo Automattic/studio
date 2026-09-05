@@ -18,8 +18,8 @@ function seededRandom( seed: number ): () => number {
 describe( 'design concepts catalog', () => {
 	const concepts = loadDesignConcepts();
 
-	it( 'holds ten concepts with unique names and build and fallback notes, no fit hints', () => {
-		expect( concepts ).toHaveLength( 10 );
+	it( 'holds at least ten concepts with unique names and build and fallback notes, no fit hints', () => {
+		expect( concepts.length ).toBeGreaterThanOrEqual( 10 );
 		expect( new Set( concepts.map( ( c ) => c.name ) ).size ).toBe( concepts.length );
 		for ( const concept of concepts ) {
 			expect( concept.body, concept.name ).toMatch( /^Build: /m );

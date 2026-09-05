@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
+import { IpcRendererEvent, contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
 import type { AgenticUiSurface } from 'src/lib/beta-features';
 
@@ -171,6 +171,7 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	getAppZoomFactor: () => webFrame.getZoomFactor(),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),

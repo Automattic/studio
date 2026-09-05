@@ -270,6 +270,30 @@ steps:
           - x64
           - arm64
 
+  # Optional manual trigger to run the agent eval on a PR. On scheduled builds
+  # (and EVAL_PIPELINE runs) this gate is skipped — a skipped dependency counts
+  # as passed — so the eval below runs automatically. On a PR it shows a button
+  # to opt in.
+  - input: ":test_tube: Run agent eval?"
+    prompt: "Run the Studio Code agent evaluation for this PR?"
+    key: input-eval
+    if: build.source != 'schedule' && build.env('EVAL_PIPELINE') != 'true' && build.branch != 'trunk' && build.tag !~ /^v[0-9]+/
+
+  # Agent evaluation. Runs automatically on the daily schedule (or with
+  # EVAL_PIPELINE=true), and optionally on a PR via the gate above.
+  # Setup details in scripts/eval/README.md.
+  - label: ":test_tube: Agent Evaluation"
+    key: agent_eval
+    depends_on: input-eval
+    agents:
+      queue: mac
+    command: bash .buildkite/commands/run-eval.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    artifact_paths:
+      - scripts/eval/results.json
+    timeout_in_minutes: 25
+    if: build.source == 'schedule' || build.env('EVAL_PIPELINE') == 'true' || (build.branch != 'trunk' && build.tag !~ /^v[0-9]+/)
+
   - input: "🚦 Build for Linux?"
     prompt: "Do you want to build Linux dev binaries for this PR?"
     key: input-dev-linux

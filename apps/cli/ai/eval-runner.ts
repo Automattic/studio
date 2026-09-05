@@ -284,21 +284,24 @@ async function runEval( input: EvalRunnerInput ) {
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
 
-	let aiProvider: AiProviderId = await resolveInitialAiProvider();
-	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
+	// In CI, ANTHROPIC_API_KEY is injected and used directly. Locally we always
+	// resolve via Studio's auth so `npm run eval` exercises the same provider path
+	// (incl. the WP.com proxy) the app uses — even if the developer happens to have
+	// ANTHROPIC_API_KEY set in their environment.
+	const env = { ...( process.env as Record< string, string > ) };
+	const useInjectedApiKey = !! env.ANTHROPIC_API_KEY && ( !! env.CI || !! env.BUILDKITE );
+	if ( ! useInjectedApiKey ) {
+		let aiProvider: AiProviderId = await resolveInitialAiProvider();
+		phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
 
-	phaseStartedAt = Date.now();
-	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
-	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
+		phaseStartedAt = Date.now();
+		aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
+		phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 
-	phaseStartedAt = Date.now();
-	const aiEnvironment = await resolveAiEnvironment( aiProvider );
-	phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
-
-	const env = {
-		...( process.env as Record< string, string > ),
-		...aiEnvironment,
-	};
+		phaseStartedAt = Date.now();
+		Object.assign( env, await resolveAiEnvironment( aiProvider ) );
+		phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
+	}
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
 

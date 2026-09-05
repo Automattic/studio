@@ -1,5 +1,7 @@
-import { getAiCreditsMeterIntent } from '@studio/common/lib/studio-assistant-quota';
-import { __, sprintf } from '@wordpress/i18n';
+import {
+	formatAiCreditsUsageTitle,
+	getAiCreditsMeterIntent,
+} from '@studio/common/lib/studio-assistant-quota';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
@@ -17,21 +19,9 @@ export function AiCreditsWarningStrip() {
 		return null;
 	}
 
-	// Formatted, not concatenated: the percent sign moves and changes by locale.
-	const percentage = new Intl.NumberFormat( locale, {
-		style: 'percent',
-		maximumFractionDigits: 0,
-	} ).format( meter.fraction );
-
 	return (
 		<section className={ styles.aiCreditsWarningStrip } role="status">
-			<span>
-				{ sprintf(
-					/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */
-					__( 'At %s usage' ),
-					percentage
-				) }
-			</span>
+			<span>{ formatAiCreditsUsageTitle( meter.fraction, locale ) }</span>
 			<AddAiCreditsButton className={ styles.aiCreditsWarningStripButton } />
 		</section>
 	);

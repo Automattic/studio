@@ -3,11 +3,14 @@ import {
 	formatAiAccessRequiredNotice,
 	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
+	formatAiCreditsThresholdDescription,
+	formatAiCreditsUsageTitle,
 	formatAiCreditsUsedLabel,
 	getAiCreditsMeter,
 	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
 	getStudioCodeAiAccessState,
+	resolveAiCreditsThresholdNotice,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
 
@@ -321,6 +324,73 @@ describe( 'formatAiCreditsCallout', () => {
 		);
 		expect( formatAiCreditsCallout( neverBought, { fraction: 1 } ) ).toBe(
 			'Your next idea is ready when you are. Top up to bring it to life.'
+		);
+	} );
+} );
+
+describe( 'resolveAiCreditsThresholdNotice', () => {
+	// The agentic sidebar owns the 80% step; the composer strip owns 90%.
+	const SIDEBAR = [ 'warning' ] as const;
+	// Classic has one slot above its composer, so it carries both steps.
+	const CLASSIC = [ 'warning', 'critical' ] as const;
+
+	it( 'shows an undismissed notice at a step the surface owns', () => {
+		expect( resolveAiCreditsThresholdNotice( 'warning', null, SIDEBAR ).visible ).toBe( true );
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, CLASSIC ).visible ).toBe( true );
+	} );
+
+	it( 'leaves a step it does not own to the surface that does', () => {
+		// The composer strip announces 90% in the agentic UI, so the sidebar
+		// stays quiet rather than repeating it.
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, SIDEBAR ).visible ).toBe( false );
+	} );
+
+	it( 'shows nothing below the first step, or once exhausted', () => {
+		expect( resolveAiCreditsThresholdNotice( 'ok', null, CLASSIC ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'exhausted', null, CLASSIC ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( null, null, CLASSIC ).visible ).toBe( false );
+	} );
+
+	it( 'stays hidden at the step it was dismissed at', () => {
+		const state = resolveAiCreditsThresholdNotice( 'warning', 'warning', SIDEBAR );
+		expect( state.visible ).toBe( false );
+		expect( state.dismissedIntent ).toBe( 'warning' );
+	} );
+
+	it( 're-arms when usage escalates past the dismissed step', () => {
+		const state = resolveAiCreditsThresholdNotice( 'critical', 'warning', CLASSIC );
+		expect( state.visible ).toBe( true );
+		expect( state.dismissedIntent ).toBeNull();
+	} );
+
+	it( 'retires a dismissal the current usage has left behind', () => {
+		// A top-up drops usage under 80%: the old dismissal must not survive to
+		// silence the notice when usage climbs back.
+		expect(
+			resolveAiCreditsThresholdNotice( 'ok', 'warning', SIDEBAR ).dismissedIntent
+		).toBeNull();
+		expect(
+			resolveAiCreditsThresholdNotice( 'exhausted', 'critical', CLASSIC ).dismissedIntent
+		).toBeNull();
+	} );
+
+	it( 'retires a dismissal even at a step the surface does not own', () => {
+		// The sidebar's 80% dismissal must not outlive a trip through 90%.
+		expect(
+			resolveAiCreditsThresholdNotice( 'critical', 'warning', SIDEBAR ).dismissedIntent
+		).toBeNull();
+	} );
+} );
+
+describe( 'AI credits notice copy', () => {
+	it( 'reports live usage, rounded to whole percent', () => {
+		expect( formatAiCreditsUsageTitle( 0.8, 'en' ) ).toBe( 'At 80% usage' );
+		expect( formatAiCreditsUsageTitle( 0.934, 'en' ) ).toBe( 'At 93% usage' );
+	} );
+
+	it( 'keeps one description for both steps', () => {
+		expect( formatAiCreditsThresholdDescription() ).toBe(
+			'Add AI credits to keep chatting without interruption.'
 		);
 	} );
 } );

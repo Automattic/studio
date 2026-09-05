@@ -1490,6 +1490,14 @@ describe( 'Studio AI MCP tools', () => {
 			expect( styleCss ).not.toContain( 'Template:' );
 			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
 			expect( styleCss ).toContain( 'margin-block-start: 0;' );
+			expect( styleCss ).toContain( '.wp-site-blocks main {' );
+			expect( styleCss ).toContain( '.wp-site-blocks main.is-flush {' );
+
+			const pageNoTitle = await readFile(
+				path.join( themeDir, 'templates', 'page-no-title.html' ),
+				'utf8'
+			);
+			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )

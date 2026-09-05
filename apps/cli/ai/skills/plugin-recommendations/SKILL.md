@@ -109,6 +109,8 @@ Use blocks such as `woocommerce/product-collection`, `woocommerce/featured-produ
 
 6. After installing WooCommerce, go back and edit the header template part (`parts/header.html`) to add a mini-cart, unless it already shows one. Add the `woocommerce/mini-cart` block alongside the navigation - it renders a cart icon with a live item count and opens the cart drawer - and add a "Shop" link to the primary navigation.
 
+7. Rely on WooCommerce's default block templates (shop, single product, cart, checkout, my account) whenever possible instead of writing `archive-product.html`, `single-product.html`, or similar into the theme. They already use the theme's header and footer parts and pick up its `theme.json` and `style.css`; the theme's `.wp-site-blocks main` padding (see the `block-content` skill's Root Block Gap section) is what keeps them clear of the header and footer, so style them through the theme rather than per-page body-class rules. Write a template override only when the design genuinely needs a different structure, and keep the header and footer template parts in it.
+
 ## Jetpack Forms
 
 When the user asks for a contact form, feedback form, survey, or any other interactive form that collects submissions, use Jetpack Forms - not raw HTML `<form>` elements.

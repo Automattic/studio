@@ -87,6 +87,18 @@ Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibilit
 .wp-site-blocks > * + * {
 	margin-block-start: 0;
 }
+
+/* With that gap gone, main carries its own vertical padding so templates this
+   theme does not author (WooCommerce shop, product, cart…) still clear the
+   header and footer. A descendant selector, not a child one: WooCommerce wraps
+   the single-product main in an extra group. Templates built from full-bleed
+   sections opt out with is-flush and let the sections own the rhythm. */
+.wp-site-blocks main {
+	padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--70);
+}
+.wp-site-blocks main.is-flush {
+	padding-block: 0;
+}
 `;
 }
 
@@ -290,8 +302,8 @@ const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
 
 const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header"} /-->
 
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
+<!-- wp:group {"tagName":"main","className":"is-flush"} -->
+<main class="wp-block-group is-flush">
 	<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
 </main>
 <!-- /wp:group -->
@@ -383,7 +395,7 @@ const PART_FOOTER = `<!-- wp:group {"layout":{"type":"constrained"},"style":{"sp
 export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
 	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
-		'Drops in style.css (theme header plus a reset zeroing the default block gap between top-level template sections), ' +
+		'Drops in style.css (theme header, a reset zeroing the default block gap between top-level template sections, and default vertical padding on main that full-bleed templates opt out of with the is-flush class), ' +
 		'theme.json (appearanceTools, a content/wide layout width, and root-padding-aware horizontal padding so content never touches the viewport edge), ' +
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +

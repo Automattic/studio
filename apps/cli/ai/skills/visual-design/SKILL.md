@@ -15,22 +15,22 @@ Understand the context and commit to a clear aesthetic direction:
 - **Purpose**: What problem does this interface solve? Who uses it?
 - **Tone**: Pick a specific direction, such as brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, or another direction that fits the user's brief.
 - **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
-- **Signature concept**: Pick one concept from the shortlist below (see "Signature Concept") — the single idea that makes the site memorable.
+- **Signature concept**: Pick one layout concept from the shortlist below (see "Signature Concept") — the spatial structure that makes the site memorable.
 
 Choose a conceptual direction and execute it with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
 
 ## Signature Concept
 
-A direction sets the tone; a signature concept is the one specific idea a visitor remembers — a cover made of four tiles, a plant that grows as you scroll, a hero that is a working clock. Every site gets exactly one, chosen before any code is written and built into the hero or first template.
+A direction sets the tone; a signature concept is the one structural idea a visitor remembers — a cover made of four tiles, a site laid out sideways, sections scattered on a canvas you pan around. The concept is about layout only: the shape of the page and how sections relate to the viewport. Color, typography, and motion are decided in the direction and serve the concept. Every site gets exactly one, chosen before any code is written and built into the hero or first template.
 
 The shortlist at the end of this runbook is a random sample from a small catalog, and it changes on every load. Work from it like this:
 
-1. Shortlist the entries that fit the brief, the tone, and the audience. Do not default to the first entry or the flashiest one.
-2. Pick one and adapt it to the site: change the subject, the trigger, or the shape so it belongs to this brand rather than to the catalog. Name the twist.
-3. Pick from the shortlist. Inventing a concept is the exception, allowed only when the user's brief names a concept of its own or when none of the entries can be made to fit the industry at all; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, why it fits, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
-4. Choose the boldest entry you can execute well — the one a visitor would describe to a friend — not the safest. The quietest fit is for explicitly minimal briefs only, and even then pick one rather than skipping the concept.
+1. Read every entry on the shortlist as a candidate. Any of them can work for any site; do not default to the first entry, the most familiar one, or the flashiest one.
+2. Pick one and adapt it to the site: change the subject, the proportions, or the content that fills each slot so it belongs to this brand rather than to the catalog. Name the twist.
+3. Pick from the shortlist. Inventing a concept is the exception, allowed only when the user's brief names a layout of its own; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
+4. Choose the boldest entry you can execute well — the one a visitor would describe to a friend — not the safest. The quietest option is for explicitly minimal briefs only, and even then pick one rather than skipping the concept.
 5. State it in the Site Spec as `Concept: <catalog name> — <one-line adaptation>`, using the entry's name verbatim so the user can find it, then the twist.
-6. Build the concept first, in the hero or first template, not as a finishing touch, and follow the entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, a mobile layout, and `prefers-reduced-motion` respected. Supporting motion and detail should serve the concept, not compete with it.
+6. Build the concept first, in the hero or first template, not as a finishing touch, and follow the entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, and a mobile layout. Color, typography, and motion should serve the concept, not compete with it.
 
 ## Implementation Priorities
 

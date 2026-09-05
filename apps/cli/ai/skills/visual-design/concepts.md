@@ -11,7 +11,7 @@ Fallback: tiles stack into a single column on small screens.
 
 ## Horizontal site
 The site is laid out left to right instead of top to bottom: sections stand side by side like rooms in a row, the wheel scrolls sideways, and a thin progress line along the bottom shows how far along the row the visitor is.
-Build: a flex row of full-viewport sections (`width: 100vw; height: 100dvh`) inside a container with `overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth`; a 10-line script turns the ordinary up-and-down wheel and trackpad scrolling into horizontal movement of the track (`deltaY` added to `scrollLeft`, with `preventDefault`), so the visitor never has to scroll sideways themselves; navigation links scroll the track to the section smoothly rather than jumping; the progress line's width tracks `scrollLeft`.
+Build: a flex row of full-viewport sections (`width: 100vw; height: 100dvh`) inside a container with `overflow-x: auto; scroll-snap-type: x mandatory` and NO `scroll-behavior: smooth` on the container (smooth scrolling plus per-tick `scrollLeft` updates cancel each other, and mandatory snapping pulls small moves back); the ordinary up-and-down wheel and trackpad scrolling drives the track as a pager: a 15-line `wheel` listener with `preventDefault` accumulates `deltaY`, and once a gesture passes a threshold (about 50px) it calls `track.scrollTo({ left: nextPanel.offsetLeft, behavior: 'smooth' })` to the next or previous section, with a 600ms cooldown so a trackpad burst counts as one gesture; navigation links use the same `scrollTo` call; the progress line's width tracks `scrollLeft`.
 Fallback: sections stack vertically on mobile.
 
 ## Broadsheet

@@ -402,7 +402,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 			);
 			return;
 		}
-		clipboard.writeText( command );
+		await clipboard.writeText( command );
 		void shellOpenExternalWrapper( parsedUrl.toString() );
 	} catch {
 		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );

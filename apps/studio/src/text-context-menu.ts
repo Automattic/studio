@@ -58,11 +58,10 @@ function toLookUpLabel( selection: string ): string {
 	return sprintf( __( 'Look Up “%s”' ), truncated );
 }
 
-export function hasTextClipboardFormat( formats: string[] ): boolean {
-	return formats.some( ( format ) => {
-		const normalized = format.toLowerCase();
-		return normalized.startsWith( 'text/plain' ) || normalized.includes( 'plain-text' );
-	} );
+// Electron normalizes clipboard formats to W3C MIME types, so plain text is
+// reported as `text/plain` on every platform rather than the native spellings.
+export function hasTextClipboardFormat(): Promise< boolean > {
+	return clipboard.has( 'text/plain' );
 }
 
 /**
@@ -129,15 +128,15 @@ export async function showTextContextMenu(
 		context,
 		{
 			lookUpSelection: () => event.sender.showDefinitionForSelection(),
-			copyMessage: ( text ) => clipboard.writeText( text ),
-			copyCode: ( text ) => clipboard.writeText( text ),
+			copyMessage: ( text ) => void clipboard.writeText( text ),
+			copyCode: ( text ) => void clipboard.writeText( text ),
 			quoteSelection: () => {
 				result = { action: 'quote-selection', selectionText: context.selectionText.trim() };
 			},
 		},
 		{
 			platform: process.platform,
-			canPaste: hasTextClipboardFormat( clipboard.availableFormats() ),
+			canPaste: await hasTextClipboardFormat(),
 		}
 	);
 

@@ -14,7 +14,7 @@ The core method is **diagnose from evidence, not from memory**. Do not guess why
 
 Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
 
-For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account.
+For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account, checking the space around `main` on each.
 
 How much to iterate depends on the page:
 

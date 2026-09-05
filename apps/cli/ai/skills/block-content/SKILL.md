@@ -73,8 +73,8 @@ This holds even when it looks harmless: inside a flex row an `inline-block` or `
 
 WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
 
-- Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding. Keep that reset when editing the file.
-- When working in a theme without that reset, add the same rule to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
+- Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding, and `main` gets its padding back through the `.wp-site-blocks main` rule next to it so templates the theme does not author (plugin templates) still clear the header and footer. Keep both rules when editing the file.
+- When working in a theme without that reset, add the same rules to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
 - Do not zero the gap by setting `styles.spacing.blockGap: "0"` in `theme.json` — that value cascades as the default gap inside every flow and constrained layout and collapses content rhythm site-wide.
 - When you want visible space between top-level sections, add it deliberately (padding on the sections) so the spacing is designed, not inherited.
 

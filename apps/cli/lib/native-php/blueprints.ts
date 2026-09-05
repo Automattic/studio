@@ -109,6 +109,8 @@ export async function runBlueprint(
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// Enable Jetpack Offline Mode so Jetpack Account Protection is bypassed on local sites.
+		JETPACK_DEV_DEBUG: true,
 	};
 
 	blueprint.contents.constants = {

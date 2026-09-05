@@ -15,9 +15,23 @@ Understand the context and commit to a clear aesthetic direction:
 - **Purpose**: What problem does this interface solve? Who uses it?
 - **Tone**: Pick a specific direction, such as brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, or another direction that fits the user's brief.
 - **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
-- **Differentiation**: Decide what should make the site memorable.
+- **Signature concept**: Shortlist layout concepts from the pool below and let `pick_concept` draw one (see "Signature Concept") — the spatial structure that makes the site memorable.
 
 Choose a conceptual direction and execute it with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
+
+## Signature Concept
+
+A direction sets the tone; a signature concept is the one structural idea a visitor remembers — a cover made of four tiles, a site laid out sideways, a page read like a ledger. The concept is about layout only: the shape of the page and how sections relate to the viewport. Color, typography, and motion are decided in the direction and serve the concept. Every site gets exactly one, chosen before any code is written and built into the hero or first template.
+
+The concept pool at the end of this runbook is a random sample from the catalog, and it changes on every load. You shortlist; the `pick_concept` tool draws. Work from it like this:
+
+1. If the user's brief names a catalog concept, call `pick_concept` with that name as `namedInBrief` and skip the draw.
+2. Otherwise read every entry in the pool as a candidate and shortlist the ones that can be made to suit this site — at least three, ideally four or five, each with a one-line reason. Do not shortlist only the familiar or the safe ones; a bold entry you can execute well belongs on the list.
+3. Call `pick_concept` with the shortlist. The tool draws one at random and returns its build and fallback notes. Build the drawn concept — do not call the tool again to get a different one, and do not substitute another entry.
+4. Adapt the drawn concept to the site: change the subject, the proportions, or the content that fills each slot so it belongs to this brand rather than to the catalog. Name the twist. "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
+5. State it in the Site Spec as `Concept: <catalog name> — <one-line adaptation>`, using the entry's name verbatim so the user can find it, then the twist.
+6. Follow the Concept line with a **Layout map**: one line per section of the page, in page order, saying what the concept does to that section — which slot of the layout it fills, how it is positioned relative to the viewport and its neighbors, what it must not fall back to. Every section gets a line, including the header, the footer, and any form; a section the concept does not shape must say so explicitly and justify why. The map is the plan the build follows, so write it before any code.
+7. Build the concept first, in the hero or first template, not as a finishing touch, and follow the entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, and a mobile layout. Color, typography, and motion should serve the concept, not compete with it.
 
 ## Implementation Priorities
 
@@ -51,3 +65,9 @@ Interpret the user's brief creatively and make choices that feel specific to the
 ## Match Complexity To The Vision
 
 Maximalist designs need enough layered detail, motion, and visual systems to feel intentional. Minimalist or refined designs need restraint, exact spacing, strong typography, and careful hierarchy. Do not confuse minimal with unfinished.
+
+## Concept Pool
+
+A random sample for this build. Shortlist from these, then let `pick_concept` draw.
+
+{{concept-pool}}

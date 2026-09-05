@@ -346,6 +346,33 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
+      # The visual-design skill injects a random concept pool; the agent
+      # shortlists, pick_concept draws, and the Site Spec must commit to the
+      # drawn concept before building.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
+            if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
+            const lines = (d.textSegments || []).join('\n').split(/\r?\n/).filter(l => /\bConcept\b\s*[:—-]/i.test(l));
+            if (!lines.length) return { pass: false, score: 0, reason: 'no "Concept:" line in the agent text' };
+            const catalogPath = ['apps/cli/ai/skills/visual-design/concepts.md', '../../apps/cli/ai/skills/visual-design/concepts.md'].find(p => { try { readFileSync(p); return true; } catch { return false; } });
+            if (!catalogPath) return { pass: false, score: 0, reason: `concepts catalog not found from cwd ${process.cwd()}` };
+            const catalog = readFileSync(catalogPath, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+            const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
+            if (!fromCatalog) return { pass: false, score: 0, reason: `Concept line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+            // The concept must be the one pick_concept drew (or returned for a named brief), not a substitute.
+            const pick = (d.toolResults || []).find(r => r.toolName === 'pick_concept' && !r.isError);
+            if (!pick) return { pass: false, score: 0, reason: 'pick_concept was never called successfully' };
+            const drawn = ((pick.text || '').match(/^(?:Drawn concept|Concept named in the brief): (.+)$/m) || [])[1];
+            if (!drawn || !fromCatalog.toLowerCase().includes(drawn.toLowerCase())) return { pass: false, score: 0, reason: `Concept line "${fromCatalog.trim().slice(0, 80)}" does not match the pick_concept result "${drawn}"` };
+            if (!/layout map/i.test((d.textSegments || []).join('\n'))) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
+            return { pass: true, score: 1, reason: `concept drawn and stated: ${drawn}` };
+          });
+
   # One-page sites get header navigation that links to page sections. The
   # header template part renders on EVERY template (posts, archives, search,
   # 404), and a bare-hash URL like "#contact" resolves against the current

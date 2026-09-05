@@ -14,6 +14,7 @@ import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
+import { pickConceptTool } from './pick-concept';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
@@ -47,6 +48,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	runWpCliTool,
 	refreshBrowserTool,
 	scaffoldThemeTool,
+	pickConceptTool,
 	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,

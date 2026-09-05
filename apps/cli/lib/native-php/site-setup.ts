@@ -5,6 +5,7 @@ import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -20,11 +21,15 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
+type EnsureWpConfigOptions = Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' > & {
+	forceDefaultDatabaseName?: boolean;
+};
+
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
 	signal?: AbortSignal,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
+	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -46,12 +51,17 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const constants = {
+	const constants: Record< string, boolean | string > = {
 		...DEFAULT_WP_CONFIG_CONSTANTS,
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
+	if ( ! shouldSetDefaultDatabaseName ) {
+		delete constants.DB_NAME;
+	}
 	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {

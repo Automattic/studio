@@ -254,7 +254,9 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		if ( getSiteRuntime( site ) === 'native-php' && ! site.runtimeBlueprintPath ) {
-			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
+			await ensureWpConfig( site.path, this.resolvePhpVersion( site ), undefined, {
+				forceDefaultDatabaseName: true,
+			} );
 		}
 	}
 

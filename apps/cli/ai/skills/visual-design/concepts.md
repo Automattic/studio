@@ -6,7 +6,7 @@ These concepts are about layout only: the spatial structure of the page, how sec
 
 ## Four-tile cover
 The viewport is divided into four equal squares that together form the cover: one holds the headline, one an image, one a solid field with a single line, one the call to action. Nothing scrolls until the visitor moves past the tiles, and the same 2×2 grid reappears as a motif for section openers.
-Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block with its own palette color; section openers reuse a half-height 2×2 pattern.
+Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block; every tile carries its own opaque background (a palette color, a gradient, or an image) — a tile that inherits the page background reads as empty space and the cover bleeds into the header; section openers reuse a half-height 2×2 pattern.
 Fallback: tiles stack into a single column on small screens.
 
 ## Single-screen site

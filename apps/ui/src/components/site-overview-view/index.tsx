@@ -48,6 +48,7 @@ import { AboutSection } from './about-section';
 import { AdminSection } from './admin-section';
 import { ConnectionsSection } from './connections-section';
 import { OverviewCard } from './overview-card';
+import { PreviewSitesSection } from './preview-sites-section';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -329,6 +330,10 @@ function SiteOverviewBody( {
 									<h2 className={ styles.columnHeading }>{ __( 'Connections' ) }</h2>
 									<OverviewCard>
 										<ConnectionsSection site={ site } busy={ busy } />
+									</OverviewCard>
+									<h2 className={ styles.columnHeading }>{ __( 'Preview sites' ) }</h2>
+									<OverviewCard>
+										<PreviewSitesSection site={ site } />
 									</OverviewCard>
 									<h2 className={ styles.columnHeading }>{ __( 'WP Admin' ) }</h2>
 									<OverviewCard>

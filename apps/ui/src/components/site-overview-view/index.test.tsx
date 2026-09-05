@@ -10,6 +10,7 @@ import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
+import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -24,6 +25,7 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
@@ -114,6 +116,15 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 	useConnectedWpcomSites: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-preview-site', () => ( {
+	usePublishPreviewSite: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-snapshots', () => ( {
+	useSnapshots: vi.fn(),
+	useSnapshotUsage: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: vi.fn(),
 } ) );
@@ -195,6 +206,9 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
 const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
+const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite, { partial: true } );
+const useSnapshotsMock = vi.mocked( useSnapshots, { partial: true } );
+const useSnapshotUsageMock = vi.mocked( useSnapshotUsage, { partial: true } );
 const useLoginMock = vi.mocked( useLogin, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
@@ -234,6 +248,7 @@ describe( 'SiteOverviewView', () => {
 	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
 	const pullSiteFromLive = vi.fn();
 	const pushSiteToLive = vi.fn();
+	const publishPreviewSite = vi.fn();
 	const onTabChange = vi.fn();
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
@@ -295,6 +310,12 @@ describe( 'SiteOverviewView', () => {
 		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useConnectedWpcomSitesMock.mockReturnValue( { data: [], isLoading: false } );
+		useSnapshotsMock.mockReturnValue( { data: [] } );
+		useSnapshotUsageMock.mockReturnValue( { data: undefined } );
+		usePublishPreviewSiteMock.mockReturnValue( {
+			isPending: false,
+			mutate: publishPreviewSite,
+		} );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullSiteFromLive } );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushSiteToLive } );
 		useIsSiteSyncingMock.mockReturnValue( { push: false, pull: false } );
@@ -497,6 +518,49 @@ describe( 'SiteOverviewView', () => {
 			'aria-disabled',
 			'true'
 		);
+	} );
+
+	it( 'shows preview expiry and account usage', () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'demo-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now() - 5 * 24 * 60 * 60 * 1000,
+				},
+			],
+		} );
+		useSnapshotUsageMock.mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'demo-preview.wp.build' ) ).toBeVisible();
+		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
+		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
+	} );
+
+	it( 'publishes a preview site from its empty state', () => {
+		renderView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish a preview site' } ) );
+
+		expect( publishPreviewSite ).toHaveBeenCalledWith( { siteId: 'site-1' } );
+	} );
+
+	it( 'explains that preview publishing requires sign-in', () => {
+		useAuthUserMock.mockReturnValue( { data: null } );
+
+		renderView();
+
+		expect(
+			screen.getByText( 'Sign in to publish a preview site and share your work.' )
+		).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Publish a preview site' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

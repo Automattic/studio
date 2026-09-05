@@ -364,6 +364,7 @@ tests:
             const catalog = readFileSync(catalogPath, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
             const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
             if (!fromCatalog) return { pass: false, score: 0, reason: `Concept line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+            if (!/layout map/i.test((d.textSegments || []).join('\n'))) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
             return { pass: true, score: 1, reason: `concept stated: ${fromCatalog.trim().slice(0, 160)}` };
           });
 

@@ -118,23 +118,77 @@ export function sampleDesignConcepts(
 	return shuffle( loadDesignConcepts(), random ).slice( 0, count );
 }
 
-export const CONCEPT_SHORTLIST_PLACEHOLDER = '{{concept-shortlist}}';
-export const CONCEPT_CATALOG_PLACEHOLDER = '{{concept-catalog}}';
-const CONCEPT_SHORTLIST_SIZE = 4;
+export const CONCEPT_POOL_PLACEHOLDER = '{{concept-pool}}';
+const CONCEPT_POOL_SIZE = 8;
+const MIN_CONCEPT_CANDIDATES = 3;
 
-function renderConcepts( concepts: DesignConcept[] ): string {
-	return concepts.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' );
+// Names sampled into the pool on the most recent visual-design load, so
+// pick_concept can insist the shortlist came from what the model was shown.
+let currentConceptPool: string[] = [];
+
+export function getCurrentConceptPool(): string[] {
+	return currentConceptPool;
 }
 
-// Skill bodies are static except for placeholders that are re-rendered on
-// every load — the concept shortlist is a fresh random sample each time,
-// and the catalog placeholder lists the entries the shortlist left out so a
-// concept named in the brief still comes with its build notes.
+// Skill bodies are static except for the concept pool placeholder, which is
+// re-rendered as a fresh random sample on every load.
 export function renderSkillBody( skill: Skill ): string {
-	if ( ! skill.body.includes( CONCEPT_SHORTLIST_PLACEHOLDER ) ) return skill.body;
-	const shortlist = sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE );
-	const rest = loadDesignConcepts().filter( ( concept ) => ! shortlist.includes( concept ) );
-	return skill.body
-		.replace( CONCEPT_SHORTLIST_PLACEHOLDER, renderConcepts( shortlist ) )
-		.replace( CONCEPT_CATALOG_PLACEHOLDER, renderConcepts( rest ) );
+	if ( ! skill.body.includes( CONCEPT_POOL_PLACEHOLDER ) ) return skill.body;
+	const pool = sampleDesignConcepts( CONCEPT_POOL_SIZE );
+	currentConceptPool = pool.map( ( concept ) => concept.name );
+	return skill.body.replace(
+		CONCEPT_POOL_PLACEHOLDER,
+		pool.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' )
+	);
+}
+
+function findConcept( name: string ): DesignConcept | undefined {
+	const wanted = name.trim().toLowerCase();
+	return loadDesignConcepts().find( ( concept ) => concept.name.toLowerCase() === wanted );
+}
+
+// The model shortlists; the code draws. A concept the user named in the
+// brief bypasses the draw. Candidates must be distinct catalog entries from
+// the pool the model was shown, and at least three of them, so the draw is
+// real rather than a shortlist of one.
+export function pickDesignConcept(
+	input: { candidates: string[]; namedInBrief?: string },
+	random: () => number = Math.random
+): { concept: DesignConcept; drawn: boolean } {
+	if ( input.namedInBrief ) {
+		const concept = findConcept( input.namedInBrief );
+		if ( ! concept ) {
+			throw new Error(
+				`"${ input.namedInBrief }" is not a catalog concept. Catalog: ${ loadDesignConcepts()
+					.map( ( c ) => c.name )
+					.join( ', ' ) }`
+			);
+		}
+		return { concept, drawn: false };
+	}
+	const candidates = [ ...new Set( input.candidates.map( ( name ) => name.trim() ) ) ];
+	const unknown = candidates.filter( ( name ) => ! findConcept( name ) );
+	if ( unknown.length ) {
+		throw new Error( `Not catalog concepts: ${ unknown.join( ', ' ) }` );
+	}
+	const pool = currentConceptPool.map( ( name ) => name.toLowerCase() );
+	const outsidePool = pool.length
+		? candidates.filter( ( name ) => ! pool.includes( name.toLowerCase() ) )
+		: [];
+	if ( outsidePool.length ) {
+		throw new Error(
+			`Not in this build's concept pool: ${ outsidePool.join(
+				', '
+			) }. Shortlist from the pool shown in the visual-design skill: ${ currentConceptPool.join(
+				', '
+			) }`
+		);
+	}
+	if ( candidates.length < MIN_CONCEPT_CANDIDATES ) {
+		throw new Error(
+			`Shortlist at least ${ MIN_CONCEPT_CANDIDATES } distinct concepts that fit the site.`
+		);
+	}
+	const concept = findConcept( candidates[ Math.floor( random() * candidates.length ) ] );
+	return { concept: concept as DesignConcept, drawn: true };
 }

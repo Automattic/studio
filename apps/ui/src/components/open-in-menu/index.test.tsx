@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { captureException } from '@studio/common/lib/error-reporting';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -209,7 +209,9 @@ describe( 'OpenInMenu', () => {
 	it( 'defaults the split action to the browser', () => {
 		renderMenu( { running: true } );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Browser' } ) );
+		const defaultAction = screen.getByRole( 'button', { name: 'Open in Browser' } );
+		expect( defaultAction ).toHaveTextContent( 'Browser' );
+		fireEvent.click( defaultAction );
 
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
 	} );
@@ -245,7 +247,9 @@ describe( 'OpenInMenu', () => {
 			'terminal'
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Terminal' } ) );
+		const defaultAction = screen.getByRole( 'button', { name: 'Open in Terminal' } );
+		expect( defaultAction ).toHaveTextContent( 'Terminal' );
+		fireEvent.click( defaultAction );
 		expect( openSiteInTerminal ).toHaveBeenCalledTimes( 2 );
 	} );
 
@@ -280,7 +284,7 @@ function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string
 }
 
 function destination( label: string | RegExp ): HTMLElement {
-	return screen.getByText( label ).closest( 'button' )!;
+	return within( screen.getByRole( 'menu' ) ).getByRole( 'button', { name: label } );
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {

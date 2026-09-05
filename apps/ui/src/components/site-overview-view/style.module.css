@@ -1,6 +1,6 @@
 .root {
 	--overview-content-width: 1120px;
-	--overview-card-column-width: 320px;
+	--overview-actions-column-min-width: 220px;
 
 	/* Anchor for the footer toolbar + its progressive blur. */
 	position: relative;
@@ -15,38 +15,23 @@
 	color: var(--wpds-color-foreground-content-neutral);
 	background: var(--wpds-color-background-surface-neutral);
 }
-
 .state {
 	padding: var(--wpds-dimension-padding-xl);
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .header {
-	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	/* Hug the panel's top-left corner with the same breathing room the
-	   preview toolbar gives its controls. */
-	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
-	min-height: 46px;
+	height: 54px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-foreground-content-neutral);
 	-webkit-app-region: drag;
 }
 
-/* Keep in sync with .headerSidebarCollapsed in
-   ui-classic/components/session-view/style.module.css so the site menu sits
-   in the same spot when switching between chat and overview. */
 .headerSidebarCollapsed {
-	padding-top: calc(
-		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-lg)
-	);
-	/* With the sidebar hidden the panel goes full-bleed, putting this header
-	   at the window's left edge — give the site menu more breathing room. */
-	padding-inline-start: var(--wpds-dimension-padding-xl);
+	padding-inline-start: 94px;
 }
 
 .tabsFrame {
@@ -74,7 +59,8 @@
 .panel {
 	outline: none;
 	display: grid;
-	grid-template-columns: minmax(0, var(--overview-card-column-width)) minmax(0, 1fr);
+	grid-template-columns: minmax(320px, 1fr)
+		minmax(var(--overview-actions-column-min-width), 30%);
 	align-items: start;
 	gap: var(--wpds-dimension-padding-3xl);
 	width: 100%;
@@ -152,7 +138,7 @@
 	min-width: 0;
 }
 
-@container overview (max-width: 760px) {
+@container overview (max-width: 620px) {
 	.panel {
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--wpds-dimension-padding-2xl);
@@ -163,15 +149,15 @@
 	}
 
 	.cardColumn {
-		order: 2;
+		order: 1;
 	}
 
 	.actionsColumn {
-		order: 1;
+		order: 2;
 	}
 }
 
-/* Each section is a full-width row (Customize, Open in…, Manage), stacked. */
+/* Each section is a full-width row (Customize, Manage), stacked. */
 .actionsColumn {
 	display: flex;
 	flex-direction: column;

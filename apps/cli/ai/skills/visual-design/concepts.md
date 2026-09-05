@@ -9,10 +9,10 @@ The viewport is divided into four equal squares that together form the cover: on
 Build: full-height group with a 2×2 CSS grid (`height: 100dvh; grid-template: 1fr 1fr / 1fr 1fr`), each tile a group or cover block with its own palette color; section openers reuse a half-height 2×2 pattern.
 Fallback: tiles stack into a single column on small screens.
 
-## Framed viewport
-A thick frame surrounds the viewport at all times and the whole site lives inside it, like a picture in a mat. The frame carries the logo in one corner, the navigation along the top edge, and a running caption along the bottom, so the content area is always a clean rectangle.
-Build: fixed pseudo-elements on `body` for the frame (`inset: 0; border: 32px solid` in a palette color; `pointer-events: none`), header and footer parts positioned fixed inside the frame edges, content with matching padding; frame width is a `--frame` variable.
-Fallback: frame thins to 8px on mobile and the header returns to a normal top bar.
+## Staircase
+Each section is narrower than the viewport and sits further to the right than the one before it, so the sections step down the page diagonally like a staircase. The empty space to the left of each step holds only the section's number or a one-word label, and the last step lands flush against the right edge above the footer.
+Build: sections as groups with `width: 62vw` and `margin-inline-start: calc(var(--step) * 7vw)` where `--step` is set per section via a block style class (`is-step-1` … `is-step-5`); the label is an absolutely positioned paragraph at `left: calc(-1 * var(--step) * 7vw)`; the footer resets to full width.
+Fallback: sections go full width and stack flat below 782px, labels move above each section.
 
 ## Single-screen site
 The whole site fits in one viewport and never scrolls. Navigation swaps panels in place: the hero, the offer, the story, and the contact each occupy the same stage, and the current panel's name is written large along one edge.
@@ -48,6 +48,11 @@ Fallback: the ring unrolls into a vertical stack on screens narrower than 900px.
 The whole page is a strict full-width checkerboard: square cells alternating between image and text, no gutters, no margins, the pattern running edge to edge from the top of the page to the footer. Headlines sit inside cells like everything else.
 Build: a `core/grid` or group with `grid-template-columns: repeat(4, 1fr); gap: 0`, every cell `aspect-ratio: 1`, image cells as cover blocks with `object-fit: cover`, text cells as groups with palette backgrounds alternating by `:nth-child` rules.
 Fallback: two columns on mobile, still gutterless.
+
+## Mondrian
+The page is a full-bleed composition of a few rectangles of very different sizes, separated by thick dark rules: one dominant cell holds the hero, and each other cell is either an image, a flat color field, or a single line of text. There is no repeating pattern and no gutters; the same composition, rotated, opens each section.
+Build: a CSS grid with `grid-template-areas` describing the composition (for example a 4×3 grid where the hero spans 3×2), `gap: 12px` with the page background as the dark rule color, every cell a group or cover block with `min-height: 0` so images crop; section openers reuse the grid with the areas rotated.
+Fallback: cells stack in source order on mobile with the rules kept as 12px bands.
 
 ## Collage
 Sections deliberately overlap and break the column grid: an image tucked under a headline, a caption hanging into the margin, a quote laid across two sections, a small photo pinned over the corner of a large one. Nothing lines up on purpose, and the page reads like a pinboard.

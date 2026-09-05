@@ -20,6 +20,7 @@ import type {
 	LocalMediaFile,
 	ProposedSitePath,
 	PullSiteProgress,
+	PreviewSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -54,7 +55,7 @@ type SnapshotSseOutput =
 	| { kind: 'key-value'; operationId: string; data: { key: string; value: string } }
 	| { kind: 'fatal-error'; operationId: string; data: { message: string } }
 	| { kind: 'success'; operationId: string }
-	| { kind: 'output' | 'error'; operationId: string };
+	| { kind: 'output' | 'error'; operationId: string; data: PreviewSiteProgress };
 
 type PullProgressSseOutput = PullSiteProgress & {
 	siteId: string;
@@ -187,7 +188,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	// Resolve when the snapshot command with this operationId finishes, with its
 	// published URL — correlating the `snapshot` SSE stream by operationId, the
 	// same way the IPC connector correlates the snapshot-* events.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
+	function awaitSnapshotOperation(
+		operationId: string,
+		onProgress?: ( progress: PreviewSiteProgress ) => void
+	): Promise< { url: string } > {
 		return new Promise( ( resolve, reject ) => {
 			let capturedUrl: string | undefined;
 			const listener = ( output: SnapshotSseOutput ) => {
@@ -196,6 +200,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				}
 				if ( output.kind === 'key-value' && output.data.key === 'url' ) {
 					capturedUrl = output.data.value;
+				} else if ( output.kind === 'output' || output.kind === 'error' ) {
+					onProgress?.( output.data );
 				} else if ( output.kind === 'success' ) {
 					snapshotListeners.delete( listener );
 					if ( capturedUrl ) {
@@ -386,8 +392,24 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
-		async getSiteThumbnail(): Promise< string | null > {
-			return null;
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			const response = await fetch( `${ base }/sites/${ encodeURIComponent( siteId ) }/thumbnail` );
+			if ( response.status === 404 ) {
+				return null;
+			}
+			if ( ! response.ok ) {
+				throw new Error( `GET thumbnail failed (${ response.status })` );
+			}
+			const blob = await response.blob();
+			return new Promise( ( resolve, reject ) => {
+				const reader = new FileReader();
+				reader.onload = () => resolve( typeof reader.result === 'string' ? reader.result : null );
+				reader.onerror = () => reject( reader.error );
+				reader.readAsDataURL( blob );
+			} );
+		},
+		async getThemeDetails( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/theme` );
 		},
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
@@ -560,7 +582,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
 		},
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, onProgress ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			// The server returns an operationId; progress + the final URL arrive on
 			// the `snapshot` SSE channel.
@@ -568,7 +590,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/sites/${ encodeURIComponent( siteId ) }/preview`,
 				{ method: 'POST', body: JSON.stringify( { hostname: existingHostname } ) }
 			);
-			return awaitSnapshotOperation( operationId );
+			return awaitSnapshotOperation( operationId, onProgress );
 		},
 		async deletePreviewSite( hostname ): Promise< void > {
 			const { operationId } = await api< { operationId: string } >(

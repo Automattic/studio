@@ -70,7 +70,7 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted ) {
+	if ( ! rendererMounted || toast.durationMs <= 0 ) {
 		return;
 	}
 	const timer = setTimeout( () => {

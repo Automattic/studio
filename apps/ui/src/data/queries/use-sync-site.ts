@@ -27,6 +27,10 @@ export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 // `onMutate`'s return value, handed back to `onSuccess`/`onError` by react-query.
 type SyncTracksContext = { startedAt: number };
 
+function getSyncToastId( siteId: string, direction: 'push' | 'pull' ) {
+	return `site-sync-${ direction }-${ siteId }`;
+}
+
 // Resolves the connected site behind a sync, to derive the `sync_type` Tracks
 // prop. Callers that already hold the remote site pass it as `syncSite` — the
 // onboarding flow creates its local site as it goes, so nothing has ever
@@ -60,11 +64,21 @@ export function usePushSiteToLive() {
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase, progress ) =>
-				reportPushPhase( siteId, phase, progress )
-			),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			reportSyncPending( siteId, 'push' );
+			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase, progress ) => {
+				const message = reportPushPhase( siteId, phase, progress );
+				toast.info( __( 'Pushing site…' ), {
+					id: getSyncToastId( siteId, 'push' ),
+					description: message,
+					durationMs: 0,
+				} );
+			} ),
+		onMutate: ( { siteId, remoteSiteId } ): SyncTracksContext => {
+			reportSyncPending( siteId, 'push', remoteSiteId );
+			toast.info( __( 'Pushing site…' ), {
+				id: getSyncToastId( siteId, 'push' ),
+				description: __( 'Preparing push…' ),
+				durationMs: 0,
+			} );
 			return { startedAt: Date.now() };
 		},
 		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
@@ -79,12 +93,12 @@ export function usePushSiteToLive() {
 					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 				} )
 			);
-			toast.success( __( 'Push complete' ) );
+			toast.success( __( 'Push complete' ), { id: getSyncToastId( siteId, 'push' ) } );
 		},
 		onError: ( error, { siteId, remoteSiteId, syncSite }, context ) => {
 			if ( isSyncCancelledError( error ) ) {
 				reportSyncCancelled( siteId, 'push' );
-				toast.success( __( 'Push cancelled' ) );
+				toast.success( __( 'Push cancelled' ), { id: getSyncToastId( siteId, 'push' ) } );
 				return;
 			}
 			const message = error instanceof Error ? error.message : String( error );
@@ -97,7 +111,7 @@ export function usePushSiteToLive() {
 					error,
 				} )
 			);
-			toast.error( __( "Push didn't complete" ) );
+			toast.error( __( "Push didn't complete" ), { id: getSyncToastId( siteId, 'push' ) } );
 		},
 	} );
 }
@@ -158,12 +172,22 @@ export function usePullSiteFromLive() {
 				remoteSiteId,
 				( progress ) => {
 					reportSyncProgress( siteId, 'pull', progress );
+					toast.info( __( 'Pulling site…' ), {
+						id: getSyncToastId( siteId, 'pull' ),
+						description: progress.message,
+						durationMs: 0,
+					} );
 					onProgress?.( progress );
 				},
 				options
 			),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			reportSyncPending( siteId, 'pull' );
+		onMutate: ( { siteId, remoteSiteId } ): SyncTracksContext => {
+			reportSyncPending( siteId, 'pull', remoteSiteId );
+			toast.info( __( 'Pulling site…' ), {
+				id: getSyncToastId( siteId, 'pull' ),
+				description: __( 'Preparing pull…' ),
+				durationMs: 0,
+			} );
 			return { startedAt: Date.now() };
 		},
 		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
@@ -179,7 +203,7 @@ export function usePullSiteFromLive() {
 					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
 				} )
 			);
-			toast.success( __( 'Pull complete' ) );
+			toast.success( __( 'Pull complete' ), { id: getSyncToastId( siteId, 'pull' ) } );
 		},
 		onError: ( _error, { siteId, remoteSiteId, syncSite }, context ) => {
 			if ( isSyncCancelledError( _error ) ) {
@@ -187,7 +211,7 @@ export function usePullSiteFromLive() {
 				// The CLI restarts the site server on its way out, so the local
 				// site may have been stopped and started again.
 				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-				toast.success( __( 'Pull cancelled' ) );
+				toast.success( __( 'Pull cancelled' ), { id: getSyncToastId( siteId, 'pull' ) } );
 				return;
 			}
 			// Only point at the logs where the user can actually open them.
@@ -208,6 +232,7 @@ export function usePullSiteFromLive() {
 				} )
 			);
 			toast.error( __( "Pull didn't complete" ), {
+				id: getSyncToastId( siteId, 'pull' ),
 				description: message,
 				action: canOpenLogs
 					? {

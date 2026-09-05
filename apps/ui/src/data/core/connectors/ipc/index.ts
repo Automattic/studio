@@ -25,6 +25,7 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
+	PreviewSiteProgress,
 	PushPhase,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
@@ -163,7 +164,10 @@ export function createIpcConnector(): Connector {
 	// with the final preview URL right before `snapshot-success`; fatal
 	// errors arrive via `snapshot-fatal-error`. All three are broadcast to
 	// every renderer subscriber, so we filter by operationId.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
+	function awaitSnapshotOperation(
+		operationId: string,
+		onProgress?: ( progress: PreviewSiteProgress ) => void
+	): Promise< { url: string } > {
 		return new Promise( ( resolve, reject ) => {
 			let capturedUrl: string | undefined;
 			const unsubscribes: Array< () => void > = [];
@@ -173,6 +177,26 @@ export function createIpcConnector(): Connector {
 				}
 			};
 
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-output',
+					( _event: unknown, payload: { operationId: string; data: PreviewSiteProgress } ) => {
+						if ( payload.operationId === operationId ) {
+							onProgress?.( payload.data );
+						}
+					}
+				)
+			);
+			unsubscribes.push(
+				ipcListener.subscribe(
+					'snapshot-error',
+					( _event: unknown, payload: { operationId: string; data: PreviewSiteProgress } ) => {
+						if ( payload.operationId === operationId ) {
+							onProgress?.( payload.data );
+						}
+					}
+				)
+			);
 			unsubscribes.push(
 				ipcListener.subscribe(
 					'snapshot-key-value',
@@ -597,7 +621,7 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAllSnapshots();
 		},
 
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, onProgress ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
 			// pair. Those kick off a CLI command and immediately return an
@@ -607,7 +631,7 @@ export function createIpcConnector(): Connector {
 			const { operationId } = ( await ( existingHostname
 				? ipcApi.updateSnapshot( siteFolder, existingHostname )
 				: ipcApi.createSnapshot( siteFolder ) ) ) as { operationId: string };
-			return awaitSnapshotOperation( operationId );
+			return awaitSnapshotOperation( operationId, onProgress );
 		},
 
 		async deletePreviewSite( hostname ): Promise< void > {

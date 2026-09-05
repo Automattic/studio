@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -151,6 +152,19 @@ export interface LocalServer {
 }
 
 const DEFAULT_PORT = 8081;
+
+function getDesktopDataDirectory(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
+	}
+	if ( process.platform === 'win32' ) {
+		return path.join( process.env.APPDATA ?? os.homedir(), 'Studio' );
+	}
+	if ( process.platform === 'darwin' ) {
+		return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
+	}
+	return path.join( process.env.XDG_CONFIG_HOME ?? path.join( os.homedir(), '.config' ), 'Studio' );
+}
 
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment
@@ -726,6 +740,50 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 				throw error;
 			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/thumbnail',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find(
+				( candidate ) => candidate.id === req.params.id
+			);
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const thumbnailsRoot = path.join( getDesktopDataDirectory(), 'thumbnails' );
+			const thumbnailPath = path.join( thumbnailsRoot, `${ site.id }.png` );
+			try {
+				res.type( 'png' ).send( await readFile( thumbnailPath ) );
+			} catch ( error ) {
+				if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+					res.status( 404 ).json( { error: 'Thumbnail not found' } );
+					return;
+				}
+				throw error;
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/theme',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const stdout = await new Promise< string >( ( resolve, reject ) => {
+				const [ emitter ] = execute( [ 'wp', 'studio', 'get-theme-details', '--path', sitePath ], {
+					output: 'capture',
+				} );
+				emitter.on( 'success', ( { result } ) => resolve( result?.stdout ?? '' ) );
+				emitter.on( 'failure', ( { error } ) => reject( error ) );
+				emitter.on( 'error', ( { error } ) => reject( error ) );
+			} );
+			res.json( JSON.parse( stdout ) );
 		} )
 	);
 

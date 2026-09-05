@@ -10,7 +10,11 @@ import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
-import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import {
+	useDeletePreviewSite,
+	useDeletePreviewSites,
+	usePublishPreviewSite,
+} from '@/data/queries/use-preview-site';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -28,6 +32,7 @@ import {
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { reportSyncPending, reportSyncProgress, reportSyncSuccess } from '@/data/sync-activity';
 import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { useThemeDetails } from '@/hooks/use-theme-details';
@@ -83,8 +88,9 @@ vi.mock( '@/components/site-toolbar', () => ( {
 	},
 } ) );
 
-vi.mock( '@/components/site-dropdown/publish-picker-view', () => ( {
-	PublishPickerView: () => <div>Connection picker</div>,
+vi.mock( '@/components/site-toolbar/publish-site-dialog', () => ( {
+	PublishSiteDialog: ( { open }: { open: boolean } ) =>
+		open ? <div role="dialog">Connect site dialog</div> : null,
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -105,6 +111,8 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
+	useDeletePreviewSite: vi.fn(),
+	useDeletePreviewSites: vi.fn(),
 	usePublishPreviewSite: vi.fn(),
 } ) );
 
@@ -169,10 +177,16 @@ vi.mock( '@/hooks/use-theme-details', () => ( {
 	useThemeDetails: vi.fn(),
 } ) );
 
-vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
-	reportSyncProgress: reportSyncProgressMock,
-} ) );
+vi.mock( '@/data/sync-activity', async ( importOriginal ) => {
+	const original = await importOriginal< typeof import('@/data/sync-activity') >();
+	return {
+		...original,
+		reportSyncProgress: ( ...args: Parameters< typeof original.reportSyncProgress > ) => {
+			reportSyncProgressMock( ...args );
+			return original.reportSyncProgress( ...args );
+		},
+	};
+} );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
@@ -191,6 +205,8 @@ const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
 const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
 const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite, { partial: true } );
+const useDeletePreviewSiteMock = vi.mocked( useDeletePreviewSite, { partial: true } );
+const useDeletePreviewSitesMock = vi.mocked( useDeletePreviewSites, { partial: true } );
 const useSnapshotsMock = vi.mocked( useSnapshots, { partial: true } );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage, { partial: true } );
 const useLoginMock = vi.mocked( useLogin, { partial: true } );
@@ -229,6 +245,8 @@ describe( 'SiteOverviewView', () => {
 	const pullSiteFromLive = vi.fn();
 	const pushSiteToLive = vi.fn();
 	const publishPreviewSite = vi.fn();
+	const deletePreviewSite = vi.fn();
+	const deletePreviewSites = vi.fn();
 	const onTabChange = vi.fn();
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
@@ -288,6 +306,14 @@ describe( 'SiteOverviewView', () => {
 		usePublishPreviewSiteMock.mockReturnValue( {
 			isPending: false,
 			mutate: publishPreviewSite,
+		} );
+		useDeletePreviewSiteMock.mockReturnValue( {
+			isPending: false,
+			mutateAsync: deletePreviewSite,
+		} );
+		useDeletePreviewSitesMock.mockReturnValue( {
+			isPending: false,
+			mutateAsync: deletePreviewSites,
 		} );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullSiteFromLive } );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushSiteToLive } );
@@ -366,6 +392,56 @@ describe( 'SiteOverviewView', () => {
 		};
 	}
 
+	it( 'copies the admin username from the About login line', async () => {
+		renderView( 'overview' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy admin username' } ) );
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'admin' ) );
+	} );
+
+	it( 'reveals and copies the password from the About admin controls', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, adminPassword: btoa( 'secret-pw' ) } ) ],
+			isLoading: false,
+		} );
+		renderView( 'overview' );
+
+		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
+		expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Login options' } ) );
+		expect( await screen.findByText( 'Password' ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Show' } ) );
+
+		const revealed = await screen.findByText( 'secret-pw' );
+		expect( revealed ).toBeVisible();
+		fireEvent.click( revealed );
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'secret-pw' ) );
+
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) );
+		await waitFor( () => expect( screen.queryByText( 'secret-pw' ) ).not.toBeInTheDocument() );
+		expect( screen.getByText( '•'.repeat( 8 ) ) ).toBeVisible();
+	} );
+
+	it( 'disables copying the password when the site has none set', () => {
+		renderView( 'overview' );
+
+		expect( screen.getByRole( 'button', { name: 'Copy admin password' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
+	it( 'copies the admin email from the Login options menu', async () => {
+		renderView( 'overview' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Login options' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Copy email' } ) );
+
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'admin@example.com' ) );
+	} );
+
 	it( 'renders the tab strip with the about, shortcuts, and manage sections', () => {
 		renderView();
 
@@ -400,7 +476,6 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'Theme' ) ).toBeVisible();
 		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
 		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
 		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
@@ -440,11 +515,45 @@ describe( 'SiteOverviewView', () => {
 	it( 'offers a complete empty state for connecting a live site', () => {
 		renderView();
 
-		expect( screen.getByRole( 'heading', { name: 'Connections' } ) ).toBeVisible();
+		const aboutCard = screen.getByRole( 'region', { name: 'About' } );
+		const connectionsCard = screen.getByRole( 'region', { name: 'Connections' } );
+		const previewsCard = screen.getByRole( 'region', { name: 'Preview sites' } );
+		expect( aboutCard ).toBeVisible();
+		expect( connectionsCard ).toBeVisible();
+		expect( previewsCard ).toBeVisible();
+		expect( connectionsCard ).not.toBe( aboutCard );
+		expect( previewsCard ).not.toBe( connectionsCard );
+		const emptyConnectionCopy = screen.getByText(
+			'Pull a live site into Studio, then push your local changes when they are ready.'
+		);
+		expect( emptyConnectionCopy ).toBeVisible();
+		const readyIndex = emptyConnectionCopy.textContent?.indexOf( 'ready.' ) ?? -1;
+		expect( emptyConnectionCopy.textContent?.charCodeAt( readyIndex - 1 ) ).toBe( 160 );
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toBeVisible();
+	} );
+
+	it( 'opens the full site connection dialog from Connections', () => {
+		renderView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect site' } ) );
+
+		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Connect site dialog' );
+	} );
+
+	it( 'shows loading states before connections and previews resolve', () => {
+		useConnectedWpcomSitesMock.mockReturnValue( { data: undefined, isLoading: true } );
+		useSnapshotsMock.mockReturnValue( { data: undefined, isLoading: true } );
+
+		renderView();
+
+		expect( screen.getByRole( 'status', { name: 'Loading connections…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'status', { name: 'Loading preview sites…' } ) ).toBeVisible();
 		expect(
-			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
-		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Connect a WordPress.com site' } ) ).toBeVisible();
+			screen.queryByText(
+				'Pull a live site into Studio, then push your local changes when they are ready.'
+			)
+		).not.toBeInTheDocument();
+		expect( screen.queryByText( /No preview site yet/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'offers login from Connections when signed out', () => {
@@ -461,7 +570,7 @@ describe( 'SiteOverviewView', () => {
 		expect( login ).toHaveBeenCalled();
 	} );
 
-	it( 'shows a connected site and exposes pull and push actions', async () => {
+	it( 'opens the sync modal from a connected site action', () => {
 		useConnectedWpcomSitesMock.mockReturnValue( {
 			data: [ CONNECTED_SITE ],
 			isLoading: false,
@@ -469,16 +578,46 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'demo.example.com' ) ).toBeVisible();
+		const connectionUrl = screen.getByText( 'demo.example.com' );
+		expect( connectionUrl ).toBeVisible();
 		expect( screen.getByText( 'Never synced' ) ).toBeVisible();
+		expect( screen.getByText( 'Production' ) ).toBeVisible();
+		const connectionRow = connectionUrl.closest( 'div' )?.parentElement;
+		expect( connectionRow ).not.toBeNull();
+		expect(
+			within( connectionRow! )
+				.getAllByRole( 'button' )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'demo.example.com', 'Push', 'Pull', 'Copy URL' ] );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-		fireEvent.click( await screen.findByText( 'Pull from live' ) );
-		expect( pullSiteFromLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Sync this site' );
+		expect( pullSiteFromLive ).not.toHaveBeenCalled();
+		const pullButtons = screen.getAllByRole( 'button', { name: 'Pull' } );
+		fireEvent.click( pullButtons[ pullButtons.length - 1 ] );
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( {
+			siteId: 'site-1',
+			remoteSiteId: 42,
+			options: undefined,
+		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
-		fireEvent.click( await screen.findByText( 'Push to live' ) );
-		expect( pushSiteToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
+		expect( pushSiteToLive ).not.toHaveBeenCalled();
+		const pushButtons = screen.getAllByRole( 'button', { name: 'Push' } );
+		fireEvent.click( pushButtons[ pushButtons.length - 1 ] );
+		expect( pushSiteToLive ).toHaveBeenCalledWith( {
+			siteId: 'site-1',
+			remoteSiteId: 42,
+			options: undefined,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy URL' } ) );
+		expect( copyText ).toHaveBeenCalledWith( 'https://demo.example.com' );
+		expect(
+			screen
+				.getByText( 'demo.example.com' )
+				.compareDocumentPosition( screen.getByRole( 'button', { name: 'Connect site' } ) )
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
 	it( 'reflects sync work started from another surface', () => {
@@ -494,6 +633,33 @@ describe( 'SiteOverviewView', () => {
 			'aria-disabled',
 			'true'
 		);
+		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
+	it( 'shows live push and pull progress in the active connection row', () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [ CONNECTED_SITE ],
+			isLoading: false,
+		} );
+		reportSyncPending( 'site-1', 'pull', 42 );
+		reportSyncProgress( 'site-1', 'pull', {
+			message: 'Downloading backup…',
+			progress: 37,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'Downloading backup…' ) ).toBeVisible();
+		expect( screen.getByText( 'Pulling' ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'progressbar', { name: 'Pulling changes for demo.example.com' } )
+		).toHaveAttribute( 'aria-valuenow', '37' );
+		expect( screen.queryByRole( 'button', { name: 'Copy URL' } ) ).not.toBeInTheDocument();
+
+		reportSyncSuccess( 'site-1', 'pull' );
 	} );
 
 	it( 'shows preview expiry and account usage', () => {
@@ -513,15 +679,95 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect( screen.getByText( 'demo-preview.wp.build' ) ).toBeVisible();
+		const previewUrl = screen.getByText( 'demo-preview.wp.build' );
+		expect( previewUrl ).toBeVisible();
+		expect( screen.getByText( 'Published 5d ago' ) ).toBeVisible();
 		expect( screen.getByText( 'Expires in 2 days' ) ).toBeVisible();
 		expect( screen.getByText( '2 of 10' ) ).toBeVisible();
+		expect(
+			previewUrl.compareDocumentPosition( screen.getByRole( 'button', { name: 'New preview' } ) )
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		const previewRow = previewUrl.closest( 'div' )?.parentElement;
+		expect( previewRow ).not.toBeNull();
+		expect(
+			within( previewRow! )
+				.getAllByRole( 'button' )
+				.map( ( button ) => button.textContent )
+		).toEqual( [ 'demo-preview.wp.build', 'Open', 'Update', 'Copy URL', 'Delete' ] );
+	} );
+
+	it( 'confirms before deleting a preview site', async () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'demo-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now(),
+				},
+			],
+		} );
+		renderView();
+
+		const previewUrl = screen.getByText( 'demo-preview.wp.build' );
+		const previewRow = previewUrl.closest( 'div' )?.parentElement;
+		expect( previewRow ).not.toBeNull();
+		fireEvent.click( within( previewRow! ).getByRole( 'button', { name: 'Delete' } ) );
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Delete demo-preview.wp.build?' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete preview' } ) );
+
+		await waitFor( () =>
+			expect( deletePreviewSite ).toHaveBeenCalledWith( {
+				hostname: 'demo-preview.wp.build',
+			} )
+		);
+	} );
+
+	it( 'omits Copy URL for expired previews and can delete all expired previews', async () => {
+		useSnapshotsMock.mockReturnValue( {
+			data: [
+				{
+					url: 'active-preview.wp.build',
+					atomicSiteId: 1,
+					localSiteId: 'site-1',
+					date: Date.now(),
+				},
+				{
+					url: 'expired-one.wp.build',
+					atomicSiteId: 2,
+					localSiteId: 'site-1',
+					date: Date.now() - 8 * 24 * 60 * 60 * 1000,
+				},
+				{
+					url: 'expired-two.wp.build',
+					atomicSiteId: 3,
+					localSiteId: 'site-1',
+					date: Date.now() - 9 * 24 * 60 * 60 * 1000,
+				},
+			],
+		} );
+
+		renderView();
+
+		expect( screen.getAllByRole( 'button', { name: 'Copy URL' } ) ).toHaveLength( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all expired' } ) );
+		const dialog = screen.getByRole( 'alertdialog' );
+		expect( dialog ).toHaveTextContent( 'Delete all expired previews?' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete all expired' } ) );
+
+		await waitFor( () =>
+			expect( deletePreviewSites ).toHaveBeenCalledWith( [
+				'expired-one.wp.build',
+				'expired-two.wp.build',
+			] )
+		);
 	} );
 
 	it( 'publishes a preview site from its empty state', () => {
 		renderView();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Publish a preview site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New preview' } ) );
 
 		expect( publishPreviewSite ).toHaveBeenCalledWith( { siteId: 'site-1' } );
 	} );
@@ -534,9 +780,25 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.getByText( 'Sign in to publish a preview site and share your work.' )
 		).toBeVisible();
-		expect(
-			screen.queryByRole( 'button', { name: 'Publish a preview site' } )
-		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'New preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows preview publishing progress before the preview has a URL', () => {
+		reportSyncPending( 'site-1', 'preview' );
+		reportSyncProgress( 'site-1', 'preview', {
+			message: 'Uploading archive…',
+			progress: 40,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'Uploading archive…' ) ).toBeVisible();
+		expect( screen.getByText( 'In progress' ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar', { name: 'Publishing preview' } ) ).toHaveAttribute(
+			'aria-valuenow',
+			'40'
+		);
+		reportSyncSuccess( 'site-1', 'preview' );
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

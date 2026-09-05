@@ -15,26 +15,22 @@ Understand the context and commit to a clear aesthetic direction:
 - **Purpose**: What problem does this interface solve? Who uses it?
 - **Tone**: Pick a specific direction, such as brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, or another direction that fits the user's brief.
 - **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
-- **Signature concepts**: Pick three concepts, one per role, from the shortlist below (see "Signature Concepts") — the specific ideas that make the site memorable.
+- **Signature concept**: Pick one concept from the shortlist below (see "Signature Concept") — the single idea that makes the site memorable.
 
 Choose a conceptual direction and execute it with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
 
-## Signature Concepts
+## Signature Concept
 
-A direction sets the tone; signature concepts are the specific ideas a visitor remembers. Every site gets three, one per role, chosen before any code is written:
+A direction sets the tone; a signature concept is the one specific idea a visitor remembers — a cover made of four tiles, a plant that grows as you scroll, a hero that is a working clock. Every site gets exactly one, chosen before any code is written and built into the hero or first template.
 
-- **Moment** — the first impression: the cover, the hero, how the story unfolds on scroll, or the object the site pretends to be (a receipt, a passport, a film strip).
-- **System** — an idea that runs through every page — background, typography, layout, imagery, a content metaphor, time — so inner pages feel designed rather than templated.
-- **Detail** — a small repeated delight: a cursor, a hover, a motion signature, the way navigation behaves.
+The shortlist at the end of this runbook is a random sample from a small catalog, and it changes on every load. Work from it like this:
 
-The shortlist at the end of this runbook is a random sample per role from a larger catalog, and it changes on every load. Work from it like this:
-
-1. For each role, shortlist the entries from that role's section that fit the brief, the tone, and the audience. A Detail entry cannot serve as the Moment. Do not default to the first entry or the flashiest one.
-2. Pick one per role and adapt it to the site: change the subject, the trigger, or the shape so it belongs to this brand rather than to the catalog. Name the twist.
-3. Pick from the shortlist. Inventing a concept is the exception, allowed only when the user's brief names a concept of its own or when none of the four entries can be made to fit the industry at all; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, why it fits, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
-4. Choose the boldest entry you can execute well — the one a visitor would describe to a friend — not the safest. The three must serve one direction and must not compete: at most one of them is motion-heavy. The quietest fit is for explicitly minimal briefs only, and even then pick one rather than skipping the role.
-5. State them in the Site Spec as three lines — `Concept (moment): <catalog name> — <one-line adaptation>`, `Concept (system): …`, `Concept (detail): …` — using the entry's name verbatim so the user can find it, then the twist.
-6. Build the moment in the hero or first template, the system before any inner page, and the detail last — none of them as a finishing touch. Follow each entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, a mobile layout, and `prefers-reduced-motion` respected.
+1. Shortlist the entries that fit the brief, the tone, and the audience. Do not default to the first entry or the flashiest one.
+2. Pick one and adapt it to the site: change the subject, the trigger, or the shape so it belongs to this brand rather than to the catalog. Name the twist.
+3. Pick from the shortlist. Inventing a concept is the exception, allowed only when the user's brief names a concept of its own or when none of the entries can be made to fit the industry at all; an invented concept must be at least as ambitious as the shortlisted ones and described in the same shape (what it is, why it fits, how it is built, how it degrades). "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.
+4. Choose the boldest entry you can execute well — the one a visitor would describe to a friend — not the safest. The quietest fit is for explicitly minimal briefs only, and even then pick one rather than skipping the concept.
+5. State it in the Site Spec as `Concept: <catalog name> — <one-line adaptation>`, using the entry's name verbatim so the user can find it, then the twist.
+6. Build the concept first, in the hero or first template, not as a finishing touch, and follow the entry's build and fallback notes: theme CSS and a small vanilla script only, editable content, a mobile layout, and `prefers-reduced-motion` respected. Supporting motion and detail should serve the concept, not compete with it.
 
 ## Implementation Priorities
 
@@ -71,6 +67,6 @@ Maximalist designs need enough layered detail, motion, and visual systems to fee
 
 ## Concept Shortlist
 
-A random, category-spread sample per role for this build. Pick one per role and adapt it per "Signature Concepts" above.
+A random sample for this build. Pick one and adapt it per "Signature Concept" above.
 
 {{concept-shortlist}}

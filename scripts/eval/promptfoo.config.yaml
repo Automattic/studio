@@ -346,9 +346,9 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
-      # The visual-design skill injects a random concept shortlist per role; the
-      # agent must load it and commit to a moment, a system, and a detail
-      # concept in the Site Spec before building.
+      # The visual-design skill injects a random concept shortlist; the agent
+      # must load it and commit to one catalog concept in the Site Spec before
+      # building (inventing one is the exception, not the default).
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -357,16 +357,14 @@ tests:
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
             const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
             if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
-            const lines = (d.textSegments || []).join('\n').split(/\r?\n/).filter(l => /\bConcept\b/i.test(l));
-            const missing = ['moment', 'system', 'detail'].filter(role => !lines.some(l => new RegExp(`\\bConcept\\b[^\\n]{0,12}\\b${role}\\b`, 'i').test(l)));
-            if (missing.length) return { pass: false, score: 0, reason: `no Concept line for: ${missing.join(', ')}; concept lines: ${JSON.stringify(lines.slice(0, 5))}` };
-            // Inventing is the exception; at least two of the three picks must name a catalog entry.
+            const lines = (d.textSegments || []).join('\n').split(/\r?\n/).filter(l => /\bConcept\b\s*[:—-]/i.test(l));
+            if (!lines.length) return { pass: false, score: 0, reason: 'no "Concept:" line in the agent text' };
             const catalogPath = ['apps/cli/ai/skills/visual-design/concepts.md', '../../apps/cli/ai/skills/visual-design/concepts.md'].find(p => { try { readFileSync(p); return true; } catch { return false; } });
             if (!catalogPath) return { pass: false, score: 0, reason: `concepts catalog not found from cwd ${process.cwd()}` };
-            const catalog = readFileSync(catalogPath, 'utf8').match(/^#### (.+)$/gm).map(h => h.slice(5).trim().toLowerCase());
-            const fromCatalog = lines.filter(l => catalog.some(name => l.toLowerCase().includes(name)));
-            if (fromCatalog.length < 2) return { pass: false, score: 0, reason: `only ${fromCatalog.length} concept line(s) name a catalog entry: ${JSON.stringify(lines.slice(0, 5))}` };
-            return { pass: true, score: 1, reason: `concepts stated: ${lines.map(l => l.trim().slice(0, 80)).join(' | ').slice(0, 300)}` };
+            const catalog = readFileSync(catalogPath, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+            const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
+            if (!fromCatalog) return { pass: false, score: 0, reason: `Concept line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+            return { pass: true, score: 1, reason: `concept stated: ${fromCatalog.trim().slice(0, 160)}` };
           });
 
   # One-page sites get header navigation that links to page sections. The

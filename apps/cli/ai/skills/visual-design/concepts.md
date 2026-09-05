@@ -59,11 +59,6 @@ A narrow reading column runs down the page and is interrupted, at regular interv
 Build: `settings.layout.contentSize` set narrow (`640px`) in `theme.json`; text sections as constrained groups; every second or third section an `alignfull` group or cover block with its own background; no `alignwide` anywhere, so only the two widths exist.
 Fallback: none needed; both widths already work on mobile.
 
-## Shingles
-Each section overlaps the one before it by a fixed amount, with rounded top corners and a soft shadow, like sheets of paper laid one over the next down the page. The overlap is the same everywhere, so the whole page reads as a stack.
-Build: sections as `alignfull` groups with `margin-block-start: -48px; border-radius: 32px 32px 0 0; box-shadow: 0 -12px 32px rgb(0 0 0 / .08)`, increasing `z-index` down the page, each with its own opaque background and `padding-block-start` at least 96px so content clears the overlap.
-Fallback: overlap reduced to 24px and radius to 16px on mobile.
-
 ## Book spreads
 The site is a sequence of open two-page spreads: a left page and a right page side by side with a visible gutter, page numbers in the outer corners, and each section filling one spread. Scrolling moves to the next spread.
 Build: each section a two-column group with `gap: 0`, a gutter via `border-inline-start` on the right page plus an inner shadow gradient toward the center, page numbers as small paragraphs positioned bottom-left and bottom-right, `min-height: 100dvh` per spread with `scroll-snap-align: start`.

@@ -60,6 +60,7 @@ import {
 	search,
 	seen,
 	settings,
+	shuffle,
 	styles as stylesIcon,
 	tag,
 	tool,
@@ -661,6 +662,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return check;
 		case 'scaffold_theme':
 			return brush;
+		case 'pick_concept':
+			return shuffle;
 		case 'install_taxonomy_scripts':
 			return category;
 		case 'need_for_speed':

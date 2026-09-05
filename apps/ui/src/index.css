@@ -83,6 +83,22 @@ body:lang( ckb ) [class*='components-'] {
 	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
 }
 
+/* Section grouping for the site forms. The `card` layout gives the sections
+   their headings declaratively, but its panel chrome reads as four stacked
+   boxes; flattening it to a hairline rule between sections matches the
+   settings design and keeps one rhythm down the form. */
+form .dataforms-layouts-card__field {
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	padding-inline: 0;
+}
+
+form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
+	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
+}
+
 /* Universal heading styles derived from the design system's font-size /
    line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
    keeping the rest of the type contract — family, weight, color, zero
@@ -271,9 +287,20 @@ input[type='checkbox']:focus:not( :focus-visible ) {
 	fill: var( --wpds-color-foreground-content-neutral-weak );
 }
 
+select optgroup,
 select option {
 	background-color: var( --wpds-color-background-surface-neutral );
 	color: var( --wpds-color-foreground-content-neutral );
+}
+
+[data-wpds-root-provider] .components-radio-control__input[type='radio']:not(:checked) {
+	border-color: var( --wpds-color-stroke-interactive-neutral );
+	background: transparent;
+}
+
+[data-wpds-root-provider] .components-radio-control__option-description {
+	color: var( --wpds-color-foreground-content-neutral-weak );
+	unicode-bidi: plaintext;
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

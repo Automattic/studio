@@ -490,20 +490,28 @@ describe( 'SiteOverviewView', () => {
 		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
-	it( 'renders the WordPress version dropdown with auto-update preselected for auto-updating sites', () => {
+	it( 'preselects automatic updates and names the installed version for auto-updating sites', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
 		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const automatic = screen.getByRole( 'radio', { name: 'Automatic updates' } );
+		expect( automatic ).toBeChecked();
+		// The readout names the version the site runs now, so "latest" can't be
+		// read as "already on the newest release" (STU-2348). It has to reach
+		// screen readers in forms mode too, where only the control's own label
+		// and description are announced.
+		expect( automatic ).toHaveAccessibleDescription(
+			'WordPress installs updates on its own schedule. Currently using version 6.7.2.'
+		);
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
-		expect( select ).toHaveValue( '' );
-		expect( screen.getByRole( 'option', { name: 'Auto-update (6.7.2)' } ) ).toBeInTheDocument();
+		expect( select ).toHaveValue( '6.7.2' );
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'omits the installed version from the auto-update option for pinned sites', () => {
+	it( 'preselects the version picker for pinned sites', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
 		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
 		useSitesMock.mockReturnValue( {
@@ -512,10 +520,11 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		expect( screen.getByRole( 'option', { name: 'Auto-update' } ) ).toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'option', { name: 'Auto-update (6.7.2)' } )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
+		// Naming the version under "Automatic updates" on a pinned site would
+		// read as if auto-update were keeping the site on it (STU-2348).
+		expect( screen.queryByText( /Currently using version/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves a pinned WordPress version picked from the dropdown', () => {
@@ -525,7 +534,8 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
@@ -549,7 +559,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select ).toHaveValue( '6.5.2' );
 		expect( screen.getByRole( 'option', { name: '6.5.2' } ) ).toBeInTheDocument();
 	} );
@@ -594,7 +604,7 @@ describe( 'SiteOverviewView', () => {
 
 		const { showSite } = renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 
@@ -605,7 +615,7 @@ describe( 'SiteOverviewView', () => {
 		} );
 		showSite( 'site-1' );
 
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
 	} );
 
 	it( 'keeps a pinned site pinned when saving other settings while offline', () => {
@@ -637,9 +647,12 @@ describe( 'SiteOverviewView', () => {
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
+		// Nothing to pin to, so the update mode stays a plain dropdown rather
+		// than an empty picker.
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
+		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -654,7 +667,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toBeDisabled();
 		expect( select ).toHaveValue( '6.5.2' );
@@ -683,10 +696,14 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
-		expect( select ).toHaveValue( 'latest' );
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		// The site is pinned to files Studio can't read a version from, so the
+		// picker says so instead of showing a version the site may not run.
+		const picker = screen.getByLabelText( 'Version' ) as HTMLSelectElement;
+		expect( picker ).toHaveValue( 'latest' );
+		expect( picker.selectedOptions[ 0 ] ).toHaveTextContent( 'Unknown version' );
 
-		fireEvent.change( select, { target: { value: '' } } );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
 		// 'latest' has to reach the CLI so it actually installs the newest

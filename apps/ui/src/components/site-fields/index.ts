@@ -19,6 +19,7 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -45,6 +46,7 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 		type: 'text',
 		label: __( 'PHP version' ),
 		elements: PHP_VERSION_ELEMENTS,
+		Edit: CompactSelectControl,
 	};
 }
 
@@ -111,36 +113,28 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	// only versions we can actually install. Otherwise the create form keeps
 	// its free-text fallback.
 	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION || offline ) {
-		let prerelease: WpVersionOption[] = offers
+		const toOption = (
+			{ value, label }: { value: string; label: string },
+			group: WpVersionOption[ 'group' ]
+		): WpVersionOption => ( { value, label, group, current: value === currentVersion } );
+		let prerelease = offers
 			.filter( ( version ) => version.isBeta || version.isDevelopment )
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'prerelease' as const,
-			} ) );
-		let stable: WpVersionOption[] = offers
+			.map( ( version ) => toOption( version, 'prerelease' ) );
+		let stable = offers
 			.filter(
 				( version ) =>
 					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
 			)
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'stable' as const,
-			} ) );
+			.map( ( version ) => toOption( version, 'stable' ) );
 		// The site's installed version may predate the fetched offers — keep it
 		// selectable, sorted into the right group, like the legacy selector's
 		// extraOptions.
 		if ( currentVersion && ! offers.some( ( version ) => version.value === currentVersion ) ) {
-			const option: WpVersionOption = {
-				value: currentVersion,
-				label: currentVersion,
-				group: 'stable',
-			};
+			const offer = { value: currentVersion, label: currentVersion };
 			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
-				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
+				prerelease = addVersionOption( toOption( offer, 'prerelease' ), prerelease );
 			} else {
-				stable = addVersionOption( option, stable );
+				stable = addVersionOption( toOption( offer, 'stable' ), stable );
 			}
 		}
 		const autoUpdateLabel = getAutoUpdateVersionLabel( autoUpdateVersion );
@@ -153,11 +147,13 @@ export function wpVersionField< T extends { wpVersion: string } >(
 			// The settings form maps "latest" to '' (auto-update) but falls back
 			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
 			// installed version can't be read. Keep that seed renderable without
-			// offering it.
+			// offering it, and out of the auto-update group: the site is pinned,
+			// so an "Auto-update" readout there would be wrong.
 			options.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
-				label: autoUpdateLabel,
-				group: 'latest',
+				/* translators: WordPress version option for a pinned site whose installed version Studio cannot read. */
+				label: __( 'Unknown version' ),
+				group: 'stable',
 				hidden: true,
 			} );
 		}

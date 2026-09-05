@@ -465,12 +465,16 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'Old Blueprint', wpVersion: '4.9' } );
 		openAdvancedSettings();
 
+		// Auto-update is the default, so no version is pinned.
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' )
+			expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked()
 		);
 	} );
 
-	it( 'names the version a new site will be created with in the auto-update option', () => {
+	// The update-mode radios replace the auto-update dropdown option, and the
+	// site does not exist yet, so the description cannot claim a version is in
+	// use. Naming the version a new site will get is left to the picker.
+	it( 'describes automatic updates without naming a version on the create form', () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [
 				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -480,7 +484,9 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'New site' } );
 		openAdvancedSettings();
 
-		expect( screen.getByRole( 'option', { name: 'Auto-update (6.8)' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'radio', { name: 'Automatic updates' } )
+		).toHaveAccessibleDescription( 'WordPress installs updates on its own schedule.' );
 	} );
 
 	it( 'uses a stable select control for long WordPress version lists', () => {
@@ -497,8 +503,25 @@ describe( 'CreateSiteForm', () => {
 		} );
 		renderForm( { name: 'Versioned site' } );
 		openAdvancedSettings();
+		expect( screen.getByLabelText( 'Version' ).tagName ).toBe( 'SELECT' );
+	} );
 
-		expect( screen.getByLabelText( 'WordPress version' ).tagName ).toBe( 'SELECT' );
+	it( 'pins to the newest stable release when automatic updates are turned off', () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.9', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '7.0-beta1', value: '7.0-beta1', isBeta: true, isDevelopment: false },
+				{ label: '6.9', value: '6.9', isBeta: false, isDevelopment: false },
+				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'Pinned site' } );
+		openAdvancedSettings();
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
+
+		// The list is newest-first, so the first stable entry is the newest one —
+		// a prerelease would be a surprising default for a new site.
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.9' );
 	} );
 
 	it( 'locks the WordPress version to a disabled "latest" select while offline', async () => {

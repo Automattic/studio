@@ -4,8 +4,15 @@ import { clsx } from 'clsx';
 import toastStyles from '@/components/app-toasts/style.module.css';
 import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
+import type { NoticeAppearance } from '@/components/app-toasts';
 
-export function AppMessageCards( { className }: { className?: string } ) {
+export function AppMessageCards( {
+	className,
+	appearance = 'neutral',
+}: {
+	className?: string;
+	appearance?: NoticeAppearance;
+} ) {
 	const { messages, dismiss } = useActivePersistentMessages();
 
 	if ( ! messages.length ) {
@@ -19,7 +26,11 @@ export function AppMessageCards( { className }: { className?: string } ) {
 					<Notice.Root
 						intent={ message.intent }
 						icon={ null }
-						className={ clsx( toastStyles.notice, styles.card ) }
+						className={ clsx(
+							toastStyles.notice,
+							appearance === 'neutral' && toastStyles.neutral,
+							styles.card
+						) }
 					>
 						<Notice.Title>{ message.title }</Notice.Title>
 						{ message.description ? (

@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Icon, settings } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
+import { NoticeHistoryButton } from '@/components/notice-history';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -34,6 +35,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 					) }
 					<span className={ styles.userName }>{ __( 'App settings' ) }</span>
 				</SidebarButton>
+				<NoticeHistoryButton />
 				<IconButton
 					variant="minimal"
 					tone="neutral"

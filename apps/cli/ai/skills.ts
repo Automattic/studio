@@ -119,17 +119,22 @@ export function sampleDesignConcepts(
 }
 
 export const CONCEPT_SHORTLIST_PLACEHOLDER = '{{concept-shortlist}}';
+export const CONCEPT_CATALOG_PLACEHOLDER = '{{concept-catalog}}';
 const CONCEPT_SHORTLIST_SIZE = 4;
 
-function renderConceptShortlist(): string {
-	return sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE )
-		.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` )
-		.join( '\n\n' );
+function renderConcepts( concepts: DesignConcept[] ): string {
+	return concepts.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' );
 }
 
 // Skill bodies are static except for placeholders that are re-rendered on
-// every load — the concept shortlist is a fresh random sample each time.
+// every load — the concept shortlist is a fresh random sample each time,
+// and the catalog placeholder lists the entries the shortlist left out so a
+// concept named in the brief still comes with its build notes.
 export function renderSkillBody( skill: Skill ): string {
 	if ( ! skill.body.includes( CONCEPT_SHORTLIST_PLACEHOLDER ) ) return skill.body;
-	return skill.body.replace( CONCEPT_SHORTLIST_PLACEHOLDER, renderConceptShortlist() );
+	const shortlist = sampleDesignConcepts( CONCEPT_SHORTLIST_SIZE );
+	const rest = loadDesignConcepts().filter( ( concept ) => ! shortlist.includes( concept ) );
+	return skill.body
+		.replace( CONCEPT_SHORTLIST_PLACEHOLDER, renderConcepts( shortlist ) )
+		.replace( CONCEPT_CATALOG_PLACEHOLDER, renderConcepts( rest ) );
 }

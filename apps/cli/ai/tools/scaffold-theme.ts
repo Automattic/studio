@@ -117,8 +117,8 @@ function renderThemeJson(): string {
 			// constrained-layout rules entirely, so `layout: constrained` stops
 			// constraining anything and every block runs the full viewport width.
 			layout: {
-				contentSize: '720px',
-				wideSize: '1200px',
+				contentSize: '1000px',
+				wideSize: '1280px',
 			},
 			// Puts the horizontal padding below on `.has-global-padding` (every
 			// constrained block) rather than on `.wp-site-blocks`, so section

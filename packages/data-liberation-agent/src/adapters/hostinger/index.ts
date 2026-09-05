@@ -1,6 +1,5 @@
 import type { PlatformAdapter } from '../../types.js';
 import { discover } from './discover.js';
-import { extract } from './extract.js';
 
 export type { HostingerAdapterOpts, HostingerInventory } from './types.js';
 
@@ -15,4 +14,4 @@ function detect(_url: string): boolean {
   return false;
 }
 
-export const hostingerAdapter: PlatformAdapter = { id: 'hostinger', detect, discover, extract };
+export const hostingerAdapter: PlatformAdapter = { id: 'hostinger', detect, discover };

@@ -88,7 +88,9 @@ export function rewriteMediaUrls(
   // (a 404). Longest-first guarantees the most-specific (full) url is replaced
   // before any shorter substring of it.
   const ordered = [...replacements.entries()]
-    .filter(([source]) => source)
+    // A same-origin media URL can produce `/` as an alias. Replacing that
+    // substring would corrupt every path, closing tag, and MIME type in the document.
+    .filter(([source]) => source && source !== '/')
     .sort((a, b) => b[0].length - a[0].length);
   for (const [source, local] of ordered) {
     // Escape the source URL for safe inclusion in a RegExp. This handles
@@ -125,8 +127,9 @@ export function toLocalUrlMapping(
 // truncate the URL at `(1`, and the rewrite would then swap only the prefix —
 // leaving `<local>).png` (a 404). Candidates are extracted from quoted attribute
 // surfaces / srcset (whitespace- and comma-delimited), so a literal `)` is part
-// of the URL, never a delimiter.
-const URL_LIKE = /https?:\/\/[^\s"'<>\\]+/g;
+// of the URL, never a delimiter. Attribute values are bounded before this
+// matcher runs, so apostrophes remain valid inside double-quoted URLs.
+const URL_LIKE = /https?:\/\/[^\s"<>\\]+/g;
 
 /**
  * Collect plausible media URLs from common attribute surfaces. We don't try
@@ -137,16 +140,16 @@ function collectMediaCandidates(input: string): string[] {
   const candidates: string[] = [];
   // Direct attribute-style matches first — high signal.
   const attrPatterns: RegExp[] = [
-    /<img[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi,
-    /<a[^>]*\bhref\s*=\s*["']([^"']+\.(?:jpe?g|png|gif|webp|svg|avif|mp4|webm|pdf))["']/gi,
-    /\bsrcset\s*=\s*["']([^"']+)["']/gi,
+    /<img[^>]*\bsrc\s*=\s*(["'])([\s\S]*?)\1/gi,
+    /<a[^>]*\bhref\s*=\s*(["'])([\s\S]*?\.(?:jpe?g|png|gif|webp|svg|avif|mp4|webm|pdf))\1/gi,
+    /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi,
     /"src"\s*:\s*"([^"]+)"/g,
     /"url"\s*:\s*"([^"]+)"/g,
   ];
   for (const re of attrPatterns) {
     let m: RegExpExecArray | null;
     while ((m = re.exec(input)) !== null) {
-      const value = m[1];
+      const value = m[2] ?? m[1];
       // srcset can contain multiple URLs — extract via URL_LIKE so that Wix
       // transform URLs (which embed commas in their parameter segments, e.g.
       // `/v1/fill/w_680,h_510,q_90,enc_avif,quality_auto/`) are captured

@@ -22,7 +22,7 @@ vi.mock('../browser-kit/index.js', () => ({
   connectBrowser: vi.fn(),
 }));
 
-import { captureScreenshots, getHomepageUrl } from './screenshotter.js';
+import { capturePageHtml, captureScreenshots, geometryCandidateIsSafe, getHomepageUrl } from './screenshotter.js';
 import { classifyUrl } from '../extraction/sitemap.js';
 import { connectBrowser } from '../browser-kit/index.js';
 
@@ -72,6 +72,47 @@ function makeMockBrowser(pageFactory = () => makeGoodPage()): MockBrowser {
 }
 
 describe('captureScreenshots', () => {
+	it( 'rejects wrappers that the proof consumer cannot coalesce', () => {
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'provider-shell', 'data-hook': 'shell', id: 'shell-1' },
+			runtimeSources: [ "document.querySelector('.provider-shell')" ],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'StylableButton__root', 'data-idx': '3' },
+			runtimeSources: [],
+		} ) ).toBe( true );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { id: 'generated-3' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'carousel-track' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'nav',
+			attributes: { 'aria-label': 'Primary' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+	} );
+
+	it('reflects property-only media state before serializing HTML', async () => {
+		const page = {
+			evaluate: vi.fn().mockResolvedValue(undefined),
+			content: vi.fn().mockResolvedValue('<html><video autoplay muted></video></html>'),
+		};
+
+		await expect(capturePageHtml(page as never)).resolves.toContain('<video autoplay muted>');
+		expect(page.evaluate).toHaveBeenCalledTimes(2);
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.setAttribute(property');
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('frame.getBoundingClientRect()');
+		expect(String(page.evaluate.mock.calls[1][0])).toContain('frame.removeAttribute(attribute)');
+	});
+
   it('captures two viewports and one HTML per URL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ss-'));
     try {
@@ -81,6 +122,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 2,
         settleMs: 0,
+        captureImages: true,
       });
       expect(result.captured).toBe(2);
       expect(result.failed).toBe(0);
@@ -92,6 +134,31 @@ describe('captureScreenshots', () => {
       const manifest = JSON.parse(readFileSync(join(dir, 'screenshots', 'manifest.json'), 'utf8'));
       expect(manifest.version).toBe(1);
       expect(Object.keys(manifest.entries)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('captures the visual reference before serializing and analyzing settled HTML', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ss-'));
+    const pages: ReturnType<typeof makeGoodPage>[] = [];
+    try {
+      (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser(() => {
+        const page = makeGoodPage();
+        pages.push(page);
+        return page;
+      }));
+      await captureScreenshots({
+        urls: ['https://example.com/a'],
+        outputDir: dir,
+        concurrency: 1,
+        settleMs: 0,
+        captureImages: true,
+      });
+      expect(pages).toHaveLength(2);
+      expect(pages[0].screenshot.mock.invocationCallOrder[0]).toBeLessThan(
+        pages[0].content.mock.invocationCallOrder[0],
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -225,6 +292,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 1,
         settleMs: 0,
+        captureImages: true,
       });
       // Capture should succeed overall — fullpage captured, scrolled skipped silently.
       expect(result.captured).toBe(1);

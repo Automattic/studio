@@ -50,6 +50,13 @@ describe('rewriteMediaUrls', () => {
     expect(out).toContain('https://cdn/unknown.jpg');
   });
 
+  it('ignores a root-path mapping that would rewrite every slash', () => {
+    const html = '<link rel="icon" href="https://cdn.example/favicon.ico" type="image/x-icon"><img src="/"><a href="/about/">About</a>';
+    const map = new Map([['/', 'https://example.com/']]);
+
+    expect(rewriteMediaUrls(html, map)).toBe(html);
+  });
+
   it('reports unmapped URLs via onMissing callback', () => {
     const html = '<img src="https://cdn/unknown.jpg">';
     const onMissing = vi.fn();
@@ -138,7 +145,7 @@ describe('rewriteMediaUrls', () => {
 
   it('rewrites a Wix srcset whose display filename contains parentheses (no `).png` mangle)', () => {
     // The Wix logo srcset ends each variant with the display name `… (1).png`.
-    // URL_LIKE must not truncate at the `)`, or the rewrite leaves `<local>).png`.
+    // URL extraction must not truncate at the `)`, or the rewrite leaves `<local>).png`.
     const hash = '670df9_dc553b632f22456e8f3e591105cdc3da';
     const base = `https://static.wixstatic.com/media/${hash}~mv2.png`;
     const local = `http://localhost:8884/wp-content/uploads/2026/05/Cornelius-Holmes-1.png`;
@@ -152,6 +159,21 @@ describe('rewriteMediaUrls', () => {
     expect(out).toBe(`<img srcset="${local} 1x, ${local} 2x" src="${local}">`);
     expect(out).not.toContain('static.wixstatic.com');
     expect(out).not.toContain(').png'); // the mangle signature
+  });
+
+  it("rewrites Wix display filenames containing apostrophes without suffix corruption", () => {
+    const hash = '670df9_dc553b632f22456e8f3e591105cdc3da';
+    const base = `https://static.wixstatic.com/media/${hash}~mv2.jpg`;
+    const local = 'http://localhost:8884/wp-content/uploads/2026/05/womens-day.jpg';
+    const variant = `${base}/v1/fill/w_640,h_480,q_85,enc_avif,quality_auto/Happy%20Women's%20Day.jpg`;
+    const html = `<img src="${variant}" srcset="${variant} 1x,\n${variant} 2x">`;
+
+    const out = rewriteMediaUrls(html, new Map([[base, local]]));
+
+    expect(out).toBe(`<img src="${local}" srcset="${local} 1x,\n${local} 2x">`);
+    expect(out).not.toContain("Women's%20Day.jpg");
+    expect(out).not.toContain('data:image/gif;base64,');
+    expect(out).not.toContain(`${local}'s%20Day.jpg`);
   });
 });
 

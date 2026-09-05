@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Verify committed plugin bundles
+        run: |
+          if [[ -n "$(git status --porcelain -- dist)" ]]; then
+            git status --porcelain -- dist
+            git diff --stat -- dist
+            echo "Committed plugin bundles are stale. Run 'npm run build:mcp-bundle' and commit dist/."
+            exit 1
+          fi
+      - name: Verify skill driver coverage
+        run: |
+          missing_drivers=$(grep -rhoE 'run\.mjs [a-z0-9_-]+' skills 2>/dev/null | awk '{print $2}' | sort -u | while read -r name; do
+            [[ -f "dist/scripts/${name}.mjs" ]] || echo "$name"
+          done)
+          if [[ -n "$missing_drivers" ]]; then
+            echo "Skills invoke drivers with no committed bundle: ${missing_drivers}"
+            exit 1
+          fi
+      - run: npm run test:package
+      - run: npm test

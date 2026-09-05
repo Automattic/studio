@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { describe, it, expect, vi } from 'vitest';
 import {
   waitForStable,
@@ -5,6 +6,7 @@ import {
   withEvaluateTimeout,
   waitForFonts,
   waitForAnimations,
+  waitForRenderIdle,
 } from './page-helpers.js';
 
 type MockPage = {
@@ -114,6 +116,43 @@ describe('triggerLazyLoad', () => {
     const page = makePage();
     page.evaluate = vi.fn().mockRejectedValue(new Error('page crashed'));
     await expect(triggerLazyLoad(page as never)).resolves.toBeUndefined();
+  });
+
+  it('preserves network idle before responsive geometry learning', async () => {
+    const page = makePage();
+    await triggerLazyLoad(page as never, true);
+    expect(page.waitForLoadState).toHaveBeenCalledWith('networkidle', { timeout: 5_000 });
+  });
+});
+
+describe('waitForRenderIdle', () => {
+  it('waits for render resources but not background fetches', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime( new Date( '2026-08-29T00:00:00Z' ) );
+    const page = Object.assign( new EventEmitter(), { url: () => 'https://example.com/page' } );
+    const image = { resourceType: () => 'image' };
+    const analytics = {
+      resourceType: () => 'fetch',
+      url: () => 'https://analytics.example/collect',
+    };
+    const waiting = waitForRenderIdle(
+      page as never,
+      async () => {
+        page.emit( 'request', analytics );
+        page.emit( 'request', image );
+        page.emit( 'requestfinished', analytics );
+        setTimeout( () => page.emit( 'requestfinished', image ), 100 );
+      },
+      500,
+      5_000,
+    );
+
+    await vi.advanceTimersByTimeAsync( 599 );
+    expect( vi.isFakeTimers() ).toBe( true );
+    await vi.advanceTimersByTimeAsync( 1 );
+    await expect( waiting ).resolves.toBeUndefined();
+    expect( page.listenerCount( 'request' ) ).toBe( 0 );
+    vi.useRealTimers();
   });
 });
 

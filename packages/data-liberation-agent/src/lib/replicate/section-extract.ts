@@ -1419,6 +1419,34 @@ export async function extractFull(
             }
           });
       };
+      const pageUrlKey = (() => {
+        try {
+          const page = new URL(document.URL);
+          page.hash = '';
+          page.search = '';
+          page.pathname = page.pathname.replace(/\/$/, '') || '/';
+          return page.href;
+        } catch {
+          return '';
+        }
+      })();
+      const resolvedImageSrc = (img: HTMLImageElement): string => {
+        const raw = (img.getAttribute('src') || '').trim();
+        const srcset = (img.getAttribute('srcset') || '').trim();
+        const src = (img.currentSrc || img.src || '').trim();
+        if (!raw && !srcset) return '';
+        if (!src) return '';
+        try {
+          const resolved = new URL(src, document.baseURI);
+          resolved.hash = '';
+          resolved.search = '';
+          resolved.pathname = resolved.pathname.replace(/\/$/, '') || '/';
+          if (pageUrlKey && resolved.href === pageUrlKey) return '';
+        } catch {
+          return '';
+        }
+        return src;
+      };
       const parseTimeMs = (value: string | null | undefined): number =>
         String(value || '')
           .split(',')
@@ -1442,13 +1470,14 @@ export async function extractFull(
       };
 
       // ====== section detection (extract.js port) ==========================
+      const minimumSectionWidth = Math.min(600, window.innerWidth * 0.75);
       const SEMANTIC_SELECTOR =
         'main > section, main > article, section, header, footer, nav, article, aside, [role="region"], [role="banner"], [role="contentinfo"], [role="navigation"]';
       const semanticCandidates = Array.from(document.querySelectorAll(SEMANTIC_SELECTOR)).filter((el) => {
         if (!isVisible(el)) return false;
         if (isExcludedBodyCandidate(el)) return false;
         const r = el.getBoundingClientRect();
-        if (r.height < 200 || r.width < 600) return false;
+        if (r.height < 200 || r.width < minimumSectionWidth) return false;
         if (el === document.body || el === document.documentElement) return false;
         return true;
       });
@@ -1477,7 +1506,7 @@ export async function extractFull(
         while (p && p !== document.body && p !== document.documentElement) {
           if (p.tagName === 'SECTION' && isVisible(p)) {
             const pr = p.getBoundingClientRect();
-            if (pr.width >= 600 && er.top - pr.top >= HEAD_GAP) {
+            if (pr.width >= minimumSectionWidth && er.top - pr.top >= HEAD_GAP) {
               const headInLead = Array.from(p.querySelectorAll('h1,h2,h3,h4,h5,h6')).some((h) => {
                 const hr = h.getBoundingClientRect();
                 return hr.height > 0 && hr.top >= pr.top - 4 && hr.top < er.top;
@@ -1500,7 +1529,7 @@ export async function extractFull(
           if (!isVisible(el)) return false;
           if (isExcludedBodyCandidate(el)) return false;
           const r = el.getBoundingClientRect();
-          if (r.height < 200 || r.width < 600) return false;
+          if (r.height < 200 || r.width < minimumSectionWidth) return false;
           if (el.querySelectorAll('img').length === 0 && (el.textContent || '').trim().length < 20) return false;
           if (el === document.body || el === document.documentElement) return false;
           return true;
@@ -1586,7 +1615,7 @@ export async function extractFull(
           .filter((el) => !isExcludedBodyCandidate(el))
           .filter((el) => {
             const r = el.getBoundingClientRect();
-            return r.width >= 600 && r.height >= 80;
+            return r.width >= minimumSectionWidth && r.height >= 80;
           });
         const outerTiles = tileEls.filter((el) => !tileEls.some((o) => o !== el && o.contains(el)));
         const sortedTiles = outerTiles
@@ -2050,7 +2079,7 @@ export async function extractFull(
           .map((img) => {
             const ir = img.getBoundingClientRect();
             return {
-              src: (img.currentSrc || img.src || '').slice(0, 400),
+              src: resolvedImageSrc(img).slice(0, 400),
               alt: img.alt || '',
               kind: 'img' as const,
               w: img.naturalWidth || Math.round(ir.width),
@@ -2118,7 +2147,7 @@ export async function extractFull(
           if (dr.width < 200 || dr.height < 200) continue;
           const cy = dr.top + window.scrollY + dr.height / 2;
           if (cy < top || cy >= bottom) continue;
-          const isrc = ((d as HTMLImageElement).currentSrc || (d as HTMLImageElement).src || '').slice(0, 400);
+          const isrc = resolvedImageSrc(d as HTMLImageElement).slice(0, 400);
           if (!isrc || !RASTER_BG.test(isrc)) continue;
           bgImages.push({
             src: isrc,
@@ -2492,7 +2521,7 @@ export async function extractFull(
           const imgEl = cell.querySelector('img');
           if (imgEl) {
             const ir = imgEl.getBoundingClientRect();
-            const src = (imgEl as HTMLImageElement).currentSrc || (imgEl as HTMLImageElement).src || '';
+            const src = resolvedImageSrc(imgEl as HTMLImageElement);
             if (src) image = { src, alt: imgEl.getAttribute('alt') || '', w: Math.round(ir.width), h: Math.round(ir.height) };
           }
           let icon: { markup: string; w: number; h: number } | null = null;

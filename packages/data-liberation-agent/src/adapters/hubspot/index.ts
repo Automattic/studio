@@ -1,6 +1,5 @@
 import type { PlatformAdapter } from '../../types.js';
 import { discover } from './discover.js';
-import { extract } from './extract.js';
 
 // ---------------------------------------------------------------------------
 // The adapter
@@ -15,6 +14,6 @@ function detect(_url: string): boolean {
   return false;
 }
 
-export const hubspotAdapter: PlatformAdapter = { id: 'hubspot', detect, discover, extract };
+export const hubspotAdapter: PlatformAdapter = { id: 'hubspot', detect, discover };
 
 export type { HubSpotAdapterOpts, HubSpotInventory } from './types.js';

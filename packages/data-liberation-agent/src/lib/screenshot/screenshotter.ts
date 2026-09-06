@@ -622,34 +622,6 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		writeFileSync( plan.paths.geometry, `${ JSON.stringify( capture, null, 2 ) }\n` );
 	}
 
-	// Capture the visual reference immediately after geometry annotation, before
-	// slower HTML dependency and section analysis gives live runtimes another
-	// opportunity to change state. The HTML snapshot below then describes the
-	// same settled visual transaction instead of an earlier page state.
-	if ( plan.captureFullpage ) {
-		try {
-			const buf = await withScreenshotTimeout(
-				page.screenshot( { fullPage: true, type: 'png' } ),
-				screenshotTimeoutMs
-			);
-			mkdirSync( dirname( plan.paths.fullpage ), { recursive: true } );
-			writeFileSync( plan.paths.fullpage, buf );
-			const rel = `screenshots/${ viewport.id }/${ slug }.png`;
-			if ( isDesktop ) entry.desktop = rel;
-			else entry.mobile = rel;
-		} catch ( err ) {
-			const msg = err instanceof Error ? err.message : String( err );
-			failures.push( {
-				url,
-				viewport: viewport.id,
-				stage: /screenshot timeout/.test( msg ) ? 'screenshot-timeout' : 'screenshot-fullpage',
-				error: msg,
-				timestamp: now(),
-				attempt: 1,
-			} );
-		}
-	}
-
 	if (
 		plan.captureHtml ||
 		plan.captureMobileHtml ||
@@ -684,6 +656,33 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 				viewport: viewport.id,
 				stage: 'content',
 				error: `fluid learning failed: ${ error instanceof Error ? error.message : String( error ) }`,
+				timestamp: now(),
+				attempt: 1,
+			} );
+		}
+	}
+
+	// Capture only after every operation that can change the live DOM, then
+	// serialize immediately below. This keeps runtime-driven components in the
+	// same state across the visual reference and its HTML transaction.
+	if ( plan.captureFullpage ) {
+		try {
+			const buf = await withScreenshotTimeout(
+				page.screenshot( { fullPage: true, type: 'png' } ),
+				screenshotTimeoutMs
+			);
+			mkdirSync( dirname( plan.paths.fullpage ), { recursive: true } );
+			writeFileSync( plan.paths.fullpage, buf );
+			const rel = `screenshots/${ viewport.id }/${ slug }.png`;
+			if ( isDesktop ) entry.desktop = rel;
+			else entry.mobile = rel;
+		} catch ( err ) {
+			const msg = err instanceof Error ? err.message : String( err );
+			failures.push( {
+				url,
+				viewport: viewport.id,
+				stage: /screenshot timeout/.test( msg ) ? 'screenshot-timeout' : 'screenshot-fullpage',
+				error: msg,
 				timestamp: now(),
 				attempt: 1,
 			} );

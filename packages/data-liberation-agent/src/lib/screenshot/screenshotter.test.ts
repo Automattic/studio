@@ -2,6 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+const { learnAndApplyFluidGeometryMock } = vi.hoisted( () => ( {
+	learnAndApplyFluidGeometryMock: vi.fn( async () => ( {
+		applied: 0,
+		unmodelled: 0,
+		breakpoints: [],
+		canvasFloor: null,
+		byKind: {},
+	} ) ),
+} ) );
+
 // Use a cwd-local tmp dir so validateOutputDir (which rejects paths outside
 // cwd) accepts the test output directory.
 const LOCAL_TMP = join(process.cwd(), '.tmp-test');
@@ -20,6 +30,11 @@ vi.mock('../url/index.js', async (importOriginal) => {
 // Mock browser-kit so tests don't require real Chromium.
 vi.mock('../browser-kit/index.js', () => ({
   connectBrowser: vi.fn(),
+}));
+
+vi.mock('./fluid-capture.js', async (importOriginal) => ({
+	...( await importOriginal() as Record<string, unknown> ),
+	learnAndApplyFluidGeometry: learnAndApplyFluidGeometryMock,
 }));
 
 import { capturePageHtml, captureScreenshots, geometryCandidateIsSafe, getHomepageUrl } from './screenshotter.js';
@@ -139,10 +154,11 @@ describe('captureScreenshots', () => {
     }
   });
 
-  it('captures the visual reference before serializing and analyzing settled HTML', async () => {
+  it('captures the prepared visual reference immediately before serializing HTML', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ss-'));
     const pages: ReturnType<typeof makeGoodPage>[] = [];
     try {
+		learnAndApplyFluidGeometryMock.mockClear();
       (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser(() => {
         const page = makeGoodPage();
         pages.push(page);
@@ -154,8 +170,13 @@ describe('captureScreenshots', () => {
         concurrency: 1,
         settleMs: 0,
         captureImages: true,
+		learnFluid: true,
       });
       expect(pages).toHaveLength(2);
+	  expect(learnAndApplyFluidGeometryMock).toHaveBeenCalledTimes(1);
+	  expect(learnAndApplyFluidGeometryMock.mock.invocationCallOrder[0]).toBeLessThan(
+		pages[0].screenshot.mock.invocationCallOrder[0],
+	  );
       expect(pages[0].screenshot.mock.invocationCallOrder[0]).toBeLessThan(
         pages[0].content.mock.invocationCallOrder[0],
       );

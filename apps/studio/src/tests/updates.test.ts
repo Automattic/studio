@@ -401,6 +401,26 @@ describe( 'update status emissions', () => {
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 
+	it( 'flags manual re-emissions so a dismissed card comes back', async () => {
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
+		vi.mocked( sendIpcEventToRenderer ).mockClear();
+
+		await manualCheckForUpdates();
+
+		expect( getLastEmittedStatus() ).toMatchObject( { state: 'ready', requested: true } );
+	} );
+
+	it( 'does not flag automatic emissions as requested', async () => {
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+
+		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
+
+		expect( getLastEmittedStatus()?.requested ).toBeUndefined();
+	} );
+
 	it( 'leaves the manual restart prompt to the sidebar card in the agentic UI', async () => {
 		setAgenticUiEnabled( true );
 		setupDarwinUpdates();

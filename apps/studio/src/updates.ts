@@ -223,7 +223,7 @@ export async function manualCheckForUpdates() {
 		// Re-emitting re-surfaces the sidebar card if the user dismissed it, so the menu item
 		// still does something in the agentic UI.
 		if ( agentic ) {
-			emitAppUpdateStatus();
+			emitAppUpdateStatus( { requested: true } );
 		} else {
 			await showUpdateReadyToInstallNotice();
 		}
@@ -233,7 +233,7 @@ export async function manualCheckForUpdates() {
 	if ( updaterState === 'downloading' ) {
 		console.log( 'Manually checking for update, but discovered a download is already in progress' );
 		if ( agentic ) {
-			emitAppUpdateStatus();
+			emitAppUpdateStatus( { requested: true } );
 		} else {
 			await showUpdateAvailableNotice();
 		}
@@ -552,8 +552,12 @@ function buildAppUpdateStatus(): AppUpdateStatus {
 	}
 }
 
-function emitAppUpdateStatus(): void {
-	void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
+function emitAppUpdateStatus( { requested }: { requested?: boolean } = {} ): void {
+	const status = buildAppUpdateStatus();
+	void sendIpcEventToRenderer(
+		'app-update-status',
+		requested ? { ...status, requested: true } : status
+	);
 }
 
 /**

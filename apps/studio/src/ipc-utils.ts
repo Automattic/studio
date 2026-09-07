@@ -83,7 +83,7 @@ export interface IpcEvents {
  * desktop app to report on (the browser UI's connectors), and `newVersion` is null until
  * the feed lookup resolves — Electron's autoUpdater only names the version on download.
  */
-export type AppUpdateStatus =
+export type AppUpdateStatus = (
 	| { state: 'idle' | 'checking'; currentVersion: string | null }
 	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
 	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
@@ -92,7 +92,11 @@ export type AppUpdateStatus =
 			currentVersion: string | null;
 			reason: 'read-only-volume' | 'generic';
 			detail?: string;
-	  };
+	  }
+) & {
+	// Set when the user asked for this check, so the renderer can re-show a dismissed card.
+	requested?: boolean;
+};
 
 let isAppQuitting = false;
 

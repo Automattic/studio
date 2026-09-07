@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useMemo } from 'react';
+import { DISMISSED_MESSAGES_QUERY_KEY } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import type { AppUpdateStatus } from '@/data/core';
@@ -15,10 +16,8 @@ export interface PersistentMessage {
 
 // Dismissals are session-only by design: the cache entry isn't persisted and
 // never refetches, so it lives until the app restarts — and restarting installs
-// the pending update, which removes the card's reason to exist. If a future
-// message must outlive restarts (e.g. server announcements), that's the point
-// to add persisted dismissal storage.
-const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
+// the pending update, which removes the card's reason to exist. An explicit
+// "Check for Updates" also clears them, so a dismissed card can come back.
 
 /**
  * The target version is often unknown mid-download: Electron's updater doesn't name it

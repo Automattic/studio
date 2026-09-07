@@ -1,6 +1,47 @@
 Unreleased
 ==========
 
+1.21.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Studio Code CLI: show remaining AI credits in the end-of-turn stats line #4712
+* Add GLM 5.3 Flash model (Automattician-only) #4719
+* Delete multiple Studio sites through one bounded daemon session #4733
+* Add studio create --from for static sources #4725
+* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.11.3 to 15.0.0 #4740
+* Allow files in `pull-reprint` selections #4582
+* Agentic UI: Let the app window shrink to 420px #4444
+* Agentic UI: Preserve chat drafts when switching sites #4596
+* Add a /credits command so CLI users can check their balance and buy more #4695
+* Add blueprints library to agentic UI #4701
+* build(deps): bump the wordpress group with 30 updates #4320
+* build(deps): bump @types/node to 26.x in dev tools (split from #4587) #4744
+* Prioritise release jobs ahead of feature builds #4754
+* Fix i18n extraction silently skipping files that use `await using` #4467
+* Set the right expectation for the "latest" WordPress version setting #4702
+* Improve AI credit balance meter #4681
+* Use public ThemeProvider export instead of @wordpress/theme private APIs #4762
+* Show a link to debug.log in the agentic UI when the file exists #4761
+* Accept --wp auto-update as the CLI name for the auto-update mode #4750
+* Agentic UI: Strip local domain suffix from publish flow domain suggestion #4743
+* Studio: Add checks for whether the windows are open #3901
+* Tracks: sync with WordPress.com & Pressable (STU-2118) #4551
+* build(deps): bump anthropics/claude-code-action from 1.0.206 to 1.0.213 #4769
+* Complete a site delete even when moving files to trash fails #4764
+* build(deps): bump the sentry group with 14 updates #4773
+* build(deps): bump the wordpress group with 30 updates #4770
+* Fix Vite config-loader warnings and async_hooks browser stub in the CLI build #4774
+* build(deps-dev): bump the testing group across 1 directory with 2 updates #4772
+* Use slim Static Site Importer 1.9.5 #4757
+* Studio Code: widen the default content width and use wide layouts for grids #4779
+* Teach Studio Code to pad cards and non-constrained full-width sections #4778
+* Pad main in scaffolded themes so WooCommerce default templates clear the header and footer #4781
+* build(deps-dev): bump the electron group across 1 directory with 2 updates #4709
+* Split the WordPress version setting into an update mode and a version picker #4752
+* Show the AI credits meter in the Studio Classic composer #4758
+* Report update progress and version numbers while Studio updates #4783
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.20.0...v1.21.0
+
 1.20.0
 =====
 * Added AI image generation to Studio Code: the agent now creates real images while it builds a site, instead of leaving placeholders behind, guided by a new imagery skill #4668

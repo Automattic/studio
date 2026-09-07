@@ -25,7 +25,7 @@ A direction sets the tone; a signature concept is the one structural idea a visi
 
 The concept pool at the end of this runbook is a random sample from the catalog, and it changes on every load. You shortlist; the `pick_concept` tool draws. Work from it like this:
 
-1. If the user's brief names a catalog concept, call `pick_concept` with that name as `namedInBrief` and skip the draw.
+1. If the user's brief names a catalog concept, call `pick_concept` with that name as `namedInBrief` — exactly as it appears in the full catalog list under the pool, even if it is not among the eight pool entries — and skip the draw. Never substitute a similar-sounding pool entry for the name the brief used.
 2. Otherwise read every entry in the pool as a candidate and shortlist the ones that can be made to suit this site — at least three, ideally four or five, each with a one-line reason. Do not shortlist only the familiar or the safe ones; a bold entry you can execute well belongs on the list.
 3. Call `pick_concept` with the shortlist. The tool draws one at random and returns its build and fallback notes. Build the drawn concept — do not call the tool again to get a different one, and do not substitute another entry.
 4. Adapt the drawn concept to the site: change the subject, the proportions, or the content that fills each slot so it belongs to this brand rather than to the catalog. Name the twist. "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept.

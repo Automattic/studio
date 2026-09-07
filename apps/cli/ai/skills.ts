@@ -136,9 +136,13 @@ export function renderSkillBody( skill: Skill ): string {
 	if ( ! skill.body.includes( CONCEPT_POOL_PLACEHOLDER ) ) return skill.body;
 	const pool = sampleDesignConcepts( CONCEPT_POOL_SIZE );
 	currentConceptPool = pool.map( ( concept ) => concept.name );
+	const names = loadDesignConcepts().map( ( concept ) => concept.name );
 	return skill.body.replace(
 		CONCEPT_POOL_PLACEHOLDER,
-		pool.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' )
+		pool.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' ) +
+			`\n\nFull catalog (names only, for a concept the brief names by name): ${ names.join(
+				', '
+			) }.`
 	);
 }
 

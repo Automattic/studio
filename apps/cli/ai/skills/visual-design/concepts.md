@@ -68,3 +68,18 @@ Fallback: sidebar becomes a top bar on mobile, the live detail moves to the foot
 The page is a strict rhythm of image rows: a pair of images side by side edge to edge, then one full-width image, then a pair, then one, all the way down. Each pair is a deliberate juxtaposition — a portrait beside a detail, a wide shot beside a close-up — and the few text sections sit inside the rhythm as a full-width row of type, never beside an image.
 Build: alternate two-column groups (`gap: 0`, each column a cover or image block with `aspect-ratio: 4 / 5`) and single full-width cover or image blocks (`aspect-ratio: 21 / 9`), all `alignfull`; text rows as constrained groups with generous block padding; zero the theme block gap between rows (`margin-block-start: 0` on the row groups) so images touch; the header is a slim fixed bar with its own background.
 Fallback: pairs stack into single images on mobile, keeping the order.
+
+## Four corners
+The hero pins one small element to each corner of the viewport — an eyebrow top-left, the navigation top-right, a key figure or date bottom-left, the call to action bottom-right — and puts the headline off-center in the open space between them. Every section repeats the corner-anchored composition with its own four items, so the page is a sequence of framed voids rather than a column.
+Build: each section a `min-height: 100dvh` `alignfull` group with `position: relative`; four corner groups absolutely positioned with `inset` offsets of one spacing unit; the headline as a group positioned with `top`/`left` percentages (never centered) by ONE shared rule for every section (for example `.corner-section .headline { position: absolute; top: 32%; left: 14%; max-width: 60% }`), never per-section coordinates — a section that misses its rule drops the headline to the top-left corner on top of the corner element; short sections such as the footer keep the four corners but use `min-height: 40dvh`, not a full viewport; generous empty space is the point, so no filler between corners.
+Fallback: corners stack in reading order (top-left, top-right, headline, bottom-left, bottom-right) on screens narrower than 782px.
+
+## Ruled grid
+The page is a visible grid: hairline rules run the full height and width of the site, every piece of content sits inside a cell, and nothing carries a background, so all structure comes from lines. Large cells hold the hero and images, small cells hold labels and short facts, and empty cells stay empty and ruled.
+Build: one `core/grid` or group per section with `grid-template-columns: repeat(6, 1fr)` and `gap: 0`, every cell a group with `border-right` and `border-bottom` in the text color at 1px, spans via `grid-column`/`grid-row` for the hero and images, the outer wrapper with a matching `border-left`/`border-top`; the header is the first ruled row; no `background` on any cell.
+Fallback: two columns on mobile with the rules kept.
+
+## Tilted reel
+Images run across sections in full-width strips rotated a few degrees, like a film reel laid diagonally across the page, and the text sits in the wedges of space the strips leave open. The reel is the page's spine: every image on the site belongs to a strip, none sit alone.
+Build: each strip a flex row of image blocks with a fixed height and a small gap, wider than the viewport (`width: 120vw; margin-inline-start: -10vw`), `transform: rotate(-4deg)`, inside a section with `overflow: hidden` and enough block padding that the rotation never clips; text groups positioned in the open wedge above or below the strip, never overlapping it; strips alternate rotation direction down the page.
+Fallback: strips lose the rotation and become horizontal scroll-snap rows on mobile.

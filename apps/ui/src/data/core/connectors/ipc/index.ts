@@ -1148,5 +1148,12 @@ export function createIpcConnector(): Connector {
 				listener( status as AppUpdateStatus )
 			);
 		},
+
+		onAppUpdateNotAvailable( listener ) {
+			return ipcListener.subscribe(
+				'app-update-not-available',
+				( _event: unknown, info: unknown ) => listener( info as { currentVersion: string } )
+			);
+		},
 	};
 }

@@ -4,6 +4,7 @@
 import { app, autoUpdater, clipboard, dialog, shell, type MessageBoxOptions } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
+import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { manualCheckForUpdates, setupUpdates } from 'src/updates';
 
@@ -25,6 +26,22 @@ vi.mock( 'src/main-window', () => ( {
 		webContents: { isDestroyed: () => false, send: vi.fn() },
 	} ),
 } ) );
+
+vi.mock( 'src/ipc-utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/ipc-utils') >() ),
+	sendIpcEventToRenderer: vi.fn().mockResolvedValue( undefined ),
+} ) );
+
+function getEmittedStatuses(): AppUpdateStatus[] {
+	return vi
+		.mocked( sendIpcEventToRenderer )
+		.mock.calls.filter( ( [ channel ] ) => channel === 'app-update-status' )
+		.map( ( [ , status ] ) => status as AppUpdateStatus );
+}
+
+function getLastEmittedStatus(): AppUpdateStatus | undefined {
+	return getEmittedStatuses().at( -1 );
+}
 
 const originalFetch = global.fetch;
 const originalPlatform = process.platform;
@@ -189,6 +206,151 @@ describe( 'update ready to install', () => {
 		setAgenticUiEnabled( true );
 
 		await emitUpdateDownloaded();
+
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'update status emissions', () => {
+	function setupDarwinUpdates() {
+		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
+		setupUpdates();
+	}
+
+	function getHandler( event: string ) {
+		const calls = vi.mocked( autoUpdater.on ).mock.calls as unknown as [
+			string,
+			( ...args: unknown[] ) => Promise< void > | void,
+		][];
+		return calls.find( ( [ name ] ) => name === event )?.[ 1 ];
+	}
+
+	beforeEach( () => {
+		// setupUpdates registers listeners on the shared autoUpdater mock; without clearing,
+		// getHandler would find the previous test's handler and its stale module state.
+		vi.mocked( autoUpdater.on ).mockClear();
+		vi.mocked( sendIpcEventToRenderer ).mockClear();
+		vi.mocked( dialog.showMessageBox ).mockClear();
+	} );
+
+	afterEach( () => {
+		setAgenticUiEnabled( false );
+	} );
+
+	it( 'emits a checking state with the current version', async () => {
+		setupDarwinUpdates();
+
+		await getHandler( 'checking-for-update' )?.();
+
+		expect( getLastEmittedStatus() ).toEqual( { state: 'checking', currentVersion: '1.8.2' } );
+	} );
+
+	it( 'emits downloading, then re-emits with the version the feed reports', async () => {
+		global.fetch = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( { version: '1.9.0' } ),
+		} as Response );
+		setupDarwinUpdates();
+
+		await getHandler( 'update-available' )?.();
+
+		const statuses = getEmittedStatuses();
+		expect( statuses ).toContainEqual( {
+			state: 'downloading',
+			currentVersion: '1.8.2',
+			newVersion: null,
+		} );
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'downloading',
+			currentVersion: '1.8.2',
+			newVersion: '1.9.0',
+		} );
+	} );
+
+	it( 'reads the version out of the Squirrel feed URL on macOS and Windows', async () => {
+		// macOS/Windows get `{ url }` only; the version lives in the path.
+		global.fetch = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( {
+				url: 'https://appscdn.wordpress.com/downloads/wordpress-com-studio/mac-silicon/v1.9.0/21476/update/studio-arm64-v1.9.0.zip',
+			} ),
+		} as Response );
+		setupDarwinUpdates();
+
+		await getHandler( 'update-available' )?.();
+
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'downloading',
+			currentVersion: '1.8.2',
+			newVersion: '1.9.0',
+		} );
+	} );
+
+	it( 'leaves the new version unnamed when the feed lookup fails', async () => {
+		global.fetch = vi.fn().mockRejectedValue( new Error( 'offline' ) );
+		setupDarwinUpdates();
+
+		await getHandler( 'update-available' )?.();
+
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'downloading',
+			currentVersion: '1.8.2',
+			newVersion: null,
+		} );
+	} );
+
+	it( 'emits a ready state naming both versions once the download completes', async () => {
+		setupDarwinUpdates();
+
+		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
+
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'ready',
+			currentVersion: '1.8.2',
+			newVersion: '1.9.0',
+		} );
+	} );
+
+	it( 'emits an error state when the updater fails', async () => {
+		setupDarwinUpdates();
+
+		await getHandler( 'error' )?.( new Error( 'boom' ) );
+
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'error',
+			currentVersion: '1.8.2',
+			reason: 'generic',
+		} );
+	} );
+
+	it( 'reports a read-only volume error to the sidebar instead of a dialog in the agentic UI', async () => {
+		// Not part of the shared electron mock; only this path calls it.
+		( app as unknown as { isInApplicationsFolder: () => boolean } ).isInApplicationsFolder = () =>
+			true;
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+
+		const err = Object.assign( new Error( 'read-only' ), { code: 8 } );
+		await getHandler( 'error' )?.( err );
+
+		await vi.waitFor( () => {
+			expect( getLastEmittedStatus() ).toMatchObject( {
+				state: 'error',
+				reason: 'read-only-volume',
+			} );
+		} );
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves the manual restart prompt to the sidebar card in the agentic UI', async () => {
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
+		vi.mocked( dialog.showMessageBox ).mockClear();
+
+		await manualCheckForUpdates();
 
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );

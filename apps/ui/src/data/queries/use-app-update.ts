@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { AppUpdateStatus } from '@/data/core';
 
@@ -28,4 +30,19 @@ export function useSyncAppUpdateStatus(): void {
 			queryClient.setQueryData( APP_UPDATE_STATUS_QUERY_KEY, status );
 		} );
 	}, [ connector, queryClient ] );
+
+	// A manual check that finds nothing gets a toast rather than a card: there's nothing to
+	// act on, so it shouldn't linger until dismissed.
+	useEffect( () => {
+		return connector.onAppUpdateNotAvailable( ( { currentVersion } ) => {
+			toast.info(
+				sprintf(
+					/* translators: %s: current version number, e.g. "1.20.0". */
+					__( "You're on the latest version (%s)" ),
+					currentVersion
+				),
+				{ id: 'app-update-not-available' }
+			);
+		} );
+	}, [ connector ] );
 }

@@ -20,6 +20,10 @@ type UpdpaterState =
 
 let updaterState: UpdpaterState = 'init';
 let downloadedVersion: string | null = null;
+// Target version for an in-flight download. Electron's autoUpdater doesn't name it until
+// `update-downloaded`, so it's fetched from the feed separately and may stay null.
+let availableVersion: string | null = null;
+let lastError: { reason: 'read-only-volume' | 'generic'; detail?: string } | null = null;
 
 let timeout: NodeJS.Timeout | null = null;
 
@@ -79,11 +83,17 @@ export function setupUpdates() {
 
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
+		lastError = null;
+		emitAppUpdateStatus();
 	} );
 
 	autoUpdater.on( 'update-available', async () => {
 		console.log( 'Update available' );
 		updaterState = 'downloading';
+		lastError = null;
+		// Clear any version left from a previous check so a failed lookup can't show a stale one.
+		availableVersion = null;
+		emitAppUpdateStatus();
 
 		if ( isDevRelease( app.getVersion() ) ) {
 			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
@@ -92,6 +102,13 @@ export function setupUpdates() {
 		if ( showManualCheckDialogs ) {
 			await showUpdateAvailableNotice();
 		}
+
+		// Re-emit once the feed names the version. Ordered after the notice so the dialog
+		// isn't held up by a network round trip.
+		availableVersion = await fetchAvailableVersion();
+		if ( availableVersion && updaterState === 'downloading' ) {
+			emitAppUpdateStatus();
+		}
 	} );
 
 	autoUpdater.on( 'update-not-available', async () => {
@@ -99,8 +116,12 @@ export function setupUpdates() {
 			await showUpdateUnavailableNotice();
 		}
 
+		availableVersion = null;
+		lastError = null;
+
 		if ( ! shouldPoll ) {
 			updaterState = 'done';
+			emitAppUpdateStatus();
 			return;
 		}
 
@@ -109,6 +130,7 @@ export function setupUpdates() {
 		}
 
 		queueUpdateCheck();
+		emitAppUpdateStatus();
 	} );
 
 	autoUpdater.on( 'error', ( err ) => {
@@ -128,24 +150,20 @@ export function setupUpdates() {
 			return;
 		}
 
+		lastError = { reason: 'generic' };
+		emitAppUpdateStatus();
+
 		console.error( err );
 		Sentry.captureException( err );
 	} );
 
-	autoUpdater.on( 'update-available', () => {
-		console.log( 'Update available' );
-	} );
-
 	autoUpdater.on( 'update-downloaded', async ( _event, releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
+		lastError = null;
 		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
-		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
-		// The agentic UI surfaces this as a dismissable card in the sidebar, so a modal on top of
-		// it would be a duplicate interruption. Classic has no such affordance and still needs it.
-		if ( getPreferredStudioUiMode() !== 'agentic' ) {
-			await showUpdateReadyToInstallNotice();
-		}
+		emitAppUpdateStatus();
+		await showUpdateReadyToInstallNotice();
 	} );
 
 	if ( ! shouldPoll ) {
@@ -243,12 +261,28 @@ function queueUpdateCheck() {
 
 async function showUpdateAvailableNotice() {
 	showManualCheckDialogs = false;
+	// The agentic UI reports the whole update lifecycle in the sidebar, so a modal would be a
+	// duplicate interruption. Classic has no such affordance and still needs it.
+	if ( getPreferredStudioUiMode() === 'agentic' ) {
+		return;
+	}
 	const mainWindow = await getMainWindow();
 	await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'New Version Available' ),
-		message: __( 'Downloading update in the background' ),
+		message: availableVersion
+			? sprintf(
+					/* translators: 1: current version, e.g. "1.20.0". 2: new version, e.g. "1.21.0". */
+					__( 'Updating Studio from %1$s to %2$s' ),
+					app.getVersion(),
+					availableVersion
+			  )
+			: sprintf(
+					/* translators: %s is the current version number, e.g. "1.20.0". */
+					__( 'Updating Studio from %s' ),
+					app.getVersion()
+			  ),
 		detail: __(
 			'Studio will notify you when the update is ready to install. You can continue working normally.'
 		),
@@ -257,19 +291,34 @@ async function showUpdateAvailableNotice() {
 
 async function showUpdateUnavailableNotice() {
 	showManualCheckDialogs = false;
+	// The agentic UI answers a manual check with a sidebar toast: there's nothing to act on,
+	// so a modal the user has to dismiss is heavier than the result warrants.
+	if ( getPreferredStudioUiMode() === 'agentic' ) {
+		void sendIpcEventToRenderer( 'app-update-not-available', { currentVersion: app.getVersion() } );
+		return;
+	}
 	const mainWindow = await getMainWindow();
 	await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'Application Update' ),
 		message: __( 'No updates available' ),
-		detail: __(
-			"You're already running the latest version of Studio. No update is needed at this time."
+		detail: sprintf(
+			/* translators: %s is the current version number, e.g. "1.20.0". */
+			__(
+				"You're already running the latest version of Studio (%s). No update is needed at this time."
+			),
+			app.getVersion()
 		),
 	} );
 }
 
 async function showUpdateReadyToInstallNotice() {
+	// The agentic UI surfaces this as a dismissable sidebar card; a modal on top would be a
+	// duplicate interruption. Gated here so the manual check behaves like the automatic one.
+	if ( getPreferredStudioUiMode() === 'agentic' ) {
+		return;
+	}
 	// Only show the restart dialog if a window is already open. If the user
 	// closed the window while an update was downloading, don't recreate it —
 	// the update will be applied on the next launch or when the user reopens
@@ -455,6 +504,13 @@ async function showReadOnlyVolumeError( err: Error ) {
 		console.error( err );
 	}
 
+	lastError = { reason: 'read-only-volume', detail: `${ detailMessage }\n\n${ detailPath }` };
+
+	if ( getPreferredStudioUiMode() === 'agentic' ) {
+		emitAppUpdateStatus();
+		return;
+	}
+
 	const existingWindow = getExistingMainWindow();
 	if ( ! existingWindow ) {
 		return;
@@ -468,10 +524,55 @@ async function showReadOnlyVolumeError( err: Error ) {
 }
 
 function buildAppUpdateStatus(): AppUpdateStatus {
-	return {
-		readyToInstall: updaterState === 'waiting-for-restart',
-		version: downloadedVersion,
-	};
+	const currentVersion = app.getVersion();
+
+	if ( lastError ) {
+		return { state: 'error', currentVersion, ...lastError };
+	}
+
+	switch ( updaterState ) {
+		case 'checking-for-update':
+			return { state: 'checking', currentVersion };
+		case 'downloading':
+			return { state: 'downloading', currentVersion, newVersion: availableVersion };
+		case 'waiting-for-restart':
+			return { state: 'ready', currentVersion, newVersion: downloadedVersion ?? availableVersion };
+		default:
+			return { state: 'idle', currentVersion };
+	}
+}
+
+function emitAppUpdateStatus(): void {
+	void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
+}
+
+/**
+ * Looks up the version the feed is offering. Electron's autoUpdater withholds it until the
+ * download finishes, so the renderer would otherwise have nothing to show while downloading.
+ * Best-effort: any failure just leaves the version unnamed.
+ */
+async function fetchAvailableVersion( { channel }: { channel?: 'nightly' } = {} ): Promise<
+	string | null
+> {
+	try {
+		const response = await fetch( buildUpdateFeedUrl( { channel } ) );
+		if ( ! response.ok ) {
+			return null;
+		}
+		// Shapes differ by platform: Linux gets `{ version, downloadUrl }`, while macOS and
+		// Windows get Squirrel's `{ url }`, whose path carries the version as a `v1.2.3` segment.
+		const data = ( await response.json() ) as { version?: string; url?: string };
+		return data?.version ?? versionFromUpdateUrl( data?.url ) ?? null;
+	} catch {
+		return null;
+	}
+}
+
+function versionFromUpdateUrl( url: string | undefined ): string | null {
+	if ( ! url ) {
+		return null;
+	}
+	return /\/v(\d+\.\d+\.\d+[^/]*)\//.exec( url )?.[ 1 ] ?? null;
 }
 
 export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {

@@ -957,12 +957,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
-			return { readyToInstall: false, version: null };
+			// The browser UI updates through the CLI's own notifier, not Electron's autoUpdater.
+			return { state: 'idle', currentVersion: null };
 		},
 		async installAppUpdate() {
 			// No-op.
 		},
 		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		onAppUpdateNotAvailable() {
 			return () => {};
 		},
 	};

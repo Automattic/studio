@@ -129,7 +129,7 @@ try {
     await withDeadline(client.close(), 'Installed MCP server shutdown', 10_000);
   }
 
-  process.stdout.write('Installed package CLI, capture engine, MCP server, and skill are ready.\n');
+  process.stdout.write('Installed package CLI, capture engine, Platform API, MCP server, skills, and drivers are ready.\n');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

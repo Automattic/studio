@@ -14,6 +14,8 @@ data-liberation publish <run-dir>     publish
 
 Three entry points share the same code: the CLI (`src/cli.ts`), the MCP server (`src/mcp-server.ts`), and the `liberate` skill, which drives the CLI. MCP exposes the same three verbs and calls the same functions — it is a transport, not the architecture. Adding pipeline phases to it recreates a surface that has to be maintained against every refactor and invites callers to reimplement the CLI.
 
+The platform registry (`src/platform/`) owns built-in and consumer platform registration plus automatic detection. Add a built-in with one `registerPlatform(...)` call in `src/platform/builtins.ts`; consumers use the public `registerPlatform` API documented in `docs/platform-api.md`.
+
 ## Pipeline
 
 ```
@@ -31,6 +33,8 @@ url → detect platform → discover routes → capture each route in a browser
 ## Adapters
 
 An adapter contributes platform knowledge to discovery and capture. It never owns a destination.
+
+`liberation?: LiberationHooks` removes platform-specific chrome before portable HTML, screenshots, and mobile variants are produced. Use it for source-specific capture behavior.
 
 ```ts
 interface PlatformAdapter {

@@ -75,6 +75,10 @@ Naming an unknown target lists the registered ones.
 
 Adapters contribute platform knowledge to discovery and capture — how a platform lists its routes, what its CDN URLs look like, how its runtime resolves anchors. Sites matching none of them fall back to a generic adapter that renders each page in a headless browser.
 
+### Custom platforms
+
+Consumers can register a platform that auto-detects, discovers routes, and applies source-specific liberation hooks without editing core. See [Platform API](/docs/platform-api.md) for the public contract and example.
+
 ## Output
 
 A run produces, under `~/data-liberation/<host>/`:
@@ -129,6 +133,7 @@ The server exposes the same three verbs as tools — `liberate`, `compare`, `pub
 
 ## Additional documentation
 
+- [Platform API — custom platforms](/docs/platform-api.md)
 - [Wix authenticated content endpoints](/docs/wix-content-endpoints.md) — the load-bearing content endpoints behind Wix's editor and dashboard auth
 - [Discoveries](./DISCOVERIES.md) — findings from real runs
 

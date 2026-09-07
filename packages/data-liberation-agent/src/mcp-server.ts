@@ -12,7 +12,6 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { resolveOutputBase } from './lib/paths.js';
-import { loadExternalPlatforms } from './platform/load-external.js';
 
 /**
  * MCP tool result envelope. The index signature is what keeps it assignable to
@@ -140,17 +139,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  // Consumer-defined platforms (DATA_LIBERATION_PLATFORMS) join the same
-  // registry as the built-ins before any tool call is served. A bad module is
-  // reported on stderr and skipped — it must not take the server down.
-  const external = await loadExternalPlatforms();
-  for (const { entry, error } of external.failed) {
-    console.error(`[platform] Failed to load external platform module ${entry}: ${error}`);
-  }
-  if (external.loaded.length > 0) {
-    console.error(`[platform] Loaded external platform modules: ${external.loaded.join(', ')}`);
-  }
-
   const transport = new StdioServerTransport();
 
   const shutdown = async () => {

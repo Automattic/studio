@@ -49,11 +49,6 @@ Every section is a full-viewport poster: one full-bleed image, one headline, one
 Build: `scroll-snap-type: y mandatory` on the page, each section a cover block with `height: 100dvh; scroll-snap-align: start`, content bottom-left with a gradient scrim; the footer is the last poster; the header is fixed over the posters (`position: fixed; top: 0` with a transparent or translucent background) rather than a block above the first one — with mandatory snapping, an in-flow header shorter than a viewport can never be scrolled into view; if it must stay in flow, give it `scroll-snap-align: start` too.
 Fallback: snap disabled and heights relaxed to `min-height: 70dvh` on screens shorter than 640px.
 
-## Ledger
-Two columns all the way down: a narrow sticky left column carrying only the section number, its label, and a hairline rule, and a wide right column carrying the content. Nothing ever sits outside the two columns, so the page reads like a ledger.
-Build: a grid with `grid-template-columns: minmax(160px, 1fr) 3fr`; each section a group spanning both columns with its label group `position: sticky; top: var(--wp--preset--spacing--40)`; a monospace label with the number, a `border-top` rule on both columns; the header is a slim fixed bar (`position: sticky; top: 0`) with its own opaque or translucent background so it never merges with the cell or row behind it.
-Fallback: label sits above its content on mobile, still numbered.
-
 ## Interrupted column
 A narrow reading column runs down the page and is interrupted, at regular intervals, by full-bleed bands that run edge to edge: an image, a wide quote, a row of products. The rhythm of narrow, wide, narrow is the layout.
 Build: `settings.layout.contentSize` set narrow (`640px`) in `theme.json`; text sections as constrained groups; every second or third section an `alignfull` group or cover block with its own background; no `alignwide` anywhere, so only the two widths exist; the header is a slim fixed bar (`position: sticky; top: 0`) with its own opaque or translucent background so it never merges with the band scrolling under it.

@@ -453,7 +453,10 @@ export const scaffoldThemeTool = defineTool(
 				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
 			}
 
-			const parentSlug = args.parentTheme?.trim();
+			// An empty parentTheme means "no parent" — models tend to send "" for
+			// optional fields, and rejecting it as a bad slug nudges them into naming
+			// the active theme as parent when they wanted a blank scaffold.
+			const parentSlug = args.parentTheme?.trim() || undefined;
 			if ( parentSlug !== undefined ) {
 				if ( ! parentSlug || ! /^[a-z0-9][a-z0-9-]*$/.test( parentSlug ) ) {
 					throw new Error(

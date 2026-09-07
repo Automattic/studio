@@ -91,10 +91,23 @@ function copyDataLiberationEngine( outDir: string ) {
 	);
 	const cliPath = resolve( dataLiberationSourcePath, 'dist', 'cli.js' );
 	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
-	if ( ! existsSync( serverBundlePath ) || ! existsSync( captureBundlePath ) || ! existsSync( cliPath ) ) {
+	if ( ! existsSync( serverBundlePath ) || ! existsSync( captureBundlePath ) ) {
 		throw new Error(
 			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
 				'Run `npm -w data-liberation run build` and commit the updated artifacts.'
+		);
+	}
+
+	if ( ! existsSync( cliPath ) ) {
+		execSync( 'npx tsc -p tsconfig.json && node scripts/copy-runtime-assets.mjs', {
+			cwd: dataLiberationSourcePath,
+			stdio: 'inherit',
+		} );
+	}
+
+	if ( ! existsSync( cliPath ) ) {
+		throw new Error(
+			'Data Liberation CLI is not compiled. Run `npm -w data-liberation run build` and try again.'
 		);
 	}
 

@@ -83,20 +83,31 @@ body:lang( ckb ) [class*='components-'] {
 	color: var( --wpds-color-foreground-content-neutral-weak ) !important;
 }
 
+[data-wpds-root-provider] .components-base-control__help {
+	margin-top: var( --wpds-dimension-gap-xs );
+}
+
 /* Section grouping for the site forms. The `card` layout gives the sections
    their headings declaratively, but its panel chrome reads as four stacked
    boxes; flattening it to a hairline rule between sections matches the
    settings design and keeps one rhythm down the form. */
 form .dataforms-layouts-card__field {
+	--wp-ui-card-padding: 0;
+
 	border: 0;
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
-	padding-inline: 0;
+}
+
+form .dataforms-layouts-card__field-header-content {
+	margin-block-end: var( --wpds-dimension-gap-md );
 }
 
 form .dataforms-layouts-card__field + .dataforms-layouts-card__field {
 	border-top: 1px solid var( --wpds-color-stroke-surface-neutral );
+	margin-block-start: var( --wpds-dimension-padding-lg );
+	padding-block-start: var( --wpds-dimension-padding-lg );
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -301,6 +312,7 @@ select option {
 [data-wpds-root-provider] .components-radio-control__option-description {
 	color: var( --wpds-color-foreground-content-neutral-weak );
 	unicode-bidi: plaintext;
+	margin-block-end: 0;
 }
 
 /* @wordpress/components ships its RTL fixups in a separate style-rtl.css

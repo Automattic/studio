@@ -1,5 +1,6 @@
 import type { PlatformAdapter } from '../../types.js';
 import { capture } from './capture.js';
+import { detection } from './detection.js';
 import { discover } from './discover.js';
 
 // Re-export shared types so existing consumers still work
@@ -10,10 +11,6 @@ export type { WixAdapterOpts, Inventory, CapturedApiCall, PageMeta, PageData } f
 export { isExecutionContextDestroyed, ROUTE_PIN_INIT_SCRIPT } from './runtime.js';
 export { extractGalleryFromHtml } from './gallery.js';
 
-function detect(url: string): boolean {
-  return /wixsite\.com|wix\.com/i.test(url);
-}
-
 export { wixMediaVariant } from './capture.js';
 
-export const wixAdapter: PlatformAdapter = { id: 'wix', detect, discover, capture };
+export const wixAdapter: PlatformAdapter = { id: 'wix', detection, discover, liberation: capture };

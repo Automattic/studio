@@ -1,13 +1,13 @@
 // src/adapters/page-actions.ts
 import type { Page } from 'playwright';
 
-/** Capture-phase DOM mutations, applied to the live page before capture. */
-export interface AdapterCapture {
-  /** CSS selectors removed from the DOM before screenshots/HTML/specs. */
+/** Platform-specific preparation applied while liberating a live page. */
+export interface LiberationHooks {
+  /** CSS selectors removed from the DOM before portable artifacts are produced. */
   removeSelectors?: string[];
   /** Imperative escape hatch (wait-for-app, conditional removal). Runs AFTER
-   *  removeSelectors. Best-effort: a throw is swallowed and capture continues. */
-  prepare?(page: Page, ctx: CaptureContext): Promise<void>;
+   *  removeSelectors. Best-effort: a throw is swallowed and liberation continues. */
+  prepare?(page: Page, ctx: LiberationContext): Promise<void>;
   /**
    * Collect the image variants this platform's runtime swapped in at the
    * current viewport, as {stable media id → variant URL}.
@@ -17,12 +17,12 @@ export interface AdapterCapture {
    * knows that a source may have viewport-specific variants worth recording;
    * it must not know what any particular CDN looks like.
    *
-   * Best-effort: a throw is swallowed and capture continues.
+   * Best-effort: a throw is swallowed and liberation continues.
    */
-  responsiveImages?(page: Page, ctx: CaptureContext): Promise<Record<string, string>>;
+  responsiveImages?(page: Page, ctx: LiberationContext): Promise<Record<string, string>>;
 }
 
-export interface CaptureContext {
+export interface LiberationContext {
   url: string;
   viewport: 'desktop' | 'mobile';
 }

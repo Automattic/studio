@@ -1,4 +1,5 @@
 import type { PlatformAdapter } from '../../types.js';
+import { detection } from './detection.js';
 import { discoverWeebly } from './discover.js';
 
 export type { WeeblyInventory, WeeblyAdapterOpts } from './types.js';
@@ -7,12 +8,8 @@ export type { WeeblyInventory, WeeblyAdapterOpts } from './types.js';
 // The adapter
 // ---------------------------------------------------------------------------
 
-function detect(url: string): boolean {
-  return /weebly\.com/i.test(url);
-}
-
 export const weeblyAdapter: PlatformAdapter = {
   id: 'weebly',
-  detect,
+  detection,
   discover: discoverWeebly,
 };

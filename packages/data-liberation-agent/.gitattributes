@@ -3,4 +3,3 @@
 # literals end up in the bundle bytes, so a CRLF checkout would build bundles
 # that differ from CI's LF build. Pin LF for everything in this package.
 * text=auto eol=lf
-dist/*.bundle.mjs text eol=lf -diff

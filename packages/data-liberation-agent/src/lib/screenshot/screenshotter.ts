@@ -147,12 +147,12 @@ interface CapturePerViewportArgs {
 	fluidWidths?: number[];
 	collectResponsiveImages?: (
 		page: import('playwright').Page,
-		ctx: import('../../adapters/page-actions.js').CaptureContext
+		ctx: import('../../adapters/page-actions.js').LiberationContext
 	) => Promise< Record< string, string > >;
 	removeSelectors?: string[];
 	prepareCapture?: (
 		page: import('playwright').Page,
-		ctx: import('../../adapters/page-actions.js').CaptureContext
+		ctx: import('../../adapters/page-actions.js').LiberationContext
 	) => Promise< void >;
 	viewport: Viewport;
 	plan: ArtifactPlan;

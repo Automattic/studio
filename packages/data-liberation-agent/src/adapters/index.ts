@@ -1,27 +1,31 @@
+// src/adapters/index.ts
+//
+// Back-compat surface over the platform registry (src/platform/), preserved
+// until #119 removes the extract-era callers (mcp-server handlers, the CLI
+// UIs). The registry is the single source of truth for both adapter
+// resolution and automatic detection.
+import '../platform/builtins.js';
+import { registeredPlatforms, resolvePlatform } from '../platform/registry.js';
 import type { PlatformAdapter } from '../types.js';
-import { defaultAdapter } from './default/index.js';
-import { godaddyWmAdapter } from './godaddy-wm/index.js';
-import { hostingerAdapter } from './hostinger/index.js';
-import { hubspotAdapter } from './hubspot/index.js';
-import { resolveAdapter } from './resolve-adapter.js';
-import { shopifyAdapter } from './shopify/index.js';
-import { squarespaceAdapter } from './squarespace/index.js';
-import { webflowAdapter } from './webflow/index.js';
-import { weeblyAdapter } from './weebly/index.js';
-import { wixAdapter } from './wix/index.js';
 
-export const adapters: PlatformAdapter[] = [
-  defaultAdapter,
-  godaddyWmAdapter,
-  hostingerAdapter,
-  hubspotAdapter,
-  shopifyAdapter,
-  squarespaceAdapter,
-  webflowAdapter,
-  weeblyAdapter,
-  wixAdapter,
-];
+/**
+ * Legacy snapshot of the registered adapters, in registration order.
+ * Consumer platforms registered after this module loads are still resolved by
+ * {@link findAdapter} (which queries the registry live); they just don't
+ * appear in this static list.
+ */
+export const adapters: PlatformAdapter[] = registeredPlatforms() as PlatformAdapter[];
 
+/**
+ * Resolve a detected platform id to an adapter, with generic-fallback
+ * semantics (exact match first, then the registered fallback). Live against
+ * the registry, so consumer-registered platforms resolve without core edits.
+ *
+ * NOTE: the PlatformAdapter cast is the legacy bridge — a custom platform
+ * without `extract` still resolves here (capture only needs discover/capture
+ * hooks); extract-era handlers would fail on it, which is the documented
+ * behavior until #119 removes them.
+ */
 export function findAdapter(platform: string): PlatformAdapter | null {
-  return resolveAdapter(adapters, platform);
+  return resolvePlatform(platform) as PlatformAdapter | null;
 }

@@ -19,10 +19,8 @@ type LiberateWebsiteOptions = {
 	runCli?: RunDataLiberationCli;
 };
 
-const DATA_LIBERATION_PROGRESS_INTERVAL_MS = 30_000;
-
 export function getDataLiberationCliPath(): string {
-	return path.join( import.meta.dirname, 'data-liberation-agent', 'dist', 'cli.bundle.mjs' );
+	return path.join( import.meta.dirname, 'data-liberation-agent', 'dist', 'cli.js' );
 }
 
 function appendBounded( current: string, chunk: string ): string {
@@ -42,7 +40,7 @@ async function runDataLiberationCli(
 	const cliPath = getDataLiberationCliPath();
 	if ( ! fs.existsSync( cliPath ) ) {
 		throw new Error(
-			'Data Liberation CLI is not compiled. Run `npm -w data-liberation run build:mcp-bundle` and try again.'
+			'Data Liberation CLI is not compiled. Run `npm -w data-liberation run build` and try again.'
 		);
 	}
 
@@ -63,7 +61,7 @@ async function runDataLiberationCli(
 		child.stderr.on( 'data', ( chunk: string ) => {
 			stderr = appendBounded( stderr, chunk );
 			pendingProgress += chunk;
-			const lines = pendingProgress.split( /\r?\n|\r/ );
+			const lines = pendingProgress.split( /\r?\n/ );
 			pendingProgress = lines.pop() ?? '';
 			for ( const line of lines ) {
 				if ( line.trim() ) {
@@ -93,22 +91,9 @@ export async function liberateWebsite(
 
 	const resolvedOutputBase = path.resolve( outputBase );
 	fs.mkdirSync( resolvedOutputBase, { recursive: true } );
-	let lastProgressAt = 0;
-	const reportProgress = ( message: string ) => {
-		// Terminal control sequences are spinner frames, not useful CI progress.
-		if ( ! options.onProgress || message.includes( '\u001b' ) ) {
-			return;
-		}
-		const now = Date.now();
-		if ( now - lastProgressAt < DATA_LIBERATION_PROGRESS_INTERVAL_MS ) {
-			return;
-		}
-		lastProgressAt = now;
-		options.onProgress( message );
-	};
 	const result = await ( options.runCli ?? runDataLiberationCli )(
 		[ parsed.href, '--output', resolvedOutputBase, '--resume' ],
-		reportProgress
+		options.onProgress
 	);
 	if ( result.exitCode !== 0 ) {
 		throw new Error( result.stderr.trim() || result.stdout.trim() || 'Data Liberation failed.' );

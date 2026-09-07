@@ -140,7 +140,6 @@ describe( 'captureWebsite fluid learning', () => {
 				findAdapter: () => ( {
 					id: 'generic',
 					platform: 'generic',
-					detect: () => true,
 					discover: async () => ( { urls: [] } ),
 					extract: async () => ( { title: '', content: '' } ),
 				} ),

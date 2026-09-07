@@ -87,14 +87,14 @@ export interface ScreenshotOpts {
 	 */
 	collectResponsiveImages?: (
 		page: import('playwright').Page,
-		ctx: import('../../adapters/page-actions.js').CaptureContext
+		ctx: import('../../adapters/page-actions.js').LiberationContext
 	) => Promise< Record< string, string > >;
 	/** Adapter-declared selectors removed from each page before capture (seam 1). */
 	removeSelectors?: string[];
 	/** Adapter imperative capture hook, run after removeSelectors. Best-effort. */
 	prepareCapture?: (
 		page: import('playwright').Page,
-		ctx: import('../../adapters/page-actions.js').CaptureContext
+		ctx: import('../../adapters/page-actions.js').LiberationContext
 	) => Promise< void >;
 }
 

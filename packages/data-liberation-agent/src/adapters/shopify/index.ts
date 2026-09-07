@@ -1,5 +1,6 @@
 import type { PlatformAdapter } from '../../types.js';
 import { capture } from './capture.js';
+import { detection } from './detection.js';
 import { discover } from './discover.js';
 
 // ---------------------------------------------------------------------------
@@ -15,13 +16,9 @@ export type { ShopifyAdapterOpts, ShopifyInventory } from './types.js';
 // Adapter assembly
 // ---------------------------------------------------------------------------
 
-function detect(url: string): boolean {
-  return /myshopify\.com|shopify\.com/i.test(url);
-}
-
 export const shopifyAdapter: PlatformAdapter = {
   id: 'shopify',
-  capture,
-  detect,
+  detection,
+  liberation: capture,
   discover,
 };

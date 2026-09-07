@@ -1,11 +1,13 @@
 import { load } from 'cheerio';
 import { describe, expect, it } from 'vitest';
 import {
+	capture,
 	stripShowcaseMarkup,
 	wixMediaVariant,
 	wixStaticMediaUrl,
 	WIX_CAPTURE_CHROME_SELECTOR,
 } from './capture.js';
+import { wixAdapter } from './index.js';
 
 const variant =
 	'https://static.wixstatic.com/media/8e80e7_e9cc2e6993d7493ca165d9fa3e8f503d~mv2.jpg/v1/fill/w_390,h_844,al_c/8e80e7_e9cc2e6993d7493ca165d9fa3e8f503d~mv2.jpg';
@@ -92,5 +94,18 @@ describe( 'WIX_CAPTURE_CHROME_SELECTOR', () => {
 		expect( $( '#menu-hiddenA11ySubMenuIndication' ) ).toHaveLength( 0 );
 		expect( $( '#WIX_ADS' ) ).toHaveLength( 0 );
 		expect( $( '#authored-more' ).text() ).toBe( 'More' );
+	} );
+} );
+
+describe( 'wix capture', () => {
+	it( 'declares platform chrome removal selectors', () => {
+		expect( capture.removeSelectors ).toEqual( [
+			'[id="WIX_ADS"]',
+			'[id$="-hiddenA11ySubMenuIndication"]',
+		] );
+	} );
+
+	it( 'is attached to the adapter', () => {
+		expect( wixAdapter.liberation ).toBe( capture );
 	} );
 } );

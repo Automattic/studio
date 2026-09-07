@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { liberateWebsite } from '../data-liberation-client';
+import { getDataLiberationCliPath, liberateWebsite } from '../data-liberation-client';
 
 const tempDirs: string[] = [];
 
@@ -22,6 +22,15 @@ afterEach( () => {
 } );
 
 describe( 'Data Liberation CLI', () => {
+	it( 'points at the vendored Data Liberation CLI', () => {
+		const cliPath = getDataLiberationCliPath();
+		expect( path.basename( cliPath ) ).toBe( 'cli.js' );
+		expect( path.basename( path.dirname( cliPath ) ) ).toBe( 'dist' );
+		expect( path.basename( path.dirname( path.dirname( cliPath ) ) ) ).toBe(
+			'data-liberation-agent'
+		);
+	} );
+
 	it( 'returns the portable website directory reported by the CLI', async () => {
 		const { outputBase, websiteDir } = createOutput();
 		const onProgress = vi.fn();
@@ -36,26 +45,8 @@ describe( 'Data Liberation CLI', () => {
 		).resolves.toBe( websiteDir );
 		expect( runCli ).toHaveBeenCalledWith(
 			[ 'https://example.com/', '--output', outputBase, '--resume' ],
-			expect.any( Function )
+			onProgress
 		);
-	} );
-
-	it( 'filters and bounds terminal spinner progress', async () => {
-		const { outputBase, websiteDir } = createOutput();
-		const onProgress = vi.fn();
-		let reportProgress: ( message: string ) => void;
-		const runCli = vi.fn().mockImplementation( async ( _args, onProgressCallback ) => {
-			reportProgress = onProgressCallback;
-			return { exitCode: 0, stdout: `Site: ${ websiteDir }\n`, stderr: '' };
-		} );
-
-		await liberateWebsite( 'https://example.com', outputBase, { runCli, onProgress } );
-		reportProgress!( '\u001b[2K\rspinner frame' );
-		reportProgress!( 'Preparing source routes' );
-		reportProgress!( 'Preparing source route 1 of 2' );
-
-		expect( onProgress ).toHaveBeenCalledTimes( 1 );
-		expect( onProgress ).toHaveBeenCalledWith( 'Preparing source routes' );
 	} );
 
 	it( 'surfaces CLI failures', async () => {

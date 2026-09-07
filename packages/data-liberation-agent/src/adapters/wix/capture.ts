@@ -3,7 +3,7 @@
 // Wix-specific capture knowledge. None of this belongs in the shared capture
 // path: recognising a platform's CDN is exactly what an adapter is for.
 //
-import type { AdapterCapture } from '../page-actions.js';
+import type { LiberationHooks } from '../page-actions.js';
 
 /** Wix media ids look like `8e80e7_a1b2…`, stable across crops of one asset. */
 const WIX_MEDIA_ID = /([a-z0-9]{4,12}_[a-z0-9]{24,48})/i;
@@ -71,7 +71,8 @@ export function wixMediaVariant( url: string ): { id: string; url: string } | nu
 export const WIX_CAPTURE_CHROME_SELECTOR =
 	'[id="WIX_ADS"], [id$="-hiddenA11ySubMenuIndication"], [id$="__more__"]';
 
-export const capture: AdapterCapture = {
+export const capture: LiberationHooks = {
+	removeSelectors: [ '[id="WIX_ADS"]', '[id$="-hiddenA11ySubMenuIndication"]' ],
 	/**
 	 * Wix resolves same-page anchors in its click runtime rather than with
 	 * authored `id` targets, so a captured copy has nowhere to scroll to once

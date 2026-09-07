@@ -11,7 +11,6 @@ node_modules/
 dist/*
 !dist/mcp-server.bundle.mjs
 !dist/capture-engine.bundle.mjs
-!dist/cli.bundle.mjs
 !dist/scripts/
 docs/plans/
 docs/superpowers/

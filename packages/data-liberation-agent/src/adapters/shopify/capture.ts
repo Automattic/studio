@@ -1,4 +1,4 @@
-import type { AdapterCapture } from '../page-actions.js';
+import type { LiberationHooks } from '../page-actions.js';
 
 /**
  * Shopify storefronts inject third-party app chrome that isn't store content:
@@ -8,6 +8,6 @@ import type { AdapterCapture } from '../page-actions.js';
  * Admin GraphQL/JSON API, so the WXR body is unaffected regardless — this is
  * purely a rendered-capture concern.
  */
-export const capture: AdapterCapture = {
+export const capture: LiberationHooks = {
   removeSelectors: ['#upCart', '#upCartStickyButton', '[class*="kl-teaser"]'],
 };

@@ -518,7 +518,19 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 	}
 	const code = ( error as Record< string, unknown > ).code;
 	const message = ( error as Record< string, unknown > ).message;
-	return [ code, message ].filter( ( value ) => typeof value === 'string' && value ).join( ': ' );
+	const detail = [ code, message ]
+		.filter( ( value ) => typeof value === 'string' && value )
+		.join( ': ' );
+	if ( code === 'static_site_importer_quality_failed' ) {
+		return sprintf(
+			/* translators: %s: Static Site Importer quality validation detail */
+			__(
+				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
+			),
+			detail || __( 'Quality validation failed.' )
+		);
+	}
+	return detail;
 }
 
 async function runStaticSiteImport(
@@ -1471,6 +1483,14 @@ export const registerCommand = (
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				let liberationOutputDir: string | undefined;
 				if ( sourceUrl ) {
+					if ( ! ( await isSqliteIntegrationAvailable() ) ) {
+						throw new LoggerError(
+							__(
+								'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
+							)
+						);
+					}
+					let lastProgressAt = 0;
 					liberationOutputDir = path.join(
 						path.dirname( sitePath ),
 						`${ path.basename( sitePath ) }-source`
@@ -1482,7 +1502,15 @@ export const registerCommand = (
 					importSource = await ( dependencies.liberate ?? liberateWebsite )(
 						sourceUrl,
 						liberationOutputDir,
-						{ onProgress: ( message ) => defaultLogger.reportProgress( message ) }
+						{
+							onProgress: ( message ) => {
+								const now = Date.now();
+								if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+									lastProgressAt = now;
+									defaultLogger.reportProgress( message );
+								}
+							},
+						}
 					);
 					defaultLogger.reportSuccess( __( 'Source website prepared' ) );
 				}

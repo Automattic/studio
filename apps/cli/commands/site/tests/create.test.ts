@@ -615,6 +615,29 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
+		it( 'checks bundled SQLite before capturing a URL source', async () => {
+			const liberate = vi.fn();
+			vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( false );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Imported Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			expect( liberate ).not.toHaveBeenCalled();
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
+			expect( process.exitCode ).toBe( 1 );
+		} );
+
 		it( 'rejects sources outside the canonical importer contract', () => {
 			expect( () =>
 				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site' )
@@ -1292,7 +1315,7 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
+		it( 'retains a quality-failed SSI preview without reporting import success', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -1323,9 +1346,14 @@ describe( 'CLI: studio create', () => {
 					blueprint,
 					noStart: true,
 				} )
-			).rejects.toThrow( /quality gate failed/ );
+			).rejects.toThrow(
+				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
+			);
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,

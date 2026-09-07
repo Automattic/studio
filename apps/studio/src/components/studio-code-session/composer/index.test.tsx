@@ -17,6 +17,11 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
+// Covered by its own test file; its RTK Query hooks would need a Redux store.
+vi.mock( './ai-credits-control', () => ( {
+	AiCreditsControl: () => null,
+} ) );
+
 const defaultProps = {
 	busy: false,
 	error: null,

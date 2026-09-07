@@ -153,6 +153,24 @@ describe('rewriteMediaUrls', () => {
     expect(out).not.toContain('static.wixstatic.com');
     expect(out).not.toContain(').png'); // the mangle signature
   });
+
+  it('does not mangle a Wix transform URL on a surface the candidate scan misses', () => {
+    // collectMediaCandidates only reads <img src>, media <a href>, srcset and the
+    // JSON "src"/"url" keys. A transform URL anywhere else — a `data-` attribute,
+    // a <video poster>, a <source src> — never reaches the alias index, so the
+    // shorter BASE key is free to match its prefix and leave
+    // `<local>/v1/fill/…/file.png` behind: a local path that resolves to nothing.
+    const hash = 'ea71bb_2b0f0e1b9a1f4f0e9d2a5c7e1b3d4f60';
+    const base = `https://static.wixstatic.com/media/${hash}~mv2.png`;
+    const local = 'http://localhost:8884/wp-content/uploads/2026/05/hero.png';
+    const transform = `${base}/v1/fill/w_58,h_57,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/file.png`;
+    const html = `<div data-image-src="${transform}"></div><video poster="${transform}"></video>`;
+
+    const out = rewriteMediaUrls(html, new Map([[base, local]]));
+
+    expect(out).not.toContain(`${local}/v1/`); // the mangle signature
+    expect(out).toBe(html);
+  });
 });
 
 describe('toLocalUrlMapping', () => {

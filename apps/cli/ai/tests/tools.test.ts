@@ -1530,6 +1530,28 @@ describe( 'Studio AI MCP tools', () => {
 			).rejects.toThrow();
 		} );
 
+		it( 'treats an empty parentTheme as no parent and scaffolds a blank theme', async () => {
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				parentTheme: '',
+			} as never );
+
+			expect( getTextContent( result ) ).not.toMatch( /Child theme/ );
+			await expect(
+				stat(
+					path.join(
+						tempSiteRoot,
+						'wp-content',
+						'themes',
+						'acme-studio',
+						'templates',
+						'index.html'
+					)
+				)
+			).resolves.toBeDefined();
+		} );
+
 		it( 'fails when the target theme directory already exists', async () => {
 			await mkdir( path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' ), {
 				recursive: true,

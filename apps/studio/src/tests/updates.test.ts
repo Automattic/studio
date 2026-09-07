@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
-import { manualCheckForUpdates, setupUpdates } from 'src/updates';
+import { manualCheckForUpdates, setupUpdates, switchToNightlyAndUpdate } from 'src/updates';
 
 function getLastDialogOptions(): MessageBoxOptions {
 	const lastCall = vi.mocked( dialog.showMessageBox ).mock.lastCall as unknown as [
@@ -217,6 +217,11 @@ describe( 'update status emissions', () => {
 		setupUpdates();
 	}
 
+	// The flag that tells the event handlers a user asked for this check.
+	function showManualCheck() {
+		void manualCheckForUpdates();
+	}
+
 	function getHandler( event: string ) {
 		const calls = vi.mocked( autoUpdater.on ).mock.calls as unknown as [
 			string,
@@ -340,6 +345,59 @@ describe( 'update status emissions', () => {
 				reason: 'read-only-volume',
 			} );
 		} );
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+	} );
+
+	it( 'names both versions in the manual-check dialog', async () => {
+		global.fetch = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( { version: '1.9.0' } ),
+		} as Response );
+		setupDarwinUpdates();
+		showManualCheck();
+
+		await getHandler( 'update-available' )?.();
+
+		expect( getLastDialogOptions().message ).toBe( 'Updating Studio from 1.8.2 to 1.9.0' );
+	} );
+
+	it( 'queries the nightly feed for the version after switching channels', async () => {
+		const fetchMock = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( { version: '1.9.0-dev.1' } ),
+		} as Response );
+		global.fetch = fetchMock;
+		setupDarwinUpdates();
+		switchToNightlyAndUpdate();
+
+		await getHandler( 'update-available' )?.();
+
+		expect( String( fetchMock.mock.calls.at( -1 )?.[ 0 ] ) ).toContain( 'channel=nightly' );
+	} );
+
+	it( 'still reports status when a manual check runs mid-download in the agentic UI', async () => {
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+		await getHandler( 'update-available' )?.();
+		vi.mocked( sendIpcEventToRenderer ).mockClear();
+
+		await manualCheckForUpdates();
+
+		expect( getLastEmittedStatus() ).toMatchObject( { state: 'downloading' } );
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+	} );
+
+	it( 'still reports status when a manual check runs while ready to restart in the agentic UI', async () => {
+		setAgenticUiEnabled( true );
+		setupDarwinUpdates();
+		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
+		vi.mocked( sendIpcEventToRenderer ).mockClear();
+
+		await manualCheckForUpdates();
+
+		expect( getLastEmittedStatus() ).toMatchObject( { state: 'ready', newVersion: '1.9.0' } );
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 

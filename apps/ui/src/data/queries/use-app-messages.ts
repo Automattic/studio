@@ -54,9 +54,9 @@ export function deriveUpdateMessages(
 	if ( status?.state === 'downloading' ) {
 		return [
 			{
-				id: status.newVersion
-					? `app-update-downloading:${ status.newVersion }`
-					: 'app-update-downloading',
+				// Stable across the feed lookup resolving: a version-scoped id would change
+				// mid-download and resurrect a card the user had dismissed.
+				id: 'app-update-downloading',
 				intent: 'info',
 				title: __( 'Downloading update' ),
 				description: describeVersionChange( status.currentVersion, status.newVersion ),

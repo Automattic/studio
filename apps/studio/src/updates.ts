@@ -24,6 +24,8 @@ let downloadedVersion: string | null = null;
 // `update-downloaded`, so it's fetched from the feed separately and may stay null.
 let availableVersion: string | null = null;
 let lastError: { reason: 'read-only-volume' | 'generic'; detail?: string } | null = null;
+// Which feed the updater is pointed at, so follow-up lookups query the same channel.
+let activeChannel: 'nightly' | undefined;
 
 let timeout: NodeJS.Timeout | null = null;
 
@@ -60,6 +62,7 @@ export function switchToNightlyAndUpdate(): void {
 	}
 	const feedUrl = buildUpdateFeedUrl( { channel: 'nightly' } );
 	console.log( `Switching to nightly channel and checking for update: ${ feedUrl }` );
+	activeChannel = 'nightly';
 	autoUpdater.setFeedURL( { url: feedUrl } );
 	autoUpdater.checkForUpdates();
 }
@@ -98,14 +101,19 @@ export function setupUpdates() {
 			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
-		if ( showManualCheckDialogs ) {
-			await showUpdateAvailableNotice();
+		// Before the notice, so the dialog can name the version it's downloading.
+		availableVersion = await fetchAvailableVersion( { channel: activeChannel } );
+		if ( availableVersion ) {
+			emitAppUpdateStatus();
 		}
 
-		// After the notice, so the dialog isn't held up by a network round trip.
-		availableVersion = await fetchAvailableVersion();
-		if ( availableVersion && updaterState === 'downloading' ) {
-			emitAppUpdateStatus();
+		// The agentic UI reports this in the sidebar; classic has no such affordance.
+		if ( showManualCheckDialogs ) {
+			if ( getPreferredStudioUiMode() === 'agentic' ) {
+				showManualCheckDialogs = false;
+			} else {
+				await showUpdateAvailableNotice();
+			}
 		}
 	} );
 
@@ -161,7 +169,10 @@ export function setupUpdates() {
 		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		emitAppUpdateStatus();
-		await showUpdateReadyToInstallNotice();
+		// The agentic UI surfaces this as a sidebar card; a modal on top would duplicate it.
+		if ( getPreferredStudioUiMode() !== 'agentic' ) {
+			await showUpdateReadyToInstallNotice();
+		}
 	} );
 
 	if ( ! shouldPoll ) {
@@ -203,17 +214,29 @@ export function setupUpdates() {
 }
 
 export async function manualCheckForUpdates() {
+	const agentic = getPreferredStudioUiMode() === 'agentic';
+
 	if ( updaterState === 'waiting-for-restart' ) {
 		// Not a valid state to check for updatees, user should be manually restarting instead
 		// However, let's open the dialog to let them easily restart
 		console.log( 'Update has been already downloaded, proposing to restart again' );
-		await showUpdateReadyToInstallNotice();
+		// Re-emitting re-surfaces the sidebar card if the user dismissed it, so the menu item
+		// still does something in the agentic UI.
+		if ( agentic ) {
+			emitAppUpdateStatus();
+		} else {
+			await showUpdateReadyToInstallNotice();
+		}
 		return;
 	}
 
 	if ( updaterState === 'downloading' ) {
 		console.log( 'Manually checking for update, but discovered a download is already in progress' );
-		await showUpdateAvailableNotice();
+		if ( agentic ) {
+			emitAppUpdateStatus();
+		} else {
+			await showUpdateAvailableNotice();
+		}
 		return;
 	}
 
@@ -259,10 +282,6 @@ function queueUpdateCheck() {
 
 async function showUpdateAvailableNotice() {
 	showManualCheckDialogs = false;
-	// The agentic UI reports this in the sidebar; classic has no such affordance.
-	if ( getPreferredStudioUiMode() === 'agentic' ) {
-		return;
-	}
 	const mainWindow = await getMainWindow();
 	await dialog.showMessageBox( mainWindow, {
 		type: 'info',
@@ -310,11 +329,6 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
-	// The agentic UI surfaces this as a sidebar card. Gated here so the manual check and the
-	// automatic one behave alike.
-	if ( getPreferredStudioUiMode() === 'agentic' ) {
-		return;
-	}
 	// Only show the restart dialog if a window is already open. If the user
 	// closed the window while an update was downloading, don't recreate it —
 	// the update will be applied on the next launch or when the user reopens

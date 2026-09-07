@@ -69,11 +69,6 @@ The page is a strict rhythm of image rows: a pair of images side by side edge to
 Build: alternate two-column groups (`gap: 0`, each column a cover or image block with `aspect-ratio: 4 / 5`) and single full-width cover or image blocks (`aspect-ratio: 21 / 9`), all `alignfull`; text rows as constrained groups with generous block padding; zero the theme block gap between rows (`margin-block-start: 0` on the row groups) so images touch; the header is a slim fixed bar with its own background.
 Fallback: pairs stack into single images on mobile, keeping the order.
 
-## Folded sheet
-The page is one long sheet of paper folded in a zigzag: every section is a panel hinged to the one before it, tilted a few degrees into the screen, then out, then in, all the way down, with a soft light gradient on the faces that lean away and a crease shadow at every fold. The depth is visible at every scroll position, and the tilt stays small enough that everything remains readable.
-Build: a wrapper with `perspective: 1400px; transform-style: preserve-3d`; sections as `alignfull` groups alternating `transform: rotateX(6deg)` and `rotateX(-6deg)` via `:nth-child(odd/even)` with `transform-origin` at the top edge, each with its own opaque background; a `::after` gradient overlay (`linear-gradient(to bottom, rgb(0 0 0 / .18), transparent)` on the away-leaning faces, reversed on the others) and a `box-shadow` along the top edge as the crease; `overflow-x: hidden` on the wrapper; header fixed above the sheet with its own background.
-Fallback: no tilt below 782px and under reduced motion; the crease shadows stay so the fold rhythm survives.
-
 ## Depth stack
 Sections sit behind one another in z-space like a deck of cards seen head-on: the current section fills the viewport, the next waits smaller and dimmer behind it, and scrolling brings the next one forward as the current one slides off the bottom. The page is a tunnel rather than a column.
 Build: a tall wrapper (`height: calc(N * 100dvh)`) with a sticky full-viewport stage (`perspective: 1200px`); each section absolutely positioned in the stage, transformed from `translateZ(-600px)` and `opacity: .4` to `translateZ(0); opacity: 1` and then to `translateY(100%)` on its own `view()` or `scroll()` timeline, in `@supports (animation-timeline: scroll())`; a small dot rail shows the position.

@@ -1385,7 +1385,10 @@ describe( 'CLI: studio create', () => {
 									status: 'failed',
 									quality_pass: false,
 									fail_import: true,
-									fallback_blocks: 4,
+									counts: {
+										fallback_blocks: 4,
+										unsupported_fallbacks: 4,
+									},
 								},
 							},
 						},
@@ -1397,6 +1400,42 @@ describe( 'CLI: studio create', () => {
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
 			).rejects.toThrow(
 				'Failed to import static site: Static site import failed quality validation: SSI reported 4 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+		} );
+
+		it( 'rejects a completed SSI receipt when its report summary fails quality', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: null,
+								import_report_summary: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									fallback_count: 362,
+									unsupported_fallback_count: 362,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 362 fallback blocks. Review the importer diagnostics and retry.'
 			);
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
 				'Static site imported successfully'

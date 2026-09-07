@@ -549,18 +549,30 @@ function staticSiteImportQualityFailure(
 			? ( result as Record< string, unknown > )
 			: ( response as Record< string, unknown > );
 	const validation = importResult.import_validation_result;
-	if ( ! validation || typeof validation !== 'object' || Array.isArray( validation ) ) {
+	const summary = importResult.import_report_summary;
+	const quality =
+		validation && typeof validation === 'object' && ! Array.isArray( validation )
+			? validation
+			: summary && typeof summary === 'object' && ! Array.isArray( summary )
+			? summary
+			: undefined;
+	if ( ! quality ) {
 		return undefined;
 	}
+	const counts = ( quality as Record< string, unknown > ).counts;
 	const {
 		status,
 		quality_pass: qualityPass,
 		fail_import: failImport,
-		fallback_blocks: fallbackBlocks,
-	} = validation as Record< string, unknown >;
+		fallback_count: fallbackCount,
+	} = quality as Record< string, unknown >;
 	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
 		return undefined;
 	}
+	const fallbackBlocks =
+		counts && typeof counts === 'object' && ! Array.isArray( counts )
+			? ( counts as Record< string, unknown > ).fallback_blocks
+			: fallbackCount;
 	const detail =
 		typeof fallbackBlocks === 'number'
 			? sprintf(

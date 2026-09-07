@@ -20,6 +20,10 @@ vi.mock( 'src/main-window', () => ( {
 		isDestroyed: () => false,
 		webContents: { isDestroyed: () => false, send: vi.fn() },
 	} ),
+	getExistingMainWindow: vi.fn().mockReturnValue( {
+		isDestroyed: () => false,
+		webContents: { isDestroyed: () => false, send: vi.fn() },
+	} ),
 } ) );
 
 const originalFetch = global.fetch;

@@ -22,7 +22,9 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
@@ -106,6 +108,46 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 }
 
 /**
+ * The debug log checkbox, plus a shortcut to the log once one exists. A custom
+ * `Edit` replaces DataForm's rendering, so the description is re-emitted here.
+ */
+function EnableDebugLogControl( {
+	data: item,
+	field,
+	onChange,
+	logExists,
+	onOpenLog,
+}: DataFormControlProps< FormData > & { logExists: boolean; onOpenLog: () => void } ) {
+	return (
+		<CheckboxControl
+			__nextHasNoMarginBottom
+			label={ field.label }
+			checked={ item.enableDebugLog }
+			onChange={ ( checked ) => onChange( { enableDebugLog: checked } ) }
+			help={
+				<>
+					{ field.description }
+					{ /* A span, not a div: `help` renders inside a paragraph. */ }
+					{ logExists && (
+						<span className={ styles.debugLogAction }>
+							<Button
+								type="button"
+								variant="outline"
+								tone="neutral"
+								size="compact"
+								onClick={ onOpenLog }
+							>
+								{ __( 'Open log file' ) }
+							</Button>
+						</span>
+					) }
+				</>
+			}
+		/>
+	);
+}
+
+/**
  * The site settings form (General + Debugging), rendered as tab panels inside
  * a `Tabs.Root` owned by the caller — the site overview view. One instance
  * spans both panels so unsaved edits survive tab switches.
@@ -120,7 +162,15 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
+	const connector = useConnector();
 	const updateSite = useUpdateSite();
+	const { data: logExists } = useDebugLogExists( site.id );
+	const handleOpenLog = useCallback( () => {
+		void connector.openSiteDebugLog( site.id ).catch( ( error ) => {
+			// The file can vanish between the check and the click.
+			console.error( 'Failed to open debug log:', error );
+		} );
+	}, [ connector, site.id ] );
 	const { data: wpVersions } = useWordPressVersions();
 	const { data: installedWpVersion } = useWpVersion( site.id );
 	const isOffline = useOffline();
@@ -178,14 +228,25 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				Edit: EnableHttpsControl,
 			},
 			enableXdebugField< FormData >( { conflictingSiteName: xdebugConflictSiteName } ),
-			enableDebugLogField< FormData >(),
+			{
+				...enableDebugLogField< FormData >(),
+				Edit: ( props: DataFormControlProps< FormData > ) => (
+					<EnableDebugLogControl
+						{ ...props }
+						logExists={ !! logExists }
+						onOpenLog={ handleOpenLog }
+					/>
+				),
+			},
 			enableDebugDisplayField< FormData >(),
 		],
 		[
 			data.wpVersion,
 			existingDomainNames,
+			handleOpenLog,
 			installedWpVersion,
 			isOffline,
+			logExists,
 			wpVersions,
 			xdebugConflictSiteName,
 		]

@@ -3,7 +3,7 @@ import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { ExportIpcEvent, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
-import { getMainWindow } from 'src/main-window';
+import { getExistingMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
@@ -95,11 +95,7 @@ export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(
 	if ( isAppQuitting ) {
 		return;
 	}
-	const window = await getMainWindow();
-	// `getMainWindow()` can resolve to `null` during early boot — e.g., the
-	// daemon-status poller fires its initial tick before the renderer window
-	// has been created in some unit-test setups. Mirror the null-check that
-	// `sendIpcEventToRendererWithWindow` already does so we no-op cleanly.
+	const window = getExistingMainWindow();
 	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		window.webContents.send( channel, ...args );
 	}

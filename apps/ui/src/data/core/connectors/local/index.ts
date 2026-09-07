@@ -832,6 +832,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
 		},
 
+		// Resolved server-side, so no host path crosses into the browser.
+		async siteDebugLogExists( siteId ) {
+			const { exists } = await api< { exists: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/debug-log`
+			);
+			return exists;
+		},
+		async openSiteDebugLog( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/debug-log/open`, { method: 'POST' } );
+		},
+
 		// The CLI has no equivalent of the desktop's log file — site server output
 		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
 		// `studio ui` — so there is nothing to open here.

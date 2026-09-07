@@ -3,44 +3,22 @@ Unreleased
 
 1.21.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Studio Code CLI: show remaining AI credits in the end-of-turn stats line #4712
-* Add GLM 5.3 Flash model (Automattician-only) #4719
-* Delete multiple Studio sites through one bounded daemon session #4733
-* Add studio create --from for static sources #4725
-* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.11.3 to 15.0.0 #4740
-* Allow files in `pull-reprint` selections #4582
-* Agentic UI: Let the app window shrink to 420px #4444
-* Agentic UI: Preserve chat drafts when switching sites #4596
-* Add a /credits command so CLI users can check their balance and buy more #4695
-* Add blueprints library to agentic UI #4701
-* build(deps): bump the wordpress group with 30 updates #4320
-* build(deps): bump @types/node to 26.x in dev tools (split from #4587) #4744
-* Prioritise release jobs ahead of feature builds #4754
-* Fix i18n extraction silently skipping files that use `await using` #4467
-* Set the right expectation for the "latest" WordPress version setting #4702
-* Improve AI credit balance meter #4681
-* Use public ThemeProvider export instead of @wordpress/theme private APIs #4762
-* Show a link to debug.log in the agentic UI when the file exists #4761
-* Accept --wp auto-update as the CLI name for the auto-update mode #4750
-* Agentic UI: Strip local domain suffix from publish flow domain suggestion #4743
-* Studio: Add checks for whether the windows are open #3901
-* Tracks: sync with WordPress.com & Pressable (STU-2118) #4551
-* build(deps): bump anthropics/claude-code-action from 1.0.206 to 1.0.213 #4769
-* Complete a site delete even when moving files to trash fails #4764
-* build(deps): bump the sentry group with 14 updates #4773
-* build(deps): bump the wordpress group with 30 updates #4770
-* Fix Vite config-loader warnings and async_hooks browser stub in the CLI build #4774
-* build(deps-dev): bump the testing group across 1 directory with 2 updates #4772
-* Use slim Static Site Importer 1.9.5 #4757
-* Studio Code: widen the default content width and use wide layouts for grids #4779
-* Teach Studio Code to pad cards and non-constrained full-width sections #4778
-* Pad main in scaffolded themes so WooCommerce default templates clear the header and footer #4781
-* build(deps-dev): bump the electron group across 1 directory with 2 updates #4709
-* Split the WordPress version setting into an update mode and a version picker #4752
-* Show the AI credits meter in the Studio Classic composer #4758
-* Report update progress and version numbers while Studio updates #4783
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.20.0...v1.21.0
+* Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI's end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal #4681, #4758, #4712, #4695
+* Reworked the WordPress version setting: "latest" is now an "Automatic updates" toggle with a separate version picker, and it shows the version your site is actually running, so Settings and wp-admin no longer disagree. The CLI accepts `--wp auto-update` to match #4702, #4752, #4750
+* Studio Code: Improved the sites the agent builds — a wider default content width with wide layouts for grids, proper padding on cards and full-width sections, and WooCommerce shop pages that clear the header and footer #4779, #4778, #4781
+* Added a blueprints library to the Agentic UI #4701
+* Agentic UI: The window can now shrink to 420px so Studio works as a compact companion beside your browser or editor, with the sidebar collapsing automatically at narrow widths #4444
+* Agentic UI: Added a link to debug.log in site settings once the file exists, and preserved unsent chat drafts when switching between sites #4761, #4596
+* Agentic UI: Fixed the publish flow suggesting an invalid WordPress.com domain based on your local `.wp.local` address #4743
+* Added `studio create --from` to build a site from static sources — compiled artifacts, directories, zip archives, and Data Liberation captures #4725, #4757
+* CLI: `studio delete` now accepts multiple sites in one command, running the whole batch through a single daemon session #4733
+* Fixed a site delete leaving the site behind when moving its files to the trash failed #4764
+* Fixed Studio reopening its window right after you closed it on nightly builds #3901
+* Allowed selecting individual files in `pull-reprint` selections #4582
+* Fixed 171 CLI strings never reaching translators because string extraction silently skipped files using `await using` #4467
+* Added Tracks analytics for sync with WordPress.com and Pressable, and fixed Agentic UI pushes inflating the export event #4551
+* Updated multiple dependencies, including Electron 44, the WordPress, Sentry and testing groups, and the release toolkit #4709, #4320, #4770, #4773, #4772, #4740
+* Misc and maintenance improvements #4762, #4774, #4754, #4744, #4769
 
 1.20.0
 =====

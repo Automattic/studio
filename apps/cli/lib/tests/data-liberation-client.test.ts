@@ -36,8 +36,26 @@ describe( 'Data Liberation CLI', () => {
 		).resolves.toBe( websiteDir );
 		expect( runCli ).toHaveBeenCalledWith(
 			[ 'https://example.com/', '--output', outputBase, '--resume' ],
-			onProgress
+			expect.any( Function )
 		);
+	} );
+
+	it( 'filters and bounds terminal spinner progress', async () => {
+		const { outputBase, websiteDir } = createOutput();
+		const onProgress = vi.fn();
+		let reportProgress: ( message: string ) => void;
+		const runCli = vi.fn().mockImplementation( async ( _args, onProgressCallback ) => {
+			reportProgress = onProgressCallback;
+			return { exitCode: 0, stdout: `Site: ${ websiteDir }\n`, stderr: '' };
+		} );
+
+		await liberateWebsite( 'https://example.com', outputBase, { runCli, onProgress } );
+		reportProgress!( '\u001b[2K\rspinner frame' );
+		reportProgress!( 'Preparing source routes' );
+		reportProgress!( 'Preparing source route 1 of 2' );
+
+		expect( onProgress ).toHaveBeenCalledTimes( 1 );
+		expect( onProgress ).toHaveBeenCalledWith( 'Preparing source routes' );
 	} );
 
 	it( 'surfaces CLI failures', async () => {

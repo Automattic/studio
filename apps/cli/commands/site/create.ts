@@ -89,7 +89,10 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -533,6 +536,46 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 	return detail;
 }
 
+function staticSiteImportQualityFailure(
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const response = receipt?.response;
+	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
+		return undefined;
+	}
+	const result = ( response as Record< string, unknown > ).result;
+	const importResult =
+		result && typeof result === 'object' && ! Array.isArray( result )
+			? ( result as Record< string, unknown > )
+			: ( response as Record< string, unknown > );
+	const validation = importResult.import_validation_result;
+	if ( ! validation || typeof validation !== 'object' || Array.isArray( validation ) ) {
+		return undefined;
+	}
+	const {
+		status,
+		quality_pass: qualityPass,
+		fail_import: failImport,
+		fallback_blocks: fallbackBlocks,
+	} = validation as Record< string, unknown >;
+	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
+		return undefined;
+	}
+	const detail =
+		typeof fallbackBlocks === 'number'
+			? sprintf(
+					/* translators: %d: number of fallback blocks */
+					__( 'SSI reported %d fallback blocks.' ),
+					fallbackBlocks
+			  )
+			: __( 'SSI rejected the imported content.' );
+	return sprintf(
+		/* translators: %s: Static Site Importer validation detail */
+		__( '%s Review the importer diagnostics and retry.' ),
+		detail
+	);
+}
+
 async function runStaticSiteImport(
 	site: SiteData,
 	request: string,
@@ -594,6 +637,13 @@ async function runStaticSiteImport(
 		throw new LoggerError(
 			__( 'Static site import returned an invalid terminal receipt.' ),
 			new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
+		);
+	}
+	const qualityFailure = staticSiteImportQualityFailure( receipt );
+	if ( qualityFailure ) {
+		throw new LoggerError(
+			__( 'Static site import failed quality validation' ),
+			new Error( qualityFailure )
 		);
 	}
 

@@ -42,7 +42,10 @@ import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -202,6 +205,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -1363,6 +1367,40 @@ describe( 'CLI: studio create', () => {
 				recursive: true,
 				force: true,
 			} );
+		} );
+
+		it( 'rejects a completed SSI receipt with failed nested quality validation', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									fallback_blocks: 4,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 4 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

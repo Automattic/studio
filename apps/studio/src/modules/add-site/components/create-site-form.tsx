@@ -1,4 +1,4 @@
-import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -19,7 +19,6 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
-import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
@@ -35,13 +34,13 @@ import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import PasswordControl from 'src/components/password-control';
+import { SettingsSection } from 'src/components/settings-section';
 import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
 import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
@@ -93,9 +92,6 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const { data: wpVersions } = useGetWordPressVersions( {
-		minimumVersion: MINIMUM_WORDPRESS_VERSION,
-	} );
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
@@ -477,32 +473,50 @@ export const CreateSiteForm = ( {
 								isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 							) }
 						>
-							<div className="flex flex-col gap-1.5 leading-4 py-4">
-								<label className="font-semibold" htmlFor="local-path">
-									{ __( 'Local path' ) }
-								</label>
-								<span className="text-frame-text-secondary text-xs">
-									{ createInterpolateElement(
-										__(
-											'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
-										),
-										{
-											learn_more_link: <LearnMoreLink docsLinksKey="docsSites" />,
+							<SettingsSection title={ __( 'Site details' ) } isFirst>
+								<div className="flex flex-col gap-1.5 leading-4">
+									<label className="font-semibold" htmlFor="local-path">
+										{ __( 'Local path' ) }
+									</label>
+									<span className="text-frame-text-secondary text-xs">
+										{ createInterpolateElement(
+											__(
+												'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
+											),
+											{
+												learn_more_link: <LearnMoreLink docsLinksKey="docsSites" />,
+											}
+										) }
+									</span>
+									<FormPathInputComponent
+										tipMessage={
+											doesPathContainWordPress
+												? __( 'The existing WordPress site at this path will be added.' )
+												: ''
 										}
-									) }
-								</span>
-								<FormPathInputComponent
-									tipMessage={
-										doesPathContainWordPress
-											? __( 'The existing WordPress site at this path will be added.' )
-											: ''
-									}
-									error={ pathError }
-									value={ sitePath }
-									onClick={ handleSelectPath }
-									id="local-path"
-								/>
-								<div className="grid grid-cols-2 gap-4 mt-4">
+										error={ pathError }
+										value={ sitePath }
+										onClick={ handleSelectPath }
+										id="local-path"
+									/>
+								</div>
+
+								<div className="mt-4">
+									<WPVersionSelector
+										selectedValue={ wpVersion }
+										onChange={ setWpVersion }
+										fallbackOptions={ [
+											{ label: getAutoUpdateVersionLabel(), value: DEFAULT_WORDPRESS_VERSION },
+										] }
+										offlineMessage={ __(
+											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+										) }
+									/>
+								</div>
+							</SettingsSection>
+
+							<SettingsSection title={ __( 'PHP environment' ) }>
+								<div className="flex flex-col gap-4">
 									<div className="flex flex-col gap-1.5 leading-4">
 										<label className="font-semibold" htmlFor="php-version-select">
 											{ __( 'PHP version' ) }
@@ -519,21 +533,6 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 									</div>
-
-									<WPVersionSelector
-										selectedValue={ wpVersion }
-										onChange={ setWpVersion }
-										autoUpdateVersion={ getLatestVersionLabel( wpVersions ) }
-										fallbackOptions={ [
-											{ label: getAutoUpdateVersionLabel(), value: DEFAULT_WORDPRESS_VERSION },
-										] }
-										offlineMessage={ __(
-											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
-										) }
-									/>
-								</div>
-
-								<div className="grid grid-cols-2 gap-4 mt-4">
 									<div className="flex flex-col gap-1.5 leading-4">
 										<label className="font-semibold" htmlFor="php-runtime-select">
 											{ __( 'PHP runtime' ) }
@@ -583,153 +582,153 @@ export const CreateSiteForm = ( {
 										</span>
 									</div>
 								</div>
+							</SettingsSection>
 
-								<div className="flex flex-col gap-2 mt-4">
-									<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
-									<div className="grid grid-cols-2 gap-4">
-										<div className="flex flex-col gap-1.5 leading-4">
-											<label className="text-sm" htmlFor="admin-username">
-												{ __( 'Username' ) }
-											</label>
-											<TextControlComponent
-												id="admin-username"
-												value={ adminUsername }
-												onChange={ ( value: string ) => {
-													hasUserEditedCredentials.current = true;
-													setAdminUsername( value );
-												} }
-												className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
-											/>
-										</div>
-
-										<div className="flex flex-col gap-1.5 leading-4">
-											<label className="text-sm" htmlFor="admin-password">
-												{ __( 'Password' ) }
-											</label>
-											<PasswordControl
-												id="admin-password"
-												value={ adminPassword }
-												onChange={ ( value: string ) => {
-													hasUserEditedCredentials.current = true;
-													setAdminPassword( value );
-												} }
-												className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
-											/>
-										</div>
+							<div className="flex flex-col gap-2 mt-4">
+								<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+								<div className="grid grid-cols-2 gap-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="text-sm" htmlFor="admin-username">
+											{ __( 'Username' ) }
+										</label>
+										<TextControlComponent
+											id="admin-username"
+											value={ adminUsername }
+											onChange={ ( value: string ) => {
+												hasUserEditedCredentials.current = true;
+												setAdminUsername( value );
+											} }
+											className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+										/>
 									</div>
-									{ ( adminUsernameError || adminPasswordError ) && (
-										<span className="text-red-500 text-xs">
-											{ adminUsernameError || adminPasswordError }
-										</span>
-									) }
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="text-sm" htmlFor="admin-password">
+											{ __( 'Password' ) }
+										</label>
+										<PasswordControl
+											id="admin-password"
+											value={ adminPassword }
+											onChange={ ( value: string ) => {
+												hasUserEditedCredentials.current = true;
+												setAdminPassword( value );
+											} }
+											className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+										/>
+									</div>
 								</div>
-
-								<div className="flex flex-col gap-1.5 leading-4 mt-4">
-									<label className="text-sm" htmlFor="admin-email">
-										{ __( 'Email' ) }
-									</label>
-									<TextControlComponent
-										id="admin-email"
-										value={ adminEmail }
-										onChange={ ( value: string ) => {
-											hasUserEditedCredentials.current = true;
-											setAdminEmail( value );
-										} }
-										placeholder="admin@localhost.com"
-										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
-									/>
-									{ adminEmailError && (
-										<span className="text-red-500 text-xs">{ adminEmailError }</span>
-									) }
-								</div>
-
-								{ showBlueprintVersionWarning && (
-									<Notice status="warning" isDismissible={ false } className="mt-4">
-										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
-										<br />
-										{ __( 'This Blueprint recommends:' ) }
-										<ul className="my-2 pl-4">
-											{ showPhpVersionWarning && (
-												<li>
-													{ sprintf(
-														/* translators: %1$s: recommended PHP version, %2$s: default PHP version */
-														__( 'PHP %s (selected is %s)' ),
-														blueprintPreferredVersions?.php as string,
-														phpVersion
-													) }
-												</li>
-											) }
-											{ showWpVersionWarning && (
-												<li>
-													{ sprintf(
-														/* translators: %1$s: recommended WordPress version, %2$s: default WordPress version */
-														__( 'WordPress %s (selected is %s)' ),
-														blueprintPreferredVersions?.wp as string,
-														wpVersion
-													) }
-												</li>
-											) }
-										</ul>
-										{ __( 'Using different versions may cause compatibility issues.' ) }
-									</Notice>
-								) }
-
-								<div className="flex items-center gap-2 mt-4">
-									<input
-										type="checkbox"
-										id="use-custom-domain"
-										checked={ useCustomDomain }
-										disabled={ blueprintRequiresCustomDomain }
-										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-									/>
-									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-								</div>
-
-								{ blueprintRequiresCustomDomain && (
-									<Notice status="warning" isDismissible={ false } className="mt-2">
-										{ __( 'WordPress multisite requires a custom domain.' ) }
-									</Notice>
-								) }
-
-								<div className="text-frame-text-secondary text-xs mt-2">
-									{ __( 'Your system password will be required to set up the domain.' ) }
-								</div>
-
-								{ useCustomDomain && (
-									<>
-										<div className="flex flex-col gap-2 mt-4">
-											<label htmlFor="custom-domain" className="font-semibold">
-												{ __( 'Domain name' ) }
-											</label>
-											<TextControlComponent
-												id="custom-domain"
-												value={ customDomain !== null ? customDomain : generatedDomainName }
-												onChange={ handleCustomDomainChange }
-											/>
-											{ customDomainError && <SiteFormError error={ customDomainError } /> }
-										</div>
-
-										<div className="flex items-center gap-2 mt-4">
-											<input
-												type="checkbox"
-												id="enable-https"
-												checked={ enableHttps }
-												onChange={ ( e ) => setEnableHttps( e.target.checked ) }
-											/>
-											<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
-										</div>
-
-										{ ! isCertificateTrusted && (
-											<div className="text-frame-text-secondary text-xs mt-2">
-												{ __(
-													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-												) }{ ' ' }
-												<LearnHowLink docsLinksKey="docsSslInStudio" />
-											</div>
-										) }
-									</>
+								{ ( adminUsernameError || adminPasswordError ) && (
+									<span className="text-red-500 text-xs">
+										{ adminUsernameError || adminPasswordError }
+									</span>
 								) }
 							</div>
+
+							<div className="flex flex-col gap-1.5 leading-4 mt-4">
+								<label className="text-sm" htmlFor="admin-email">
+									{ __( 'Email' ) }
+								</label>
+								<TextControlComponent
+									id="admin-email"
+									value={ adminEmail }
+									onChange={ ( value: string ) => {
+										hasUserEditedCredentials.current = true;
+										setAdminEmail( value );
+									} }
+									placeholder="admin@localhost.com"
+									className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+								/>
+								{ adminEmailError && (
+									<span className="text-red-500 text-xs">{ adminEmailError }</span>
+								) }
+							</div>
+
+							{ showBlueprintVersionWarning && (
+								<Notice status="warning" isDismissible={ false } className="mt-4">
+									<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
+									<br />
+									{ __( 'This Blueprint recommends:' ) }
+									<ul className="my-2 pl-4">
+										{ showPhpVersionWarning && (
+											<li>
+												{ sprintf(
+													/* translators: %1$s: recommended PHP version, %2$s: default PHP version */
+													__( 'PHP %s (selected is %s)' ),
+													blueprintPreferredVersions?.php as string,
+													phpVersion
+												) }
+											</li>
+										) }
+										{ showWpVersionWarning && (
+											<li>
+												{ sprintf(
+													/* translators: %1$s: recommended WordPress version, %2$s: default WordPress version */
+													__( 'WordPress %s (selected is %s)' ),
+													blueprintPreferredVersions?.wp as string,
+													wpVersion
+												) }
+											</li>
+										) }
+									</ul>
+									{ __( 'Using different versions may cause compatibility issues.' ) }
+								</Notice>
+							) }
+
+							<div className="flex items-center gap-2 mt-4">
+								<input
+									type="checkbox"
+									id="use-custom-domain"
+									checked={ useCustomDomain }
+									disabled={ blueprintRequiresCustomDomain }
+									onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+								/>
+								<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+							</div>
+
+							{ blueprintRequiresCustomDomain && (
+								<Notice status="warning" isDismissible={ false } className="mt-2">
+									{ __( 'WordPress multisite requires a custom domain.' ) }
+								</Notice>
+							) }
+
+							<div className="text-frame-text-secondary text-xs mt-2">
+								{ __( 'Your system password will be required to set up the domain.' ) }
+							</div>
+
+							{ useCustomDomain && (
+								<>
+									<div className="flex flex-col gap-2 mt-4">
+										<label htmlFor="custom-domain" className="font-semibold">
+											{ __( 'Domain name' ) }
+										</label>
+										<TextControlComponent
+											id="custom-domain"
+											value={ customDomain !== null ? customDomain : generatedDomainName }
+											onChange={ handleCustomDomainChange }
+										/>
+										{ customDomainError && <SiteFormError error={ customDomainError } /> }
+									</div>
+
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="enable-https"
+											checked={ enableHttps }
+											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+										/>
+										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+									</div>
+
+									{ ! isCertificateTrusted && (
+										<div className="text-frame-text-secondary text-xs mt-2">
+											{ __(
+												'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+											) }{ ' ' }
+											<LearnHowLink docsLinksKey="docsSslInStudio" />
+										</div>
+									) }
+								</>
+							) }
 						</div>
 					</>
 				) }

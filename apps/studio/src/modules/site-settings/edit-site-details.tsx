@@ -39,6 +39,7 @@ import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import PasswordControl from 'src/components/password-control';
+import { SettingsSection } from 'src/components/settings-section';
 import { AgentInstructionsPanel, WordPressSkillsPanel } from 'src/components/site-settings-panels';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
@@ -388,19 +389,46 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 								<div className="mt-6 px-8 flex flex-col">
 									{ name === 'general' && (
 										<>
-											<label className="flex flex-col gap-1.5 leading-4 mb-6">
-												<span className="font-semibold">{ __( 'Site name' ) }</span>
-												<TextControlComponent
-													disabled={ isEditingSite }
-													onChange={ setSiteName }
-													value={ siteName }
-												></TextControlComponent>
-											</label>
+											<SettingsSection title={ __( 'Site details' ) } isFirst>
+												<label className="flex flex-col gap-1.5 leading-4">
+													<span className="font-semibold">{ __( 'Site name' ) }</span>
+													<TextControlComponent
+														disabled={ isEditingSite }
+														onChange={ setSiteName }
+														value={ siteName }
+													></TextControlComponent>
+												</label>
 
-											<div className="flex flex-row gap-x-6">
+												<div className="mt-4">
+													<WPVersionSelector
+														selectedValue={ selectedWpVersion }
+														onChange={ setSelectedWpVersion }
+														disabled={ isEditingSite }
+														errorMessage={ errorUpdatingWpVersion }
+														autoUpdateVersion={
+															selectedWpVersion === DEFAULT_WORDPRESS_VERSION
+																? currentWpVersion
+																: undefined
+														}
+														extraOptions={ [
+															{ label: currentWpVersion, value: currentWpVersion },
+														] }
+														fallbackOptions={ [
+															{ label: currentWpVersion, value: currentWpVersion },
+														] }
+													/>
+												</div>
+												{ errorUpdatingWpVersion && (
+													<ErrorInformation className="mt-2">
+														{ errorUpdatingWpVersion }
+													</ErrorInformation>
+												) }
+											</SettingsSection>
+
+											<SettingsSection title={ __( 'PHP environment' ) }>
 												<label
 													htmlFor="php-version-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
+													className="flex flex-col gap-1.5 leading-4"
 												>
 													<span className="inline-flex items-center gap-2 font-semibold">
 														{ __( 'PHP version' ) }
@@ -435,91 +463,62 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													/>
 												</label>
 
-												<WPVersionSelector
-													selectedValue={ selectedWpVersion }
-													onChange={ setSelectedWpVersion }
-													disabled={ isEditingSite }
-													errorMessage={ errorUpdatingWpVersion }
-													autoUpdateVersion={
-														selectedWpVersion === DEFAULT_WORDPRESS_VERSION
-															? currentWpVersion
-															: undefined
-													}
-													extraOptions={ [
-														{
-															label: currentWpVersion,
-															value: currentWpVersion,
-														},
-													] }
-													fallbackOptions={ [
-														{
-															label: currentWpVersion,
-															value: currentWpVersion,
-														},
-													] }
-												/>
-											</div>
-											{ errorUpdatingWpVersion && (
-												<ErrorInformation className="mt-2">
-													{ errorUpdatingWpVersion }
-												</ErrorInformation>
-											) }
-
-											<div className="flex flex-row gap-x-6 mt-4">
-												<label
-													htmlFor="php-runtime-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
-												>
-													<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
-													<SelectControl< SiteRuntime >
-														id="php-runtime-select"
-														disabled={ isEditingSite }
-														value={ selectedRuntime }
-														options={ [
-															/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
-															{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
-															/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
-															{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
-														] }
-														onChange={ ( value ) => setSelectedRuntime( value ) }
-														__next40pxDefaultSize
-														__nextHasNoMarginBottom
-													/>
-													<span className="text-frame-text-secondary text-xs">
-														<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
-													</span>
-												</label>
-
-												<label
-													htmlFor="file-access-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
-												>
-													<span className="font-semibold">{ __( 'File access' ) }</span>
-													<SelectControl< SiteFileAccess >
-														id="file-access-select"
-														disabled={
-															isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
-														}
-														value={ usedFileAccess }
-														options={ [
-															{
-																label: __( 'Site directory' ),
-																value: SITE_FILE_ACCESS_SITE_DIRECTORY,
-															},
-															{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
-														] }
-														onChange={ ( value ) => setSelectedFileAccess( value ) }
-														__next40pxDefaultSize
-														__nextHasNoMarginBottom
-													/>
-													<span className="text-frame-text-secondary text-xs">
-														<FileAccessDescription
-															runtime={ selectedRuntime }
-															fileAccess={ usedFileAccess }
+												<div className="flex flex-col gap-4 mt-4">
+													<label
+														htmlFor="php-runtime-select"
+														className="flex flex-col gap-1.5 leading-4"
+													>
+														<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
+														<SelectControl< SiteRuntime >
+															id="php-runtime-select"
+															disabled={ isEditingSite }
+															value={ selectedRuntime }
+															options={ [
+																/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
+																{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+																/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
+																{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+															] }
+															onChange={ ( value ) => setSelectedRuntime( value ) }
+															__next40pxDefaultSize
+															__nextHasNoMarginBottom
 														/>
-													</span>
-												</label>
-											</div>
+														<span className="text-frame-text-secondary text-xs">
+															<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
+														</span>
+													</label>
+
+													<label
+														htmlFor="file-access-select"
+														className="flex flex-col gap-1.5 leading-4"
+													>
+														<span className="font-semibold">{ __( 'File access' ) }</span>
+														<SelectControl< SiteFileAccess >
+															id="file-access-select"
+															disabled={
+																isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
+															}
+															value={ usedFileAccess }
+															options={ [
+																{
+																	label: __( 'Site directory' ),
+																	value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+																},
+																{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+															] }
+															onChange={ ( value ) => setSelectedFileAccess( value ) }
+															__next40pxDefaultSize
+															__nextHasNoMarginBottom
+														/>
+														<span className="text-frame-text-secondary text-xs">
+															<FileAccessDescription
+																runtime={ selectedRuntime }
+																fileAccess={ usedFileAccess }
+															/>
+														</span>
+													</label>
+												</div>
+											</SettingsSection>
 
 											<div className="flex flex-col gap-2 mt-4">
 												<div className="flex items-center gap-2">

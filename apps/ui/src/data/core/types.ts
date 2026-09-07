@@ -620,13 +620,12 @@ export interface Connector {
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
 
-	// Fires when a user-initiated check finds nothing. Distinct from the status above because
-	// "already up to date" is a transient answer to an action, not a lasting state.
+	// Separate from the status above: "already up to date" is a transient answer to a user
+	// action, not a lasting state.
 	onAppUpdateNotAvailable( listener: ( info: { currentVersion: string } ) => void ): () => void;
 }
 
-// Mirrors `AppUpdateStatus` in apps/studio/src/ipc-utils.ts. `currentVersion` is null
-// where there is no desktop app to report on (the local and hosted connectors).
+// Mirrors `AppUpdateStatus` in apps/studio/src/ipc-utils.ts.
 export type AppUpdateStatus =
 	| { state: 'idle' | 'checking'; currentVersion: string | null }
 	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }

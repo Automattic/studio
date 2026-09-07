@@ -31,8 +31,7 @@ export function useSyncAppUpdateStatus(): void {
 		} );
 	}, [ connector, queryClient ] );
 
-	// A manual check that finds nothing gets a toast rather than a card: there's nothing to
-	// act on, so it shouldn't linger until dismissed.
+	// A toast rather than a card: there's nothing to act on, so it shouldn't linger.
 	useEffect( () => {
 		return connector.onAppUpdateNotAvailable( ( { currentVersion } ) => {
 			toast.info(

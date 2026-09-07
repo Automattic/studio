@@ -21,8 +21,8 @@ export interface PersistentMessage {
 const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
 /**
- * "1.20.0 → 1.21.0" when both versions are known, degrading to whichever one is. The target
- * is often unknown mid-download: Electron's updater doesn't name it until the download ends.
+ * The target version is often unknown mid-download: Electron's updater doesn't name it
+ * until the download ends.
  */
 function describeVersionChange(
 	currentVersion: string | null,

@@ -269,7 +269,6 @@ describe( 'update status emissions', () => {
 	} );
 
 	it( 'reads the version out of the Squirrel feed URL on macOS and Windows', async () => {
-		// macOS/Windows get `{ url }` only; the version lives in the path.
 		global.fetch = vi.fn().mockResolvedValue( {
 			status: 200,
 			ok: true,

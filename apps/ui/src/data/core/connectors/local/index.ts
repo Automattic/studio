@@ -957,7 +957,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
-			// The browser UI updates through the CLI's own notifier, not Electron's autoUpdater.
+			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.
 			return { state: 'idle', currentVersion: null };
 		},
 		async installAppUpdate() {

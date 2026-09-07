@@ -91,7 +91,6 @@ export function setupUpdates() {
 		console.log( 'Update available' );
 		updaterState = 'downloading';
 		lastError = null;
-		// Clear any version left from a previous check so a failed lookup can't show a stale one.
 		availableVersion = null;
 		emitAppUpdateStatus();
 
@@ -103,8 +102,7 @@ export function setupUpdates() {
 			await showUpdateAvailableNotice();
 		}
 
-		// Re-emit once the feed names the version. Ordered after the notice so the dialog
-		// isn't held up by a network round trip.
+		// After the notice, so the dialog isn't held up by a network round trip.
 		availableVersion = await fetchAvailableVersion();
 		if ( availableVersion && updaterState === 'downloading' ) {
 			emitAppUpdateStatus();
@@ -261,8 +259,7 @@ function queueUpdateCheck() {
 
 async function showUpdateAvailableNotice() {
 	showManualCheckDialogs = false;
-	// The agentic UI reports the whole update lifecycle in the sidebar, so a modal would be a
-	// duplicate interruption. Classic has no such affordance and still needs it.
+	// The agentic UI reports this in the sidebar; classic has no such affordance.
 	if ( getPreferredStudioUiMode() === 'agentic' ) {
 		return;
 	}
@@ -291,8 +288,7 @@ async function showUpdateAvailableNotice() {
 
 async function showUpdateUnavailableNotice() {
 	showManualCheckDialogs = false;
-	// The agentic UI answers a manual check with a sidebar toast: there's nothing to act on,
-	// so a modal the user has to dismiss is heavier than the result warrants.
+	// The agentic UI answers with a toast: there's nothing to act on.
 	if ( getPreferredStudioUiMode() === 'agentic' ) {
 		void sendIpcEventToRenderer( 'app-update-not-available', { currentVersion: app.getVersion() } );
 		return;
@@ -314,8 +310,8 @@ async function showUpdateUnavailableNotice() {
 }
 
 async function showUpdateReadyToInstallNotice() {
-	// The agentic UI surfaces this as a dismissable sidebar card; a modal on top would be a
-	// duplicate interruption. Gated here so the manual check behaves like the automatic one.
+	// The agentic UI surfaces this as a sidebar card. Gated here so the manual check and the
+	// automatic one behave alike.
 	if ( getPreferredStudioUiMode() === 'agentic' ) {
 		return;
 	}

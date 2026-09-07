@@ -17,7 +17,8 @@
 	min-inline-size: 0;
 	margin: 0;
 	/* Matches the radio focus ring's 4px box-shadow, which would otherwise clip. */
-	padding: var(--wpds-dimension-padding-xs);
+	padding: 0;
+	padding-inline-start: var(--wpds-dimension-padding-xs);
 	border: 0;
 }
 

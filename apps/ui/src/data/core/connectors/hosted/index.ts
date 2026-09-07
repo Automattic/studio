@@ -554,12 +554,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
-			return { readyToInstall: false, version: null };
+			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.
+			return { state: 'idle', currentVersion: null };
 		},
 		async installAppUpdate() {
 			// No-op.
 		},
 		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		onAppUpdateNotAvailable() {
 			return () => {};
 		},
 	};

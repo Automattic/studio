@@ -619,12 +619,27 @@ export interface Connector {
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+
+	// Separate from the status above: "already up to date" is a transient answer to a user
+	// action, not a lasting state.
+	onAppUpdateNotAvailable( listener: ( info: { currentVersion: string } ) => void ): () => void;
 }
 
-export interface AppUpdateStatus {
-	readyToInstall: boolean;
-	version: string | null;
-}
+// Mirrors `AppUpdateStatus` in apps/studio/src/ipc-utils.ts.
+export type AppUpdateStatus = (
+	| { state: 'idle' | 'checking'; currentVersion: string | null }
+	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
+	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
+	| {
+			state: 'error';
+			currentVersion: string | null;
+			reason: 'read-only-volume' | 'generic';
+			detail?: string;
+	  }
+) & {
+	// Set when the user asked for this check, so a dismissed card is shown again.
+	requested?: boolean;
+};
 
 // Persisted first-run onboarding state for the workbench. Separate from the
 // pre-workbench welcome flag (getOnboardingCompleted).

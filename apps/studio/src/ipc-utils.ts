@@ -75,12 +75,28 @@ export interface IpcEvents {
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'remote-session-status': [ RemoteSessionStatus ];
 	'app-update-status': [ AppUpdateStatus ];
+	'app-update-not-available': [ { currentVersion: string } ];
 }
 
-export interface AppUpdateStatus {
-	readyToInstall: boolean;
-	version: string | null;
-}
+/**
+ * Updater lifecycle as the renderer sees it. `currentVersion` is null where there is no
+ * desktop app to report on (the browser UI's connectors), and `newVersion` is null until
+ * the feed lookup resolves — Electron's autoUpdater only names the version on download.
+ */
+export type AppUpdateStatus = (
+	| { state: 'idle' | 'checking'; currentVersion: string | null }
+	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
+	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
+	| {
+			state: 'error';
+			currentVersion: string | null;
+			reason: 'read-only-volume' | 'generic';
+			detail?: string;
+	  }
+) & {
+	// Set when the user asked for this check, so the renderer can re-show a dismissed card.
+	requested?: boolean;
+};
 
 let isAppQuitting = false;
 

@@ -1410,6 +1410,7 @@ describe( 'CLI: studio create', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
 				mockWpCli( {
 					stdout: JSON.stringify( {
@@ -1440,6 +1441,11 @@ describe( 'CLI: studio create', () => {
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
 				'Static site imported successfully'
 			);
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

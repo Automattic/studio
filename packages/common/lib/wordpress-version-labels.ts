@@ -44,10 +44,20 @@ export function getSelectAVersionLabel(): string {
  *                read as if auto-update were keeping the site on that version
  *                (STU-2348). A value that is not a concrete version number
  *                (`-`, `latest`) falls back to the bare description.
+ * @param pending  Set on the create form, where no site exists yet and the
+ *                 version is the one about to be installed rather than a
+ *                 version already running.
  */
-export function getAutomaticUpdatesDescription( version?: string ): string {
+export function getAutomaticUpdatesDescription( version?: string, pending?: boolean ): string {
 	if ( ! version || ! /^\d/.test( version ) ) {
 		return __( 'WordPress installs updates on its own schedule.' );
+	}
+	if ( pending ) {
+		return sprintf(
+			/* translators: %s: WordPress version the new site will be created with, e.g. 6.9.7 */
+			__( 'WordPress installs updates on its own schedule. Will install version %s.' ),
+			version
+		);
 	}
 	return sprintf(
 		/* translators: %s: WordPress version the site runs under auto-update, e.g. 6.9.7 */

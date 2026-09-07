@@ -139,7 +139,14 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		}
 		const autoUpdateLabel = getAutoUpdateVersionLabel( autoUpdateVersion );
 		const options: WpVersionOption[] = [
-			{ value: latestValue, label: autoUpdateLabel, group: 'latest' },
+			{
+				value: latestValue,
+				label: autoUpdateLabel,
+				group: 'latest',
+				// No installed version to report, so the description names the one
+				// the site will be created with instead.
+				pendingVersion: currentVersion ? undefined : autoUpdateVersion,
+			},
 			...prerelease,
 			...stable,
 		];

@@ -27,6 +27,8 @@ export type WpVersionOption = Option & {
 	group: 'latest' | 'prerelease' | 'stable';
 	hidden?: boolean;
 	current?: boolean;
+	/** Version auto-update resolves to, when no site is running one yet. */
+	pendingVersion?: string;
 };
 
 /**
@@ -58,6 +60,7 @@ export function WpVersionControl< Item >( {
 		( option ) => option.group !== 'latest' && ! option.hidden
 	);
 	const currentVersion = pinnedOptions.find( ( option ) => option.current );
+	const pendingVersion = autoUpdateOption?.pendingVersion;
 	// Leaving auto-update lands on the version the site already runs, or on the
 	// newest stable release for a site that doesn't exist yet. The list is
 	// newest-first, so the first stable entry is the newest one — a prerelease
@@ -147,11 +150,15 @@ export function WpVersionControl< Item >( {
 								id={ `${ modeControlName }-automatic-description` }
 								className="components-radio-control__option-description"
 							>
-								{ /* Naming a version on a pinned site would read as if
-								     auto-update were keeping it there. */ }
-								{ getAutomaticUpdatesDescription(
-									automaticUpdates ? currentVersion?.value : undefined
-								) }
+								{ /* The version a new site would get holds whichever mode is
+								     selected, but naming the installed version of an existing
+								     pinned site would read as if auto-update were keeping it
+								     there. */ }
+								{ pendingVersion
+									? getAutomaticUpdatesDescription( pendingVersion, true )
+									: getAutomaticUpdatesDescription(
+											automaticUpdates ? currentVersion?.value : undefined
+									  ) }
 							</p>
 						</div>
 						<div className="components-radio-control__option">

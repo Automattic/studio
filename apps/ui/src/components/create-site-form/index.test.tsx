@@ -471,10 +471,9 @@ describe( 'CreateSiteForm', () => {
 		);
 	} );
 
-	// The update-mode radios replace the auto-update dropdown option, and the
-	// site does not exist yet, so the description cannot claim a version is in
-	// use. Naming the version a new site will get is left to the picker.
-	it( 'describes automatic updates without naming a version on the create form', () => {
+	// The site does not exist yet, so the description names the version it will
+	// be created with rather than claiming one is already in use.
+	it( 'names the version a new site will be created with', () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [
 				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -486,7 +485,32 @@ describe( 'CreateSiteForm', () => {
 
 		expect(
 			screen.getByRole( 'radio', { name: 'Automatic updates' } )
-		).toHaveAccessibleDescription( 'WordPress installs updates on its own schedule.' );
+		).toHaveAccessibleDescription(
+			'WordPress installs updates on its own schedule. Will install version 6.8.'
+		);
+	} );
+
+	// The version describes what the option would do, so it holds while the
+	// other mode is selected rather than blanking out.
+	it( 'keeps naming the version after switching to a pinned version', async () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'New site' } );
+		openAdvancedSettings();
+
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
+
+		await waitFor( () =>
+			expect(
+				screen.getByRole( 'radio', { name: 'Automatic updates' } )
+			).toHaveAccessibleDescription(
+				'WordPress installs updates on its own schedule. Will install version 6.8.'
+			)
+		);
 	} );
 
 	it( 'uses a stable select control for long WordPress version lists', () => {

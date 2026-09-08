@@ -98,8 +98,27 @@
 		0 12px 28px rgba(0, 0, 0, 0.07);
 }
 
-.stage {
+.scenes {
+	position: absolute;
+	inset: 0;
+}
+
+/* Covers the stage so a click anywhere pauses or resumes, but is a real
+   button so the same is reachable by keyboard. Sits under the scrubber. */
+.stageToggle {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	padding: 0;
+	border: 0;
+	background: none;
 	cursor: var(--wpds-cursor-control, pointer);
+	appearance: none;
+}
+
+.stageToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: -2px;
 }
 
 .slide {

@@ -1,10 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { brush, check, chevronDown, close, file, plugins } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { unlock } from '@/lock-unlock';
 import {
 	at,
 	easings,
@@ -18,8 +17,6 @@ import {
 import { Cursor } from './primitives';
 import styles from './style.module.css';
 import type { CSSProperties } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 // Same chrome as the sidebar scene: dark in both schemes.
 const CHROME_BG_LIGHT = '#1e1e1e';

@@ -1,11 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { unlock } from '@/lock-unlock';
 import {
 	BLOG_CTA,
 	BLOG_HEADING,
@@ -26,8 +25,6 @@ import {
 import { CameraGlyph, Cursor, FileGlyph, PlusGlyph, SendGlyph, StreamingText } from './primitives';
 import styles from './style.module.css';
 import type { ComponentType, CSSProperties } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 const TYPE_MS = 40;
 const STREAM_MS = 17;

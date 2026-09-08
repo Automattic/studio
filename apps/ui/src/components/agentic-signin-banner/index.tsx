@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, play } from '@wordpress/icons';
-import { Button, Icon, IconButton } from '@wordpress/ui';
+import { Button, Icon, IconButton, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -61,6 +61,9 @@ const STAGE_HEIGHT = 345;
 
 const SLIDE_TRANSITION_MS = 360;
 
+// Long enough to read a slide's description when the demos don't play.
+const REDUCED_MOTION_HOLD_MS = 9000;
+
 // Measures its own width and publishes the matching scale, so the slides
 // inside can render the scene at its design size and transform to fit.
 function Stage( {
@@ -96,26 +99,42 @@ function Stage( {
 		onSeek( ( event.clientX - rect.left ) / rect.width );
 	};
 
+	const releasePointer = ( event: ReactPointerEvent< HTMLDivElement > ) => {
+		if ( event.currentTarget.hasPointerCapture( event.pointerId ) ) {
+			event.currentTarget.releasePointerCapture( event.pointerId );
+		}
+	};
+
 	return (
-		// The playback is a picture, not a UI: the slides take no pointer events,
-		// and a click anywhere on the stage pauses or resumes.
 		<div
 			ref={ ref }
 			className={ clsx( styles.stage, paused && styles.stagePaused ) }
 			style={ { '--stage-scale': scale } as CSSProperties }
-			aria-hidden="true"
-			onClick={ onToggle }
 		>
-			{ children }
-			{ paused ? (
-				<span className={ styles.pausedBadge }>
-					<Icon icon={ play } size={ 20 } />
-				</span>
-			) : null }
+			{ /* The playback is a picture, not a UI: the slides take no pointer events. */ }
+			<div className={ styles.scenes } aria-hidden="true">
+				{ children }
+			</div>
+			{ /* A real control, so the animation can be paused by keyboard too.
+			     WCAG 2.2.2: the deck auto-advances and loops indefinitely. */ }
+			<button
+				type="button"
+				className={ styles.stageToggle }
+				aria-pressed={ paused }
+				onClick={ onToggle }
+			>
+				<VisuallyHidden>
+					{ paused ? __( 'Resume the demo' ) : __( 'Pause the demo' ) }
+				</VisuallyHidden>
+				{ paused ? (
+					<span className={ styles.pausedBadge } aria-hidden="true">
+						<Icon icon={ play } size={ 20 } />
+					</span>
+				) : null }
+			</button>
 			{ /* Scrubbable timeline along the bottom edge; shows on hover. */ }
 			<div
 				className={ styles.scrubber }
-				onClick={ ( event ) => event.stopPropagation() }
 				onPointerDown={ ( event ) => {
 					event.currentTarget.setPointerCapture( event.pointerId );
 					seekFromEvent( event );
@@ -125,6 +144,8 @@ function Stage( {
 						seekFromEvent( event );
 					}
 				} }
+				onPointerUp={ releasePointer }
+				onPointerCancel={ releasePointer }
 			>
 				<div className={ styles.scrubberTrack }>
 					<div ref={ scrubRef } className={ styles.scrubberFill } />
@@ -183,7 +204,14 @@ export function AgenticSigninPrompt() {
 	const login = useLogin( { source: 'assistant_tab' } );
 	// `leaving` keeps the previous slide mounted while it slides out; `direction`
 	// is +1 when the deck moves forward (new slide enters from the right).
-	const [ deck, setDeck ] = useState( { index: 0, leaving: null as number | null, direction: 1 } );
+	// `run` changes on every move, so re-selecting the slide already showing
+	// restarts its clock rather than leaving it wherever it was scrubbed to.
+	const [ deck, setDeck ] = useState( {
+		index: 0,
+		leaving: null as number | null,
+		direction: 1,
+		run: 0,
+	} );
 	const [ paused, setPaused ] = useState( false );
 	const [ seek, setSeek ] = useState< { to: number; key: number } >();
 	const ringRef = useRef< HTMLButtonElement >( null );
@@ -191,9 +219,12 @@ export function AgenticSigninPrompt() {
 	const slide = slides[ deck.index ];
 	const goTo = ( next: number, direction: number ) => {
 		setSeek( undefined );
-		setDeck( ( current ) =>
-			next === current.index ? current : { index: next, leaving: current.index, direction }
-		);
+		setDeck( ( current ) => ( {
+			index: next,
+			leaving: next === current.index ? null : current.index,
+			direction,
+			run: current.run + 1,
+		} ) );
 	};
 	const step = ( delta: number ) =>
 		goTo( ( deck.index + delta + slides.length ) % slides.length, delta );
@@ -209,6 +240,14 @@ export function AgenticSigninPrompt() {
 		return () => window.clearTimeout( id );
 	}, [ deck.index, deck.leaving ] );
 
+	// The ring is painted onto the active dot imperatively, so clear it whenever
+	// the deck moves — otherwise the dot we just left keeps a full ring, which
+	// shows again the next time that slide comes round.
+	useLayoutEffect( () => {
+		ringRef.current?.style.setProperty( '--progress', '0' );
+		scrubRef.current?.style.setProperty( '--progress', '0' );
+	}, [ deck.index, deck.run ] );
+
 	// The active slide's clock drives the ring around its dot and advances the
 	// deck when it ends; the ring is painted through a ref (a CSS variable on
 	// the dot) so the frame-rate progress never re-renders the prompt.
@@ -216,6 +255,9 @@ export function AgenticSigninPrompt() {
 		() => ( {
 			paused,
 			seek,
+			// Reduced motion plays no frames, so rest on each slide long enough to
+			// read it, then move on — otherwise the deck would never advance.
+			reducedMotionHoldMs: REDUCED_MOTION_HOLD_MS,
 			onProgress: ( progress ) => {
 				ringRef.current?.style.setProperty( '--progress', String( progress ) );
 				scrubRef.current?.style.setProperty( '--progress', String( progress ) );
@@ -226,6 +268,7 @@ export function AgenticSigninPrompt() {
 					index: ( current.index + 1 ) % slides.length,
 					leaving: current.index,
 					direction: 1,
+					run: current.run + 1,
 				} ) );
 			},
 		} ),
@@ -264,9 +307,9 @@ export function AgenticSigninPrompt() {
 								<LeavingScene playback={ { paused: true } } />
 							</Slide>
 						) : null }
-						{ /* Keyed so each slide's playback starts from the top. */ }
+						{ /* Keyed on the run so each move starts its playback from the top. */ }
 						<Slide
-							key={ slide.id }
+							key={ `${ slide.id }-${ deck.run }` }
 							motion={
 								deck.leaving === null
 									? undefined

@@ -41,6 +41,12 @@ export interface Playback {
 	onProgress?: ( progress: number ) => void;
 	/** Called once when a one-shot timeline reaches its end. */
 	onEnd?: () => void;
+	/**
+	 * How long to rest on a one-shot's finished frame before calling `onEnd`
+	 * under reduced motion, where there is no animation to play out. Without
+	 * it a host that advances on `onEnd` would never advance at all.
+	 */
+	reducedMotionHoldMs?: number;
 }
 
 // A single requestAnimationFrame clock. Reduced motion skips the animation and
@@ -60,6 +66,8 @@ export function useTimeline( {
 	const rafRef = useRef( 0 );
 	// Elapsed time survives a pause so resuming picks up where it stopped.
 	const elapsedRef = useRef( 0 );
+	// Whether this run already reported its end, so it reports it only once.
+	const endedRef = useRef( false );
 	const playbackRef = useRef( playback );
 	useLayoutEffect( () => {
 		playbackRef.current = playback;
@@ -70,11 +78,13 @@ export function useTimeline( {
 
 	const restart = useCallback( () => {
 		elapsedRef.current = 0;
+		endedRef.current = false;
 		setNonce( ( n ) => n + 1 );
 	}, [] );
 
 	useEffect( () => {
 		elapsedRef.current = 0;
+		endedRef.current = false;
 	}, [ restartKey ] );
 
 	// A seek only applies when it changes after mount, so a freshly mounted
@@ -88,6 +98,7 @@ export function useTimeline( {
 		const seek = playbackRef.current?.seek;
 		if ( seek ) {
 			elapsedRef.current = Math.min( 0.999, Math.max( 0, seek.to ) ) * duration;
+			endedRef.current = false;
 		}
 	}, [ seekKey, duration ] );
 
@@ -95,7 +106,14 @@ export function useTimeline( {
 		if ( prefersReducedMotion() ) {
 			setT( loop ? 0 : duration );
 			playbackRef.current?.onProgress?.( loop ? 0 : 1 );
-			return;
+			// A one-shot has no frames to play, but a host driving a carousel off
+			// `onEnd` still needs to be told the scene is over, or it never moves on.
+			const hold = playbackRef.current?.reducedMotionHoldMs;
+			if ( loop || ! hold || paused ) {
+				return;
+			}
+			const id = window.setTimeout( () => playbackRef.current?.onEnd?.(), hold );
+			return () => window.clearTimeout( id );
 		}
 		if ( paused ) {
 			// Hold the current frame — including one just scrubbed to.
@@ -117,7 +135,10 @@ export function useTimeline( {
 			playbackRef.current?.onProgress?.( Math.min( 1, next / duration ) );
 			if ( loop || elapsed < duration ) {
 				rafRef.current = requestAnimationFrame( tick );
-			} else {
+			} else if ( ! endedRef.current ) {
+				// Latched: the clock stays past `duration` once a one-shot finishes, so
+				// a later re-run (a pause toggle) would otherwise end again immediately.
+				endedRef.current = true;
 				playbackRef.current?.onEnd?.();
 			}
 		};

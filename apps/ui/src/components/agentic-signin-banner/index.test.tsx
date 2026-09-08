@@ -49,4 +49,22 @@ describe( 'AgenticSigninPrompt', () => {
 
 		expect( login ).toHaveBeenCalledOnce();
 	} );
+
+	// The deck auto-advances and loops, so the pause has to be reachable
+	// without a mouse (WCAG 2.2.2) — not just a click on the decorative stage.
+	it( 'exposes pausing the demo as a control', () => {
+		render( <AgenticSigninPrompt /> );
+
+		const pause = screen.getByRole( 'button', { name: 'Pause the demo' } );
+		expect( pause ).toHaveAttribute( 'aria-pressed', 'false' );
+
+		fireEvent.click( pause );
+
+		const resume = screen.getByRole( 'button', { name: 'Resume the demo' } );
+		expect( resume ).toHaveAttribute( 'aria-pressed', 'true' );
+
+		fireEvent.click( resume );
+
+		expect( screen.getByRole( 'button', { name: 'Pause the demo' } ) ).toBeVisible();
+	} );
 } );

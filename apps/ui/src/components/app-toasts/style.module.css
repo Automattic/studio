@@ -61,12 +61,12 @@
 	   percentage — and this font's digits are not equal width, so a counter
 	   would shift the text by a few pixels on nearly every update. */
 	font-variant-numeric: tabular-nums;
-	--wp-ui-notice-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-notice-background-color: var(--wpds-color-background-surface-neutral-strong);
 	--wp-ui-notice-border-color: transparent;
-	--wp-ui-notice-text-color: var(--wpds-color-fg-content-neutral);
+	--wp-ui-notice-text-color: var(--wpds-color-foreground-content-neutral);
 	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent),
-		var(--wpds-elevation-md);
+		0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent),
+		0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
 	padding-block: 6px;
 	padding-inline: var(--wpds-dimension-padding-sm);
 	border-radius: 6px;
@@ -79,7 +79,7 @@
 .notice [class*='__description'] {
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 16px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* Button's solid-variant sets these properties on the element itself, so
@@ -87,16 +87,16 @@
 .actionButton {
 	--wp-ui-button-background-color: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 10%,
+		var(--wpds-color-foreground-content-neutral) 10%,
 		transparent
 	);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 16%,
+		var(--wpds-color-foreground-content-neutral) 16%,
 		transparent
 	);
-	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
 	--wp-ui-button-border-color: transparent;
 	--wp-ui-button-border-color-active: transparent;
 }
@@ -109,9 +109,9 @@
 	height: 8px;
 	margin-top: 3px;
 	margin-inline: 8px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--wpds-color-background-surface-neutral-strong);
 	border-radius: 0 0 6px 6px;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
 	opacity: 0.8;
 }
 

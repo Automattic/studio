@@ -5,6 +5,12 @@ export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 400;
 export const MAIN_MIN_WIDTH = 712;
+// The agentic UI collapses to a single chat column — both the sidebar and the
+// preview panel can be closed — so it goes far narrower than the default
+// renderer's two-pane layout. The floor is what the site header still needs:
+// the macOS traffic lights, the site icon, and the Share + Sync actions, with
+// the site name free to truncate between them.
+export const AGENTIC_MIN_WIDTH = 420;
 export const LOCAL_STORAGE_SIDEBAR_WIDTH_KEY = 'sidebar_width';
 export const APP_CHROME_SPACING = 10;
 export const MIN_WIDTH_CLASS_TO_MEASURE = 'app-measure-tabs-width';

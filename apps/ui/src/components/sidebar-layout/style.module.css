@@ -6,12 +6,10 @@
 
 .sidebar {
 	width: var(--sidebar-width, 320px);
-	/* The 240px floor is owned by useResizablePanel, which clamps
-	   --sidebar-width on every path. A CSS min-width here would be redundant
-	   while open and, because it can't transition in lockstep with width, would
-	   snap the panel to 240px at the start of the open animation. */
+	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
+	   on every path. CSS min/max widths would compete with that single source
+	   of truth and can crush the sidebar below its 240px floor on narrow windows. */
 	min-width: 0;
-	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--app-chrome-bg);
 	display: flex;
@@ -103,7 +101,7 @@
 	margin-block: 12px;
 	margin-inline-start: -3px;
 	border-radius: 999px;
-	background-color: var(--wpds-color-fg-interactive-brand);
+	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
 /* Bottom-left of the main area. The 46px min-height and the negative bottom

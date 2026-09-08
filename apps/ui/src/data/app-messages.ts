@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from 'react';
 
+// Session-only dismissals for persistent sidebar cards. Lives here rather than in
+// use-app-messages so the update hooks can reset it without an import cycle.
+export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
+
 export type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {

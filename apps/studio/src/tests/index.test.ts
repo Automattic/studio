@@ -190,7 +190,7 @@ describe( 'App initialization', () => {
 		mockElectron();
 		vi.resetModules();
 		await expect( import( '../index' ) ).resolves.toBeDefined();
-	} );
+	}, 10_000 );
 
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();

@@ -1,8 +1,8 @@
 /* Speech bubble anchored to the sidebar footer: brand fill, notch on the
    bottom-left corner pointing at Settings. */
 .trigger {
-	--beta-bubble-bg: var(--wpds-color-bg-interactive-brand-strong);
-	--beta-bubble-border: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 35%, transparent);
+	--beta-bubble-bg: var(--wpds-color-background-interactive-brand-strong);
+	--beta-bubble-border: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 35%, transparent);
 	/* Read by the global `button:focus:not(:focus-visible)` reset in index.css,
 	   which would otherwise repaint the bubble with WP UI's Button colors. */
 	--wp-ui-button-background-color: var(--beta-bubble-bg);
@@ -13,13 +13,17 @@
 	width: max-content;
 	max-width: 100%;
 	box-sizing: border-box;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	/* Fixed, not token-driven: @wordpress/theme 1.x dropped the `compact`
+	   density scale these tokens used to resolve through, so padding-sm/md
+	   now render at 2x the old size. Pin the old compact values (4px/8px)
+	   directly until the app has its own compact-scale tokens. */
+	padding: 4px 8px;
 	appearance: none;
 	background-color: var(--beta-bubble-bg);
 	border: var(--wpds-border-width-xs) solid var(--beta-bubble-border);
 	border-radius: 14px 14px 14px 4px;
-	box-shadow: var(--wpds-elevation-md);
-	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	font-size: 11px;
 	line-height: var(--wpds-typography-line-height-xs);
@@ -34,7 +38,7 @@
 .trigger:hover {
 	--beta-bubble-bg: color-mix(
 		in srgb,
-		var(--wpds-color-bg-interactive-brand-strong) 88%,
+		var(--wpds-color-background-interactive-brand-strong) 88%,
 		var(--app-chrome-bg) 12%
 	);
 }
@@ -43,11 +47,11 @@
    under the global focus reset above, which paints `--beta-bubble-bg`. */
 .trigger:active,
 .trigger[data-popup-open] {
-	--beta-bubble-bg: var(--wpds-color-bg-interactive-brand-strong);
+	--beta-bubble-bg: var(--wpds-color-background-interactive-brand-strong);
 }
 
 .trigger:focus-visible {
-	outline: var(--wpds-border-width-xs) solid var(--wpds-color-fg-content-neutral);
+	outline: var(--wpds-border-width-xs) solid var(--wpds-color-foreground-content-neutral);
 	outline-offset: 2px;
 }
 

@@ -1,6 +1,40 @@
 Unreleased
 ==========
 
+1.21.0
+=====
+* Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI's end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal #4681, #4758, #4712, #4695
+* Reworked the WordPress version setting: "latest" is now an "Automatic updates" toggle with a separate version picker, and it shows the version your site is actually running, so Settings and wp-admin no longer disagree. The CLI accepts `--wp auto-update` to match #4702, #4752, #4750
+* Studio Code: Improved the sites the agent builds — a wider default content width with wide layouts for grids, proper padding on cards and full-width sections, and WooCommerce shop pages that clear the header and footer #4779, #4778, #4781
+* Added a blueprints library to the Agentic UI #4701
+* Agentic UI: The window can now shrink to 420px so Studio works as a compact companion beside your browser or editor, with the sidebar collapsing automatically at narrow widths #4444
+* Agentic UI: Added a link to debug.log in site settings once the file exists, and preserved unsent chat drafts when switching between sites #4761, #4596
+* Agentic UI: Fixed the publish flow suggesting an invalid WordPress.com domain based on your local `.wp.local` address #4743
+* Added `studio create --from` to build a site from static sources — compiled artifacts, directories, zip archives, and Data Liberation captures #4725, #4757
+* CLI: `studio delete` now accepts multiple sites in one command, running the whole batch through a single daemon session #4733
+* Fixed a site delete leaving the site behind when moving its files to the trash failed #4764
+* Fixed Studio reopening its window right after you closed it on nightly builds #3901
+* Allowed selecting individual files in `pull-reprint` selections #4582
+* Fixed 171 CLI strings never reaching translators because string extraction silently skipped files using `await using` #4467
+* Added Tracks analytics for sync with WordPress.com and Pressable, and fixed Agentic UI pushes inflating the export event #4551
+* Updated multiple dependencies, including Electron 44, the WordPress, Sentry and testing groups, and the release toolkit #4709, #4320, #4770, #4773, #4772, #4740
+* Misc and maintenance improvements #4762, #4774, #4754, #4744, #4769
+
+1.20.0
+=====
+* Added AI image generation to Studio Code: the agent now creates real images while it builds a site, instead of leaving placeholders behind, guided by a new imagery skill #4668
+* Improved the AI credits experience: the top-up dialog now offers four credit amounts, explains what credits are and how they differ from tokens, and links to the AI credits guidelines. A new usage meter in Settings → Usage shows how much you have left #4678, #4679, #4692
+* Improved the Studio Code terminal UI: tools that run at the same time now report their own progress and results live, instead of piling up under the last tool call #4653
+* Studio Code: Improved the sites the agent builds — anchor links in one-page site headers now point at the home page, pill labels stay inside the content column, and styling prefers the theme's block styles over custom CSS #4655, #4677, #4680
+* Fixed new sites being created in English instead of the language configured in Studio #4667
+* Fixed being signed out of wp-admin every time a site restarted, such as after saving settings, changing the PHP version, or toggling Xdebug #4703
+* Fixed the Publish button showing the previous user's cached remote sites after signing out and back in #4589
+* Agentic UI: Fixed settings alignment in some languages, a blurred scrollbar beneath conversations, the empty-state frost clipping at the panel edge, and the About card's disk measurement thrashing when switching sites #4687, #4556, #4555, #4627
+* Agentic UI: Simplified phpMyAdmin's embedded interface, improved the working timer's units and transition, and made the agent's preview refresh drop the cache like the toolbar's does #4684, #4579, #4625
+* Data Liberation: Added timeouts to browser calls so extraction cannot hang, removed stub commands that shadowed their skills, and updated its dependencies #4584, #4682, #4664
+* Updated multiple dependencies, including the ESLint and testing groups, RuboCop and claude-code-action #4707, #4708, #4710, #4711
+* Misc and maintenance improvements #4670, #4693, #4694
+
 1.19.0
 =====
 * Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624

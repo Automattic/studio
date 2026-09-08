@@ -440,6 +440,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
+		async siteDebugLogExists() {
+			throw new UnsupportedError( 'siteDebugLogExists' );
+		},
+		async openSiteDebugLog() {
+			throw new UnsupportedError( 'openSiteDebugLog' );
+		},
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
 		},
@@ -489,6 +495,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},
@@ -545,12 +554,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
-			return { readyToInstall: false, version: null };
+			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.
+			return { state: 'idle', currentVersion: null };
 		},
 		async installAppUpdate() {
 			// No-op.
 		},
 		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		onAppUpdateNotAvailable() {
 			return () => {};
 		},
 	};

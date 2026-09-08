@@ -44,6 +44,7 @@ import {
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -734,7 +735,7 @@ const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
-	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
+	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
@@ -1996,6 +1997,29 @@ export function toggleMinWindowWidth(
 		isSidebarVisible ? currentWidth - sidebarW : currentWidth + sidebarW
 	);
 	parentWindow.setSize( newWidth, currentHeight, true );
+}
+
+export async function ensureMinWindowWidth(
+	event: IpcMainInvokeEvent,
+	minimumWidth: number
+): Promise< number | null > {
+	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
+		return null;
+	}
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return null;
+	}
+	// Measure and resize the content area, not the whole window. The renderer's
+	// responsive math is entirely in CSS pixels (`window.innerWidth`); on Windows
+	// and Linux the window frame makes that differ from the outer window size, so
+	// growing (and reporting) the content width is what keeps the two in sync.
+	const [ currentWidth, currentHeight ] = parentWindow.getContentSize();
+	const nextWidth = Math.ceil( minimumWidth );
+	if ( currentWidth < nextWidth ) {
+		parentWindow.setContentSize( nextWidth, currentHeight );
+	}
+	return parentWindow.getContentSize()[ 0 ];
 }
 
 /**

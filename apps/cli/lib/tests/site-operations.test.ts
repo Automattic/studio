@@ -10,7 +10,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
-import { getLiveSiteOperation, withSiteOperation } from '../site-operations';
+import { getLiveSiteOperation, withSiteOperation, withSiteOperations } from '../site-operations';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	lockCliConfig: vi.fn(),
@@ -35,6 +35,13 @@ const site: SiteData = {
 	port: 8888,
 	phpVersion: DEFAULT_PHP_VERSION,
 } as const;
+
+const secondSite: SiteData = {
+	...site,
+	id: 'site-2',
+	name: 'Second Site',
+	path: '/home/user/Studio/second-site',
+};
 
 let mockConfig: Awaited< ReturnType< typeof readCliConfig > >;
 
@@ -141,5 +148,61 @@ describe( 'withSiteOperation', () => {
 		await expect(
 			withSiteOperation( '/no/such/site', 'start', async () => undefined )
 		).rejects.toThrow( 'Site not found' );
+	} );
+} );
+
+describe( 'withSiteOperations', () => {
+	beforeEach( () => {
+		mockConfig.sites.push( structuredClone( secondSite ) );
+	} );
+
+	it( 'acquires and releases every site in one config transaction', async () => {
+		await withSiteOperations( [ site.id, secondSite.id ], 'delete', async () => {
+			expect( mockConfig.sites.map( ( item ) => item.operation ) ).toEqual( [
+				{ pid: process.pid, kind: 'delete' },
+				{ pid: process.pid, kind: 'delete' },
+			] );
+		} );
+
+		expect( mockConfig.sites.every( ( item ) => item.operation === undefined ) ).toBe( true );
+		expect( saveCliConfig ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'does not acquire any site when one is busy', async () => {
+		mockConfig.sites[ 1 ].operation = { pid: process.pid, kind: 'settings' };
+		const work = vi.fn();
+
+		await expect(
+			withSiteOperations( [ site.id, secondSite.id ], 'delete', work )
+		).rejects.toThrow( /already in progress/ );
+
+		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
+		expect( mockConfig.sites[ 1 ].operation ).toEqual( {
+			pid: process.pid,
+			kind: 'settings',
+		} );
+		expect( saveCliConfig ).not.toHaveBeenCalled();
+		expect( work ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not acquire any site when one is missing', async () => {
+		const work = vi.fn();
+
+		await expect(
+			withSiteOperations( [ site.id, 'missing-site' ], 'delete', work )
+		).rejects.toThrow( 'Site not found' );
+
+		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
+		expect( saveCliConfig ).not.toHaveBeenCalled();
+		expect( work ).not.toHaveBeenCalled();
+	} );
+
+	it( 'releases surviving sites after deleted records disappear', async () => {
+		await withSiteOperations( [ site.id, secondSite.id ], 'delete', async () => {
+			mockConfig.sites = mockConfig.sites.filter( ( item ) => item.id !== site.id );
+		} );
+
+		expect( mockConfig.sites ).toEqual( [ expect.objectContaining( { id: secondSite.id } ) ] );
+		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
 	} );
 } );

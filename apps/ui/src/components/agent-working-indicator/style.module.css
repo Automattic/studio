@@ -26,7 +26,7 @@
 
 .pulse {
 	border-radius: 27%;
-	background: var(--wpds-color-fg-interactive-brand);
+	background: var(--wpds-color-foreground-interactive-brand);
 	animation: working-pulse cubic-bezier(0.333, 0, 0.667, 1) infinite;
 }
 
@@ -67,7 +67,7 @@
 	inline-size: var(--sparkle-size);
 	block-size: var(--sparkle-size);
 	border-radius: 35%;
-	background: var(--wpds-color-fg-interactive-brand);
+	background: var(--wpds-color-foreground-interactive-brand);
 	pointer-events: none;
 	animation: working-smoke var(--sparkle-duration) cubic-bezier(0.25, 0.1, 0.35, 1)
 		var(--sparkle-delay) infinite;

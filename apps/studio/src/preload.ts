@@ -140,6 +140,8 @@ const api: IpcApi = {
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
 		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
+	ensureMinWindowWidth: ( minimumWidth ) =>
+		ipcRendererInvoke( 'ensureMinWindowWidth', minimumWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>

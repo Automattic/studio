@@ -8,6 +8,7 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import {
@@ -110,6 +111,11 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-debug-log', () => ( {
+	debugLogExistsQueryKey: ( siteId: string ) => [ 'debug-log-exists', siteId ],
+	useDebugLogExists: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-site-thumbnail', () => ( {
 	siteThumbnailQueryKey: ( siteId: string ) => [ 'site-thumbnail', siteId ],
 	useSiteThumbnail: vi.fn(),
@@ -161,6 +167,7 @@ const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteBusyMock = vi.mocked( useIsSiteBusy );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useDebugLogExistsMock = vi.mocked( useDebugLogExists, { partial: true } );
 const useSiteThumbnailMock = vi.mocked( useSiteThumbnail, { partial: true } );
 const useSiteStorageUsageMock = vi.mocked( useSiteStorageUsage, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
@@ -178,6 +185,7 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const openSiteDebugLog = vi.fn().mockResolvedValue( undefined );
 	const trackEvent = vi.fn().mockResolvedValue( undefined );
 	const copyText = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
@@ -193,6 +201,7 @@ describe( 'SiteOverviewView', () => {
 		openSiteFolder,
 		openSiteInEditor,
 		openSiteInTerminal,
+		openSiteDebugLog,
 		trackEvent,
 		copyText,
 		getFilePath,
@@ -274,6 +283,7 @@ describe( 'SiteOverviewView', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
 		useWpVersionMock.mockReturnValue( { data: undefined } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
+		useDebugLogExistsMock.mockReturnValue( { data: false } );
 	} );
 
 	function renderView(
@@ -480,17 +490,41 @@ describe( 'SiteOverviewView', () => {
 		).not.toHaveClass( settingsStyles.emailControl );
 	} );
 
-	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
+	it( 'preselects automatic updates and names the installed version for auto-updating sites', () => {
 		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const automatic = screen.getByRole( 'radio', { name: 'Automatic updates' } );
+		expect( automatic ).toBeChecked();
+		// The readout names the version the site runs now, so "latest" can't be
+		// read as "already on the newest release" (STU-2348). It has to reach
+		// screen readers in forms mode too, where only the control's own label
+		// and description are announced.
+		expect( automatic ).toHaveAccessibleDescription(
+			'WordPress installs updates on its own schedule. Currently using version 6.7.2.'
+		);
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
-		expect( select ).toHaveValue( '' );
-		expect( screen.getByRole( 'option', { name: '6.7.2' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'group', { name: 'Auto-updating' } ) ).toBeInTheDocument();
+		expect( select ).toHaveValue( '6.7.2' );
 		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'preselects the version picker for pinned sites', () => {
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useWpVersionMock.mockReturnValue( { data: '6.7.2' } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+		} );
+
+		renderView( 'general' );
+
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
+		// Naming the version under "Automatic updates" on a pinned site would
+		// read as if auto-update were keeping the site on it (STU-2348).
+		expect( screen.queryByText( /Currently using version/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'saves a pinned WordPress version picked from the dropdown', () => {
@@ -500,7 +534,8 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
@@ -524,7 +559,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select ).toHaveValue( '6.5.2' );
 		expect( screen.getByRole( 'option', { name: '6.5.2' } ) ).toBeInTheDocument();
 	} );
@@ -569,7 +604,7 @@ describe( 'SiteOverviewView', () => {
 
 		const { showSite } = renderView( 'general' );
 
-		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+		fireEvent.change( screen.getByLabelText( 'Version' ), {
 			target: { value: '6.7.2' },
 		} );
 
@@ -580,7 +615,7 @@ describe( 'SiteOverviewView', () => {
 		} );
 		showSite( 'site-1' );
 
-		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
+		expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.7.2' );
 	} );
 
 	it( 'keeps a pinned site pinned when saving other settings while offline', () => {
@@ -612,9 +647,12 @@ describe( 'SiteOverviewView', () => {
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
+		// Nothing to pin to, so the update mode stays a plain dropdown rather
+		// than an empty picker.
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
+		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -629,7 +667,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
+		const select = screen.getByLabelText( 'Version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toBeDisabled();
 		expect( select ).toHaveValue( '6.5.2' );
@@ -658,10 +696,14 @@ describe( 'SiteOverviewView', () => {
 
 		renderView( 'general' );
 
-		const select = screen.getByLabelText( 'WordPress version' );
-		expect( select ).toHaveValue( 'latest' );
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		// The site is pinned to files Studio can't read a version from, so the
+		// picker says so instead of showing a version the site may not run.
+		const picker = screen.getByLabelText( 'Version' ) as HTMLSelectElement;
+		expect( picker ).toHaveValue( 'latest' );
+		expect( picker.selectedOptions[ 0 ] ).toHaveTextContent( 'Unknown version' );
 
-		fireEvent.change( select, { target: { value: '' } } );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
 		// 'latest' has to reach the CLI so it actually installs the newest
@@ -991,6 +1033,55 @@ describe( 'SiteOverviewView', () => {
 		expect(
 			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
 		).not.toBeInTheDocument();
+	} );
+
+	// Driven by a lookup rather than the setting: the log may not exist yet.
+	describe( 'debug log shortcut', () => {
+		it( 'offers to open the log once one exists', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
+		it( 'stays hidden while the site has no log yet', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: false } );
+			renderView( 'debugging' );
+
+			expect( screen.queryByRole( 'button', { name: 'Open log file' } ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'asks the host to open the log', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Open log file' } ) );
+
+			expect( openSiteDebugLog ).toHaveBeenCalledWith( 'site-1' );
+		} );
+
+		// Turning logging off stops WordPress writing, but leaves the file behind.
+		it( 'still offers the log after logging is turned off', () => {
+			useSitesMock.mockReturnValue( {
+				data: [ createSite( { running: true, enableDebugLog: false } ) ],
+			} );
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect( screen.getByRole( 'button', { name: 'Open log file' } ) ).toBeVisible();
+		} );
+
+		// The custom control replaces DataForm's rendering of the description.
+		it( 'keeps the field description', () => {
+			useDebugLogExistsMock.mockReturnValue( { data: true } );
+			renderView( 'debugging' );
+
+			expect(
+				screen.getByText(
+					"Log PHP errors and warnings to a debug.log file in your site's wp-content directory."
+				)
+			).toBeVisible();
+		} );
 	} );
 
 	it( 'shows a not-found state for unknown sites', () => {

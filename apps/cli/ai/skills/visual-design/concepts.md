@@ -36,7 +36,7 @@ Fallback: cells stack in source order on mobile with the rules kept as 12px band
 
 ## Collage
 Sections deliberately overlap and break the column grid: an image tucked under a headline, a caption hanging into the margin, a quote laid across two sections, a small photo pinned over the corner of a large one. Nothing lines up on purpose, and the page reads like a pinboard.
-Build: constrained groups with negative `margin-block-start` and `margin-inline` on selected blocks, `z-index` layering, `alignwide` and `alignfull` for the elements that escape the column, a few `rotate(-2deg)` accents; a pattern per section keeps the overlaps repeatable.
+Build: constrained groups with negative `margin-block-start` and `margin-inline` on selected blocks, `z-index` layering, `alignwide` and `alignfull` for the elements that escape the column, a few `rotate(-2deg)` accents; a pattern per section keeps the overlaps repeatable; overlaps may cover images, color fields, and empty space, never running text: an element that overlaps a paragraph sits behind it (lower `z-index`), and an element pulled up with a negative margin clears the previous block's last line of text by at least one line-height.
 Fallback: overlaps and rotations removed with a `max-width: 782px` rule that resets margins.
 
 ## Sticky split
@@ -81,7 +81,7 @@ Fallback: two columns on mobile with the rules kept.
 
 ## Tilted reel
 Images run across sections in full-width strips rotated a few degrees, like a film reel laid diagonally across the page, and the text sits in the wedges of space the strips leave open. The reel is the page's spine: every image on the site belongs to a strip, none sit alone.
-Build: each strip a flex row of image blocks with a fixed height and a small gap, wider than the viewport (`width: 120vw; margin-inline-start: -10vw`), `transform: rotate(-4deg)`, inside a section with `overflow: hidden` and enough block padding that the rotation never clips; text groups positioned in the open wedge above or below the strip, never overlapping it; strips alternate rotation direction down the page.
+Build: each strip a flex row of image blocks with a fixed height and a small gap, wider than the viewport (`width: 120vw; margin-inline-start: -10vw`), `transform: rotate(-4deg)`, inside a section with `overflow: hidden` and enough block padding that the rotation never clips; text groups positioned in the open wedge above or below the strip, never overlapping it, and a strip never overlaps running text either — it may cover empty space only, clearing the nearest line of text by at least one line-height; strips alternate rotation direction down the page.
 Fallback: strips lose the rotation and become horizontal scroll-snap rows on mobile.
 
 ## Stacked bands

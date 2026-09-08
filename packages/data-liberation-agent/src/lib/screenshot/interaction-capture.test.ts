@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
-import { wireCapturedDialogs } from '../static-dialogs.js';
 import { captureTriggeredDialogs, INTERACTION_STATES_SCHEMA } from './interaction-capture.js';
+import { wireCapturedDialogs } from '../static-dialogs.js';
 
 describe( 'captureTriggeredDialogs', () => {
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
@@ -29,12 +29,8 @@ describe( 'captureTriggeredDialogs', () => {
 				expect( report.schema ).toBe( INTERACTION_STATES_SCHEMA );
 				expect( report.initialDialogs ).toHaveLength( 8 );
 				expect( report.initialDialogs?.every( ( state ) => state.initiallyVisible ) ).toBe( true );
-				expect( report.initialDialogs?.every( ( state ) => state.status === 'captured' ) ).toBe(
-					true
-				);
-				expect( report.initialDialogs?.every( ( state ) => state.dismissal?.verified ) ).toBe(
-					true
-				);
+				expect( report.initialDialogs?.every( ( state ) => state.status === 'captured' ) ).toBe( true );
+				expect( report.initialDialogs?.every( ( state ) => state.dismissal?.verified ) ).toBe( true );
 				expect( await page.locator( '[role="dialog"]:visible' ).count() ).toBe( 1 );
 
 				const portable = wireCapturedDialogs(
@@ -121,11 +117,7 @@ describe( 'captureTriggeredDialogs', () => {
 
 				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
 				expect( report.states ).toMatchObject( [
-					{
-						status: 'captured',
-						trigger: { id: 'site-menu', label: 'Menu' },
-						dialog: { id: 'site-navigation', tag: 'nav', ariaLabel: 'Site' },
-					},
+					{ status: 'captured', trigger: { id: 'site-menu', label: 'Menu' }, dialog: { id: 'site-navigation', tag: 'nav', ariaLabel: 'Site' } },
 					{ status: 'no-dialog', trigger: { id: 'no-op-menu', label: 'Menu' } },
 				] );
 
@@ -140,6 +132,12 @@ describe( 'captureTriggeredDialogs', () => {
 						.locator( 'details.dla-disclosure[open] [role="dialog"] a[href="/about"]' )
 						.isVisible()
 				).toBe( true );
+				await page.keyboard.press( 'Escape' );
+				expect(
+					await page
+						.locator( 'details.dla-disclosure' )
+						.evaluate( ( element ) => ( element as HTMLDetailsElement ).open )
+				).toBe( false );
 				expect( await page.locator( '#no-op-menu' ).count() ).toBe( 1 );
 			} finally {
 				await browser.close();
@@ -159,14 +157,7 @@ describe( 'captureTriggeredDialogs', () => {
 					[
 						{
 							status: 'captured',
-							trigger: {
-								selector: '#site-menu',
-								id: 'site-menu',
-								tag: 'button',
-								ariaHaspopup: 'dialog',
-								label: 'Menu',
-								dataBindings: {},
-							},
+							trigger: { selector: '#site-menu', id: 'site-menu', tag: 'button', ariaHaspopup: 'dialog', label: 'Menu', dataBindings: {} },
 							dialog: {
 								selector: '#site-navigation',
 								tag: 'nav',
@@ -188,56 +179,37 @@ describe( 'captureTriggeredDialogs', () => {
 				expect( await page.getByRole( 'link', { name: 'Home' } ).isVisible() ).toBe( true );
 				expect( await page.getByRole( 'link', { name: 'Get a Quote' } ).isVisible() ).toBe( true );
 				expect( await page.getByRole( 'link', { name: 'Contact' } ).isVisible() ).toBe( true );
-				await page.waitForFunction(
-					() =>
-						document
-							.querySelector( 'details.dla-disclosure > summary' )
-							?.getAttribute( 'aria-label' ) === 'Close Menu'
+				await page.waitForFunction( () =>
+					document.querySelector( 'details.dla-disclosure > summary' )?.getAttribute( 'aria-label' ) === 'Close Menu'
 				);
 				expect( await summary.getAttribute( 'aria-label' ) ).toBe( 'Close Menu' );
 				await summary.click();
-				expect(
-					await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open )
-				).toBe( false );
+				expect( await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open ) ).toBe( false );
 				expect( await page.evaluate( () => document.activeElement?.tagName ) ).toBe( 'SUMMARY' );
 
 				await summary.click();
 				await page.keyboard.press( 'Escape' );
-				expect(
-					await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open )
-				).toBe( false );
+				expect( await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open ) ).toBe( false );
 				expect( await page.evaluate( () => document.activeElement?.tagName ) ).toBe( 'SUMMARY' );
 
 				await page.locator( 'input' ).focus();
 				await page.evaluate( () => {
-					document.addEventListener(
-						'keydown',
-						( event ) => {
-							document.body.dataset.escapePrevented = String( event.defaultPrevented );
-						},
-						{ once: true }
-					);
+					document.addEventListener( 'keydown', ( event ) => {
+						document.body.dataset.escapePrevented = String( event.defaultPrevented );
+					}, { once: true } );
 				} );
 				await page.keyboard.press( 'Escape' );
-				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe(
-					'false'
-				);
+				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe( 'false' );
 
 				await page.setContent( '<!doctype html><input aria-label="Normal page input">' );
 				await page.evaluate( () => {
-					document.addEventListener(
-						'keydown',
-						( event ) => {
-							document.body.dataset.escapePrevented = String( event.defaultPrevented );
-						},
-						{ once: true }
-					);
+					document.addEventListener( 'keydown', ( event ) => {
+						document.body.dataset.escapePrevented = String( event.defaultPrevented );
+					}, { once: true } );
 				} );
 				await page.getByRole( 'textbox', { name: 'Normal page input' } ).focus();
 				await page.keyboard.press( 'Escape' );
-				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe(
-					'false'
-				);
+				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe( 'false' );
 			} finally {
 				await browser.close();
 			}

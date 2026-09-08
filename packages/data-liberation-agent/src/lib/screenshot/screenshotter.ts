@@ -17,7 +17,7 @@ import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
 import { learnAndApplyFluidGeometry } from './fluid-capture.js';
-import { captureTriggeredDialogs } from './interaction-capture.js';
+import { captureTriggeredDialogs, type InteractionStatesReport } from './interaction-capture.js';
 import { hydrateDisclosureContent } from './dynamic-content.js';
 import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
@@ -46,8 +46,7 @@ import type { Browser, BrowserContext, Page } from 'playwright';
  */
 const SCROLL_OFFSET_RATIO = 1.5;
 const ANALYSIS_SAMPLE_LIMIT = 1;
-const IPHONE_13_USER_AGENT =
-	'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+const MAX_CAPTURED_DIALOGS = 8;
 
 /**
  * Per-URL capture pipeline:
@@ -740,8 +739,11 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 
 	// --- mobile-DOM carry (mobile only) ---------------------------------------
 	// On the mobile pass, the mobile UA + isMobile emulation make JS builders like
-	// Wix serve their separate mobile DOM. Persist that full document (scripts
-	// stripped, so it renders statically) + its height to html-mobile/.
+	// Wix serve their SEPARATE ~320px mobile DOM (classic/adaptive sites; desktop-DOM
+	// sites are identical, harmless). Persist that full document (scripts stripped, so
+	// it renders statically) + its height to html-mobile/. The alt reconstruct carries
+	// it in a viewport-isolated iframe to reproduce the mobile layout the desktop DOM
+	// can't reflow to. Best-effort: a miss leaves the page desktop-only.
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
 			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );
@@ -977,24 +979,63 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 
 	// Dialogs are captured only after every baseline artifact so probing a close
 	// control or trigger cannot alter screenshots, geometry, sidecars, or page HTML.
-	if (
-		!entry.interactions?.states.some( ( state ) => state.status === 'captured' ) &&
-		!entry.interactions?.initialDialogs?.some( ( state ) => state.status === 'captured' )
-	) {
-		try {
-			const interactions = await captureTriggeredDialogs( page, url );
-			if (
-				( interactions.states.length > 0 || ( interactions.initialDialogs?.length ?? 0 ) > 0 ) &&
-				( ! entry.interactions ||
-					interactions.states.some( ( state ) => state.status === 'captured' ) ||
-					interactions.initialDialogs?.some( ( state ) => state.status === 'captured' ) )
-			) {
-				entry.interactions = interactions;
-			}
-		} catch {
-			/* best-effort: baseline capture remains valid when interaction probing fails */
+	// Each viewport needs its own probe: a desktop dialog must not suppress a
+	// mobile-only trigger. Merge their bounded successful evidence rather than
+	// replacing a desktop-only dialog with a mobile-only menu.
+	try {
+		const interactions = await captureTriggeredDialogs( page, url );
+		if (
+			( interactions.states.length > 0 || ( interactions.initialDialogs?.length ?? 0 ) > 0 ) &&
+			( ! entry.interactions ||
+				interactions.states.some( ( state ) => state.status === 'captured' ) ||
+				interactions.initialDialogs?.some( ( state ) => state.status === 'captured' ) )
+		) {
+			entry.interactions = mergeInteractionReports( entry.interactions, interactions );
 		}
+	} catch {
+		/* best-effort: baseline capture remains valid when interaction probing fails */
 	}
+}
+
+function mergeInteractionReports(
+	previous: InteractionStatesReport | undefined,
+	latest: InteractionStatesReport
+): InteractionStatesReport {
+	if ( ! previous ) return latest;
+	const states = mergeCapturedEvidence(
+		previous.states,
+		latest.states,
+		( state ) => state.trigger.id ?? state.trigger.selector
+	);
+	const initialDialogs = mergeCapturedEvidence(
+		previous.initialDialogs ?? [],
+		latest.initialDialogs ?? [],
+		( state ) => state.dialog.id ?? state.dialog.selector
+	);
+	return {
+		...latest,
+		states,
+		...( initialDialogs.length > 0 ? { initialDialogs } : {} ),
+	};
+}
+
+function mergeCapturedEvidence< T extends { status: string } >(
+	previous: T[],
+	latest: T[],
+	identity: ( state: T ) => string
+): T[] {
+	const merged = new Map< string, T >();
+	for ( const state of previous ) merged.set( identity( state ), state );
+	for ( const state of latest ) {
+		const key = identity( state );
+		const existing = merged.get( key );
+		if ( state.status === 'captured' || existing?.status !== 'captured' ) merged.set( key, state );
+	}
+	const states = Array.from( merged.values() );
+	return [
+		...states.filter( ( state ) => state.status === 'captured' ),
+		...states.filter( ( state ) => state.status !== 'captured' ),
+	].slice( 0, MAX_CAPTURED_DIALOGS );
 }
 
 /**
@@ -1278,14 +1319,12 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 				// scale 1 because its viewport is already small enough that
 				// further reduction loses layout detail. See types.ts for the
 				// rationale.
-				// Mobile capture must use a real mobile browser identity because builders
-				// can select viewport metadata, navigation, and layout from it.
+				// Capture responsive layout from one browser identity at each viewport.
+				// A mobile UA can make builders serve a different site rather than the
+				// narrow rendition of the source page readers reach by resizing.
 				context = await browser.newContext( {
 					viewport: { width: viewport.width, height: viewport.height },
-					deviceScaleFactor: viewport.id === 'desktop' ? SCREENSHOT_DEVICE_SCALE_FACTOR : 3,
-					...( viewport.id === 'mobile'
-						? { isMobile: true, hasTouch: true, userAgent: IPHONE_13_USER_AGENT }
-						: {} ),
+					deviceScaleFactor: viewport.id === 'desktop' ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
 					ignoreHTTPSErrors: true,
 				} );
 				// tsx/esbuild's keepNames transform wraps named const arrows with

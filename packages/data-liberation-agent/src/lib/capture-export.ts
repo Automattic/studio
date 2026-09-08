@@ -14,27 +14,23 @@ import {
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { escapeHtmlAttr } from './html-escape.js';
-import {
-	capturedJsonLd,
-	SOURCE_JSON_LD_SCHEMA,
-	type SourceJsonLdDocument,
-} from './json-ld-metadata.js';
+import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
 import { scopeCss } from './replicate/css-scope.js';
 import { SectionSpecsStore } from './replicate/section-specs-store.js';
 import { MediaStubStore } from './resume-state/index.js';
+import {
+	buildLayoutGeometryProof,
+	type GeometryCapture,
+} from './screenshot/layout-geometry-proof.js';
+import { selfContainWebsite } from './self-contain.js';
+import { wireCapturedDialogs } from './static-dialogs.js';
+import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
+import { capturedJsonLd, SOURCE_JSON_LD_SCHEMA, type SourceJsonLdDocument } from './json-ld-metadata.js';
 import {
 	INTERACTION_STATES_SCHEMA,
 	LEGACY_INTERACTION_STATES_SCHEMA,
 	type InteractionStatesReport,
 } from './screenshot/interaction-capture.js';
-import {
-	buildLayoutGeometryProof,
-	type GeometryCapture,
-} from './screenshot/layout-geometry-proof.js';
-import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
-import { selfContainWebsite } from './self-contain.js';
-import { wireCapturedDialogs } from './static-dialogs.js';
-import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
 import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
@@ -204,9 +200,7 @@ function sourceJsonLdMetadata(
 	};
 }
 
-function serializedArtifactMetadataBytes(
-	metadata: Record< string, unknown > | undefined
-): number {
+function serializedArtifactMetadataBytes( metadata: Record< string, unknown > | undefined ): number {
 	// This is the exact fragment appended to an artifact file object, including its key and comma.
 	return metadata ? Buffer.byteLength( `,"metadata":${ JSON.stringify( metadata ) }` ) : 0;
 }
@@ -542,10 +536,7 @@ function assembleResponsiveHtml(
 			return withMobileViewport( desktopHtml );
 		return withMobileViewport(
 			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` )
-		).replace(
-			/<\/head\s*>/i,
-			`${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>`
-		);
+		).replace( /<\/head\s*>/i, `${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>` );
 	}
 
 	// Both documents ship in one file from here on, so their anchor targets would
@@ -619,9 +610,7 @@ function assembleResponsiveHtml(
 	return withMobileViewport( scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` ) )
 		.replace(
 			/<\/head\s*>/i,
-			`${ mobileStyles }<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss(
-				switchWidth
-			) }</style></head>`
+			`${ mobileStyles }<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss( switchWidth ) }</style></head>`
 		)
 		.replace(
 			/<body\b[^>]*>[\s\S]*?(<\/body\s*>)/i,
@@ -659,7 +648,8 @@ function portableInlineStyleValues(
 	hasUnsupportedAttributes: boolean,
 	css: string
 ): { key: string; media: string } | undefined {
-	if ( hasUnsupportedAttributes || css.trim() === '' ) return undefined;
+	if ( hasUnsupportedAttributes || css.trim() === '' )
+		return undefined;
 	// eslint-disable-next-line no-control-regex -- reject unprintable media attributes.
 	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
@@ -748,15 +738,11 @@ function styleHoistReason(
 	const style = portableInlineStyle( attributes, css );
 	if ( style ) return cssReferenceReason( css );
 	const media = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes )?.[ 2 ] ?? '';
-	// eslint-disable-next-line no-control-regex -- reject unprintable media attributes.
 	return /[\u0000-\u001f\u007f<>&]/.test( media ) ? 'invalid_media' : 'unsafe_attributes';
 }
 
 /** Estimate the actual route replacement plus stylesheet files before media selection. */
-function estimatedHoistedStyleArtifacts( entries: CaptureEntry[] ): {
-	bytes: number;
-	files: number;
-} {
+function estimatedHoistedStyleArtifacts( entries: CaptureEntry[] ): { bytes: number; files: number } {
 	const styles = new Map<
 		string,
 		Array< { entry: CaptureEntry; css: string; media: string; original: string } >
@@ -768,7 +754,7 @@ function estimatedHoistedStyleArtifacts( entries: CaptureEntry[] ): {
 		for ( const match of html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
 			const reason = styleHoistReason( entry, styleIndex++, match[ 1 ], match[ 2 ] );
 			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
-			if ( reason || ! style ) continue;
+			if ( reason || !style ) continue;
 			const occurrences = styles.get( style.key ) ?? [];
 			occurrences.push( { entry, css: match[ 2 ], media: style.media, original: match[ 0 ] } );
 			styles.set( style.key, occurrences );
@@ -826,9 +812,7 @@ function responsiveMobileStyles(
 		.filter( Boolean )
 		.map(
 			( style ) =>
-				`<style media="(max-width:${ switchWidth }px)">${
-					scope ? scopeCss( style, { scope } ) : style
-				}</style>`
+				`<style media="(max-width:${ switchWidth }px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
 		)
 		.join( '' );
 }
@@ -1166,18 +1150,14 @@ function preflightArtifactContents(
 			path: join( websiteDir, route.path.replace( /^website\//, '' ) ),
 			metadata: sourceJsonLdMetadata( routeJsonLd.get( route.path ) ),
 		} ) ),
-		...assets.map( ( asset ) => ( {
-			path: join( websiteDir, asset.path.replace( /^website\//, '' ) ),
-		} ) ),
+		...assets.map( ( asset ) => ( { path: join( websiteDir, asset.path.replace( /^website\//, '' ) ) } ) ),
 		...reportFiles.map( ( report ) => ( { path: join( outputDir, report ) } ) ),
 	];
 	let bytes = 0;
 	for ( const file of files ) {
 		const size = statSync( file.path ).size + serializedArtifactMetadataBytes( file.metadata );
 		if ( size > MAX_ARTIFACT_FILE_BYTES )
-			throw new Error(
-				`Portable capture file "${ file.path }" exceeds compiler limit: ${ size } bytes.`
-			);
+			throw new Error( `Portable capture file "${ file.path }" exceeds compiler limit: ${ size } bytes.` );
 		bytes += size;
 	}
 	if ( files.length > MAX_ARTIFACT_FILES || bytes > artifactTotalBytesLimit )
@@ -1341,10 +1321,7 @@ function removeDanglingMediaSource(
 		const src = /\bsrc\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ].replace( /&amp;/g, '&' );
 		return src === normalizedReference
 			? element === 'img'
-				? tag.replace(
-						/\s+src\s*=\s*(["'])([\s\S]*?)\1/i,
-						` src="${ TRANSPARENT_IMAGE_DATA_URL }"`
-				  )
+				? tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` )
 				: tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, '' )
 			: tag;
 	} );
@@ -1593,7 +1570,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			sections: entry.sections,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
 			// JSON-LD scripts are intentionally excluded from portable HTML, so retain their parsed data separately.
-			jsonLd: ( () => {
+			jsonLd: (() => {
 				const document = capturedJsonLd( capturedHtml, url );
 				return document ? [ document ] : undefined;
 			} )(),
@@ -1927,7 +1904,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! isText && assetPathsByHash.has( contentHash ) ) return true;
 		if ( copiedResources.has( resource.path ) ) return true;
 		if ( copyingResources.has( resource.path ) ) return true;
-		if ( baseArtifactFileCount + reservedHoistedStyleFiles + assets.length >= MAX_ARTIFACT_FILES ) {
+		if (
+			baseArtifactFileCount + reservedHoistedStyleFiles + assets.length >=
+			MAX_ARTIFACT_FILES
+		) {
 			unresolvedDependencies.push( {
 				url: dependency.url,
 				sourceUrl,
@@ -2006,10 +1986,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		}
 		writeFileSync( entry.htmlPath, html );
 	}
-	const inlineStyles = new Map<
-		string,
-		Array< { entry: CaptureEntry; css: string; media: string } >
-	>();
+	const inlineStyles = new Map< string, Array< { entry: CaptureEntry; css: string; media: string } > >();
 	const styleHoistDiagnostics = createStyleHoistDiagnosticCollector();
 	for ( const entry of retainedEntries ) {
 		const html = readFileSync( entry.htmlPath, 'utf8' );
@@ -2017,7 +1994,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		for ( const match of html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
 			const reason = styleHoistReason( entry, styleIndex++, match[ 1 ], match[ 2 ] );
 			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
-			if ( reason || ! style ) {
+			if ( reason || !style ) {
 				recordStyleHoistDiagnostic( styleHoistDiagnostics, {
 					sourceUrl: entry.url,
 					reason: reason ?? 'unsafe_attributes',
@@ -2039,12 +2016,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		left[ 0 ].localeCompare( right[ 0 ] )
 	) ) {
 		if ( ! canHoistStyles ) continue;
-		if ( new Set( occurrences.map( ( occurrence ) => occurrence.entry.htmlPath ) ).size < 2 )
-			continue;
+		if ( new Set( occurrences.map( ( occurrence ) => occurrence.entry.htmlPath ) ).size < 2 ) continue;
 		const style = occurrences[ 0 ];
 		const contentHash = createHash( 'sha256' ).update( style.css ).digest( 'hex' );
-		const relativePath =
-			stylesheetPaths.get( contentHash ) ?? `assets/css/capture-${ contentHash }.css`;
+		const relativePath = stylesheetPaths.get( contentHash ) ?? `assets/css/capture-${ contentHash }.css`;
 		const destination = join( websiteDir, relativePath );
 		if ( ! stylesheetPaths.has( contentHash ) ) {
 			mkdirSync( dirname( destination ), { recursive: true } );
@@ -2209,8 +2184,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
 		).length,
 		initial_dialog_count: initialDialogs.length,
-		initial_captured_count: initialDialogs.filter( ( state ) => state.status === 'captured' )
-			.length,
+		initial_captured_count: initialDialogs.filter( ( state ) => state.status === 'captured' ).length,
 		initial_dismissal_verified_count: initialDialogs.filter(
 			( state ) => state.dismissal?.verified
 		).length,

@@ -7,7 +7,7 @@ import { registeredPlatforms, resolvePlatform } from '../platform/registry.js';
 import type { PlatformAdapter } from '../types.js';
 
 function registeredAdapters(): PlatformAdapter[] {
-  return registeredPlatforms() as PlatformAdapter[];
+	return registeredPlatforms() as PlatformAdapter[];
 }
 
 /**

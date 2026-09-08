@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { connectBrowser } from '../browser-kit/index.js';
+import { wireCapturedDialogs } from '../static-dialogs.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
 import { captureScreenshots } from './screenshotter.js';
 
@@ -51,7 +52,7 @@ function makePage() {
 
 describe( 'captureScreenshots interactions', () => {
 	it.each( [
-		{ name: 'mobile first', viewportIds: [ 'mobile', 'desktop' ] as const, expectedCalls: 1 },
+		{ name: 'mobile first', viewportIds: [ 'mobile', 'desktop' ] as const, expectedCalls: 2 },
 		{
 			name: 'desktop false candidate first',
 			viewportIds: [ 'desktop', 'mobile' ] as const,
@@ -107,7 +108,7 @@ describe( 'captureScreenshots interactions', () => {
 						{
 							status: 'no-dialog',
 							trigger: {
-								selector: '#desktop-false-candidate',
+								selector: '#tianna-mobile-menu',
 								tag: 'button',
 								ariaHaspopup: 'dialog',
 								dataBindings: {},
@@ -155,18 +156,81 @@ describe( 'captureScreenshots interactions', () => {
 				const manifest = JSON.parse(
 					readFileSync( join( outputDir, 'screenshots', 'manifest.json' ), 'utf8' )
 				);
-				expect( manifest.entries[ 'https://example.com/tianna' ].interactions ).toMatchObject( {
+					expect( manifest.entries[ 'https://example.com/tianna' ].interactions ).toMatchObject( {
 					viewport: { width: 390, height: 844 },
 					states: [
 						{
 							status: 'captured',
 							trigger: { tag: 'button', ariaHaspopup: 'dialog' },
 						},
-					],
-				} );
+						],
+					} );
+					expect( manifest.entries[ 'https://example.com/tianna' ].interactions.states ).toHaveLength( 1 );
 			} finally {
 				rmSync( outputDir, { recursive: true, force: true } );
 			}
 		}
 	);
+
+	it.each( [
+		{ name: 'desktop first', viewportIds: [ 'desktop', 'mobile' ] as const },
+		{ name: 'mobile first', viewportIds: [ 'mobile', 'desktop' ] as const },
+	] )( 'retains distinct desktop and mobile dialogs with $name', async ( { viewportIds } ) => {
+		const outputDir = mkdtempSync( join( LOCAL_TMP, 'ss-' ) );
+		const desktopPage = makePage();
+		const mobilePage = makePage();
+		const pages = viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) );
+		const captureDialogs = vi.mocked( captureTriggeredDialogs );
+		captureDialogs.mockReset();
+		captureDialogs.mockImplementation( async ( page, sourceUrl ) => ( {
+			schema: 'data-liberation/interaction-states/v1',
+			sourceUrl,
+			viewport:
+				( page as unknown ) === mobilePage ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+			capturedAt: '2026-09-08T00:00:00.000Z',
+			states: [ {
+				status: 'captured',
+				trigger: {
+					selector: ( page as unknown ) === mobilePage ? '#mobile-menu' : '#desktop-dialog',
+					id: ( page as unknown ) === mobilePage ? 'mobile-menu' : 'desktop-dialog',
+					tag: 'button',
+					ariaHaspopup: 'dialog',
+					dataBindings: {},
+				},
+				dialog: {
+					selector: '#dialog', tag: 'nav', ariaModal: true,
+					html: '<nav><a href="/about">About</a></nav>', htmlBytes: 37, htmlTruncated: false,
+				},
+			} ],
+		} ) );
+
+		const connect = connectBrowser as ReturnType< typeof vi.fn >;
+		connect.mockReset();
+		connect.mockResolvedValue( {
+			newContext: vi.fn().mockImplementation( () => Promise.resolve( {
+				newPage: vi.fn().mockResolvedValue( pages.shift()! ),
+				addInitScript: vi.fn().mockResolvedValue( undefined ), close: vi.fn().mockResolvedValue( undefined ),
+			} ) ),
+			close: vi.fn().mockResolvedValue( undefined ),
+		} );
+
+		try {
+			await captureScreenshots( {
+				urls: [ 'https://example.com/mobile-menu' ], outputDir, concurrency: 1, settleMs: 0, captureImages: true,
+				viewports: viewportIds.map( ( id ) => id === 'mobile' ? { id, width: 390, height: 844 } : { id, width: 1440, height: 900 } ),
+			} );
+			expect( captureDialogs ).toHaveBeenCalledTimes( 2 );
+			const manifest = JSON.parse( readFileSync( join( outputDir, 'screenshots', 'manifest.json' ), 'utf8' ) );
+			const states = manifest.entries[ 'https://example.com/mobile-menu' ].interactions.states;
+			expect( states ).toHaveLength( 2 );
+			expect( states.map( ( state: { trigger: { selector: string } } ) => state.trigger.selector ) ).toEqual(
+				expect.arrayContaining( [ '#desktop-dialog', '#mobile-menu' ] )
+			);
+			expect( wireCapturedDialogs(
+				'<html><head></head><body><button id="desktop-dialog">Desktop</button><button id="mobile-menu">Mobile</button></body></html>', states
+			).match( /<details class="dla-disclosure">/g ) ).toHaveLength( 2 );
+		} finally {
+			rmSync( outputDir, { recursive: true, force: true } );
+		}
+	} );
 } );

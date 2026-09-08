@@ -134,9 +134,7 @@ export async function learnAndApplyFluidGeometry(
 								continue;
 							}
 						}
-						const match = new RegExp(
-							`(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px`
-						).exec( style );
+						const match = new RegExp( `(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px` ).exec( style );
 						values[ property ] = match ? Number( match[ 1 ] ) : null;
 					}
 					return { id: element.getAttribute( attribute )!, values, containers };
@@ -157,12 +155,7 @@ export async function learnAndApplyFluidGeometry(
 		options.onProgress?.( width, measured.length );
 	}
 
-	const learned: Array< {
-		id: string;
-		property: string;
-		css: string;
-		fallbackCss: string | null;
-	} > = [];
+	const learned: Array< { id: string; property: string; css: string; fallbackCss: string | null } > = [];
 	const byKind: Record< string, number > = {};
 	const breakpoints = new Set< number >();
 	let canvasFloor: number | null = null;

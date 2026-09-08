@@ -21,7 +21,7 @@ Execute the drawn pair with precision. Bold maximalism and refined minimalism ca
 
 ## Concept and Direction
 
-Every site gets one signature concept and one artistic direction, both chosen before any code is written. The concept is the one structural idea a visitor remembers — a cover made of four tiles, a site laid out sideways, a page read like a newspaper — and it is about layout only: the shape of the page and how sections relate to the viewport. The direction is everything the concept leaves open — color, type, surfaces, shapes, how imagery is treated, how things move — and any direction must be able to dress any concept. A Swiss typographic Checkerboard and a Risograph Checkerboard share a grid and nothing else.
+Every site gets one signature concept and one artistic direction, both chosen before any code is written. The concept is the one structural idea a visitor remembers — a cover made of four tiles, a site laid out sideways, a page read like a newspaper — and it is about layout only: the shape of the page and how sections relate to the viewport. The direction is everything the concept leaves open — color, type, surfaces, shapes, how imagery is treated, how things move — and any direction must be able to dress any concept. A Swiss typographic Checkerboard and a Neo-brutalist Checkerboard share a grid and nothing else.
 
 The two pools at the end of this runbook are random samples from the two catalogs, and they change on every load. You shortlist; the `pick_design` tool draws. The draw exists only for what the brief leaves open: the user's words always win over the catalog, on both sides. Work from the pools like this:
 

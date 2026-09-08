@@ -94,16 +94,6 @@ Imagery: photos with a black border and offset shadow; flat illustrations with t
 Motion: hover moves the element by `translate(-2px, -2px)` and grows its shadow to `8px 8px`; a running marquee (a `translateX` loop, paused under reduced motion); no fades.
 Avoid: soft shadows, gradients, rounded corners, thin type, muted colors.
 
-## Risograph
-The page looks printed on a two-color risograph: a paper ground, two or three spot inks that overprint into a third color where they overlap, grainy fills, slightly misregistered headlines, and flat illustrative shapes. Analog, tactile, and warm, with the imperfection as the charm.
-Palette: paper `#f6f1e7`; two inks such as blue `#2f4bd6` and fluorescent orange `#ff6b35`, or teal `#0b8a8f` and pink `#ff4f8b`; black `#1b1b1b` for body text; overlaps rendered with `mix-blend-mode: multiply`.
-Type: a bold grotesk or chunky serif (Archivo, Young Serif, or Work Sans at 800) for headlines at `clamp(2.5rem, 7vw, 6rem)`; body in a plain sans (Karla or Work Sans) at 1rem/1.55; misregistration by duplicating the headline in the second ink via a `::before` with `content: attr(data-text)`, offset 3px, `mix-blend-mode: multiply`.
-Surface: paper with a fine grain (an inline SVG `feTurbulence` noise as `background-image` at 6–8% opacity); ink fields at 85–95% opacity so the grain shows through; no drop shadows.
-Shapes: flat rectangles and circles in the inks, halftone-dot tints from `radial-gradient` patterns, rough 2px rules, slight rotations on stickers and captions; square or barely rounded corners.
-Imagery: photos converted to one ink (`filter: grayscale(1) contrast(1.3)` with the ink overlaid via `mix-blend-mode: multiply` on a colored field), or flat illustrations in the two inks; never full-color photography.
-Motion: minimal — hover swaps a button's ink; a small misregistration shift on hover (`translate(2px, -2px)` on the duplicate layer).
-Avoid: gradients, full-color imagery, more than three inks, drop shadows, pure white.
-
 ## Book
 The site is set like a well-made book: a warm white page, one text serif at a comfortable reading size, a measure of about sixty-five characters, real italics and small caps, a drop cap opening each section, and a wide outer margin that holds dates and marginal notes. The body text is the design; nothing competes with it.
 Palette: page `#fbf7ef`, ink `#1f1c18`, one rubrication accent (brick `#9a3b2b`) for drop caps, links, and marginal notes; no other color.

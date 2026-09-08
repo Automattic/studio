@@ -18,6 +18,10 @@ bash .buildkite/commands/install-node-dependencies.sh
 # show up as untracked/deleted files, not just modified ones — check the
 # whole dist/ status, not only the diff.
 echo '--- :package: Verify data-liberation plugin bundles are fresh'
+# The vendored plugin commits bundles generated from its own lockfile. Studio's
+# workspace can hoist compatible but different transitive dependencies, which
+# changes otherwise canonical esbuild output.
+npm ci --prefix packages/data-liberation-agent --workspaces=false --ignore-scripts --no-audit --no-fund
 npm -w data-liberation run build:mcp-bundle
 if [[ -n "$(git status --porcelain -- packages/data-liberation-agent/dist)" ]]; then
   git status --porcelain -- packages/data-liberation-agent/dist

@@ -134,7 +134,9 @@ export async function learnAndApplyFluidGeometry(
 								continue;
 							}
 						}
-						const match = new RegExp( `(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px` ).exec( style );
+						const match = new RegExp(
+							`(?:^|;)\\s*${ property }\\s*:\\s*(\\d+(?:\\.\\d+)?)px`
+						).exec( style );
 						values[ property ] = match ? Number( match[ 1 ] ) : null;
 					}
 					return { id: element.getAttribute( attribute )!, values, containers };
@@ -155,7 +157,12 @@ export async function learnAndApplyFluidGeometry(
 		options.onProgress?.( width, measured.length );
 	}
 
-	const learned: Array< { id: string; property: string; css: string; fallbackCss: string | null } > = [];
+	const learned: Array< {
+		id: string;
+		property: string;
+		css: string;
+		fallbackCss: string | null;
+	} > = [];
 	const byKind: Record< string, number > = {};
 	const breakpoints = new Set< number >();
 	let canvasFloor: number | null = null;
@@ -188,7 +195,11 @@ export async function learnAndApplyFluidGeometry(
 			);
 			if ( viewportOnly.kind !== 'breakpoint' ) fallbackCss = viewportOnly.css;
 		}
-		learned.push( { id, property, css: model.css, fallbackCss } );
+		// A captured runtime can give a parent a definite height that disappears
+		// when its scripts are removed. A viewport fit keeps a learned height
+		// definite in the static document instead of collapsing to 0px.
+		const css = property === 'height' && fallbackCss !== null ? fallbackCss : model.css;
+		learned.push( { id, property, css, fallbackCss } );
 	}
 
 	// Restore the capture viewport BEFORE writing the learned CSS. Returning to

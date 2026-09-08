@@ -93,6 +93,54 @@ describe( 'captureTriggeredDialogs', () => {
 	);
 
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'preserves an event-created navigation dialog without claiming a menu-shaped no-op',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
+					<button id="site-menu" type="button" aria-label="Menu">Menu</button>
+					<button id="no-op-menu" type="button" aria-label="Menu">Menu</button>
+					<script>
+						document.querySelector('#site-menu').addEventListener('click', () => {
+							const menu = document.createElement('nav');
+							menu.id = 'site-navigation';
+							menu.className = 'captured-navigation';
+							menu.setAttribute('aria-label', 'Site');
+							menu.style.cssText = 'position:fixed;inset:0;background:white';
+							menu.innerHTML = '<a href="/about">About</a><button type="button" aria-label="Close">Close</button>';
+							menu.querySelector('button').addEventListener('click', () => menu.remove());
+							document.body.append(menu);
+						});
+					</script>
+				</body>` );
+
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toMatchObject( [
+					{ status: 'captured', trigger: { id: 'site-menu', label: 'Menu' }, dialog: { id: 'site-navigation', tag: 'nav', ariaLabel: 'Site' } },
+					{ status: 'no-dialog', trigger: { id: 'no-op-menu', label: 'Menu' } },
+				] );
+
+				const portable = wireCapturedDialogs(
+					'<!doctype html><html><head><style>.captured-navigation{display:none}</style></head><body><button id="site-menu" type="button" aria-label="Menu">Menu</button><button id="no-op-menu" type="button" aria-label="Menu">Menu</button></body></html>',
+					report.states
+				);
+				await page.setContent( portable );
+				await page.locator( 'details.dla-disclosure summary' ).click();
+				expect(
+					await page
+						.locator( 'details.dla-disclosure[open] [role="dialog"] a[href="/about"]' )
+						.isVisible()
+				).toBe( true );
+				expect( await page.locator( '#no-op-menu' ).count() ).toBe( 1 );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'captures a bounded inert snapshot after a dialog trigger click',
 		async () => {
 			const browser = await chromium.launch( { headless: true } );

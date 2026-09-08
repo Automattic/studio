@@ -10,6 +10,7 @@ const DISCLOSURE_CSS =
 	'details.dla-disclosure>summary::-webkit-details-marker{display:none}' +
 	'details.dla-disclosure:not([open])>.dla-dialog{display:none!important}' +
 	'details.dla-disclosure[open]>.dla-dialog{display:block;position:fixed;inset:0;z-index:2147483646;overflow:auto;background:#fff}' +
+	'details.dla-disclosure[open]>.dla-dialog>:first-child{display:block!important;visibility:visible!important;opacity:1!important}' +
 	'details.dla-initial-dialog>summary{position:fixed;z-index:2147483647;right:1rem;top:1rem}' +
 	'details.dla-initial-dialog:not([open])>summary{display:none!important}';
 

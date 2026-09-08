@@ -32,7 +32,6 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -769,11 +768,6 @@ export async function runCommand( options: {
 		},
 	};
 
-	// Surface remote-session daemon status in the editor's bottom bar. Cheap
-	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL.
-	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
-
 	// --- Main loop ---
 	try {
 		while ( true ) {
@@ -783,7 +777,7 @@ export async function runCommand( options: {
 			// Match exact-prompt by default (preserves the legacy behavior where
 			// `/clear foo` falls through to the AI agent). Commands that opt into
 			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/remote-session start` route to the right handler.
+			// inputs like `/command arg` route to the right handler.
 			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
 			const cmd = trimmedPrompt.startsWith( '/' )
 				? getActiveSlashCommands().find( ( c ) =>
@@ -818,7 +812,6 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
-		stopDaemonStatusPolling();
 		ui.stop();
 		process.exit( 0 );
 	}
@@ -858,9 +851,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point used by the
-			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden so it doesn't clutter `--help` for direct callers.
+			// `--message-from-stdin` is the headless turn entry point for external
+			// drivers. It stays hidden so it doesn't clutter `--help` for direct callers.
 			chain = chain.option( 'message-from-stdin', {
 				type: 'boolean',
 				hidden: true,

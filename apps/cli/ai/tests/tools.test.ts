@@ -881,52 +881,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( emitEvent ).not.toHaveBeenCalled();
 	} );
 
-	describe( 'share_screenshot gating', () => {
-		it( 'omits share_screenshot when remoteSession is not set', () => {
-			const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-			expect( names ).toContain( 'take_screenshot' );
-		} );
-
-		it( 'omits share_screenshot when remoteSession is false', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: false,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-		} );
-
-		it( 'includes share_screenshot when remoteSession is true', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: true,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).toContain( 'share_screenshot' );
-		} );
-
-		it( 'can force dark mode when sharing a screenshot', async () => {
-			const screenshotBuffer = Buffer.from( 'shared-png' );
-			const page = createMockPage( { buffer: screenshotBuffer } );
-			mockScreenshotBrowser( page );
-
-			const result = await getTool( 'share_screenshot' ).rawHandler( {
-				url: 'http://localhost:8903/',
-				colorScheme: 'dark',
-			} as never );
-
-			expect( page.emulateMedia ).toHaveBeenCalledWith( {
-				reducedMotion: 'reduce',
-				colorScheme: 'dark',
-			} );
-			expect( emitEvent ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					type: 'media.share',
-					mimeType: 'image/png',
-					dataBase64: screenshotBuffer.toString( 'base64' ),
-				} )
-			);
-			expect( getTextContent( result ) ).toContain( 'dark mode' );
-		} );
-	} );
-
 	it( 'creates previews for a resolved local site', async () => {
 		const result = await getTool( 'preview_create' ).rawHandler( {
 			nameOrPath: 'My Site',

@@ -197,13 +197,10 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
 	} );
 
-	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
-		// The Telegram user cannot open local file paths; delivery is covered
-		// by the remote-session share_screenshot guidance instead.
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+	it( 'includes the terminal screenshot caveat for terminal sessions', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
-		expect( prompt ).not.toContain( '## Screenshots' );
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
-		expect( prompt ).toContain( '## Telegram remote session' );
+		expect( prompt ).toContain( '## Screenshots' );
+		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 } );

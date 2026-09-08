@@ -325,7 +325,6 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
@@ -341,24 +340,17 @@ async function createStudioAgentSession(
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
-					remoteSession,
 					userInstructions,
 			  }
 			: {
 					chatArtifactsEnabled,
-					remoteSession,
 					runtime,
 					userInstructions,
 					imageGenerationEnabled,
 			  }
 	);
 
-	const tools = buildAgentTools(
-		config,
-		chatArtifactsEnabled,
-		remoteSession,
-		imageGenerationEnabled
-	);
+	const tools = buildAgentTools( config, chatArtifactsEnabled, imageGenerationEnabled );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -675,7 +667,6 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean,
 	imageGenerationEnabled: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
@@ -736,7 +727,6 @@ function buildAgentTools(
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
-		remoteSession,
 		imageGeneration: imageGenerationEnabled,
 	} ) as unknown as AgentToolAny[];
 	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );

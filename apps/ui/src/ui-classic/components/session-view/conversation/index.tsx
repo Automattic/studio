@@ -60,7 +60,6 @@ import {
 	search,
 	seen,
 	settings,
-	share,
 	styles as stylesIcon,
 	tag,
 	tool,
@@ -658,8 +657,6 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return search;
 		case 'refresh_browser':
 			return refreshIcon;
-		case 'share_screenshot':
-			return share;
 		case 'validate_blocks':
 			return check;
 		case 'scaffold_theme':

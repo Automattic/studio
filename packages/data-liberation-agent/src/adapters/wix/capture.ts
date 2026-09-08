@@ -17,14 +17,14 @@ const WIX_FILL_VARIANT = /static\.wixstatic\.com\/.+\/fill\/w_\d+,h_\d+/;
  *
  * Pure, so the URL shape this depends on is testable without a browser.
  */
-export function wixStaticMediaUrl(
-	uri: string,
-	size?: { width: number; height: number }
-): string {
+export function wixStaticMediaUrl( uri: string, size?: { width: number; height: number } ): string {
 	if ( /^https?:/i.test( uri ) ) return uri;
 	if ( ! size ) return `https://static.wixstatic.com/media/${ uri }`;
 	const file = uri.split( '/' ).pop() || uri;
-	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max( 1, Math.round( size.width ) ) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
+	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max(
+		1,
+		Math.round( size.width )
+	) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
 }
 
 function escapeAttr( value: string ): string {
@@ -41,7 +41,9 @@ export function stripShowcaseMarkup(
 	const imgs = items
 		.map( ( item ) => {
 			const alt = escapeAttr( item.alt || item.title || '' );
-			return `<img src="${ escapeAttr( wixStaticMediaUrl( item.uri, { width, height } ) ) }" alt="${ alt }">`;
+			return `<img src="${ escapeAttr(
+				wixStaticMediaUrl( item.uri, { width, height } )
+			) }" alt="${ alt }">`;
 		} )
 		.join( '' );
 	const html = `<div class="dla-slideshow"><div class="dla-slideshow-track">${ imgs }</div></div>`;
@@ -56,7 +58,9 @@ export function stripShowcaseMarkup(
 	frames += '100%{transform:translateX(0)}';
 	const css =
 		'.dla-slideshow{overflow:hidden;width:100%;height:100%;position:relative}' +
-		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${ count * 2 }s infinite}` +
+		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${
+			count * 2
+		}s infinite}` +
 		'.dla-slideshow-track img{flex:0 0 100%;width:100%;height:100%;object-fit:cover}' +
 		`@keyframes dla-slideshow{${ frames }}` +
 		'@media (prefers-reduced-motion:reduce){.dla-slideshow{overflow-x:auto;scroll-snap-type:x mandatory}.dla-slideshow-track{animation:none}.dla-slideshow-track img{scroll-snap-align:start}}';
@@ -76,10 +80,15 @@ const WIX_SLIDESHOW_SELECTOR = '.wixui-slideshow';
 const WIX_SLIDESHOW_LIMIT = 4;
 const WIX_SLIDE_LIMIT = 6;
 
-export function preserveWixSlideshowSlides(
-	{ slideshowIndex, slides }: { slideshowIndex: number; slides: string[] }
-): void {
-	const slideshow = document.querySelectorAll< HTMLElement >( WIX_SLIDESHOW_SELECTOR )[ slideshowIndex ];
+export function preserveWixSlideshowSlides( {
+	slideshowIndex,
+	slides,
+}: {
+	slideshowIndex: number;
+	slides: string[];
+} ): void {
+	const slideshow =
+		document.querySelectorAll< HTMLElement >( WIX_SLIDESHOW_SELECTOR )[ slideshowIndex ];
 	const wrapper = slideshow?.querySelector< HTMLElement >( '[data-testid="slidesWrapper"]' );
 	if ( ! slideshow || ! wrapper || slides.length < 2 ) return;
 	const fragment = document.createDocumentFragment();
@@ -104,22 +113,37 @@ export function preserveWixSlideshowSlides(
 	}
 }
 
-function snapshotWixSlide( page: Page, slideshowIndex: number ): Promise< { html: string; key: string } | null > {
+function snapshotWixSlide(
+	page: Page,
+	slideshowIndex: number
+): Promise< { html: string; key: string } | null > {
 	return page.evaluate( ( index ) => {
 		const slideshow = document.querySelectorAll< HTMLElement >( '.wixui-slideshow' )[ index ];
 		const slide = slideshow?.querySelector< HTMLElement >( '[data-testid="slidesWrapper"] > *' );
 		if ( ! slide ) return null;
-		const media = [ ...slide.querySelectorAll< HTMLImageElement >( 'img' ) ].map( ( image ) => image.currentSrc || image.src );
-		return { html: slide.outerHTML, key: `${ slide.textContent?.replace( /\s+/g, ' ' ).trim() }\n${ media.join( '\n' ) }` };
+		const media = [ ...slide.querySelectorAll< HTMLImageElement >( 'img' ) ].map(
+			( image ) => image.currentSrc || image.src
+		);
+		return {
+			html: slide.outerHTML,
+			key: `${ slide.textContent?.replace( /\s+/g, ' ' ).trim() }\n${ media.join( '\n' ) }`,
+		};
 	}, slideshowIndex );
 }
 
 export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
 	const count = await page.locator( WIX_SLIDESHOW_SELECTOR ).count();
-	for ( let slideshowIndex = 0; slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT ); slideshowIndex++ ) {
+	for (
+		let slideshowIndex = 0;
+		slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT );
+		slideshowIndex++
+	) {
 		try {
-			const next = page.locator( WIX_SLIDESHOW_SELECTOR ).nth( slideshowIndex ).locator( 'button[data-testid="nextButton"]' );
-			if ( await next.count() !== 1 ) continue;
+			const next = page
+				.locator( WIX_SLIDESHOW_SELECTOR )
+				.nth( slideshowIndex )
+				.locator( 'button[data-testid="nextButton"]' );
+			if ( ( await next.count() ) !== 1 ) continue;
 			const slides: string[] = [];
 			const seen = new Set< string >();
 			for ( let step = 0; step < WIX_SLIDE_LIMIT; step++ ) {
@@ -130,7 +154,8 @@ export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
 				await next.click();
 				await page.waitForTimeout( 250 );
 			}
-			if ( slides.length > 1 ) await page.evaluate( preserveWixSlideshowSlides, { slideshowIndex, slides } );
+			if ( slides.length > 1 )
+				await page.evaluate( preserveWixSlideshowSlides, { slideshowIndex, slides } );
 		} catch {
 			// One uncooperative Wix widget must not prevent capture of the others.
 		}
@@ -151,10 +176,7 @@ export async function settleWixNavigation( viewport: 'desktop' | 'mobile' ): Pro
 		const rect = element.getBoundingClientRect();
 		const style = getComputedStyle( element );
 		return (
-			rect.width > 0 &&
-			rect.height > 0 &&
-			style.display !== 'none' &&
-			style.visibility !== 'hidden'
+			rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
 		);
 	};
 	const reveal = ( list: Element ) => {
@@ -182,7 +204,7 @@ export async function settleWixNavigation( viewport: 'desktop' | 'mobile' ): Pro
 		if ( toggle && visible( toggle ) ) {
 			toggle.click();
 			await waitForFrame();
-			toggle.remove();
+			// Retain the authored trigger so conversion can emit responsive navigation.
 		}
 		const lists = Array.from( document.querySelectorAll( 'header ul' ) );
 		lists.sort(
@@ -343,8 +365,10 @@ export const capture: LiberationHooks = {
 						.filter( ( name ) => name.includes( '/pages/thunderbolt' ) )
 				),
 			];
-			const itemsByComp: Record< string, Array< { uri: string; alt?: string; title?: string } > > =
-				{};
+			const itemsByComp: Record<
+				string,
+				Array< { uri: string; alt?: string; title?: string } >
+			> = {};
 			for ( const url of urls ) {
 				try {
 					const data = ( await ( await fetch( url ) ).json() ) as {
@@ -421,7 +445,8 @@ export const capture: LiberationHooks = {
 		// Deciding which are Wix variants happens here, where it can be tested.
 		const urls = await page.evaluate( () =>
 			[ ...document.querySelectorAll( 'img' ) ].map(
-				( image ) => ( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
+				( image ) =>
+					( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
 			)
 		);
 		const variants: Record< string, string > = {};

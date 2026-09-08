@@ -107,7 +107,10 @@ describe( 'preserveWixSlideshowSlides', () => {
 			<div class="wixui-slideshow"><div data-testid="slidesWrapper"><article role="region"><h2>First review</h2><p>First complete testimonial.</p><img src="first.jpg" alt="First"></article></div></div>
 		</body></html>` );
 		const originalDocument = globalThis.document;
-		Object.defineProperty( globalThis, 'document', { configurable: true, value: dom.window.document } );
+		Object.defineProperty( globalThis, 'document', {
+			configurable: true,
+			value: dom.window.document,
+		} );
 		try {
 			preserveWixSlideshowSlides( {
 				slideshowIndex: 0,
@@ -123,10 +126,19 @@ describe( 'preserveWixSlideshowSlides', () => {
 			expect( slides[ 1 ]?.textContent ).toContain( 'Second complete testimonial.' );
 			expect( slides[ 1 ]?.querySelector( 'img' )?.getAttribute( 'src' ) ).toBe( 'second.jpg' );
 			expect( slides[ 0 ]?.getAttribute( 'role' ) ).toBe( 'region' );
-			expect( dom.window.document.querySelector( '.wixui-slideshow' )?.getAttribute( 'data-dla-captured-slideshow' ) ).toBe( 'true' );
-			expect( dom.window.document.querySelector( '#dla-wix-captured-slideshow-css' )?.textContent ).toContain( 'display:none!important' );
+			expect(
+				dom.window.document
+					.querySelector( '.wixui-slideshow' )
+					?.getAttribute( 'data-dla-captured-slideshow' )
+			).toBe( 'true' );
+			expect(
+				dom.window.document.querySelector( '#dla-wix-captured-slideshow-css' )?.textContent
+			).toContain( 'display:none!important' );
 		} finally {
-			Object.defineProperty( globalThis, 'document', { configurable: true, value: originalDocument } );
+			Object.defineProperty( globalThis, 'document', {
+				configurable: true,
+				value: originalDocument,
+			} );
 		}
 	} );
 } );
@@ -134,7 +146,7 @@ describe( 'preserveWixSlideshowSlides', () => {
 describe( 'collectWixSlideshowSlides', () => {
 	it( 'stops at a repeated runtime state and installs the distinct snapshots', async () => {
 		let clicks = 0;
-		const next = { count: async () => 1, click: async () => void ( clicks++ ) };
+		const next = { count: async () => 1, click: async () => void clicks++ };
 		const root = {
 			count: async () => 1,
 			nth: () => ( { locator: () => next } ),
@@ -183,10 +195,14 @@ describe( 'wix capture', () => {
 		` );
 		vi.stubGlobal( 'document', dom.window.document );
 		vi.stubGlobal( 'getComputedStyle', dom.window.getComputedStyle.bind( dom.window ) );
-		vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => setTimeout( callback, 0 ) as unknown as number );
-		vi.spyOn( dom.window.HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue(
-			{ width: 10, height: 10 } as DOMRect
+		vi.stubGlobal(
+			'requestAnimationFrame',
+			( callback: FrameRequestCallback ) => setTimeout( callback, 0 ) as unknown as number
 		);
+		vi.spyOn( dom.window.HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
+			width: 10,
+			height: 10,
+		} as DOMRect );
 		await settleWixNavigation( 'desktop' );
 
 		const contact = dom.window.document.querySelector( 'a[href="/contact/"]' )!;
@@ -203,19 +219,25 @@ describe( 'wix capture', () => {
 				<ul><li aria-hidden="true" style="display:none"><a href="/contact/"><span tabindex="-1">Contact</span></a></li></ul>
 			</header>
 		` );
-		const toggle = dom.window.document.querySelector< HTMLButtonElement >( '#MENU_AS_CONTAINER_TOGGLE' )!;
+		const toggle = dom.window.document.querySelector< HTMLButtonElement >(
+			'#MENU_AS_CONTAINER_TOGGLE'
+		)!;
 		const click = vi.spyOn( toggle, 'click' );
 		vi.stubGlobal( 'document', dom.window.document );
 		vi.stubGlobal( 'getComputedStyle', dom.window.getComputedStyle.bind( dom.window ) );
-		vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => setTimeout( callback, 0 ) as unknown as number );
-		vi.spyOn( dom.window.HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue(
-			{ width: 10, height: 10 } as DOMRect
+		vi.stubGlobal(
+			'requestAnimationFrame',
+			( callback: FrameRequestCallback ) => setTimeout( callback, 0 ) as unknown as number
 		);
+		vi.spyOn( dom.window.HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
+			width: 10,
+			height: 10,
+		} as DOMRect );
 		await settleWixNavigation( 'mobile' );
 
 		const contact = dom.window.document.querySelector( 'a[href="/contact/"]' )!;
 		expect( click ).toHaveBeenCalledOnce();
-		expect( dom.window.document.querySelector( '#MENU_AS_CONTAINER_TOGGLE' ) ).toBeNull();
+		expect( dom.window.document.querySelector( '#MENU_AS_CONTAINER_TOGGLE' ) ).toBe( toggle );
 		expect( contact.closest( 'li' )?.getAttribute( 'aria-hidden' ) ).toBeNull();
 		expect( contact.closest( 'li' )?.getAttribute( 'style' ) ).toBe( '' );
 		expect( contact.querySelector( '[tabindex]' ) ).toBeNull();

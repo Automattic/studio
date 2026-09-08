@@ -14,7 +14,8 @@ function readFrameBackgroundColor(): string {
  * Studio's current frame background, read from `--color-frame-bg` so the two
  * never drift.
  *
- * Feed this to `@wordpress/ui`'s `ThemeProvider` as its `color.bg` seed: WPDS
+ * Feed this to `@wordpress/theme`'s `ThemeProvider` as its `color.background`
+ * seed: WPDS
  * derives its whole ramp from that seed, and without one it falls back to the
  * light-only values built into `@wordpress/theme` — which is why a WPDS
  * component renders a light card on Studio's dark chrome.

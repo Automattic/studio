@@ -32,7 +32,7 @@ fi
 # missing from SKILL_DRIVERS would fail only at plugin-user runtime — catch
 # the drift here instead.
 echo '--- :mag: Verify skill-invoked drivers have committed bundles'
-missing_drivers=$(grep -rhoE 'run\.mjs [a-z0-9_-]+' packages/data-liberation-agent/skills packages/data-liberation-agent/commands 2>/dev/null | awk '{print $2}' | sort -u | while read -r name; do
+missing_drivers=$({ grep -rhoE 'run\.mjs [a-z0-9_-]+' packages/data-liberation-agent/skills packages/data-liberation-agent/commands 2>/dev/null || true; } | awk '{print $2}' | sort -u | while read -r name; do
   [[ -f "packages/data-liberation-agent/dist/scripts/${name}.mjs" ]] || echo "$name"
 done)
 if [[ -n "$missing_drivers" ]]; then

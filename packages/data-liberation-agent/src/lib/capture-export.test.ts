@@ -617,6 +617,53 @@ describe( 'exportWebsiteCapture', () => {
 		expect( html ).not.toContain( "R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='s%20Day.jpg" );
 	} );
 
+	it( 'localizes a same-origin srcset whose candidate URLs contain commas', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-comma-srcset-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
+		// An image-service path carries its transform in the URL, commas and all.
+		const variant = ( width: number, height: number ) =>
+			`/media/asset~mv2.png/v1/fill/w_${ width },h_${ height },al_c,q_85,enc_avif,quality_auto/file.png`;
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body><img src="${ variant( 58, 57 ) }" srcset="${ variant( 58, 57 ) } 1x, ${ variant(
+				116,
+				114
+			) } 2x"></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+		writeFileSync( join( outputDir, 'media', 'asset.png' ), 'asset' );
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess(
+			'https://example.com/media/asset~mv2.png',
+			join( outputDir, 'media', 'asset.png' )
+		);
+		media.flush();
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( cheerio.load( html )( 'img' ).attr( 'srcset' ) ).toBe(
+			'/media/asset.png 1x, /media/asset.png 2x'
+		);
+		expect( html ).not.toContain( '/v1/fill/' );
+		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
+	} );
+
 	it( 'exports captured routes and localized media as a website directory', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

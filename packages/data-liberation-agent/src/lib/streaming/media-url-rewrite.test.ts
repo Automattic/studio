@@ -161,6 +161,19 @@ describe('rewriteMediaUrls', () => {
     expect(out).not.toContain(').png'); // the mangle signature
   });
 
+  it('does not mangle a Wix transform URL on a surface the candidate scan misses', () => {
+    const hash = 'ea71bb_2b0f0e1b9a1f4f0e9d2a5c7e1b3d4f60';
+    const base = `https://static.wixstatic.com/media/${hash}~mv2.png`;
+    const local = 'http://localhost:8884/wp-content/uploads/2026/05/hero.png';
+    const transform = `${base}/v1/fill/w_58,h_57,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/file.png`;
+    const html = `<div data-image-src="${transform}"></div><video poster="${transform}"></video>`;
+
+    const out = rewriteMediaUrls(html, new Map([[base, local]]));
+
+    expect(out).not.toContain(`${local}/v1/`); // the mangle signature
+    expect(out).toBe(html);
+  });
+
   it("rewrites Wix display filenames containing apostrophes without suffix corruption", () => {
     const hash = '670df9_dc553b632f22456e8f3e591105cdc3da';
     const base = `https://static.wixstatic.com/media/${hash}~mv2.jpg`;

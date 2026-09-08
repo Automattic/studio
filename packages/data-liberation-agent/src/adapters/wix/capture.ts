@@ -4,6 +4,7 @@
 // path: recognising a platform's CDN is exactly what an adapter is for.
 //
 import type { LiberationHooks } from '../page-actions.js';
+import type { Page } from 'playwright';
 
 /** Wix media ids look like `8e80e7_a1b2…`, stable across crops of one asset. */
 const WIX_MEDIA_ID = /([a-z0-9]{4,12}_[a-z0-9]{24,48})/i;
@@ -71,6 +72,139 @@ export function wixMediaVariant( url: string ): { id: string; url: string } | nu
 export const WIX_CAPTURE_CHROME_SELECTOR =
 	'[id="WIX_ADS"], [id$="-hiddenA11ySubMenuIndication"], [id$="__more__"]';
 
+const WIX_SLIDESHOW_SELECTOR = '.wixui-slideshow';
+const WIX_SLIDESHOW_LIMIT = 4;
+const WIX_SLIDE_LIMIT = 6;
+
+export function preserveWixSlideshowSlides(
+	{ slideshowIndex, slides }: { slideshowIndex: number; slides: string[] }
+): void {
+	const slideshow = document.querySelectorAll< HTMLElement >( WIX_SLIDESHOW_SELECTOR )[ slideshowIndex ];
+	const wrapper = slideshow?.querySelector< HTMLElement >( '[data-testid="slidesWrapper"]' );
+	if ( ! slideshow || ! wrapper || slides.length < 2 ) return;
+	const fragment = document.createDocumentFragment();
+	for ( const [ index, html ] of slides.entries() ) {
+		const template = document.createElement( 'template' );
+		template.innerHTML = html;
+		const slide = template.content.firstElementChild;
+		if ( ! slide ) continue;
+		slide.setAttribute( 'data-dla-captured-slide', String( index ) );
+		fragment.append( slide );
+	}
+	if ( fragment.childElementCount < 2 ) return;
+	wrapper.replaceChildren( fragment );
+	slideshow.dataset.dlaCapturedSlideshow = 'true';
+	if ( ! document.getElementById( 'dla-wix-captured-slideshow-css' ) ) {
+		const style = document.createElement( 'style' );
+		style.id = 'dla-wix-captured-slideshow-css';
+		style.textContent =
+			'.wixui-slideshow[data-dla-captured-slideshow="true"] [data-testid="slidesWrapper"]>[data-dla-captured-slide]{display:none!important}' +
+			'.wixui-slideshow[data-dla-captured-slideshow="true"] [data-testid="slidesWrapper"]>[data-dla-captured-slide="0"]{display:block!important}';
+		document.head.append( style );
+	}
+}
+
+function snapshotWixSlide( page: Page, slideshowIndex: number ): Promise< { html: string; key: string } | null > {
+	return page.evaluate( ( index ) => {
+		const slideshow = document.querySelectorAll< HTMLElement >( '.wixui-slideshow' )[ index ];
+		const slide = slideshow?.querySelector< HTMLElement >( '[data-testid="slidesWrapper"] > *' );
+		if ( ! slide ) return null;
+		const media = [ ...slide.querySelectorAll< HTMLImageElement >( 'img' ) ].map( ( image ) => image.currentSrc || image.src );
+		return { html: slide.outerHTML, key: `${ slide.textContent?.replace( /\s+/g, ' ' ).trim() }\n${ media.join( '\n' ) }` };
+	}, slideshowIndex );
+}
+
+export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
+	const count = await page.locator( WIX_SLIDESHOW_SELECTOR ).count();
+	for ( let slideshowIndex = 0; slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT ); slideshowIndex++ ) {
+		try {
+			const next = page.locator( WIX_SLIDESHOW_SELECTOR ).nth( slideshowIndex ).locator( 'button[data-testid="nextButton"]' );
+			if ( await next.count() !== 1 ) continue;
+			const slides: string[] = [];
+			const seen = new Set< string >();
+			for ( let step = 0; step < WIX_SLIDE_LIMIT; step++ ) {
+				const snapshot = await snapshotWixSlide( page, slideshowIndex );
+				if ( ! snapshot || seen.has( snapshot.key ) ) break;
+				seen.add( snapshot.key );
+				slides.push( snapshot.html );
+				await next.click();
+				await page.waitForTimeout( 250 );
+			}
+			if ( slides.length > 1 ) await page.evaluate( preserveWixSlideshowSlides, { slideshowIndex, slides } );
+		} catch {
+			// One uncooperative Wix widget must not prevent capture of the others.
+		}
+	}
+}
+
+/**
+ * Wix creates an overflow item and a mobile drawer only after its client
+ * runtime starts. A portable capture cannot retain that runtime, so settle the
+ * live menu into a static list of its authored destinations instead.
+ */
+export async function settleWixNavigation( viewport: 'desktop' | 'mobile' ): Promise< void > {
+	const waitForFrame = () =>
+		new Promise< void >( ( resolve ) =>
+			requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) )
+		);
+	const visible = ( element: Element ) => {
+		const rect = element.getBoundingClientRect();
+		const style = getComputedStyle( element );
+		return (
+			rect.width > 0 &&
+			rect.height > 0 &&
+			style.display !== 'none' &&
+			style.visibility !== 'hidden'
+		);
+	};
+	const reveal = ( list: Element ) => {
+		for ( const item of list.querySelectorAll< HTMLElement >( ':scope > li' ) ) {
+			if ( ! item.querySelector( 'a[href]' ) ) continue;
+			item.removeAttribute( 'aria-hidden' );
+			for ( const property of [
+				'display',
+				'visibility',
+				'opacity',
+				'height',
+				'max-height',
+				'overflow',
+				'position',
+			] ) {
+				item.style.removeProperty( property );
+			}
+			for ( const descendant of item.querySelectorAll< HTMLElement >( '[tabindex="-1"]' ) )
+				descendant.removeAttribute( 'tabindex' );
+		}
+	};
+
+	if ( viewport === 'mobile' ) {
+		const toggle = document.querySelector< HTMLElement >( '#MENU_AS_CONTAINER_TOGGLE' );
+		if ( toggle && visible( toggle ) ) {
+			toggle.click();
+			await waitForFrame();
+			toggle.remove();
+		}
+		const lists = Array.from( document.querySelectorAll( 'header ul' ) );
+		lists.sort(
+			( left, right ) =>
+				right.querySelectorAll( 'a[href]' ).length - left.querySelectorAll( 'a[href]' ).length
+		);
+		if ( lists[ 0 ] ) reveal( lists[ 0 ] );
+		return;
+	}
+
+	const more = Array.from( document.querySelectorAll< HTMLElement >( 'li[id$="__more__"]' ) ).find(
+		visible
+	);
+	if ( ! more ) return;
+	const list = more.parentElement;
+	const trigger = more.querySelector< HTMLElement >( '[data-testid="linkElement"]' ) ?? more;
+	trigger.click();
+	await waitForFrame();
+	if ( list ) reveal( list );
+	more.remove();
+}
+
 export const capture: LiberationHooks = {
 	removeSelectors: [ '[id="WIX_ADS"]', '[id$="-hiddenA11ySubMenuIndication"]' ],
 	/**
@@ -79,7 +213,8 @@ export const capture: LiberationHooks = {
 	 * that runtime is stripped. Observe where the live page settles for each
 	 * fragment and leave a real target behind.
 	 */
-	prepare: async ( page ) => {
+	prepare: async ( page, ctx ) => {
+		await page.evaluate( settleWixNavigation, ctx.viewport );
 		await page.evaluate( async ( chromeSelector ) => {
 			for ( const chrome of document.querySelectorAll( chromeSelector ) ) chrome.remove();
 
@@ -194,6 +329,10 @@ export const capture: LiberationHooks = {
 			window.scrollTo( originalScroll.x, originalScroll.y );
 			root.style.scrollBehavior = scrollBehavior;
 		}, WIX_CAPTURE_CHROME_SELECTOR );
+
+		// The mobile document keeps Wix's native layout untouched. The desktop
+		// portable source carries the bounded, static record of its runtime states.
+		if ( ctx.viewport === 'desktop' ) await collectWixSlideshowSlides( page );
 
 		const galleries = await page.evaluate( async () => {
 			const urls = [

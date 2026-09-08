@@ -831,10 +831,7 @@ function retainedMediaReferencesByFamily( entries: CaptureEntry[] ): Map< string
 			if ( src ) add( src, url );
 			const srcset = node.attr( 'srcset' );
 			if ( ! srcset ) return;
-			const urls =
-				srcset.match( /https?:\/\/[^\s"<>]+/g ) ??
-				srcset.split( ',' ).map( ( value ) => value.trim().split( /\s+/, 1 )[ 0 ] );
-			for ( const candidate of urls ) if ( candidate ) add( candidate, url );
+			for ( const candidate of srcsetReferences( srcset ) ) add( candidate, url );
 		} );
 	}
 	return families;

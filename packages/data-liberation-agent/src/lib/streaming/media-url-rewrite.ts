@@ -97,7 +97,14 @@ export function rewriteMediaUrls(
     // querystring `?`, `&`, `+` and other regex metacharacters that often
     // appear in CDN URLs.
     const safe = escapeRegex(source);
-    out = out.replace(new RegExp(safe, 'g'), () => local);
+    // Longest-first only removes the mangle for transform urls the candidate
+    // scan reached. A transform url on any other surface - a `data-` attribute,
+    // a `<source src>`, a `<video poster>` - never enters `replacements`, so the
+    // shorter base entry is still free to match its prefix and leave
+    // `<local>/v1/fill/.../img.jpg` behind. A mapped url followed by `/` is a
+    // longer path, so it names a different resource: keeping the remote url is
+    // correct there, while a mangled local path is a 404.
+    out = out.replace(new RegExp(`${safe}(?!/)`, 'g'), () => local);
   }
 
   return out;

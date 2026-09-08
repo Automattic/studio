@@ -117,15 +117,29 @@ describe('captureScreenshots', () => {
 
 	it('reflects property-only media state before serializing HTML', async () => {
 		const page = {
-			evaluate: vi.fn().mockResolvedValue(undefined),
+			evaluate: vi.fn().mockResolvedValue(false),
+			waitForTimeout: vi.fn(),
 			content: vi.fn().mockResolvedValue('<html><video autoplay muted></video></html>'),
 		};
 
 		await expect(capturePageHtml(page as never)).resolves.toContain('<video autoplay muted>');
 		expect(page.evaluate).toHaveBeenCalledTimes(2);
 		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.setAttribute(property');
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.currentSrc || source.src');
 		expect(String(page.evaluate.mock.calls[0][0])).toContain('frame.getBoundingClientRect()');
 		expect(String(page.evaluate.mock.calls[1][0])).toContain('frame.removeAttribute(attribute)');
+	});
+
+	it('waits only while source-less video elements are pending runtime hydration', async () => {
+		const page = {
+			evaluate: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValue(undefined),
+			waitForTimeout: vi.fn().mockResolvedValue(undefined),
+			content: vi.fn().mockResolvedValue('<html><video src="https://cdn.example.test/video.mp4"></video></html>'),
+		};
+
+		await capturePageHtml(page as never);
+		expect(page.waitForTimeout).toHaveBeenCalledTimes(1);
+		expect(page.waitForTimeout).toHaveBeenCalledWith(200);
 	});
 
   it('captures two viewports and one HTML per URL', async () => {

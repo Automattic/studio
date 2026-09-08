@@ -201,9 +201,13 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 		width: 'data-dla-visual-iframe-width',
 		height: 'data-dla-visual-iframe-height',
 	};
-	await page.evaluate( ( evidenceAttributes ) => {
+	const hydrateMediaSources = () => page.evaluate( ( evidenceAttributes ) => {
+		let pendingVideoSource = false;
 		for ( const media of document.querySelectorAll( 'audio, video' ) ) {
 			const source = media as HTMLMediaElement;
+			const resolvedSource = source.currentSrc || source.src;
+			if ( resolvedSource ) source.setAttribute( 'src', resolvedSource );
+			else if ( source instanceof HTMLVideoElement ) pendingVideoSource = true;
 			for ( const property of [ 'autoplay', 'loop', 'muted' ] as const ) {
 				if ( source[ property ] ) source.setAttribute( property, '' );
 			}
@@ -236,7 +240,13 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 			frame.setAttribute( evidenceAttributes.width, String( Math.max( 1, Math.round( bounds.width ) ) ) );
 			frame.setAttribute( evidenceAttributes.height, String( Math.max( 1, Math.round( bounds.height ) ) ) );
 		}
+		return pendingVideoSource;
 	}, iframeEvidenceAttributes );
+	// Some runtimes attach media URLs after their player shell is visible. Give
+	// only pages with source-less video elements a bounded chance to settle.
+	for ( let attempt = 0; attempt < 10 && ( await hydrateMediaSources() ) === true; attempt++ ) {
+		await page.waitForTimeout( 200 );
+	}
 	try {
 		return await page.content();
 	} finally {

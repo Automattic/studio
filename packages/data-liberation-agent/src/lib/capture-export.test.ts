@@ -2105,6 +2105,56 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( css ).toContain( 'data:image/svg+xml;base64,PHN2Zz4=' );
 	} );
 
+	it( 'uses a captured browser image when the primary media download failed', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-browser-media-fallback-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'resources/external' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const source = 'https://cdn.example/icons/feature.png?resize=88%2C87';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<main><img src="${ source }" width="41" height="87"></main>`
+		);
+		writeFileSync( join( outputDir, 'resources', 'external', 'feature.webp' ), 'webp' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					[ source ]: {
+						path: 'resources/external/feature.webp',
+						contentType: 'image/webp',
+					},
+				},
+				failures: [],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		media.markFailure( source, 'HTTP 403' );
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( 'src="/external/feature.webp"' );
+		expect( html ).not.toContain( 'data:image/gif;base64,' );
+		expect( readFileSync( join( outputDir, 'website', 'external', 'feature.webp' ), 'utf8' ) ).toBe(
+			'webp'
+		);
+	} );
+
 	it( 'keeps portable media within the artifact capacity left after routes and resources', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-budget-' ) );
 		dirs.push( outputDir );

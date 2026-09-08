@@ -1269,24 +1269,13 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 				// scale 1 because its viewport is already small enough that
 				// further reduction loses layout detail. See types.ts for the
 				// rationale.
-				// The mobile viewport emulates a real mobile device (mobile UA + isMobile
-				// + touch), not just a narrow desktop window. JS builders like Wix decide
-				// desktop-vs-mobile layout from the user agent / device, NOT viewport
-				// width alone — without emulation Wix serves its desktop DOM at 390px and
-				// the captured "mobile" fragment never reflows. Chromium-only flags.
-				const isMobileVp = viewport.id !== 'desktop';
+				// Capture responsive layout from one browser identity at each viewport.
+				// A mobile UA can make builders serve a different site rather than the
+				// narrow rendition of the source page readers reach by resizing.
 				context = await browser.newContext( {
 					viewport: { width: viewport.width, height: viewport.height },
 					deviceScaleFactor: viewport.id === 'desktop' ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
 					ignoreHTTPSErrors: true,
-					...( isMobileVp
-						? {
-								isMobile: true,
-								hasTouch: true,
-								userAgent:
-									'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-						  }
-						: {} ),
 				} );
 				// tsx/esbuild's keepNames transform wraps named const arrows with
 				// `__name(fn, 'name')` calls; that helper doesn't exist in the browser

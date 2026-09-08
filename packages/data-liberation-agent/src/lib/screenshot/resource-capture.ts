@@ -131,9 +131,6 @@ function resourcePath( url: URL, contentType = '', sourceOrigin?: string ): stri
 	const querySuffix = url.search
 		? `-${ createHash( 'sha256' ).update( url.search ).digest( 'hex' ).slice( 0, 12 ) }`
 		: '';
-	const pathWithSuffix = /\.[a-z0-9]+$/i.test( cleanPath )
-		? cleanPath.replace( /(\.[a-z0-9]+)$/i, `${ querySuffix }$1` )
-		: undefined;
 	const extension = new Map( [
 		[ 'video/mp4', '.mp4' ],
 		[ 'video/webm', '.webm' ],
@@ -141,7 +138,18 @@ function resourcePath( url: URL, contentType = '', sourceOrigin?: string ): stri
 		[ 'audio/mpeg', '.mp3' ],
 		[ 'audio/ogg', '.ogg' ],
 		[ 'audio/wav', '.wav' ],
+		[ 'image/avif', '.avif' ],
+		[ 'image/gif', '.gif' ],
+		[ 'image/jpeg', '.jpg' ],
+		[ 'image/png', '.png' ],
+		[ 'image/svg+xml', '.svg' ],
+		[ 'image/webp', '.webp' ],
 	] ).get( contentType.split( ';', 1 )[ 0 ].trim().toLowerCase() );
+	// CDNs can transcode a URL ending in .png to WebP. Store the response under
+	// its declared format so a static server supplies a matching MIME type offline.
+	const pathWithSuffix = /\.[a-z0-9]+$/i.test( cleanPath )
+		? cleanPath.replace( /(\.[a-z0-9]+)$/i, `${ querySuffix }${ extension ?? '$1' }` )
+		: undefined;
 	const path =
 		pathWithSuffix ??
 		( extension

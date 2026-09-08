@@ -299,6 +299,33 @@ describe( 'CapturedResourceStore', () => {
 		}
 	} );
 
+	it( 'uses the response image format when a CDN transcodes a misleading URL extension', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+		dirs.push( outputDir );
+		const page = new EventEmitter();
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/' );
+		store.observe( page as never );
+		page.emit( 'response', {
+			url: () => 'https://cdn.example/icons/feature.png?resize=88%2C87',
+			status: () => 200,
+			headers: () => ( { 'content-type': 'image/webp' } ),
+			body: vi.fn().mockResolvedValue( Buffer.from( 'webp' ) ),
+			request: () => ( { resourceType: () => 'image', method: () => 'GET' } ),
+		} );
+		await store.settle( page as never );
+		await store.flush();
+
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		const resource = manifest.resources[ 'https://cdn.example/icons/feature.png?resize=88%2C87' ];
+		expect( resource ).toMatchObject( {
+			path: expect.stringMatching( /feature-[a-f0-9]{12}\.webp$/ ),
+			contentType: 'image/webp',
+		} );
+		expect( readFileSync( join( outputDir, resource.path ) ) ).toEqual( Buffer.from( 'webp' ) );
+	} );
+
 	it( 'fetches lazy DOM dependencies and nested CSS imports missed by responses', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
 		dirs.push( outputDir );

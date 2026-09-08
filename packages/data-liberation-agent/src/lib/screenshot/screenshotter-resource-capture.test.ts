@@ -70,12 +70,13 @@ describe( 'screenshot resource capture', () => {
 		const outputDir = mkdtempSync( join( parent, 'screenshot-resources-' ) );
 		mocks.captureDomDependencies.mockClear();
 		mocks.getReplayableResponse.mockReset();
-		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
-			newContext: vi.fn().mockImplementation( async ( options: { isMobile?: boolean } ) => ( {
-				newPage: vi.fn().mockResolvedValue( makePage( options.isMobile === true ) ),
+		const newContext = vi.fn().mockImplementation( async ( options: { viewport?: { width: number } } ) => ( {
+			newPage: vi.fn().mockResolvedValue( makePage( options.viewport?.width === 390 ) ),
 				addInitScript: vi.fn().mockResolvedValue( undefined ),
 				close: vi.fn().mockResolvedValue( undefined ),
-			} ) ),
+			} ) );
+		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			newContext,
 			close: vi.fn().mockResolvedValue( undefined ),
 		} );
 
@@ -93,6 +94,11 @@ describe( 'screenshot resource capture', () => {
 				expect.stringContaining( 'mobile-only.jpg' ),
 				'https://example.com/'
 			);
+			const mobileContext = newContext.mock.calls[ 1 ][ 0 ];
+			expect( mobileContext ).toMatchObject( { viewport: { width: 390, height: 844 } } );
+			expect( mobileContext ).not.toHaveProperty( 'isMobile' );
+			expect( mobileContext ).not.toHaveProperty( 'hasTouch' );
+			expect( mobileContext ).not.toHaveProperty( 'userAgent' );
 		} finally {
 			rmSync( outputDir, { recursive: true, force: true } );
 		}
@@ -121,9 +127,9 @@ describe( 'screenshot resource capture', () => {
 			headers: { 'access-control-allow-origin': '*' },
 		} );
 		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
-			newContext: vi.fn().mockImplementation( async ( options: { isMobile?: boolean } ) => ( {
+			newContext: vi.fn().mockImplementation( async ( options: { viewport?: { width: number } } ) => ( {
 				newPage: vi.fn().mockResolvedValue(
-					makePage( options.isMobile === true, routedRequest )
+					makePage( options.viewport?.width === 390, routedRequest )
 				),
 				addInitScript: vi.fn().mockResolvedValue( undefined ),
 				close: vi.fn().mockResolvedValue( undefined ),

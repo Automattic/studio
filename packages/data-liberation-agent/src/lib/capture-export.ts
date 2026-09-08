@@ -1706,8 +1706,20 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		let html = readFileSync( entry.htmlPath, 'utf8' );
 		for ( const dependency of dependencyReferences( html, entry.url ) ) {
 			const mediaReplacement = mediaReplacements.get( dependency.reference );
-			if ( mediaReplacement && ! /^(?:https?:)?\/\//i.test( mediaReplacement ) ) continue;
-			if ( ! copyResource( dependency, entry.url ) ) {
+			if (
+				mediaReplacement &&
+				mediaReplacement !== TRANSPARENT_IMAGE_DATA_URL &&
+				! /^(?:https?:)?\/\//i.test( mediaReplacement )
+			)
+				continue;
+			if ( copyResource( dependency, entry.url ) ) {
+				// A browser-captured response is a faithful bounded fallback when the
+				// independent media fetch failed. Let its local replacement win.
+				if ( mediaReplacement === TRANSPARENT_IMAGE_DATA_URL ) {
+					mediaReplacements.delete( dependency.reference );
+					mediaReplacements.delete( dependency.url );
+				}
+			} else {
 				html =
 					dependency.kind === 'media'
 						? removeDanglingMediaSource( html, dependency.reference, rejectedReplacementKeys )

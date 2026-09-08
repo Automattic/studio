@@ -123,3 +123,33 @@ Shapes: rectangles only, square corners; boxed sidebars with a 1px ink border an
 Imagery: black-and-white halftone (`filter: grayscale(1) contrast(1.15)` under a `radial-gradient` dot pattern with `mix-blend-mode: multiply`), each photo with an italic caption and a credit; images sit inside the column grid, never full-bleed.
 Motion: none; hover underlines a headline in the red.
 Avoid: color photography, rounded corners, drop shadows, a hero image above the masthead, wide unfilled whitespace.
+
+## Playful
+Bright, rounded, and friendly: a white or pale ground, a candy palette of three or four saturated colors, a chunky rounded display face, blob and pill shapes, sticker badges, flat illustrations with thick outlines, and small bouncy motion. Fun for a kids' brand, an ice cream shop, a toy store, or a festival, without tipping into chaos.
+Palette: ground `#fffdf7`, ink `#22223b`, and three or four candy colors — coral `#ff6b6b`, sunflower `#ffd93d`, mint `#6bcb77`, sky `#4d96ff` — each section leading with one and using the others as accents; tints of them at 15% for backgrounds.
+Type: a chunky rounded display face (Fredoka, Baloo 2, or Nunito at 800–900) for headlines at `clamp(2.5rem, 7vw, 6rem)` with `line-height: 1`, often with one word in a second candy color; body in a rounded sans (Nunito or Quicksand) at 1.0625rem/1.6; labels in uppercase with wide tracking inside pills.
+Surface: flat candy fills; soft colored shadows in the element's own hue (`box-shadow: 0 8px 0 <darker tint>`) on buttons and cards for a toy-like thickness; no gradients.
+Shapes: blobs (`border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%`) behind images and as section dividers, pills everywhere (`border-radius: 999px`), rotated sticker badges (`transform: rotate(-6deg)`) with a thick white border, wavy section edges from an inline SVG; nothing sharp.
+Imagery: bright photography cropped into blobs or circles, or flat illustrations with thick dark outlines in the palette colors; icons bold and rounded.
+Motion: buttons press down on hover (the offset shadow shrinks, 120ms); badges wobble once on first view; a slow float on blob accents; all bouncy easing (`cubic-bezier(0.34, 1.56, 0.64, 1)`), off under reduced motion.
+Avoid: muted tones, thin type, sharp corners, black borders, drop shadows in gray, more than four candy colors.
+
+## Mid-century retro
+The optimism of the 1950s and 60s: cream and mustard, teal and burnt orange, a friendly geometric sans with a script accent, atomic starbursts and boomerang shapes, halftone dots, and rounded rectangles with generous padding. Warm, nostalgic, and neat, like a diner menu or an airline brochure.
+Palette: cream `#f4ead5`, mustard `#e0a52b`, teal `#2a7f7a`, burnt orange `#d35b2c`, walnut `#3a2a1f` for text; sections alternate cream and one saturated field with cream text.
+Type: a geometric or humanist sans with round terminals (Josefin Sans, Poppins, or Outfit) for headlines at `clamp(2.25rem, 6vw, 5rem)`, weight 600–700, sometimes uppercase with wide tracking; one script or brush face (Pacifico, Kaushan Script, or Yellowtail) for a single accent word or the tagline, never for body; body in a humanist sans (Work Sans or Karla) at 1rem/1.6.
+Surface: flat warm fields; a fine halftone-dot texture (`radial-gradient` pattern at 6–8% opacity) on saturated sections; no drop shadows; 2px rules in walnut.
+Shapes: starbursts from `repeating-conic-gradient` or an inline SVG as accents behind numbers and badges, boomerang and kidney shapes as `border-radius`-heavy blobs, rounded rectangles (`border-radius: 16px`) on cards and buttons, diagonal section dividers via `clip-path`; slight asymmetry.
+Imagery: photography with a warm faded grade (`filter: sepia(0.2) contrast(0.95) saturate(1.1)`), cropped into rounded rectangles or circles; flat illustrations with a limited palette welcome.
+Motion: starbursts rotate very slowly (60s loop, off under reduced motion); hover shifts a card up 3px and swaps its accent color; nothing else.
+Avoid: pure white, cool grays, neon, thin hairline type, glass or blur effects, more than one script word per section.
+
+## Noir
+Black ground, white type, monochrome photography, and one cold accent: the site is a darkroom print. Contrast does the work, images carry the mood, and everything else stays out of the way. For photographers, nightlife, fashion, studios, and anything that wants to feel expensive after dark.
+Palette: black `#0b0b0c`, charcoal `#161618` for panels, white `#f2f2f0` for text, gray `#8a8a8a` for secondary text, one cold accent (steel blue `#5b8def` or acid lime `#c8ff3d`) used only for links, one rule, and the call to action.
+Type: a tight grotesk (Inter Tight, Archivo, or Manrope) at weight 500–600 for headlines at `clamp(2.5rem, 7vw, 6.5rem)` with `letter-spacing: -0.03em` and `line-height: 0.95`, or a high-contrast serif (Playfair Display) for a more fashion feel; body at 1rem/1.6 in white at 80% opacity; small uppercase labels with `letter-spacing: 0.14em` in gray.
+Surface: flat black; panels in charcoal separated by 1px rules in white at 12% opacity; no drop shadows; an optional fine film grain (an inline SVG `feTurbulence` noise at 4–5% opacity).
+Shapes: square corners; hairlines; large images with no borders; generous black space between sections; the accent as a single 2px rule under the hero headline.
+Imagery: monochrome photography (`filter: grayscale(1) contrast(1.1)`), large and frequent, with a gradient scrim toward black at the edge that meets text; captions in the label style; an optional slow reveal of an image from black.
+Motion: slow fades from black (800ms) as images enter the viewport; hover brightens an image slightly (`filter: brightness(1.1)`); link underline in the accent; nothing bouncy.
+Avoid: color photography, rounded corners, gradients other than scrims, gray backgrounds lighter than charcoal, more than one accent.

@@ -46,6 +46,8 @@ import type { Browser, BrowserContext, Page } from 'playwright';
  */
 const SCROLL_OFFSET_RATIO = 1.5;
 const ANALYSIS_SAMPLE_LIMIT = 1;
+const IPHONE_13_USER_AGENT =
+	'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
 /**
  * Per-URL capture pipeline:
@@ -736,11 +738,10 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		}
 	}
 
-	// --- narrow-viewport DOM carry ---------------------------------------------
-	// The narrow pass keeps the same browser identity and only reduces the viewport
-	// width. Persist that settled document (scripts stripped, so it renders statically)
-	// + its height to html-mobile/. The alt reconstruct carries it in a
-	// viewport-isolated iframe. Best-effort: a miss leaves the page desktop-only.
+	// --- mobile-DOM carry (mobile only) ---------------------------------------
+	// On the mobile pass, the mobile UA + isMobile emulation make JS builders like
+	// Wix serve their separate mobile DOM. Persist that full document (scripts
+	// stripped, so it renders statically) + its height to html-mobile/.
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
 			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );
@@ -1277,12 +1278,14 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 				// scale 1 because its viewport is already small enough that
 				// further reduction loses layout detail. See types.ts for the
 				// rationale.
-				// Capture responsive layout from one browser identity at each viewport.
-				// A mobile UA can make builders serve a different site rather than the
-				// narrow rendition of the source page readers reach by resizing.
+				// Mobile capture must use a real mobile browser identity because builders
+				// can select viewport metadata, navigation, and layout from it.
 				context = await browser.newContext( {
 					viewport: { width: viewport.width, height: viewport.height },
-					deviceScaleFactor: viewport.id === 'desktop' ? SCREENSHOT_DEVICE_SCALE_FACTOR : 1,
+					deviceScaleFactor: viewport.id === 'desktop' ? SCREENSHOT_DEVICE_SCALE_FACTOR : 3,
+					...( viewport.id === 'mobile'
+						? { isMobile: true, hasTouch: true, userAgent: IPHONE_13_USER_AGENT }
+						: {} ),
 					ignoreHTTPSErrors: true,
 				} );
 				// tsx/esbuild's keepNames transform wraps named const arrows with

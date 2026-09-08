@@ -95,10 +95,13 @@ describe( 'screenshot resource capture', () => {
 				'https://example.com/'
 			);
 			const mobileContext = newContext.mock.calls[ 1 ][ 0 ];
-			expect( mobileContext ).toMatchObject( { viewport: { width: 390, height: 844 } } );
-			expect( mobileContext ).not.toHaveProperty( 'isMobile' );
-			expect( mobileContext ).not.toHaveProperty( 'hasTouch' );
-			expect( mobileContext ).not.toHaveProperty( 'userAgent' );
+			expect( mobileContext ).toMatchObject( {
+				viewport: { width: 390, height: 844 },
+				deviceScaleFactor: 3,
+				isMobile: true,
+				hasTouch: true,
+				userAgent: expect.stringContaining( 'iPhone' ),
+			} );
 		} finally {
 			rmSync( outputDir, { recursive: true, force: true } );
 		}

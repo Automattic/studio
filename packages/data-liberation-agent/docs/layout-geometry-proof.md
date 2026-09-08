@@ -1,0 +1,7 @@
+# Layout Geometry Proof Producer
+
+Browser capture can emit the optional `blocks-engine/php-transformer/layout-geometry-proof/v1` artifact field. The field is producer-neutral evidence for a measured wrapper reduction; it does not require a Blocks Engine capture adapter.
+
+Each route records bounded desktop and mobile `default` observations in `layout-geometry/<slug>.<viewport>.json`. The sidecars contain temporary identities, source and simulated boxes, and computed display, position, visibility, and child-count facts. Identities survive capture normalization only; export resolves them to the final structural selectors and removes every `data-dla-geometry-id` marker before materializing website HTML.
+
+Export resolves identities against the normalized route DOM, verifies each resulting selector against the exact marker-free website bytes, derives SHA-256 source hashes and deterministic node IDs, and includes only reductions that preserve the wrapper and target boxes within one pixel at every recorded viewport. Explicit semantic and retained-runtime checks preserve landmark, ARIA, form, navigation, interactive, and script-referenced wrappers while inert generated attributes remain eligible. Missing, stale, malformed, unsafe, and over-limit observations are omitted. `layout-geometry-report.json` uses the Blocks Engine proof schema and records accepted reductions plus producer-namespaced capture omissions.

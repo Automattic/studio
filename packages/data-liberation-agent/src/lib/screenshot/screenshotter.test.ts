@@ -2,6 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+const { learnAndApplyFluidGeometryMock } = vi.hoisted( () => ( {
+	learnAndApplyFluidGeometryMock: vi.fn( async () => ( {
+		applied: 0,
+		unmodelled: 0,
+		breakpoints: [],
+		canvasFloor: null,
+		byKind: {},
+	} ) ),
+} ) );
+
 // Use a cwd-local tmp dir so validateOutputDir (which rejects paths outside
 // cwd) accepts the test output directory.
 const LOCAL_TMP = join(process.cwd(), '.tmp-test');
@@ -22,7 +32,12 @@ vi.mock('../browser-kit/index.js', () => ({
   connectBrowser: vi.fn(),
 }));
 
-import { captureScreenshots, getHomepageUrl } from './screenshotter.js';
+vi.mock('./fluid-capture.js', async (importOriginal) => ({
+	...( await importOriginal() as Record<string, unknown> ),
+	learnAndApplyFluidGeometry: learnAndApplyFluidGeometryMock,
+}));
+
+import { capturePageHtml, captureScreenshots, geometryCandidateIsSafe, getHomepageUrl } from './screenshotter.js';
 import { classifyUrl } from '../extraction/sitemap.js';
 import { connectBrowser } from '../browser-kit/index.js';
 
@@ -72,6 +87,61 @@ function makeMockBrowser(pageFactory = () => makeGoodPage()): MockBrowser {
 }
 
 describe('captureScreenshots', () => {
+	it( 'rejects wrappers that the proof consumer cannot coalesce', () => {
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'provider-shell', 'data-hook': 'shell', id: 'shell-1' },
+			runtimeSources: [ "document.querySelector('.provider-shell')" ],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'StylableButton__root', 'data-idx': '3' },
+			runtimeSources: [],
+		} ) ).toBe( true );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { id: 'generated-3' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'div',
+			attributes: { class: 'carousel-track' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+		expect( geometryCandidateIsSafe( {
+			tag: 'nav',
+			attributes: { 'aria-label': 'Primary' },
+			runtimeSources: [],
+		} ) ).toBe( false );
+	} );
+
+	it('reflects property-only media state before serializing HTML', async () => {
+		const page = {
+			evaluate: vi.fn().mockResolvedValue(false),
+			waitForTimeout: vi.fn(),
+			content: vi.fn().mockResolvedValue('<html><video autoplay muted></video></html>'),
+		};
+
+		await expect(capturePageHtml(page as never)).resolves.toContain('<video autoplay muted>');
+		expect(page.evaluate).toHaveBeenCalledTimes(2);
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.setAttribute(property');
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('source.currentSrc || source.src');
+		expect(String(page.evaluate.mock.calls[0][0])).toContain('frame.getBoundingClientRect()');
+		expect(String(page.evaluate.mock.calls[1][0])).toContain('frame.removeAttribute(attribute)');
+	});
+
+	it('waits only while source-less video elements are pending runtime hydration', async () => {
+		const page = {
+			evaluate: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValue(undefined),
+			waitForTimeout: vi.fn().mockResolvedValue(undefined),
+			content: vi.fn().mockResolvedValue('<html><video src="https://cdn.example.test/video.mp4"></video></html>'),
+		};
+
+		await capturePageHtml(page as never);
+		expect(page.waitForTimeout).toHaveBeenCalledTimes(1);
+		expect(page.waitForTimeout).toHaveBeenCalledWith(200);
+	});
+
   it('captures two viewports and one HTML per URL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ss-'));
     try {
@@ -81,6 +151,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 2,
         settleMs: 0,
+        captureImages: true,
       });
       expect(result.captured).toBe(2);
       expect(result.failed).toBe(0);
@@ -92,6 +163,37 @@ describe('captureScreenshots', () => {
       const manifest = JSON.parse(readFileSync(join(dir, 'screenshots', 'manifest.json'), 'utf8'));
       expect(manifest.version).toBe(1);
       expect(Object.keys(manifest.entries)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('captures the prepared visual reference immediately before serializing HTML', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ss-'));
+    const pages: ReturnType<typeof makeGoodPage>[] = [];
+    try {
+		learnAndApplyFluidGeometryMock.mockClear();
+      (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser(() => {
+        const page = makeGoodPage();
+        pages.push(page);
+        return page;
+      }));
+      await captureScreenshots({
+        urls: ['https://example.com/a'],
+        outputDir: dir,
+        concurrency: 1,
+        settleMs: 0,
+        captureImages: true,
+		learnFluid: true,
+      });
+      expect(pages).toHaveLength(2);
+	  expect(learnAndApplyFluidGeometryMock).toHaveBeenCalledTimes(1);
+	  expect(learnAndApplyFluidGeometryMock.mock.invocationCallOrder[0]).toBeLessThan(
+		pages[0].screenshot.mock.invocationCallOrder[0],
+	  );
+      expect(pages[0].screenshot.mock.invocationCallOrder[0]).toBeLessThan(
+        pages[0].content.mock.invocationCallOrder[0],
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -225,6 +327,7 @@ describe('captureScreenshots', () => {
         outputDir: dir,
         concurrency: 1,
         settleMs: 0,
+        captureImages: true,
       });
       // Capture should succeed overall — fullpage captured, scrolled skipped silently.
       expect(result.captured).toBe(1);

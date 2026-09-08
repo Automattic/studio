@@ -81,20 +81,45 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// Copy the committed data-liberation-agent/dist into the dist/cli/data-liberation-agent.
+// Copy the fresh data-liberation-agent/dist into dist/cli/data-liberation-agent.
 function copyDataLiberationEngine( outDir: string ) {
 	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
+	const captureBundlePath = resolve(
+		dataLiberationSourcePath,
+		'dist',
+		'capture-engine.bundle.mjs'
+	);
+	const cliPath = resolve( dataLiberationSourcePath, 'dist', 'cli.js' );
 	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
-	if ( ! existsSync( serverBundlePath ) || ! existsSync( scriptsDistPath ) ) {
+	if ( ! existsSync( serverBundlePath ) || ! existsSync( captureBundlePath ) ) {
 		throw new Error(
 			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
-				'Run `npm -w data-liberation run build:mcp-bundle` and commit the updated artifacts.'
+				'Run `npm -w data-liberation run build` and commit the updated artifacts.'
+		);
+	}
+
+	if ( ! existsSync( cliPath ) ) {
+		execSync( 'npx tsc -p tsconfig.json && node scripts/copy-runtime-assets.mjs', {
+			cwd: dataLiberationSourcePath,
+			stdio: 'inherit',
+		} );
+	}
+
+	if ( ! existsSync( cliPath ) ) {
+		throw new Error(
+			'Data Liberation CLI is not compiled. Run `npm -w data-liberation run build` and try again.'
 		);
 	}
 
 	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
 	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
-	copyFileSync( serverBundlePath, resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' ) );
+	cpSync( resolve( dataLiberationSourcePath, 'dist' ), resolve( engineOutDir, 'dist' ), {
+		recursive: true,
+	} );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'package.json' ),
+		resolve( engineOutDir, 'package.json' )
+	);
 	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
 		recursive: true,
 	} );
@@ -102,9 +127,11 @@ function copyDataLiberationEngine( outDir: string ) {
 	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
 	// Ship the launcher plus the self-contained driver bundles it falls back to
 	// when no dev dependencies resolve next to it (dist/scripts/).
-	cpSync( scriptsDistPath, resolve( engineOutDir, 'dist', 'scripts' ), {
-		recursive: true,
-	} );
+	if ( existsSync( scriptsDistPath ) ) {
+		cpSync( scriptsDistPath, resolve( engineOutDir, 'dist', 'scripts' ), {
+			recursive: true,
+		} );
+	}
 	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
 	copyFileSync(
 		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),

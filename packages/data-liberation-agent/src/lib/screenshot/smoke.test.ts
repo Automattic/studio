@@ -51,6 +51,7 @@ describe.skipIf(process.env.SKIP_BROWSER_TESTS)('screenshot smoke (real Chromium
         urls: [`http://127.0.0.1:${port}/a.html`, `http://127.0.0.1:${port}/b.html`],
         outputDir,
         concurrency: 1,
+        captureImages: true,
       });
       // Core contract: both URLs produced PNG + HTML and landed a manifest
       // entry. We don't assert `failed === 0` because analyzePage runs via

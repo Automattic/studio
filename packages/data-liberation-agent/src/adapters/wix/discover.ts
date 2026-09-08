@@ -2,6 +2,7 @@ import { classifyUrl, parseSitemapXml } from '../../lib/extraction/sitemap.js';
 import { ensureUrlScheme } from '../../lib/url/index.js';
 import { launchBrowser } from '../../lib/browser-kit/index.js';
 import { withTimeout } from '../../lib/concurrency.js';
+import { discoverLinkedRoutes } from './discovery-links.js';
 import { RENDERER_CALL_TIMEOUT_MS } from './page.js';
 import type { InventoryUrl } from '../shared.js';
 import type { NavLink } from '../../lib/html-extract/index.js';
@@ -118,30 +119,25 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
       await fetchSitemapPw(`${baseUrl}/${subSitemap}`, 0, true);
     }
 
-    // 2. If sitemap is empty, crawl homepage for same-origin links
-    let allUrls = sitemapUrls;
-    if (allUrls.length === 0) {
-      try {
-        // See comment at the page-extraction goto above — Wix's
-        // background telemetry prevents `networkidle` from ever
-        // resolving.
-        await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await p.waitForTimeout(4000);
-        const origin = new URL(url).origin;
-        allUrls = (await withTimeout(p.evaluate((orig: unknown) => {
-          const o = orig as string;
-          return [
-            ...new Set(
-              [...document.querySelectorAll('a[href]')]
-                .map((a) => (a as HTMLAnchorElement).href)
-                .filter((h) => h.startsWith(o) && !h.includes('#'))
-            ),
-          ];
-        }, origin), RENDERER_CALL_TIMEOUT_MS, 'wix discover homepage links')) as string[];
-      } catch {
-        // crawl failed
-      }
-    }
+    // 2. Merge sitemap inventory with a bounded rendered-link crawl. Wix can
+    // advertise broken dynamic child sitemaps while linked routes remain public.
+    const linkedDiscovery = await discoverLinkedRoutes({
+      siteUrl: url,
+      initialUrls: sitemapUrls,
+      maxPages: sitemapUrls.length > 0 ? 10 : 100,
+      loadLinks: async (routeUrl) => {
+        await p.goto(routeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await p.waitForTimeout(750);
+        return (await withTimeout(p.evaluate(() => [
+          ...new Set(
+            [...document.querySelectorAll('a[href]')]
+              .map((anchor) => (anchor as HTMLAnchorElement).href)
+              .filter(Boolean)
+          ),
+        ]), RENDERER_CALL_TIMEOUT_MS, 'wix discover linked routes')) as string[];
+      },
+    });
+    const allUrls = linkedDiscovery.urls;
 
     // 3. Extract navigation from homepage
     let navigation: NavLink[] = [];
@@ -208,6 +204,18 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
       navigation,
       counts,
       urls: inventoryUrls,
+      diagnostics: [
+        ...sitemapFailures.map((failure) => ({
+          code: 'wix_sitemap_fetch_failed',
+          url: failure.url,
+          reason: failure.reason,
+        })),
+        ...linkedDiscovery.failures.map((failure) => ({
+          code: 'wix_link_discovery_failed',
+          url: failure.url,
+          reason: failure.reason,
+        })),
+      ],
     };
     } finally {
       await close();

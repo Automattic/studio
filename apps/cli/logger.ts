@@ -3,6 +3,10 @@ import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
+function shouldUsePlainOutput(): boolean {
+	return Boolean( process.env.CI ) || ! process.stdout.isTTY;
+}
+
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
 function canSend(): boolean {
@@ -53,6 +57,8 @@ export class Logger< T extends string > {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			this.spinner.setText( message );
 			if ( ! this.spinner.running ) {
@@ -66,6 +72,8 @@ export class Logger< T extends string > {
 			this.onProgress( message, true );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -79,6 +87,8 @@ export class Logger< T extends string > {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -94,6 +104,8 @@ export class Logger< T extends string > {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -111,6 +123,8 @@ export class Logger< T extends string > {
 			this.onProgress( error.message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( error.message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();

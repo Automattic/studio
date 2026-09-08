@@ -77,6 +77,10 @@ export class SectionSpecsStore {
     return new SectionSpecsStore(join(outputDir, 'sections'));
   }
 
+  static loadMobile(outputDir: string): SectionSpecsStore {
+    return new SectionSpecsStore(join(outputDir, 'sections-mobile'));
+  }
+
   /** Absolute path of the spec file for a URL (keyed by slugify(url)). */
   pathFor(sourceUrl: string): string {
     return join(this.dir, `${slugify(sourceUrl)}.json`);

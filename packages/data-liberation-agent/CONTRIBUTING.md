@@ -1,21 +1,20 @@
 # Contributing
 
-This repo improves through real-world migration experience. Every migration surfaces new platform behaviors, better extraction techniques, and edge cases. This document explains how to contribute those findings back — and is written so that an AI agent can follow it without human assistance.
+This repo improves through real-world experience. Every site liberated surfaces new platform behaviours, better capture techniques, and edge cases. This document explains how to contribute those findings back — and is written so that an AI agent can follow it without human assistance.
 
 ## What to contribute
 
 **Good contributions:**
-- New API endpoints or data sources discovered during extraction
-- Better handling for content types we didn't cover (e.g. events, video, galleries)
+- New route sources or discovery techniques found while liberating a site
 - Fixes for adapters that broke because a platform changed something
-- Better WordPress block mappings for platform layout elements
-- Extraction improvements (faster, more complete, fewer failures)
-- New platform adapters (see the `/adapt` skill)
-- Product extraction improvements (better variant handling, missing fields)
+- Capture improvements: fidelity, completeness, speed, fewer failures
+- Checks that make the fidelity gate catch something it currently misses
+- New platform adapters
+- New publish targets
 
 **Not what this repo is for:**
-- General WordPress development help
-- WordPress.com feature requests
+- Destination-specific reconstruction. The deliverable is HTML; where it goes afterwards belongs behind a publish target
+- Pipeline phases exposed as new MCP tools. The surface is the product's three verbs
 - Unrelated site migration tools
 
 ## How to contribute (AI agents: follow these steps exactly)
@@ -24,8 +23,8 @@ This repo improves through real-world migration experience. Every migration surf
 
 ```bash
 # Fork via GitHub UI or gh CLI, then:
-git clone https://github.com/YOUR-USERNAME/studio.git
-cd studio/packages/data-liberation-agent
+git clone https://github.com/YOUR-USERNAME/data-liberation-agent.git
+cd data-liberation-agent
 git checkout -b improvement/short-description-of-what-you-found
 ```
 
@@ -115,20 +114,21 @@ A maintainer (human or AI with repo access) will review the PR. If the discovery
 
 ```
 src/
-  adapters/       Platform-specific extraction (godaddy-wm.ts, hostinger.ts, hubspot.ts, shared.ts, shopify.ts, squarespace.ts, webflow.ts, weebly.ts, wix.ts)
+  adapters/       Platform knowledge: detect, discover, and capture seams
   lib/
-    extraction/   WXR builder, sitemap, media, detection, extraction log
-    import/       WordPress REST API importer, WooCommerce CSV
-    features/     Platform feature detection
-    setup/        WordPress connection validation
-    verification/ Post-extraction verification
-  ui/             Ink CLI components (discover, inspect, verify, setup, import)
-  mcp-server.ts   MCP server with 8 tools
+    capture.ts      Run orchestration
+    capture-export.ts  Captured routes → the portable website/ tree
+    screenshot/     Browser work: render, settle, DOM/CSS capture, fluid learning
+    fidelity/       The compare gate: self-consistency and source fidelity
+    publish/        Publish target registry and built-in targets
+    self-contain.ts Strip anything that would still reach the network
+    resume-state/   Per-URL log, session, media stubs
+  ui/             CLI runners (liberate, compare, publish)
+  mcp-server.ts   MCP transport exposing the same three verbs
   cli.ts          CLI entry point
   types.ts        PlatformAdapter interface
-skills/           AI skill definitions (liberate, qa, diagnose, adapt)
-commands/         AI command definitions (inspect, import, verify, setup)
-scripts/          Legacy standalone scripts (Squarespace, Wix)
+skills/liberate/  The one skill, which drives the CLI
+scripts/          Build and packaging
 ```
 
 ## Questions

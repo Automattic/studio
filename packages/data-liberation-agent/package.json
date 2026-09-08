@@ -1,25 +1,47 @@
 {
   "name": "data-liberation",
   "version": "0.1.0",
-  "description": "Extract content from closed web platforms into WordPress-compatible WXR files",
+  "description": "Liberate any website into a complete, portable HTML site",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "data-liberation": "./dist/cli.js"
   },
+  "files": [
+    ".claude-plugin/",
+    ".codex-plugin/",
+    ".mcp.codex.json",
+    ".mcp.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "dist/",
+    "docs/",
+    "gemini-extension.json",
+    "scripts/",
+    "skills/",
+    "src/"
+  ],
   "scripts": {
-    "import": "tsx src/cli.ts import",
     "build": "tsc && node scripts/copy-runtime-assets.mjs && node scripts/build-mcp-bundle.mjs",
     "build:mcp-bundle": "node scripts/build-mcp-bundle.mjs",
     "copy-runtime-assets": "node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
+    "test:package": "node scripts/test-package.mjs",
     "test:watch": "vitest",
     "mcp": "tsx src/mcp-server.ts",
-    "inspect": "tsx src/cli.ts inspect",
-    "qa": "tsx src/cli.ts qa",
-    "verify": "tsx src/cli.ts verify",
-    "setup": "tsx src/cli.ts setup",
     "liberate": "tsx src/cli.ts",
-    "setup:browser": "playwright install chromium"
+    "setup:browser": "playwright install chromium",
+    "compare": "tsx src/cli.ts compare",
+    "publish": "tsx src/cli.ts publish"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -27,7 +49,7 @@
   "dependencies": {
     "@automattic/blocks-engine": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@wordpress/block-serialization-default-parser": "^5.54.0",
+    "@wordpress/block-serialization-default-parser": "^5.47.0",
     "acorn": "^8.17.0",
     "cheerio": "^1.2.0",
     "domhandler": "^5.0.3",
@@ -44,6 +66,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/papaparse": "^5.5.2",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",

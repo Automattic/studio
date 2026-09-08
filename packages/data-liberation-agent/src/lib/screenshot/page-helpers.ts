@@ -1,4 +1,4 @@
-import type { Page } from 'playwright';
+import type { Page, Request } from 'playwright';
 import { expandCollapsedContent, waitForAppWidgets } from './dynamic-content.js';
 
 /**
@@ -86,11 +86,80 @@ export async function waitForAnimations(page: Page, timeoutMs: number = 2_000): 
   }
 }
 
+const RENDER_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font', 'image', 'media' ] );
+
+function requestAffectsRenderedContent( page: Page, request: Request ): boolean {
+  const resourceType = request.resourceType();
+  if ( RENDER_RESOURCE_TYPES.has( resourceType ) ) return true;
+  if ( ! [ 'fetch', 'xhr' ].includes( resourceType ) ) return false;
+  try {
+    return new URL( request.url() ).origin === new URL( page.url() ).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** Run lazy-load work and wait until render-affecting requests become quiet. */
+export async function waitForRenderIdle(
+  page: Page,
+  action: () => Promise< unknown >,
+  quietMs: number = 500,
+  timeoutMs: number = 5_000,
+): Promise<void> {
+  if ( ! page.on || ! page.off ) {
+    await action();
+    try {
+      await page.waitForLoadState( 'networkidle', { timeout: timeoutMs } );
+    } catch {
+      /* best-effort fallback for reduced browser implementations */
+    }
+    return;
+  }
+
+  const active = new Set< Request >();
+  let lastActivity = Date.now();
+  const onRequest = ( request: Request ) => {
+    if ( ! requestAffectsRenderedContent( page, request ) ) return;
+    active.add( request );
+    lastActivity = Date.now();
+  };
+  const onFinished = ( request: Request ) => {
+    if ( ! active.delete( request ) ) return;
+    lastActivity = Date.now();
+  };
+  page.on( 'request', onRequest );
+  page.on( 'requestfinished', onFinished );
+  page.on( 'requestfailed', onFinished );
+
+  try {
+    await action();
+    const waitStarted = Date.now();
+    await new Promise< void >( ( resolve ) => {
+      const check = () => {
+        const now = Date.now();
+        if (
+          now - waitStarted >= timeoutMs ||
+          ( active.size === 0 && now - lastActivity >= quietMs )
+        ) {
+          resolve();
+          return;
+        }
+        setTimeout( check, Math.min( 50, timeoutMs - ( now - waitStarted ) ) );
+      };
+      check();
+    } );
+  } finally {
+    page.off( 'request', onRequest );
+    page.off( 'requestfinished', onFinished );
+    page.off( 'requestfailed', onFinished );
+  }
+}
+
 /**
  * Scroll from top to bottom in 500px increments with 200ms between steps, wait
- * for networkidle (5s max, best-effort), then RESTORE the top scroll state and
- * let the resulting transitions settle. Triggers lazy-loaded images so the
- * subsequent screenshot captures actual content instead of placeholders.
+ * for render-affecting requests to become quiet, then RESTORE the top scroll
+ * state and let the resulting transitions settle. Triggers lazy-loaded images
+ * so the subsequent screenshot captures actual content instead of placeholders.
  *
  * Restoring the top state matters for scroll-reactive sticky headers: the
  * scroll-through above fades/hides them, and a bare `scrollTo(0, 0)` does NOT
@@ -109,21 +178,29 @@ export async function waitForAnimations(page: Page, timeoutMs: number = 2_000): 
  * screenshot (after-snap: y 0, h:84), so scroll-reactive chrome captured
  * nondeterministically (32 css px header ghost on the replica side).
  */
-export async function triggerLazyLoad(page: Page): Promise<void> {
+export async function triggerLazyLoad(page: Page, requireNetworkIdle: boolean = false): Promise<void> {
   try {
-    await page.evaluate(async () => {
-      const step = 500;
-      const pauseMs = 200;
-      const total = document.documentElement.scrollHeight;
-      for (let y = 0; y < total; y += step) {
-        window.scrollTo({ top: y, left: 0, behavior: 'instant' });
-        await new Promise((r) => setTimeout(r, pauseMs));
+    const scroll = () =>
+      page.evaluate(async () => {
+        const step = 500;
+        const pauseMs = 200;
+        const total = document.documentElement.scrollHeight;
+        for (let y = 0; y < total; y += step) {
+          window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+          await new Promise((r) => setTimeout(r, pauseMs));
+        }
+        window.scrollTo({ top: total, left: 0, behavior: 'instant' });
+      });
+    if ( requireNetworkIdle ) {
+      await scroll();
+      try {
+        await page.waitForLoadState( 'networkidle', { timeout: 5_000 } );
+      } catch {
+        /* best-effort hydration window for the responsive geometry sweep */
       }
-      window.scrollTo({ top: total, left: 0, behavior: 'instant' });
-    });
-    try {
-      await page.waitForLoadState('networkidle', { timeout: 5_000 });
-    } catch { /* best-effort */ }
+    } else {
+      await waitForRenderIdle(page, scroll);
+    }
     // Dynamic / JS-app content: expand statically-collapsed sections, then wait for known
     // content widgets (reviews / FAQ apps) to populate — so the snapshot captures real
     // content, not an empty placeholder. Both are no-ops on ordinary pages. (See
@@ -201,7 +278,7 @@ export interface OverlayDetection {
 /** A candidate that selection decided IS an overlay, with how it scored. */
 export interface OverlayTarget {
   idx: number;
-  kind: 'takeover' | 'consent';
+  kind: 'takeover' | 'consent' | 'provider-promotion';
   score: number;
   signals: string[];
   selector: string;
@@ -215,7 +292,7 @@ export interface OverlayTarget {
 export interface DismissedOverlay {
   selector: string;
   method: 'close-click' | 'escape' | 'remove';
-  kind: 'takeover' | 'consent';
+  kind: 'takeover' | 'consent' | 'provider-promotion';
   score: number;
   signals: string[];
 }
@@ -277,6 +354,8 @@ export function scoreOverlay(
 
 const CONSENT_TEXT_RE = /\bcookies?\b|\bconsent\b|\bgdpr\b|\bccpa\b|\baccept all\b|privacy (policy|preferences)/i;
 const CONSENT_VENDOR_RE = /onetrust|cookiebot|usercentrics|termly|osano|trustarc|cookieyes/i;
+const PROVIDER_PROMOTION_TEXT_RE = /\bpowered by\b|\bcreate your own (?:unique )?website\b/i;
+const PROVIDER_SIGNUP_RE = /\b(?:sign[ -]?up|get started|start (?:your|a) (?:site|website))\b/i;
 
 /**
  * A looser, separate classifier for cookie/consent banners. They frequently do
@@ -288,6 +367,12 @@ export function isConsentBanner(c: OverlayCandidate): boolean {
   return CONSENT_TEXT_RE.test(hay) || CONSENT_VENDOR_RE.test(hay);
 }
 
+/** Hosting-platform acquisition chrome is not authored site content. */
+export function isProviderPromotion(c: OverlayCandidate): boolean {
+  const hay = `${c.text} ${c.ariaLabel ?? ''} ${c.selector}`;
+  return c.coverageRatio < 0.25 && PROVIDER_PROMOTION_TEXT_RE.test(hay) && PROVIDER_SIGNUP_RE.test(hay);
+}
+
 /**
  * Decide which candidates are overlays and in what order to dismiss them.
  * Pure. Takeovers (score ≥ threshold) first, highest score first; then consent
@@ -296,6 +381,7 @@ export function isConsentBanner(c: OverlayCandidate): boolean {
 export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
   const takeovers: OverlayTarget[] = [];
   const consents: OverlayTarget[] = [];
+  const providerPromotions: OverlayTarget[] = [];
   // `?? []` keeps this pure fn total: a partial detection result can't throw
   // (lets the mocked-browser path be a true no-op, and removes a hidden
   // dependency on dismissOverlays' try/catch).
@@ -307,7 +393,10 @@ export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
     // of the viewport — so a small age-gate dialog is still caught while a thin
     // sticky header (no modal role, tiny coverage) is not.
     const hasModalRole = c.ariaModal || c.role === 'dialog' || c.role === 'alertdialog';
-    if (score >= OVERLAY_THRESHOLD && (hasModalRole || c.coverageRatio >= 0.15)) {
+    const hasOverlayEvidence =
+      hasModalRole || c.hasCloseAffordance || c.vendorHint ||
+      (c.hasBackdrop && c.coverageRatio >= 0.15);
+    if (score >= OVERLAY_THRESHOLD && hasOverlayEvidence) {
       takeovers.push({
         idx: c.idx, kind: 'takeover', score, signals,
         selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
@@ -317,10 +406,15 @@ export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
         idx: c.idx, kind: 'consent', score, signals: [...signals, 'consent'],
         selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
       });
+    } else if (isProviderPromotion(c)) {
+      providerPromotions.push({
+        idx: c.idx, kind: 'provider-promotion', score, signals: [...signals, 'provider-promotion'],
+        selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
+      });
     }
   }
   takeovers.sort((a, b) => b.score - a.score);
-  return [...takeovers, ...consents];
+  return [...takeovers, ...consents, ...providerPromotions];
 }
 
 /**
@@ -465,10 +559,11 @@ function cleanupStamps(page: Page): Promise<void> {
  * could share a parent with a real full-viewport fixed element (hero bg / app
  * shell), and deleting that would corrupt the carried page.
  */
-function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean): Promise<void> {
-  return page.evaluate(({ i, removeBackdrop }: { i: number; removeBackdrop: boolean }) => {
+function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean, reclaimBottomSpace: boolean): Promise<void> {
+  return page.evaluate(({ i, removeBackdrop, reclaimBottomSpace }: { i: number; removeBackdrop: boolean; reclaimBottomSpace: boolean }) => {
     const el = document.querySelector(`[data-lib-overlay="${i}"]`);
     if (el) {
+      const reservedHeight = el.getBoundingClientRect().height;
       if (removeBackdrop) {
         const vpArea = (window.innerWidth || 1) * (window.innerHeight || 1) || 1;
         const parent = el.parentElement;
@@ -482,8 +577,11 @@ function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean): P
         }
       }
       el.remove();
+      if (reclaimBottomSpace && document.body.style.paddingBottom && Math.abs(parseFloat(getComputedStyle(document.body).paddingBottom) - reservedHeight) < 1) {
+        document.body.style.removeProperty('padding-bottom');
+      }
     }
-  }, { i: idx, removeBackdrop });
+  }, { i: idx, removeBackdrop, reclaimBottomSpace });
 }
 
 /**
@@ -547,7 +645,7 @@ async function dismissOne(
   // takeovers: a consent strip could share a parent with a real full-screen
   // fixed element we must not delete.
   try {
-    await forceRemoveOverlay(page, t.idx, t.kind === 'takeover');
+  await forceRemoveOverlay(page, t.idx, t.kind === 'takeover', t.kind === 'provider-promotion');
     if (!(await overlayPresent(page, t.idx))) return 'remove';
   } catch {
     /* give up on this overlay */

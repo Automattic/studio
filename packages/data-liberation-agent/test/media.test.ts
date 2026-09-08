@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { safeFilename, resolveMediaPath } from '../src/lib/media-fetch/index.js';
+import { safeFilename, resolveMediaPath } from '../src/lib/media-fetch/media.js';
 
 describe('safeFilename', () => {
   it('returns filename for first occurrence', () => {

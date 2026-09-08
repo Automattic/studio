@@ -42,7 +42,10 @@ import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -202,6 +205,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -394,6 +398,44 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'liberates a URL before handing the portable site to SSI', async () => {
+			const captureRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-source-' ) );
+			const websiteDir = path.join( captureRoot, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Liberated</main>' );
+			const liberate = vi.fn().mockResolvedValue( websiteDir );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const rmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Liberated Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			const outputBase = path.normalize( `${ mockSitePath }-source` );
+			expect( liberate ).toHaveBeenCalledWith(
+				'https://example.com',
+				outputBase,
+				expect.objectContaining( { onProgress: expect.any( Function ) } )
+			);
+			expect( copySpy ).toHaveBeenCalledWith(
+				websiteDir,
+				path.join( mockSitePath, '.studio-import', 'source' ),
+				{ recursive: true, errorOnExist: true, force: false }
+			);
+			expect( rmSpy ).toHaveBeenCalledWith( outputBase, { recursive: true, force: true } );
+		} );
+
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
@@ -575,6 +617,29 @@ describe( 'CLI: studio create', () => {
 				path.join( mockSitePath, '.studio-import', 'source' ),
 				{ recursive: true, errorOnExist: true, force: false }
 			);
+		} );
+
+		it( 'checks bundled SQLite before capturing a URL source', async () => {
+			const liberate = vi.fn();
+			vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( false );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Imported Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			expect( liberate ).not.toHaveBeenCalled();
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
+			expect( process.exitCode ).toBe( 1 );
 		} );
 
 		it( 'rejects sources outside the canonical importer contract', () => {
@@ -1254,7 +1319,7 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
+		it( 'retains a quality-failed SSI preview without reporting import success', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -1285,15 +1350,99 @@ describe( 'CLI: studio create', () => {
 					blueprint,
 					noStart: true,
 				} )
-			).rejects.toThrow( /quality gate failed/ );
+			).rejects.toThrow(
+				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
+			);
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,
 				force: true,
 			} );
 			expect( rmSpy ).not.toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
+				recursive: true,
+				force: true,
+			} );
+		} );
+
+		it( 'rejects a completed SSI receipt with failed nested quality validation', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									counts: {
+										fallback_blocks: 4,
+										unsupported_fallbacks: 4,
+									},
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 4 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+		} );
+
+		it( 'rejects a completed SSI receipt when its report summary fails quality', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: null,
+								import_report_summary: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									fallback_count: 362,
+									unsupported_fallback_count: 362,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 362 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,
 				force: true,
 			} );

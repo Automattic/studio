@@ -66,6 +66,67 @@ export async function expandCollapsedContent(page: Page): Promise<void> {
 }
 
 /**
+ * Preserve content that a disclosure runtime only mounts while one item is open.
+ * Each empty controlled region is expanded independently, reclosed, then filled
+ * with the observed source markup while it remains hidden. This runs after the
+ * visual reference so hydration cannot change screenshot geometry.
+ */
+export async function hydrateDisclosureContent(page: Page): Promise<number> {
+  try {
+    return await page.evaluate(async () => {
+      const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      const hasContent = (element: Element) =>
+        Boolean((element.textContent || '').trim()) ||
+        Boolean(element.querySelector('img,video,audio,picture,svg,canvas'));
+      let hydrated = 0;
+      for (let pass = 0; pass < 3 && hydrated < 32; pass++) {
+        const candidates = Array.from(
+          document.querySelectorAll<HTMLElement>('[aria-expanded="false"][aria-controls]:not([aria-haspopup])'),
+        )
+          .map((trigger) => {
+            const id = trigger.getAttribute('aria-controls') || '';
+            const target = id ? document.getElementById(id) : null;
+            return target?.getAttribute('role') === 'region' ? { trigger, target } : null;
+          })
+          .filter((candidate): candidate is { trigger: HTMLElement; target: HTMLElement } =>
+            Boolean(candidate && !hasContent(candidate.target)),
+          )
+          .slice(0, 32 - hydrated);
+        if (candidates.length === 0) break;
+
+        const observed: Array<{ target: HTMLElement; content: string }> = [];
+        for (const { trigger, target } of candidates) {
+          trigger.click();
+          for (let attempt = 0; attempt < 20; attempt++) {
+            if (trigger.getAttribute('aria-expanded') === 'true' && hasContent(target)) break;
+            await wait(50);
+          }
+          if (trigger.getAttribute('aria-expanded') !== 'true' || !hasContent(target)) continue;
+
+          const content = target.innerHTML;
+          trigger.click();
+          for (let attempt = 0; attempt < 10; attempt++) {
+            if (trigger.getAttribute('aria-expanded') === 'false') break;
+            await wait(50);
+          }
+          await wait(50);
+          observed.push({ target, content });
+        }
+        for (const { target, content } of observed) {
+          if (!hasContent(target)) target.innerHTML = content;
+          target.dataset.dlaHydratedDisclosure = 'true';
+        }
+        hydrated += observed.length;
+        await wait(100);
+      }
+      return hydrated;
+    });
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Phase 2 — when a known third-party content widget is on the page, wait until it has
  * actually populated (its container gains child content / text) before we snapshot, so we
  * don't capture an empty placeholder. Polls up to `timeoutMs`; no-op when no known widget

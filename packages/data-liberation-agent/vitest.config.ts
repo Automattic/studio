@@ -16,5 +16,6 @@ export default defineConfig({
     globalSetup: ['./vitest.global-setup.ts'],
     include: ['**/*.test.ts'],
     exclude: [...configDefaults.exclude, '**/worktrees/**', '**/.claude/**', 'test/canary/**'],
+    testTimeout: 15_000,
   },
 });

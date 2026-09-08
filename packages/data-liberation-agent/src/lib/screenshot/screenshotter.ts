@@ -726,13 +726,11 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		}
 	}
 
-	// --- mobile-DOM carry (mobile only) ---------------------------------------
-	// On the mobile pass, the mobile UA + isMobile emulation make JS builders like
-	// Wix serve their SEPARATE ~320px mobile DOM (classic/adaptive sites; desktop-DOM
-	// sites are identical, harmless). Persist that full document (scripts stripped, so
-	// it renders statically) + its height to html-mobile/. The alt reconstruct carries
-	// it in a viewport-isolated iframe to reproduce the mobile layout the desktop DOM
-	// can't reflow to. Best-effort: a miss leaves the page desktop-only.
+	// --- narrow-viewport DOM carry ---------------------------------------------
+	// The narrow pass keeps the same browser identity and only reduces the viewport
+	// width. Persist that settled document (scripts stripped, so it renders statically)
+	// + its height to html-mobile/. The alt reconstruct carries it in a
+	// viewport-isolated iframe. Best-effort: a miss leaves the page desktop-only.
 	if ( ! isDesktop && plan.captureMobileHtml ) {
 		try {
 			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );

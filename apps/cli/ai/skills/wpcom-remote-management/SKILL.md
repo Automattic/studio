@@ -99,7 +99,7 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 1. Check the site plan first. This is already required by the remote system prompt and must happen before any change.
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
 3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
-4. Verify visually with `take_screenshot` using `viewport: "all"` for desktop and mobile.
+4. Verify with `take_screenshot` using `viewport: "all"` for desktop and mobile; when you cannot view images, verify from the rendered DOM with `inspect_design` instead.
 5. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 
 Always confirm destructive operations, including deleting posts or deactivating plugins, before proceeding.

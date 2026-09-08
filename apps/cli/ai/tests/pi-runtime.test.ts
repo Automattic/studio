@@ -336,9 +336,7 @@ describe( 'pi runtime', () => {
 		expect( mocks.createdSessions[ 1 ].options.model?.input ).toEqual( [ 'text' ] );
 	} );
 
-	// pi drops image blocks from tool results on a text-only model but still
-	// delivers the result text, so the model would describe a capture it never saw.
-	it( 'withholds take_screenshot from models that cannot see images', async () => {
+	it( 'keeps take_screenshot for models that cannot see images, without the image', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: HOSTED_ENV,
@@ -352,12 +350,16 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const toolNames = ( index: number ) =>
-			( ( mocks.createdSessions[ index ].options.customTools ?? [] ) as { name: string }[] ).map(
-				( tool ) => tool.name
-			);
-		expect( toolNames( 0 ) ).toContain( 'take_screenshot' );
-		expect( toolNames( 1 ) ).not.toContain( 'take_screenshot' );
+		const takeScreenshot = ( index: number ) =>
+			(
+				( mocks.createdSessions[ index ].options.customTools ?? [] ) as {
+					name: string;
+					description: string;
+				}[]
+			 ).find( ( tool ) => tool.name === 'take_screenshot' );
+		expect( takeScreenshot( 0 )?.description ).toContain( 'analyze visually' );
+		expect( takeScreenshot( 1 )?.description ).toContain( 'This model cannot view images' );
+		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

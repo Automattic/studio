@@ -77,7 +77,8 @@ describe( 'renderSkillBody', () => {
 		expect( getCurrentDesignPool( 'direction' ) ).toHaveLength( 6 );
 		for ( const kind of DESIGN_CATALOG_KINDS ) {
 			for ( const name of getCurrentDesignPool( kind ) ) {
-				expect( rendered ).toContain( `### ${ name }` );
+				const entry = loadDesignCatalog( kind ).find( ( e ) => e.name === name )!;
+				expect( rendered ).toContain( `### ${ name }\n${ entry.body }` );
 			}
 		}
 	} );

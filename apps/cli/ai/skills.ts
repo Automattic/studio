@@ -165,13 +165,14 @@ export function renderSkillBody( skill: Skill ): string {
 			pool.map( ( entry ) => entry.name )
 		);
 		const names = loadDesignCatalog( kind ).map( ( entry ) => entry.name );
-		body = body.replace(
-			placeholder,
+		const rendered =
 			pool.map( ( entry ) => `### ${ entry.name }\n${ entry.body }` ).join( '\n\n' ) +
-				`\n\nFull catalog (names only, for an entry the brief names by name): ${ names.join(
-					', '
-				) }.`
-		);
+			`\n\nFull catalog (names only, for an entry the brief names by name): ${ names.join(
+				', '
+			) }.`;
+		// A function replacer: entry bodies may contain `$` sequences that a
+		// string replacement would expand.
+		body = body.replace( placeholder, () => rendered );
 	}
 	return body;
 }
@@ -195,7 +196,9 @@ export function pickDesignEntry(
 		const entry = findDesignEntry( kind, input.namedInBrief );
 		if ( ! entry ) {
 			throw new Error(
-				`"${ input.namedInBrief }" is not a catalog ${ label }. Catalog: ${ loadDesignCatalog(
+				`"${
+					input.namedInBrief
+				}" is not a catalog ${ label }. If the brief asks for it, skip this draw: leave this side out of the call and design it from the brief. Catalog: ${ loadDesignCatalog(
 					kind
 				)
 					.map( ( e ) => e.name )

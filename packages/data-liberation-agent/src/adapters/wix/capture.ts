@@ -17,14 +17,14 @@ const WIX_FILL_VARIANT = /static\.wixstatic\.com\/.+\/fill\/w_\d+,h_\d+/;
  *
  * Pure, so the URL shape this depends on is testable without a browser.
  */
-export function wixStaticMediaUrl( uri: string, size?: { width: number; height: number } ): string {
+export function wixStaticMediaUrl(
+	uri: string,
+	size?: { width: number; height: number }
+): string {
 	if ( /^https?:/i.test( uri ) ) return uri;
 	if ( ! size ) return `https://static.wixstatic.com/media/${ uri }`;
 	const file = uri.split( '/' ).pop() || uri;
-	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max(
-		1,
-		Math.round( size.width )
-	) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
+	return `https://static.wixstatic.com/media/${ uri }/v1/fill/w_${ Math.max( 1, Math.round( size.width ) ) },h_${ Math.max( 1, Math.round( size.height ) ) },al_c,q_85,enc_avif,quality_auto/${ file }`;
 }
 
 function escapeAttr( value: string ): string {
@@ -41,9 +41,7 @@ export function stripShowcaseMarkup(
 	const imgs = items
 		.map( ( item ) => {
 			const alt = escapeAttr( item.alt || item.title || '' );
-			return `<img src="${ escapeAttr(
-				wixStaticMediaUrl( item.uri, { width, height } )
-			) }" alt="${ alt }">`;
+			return `<img src="${ escapeAttr( wixStaticMediaUrl( item.uri, { width, height } ) ) }" alt="${ alt }">`;
 		} )
 		.join( '' );
 	const html = `<div class="dla-slideshow"><div class="dla-slideshow-track">${ imgs }</div></div>`;
@@ -58,9 +56,7 @@ export function stripShowcaseMarkup(
 	frames += '100%{transform:translateX(0)}';
 	const css =
 		'.dla-slideshow{overflow:hidden;width:100%;height:100%;position:relative}' +
-		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${
-			count * 2
-		}s infinite}` +
+		`.dla-slideshow-track{display:flex;height:100%;animation:dla-slideshow ${ count * 2 }s infinite}` +
 		'.dla-slideshow-track img{flex:0 0 100%;width:100%;height:100%;object-fit:cover}' +
 		`@keyframes dla-slideshow{${ frames }}` +
 		'@media (prefers-reduced-motion:reduce){.dla-slideshow{overflow-x:auto;scroll-snap-type:x mandatory}.dla-slideshow-track{animation:none}.dla-slideshow-track img{scroll-snap-align:start}}';
@@ -80,17 +76,17 @@ const WIX_SLIDESHOW_SELECTOR = '.wixui-slideshow';
 const WIX_SLIDESHOW_LIMIT = 4;
 const WIX_SLIDE_LIMIT = 6;
 
-export function preserveWixSlideshowSlides( {
-	slideshowIndex,
-	slides,
-}: {
-	slideshowIndex: number;
-	slides: string[];
-} ): void {
-	const slideshow =
-		document.querySelectorAll< HTMLElement >( WIX_SLIDESHOW_SELECTOR )[ slideshowIndex ];
+/**
+ * Wix mounts only the active slide. Replace that transient state with the
+ * distinct states observed through its authored next control before serializing.
+ */
+export function preserveWixSlideshowSlides(
+	{ slideshowIndex, slides }: { slideshowIndex: number; slides: string[] }
+): void {
+	const slideshow = document.querySelectorAll< HTMLElement >( '.wixui-slideshow' )[ slideshowIndex ];
 	const wrapper = slideshow?.querySelector< HTMLElement >( '[data-testid="slidesWrapper"]' );
 	if ( ! slideshow || ! wrapper || slides.length < 2 ) return;
+
 	const fragment = document.createDocumentFragment();
 	for ( const [ index, html ] of slides.entries() ) {
 		const template = document.createElement( 'template' );
@@ -101,6 +97,7 @@ export function preserveWixSlideshowSlides( {
 		fragment.append( slide );
 	}
 	if ( fragment.childElementCount < 2 ) return;
+
 	wrapper.replaceChildren( fragment );
 	slideshow.dataset.dlaCapturedSlideshow = 'true';
 	if ( ! document.getElementById( 'dla-wix-captured-slideshow-css' ) ) {
@@ -133,17 +130,14 @@ function snapshotWixSlide(
 
 export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
 	const count = await page.locator( WIX_SLIDESHOW_SELECTOR ).count();
-	for (
-		let slideshowIndex = 0;
-		slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT );
-		slideshowIndex++
-	) {
+	for ( let slideshowIndex = 0; slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT ); slideshowIndex++ ) {
 		try {
 			const next = page
 				.locator( WIX_SLIDESHOW_SELECTOR )
 				.nth( slideshowIndex )
 				.locator( 'button[data-testid="nextButton"]' );
-			if ( ( await next.count() ) !== 1 ) continue;
+			if ( await next.count() !== 1 ) continue;
+
 			const slides: string[] = [];
 			const seen = new Set< string >();
 			for ( let step = 0; step < WIX_SLIDE_LIMIT; step++ ) {
@@ -154,8 +148,11 @@ export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
 				await next.click();
 				await page.waitForTimeout( 250 );
 			}
-			if ( slides.length > 1 )
+			if ( slides.length > 1 ) {
+				// Playwright serializes this callback into the source page, where module
+				// bindings are unavailable.
 				await page.evaluate( preserveWixSlideshowSlides, { slideshowIndex, slides } );
+			}
 		} catch {
 			// One uncooperative Wix widget must not prevent capture of the others.
 		}
@@ -176,7 +173,10 @@ export async function settleWixNavigation( viewport: 'desktop' | 'mobile' ): Pro
 		const rect = element.getBoundingClientRect();
 		const style = getComputedStyle( element );
 		return (
-			rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+			rect.width > 0 &&
+			rect.height > 0 &&
+			style.display !== 'none' &&
+			style.visibility !== 'hidden'
 		);
 	};
 	const reveal = ( list: Element ) => {
@@ -365,10 +365,8 @@ export const capture: LiberationHooks = {
 						.filter( ( name ) => name.includes( '/pages/thunderbolt' ) )
 				),
 			];
-			const itemsByComp: Record<
-				string,
-				Array< { uri: string; alt?: string; title?: string } >
-			> = {};
+			const itemsByComp: Record< string, Array< { uri: string; alt?: string; title?: string } > > =
+				{};
 			for ( const url of urls ) {
 				try {
 					const data = ( await ( await fetch( url ) ).json() ) as {
@@ -445,8 +443,7 @@ export const capture: LiberationHooks = {
 		// Deciding which are Wix variants happens here, where it can be tested.
 		const urls = await page.evaluate( () =>
 			[ ...document.querySelectorAll( 'img' ) ].map(
-				( image ) =>
-					( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
+				( image ) => ( image as HTMLImageElement ).currentSrc || ( image as HTMLImageElement ).src || ''
 			)
 		);
 		const variants: Record< string, string > = {};

@@ -11,8 +11,12 @@ const DISCLOSURE_CSS =
 	'details.dla-disclosure:not([open])>.dla-dialog{display:none!important}' +
 	'details.dla-disclosure[open]>.dla-dialog{display:block;position:fixed;inset:0;z-index:2147483646;overflow:auto;background:#fff}' +
 	'details.dla-disclosure[open]>.dla-dialog>:first-child{display:block!important;visibility:visible!important;opacity:1!important}' +
+	'details.dla-disclosure:not(.dla-initial-dialog)[open]>summary{position:fixed;z-index:2147483647;right:1rem;top:1rem;padding:.5rem .75rem;background:#fff;color:#111;border:1px solid currentColor;border-radius:.25rem}' +
+	'details.dla-disclosure:not(.dla-initial-dialog)[open]>summary:after{content:"Close"}' +
 	'details.dla-initial-dialog>summary{position:fixed;z-index:2147483647;right:1rem;top:1rem}' +
 	'details.dla-initial-dialog:not([open])>summary{display:none!important}';
+
+const DISCLOSURE_RUNTIME = `(function(){function disclosures(){return document.querySelectorAll('details.dla-disclosure');}function update(details){var summary=details.querySelector(':scope > summary');if(!summary)return;var label=summary.getAttribute('data-dla-disclosure-label');if(label)summary.setAttribute('aria-label',details.open?'Close '+label:label);}function ready(){disclosures().forEach(function(details){update(details);details.addEventListener('toggle',function(){update(details);});});document.addEventListener('keydown',function(event){if(event.key!=='Escape')return;var open=Array.prototype.slice.call(disclosures()).filter(function(details){return details.open;}).pop();if(!open)return;event.preventDefault();open.open=false;var summary=open.querySelector(':scope > summary');if(summary)summary.focus();});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();})();`;
 
 const GLOBAL_ATTRIBUTES = new Set( [
 	'accesskey',
@@ -61,6 +65,7 @@ export function wireCapturedDialogs(
 			const trigger = $( element );
 			if ( trigger.closest( 'details.dla-disclosure' ).length ) return;
 			const summary = $( '<summary></summary>' );
+			const label = trigger.attr( 'aria-label' ) || normalizedText( trigger.text() );
 			const attrs = trigger.attr() ?? {};
 			for ( const [ name, value ] of Object.entries( attrs ) ) {
 				if (
@@ -71,6 +76,7 @@ export function wireCapturedDialogs(
 					continue;
 				summary.attr( name, value );
 			}
+			if ( label ) summary.attr( 'data-dla-disclosure-label', label );
 			summary.html( trigger.html() ?? '' );
 			const panel = $( '<div class="dla-dialog" role="dialog" aria-modal="true"></div>' );
 			if ( state.dialog?.ariaLabel ) panel.attr( 'aria-label', state.dialog.ariaLabel );
@@ -99,8 +105,15 @@ export function wireCapturedDialogs(
 		$( 'body' ).append( details );
 		wired++;
 	}
-	if ( wired > 0 && $( 'style[data-dla-disclosure]' ).length === 0 ) {
-		$( 'head' ).append( `<style data-dla-disclosure="true">${ DISCLOSURE_CSS }</style>` );
+	if ( wired > 0 ) {
+		if ( $( 'style[data-dla-disclosure]' ).length === 0 ) {
+			$( 'head' ).append( `<style data-dla-disclosure="true">${ DISCLOSURE_CSS }</style>` );
+		}
+		if ( $( 'script[data-dla-disclosure-runtime]' ).length === 0 ) {
+			$( 'head' ).append(
+				`<script data-dla-disclosure-runtime="true">${ DISCLOSURE_RUNTIME }</script>`
+			);
+		}
 	}
 	return $.html();
 }
@@ -162,4 +175,8 @@ function findTriggers(
 
 function cssEscape( value: string ): string {
 	return value.replace( /([^a-zA-Z0-9_-])/g, '\\$1' );
+}
+
+function normalizedText( value: string ): string {
+	return value.replace( /\s+/g, ' ' ).trim();
 }

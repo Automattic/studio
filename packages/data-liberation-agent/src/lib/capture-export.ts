@@ -25,6 +25,7 @@ import {
 import { selfContainWebsite } from './self-contain.js';
 import { wireCapturedDialogs } from './static-dialogs.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
+import { capturedJsonLd, SOURCE_JSON_LD_SCHEMA, type SourceJsonLdDocument } from './json-ld-metadata.js';
 import {
 	INTERACTION_STATES_SCHEMA,
 	LEGACY_INTERACTION_STATES_SCHEMA,
@@ -105,7 +106,9 @@ interface CaptureEntry {
 	identityHtmlPath?: string;
 	sections?: string;
 	canonicalUrl?: string;
+	jsonLd?: SourceJsonLdDocument[];
 	interactions?: InteractionStatesReport;
+	styleHoistContext: StyleHoistContext;
 }
 
 function isUsableSectionEvidence( sections: unknown ): sections is Record< string, unknown >[] {
@@ -160,6 +163,7 @@ const MAX_PORTABLE_MEDIA_TOTAL_BYTES = 160 * 1024 * 1024;
 const MAX_ARTIFACT_FILES = 5000;
 const MAX_ARTIFACT_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_ARTIFACT_TOTAL_BYTES = 192 * 1024 * 1024;
+const STYLE_HOIST_DIAGNOSTIC_SAMPLE_BYTES = 31 * 1024;
 const TRANSPARENT_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 const MAX_DECLARATIVE_FORM_EMBEDS = 32;
 const VISUAL_IFRAME_EVIDENCE_ATTRIBUTES = {
@@ -183,6 +187,23 @@ const HUBSPOT_FORM_HOSTS = new Map( [
 	[ 'na1', 'js.hsforms.net' ],
 	[ 'eu1', 'js-eu1.hsforms.net' ],
 ] );
+
+function sourceJsonLdMetadata(
+	documents: SourceJsonLdDocument[] | undefined
+): Record< string, unknown > | undefined {
+	if ( ! documents ) return undefined;
+	return {
+		json_ld: {
+			schema: SOURCE_JSON_LD_SCHEMA,
+			documents,
+		},
+	};
+}
+
+function serializedArtifactMetadataBytes( metadata: Record< string, unknown > | undefined ): number {
+	// This is the exact fragment appended to an artifact file object, including its key and comma.
+	return metadata ? Buffer.byteLength( `,"metadata":${ JSON.stringify( metadata ) }` ) : 0;
+}
 
 function pathWithin( root: string, candidate: string ): boolean {
 	const rel = relative( resolve( root ), resolve( candidate ) );
@@ -608,11 +629,18 @@ export function portableInlineStyle(
 	css: string
 ): { key: string; media: string } | undefined {
 	const mediaMatch = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
+	const typeCount = ( attributes.match( /\btype\s*=/gi ) ?? [] ).length;
+	const mediaCount = ( attributes.match( /\bmedia\s*=/gi ) ?? [] ).length;
 	const unsupportedAttributes = attributes
-		.replace( /\btype\s*=\s*(["']).*?\1/gi, '' )
+		// Only inert stylesheet attributes may be represented by a link.
+		.replace( /\btype\s*=\s*(["'])text\/css\1/gi, '' )
 		.replace( /\bmedia\s*=\s*(["']).*?\1/gi, '' )
 		.trim();
-	return portableInlineStyleValues( mediaMatch?.[ 2 ] ?? '', unsupportedAttributes !== '', css );
+	return portableInlineStyleValues(
+		mediaMatch?.[ 2 ] ?? '',
+		typeCount > 1 || mediaCount > 1 || unsupportedAttributes !== '',
+		css
+	);
 }
 
 function portableInlineStyleValues(
@@ -620,11 +648,159 @@ function portableInlineStyleValues(
 	hasUnsupportedAttributes: boolean,
 	css: string
 ): { key: string; media: string } | undefined {
-	if ( hasUnsupportedAttributes || css.trim() === '' || /(?:url\s*\(|@import)/i.test( css ) )
+	if ( hasUnsupportedAttributes || css.trim() === '' )
 		return undefined;
 	// eslint-disable-next-line no-control-regex -- reject unprintable media attributes.
 	if ( /[\u0000-\u001f\u007f<>&]/.test( media ) ) return undefined;
 	return { key: `${ media }\n${ css }`, media };
+}
+
+type StyleHoistReason =
+	| 'unsafe_attributes'
+	| 'invalid_media'
+	| 'empty_style'
+	| 'relative_css_url'
+	| 'fragment_css_url'
+	| 'empty_css_url'
+	| 'invalid_css_url'
+	| 'css_import'
+	| 'document_base'
+	| 'content_security_policy';
+
+interface StyleHoistDiagnostic {
+	sourceUrl: string;
+	reason: StyleHoistReason;
+}
+
+interface BoundedStyleHoistDiagnostics {
+	diagnostics: StyleHoistDiagnostic[];
+	diagnosticCounts: Partial< Record< StyleHoistReason, number > >;
+	diagnosticsTruncated: boolean;
+}
+
+interface StyleHoistDiagnosticCollector extends BoundedStyleHoistDiagnostics {
+	diagnosticBytes: number;
+}
+
+interface StyleHoistContext {
+	hasBase: boolean;
+	hasContentSecurityPolicy: boolean;
+	styleReasons: Array< StyleHoistReason | undefined >;
+}
+
+function cssReferenceReason( css: string ): StyleHoistReason | undefined {
+	// Current limitation: @import remains inline because it has stylesheet-relative
+	// semantics even when its first URL is absolute.
+	if ( /@import\b/i.test( css ) ) return 'css_import';
+	const urlPattern = /url\(\s*([^)]*?)\s*\)/gi;
+	let foundUrl = false;
+	let match: RegExpExecArray | null;
+	while ( ( match = urlPattern.exec( css ) ) !== null ) {
+		foundUrl = true;
+		const reference = match[ 1 ].trim().replace( /^(?:["'])|(?:["'])$/g, '' );
+		if ( reference === '' ) return 'empty_css_url';
+		// Root, data, and absolute URLs retain their meaning at the new CSS path.
+		// A fragment resolves against the stylesheet itself, not the document, after a move.
+		if ( reference.startsWith( '#' ) ) return 'fragment_css_url';
+		if ( reference.startsWith( '/' ) && ! reference.startsWith( '//' ) ) continue;
+		if ( /^(?:data:|https?:)/i.test( reference ) ) continue;
+		if ( /^[a-z][a-z0-9+.-]*:/i.test( reference ) ) return 'invalid_css_url';
+		return 'relative_css_url';
+	}
+	if ( ! foundUrl && /url\s*\(/i.test( css ) ) return 'invalid_css_url';
+}
+
+function capturedStyleHoistContext( html: string ): StyleHoistContext {
+	const styleReasons: Array< StyleHoistReason | undefined > = [];
+	for ( const match of html.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) )
+		styleReasons.push( cssReferenceReason( match[ 1 ] ) );
+	return {
+		// These deliberately broad scans only disable hoisting. Avoid building a second
+		// DOM for every captured document, which exceeds the constrained export heap.
+		hasBase: /<base\b/i.test( html ),
+		hasContentSecurityPolicy:
+			/<meta\b(?=[^>]*\bhttp-equiv\b)[^>]*\bcontent-security-policy\b/i.test( html ),
+		styleReasons,
+	};
+}
+
+function styleHoistReason(
+	entry: CaptureEntry,
+	styleIndex: number,
+	attributes: string,
+	css: string
+): StyleHoistReason | undefined {
+	if ( entry.styleHoistContext.hasBase ) return 'document_base';
+	if ( entry.styleHoistContext.hasContentSecurityPolicy ) return 'content_security_policy';
+	const sourceReason = entry.styleHoistContext.styleReasons[ styleIndex ];
+	if ( sourceReason ) return sourceReason;
+	if ( css.trim() === '' ) return 'empty_style';
+	const style = portableInlineStyle( attributes, css );
+	if ( style ) return cssReferenceReason( css );
+	const media = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes )?.[ 2 ] ?? '';
+	return /[\u0000-\u001f\u007f<>&]/.test( media ) ? 'invalid_media' : 'unsafe_attributes';
+}
+
+/** Estimate the actual route replacement plus stylesheet files before media selection. */
+function estimatedHoistedStyleArtifacts( entries: CaptureEntry[] ): { bytes: number; files: number } {
+	const styles = new Map<
+		string,
+		Array< { entry: CaptureEntry; css: string; media: string; original: string } >
+	>();
+	let routeBytes = entries.reduce( ( total, entry ) => total + statSync( entry.htmlPath ).size, 0 );
+	for ( const entry of entries ) {
+		let styleIndex = 0;
+		const html = readFileSync( entry.htmlPath, 'utf8' );
+		for ( const match of html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
+			const reason = styleHoistReason( entry, styleIndex++, match[ 1 ], match[ 2 ] );
+			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
+			if ( reason || !style ) continue;
+			const occurrences = styles.get( style.key ) ?? [];
+			occurrences.push( { entry, css: match[ 2 ], media: style.media, original: match[ 0 ] } );
+			styles.set( style.key, occurrences );
+		}
+	}
+	let bytes = 0;
+	const cssByHash = new Set< string >();
+	for ( const occurrences of styles.values() ) {
+		if ( new Set( occurrences.map( ( occurrence ) => occurrence.entry.htmlPath ) ).size < 2 )
+			continue;
+		const css = occurrences[ 0 ].css;
+		const contentHash = createHash( 'sha256' ).update( css ).digest( 'hex' );
+		if ( ! cssByHash.has( contentHash ) ) {
+			cssByHash.add( contentHash );
+			bytes += Buffer.byteLength( css );
+		}
+		for ( const occurrence of occurrences ) {
+			const media = occurrence.media ? ` media="${ occurrence.media }"` : '';
+			routeBytes +=
+				Buffer.byteLength(
+					`<link rel="stylesheet" href="/assets/css/capture-${ contentHash }.css"${ media }>`
+				) - Buffer.byteLength( occurrence.original );
+		}
+	}
+	return { bytes: routeBytes + bytes, files: cssByHash.size };
+}
+
+function createStyleHoistDiagnosticCollector(): StyleHoistDiagnosticCollector {
+	return { diagnostics: [], diagnosticCounts: {}, diagnosticsTruncated: false, diagnosticBytes: 0 };
+}
+
+function recordStyleHoistDiagnostic(
+	collector: StyleHoistDiagnosticCollector,
+	diagnostic: StyleHoistDiagnostic
+): void {
+	collector.diagnosticCounts[ diagnostic.reason ] =
+		( collector.diagnosticCounts[ diagnostic.reason ] ?? 0 ) + 1;
+	const bytes = Buffer.byteLength( JSON.stringify( diagnostic ) );
+	const separator = collector.diagnostics.length === 0 ? 0 : 1;
+	// Leave room for the aggregate counts and object syntax without repeatedly serializing samples.
+	if ( collector.diagnosticBytes + separator + bytes > STYLE_HOIST_DIAGNOSTIC_SAMPLE_BYTES ) {
+		collector.diagnosticsTruncated = true;
+		return;
+	}
+	collector.diagnostics.push( diagnostic );
+	collector.diagnosticBytes += separator + bytes;
 }
 
 function responsiveMobileStyles(
@@ -958,6 +1134,36 @@ function capturedResources( outputDir: string ): CapturedResourceManifest {
 			failures: [ { url: manifestPath, error: 'captured resource manifest is invalid' } ],
 		};
 	}
+}
+
+function preflightArtifactContents(
+	websiteDir: string,
+	routes: Array< { path: string } >,
+	routeJsonLd: Map< string, SourceJsonLdDocument[] >,
+	assets: Array< { path: string } >,
+	outputDir: string,
+	reportFiles: string[],
+	artifactTotalBytesLimit: number
+): void {
+	const files: Array< { path: string; metadata?: Record< string, unknown > } > = [
+		...routes.map( ( route ) => ( {
+			path: join( websiteDir, route.path.replace( /^website\//, '' ) ),
+			metadata: sourceJsonLdMetadata( routeJsonLd.get( route.path ) ),
+		} ) ),
+		...assets.map( ( asset ) => ( { path: join( websiteDir, asset.path.replace( /^website\//, '' ) ) } ) ),
+		...reportFiles.map( ( report ) => ( { path: join( outputDir, report ) } ) ),
+	];
+	let bytes = 0;
+	for ( const file of files ) {
+		const size = statSync( file.path ).size + serializedArtifactMetadataBytes( file.metadata );
+		if ( size > MAX_ARTIFACT_FILE_BYTES )
+			throw new Error( `Portable capture file "${ file.path }" exceeds compiler limit: ${ size } bytes.` );
+		bytes += size;
+	}
+	if ( files.length > MAX_ARTIFACT_FILES || bytes > artifactTotalBytesLimit )
+		throw new Error(
+			`Portable capture exceeds compiler limits before artifact writing: ${ files.length } files, ${ bytes } bytes.`
+		);
 }
 
 function portableResourcePath( path: string, contentType: string ): string | undefined {
@@ -1347,11 +1553,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				: undefined;
 		if ( detectedFloor ) switchWidths.push( detectedFloor );
 		if ( entry.fluid ) fluidReports.push( entry.fluid );
-		const html = safeCapturedPageHtml(
+		const capturedHtml =
 			mobileHtml === undefined
 				? desktopHtml
-				: responsiveHtml( desktopHtml, mobileHtml, detectedFloor )
-		);
+				: responsiveHtml( desktopHtml, mobileHtml, detectedFloor );
+		// safeCapturedPageHtml removes <base>; record its stylesheet semantics first.
+		const styleHoistContext = capturedStyleHoistContext( capturedHtml );
+		const html = safeCapturedPageHtml( capturedHtml );
 		const stagedHtmlPath = join( stagedHtmlDir, `${ capturedEntries.length }.html` );
 		writeFileSync( stagedHtmlPath, html );
 		capturedEntries.push( {
@@ -1361,7 +1569,13 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			hasMobileDocument: mobileHtml !== undefined && documentsDiffer( desktopHtml, mobileHtml ),
 			sections: entry.sections,
 			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
+			// JSON-LD scripts are intentionally excluded from portable HTML, so retain their parsed data separately.
+			jsonLd: (() => {
+				const document = capturedJsonLd( capturedHtml, url );
+				return document ? [ document ] : undefined;
+			} )(),
 			interactions: entry.interactions,
+			styleHoistContext,
 		} );
 		if (
 			entry.interactions?.schema === INTERACTION_STATES_SCHEMA ||
@@ -1410,6 +1624,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! declaresCanonicalRoute( entry, claimed ) ) {
 			throw new Error( `Captured routes resolve to the same website path: ${ routePath }` );
 		}
+		if ( entry.jsonLd ) claimed.jsonLd = [ ...( claimed.jsonLd ?? [] ), ...entry.jsonLd ];
 		duplicateRoutes.push( {
 			url: entry.url,
 			canonicalUrl: claimed.url,
@@ -1497,11 +1712,41 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				)
 			);
 		} );
-	// Routes, captured render dependencies, and reports share the artifact with
-	// media, so media may only use the capacity they leave under the compiler limit.
+	// Routes, generated reports, styles, and render dependencies share the artifact
+	// with media. Reserve every possible generated report before selecting media.
 	const resourceManifest = capturedResources( outputDir );
+	const potentialHoistedStyles = estimatedHoistedStyleArtifacts( retainedEntries );
+	const retainedRouteBytes = retainedEntries.reduce(
+		( total, entry ) =>
+			total +
+			statSync( entry.htmlPath ).size +
+			serializedArtifactMetadataBytes( sourceJsonLdMetadata( entry.jsonLd ) ),
+		0
+	);
+	const desktopSectionsForReports = SectionSpecsStore.load( outputDir );
+	const generatedReportFileReserve =
+		4 +
+		Number( interactionPages.length > 0 ) +
+		Number(
+			retainedEntries.some( ( entry ) =>
+				isUsableSectionEvidence( desktopSectionsForReports.get( entry.url ) )
+			)
+		);
+	const baseArtifactFileCount = retainedEntries.length + generatedReportFileReserve;
+	if ( baseArtifactFileCount > MAX_ARTIFACT_FILES ) {
+		throw new Error(
+			`Portable capture exceeds compiler file limit before media allocation: ${ baseArtifactFileCount } files.`
+		);
+	}
+	const canHoistStyles =
+		baseArtifactFileCount + potentialHoistedStyles.files <= MAX_ARTIFACT_FILES &&
+		potentialHoistedStyles.bytes +
+			capturedResourceBytes( outputDir, resourceManifest ) +
+			existingReportBytes( outputDir ) <=
+			artifactTotalBytesLimit;
+	const reservedHoistedStyleFiles = canHoistStyles ? potentialHoistedStyles.files : 0;
 	const reservedArtifactBytes =
-		retainedEntries.reduce( ( total, entry ) => total + statSync( entry.htmlPath ).size, 0 ) +
+		( canHoistStyles ? potentialHoistedStyles.bytes : retainedRouteBytes ) +
 		capturedResourceBytes( outputDir, resourceManifest ) +
 		existingReportBytes( outputDir );
 	const portableMediaBudget = Math.min(
@@ -1514,12 +1759,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	for ( const family of portableMediaCandidates ) {
 		for ( const selected of family.selected ) {
 			const contentHash = fileHash( selected.localPath );
+			const needsFile = ! portableMediaHashes.has( contentHash );
 			if (
-				portableMediaHashes.has( contentHash ) ||
-				portableMediaBytes + selected.bytes <= portableMediaBudget
+				( ! needsFile ||
+					baseArtifactFileCount + reservedHoistedStyleFiles + portableMediaHashes.size <
+						MAX_ARTIFACT_FILES ) &&
+				( ! needsFile || portableMediaBytes + selected.bytes <= portableMediaBudget )
 			) {
 				selectedPortableMedia.add( selected );
-				if ( ! portableMediaHashes.has( contentHash ) ) {
+				if ( needsFile ) {
 					portableMediaHashes.add( contentHash );
 					portableMediaBytes += selected.bytes;
 				}
@@ -1653,11 +1901,20 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			  uniqueAssetPath( requestedPath, contentHash, assetHashesByPath );
 		const destination = resolve( websiteDir, relativePath );
 		const portablePath = `/${ relativePath.replace( /\\/g, '/' ) }`;
-		resourceReplacements.set( dependency.reference, portablePath );
-		resourceReplacements.set( dependency.url, portablePath );
 		if ( ! isText && assetPathsByHash.has( contentHash ) ) return true;
 		if ( copiedResources.has( resource.path ) ) return true;
 		if ( copyingResources.has( resource.path ) ) return true;
+		if (
+			baseArtifactFileCount + reservedHoistedStyleFiles + assets.length >=
+			MAX_ARTIFACT_FILES
+		) {
+			unresolvedDependencies.push( {
+				url: dependency.url,
+				sourceUrl,
+				error: 'captured dependency omitted because the portable file limit was reached',
+			} );
+			return false;
+		}
 		if ( ! pathWithin( websiteDir, destination ) ) {
 			unresolvedDependencies.push( {
 				url: dependency.url,
@@ -1666,6 +1923,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			} );
 			return false;
 		}
+		resourceReplacements.set( dependency.reference, portablePath );
+		resourceReplacements.set( dependency.url, portablePath );
 
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyingResources.add( resource.path );
@@ -1727,51 +1986,64 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		}
 		writeFileSync( entry.htmlPath, html );
 	}
-	const inlineStyles = new Map< string, { css: string; media: string; count: number } >();
+	const inlineStyles = new Map< string, Array< { entry: CaptureEntry; css: string; media: string } > >();
+	const styleHoistDiagnostics = createStyleHoistDiagnosticCollector();
 	for ( const entry of retainedEntries ) {
 		const html = readFileSync( entry.htmlPath, 'utf8' );
+		let styleIndex = 0;
 		for ( const match of html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ) {
+			const reason = styleHoistReason( entry, styleIndex++, match[ 1 ], match[ 2 ] );
 			const style = portableInlineStyle( match[ 1 ], match[ 2 ] );
-			if ( ! style ) continue;
-			const existing = inlineStyles.get( style.key );
-			inlineStyles.set( style.key, {
+			if ( reason || !style ) {
+				recordStyleHoistDiagnostic( styleHoistDiagnostics, {
+					sourceUrl: entry.url,
+					reason: reason ?? 'unsafe_attributes',
+				} );
+				continue;
+			}
+			const occurrences = inlineStyles.get( style.key ) ?? [];
+			occurrences.push( {
+				entry,
 				css: match[ 2 ],
 				media: style.media,
-				count: ( existing?.count ?? 0 ) + 1,
 			} );
+			inlineStyles.set( style.key, occurrences );
 		}
 	}
 	const sharedStyles = new Map< string, { path: string; media: string } >();
-	for ( const [ key, style ] of inlineStyles ) {
-		if ( style.count < 2 ) continue;
-		const contentHash = createHash( 'sha256' ).update( key ).digest( 'hex' );
-		const relativePath = `assets/css/capture-${ contentHash.slice( 0, 16 ) }.css`;
+	const stylesheetPaths = new Map< string, string >();
+	for ( const [ key, occurrences ] of [ ...inlineStyles ].sort( ( left, right ) =>
+		left[ 0 ].localeCompare( right[ 0 ] )
+	) ) {
+		if ( ! canHoistStyles ) continue;
+		if ( new Set( occurrences.map( ( occurrence ) => occurrence.entry.htmlPath ) ).size < 2 ) continue;
+		const style = occurrences[ 0 ];
+		const contentHash = createHash( 'sha256' ).update( style.css ).digest( 'hex' );
+		const relativePath = stylesheetPaths.get( contentHash ) ?? `assets/css/capture-${ contentHash }.css`;
 		const destination = join( websiteDir, relativePath );
-		mkdirSync( dirname( destination ), { recursive: true } );
-		writeFileSync( destination, style.css );
-		assets.push( {
-			sourceUrl: `${ options.sourceUrl }#inline-style-${ contentHash.slice( 0, 16 ) }`,
-			path: `website/${ relativePath }`,
-		} );
+		if ( ! stylesheetPaths.has( contentHash ) ) {
+			mkdirSync( dirname( destination ), { recursive: true } );
+			writeFileSync( destination, style.css );
+			assets.push( {
+				sourceUrl: `${ options.sourceUrl }#inline-style-${ contentHash }`,
+				path: `website/${ relativePath }`,
+			} );
+			stylesheetPaths.set( contentHash, relativePath );
+		}
 		sharedStyles.set( key, { path: `/${ relativePath }`, media: style.media } );
 	}
 	for ( const entry of retainedEntries ) {
-		const linkedStyles = new Set< string >();
 		const $ = cheerio.load( readFileSync( entry.htmlPath, 'utf8' ) );
 		$( 'style' ).each( ( _index, element ) => {
 			const attributes = 'attribs' in element ? element.attribs : {};
-			const style = portableInlineStyleValues(
-				attributes.media ?? '',
-				Object.keys( attributes ).some( ( name ) => name !== 'media' && name !== 'type' ),
+			const style = portableInlineStyle(
+				Object.entries( attributes )
+					.map( ( [ name, value ] ) => ` ${ name }="${ escapeHtmlAttr( value ?? '' ) }"` )
+					.join( '' ),
 				$( element ).html() ?? ''
 			);
 			const shared = style ? sharedStyles.get( style.key ) : undefined;
 			if ( ! style || ! shared ) return;
-			if ( linkedStyles.has( style.key ) ) {
-				$( element ).remove();
-				return;
-			}
-			linkedStyles.add( style.key );
 			const link = $( '<link>' ).attr( { rel: 'stylesheet', href: shared.path } );
 			if ( shared.media ) link.attr( 'media', shared.media );
 			$( element ).replaceWith( link );
@@ -1780,8 +2052,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	}
 
 	const routes: Array< { url: string; path: string } > = [];
+	const routeJsonLd = new Map< string, SourceJsonLdDocument[] >();
 	const portableRouteLinks = new Map< string, string >();
-	for ( const { url } of retainedEntries ) {
+	for ( const { url, jsonLd } of retainedEntries ) {
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'
@@ -1789,6 +2062,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		const portablePath = `/${ routePath }`;
 		portableRouteLinks.set( normalizedUrl( url ), portablePath );
 		routes.push( { url, path: `website/${ routePath }` } );
+		if ( jsonLd ) routeJsonLd.set( `website/${ routePath }`, jsonLd );
 	}
 	for ( const [ aliasKey, routePath ] of canonicalRouteAliases ) {
 		if ( portableRouteLinks.has( aliasKey ) ) continue;
@@ -1830,10 +2104,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			resourceReplacements,
 			rejectedReplacementKeys
 		);
-		const normalizedHtml = wireCapturedDialogs(
-			withoutGeometryIdentities( identityHtml ),
-			entry.interactions?.states ?? [],
-			entry.interactions?.initialDialogs ?? []
+		const normalizedHtml = rewriteCapturedRouteLinks(
+			wireCapturedDialogs(
+				withoutGeometryIdentities( identityHtml ),
+				entry.interactions?.states ?? [],
+				entry.interactions?.initialDialogs ?? []
+			),
+			url,
+			portableRouteLinks
 		);
 		unresolvedAnchors.push( ...unresolvedCapturedAnchors( normalizedHtml, url ) );
 		writeFileSync( destination, normalizedHtml );
@@ -2039,10 +2317,25 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				interactionFailures: interactionStates.filter( ( state ) => state.status !== 'captured' ),
 				excludedRoutes,
 				duplicateRoutes,
+				styleHoist: {
+					hoistedStylesheets: stylesheetPaths.size,
+					diagnostics: styleHoistDiagnostics.diagnostics,
+					diagnosticCounts: styleHoistDiagnostics.diagnosticCounts,
+					diagnosticsTruncated: styleHoistDiagnostics.diagnosticsTruncated,
+				},
 			},
 			null,
 			2
 		) }\n`
+	);
+	preflightArtifactContents(
+		websiteDir,
+		routes,
+		routeJsonLd,
+		assets,
+		outputDir,
+		reportFiles,
+		artifactTotalBytesLimit
 	);
 
 	const artifactPath = join( outputDir, 'artifact.json' );
@@ -2081,7 +2374,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		let firstFile = true;
 		let artifactFileCount = 0;
 		let artifactContentBytes = 0;
-		const writeArtifactFile = ( file: Record< string, string >, contentBytes: number ) => {
+		const writeArtifactFile = ( file: Record< string, unknown >, contentBytes: number ) => {
 			if ( contentBytes > MAX_ARTIFACT_FILE_BYTES ) {
 				throw new Error(
 					`Portable capture file "${ file.path }" exceeds compiler limit: ${ contentBytes } bytes.`
@@ -2106,13 +2399,15 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		for ( const route of orderedRoutes ) {
 			const relativePath = route.path.replace( /^website\//, '' );
 			const content = readFileSync( join( websiteDir, relativePath ), 'utf8' );
+			const metadata = sourceJsonLdMetadata( routeJsonLd.get( route.path ) );
 			writeArtifactFile(
 				{
 					path: route.path,
 					content,
 					encoding: 'utf8',
+					...( metadata ? { metadata } : {} ),
 				},
-				Buffer.byteLength( content )
+				Buffer.byteLength( content ) + serializedArtifactMetadataBytes( metadata )
 			);
 		}
 		for ( const asset of assets ) {

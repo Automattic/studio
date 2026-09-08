@@ -29,11 +29,12 @@ describe( 'wireCapturedDialogs', () => {
 			[ captured ]
 		);
 		expect( html ).toContain( '<details class="dla-disclosure">' );
-		expect( html ).toContain( '<summary class="burger">' );
+		expect( html ).toContain( '<summary class="burger" data-dla-disclosure-label="Open Menu">' );
 		expect( html ).toContain( 'Open Menu' );
 		expect( html ).toContain( 'role="dialog"' );
 		expect( html ).toContain( 'href="/about"' );
 		expect( html ).toContain( 'data-dla-disclosure' );
+		expect( html ).toContain( 'data-dla-disclosure-runtime' );
 		expect( html ).not.toMatch( /<button[^>]*>Open Menu/ );
 	} );
 
@@ -72,7 +73,7 @@ describe( 'wireCapturedDialogs', () => {
 			[ captured ]
 		);
 		expect( html ).toContain(
-			'<summary class="menu" aria-label="Open Menu" data-menu="primary">Menu</summary>'
+			'<summary class="menu" aria-label="Open Menu" data-menu="primary" data-dla-disclosure-label="Open Menu">Menu</summary>'
 		);
 		expect( html ).not.toMatch( /<summary[^>]+(?:href|target|rel)=/ );
 	} );

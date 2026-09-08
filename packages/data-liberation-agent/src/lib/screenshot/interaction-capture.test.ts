@@ -38,7 +38,7 @@ describe( 'captureTriggeredDialogs', () => {
 					report.states,
 					report.initialDialogs
 				);
-				expect( portable ).not.toContain( '<script' );
+				expect( portable ).toContain( '<script data-dla-disclosure-runtime="true">' );
 				await page.setContent( portable );
 				expect( await page.locator( 'details.dla-initial-dialog[open]' ).count() ).toBe( 8 );
 				expect( await page.getByText( 'Automatic popup 7' ).isVisible() ).toBe( true );
@@ -133,6 +133,77 @@ describe( 'captureTriggeredDialogs', () => {
 						.isVisible()
 				).toBe( true );
 				expect( await page.locator( '#no-op-menu' ).count() ).toBe( 1 );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'dismisses portable triggered dialogs by close control and Escape without handling Escape elsewhere',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				const portable = wireCapturedDialogs(
+					'<!doctype html><html><head></head><body><input aria-label="Search"><button id="site-menu" aria-label="Menu">Menu</button></body></html>',
+					[
+						{
+							status: 'captured',
+							trigger: { selector: '#site-menu', id: 'site-menu', tag: 'button', ariaHaspopup: 'dialog', label: 'Menu', dataBindings: {} },
+							dialog: {
+								selector: '#site-navigation',
+								tag: 'nav',
+								ariaModal: true,
+								ariaLabel: 'Site navigation',
+								html: '<nav><a href="/">Home</a><a href="/quote">Get a Quote</a><a href="/contact">Contact</a></nav>',
+								htmlBytes: 88,
+								htmlTruncated: false,
+							},
+						},
+					]
+				);
+				await page.setContent( portable );
+				await page.waitForFunction( () => document.readyState === 'complete' );
+
+				const disclosure = page.locator( 'details.dla-disclosure' );
+				const summary = disclosure.locator( 'summary' );
+				await summary.click();
+				expect( await page.getByRole( 'link', { name: 'Home' } ).isVisible() ).toBe( true );
+				expect( await page.getByRole( 'link', { name: 'Get a Quote' } ).isVisible() ).toBe( true );
+				expect( await page.getByRole( 'link', { name: 'Contact' } ).isVisible() ).toBe( true );
+				await page.waitForFunction( () =>
+					document.querySelector( 'details.dla-disclosure > summary' )?.getAttribute( 'aria-label' ) === 'Close Menu'
+				);
+				expect( await summary.getAttribute( 'aria-label' ) ).toBe( 'Close Menu' );
+				await summary.click();
+				expect( await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open ) ).toBe( false );
+				expect( await page.evaluate( () => document.activeElement?.tagName ) ).toBe( 'SUMMARY' );
+
+				await summary.click();
+				await page.keyboard.press( 'Escape' );
+				expect( await disclosure.evaluate( ( element ) => ( element as HTMLDetailsElement ).open ) ).toBe( false );
+				expect( await page.evaluate( () => document.activeElement?.tagName ) ).toBe( 'SUMMARY' );
+
+				await page.locator( 'input' ).focus();
+				await page.evaluate( () => {
+					document.addEventListener( 'keydown', ( event ) => {
+						document.body.dataset.escapePrevented = String( event.defaultPrevented );
+					}, { once: true } );
+				} );
+				await page.keyboard.press( 'Escape' );
+				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe( 'false' );
+
+				await page.setContent( '<!doctype html><input aria-label="Normal page input">' );
+				await page.evaluate( () => {
+					document.addEventListener( 'keydown', ( event ) => {
+						document.body.dataset.escapePrevented = String( event.defaultPrevented );
+					}, { once: true } );
+				} );
+				await page.getByRole( 'textbox', { name: 'Normal page input' } ).focus();
+				await page.keyboard.press( 'Escape' );
+				expect( await page.locator( 'body' ).getAttribute( 'data-escape-prevented' ) ).toBe( 'false' );
 			} finally {
 				await browser.close();
 			}

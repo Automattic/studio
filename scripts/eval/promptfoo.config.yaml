@@ -373,6 +373,27 @@ tests:
               return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
             }
             return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
+      # Theme templates and parts are live as soon as they are written, so each
+      # Write/Edit on one must be followed by validate_blocks on that file —
+      # the serialization fix is what puts comment attributes (padding, align,
+      # colors) into the wrapper HTML the front end renders.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const isThemeMarkup = p => typeof p === 'string' && /\/(templates|parts)\/[^/]+\.html$/.test(p);
+            const unvalidated = calls
+              .map((t, i) => ({ t, i }))
+              .filter(({ t }) => (t.name === 'Write' || t.name === 'Edit') && isThemeMarkup(t.input && t.input.path))
+              .filter(({ t, i }) => !calls.slice(i + 1).some(c => c.name === 'validate_blocks' && c.input && c.input.filePath === t.input.path))
+              .map(({ t }) => t.input.path.split('/').slice(-2).join('/'));
+            if (unvalidated.length > 0) {
+              return { pass: false, score: 0, reason: `theme markup written without a following validate_blocks on the file: ${[...new Set(unvalidated)].join(', ')}` };
+            }
+            return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
           });
 
   # One-page sites get header navigation that links to page sections. The

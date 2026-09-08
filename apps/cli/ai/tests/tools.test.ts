@@ -336,23 +336,36 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
-	it( 'pick_concept draws one of the shortlisted catalog concepts and refuses short lists', async () => {
-		const { findSkill, getCurrentConceptPool, renderSkillBody } = await import( '../skills' );
+	it( 'pick_design draws a layout concept and an artistic direction from the shortlists', async () => {
+		const { findSkill, getCurrentDesignPool, renderSkillBody } = await import( '../skills' );
 		renderSkillBody( findSkill( 'visual-design' )! );
-		const pool = getCurrentConceptPool();
-		const tool = getTool( 'pick_concept' );
-		const candidates = pool.slice( 0, 3 ).map( ( name ) => ( { name, reason: 'fits' } ) );
-		const text = getTextContent( await executeTool( tool, { candidates } ) ) ?? '';
-		const drawn = text.match( /^Drawn concept: (.+)$/m )?.[ 1 ];
-		expect( pool.slice( 0, 3 ) ).toContain( drawn );
+		const concepts = getCurrentDesignPool( 'concept' ).slice( 0, 3 );
+		const directions = getCurrentDesignPool( 'direction' ).slice( 0, 3 );
+		const shortlist = ( names: string[] ) => names.map( ( name ) => ( { name, reason: 'fits' } ) );
+		const tool = getTool( 'pick_design' );
+		const text =
+			getTextContent(
+				await executeTool( tool, {
+					layoutCandidates: shortlist( concepts ),
+					directionCandidates: shortlist( directions ),
+				} )
+			) ?? '';
+		expect( concepts ).toContain( text.match( /^Drawn layout concept: (.+)$/m )?.[ 1 ] );
+		expect( directions ).toContain( text.match( /^Drawn artistic direction: (.+)$/m )?.[ 1 ] );
 		expect( text ).toMatch( /^Build: /m );
-		await expect( executeTool( tool, { candidates: candidates.slice( 0, 2 ) } ) ).rejects.toThrow(
-			/at least 3/
-		);
-		const named = getTextContent(
-			await executeTool( tool, { candidates: [], namedInBrief: pool[ 0 ] } )
-		);
-		expect( named ).toContain( `Concept named in the brief: ${ pool[ 0 ] }` );
+		expect( text ).toMatch( /^Palette: /m );
+		await expect(
+			executeTool( tool, { layoutCandidates: shortlist( concepts.slice( 0, 2 ) ) } )
+		).rejects.toThrow( /at least 3/ );
+		await expect( executeTool( tool, {} ) ).rejects.toThrow( /shortlist/ );
+		const named =
+			getTextContent(
+				await executeTool( tool, {
+					directionNamedInBrief: directions[ 0 ],
+				} )
+			) ?? '';
+		expect( named ).toContain( `Artistic direction named in the brief: ${ directions[ 0 ] }` );
+		expect( named ).not.toContain( 'layout concept' );
 	} );
 
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {

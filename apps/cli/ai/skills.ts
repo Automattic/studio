@@ -71,33 +71,58 @@ export function findSkill( name: string ): Skill | undefined {
 	return loadSkills().find( ( skill ) => skill.name === name );
 }
 
-export interface DesignConcept {
+export type DesignCatalogKind = 'concept' | 'direction';
+
+export interface DesignEntry {
 	name: string;
 	body: string;
 }
 
-let cachedConcepts: DesignConcept[] | null = null;
+// Two catalogs feed the visual-design skill: layout concepts (the shape of
+// the page) and artistic directions (palette, type, surfaces, motion). Each
+// is a markdown file where every `## ` heading is one entry keeping its own
+// body, and each has a placeholder in SKILL.md that is re-rendered as a
+// fresh random pool on every load.
+const DESIGN_CATALOGS: Record<
+	DesignCatalogKind,
+	{ file: string; placeholder: string; poolSize: number; label: string }
+> = {
+	concept: {
+		file: 'concepts.md',
+		placeholder: '{{concept-pool}}',
+		poolSize: 8,
+		label: 'layout concept',
+	},
+	direction: {
+		file: 'directions.md',
+		placeholder: '{{direction-pool}}',
+		poolSize: 6,
+		label: 'artistic direction',
+	},
+};
 
-// Parses `visual-design/concepts.md`: each `## ` heading is one concept
-// keeping its own markdown body.
-export function loadDesignConcepts(): DesignConcept[] {
-	if ( cachedConcepts ) return cachedConcepts;
-	const conceptsPath = getSkillPath( 'visual-design', 'concepts.md' );
-	if ( ! fs.existsSync( conceptsPath ) ) {
-		cachedConcepts = [];
-		return cachedConcepts;
+export const DESIGN_CATALOG_KINDS = Object.keys( DESIGN_CATALOGS ) as DesignCatalogKind[];
+const MIN_DESIGN_CANDIDATES = 3;
+
+const cachedCatalogs = new Map< DesignCatalogKind, DesignEntry[] >();
+
+export function loadDesignCatalog( kind: DesignCatalogKind ): DesignEntry[] {
+	const cached = cachedCatalogs.get( kind );
+	if ( cached ) return cached;
+	const catalogPath = getSkillPath( 'visual-design', DESIGN_CATALOGS[ kind ].file );
+	const entries: DesignEntry[] = [];
+	if ( fs.existsSync( catalogPath ) ) {
+		for ( const section of fs.readFileSync( catalogPath, 'utf-8' ).split( /^(?=## )/m ) ) {
+			const heading = section.match( /^## (.+)$/m );
+			if ( ! heading ) continue;
+			entries.push( {
+				name: heading[ 1 ].trim(),
+				body: section.slice( heading[ 0 ].length ).trim(),
+			} );
+		}
 	}
-	const concepts: DesignConcept[] = [];
-	for ( const section of fs.readFileSync( conceptsPath, 'utf-8' ).split( /^(?=## )/m ) ) {
-		const heading = section.match( /^## (.+)$/m );
-		if ( ! heading ) continue;
-		concepts.push( {
-			name: heading[ 1 ].trim(),
-			body: section.slice( heading[ 0 ].length ).trim(),
-		} );
-	}
-	cachedConcepts = concepts;
-	return concepts;
+	cachedCatalogs.set( kind, entries );
+	return entries;
 }
 
 function shuffle< T >( items: T[], random: () => number ): T[] {
@@ -109,90 +134,98 @@ function shuffle< T >( items: T[], random: () => number ): T[] {
 	return result;
 }
 
-// Picks `count` random concepts in random order, so neither the pick nor
+// Picks `count` random entries in random order, so neither the pick nor
 // its position in the list is stable between two loads of the skill.
-export function sampleDesignConcepts(
+export function sampleDesignCatalog(
+	kind: DesignCatalogKind,
 	count: number,
 	random: () => number = Math.random
-): DesignConcept[] {
-	return shuffle( loadDesignConcepts(), random ).slice( 0, count );
+): DesignEntry[] {
+	return shuffle( loadDesignCatalog( kind ), random ).slice( 0, count );
 }
 
-export const CONCEPT_POOL_PLACEHOLDER = '{{concept-pool}}';
-const CONCEPT_POOL_SIZE = 8;
-const MIN_CONCEPT_CANDIDATES = 3;
+// Names sampled into each pool on the most recent visual-design load, so
+// pick_design can insist the shortlists came from what the model was shown.
+const currentPools = new Map< DesignCatalogKind, string[] >();
 
-// Names sampled into the pool on the most recent visual-design load, so
-// pick_concept can insist the shortlist came from what the model was shown.
-let currentConceptPool: string[] = [];
-
-export function getCurrentConceptPool(): string[] {
-	return currentConceptPool;
+export function getCurrentDesignPool( kind: DesignCatalogKind ): string[] {
+	return currentPools.get( kind ) ?? [];
 }
 
-// Skill bodies are static except for the concept pool placeholder, which is
-// re-rendered as a fresh random sample on every load.
+// Skill bodies are static except for the pool placeholders, which are
+// re-rendered as fresh random samples on every load.
 export function renderSkillBody( skill: Skill ): string {
-	if ( ! skill.body.includes( CONCEPT_POOL_PLACEHOLDER ) ) return skill.body;
-	const pool = sampleDesignConcepts( CONCEPT_POOL_SIZE );
-	currentConceptPool = pool.map( ( concept ) => concept.name );
-	const names = loadDesignConcepts().map( ( concept ) => concept.name );
-	return skill.body.replace(
-		CONCEPT_POOL_PLACEHOLDER,
-		pool.map( ( concept ) => `### ${ concept.name }\n${ concept.body }` ).join( '\n\n' ) +
-			`\n\nFull catalog (names only, for a concept the brief names by name): ${ names.join(
-				', '
-			) }.`
-	);
+	let body = skill.body;
+	for ( const kind of DESIGN_CATALOG_KINDS ) {
+		const { placeholder, poolSize } = DESIGN_CATALOGS[ kind ];
+		if ( ! body.includes( placeholder ) ) continue;
+		const pool = sampleDesignCatalog( kind, poolSize );
+		currentPools.set(
+			kind,
+			pool.map( ( entry ) => entry.name )
+		);
+		const names = loadDesignCatalog( kind ).map( ( entry ) => entry.name );
+		body = body.replace(
+			placeholder,
+			pool.map( ( entry ) => `### ${ entry.name }\n${ entry.body }` ).join( '\n\n' ) +
+				`\n\nFull catalog (names only, for an entry the brief names by name): ${ names.join(
+					', '
+				) }.`
+		);
+	}
+	return body;
 }
 
-function findConcept( name: string ): DesignConcept | undefined {
+function findDesignEntry( kind: DesignCatalogKind, name: string ): DesignEntry | undefined {
 	const wanted = name.trim().toLowerCase();
-	return loadDesignConcepts().find( ( concept ) => concept.name.toLowerCase() === wanted );
+	return loadDesignCatalog( kind ).find( ( entry ) => entry.name.toLowerCase() === wanted );
 }
 
-// The model shortlists; the code draws. A concept the user named in the
+// The model shortlists; the code draws. An entry the user named in the
 // brief bypasses the draw. Candidates must be distinct catalog entries from
 // the pool the model was shown, and at least three of them, so the draw is
 // real rather than a shortlist of one.
-export function pickDesignConcept(
+export function pickDesignEntry(
+	kind: DesignCatalogKind,
 	input: { candidates: string[]; namedInBrief?: string },
 	random: () => number = Math.random
-): { concept: DesignConcept; drawn: boolean } {
+): { entry: DesignEntry; drawn: boolean } {
+	const { label } = DESIGN_CATALOGS[ kind ];
 	if ( input.namedInBrief ) {
-		const concept = findConcept( input.namedInBrief );
-		if ( ! concept ) {
+		const entry = findDesignEntry( kind, input.namedInBrief );
+		if ( ! entry ) {
 			throw new Error(
-				`"${ input.namedInBrief }" is not a catalog concept. Catalog: ${ loadDesignConcepts()
-					.map( ( c ) => c.name )
+				`"${ input.namedInBrief }" is not a catalog ${ label }. Catalog: ${ loadDesignCatalog(
+					kind
+				)
+					.map( ( e ) => e.name )
 					.join( ', ' ) }`
 			);
 		}
-		return { concept, drawn: false };
+		return { entry, drawn: false };
 	}
 	const candidates = [ ...new Set( input.candidates.map( ( name ) => name.trim() ) ) ];
-	const unknown = candidates.filter( ( name ) => ! findConcept( name ) );
+	const unknown = candidates.filter( ( name ) => ! findDesignEntry( kind, name ) );
 	if ( unknown.length ) {
-		throw new Error( `Not catalog concepts: ${ unknown.join( ', ' ) }` );
+		throw new Error( `Not catalog ${ label }s: ${ unknown.join( ', ' ) }` );
 	}
-	const pool = currentConceptPool.map( ( name ) => name.toLowerCase() );
+	const pool = getCurrentDesignPool( kind );
+	const lowerPool = pool.map( ( name ) => name.toLowerCase() );
 	const outsidePool = pool.length
-		? candidates.filter( ( name ) => ! pool.includes( name.toLowerCase() ) )
+		? candidates.filter( ( name ) => ! lowerPool.includes( name.toLowerCase() ) )
 		: [];
 	if ( outsidePool.length ) {
 		throw new Error(
-			`Not in this build's concept pool: ${ outsidePool.join(
+			`Not in this build's ${ label } pool: ${ outsidePool.join(
 				', '
-			) }. Shortlist from the pool shown in the visual-design skill: ${ currentConceptPool.join(
-				', '
-			) }`
+			) }. Shortlist from the pool shown in the visual-design skill: ${ pool.join( ', ' ) }`
 		);
 	}
-	if ( candidates.length < MIN_CONCEPT_CANDIDATES ) {
+	if ( candidates.length < MIN_DESIGN_CANDIDATES ) {
 		throw new Error(
-			`Shortlist at least ${ MIN_CONCEPT_CANDIDATES } distinct concepts that fit the site.`
+			`Shortlist at least ${ MIN_DESIGN_CANDIDATES } distinct ${ label }s that fit the site.`
 		);
 	}
-	const concept = findConcept( candidates[ Math.floor( random() * candidates.length ) ] );
-	return { concept: concept as DesignConcept, drawn: true };
+	const entry = findDesignEntry( kind, candidates[ Math.floor( random() * candidates.length ) ] );
+	return { entry: entry as DesignEntry, drawn: true };
 }

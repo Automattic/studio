@@ -1,16 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useDragAndDropFile< T extends HTMLElement >( {
 	onFileDrop,
 }: {
 	onFileDrop: ( file: File ) => void;
 } ) {
-	const dropRef = useRef< T >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
+
+	// Callers commonly pass a new inline callback on every render. Reading it through a
+	// ref keeps listener binding independent of the callback's identity, so a re-render
+	// can never leave the node without listeners.
+	const onFileDropRef = useRef( onFileDrop );
 	useEffect( () => {
-		if ( ! dropRef.current ) {
+		onFileDropRef.current = onFileDrop;
+	}, [ onFileDrop ] );
+
+	const cleanupRef = useRef< ( () => void ) | undefined >( undefined );
+
+	// A callback ref binds listeners to whichever node is currently mounted: React calls it
+	// with null on detach and with the new node on attach, so node swaps stay covered.
+	const dropRef = useCallback( ( dropElement: T | null ) => {
+		cleanupRef.current?.();
+		cleanupRef.current = undefined;
+
+		if ( ! dropElement ) {
 			return;
 		}
+
 		let dragLeaveTimeout: NodeJS.Timeout | undefined;
 		const handleDragLeave = ( event: DragEvent ) => {
 			event.preventDefault();
@@ -34,24 +50,21 @@ export function useDragAndDropFile< T extends HTMLElement >( {
 			}
 
 			if ( event.dataTransfer.files.length === 1 ) {
-				onFileDrop( event.dataTransfer.files[ 0 ] );
+				onFileDropRef.current( event.dataTransfer.files[ 0 ] );
 			}
 		};
-		dropRef.current.addEventListener( 'dragover', handleDragOver );
-		dropRef.current.addEventListener( 'dragleave', handleDragLeave );
-		dropRef.current.addEventListener( 'drop', handleDrop );
 
-		function cleanup() {
-			if ( ! dropRef.current ) {
-				return;
-			}
-			dropRef.current.removeEventListener( 'dragover', handleDragOver );
-			dropRef.current.removeEventListener( 'dragleave', handleDragLeave );
-			dropRef.current.removeEventListener( 'drop', handleDrop );
+		dropElement.addEventListener( 'dragover', handleDragOver );
+		dropElement.addEventListener( 'dragleave', handleDragLeave );
+		dropElement.addEventListener( 'drop', handleDrop );
+
+		cleanupRef.current = () => {
+			dropElement.removeEventListener( 'dragover', handleDragOver );
+			dropElement.removeEventListener( 'dragleave', handleDragLeave );
+			dropElement.removeEventListener( 'drop', handleDrop );
 			clearTimeout( dragLeaveTimeout );
-		}
-		return cleanup;
-	}, [ onFileDrop ] );
+		};
+	}, [] );
 
 	return { dropRef, isDraggingOver };
 }

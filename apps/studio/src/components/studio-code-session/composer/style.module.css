@@ -361,6 +361,12 @@
 	font: inherit;
 }
 
+/* The credits ring is its own affordance — the shared icon-button frame
+   around it reads as a border on the circle, so it goes borderless. */
+.aiCreditsButton {
+	border: none;
+}
+
 .glyphButton {
 	font-size: 11px;
 	line-height: 1;
@@ -374,6 +380,56 @@
 .iconButton:disabled {
 	cursor: not-allowed;
 	color: var(--color-frame-text-secondary);
+}
+
+.aiCreditsRingTrack {
+	stroke: var(--color-frame-border);
+}
+
+.aiCreditsRingValue {
+	stroke: var(--color-frame-text);
+}
+
+/* Same escalation steps as the Settings → Usage meter. */
+.aiCreditsRing[data-intent='warning'] .aiCreditsRingValue {
+	stroke: var(--color-frame-warning);
+}
+
+.aiCreditsRing[data-intent='critical'] .aiCreditsRingValue {
+	stroke: var(--color-frame-critical);
+}
+
+.aiCreditsRing[data-intent='exhausted'] .aiCreditsRingValue {
+	stroke: var(--color-frame-error);
+}
+
+@media not (prefers-reduced-motion) {
+	.aiCreditsRingValue {
+		transition: stroke-dashoffset 180ms ease;
+	}
+}
+
+.aiCreditsSummary {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+}
+
+.aiCreditsSummary span {
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.aiCreditsSummary strong {
+	color: var(--color-frame-text);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+
+.aiCreditsSummary[data-exhausted] strong {
+	color: var(--color-frame-error);
 }
 
 .pill {

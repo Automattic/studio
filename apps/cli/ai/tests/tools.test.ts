@@ -1490,6 +1490,14 @@ describe( 'Studio AI MCP tools', () => {
 			expect( styleCss ).not.toContain( 'Template:' );
 			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
 			expect( styleCss ).toContain( 'margin-block-start: 0;' );
+			expect( styleCss ).toContain( '.wp-site-blocks main {' );
+			expect( styleCss ).toContain( '.wp-site-blocks main.is-flush {' );
+
+			const pageNoTitle = await readFile(
+				path.join( themeDir, 'templates', 'page-no-title.html' ),
+				'utf8'
+			);
+			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
@@ -1520,6 +1528,28 @@ describe( 'Studio AI MCP tools', () => {
 			await expect(
 				stat( path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' ) )
 			).rejects.toThrow();
+		} );
+
+		it( 'treats an empty parentTheme as no parent and scaffolds a blank theme', async () => {
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				parentTheme: '',
+			} as never );
+
+			expect( getTextContent( result ) ).not.toMatch( /Child theme/ );
+			await expect(
+				stat(
+					path.join(
+						tempSiteRoot,
+						'wp-content',
+						'themes',
+						'acme-studio',
+						'templates',
+						'index.html'
+					)
+				)
+			).resolves.toBeDefined();
 		} );
 
 		it( 'fails when the target theme directory already exists', async () => {

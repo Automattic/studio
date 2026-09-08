@@ -33,10 +33,18 @@ WordPress constrains children of `core/post-content` and any constrained-layout 
 Use these patterns:
 
 - **Full-bleed section, constrained inner content**: for a full-width hero, banner, or CTA with centered content, use an outer `core/group` with `{"align":"full","layout":{"type":"constrained"}}`, then place normal inner blocks inside it.
+- **Full-bleed section, wide inner content**: for multi-column rows, card grids, feature grids, and galleries, keep the same outer group and add `"align":"wide"` on the inner `core/columns`, `core/group`, or `core/gallery` so it spans `wideSize` instead of the reading column. Without it, a three-column row is squeezed into `contentSize`. Reserve the plain reading column for text-only blocks.
 - **Full-bleed section, full-bleed inner content**: for image grids, edge-to-edge galleries, and similar layouts, use outer and inner `core/group` blocks with `{"align":"full","layout":{"type":"default"}}`.
 - **Standard constrained content**: omit `align` and write normal blocks.
 
-The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+The common failures are a hero or banner that was intended to be full-width but still renders in the narrow content column, and a columns or grid block left at the reading width when it should be `"align":"wide"`. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+
+### Horizontal Padding
+
+WordPress supplies horizontal padding in exactly one place: the root gutter (`styles.spacing.padding`) lands on full-width constrained groups via `.has-global-padding`, and core zeroes it again on constrained groups nested inside them. Every other box gets none — a full-width section with a `default`, `flex`, or `grid` layout, and any group, column, or cover that paints its own background, border, or shadow (a card, a callout, a tinted panel). Block themes do not load core's default `.has-background` padding either. Text sitting flush against its own background, border, or the viewport edge is the most common tell of an unfinished section, so:
+
+- Whenever a block paints its own box, give its class horizontal padding in `style.css` — `.is-style-card { padding: 1.5rem; }`.
+- Give a non-constrained full-width section the same gutter as the rest of the page — `padding-inline: var(--wp--style--root--padding-left);` — or place its text inside a constrained inner group, which keeps the gutter when it sits directly in a full-width `default` group.
 
 ### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
 
@@ -65,8 +73,8 @@ This holds even when it looks harmless: inside a flex row an `inline-block` or `
 
 WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
 
-- Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding. Keep that reset when editing the file.
-- When working in a theme without that reset, add the same rule to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
+- Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding, and `main` gets its padding back through the `.wp-site-blocks main` rule next to it so templates the theme does not author (plugin templates) still clear the header and footer. Keep both rules when editing the file.
+- When working in a theme without that reset, add the same rules to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
 - Do not zero the gap by setting `styles.spacing.blockGap: "0"` in `theme.json` — that value cascades as the default gap inside every flow and constrained layout and collapses content rhythm site-wide.
 - When you want visible space between top-level sections, add it deliberately (padding on the sections) so the spacing is designed, not inherited.
 

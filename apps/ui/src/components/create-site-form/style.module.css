@@ -5,7 +5,7 @@
 .panel {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 16px;
 	padding: 32px;
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 12px;

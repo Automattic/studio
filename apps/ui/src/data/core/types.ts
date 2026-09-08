@@ -494,6 +494,12 @@ export interface Connector {
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
 
+	// The site's WordPress debug log, resolved host-side from the site id. Its
+	// existence is a query, not a `SiteDetails` field: the file comes and goes
+	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	siteDebugLogExists( siteId: string ): Promise< boolean >;
+	openSiteDebugLog( siteId: string ): Promise< void >;
+
 	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
 	openStudioLogs(): Promise< void >;
 
@@ -613,12 +619,27 @@ export interface Connector {
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+
+	// Separate from the status above: "already up to date" is a transient answer to a user
+	// action, not a lasting state.
+	onAppUpdateNotAvailable( listener: ( info: { currentVersion: string } ) => void ): () => void;
 }
 
-export interface AppUpdateStatus {
-	readyToInstall: boolean;
-	version: string | null;
-}
+// Mirrors `AppUpdateStatus` in apps/studio/src/ipc-utils.ts.
+export type AppUpdateStatus = (
+	| { state: 'idle' | 'checking'; currentVersion: string | null }
+	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
+	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
+	| {
+			state: 'error';
+			currentVersion: string | null;
+			reason: 'read-only-volume' | 'generic';
+			detail?: string;
+	  }
+) & {
+	// Set when the user asked for this check, so a dismissed card is shown again.
+	requested?: boolean;
+};
 
 // Persisted first-run onboarding state for the workbench. Separate from the
 // pre-workbench welcome flag (getOnboardingCompleted).

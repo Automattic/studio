@@ -44,6 +44,7 @@ import {
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -734,7 +735,7 @@ const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
-	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
+	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 

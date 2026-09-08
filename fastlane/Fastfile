@@ -171,13 +171,7 @@ lane :distribute_release_build do |version: read_package_json_version|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      # Link only the installers users download: "Full Install" builds plus the Linux .debs
-      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
-      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
-      ':studio-app-icon-mac: Release available for': builds.each_value
-        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
-        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
-        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      ':studio-app-icon-mac: Release available for': slack_release_links(builds)
     },
     default_payloads: []
   )
@@ -641,6 +635,29 @@ def linux_deb_path(arch:)
   clean_path
 end
 
+# The builds announced in the release Slack message, in display order: the desktop
+# installers users actually download. Excludes the Mac/Windows "Update" payloads (consumed
+# by the in-app updater), the unsigned Appx builds (Buildkite artifacts for the Microsoft
+# Store publish), and the standalone CLI bundles that {distribute_builds} merges in.
+SLACK_ANNOUNCED_BUILD_KEYS = %i[
+  x64_dmg
+  arm64_dmg
+  windows
+  windows_arm64
+  linux_x64_deb
+  linux_arm64_deb
+].freeze
+
+def slack_release_links(builds)
+  missing = SLACK_ANNOUNCED_BUILD_KEYS.reject { |key| builds[key] }
+  UI.important("Slack release message is missing builds: #{missing.join(', ')}") unless missing.empty?
+
+  SLACK_ANNOUNCED_BUILD_KEYS
+    .filter_map { |key| builds[key] }
+    .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }
+    .join(', ')
+end
+
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
@@ -811,7 +828,7 @@ def distribute_builds(
     buildkite_annotate(
       context: 'cdn-link',
       style: 'info',
-      message: "🔗 Build available for #{builds_to_upload.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
+      message: "🔗 Build available for #{builds_to_upload.each_value.map { |build| "[#{build[:display_name] || build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
     )
   end
 
@@ -1031,7 +1048,7 @@ def studio_cli_cdn_builds
     { key: :cli_windows_arm64, file_name: 'studio-cli-win32-arm64.tgz',  name: 'Windows arm64', platform: 'Windows - ARM64' },
     { key: :cli_linux_x64,     file_name: 'studio-cli-linux-x64.tgz',    name: 'Linux x64',     platform: 'Linux - x64' },
     { key: :cli_linux_arm64,   file_name: 'studio-cli-linux-arm64.tgz',  name: 'Linux arm64',   platform: 'Linux - ARM64' }
-  ]
+  ].map { |build| build.merge(display_name: "CLI #{build[:name]}") }
 end
 
 # Upload (or update) the standalone Studio CLI bundles on the Apps CDN.
@@ -1105,6 +1122,7 @@ def upload_studio_cli_binaries_to_apps_cdn(version:, artifacts_dir:, build_type:
 
     builds[build[:key]] = {
       name: build[:name],
+      display_name: build[:display_name],
       platform: build[:platform],
       cdn_url: media_url,
       post_id: post_id,

@@ -236,12 +236,16 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const { enabled, isReady, reason } = useAgenticFeatures();
-	const previousReasonRef = useRef( reason );
+	// `reason` dips through null while auth reloads, so the signed-out state has
+	// to be latched — the preceding value is never 'signed-out' when it matters.
+	const wasSignedOutRef = useRef( false );
 
 	useEffect( () => {
-		const previousReason = previousReasonRef.current;
-		previousReasonRef.current = reason;
-		if ( enabled && previousReason === 'signed-out' ) {
+		if ( reason === 'signed-out' ) {
+			wasSignedOutRef.current = true;
+		}
+		if ( enabled && wasSignedOutRef.current ) {
+			wasSignedOutRef.current = false;
 			void navigate( { to: '/', replace: true } );
 			return;
 		}

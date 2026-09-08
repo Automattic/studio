@@ -36,7 +36,10 @@ function resolvedUrl( value: string | undefined, sourceUrl: string ): string | u
  * Captures inert JSON-LD as parsed data before HTML sanitization removes scripts.
  * Limits apply per document so source metadata cannot dominate an artifact.
  */
-export function capturedJsonLd( html: string, sourceUrl: string ): SourceJsonLdDocument | undefined {
+export function capturedJsonLd(
+	html: string,
+	sourceUrl: string
+): SourceJsonLdDocument | undefined {
 	const $ = cheerio.load( html );
 	const aliases = {
 		canonical: resolvedUrl( $( 'link[rel="canonical"]' ).first().attr( 'href' ), sourceUrl ),
@@ -45,9 +48,11 @@ export function capturedJsonLd( html: string, sourceUrl: string ): SourceJsonLdD
 	const objects: unknown[] = [];
 	const diagnostics: SourceJsonLdDiagnostic[] = [];
 	let totalBytes = 0;
-	const scripts = $( 'script[type]' ).toArray().filter( ( script ) =>
-		/^application\/ld\+json(?:\s*;|\s*$)/i.test( $( script ).attr( 'type' ) ?? '' )
-	);
+	const scripts = $( 'script[type]' )
+		.toArray()
+		.filter( ( script ) =>
+			/^application\/ld\+json(?:\s*;|\s*$)/i.test( $( script ).attr( 'type' ) ?? '' )
+		);
 
 	for ( const [ scriptIndex, script ] of scripts.entries() ) {
 		const source = $( script ).text();

@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser } from 'playwright';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { learnAndApplyFluidGeometry } from './fluid-capture.js';
 
 describe( 'learnAndApplyFluidGeometry', () => {
@@ -62,7 +62,11 @@ describe( 'learnAndApplyFluidGeometry', () => {
 		await page.locator( '#runtime-parent' ).evaluate( ( element ) => {
 			element.style.height = 'auto';
 		} );
-		expect( await page.locator( '#canvas' ).evaluate( ( element ) => element.getBoundingClientRect().height ) ).toBeGreaterThan( 1 );
+		expect(
+			await page
+				.locator( '#canvas' )
+				.evaluate( ( element ) => element.getBoundingClientRect().height )
+		).toBeGreaterThan( 1 );
 		await page.close();
 	} );
 } );

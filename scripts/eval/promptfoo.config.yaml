@@ -345,6 +345,35 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
+      # Workflow step 8: the build must finish by copying the final desktop
+      # take_screenshot capture to the scaffolded theme's screenshot.jpg (the
+      # Appearance → Themes thumbnail). The capture files are JPEGs, so the
+      # copied file must carry a real JPEG signature — a hand-crafted or
+      # generated placeholder fails.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync, openSync, readSync, closeSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const created = (d.toolResults || []).find(r => r.toolName === 'site_create' && !r.isError);
+            if (!created || !created.text) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
+            let sitePath;
+            try { sitePath = JSON.parse(created.text).path; } catch { return { pass: false, score: 0, reason: `site_create result text is not JSON: ${created.text.slice(0, 200)}` }; }
+            const scaffold = (d.toolResults || []).find(r => r.toolName === 'scaffold_theme' && !r.isError);
+            const slug = scaffold?.text?.match(/scaffolded at wp-content\/themes\/([a-z0-9-]+)\//)?.[1];
+            if (!sitePath || !slug) return { pass: false, score: 0, reason: `could not resolve theme dir (sitePath=${sitePath}, slug=${slug})` };
+            const screenshotPath = `${sitePath}/wp-content/themes/${slug}/screenshot.jpg`;
+            let fd;
+            try { fd = openSync(screenshotPath, 'r'); } catch { return { pass: false, score: 0, reason: `theme screenshot missing: ${screenshotPath}` }; }
+            const head = Buffer.alloc(3);
+            const bytesRead = readSync(fd, head, 0, 3, 0);
+            closeSync(fd);
+            if (bytesRead < 3 || head[0] !== 0xff || head[1] !== 0xd8 || head[2] !== 0xff) {
+              return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
+            }
+            return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
+          });
 
   # One-page sites get header navigation that links to page sections. The
   # header template part renders on EVERY template (posts, archives, search,

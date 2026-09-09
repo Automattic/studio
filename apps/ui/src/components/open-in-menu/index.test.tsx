@@ -107,7 +107,6 @@ describe( 'OpenInMenu', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
 			openExternalUrl,
@@ -198,29 +197,33 @@ describe( 'OpenInMenu', () => {
 		} );
 	} );
 
-	it( 'offers no phpMyAdmin destination', () => {
-		// The preview's address bar owns the database realm; navigating there
-		// from here strands it with no segment to represent it.
+	it( 'offers phpMyAdmin like the Overview, opening the database in the preview', () => {
 		renderMenu( { running: true } );
 
-		expect( screen.queryByText( 'phpMyAdmin' ) ).not.toBeInTheDocument();
+		fireEvent.click( destination( 'phpMyAdmin' ) );
+
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
+			browser: 'internal',
+		} );
 	} );
 
-	it( 'defaults the split action to the browser', () => {
+	it( 'shows a single "Open in…" trigger rather than repeating a destination', () => {
 		renderMenu( { running: true } );
 
-		const defaultAction = screen.getByRole( 'button', { name: 'Open in Browser' } );
-		expect( defaultAction ).toHaveTextContent( 'Browser' );
-		fireEvent.click( defaultAction );
-
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
+		const trigger = screen.getByRole( 'button', { name: 'Open in…' } );
+		expect( trigger ).toHaveTextContent( 'Open in…' );
+		expect( screen.queryByRole( 'button', { name: 'Open in Browser' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'stays available while the site is stopped, minus the browser', () => {
 		renderMenu( { running: false } );
 
 		expect( destination( 'Browser' ) ).toBeDisabled();
-		expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeEnabled();
 
 		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
@@ -235,47 +238,6 @@ describe( 'OpenInMenu', () => {
 
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 		expect( openSiteInEditor ).not.toHaveBeenCalled();
-		// Nothing was opened, so the trigger's last-used destination stays put.
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBeNull();
-	} );
-
-	it( 'repeats the last used destination from the split action', () => {
-		renderMenu( { running: true } );
-
-		fireEvent.click( destination( 'Terminal' ) );
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
-			'terminal'
-		);
-
-		const defaultAction = screen.getByRole( 'button', { name: 'Open in Terminal' } );
-		expect( defaultAction ).toHaveTextContent( 'Terminal' );
-		fireEvent.click( defaultAction );
-		expect( openSiteInTerminal ).toHaveBeenCalledTimes( 2 );
-	} );
-
-	it( 'remembers the destination per site', () => {
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-2', 'files' );
-
-		const { unmount } = renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
-		unmount();
-
-		renderMenu( { id: 'site-2', running: true } );
-		expect(
-			screen.getByRole( 'button', { name: /^Open in (Finder|File Explorer|File manager)$/ } )
-		).toBeInTheDocument();
-	} );
-
-	it( 'restores the persisted destination and ignores a corrupt one', () => {
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
-		const { unmount } = renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
-		unmount();
-
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'nonsense' );
-		renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeInTheDocument();
 	} );
 } );
 

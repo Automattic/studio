@@ -42,11 +42,13 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	padding-block: var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-sm) 6px;
+	padding-inline: var(--wpds-dimension-padding-sm);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-foreground-content-neutral);
 	-webkit-app-region: drag;
+	/* Lets the "Open in…" control shorten its label as the pane narrows. */
+	container: studio-session-header / inline-size;
 }
 
 .headerSidebarCollapsed {
@@ -82,11 +84,13 @@
 }
 
 .headerActions {
-	position: relative;
-	inset-block-start: -7px;
 	display: flex;
 	align-items: center;
-	margin-inline-end: var(--wpds-dimension-padding-sm);
+	/* Centers against the preview toolbar beside it (32px address bar plus
+	   4px padding above and below), not this taller site-button row. */
+	align-self: flex-start;
+	height: 40px;
+	margin-block-start: calc(-1 * var(--wpds-dimension-padding-sm));
 	-webkit-app-region: no-drag;
 }
 

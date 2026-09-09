@@ -31,7 +31,6 @@ import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-des
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
-import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { isSiteSettingsTab, SiteSettingsForm } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
@@ -43,7 +42,6 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
-import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
 import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
@@ -171,16 +169,7 @@ function ButtonSection( {
 	);
 }
 
-function OpenInSection( {
-	site,
-	busy,
-	openSiteUrl,
-}: {
-	site: SiteDetails;
-	busy: boolean;
-	openSiteUrl: ( url: string ) => Promise< void >;
-} ) {
-	const connector = useConnector();
+function OpenInSection( { site, busy }: { site: SiteDetails; busy: boolean } ) {
 	const { data: preferences } = useUserPreferences();
 	const destinations = useOpenInDestinations( site, '/' );
 	const editorConfigured = Boolean( preferences?.editor );
@@ -198,23 +187,10 @@ function OpenInSection( {
 					brandIcon
 					icon={ <Icon icon={ destination.logo } size={ 18 } /> }
 					label={ destination.label }
-					disabled={ destination.disabled }
+					disabled={ destination.disabled || ( destination.id === 'phpmyadmin' && busy ) }
 					onClick={ destination.open }
 				/>
 			) ) }
-			<OverviewButton
-				brandIcon
-				icon={ <Icon icon={ databaseLogo } size={ 18 } /> }
-				label={ __( 'phpMyAdmin' ) }
-				disabled={ busy }
-				onClick={ () => {
-					// Opens in the in-app preview panel, not the OS browser.
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
-						browser: 'internal',
-					} );
-					void openSiteUrl( DATABASE_HOME_PATH );
-				} }
-			/>
 		</ButtonSection>
 	);
 }
@@ -447,7 +423,7 @@ function SiteOverviewBody( {
 									</ButtonSection>
 
 									{ connector.capabilities.openInOS && (
-										<OpenInSection site={ site } busy={ busy } openSiteUrl={ openSiteUrl } />
+										<OpenInSection site={ site } busy={ busy } />
 									) }
 
 									<ButtonSection title={ __( 'Manage' ) } transitionName="studio-theme-manage">

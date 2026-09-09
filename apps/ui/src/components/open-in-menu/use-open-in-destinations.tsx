@@ -5,15 +5,27 @@ import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { code, external } from '@wordpress/icons';
-import { getPreviewRealm, getRealmOpenEvent } from '@/components/site-preview/address-bar';
+import {
+	DATABASE_HOME_PATH,
+	getPreviewRealm,
+	getRealmOpenEvent,
+} from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { editorLogos, finderLogo, folderLogo, terminalLogo, terminalLogos } from '@/lib/logos';
+import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
+import {
+	databaseLogo,
+	editorLogos,
+	finderLogo,
+	folderLogo,
+	terminalLogo,
+	terminalLogos,
+} from '@/lib/logos';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal';
+export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
 
 export interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -36,7 +48,9 @@ export function getFileManager(): { label: string; logo: ReactElement } {
 
 /**
  * The "Open in…" destinations for a site (browser, file manager, editor,
- * terminal) with their labels, logos, and open handlers.
+ * terminal, phpMyAdmin) with their labels, logos, and open handlers. One
+ * list feeds both the Overview's shortcuts and the session header's menu so
+ * the two never drift.
  *
  * `browserPath` is the site-relative path the browser opens — the preview's
  * current page, not the site root. `onOpen` fires only when a destination
@@ -44,7 +58,7 @@ export function getFileManager(): { label: string; logo: ReactElement } {
  * navigates to settings instead and reports nothing.
  *
  * Browser is the only destination that needs a running site; the rest work
- * stopped.
+ * stopped (phpMyAdmin starts the site on the way in).
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
@@ -54,6 +68,7 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const { data: userPreferences } = useUserPreferences();
+	const openSiteUrl = useOpenSiteUrl( site );
 
 	const fileManager = getFileManager();
 	const editorLabel = userPreferences?.editor
@@ -132,6 +147,18 @@ export function useOpenInDestinations(
 					captureException( error );
 					toast.error( __( 'Could not open the terminal.' ) );
 				} );
+			},
+		},
+		{
+			id: 'phpmyadmin',
+			label: __( 'phpMyAdmin' ),
+			logo: databaseLogo,
+			disabled: false,
+			open: () => {
+				onOpen?.( 'phpmyadmin' );
+				// Opens in the in-app preview panel, not the OS browser.
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'internal' } );
+				void openSiteUrl( DATABASE_HOME_PATH );
 			},
 		},
 	];

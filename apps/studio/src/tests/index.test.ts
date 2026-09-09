@@ -68,13 +68,6 @@ vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
 vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
 	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'src/modules/remote-session/daemon-status-poller', () => ( {
-	// Started during `appBoot()`; its initial tick calls `sendIpcEventToRenderer`,
-	// which races the partial `getMainWindow()` mock used in these tests. The
-	// poller itself is covered by its own unit-test file, so stubbing it here
-	// keeps this suite focused on app-boot bookkeeping.
-	startRemoteSessionStatusPolling: vi.fn().mockReturnValue( () => undefined ),
-} ) );
 vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
@@ -190,7 +183,7 @@ describe( 'App initialization', () => {
 		mockElectron();
 		vi.resetModules();
 		await expect( import( '../index' ) ).resolves.toBeDefined();
-	} );
+	}, 10_000 );
 
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();

@@ -1,7 +1,9 @@
 // Run tests: npm test -- apps/studio/src/components/studio-code-session/tests/free-form-arming.test.tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { store } from 'src/stores';
 import { StudioCodeSession } from '..';
 import { queryClient } from '../query-client';
 
@@ -132,9 +134,17 @@ beforeEach( () => {
 	} );
 } );
 
+function renderSession() {
+	return render(
+		<Provider store={ store }>
+			<StudioCodeSession selectedSite={ selectedSite } />
+		</Provider>
+	);
+}
+
 describe( 'free-form arming', () => {
 	it( 'disarms "Something else" when the user picks a listed option instead', async () => {
-		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+		renderSession();
 
 		const freeFormButtons = await screen.findAllByRole( 'button', { name: 'Something else' } );
 		const q1FreeForm = freeFormButtons[ 0 ];
@@ -158,7 +168,7 @@ describe( 'free-form arming', () => {
 	} );
 
 	it( 'keeps a question armed when a different question is answered', async () => {
-		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+		renderSession();
 
 		const freeFormButtons = await screen.findAllByRole( 'button', { name: 'Something else' } );
 		await userEvent.click( freeFormButtons[ 0 ] );
@@ -173,7 +183,7 @@ describe( 'free-form arming', () => {
 	} );
 
 	it( 'lets the user arm free-form after already picking an option', async () => {
-		render( <StudioCodeSession selectedSite={ selectedSite } /> );
+		renderSession();
 
 		await screen.findAllByRole( 'button', { name: 'Something else' } );
 		await userEvent.click( screen.getByRole( 'button', { name: 'A' } ) );

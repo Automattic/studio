@@ -8,7 +8,7 @@
 	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .text {
@@ -20,8 +20,8 @@
 	margin: 0 0 var(--wpds-dimension-padding-sm);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: var(--wpds-typography-line-height-md);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .benefits {
@@ -32,7 +32,7 @@
 	gap: var(--wpds-dimension-padding-xs);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .actions {

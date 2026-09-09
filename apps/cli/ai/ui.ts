@@ -33,7 +33,6 @@ import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
-	ADD_AI_CREDITS_URL,
 	fetchStudioAssistantQuota,
 	formatOutOfCreditsNotice,
 	formatQuotaResetDate,
@@ -95,7 +94,6 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
-	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -212,9 +210,6 @@ class PromptEditor implements Component, Focusable {
 				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
 		const rightSegments: string[] = [];
-		if ( this.daemonStatusMessage ) {
-			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
-		}
 		if ( this.statusMessage ) {
 			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
 		}
@@ -1097,9 +1092,9 @@ export class AiChatUI implements AiOutputAdapter {
 				this.tui.requestRender( true );
 			}
 		} );
-		// Logger progress and daemon-status updates can request renders while
-		// the TUI is stopped for an external prompt. pi-tui leaves that request
-		// pending, so force a fresh render when resuming.
+		// Logger progress can request renders while the TUI is stopped for an
+		// external prompt. pi-tui leaves that request pending, so force a fresh
+		// render when resuming.
 		this.tui.requestRender( true );
 	}
 
@@ -1613,11 +1608,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
-		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
-		this.tui.requestRender();
-	}
-
 	private busyTimer: ReturnType< typeof setInterval > | null = null;
 	private busyFrameIndex = 0;
 	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
@@ -1837,12 +1827,7 @@ export class AiChatUI implements AiOutputAdapter {
 					this.usageCapReached = true;
 					this.showError( outOfCredits ? formatOutOfCreditsNotice() : formatUsageCapNotice() );
 					if ( outOfCredits ) {
-						// The terminal can't render a link, so the URL goes on its own
-						// line, as-is — it stays copyable and most terminals auto-link it.
-						this.showInfo(
-							__( 'Add credits at the link below, then come back to continue using Studio Code:' )
-						);
-						this.showInfo( ADD_AI_CREDITS_URL );
+						this.showInfo( __( 'Use /credits to see your balance and buy more.' ) );
 					} else {
 						// Async on purpose: the reset date needs a wpcom round trip
 						// and must not block rendering the cap notice.

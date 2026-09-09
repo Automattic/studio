@@ -1,3 +1,4 @@
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -218,12 +219,16 @@ export function useUpdateSite() {
 			// in-memory details.
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
-			// Seed the applied version rather than refetching it: the CLI keeps
-			// restarting the site after this resolves, and a disk read landing
-			// mid-restart still reports the pre-edit version, which would flash
-			// the old value back into the settings form.
-			if ( wpVersion ) {
+			// Seed the applied version rather than refetching, which can still
+			// report the pre-edit version and flash it back into the form.
+			// `latest` is the auto-update mode, not a version, so there is
+			// nothing to seed — refetch and let the read report what landed.
+			if ( wpVersion && wpVersion !== DEFAULT_WORDPRESS_VERSION ) {
 				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
+			} else if ( wpVersion ) {
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...WP_VERSION_QUERY_KEY, site.id ],
+				} );
 			}
 			toast.success( __( 'Settings saved' ) );
 		},

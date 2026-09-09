@@ -17,6 +17,7 @@ import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useResponsivePanels } from '@/hooks/use-responsive-panels';
 import {
 	pathForSite,
 	SessionUIProvider,
@@ -161,6 +162,14 @@ function DashboardLayoutContent() {
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
+	const { setOpen: setPreviewOpen } = preview;
+	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
+		useResponsivePanels( {
+			connector,
+			previewOpen: showPreview,
+			previewFullscreen,
+			setPreviewOpen,
+		} );
 	// Leave full preview when the route stops supporting a preview (settings,
 	// site settings…) so the user is never left staring at a hidden layout.
 	const { setFullscreen: setPreviewFullscreen } = preview;
@@ -169,10 +178,9 @@ function DashboardLayoutContent() {
 			setPreviewFullscreen( false );
 		}
 	}, [ supportsPreview, setPreviewFullscreen ] );
-	const exitPreviewFullscreen = useCallback(
-		() => setPreviewFullscreen( false ),
-		[ setPreviewFullscreen ]
-	);
+	const exitPreviewFullscreen = useCallback( () => {
+		void openSidebar().then( () => setPreviewFullscreen( false ) );
+	}, [ openSidebar, setPreviewFullscreen ] );
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -240,6 +248,9 @@ function DashboardLayoutContent() {
 
 	return (
 		<SidebarLayout
+			collapsed={ sidebarCollapsed }
+			onCollapsedChange={ setSidebarCollapsed }
+			onExpand={ openSidebar }
 			forceCollapsed={ previewFullscreen }
 			onForceCollapsedToggle={ exitPreviewFullscreen }
 		>
@@ -247,6 +258,7 @@ function DashboardLayoutContent() {
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
 				preview={ renderPreview }
+				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>
 				{ workspace }
 			</PreviewSplitFrame>

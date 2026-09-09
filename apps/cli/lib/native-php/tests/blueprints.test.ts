@@ -1,9 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
 	formatBlueprintRunnerError,
 	normalizeBlueprintForRunner,
+	removeOwnedSqliteSymlink,
 } from 'cli/lib/native-php/blueprints';
 import { PhpCommandError } from 'cli/lib/native-php/php-process';
+
+const tempDirs: string[] = [];
+
+afterEach( () => {
+	for ( const tempDir of tempDirs.splice( 0 ) ) {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+	}
+} );
 
 describe( 'normalizeBlueprintForRunner', () => {
 	it( 'drops preferredVersions', () => {
@@ -43,6 +55,40 @@ describe( 'normalizeBlueprintForRunner', () => {
 		const contents: Record< string, unknown > = { features: null, steps: [] };
 
 		expect( () => normalizeBlueprintForRunner( contents ) ).not.toThrow();
+	} );
+} );
+
+describe( 'removeOwnedSqliteSymlink', () => {
+	it( 'removes its symlink after the target has been deleted', async () => {
+		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-blueprint-sqlite-' ) );
+		tempDirs.push( tempDir );
+		const target = path.join( tempDir, 'mu-plugin' );
+		const symlink = path.join( tempDir, 'plugin' );
+		fs.mkdirSync( target );
+		fs.symlinkSync( target, symlink, 'junction' );
+		const symlinkIno = fs.lstatSync( symlink ).ino;
+		fs.rmSync( target, { recursive: true } );
+
+		await removeOwnedSqliteSymlink( symlink, symlinkIno );
+
+		expect( fs.existsSync( symlink ) ).toBe( false );
+		expect( () => fs.lstatSync( symlink ) ).toThrow();
+	} );
+
+	it( 'preserves a replacement entry', async () => {
+		const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-blueprint-sqlite-' ) );
+		tempDirs.push( tempDir );
+		const target = path.join( tempDir, 'mu-plugin' );
+		const symlink = path.join( tempDir, 'plugin' );
+		fs.mkdirSync( target );
+		fs.symlinkSync( target, symlink, 'junction' );
+		const symlinkIno = fs.lstatSync( symlink ).ino;
+		fs.rmSync( symlink );
+		fs.mkdirSync( symlink );
+
+		await removeOwnedSqliteSymlink( symlink, symlinkIno );
+
+		expect( fs.statSync( symlink ).isDirectory() ).toBe( true );
 	} );
 } );
 

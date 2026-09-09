@@ -8,7 +8,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
 	useCallback,
@@ -21,6 +21,7 @@ import {
 	type UIEvent,
 } from 'react';
 import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
+import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
@@ -35,7 +36,6 @@ import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
-import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
@@ -50,8 +50,6 @@ import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 interface SessionFrameProps {
 	header?: ReactNode;
@@ -444,6 +442,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+						<AiCreditsPurchasedNotice />
 						{ isOutOfCredits ? (
 							<OutOfCreditsNotice />
 						) : (
@@ -546,7 +545,7 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<QueryClientProvider client={ queryClient }>
-			<ThemeProvider density="compact">
+			<ThemeProvider>
 				<AgentRunProvider>
 					<SessionGate selectedSite={ selectedSite } />
 				</AgentRunProvider>

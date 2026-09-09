@@ -28,13 +28,13 @@ describe( 'resizable panels', () => {
 } );
 
 describe( 'getPreviewSplitLayout', () => {
-	// Content floor 280, preview floor 360.
+	// Content floor 320, preview floor 360.
 	it( 'leaves a comfortable preferred width untouched on a wide frame', () => {
 		const layout = getPreviewSplitLayout( 1000, 600 );
 		expect( layout.contentWidth ).toBe( 600 );
 		expect( layout.previewWidth ).toBe( 400 );
 		expect( layout.previewMinWidth ).toBe( 360 );
-		expect( layout.previewMaxWidth ).toBe( 720 );
+		expect( layout.previewMaxWidth ).toBe( 680 );
 	} );
 
 	it( 'caps content so the preview keeps its minimum width', () => {
@@ -45,15 +45,16 @@ describe( 'getPreviewSplitLayout', () => {
 
 	it( 'floors content at its minimum so the preview cannot swallow it', () => {
 		// This is the regime where the old CSS-only clamp diverged: a preferred
-		// content below the 280 floor must be raised to 280, not left as-is.
-		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 280 );
-		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 720 );
+		// content below the 320 floor must be raised to 320, not left as-is.
+		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 320 );
+		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
-	it( 'degrades gracefully when the frame is narrower than both floors', () => {
+	it( 'keeps the preview at its minimum when the frame is narrower than both floors', () => {
 		const layout = getPreviewSplitLayout( 400, 300 );
-		expect( layout.contentWidth ).toBeGreaterThanOrEqual( 0 );
-		expect( layout.contentWidth ).toBeLessThanOrEqual( 400 );
-		expect( layout.previewWidth ).toBe( 400 - layout.contentWidth );
+		expect( layout.contentWidth ).toBe( 40 );
+		expect( layout.previewWidth ).toBe( 360 );
+		expect( layout.previewMinWidth ).toBe( 360 );
+		expect( layout.previewMaxWidth ).toBe( 360 );
 	} );
 } );

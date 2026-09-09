@@ -6,12 +6,29 @@ import { extractZip } from './extract-zip';
 
 const TEMP_DIR_PREFIX = 'studio-blueprint-bundle-';
 
+function resolveBlueprintTempDir( tempDir: string ): string {
+	const allowedPrefix = path.join( os.tmpdir(), TEMP_DIR_PREFIX );
+	const resolvedDir = path.resolve( tempDir );
+	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
+		throw new Error( 'Invalid temp directory path' );
+	}
+	return resolvedDir;
+}
+
 /**
  * Creates a temp directory for blueprint operations. Use removeBlueprintTempDir()
  * to clean up — it validates the path prefix to prevent accidental deletions.
  */
 export async function createBlueprintTempDir(): Promise< string > {
 	return fs.promises.mkdtemp( path.join( os.tmpdir(), TEMP_DIR_PREFIX ) );
+}
+
+/**
+ * Synchronous counterpart to createBlueprintTempDir(), for callers that assemble a
+ * blueprint synchronously. Clean up with removeBlueprintTempDir().
+ */
+export function createBlueprintTempDirSync(): string {
+	return fs.mkdtempSync( path.join( os.tmpdir(), TEMP_DIR_PREFIX ) );
 }
 
 /**
@@ -66,10 +83,9 @@ export async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Pr
 }
 
 export async function removeBlueprintTempDir( tempDir: string ): Promise< void > {
-	const allowedPrefix = path.join( os.tmpdir(), TEMP_DIR_PREFIX );
-	const resolvedDir = path.resolve( tempDir );
-	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
-		throw new Error( 'Invalid temp directory path' );
-	}
-	await fs.promises.rm( resolvedDir, { recursive: true, force: true } );
+	await fs.promises.rm( resolveBlueprintTempDir( tempDir ), { recursive: true, force: true } );
+}
+
+export function removeBlueprintTempDirSync( tempDir: string ): void {
+	fs.rmSync( resolveBlueprintTempDir( tempDir ), { recursive: true, force: true } );
 }

@@ -1,9 +1,6 @@
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { unlock } from '@/lock-unlock';
 import type { PropsWithChildren } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 // `#fcfcfc` is the design system's own light seed. Naming it explicitly rather
 // than leaving `color` unset is what lets a nested scope reset back to the app
@@ -12,7 +9,7 @@ const APP_BG_LIGHT = '#fcfcfc';
 const APP_BG_DARK = '#1e1e1e';
 
 export function appThemeColor( colorScheme: 'light' | 'dark' ) {
-	return { bg: colorScheme === 'dark' ? APP_BG_DARK : APP_BG_LIGHT };
+	return { background: colorScheme === 'dark' ? APP_BG_DARK : APP_BG_LIGHT };
 }
 
 /**

@@ -5,6 +5,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useRef, useState } from 'react';
+import { BlueprintGallery } from '@/components/blueprint-gallery';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	BuildNewSiteIllustration,
@@ -15,6 +16,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useOffline } from '@/hooks/use-offline';
 import { setPendingBackup } from '@/lib/pending-backup';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -112,9 +114,7 @@ export function OnboardingHomePage() {
 					<div className={ styles.cardText }>
 						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>
 						<p className={ styles.cardBody }>
-							{ __(
-								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
-							) }
+							{ __( 'Start from scratch. Perfect for theme and plugin development.' ) }
 						</p>
 					</div>
 				</Link>
@@ -135,6 +135,12 @@ export function OnboardingHomePage() {
 				</Link>
 				<ImportBackupCard />
 			</div>
+			<BlueprintGallery
+				onSelect={ ( blueprint ) => {
+					pendingBlueprintSlot.set( blueprint );
+					void navigate( { to: '/onboarding/create' } );
+				} }
+			/>
 			{ ( sites?.length ?? 0 ) > 0 && (
 				<OnboardingFooter>
 					<Button

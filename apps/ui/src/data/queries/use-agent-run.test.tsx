@@ -16,6 +16,12 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	};
 } );
 
+const { outOfCreditsState } = vi.hoisted( () => ( { outOfCreditsState: { value: false } } ) );
+
+vi.mock( '@/hooks/use-is-out-of-ai-credits', () => ( {
+	useIsOutOfAiCredits: () => outOfCreditsState.value,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 function createQueryClient() {
@@ -88,6 +94,7 @@ describe( 'useAgentRun queued handoff', () => {
 			} ),
 		};
 		useConnectorMock.mockReturnValue( connector as Connector );
+		outOfCreditsState.value = false;
 	} );
 
 	afterEach( () => {
@@ -156,6 +163,46 @@ describe( 'useAgentRun queued handoff', () => {
 					return data.text === 'Queued follow-up';
 				} )
 		).toBe( true );
+	} );
+
+	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		// Queued while the run was still paid for; the balance empties mid-run.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		outOfCreditsState.value = true;
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					status: 'success',
+					code: 0,
+				},
+			} );
+		} );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'cancels pending questions so a reply is not stuck behind a blocked run', async () => {

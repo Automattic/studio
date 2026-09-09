@@ -31,6 +31,7 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 	// Fire and forget POST request
 	fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat', {
 		method: 'POST',
+		signal: AbortSignal.timeout( 5_000 ),
 		headers: {
 			'Content-Type': 'application/json',
 		},

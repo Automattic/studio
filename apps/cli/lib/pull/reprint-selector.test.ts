@@ -1,15 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { fetchPullTree } from 'cli/lib/sync-selector';
 import {
-	filterTreeToDirectories,
+	fetchJetpackPullTree,
 	mapCheckedNodesToSelection,
 	mapCliOnlyToReprint,
 } from './reprint-selector';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
+vi.mock( 'cli/lib/sync-selector', () => ( {
+	fetchPullTree: vi.fn(),
+	buildTreeFromRemote: vi.fn(),
+} ) );
+
 /** Minimal checked node — mapCheckedNodesToSelection only reads `value`. */
 function checked( value: string, depth = 1 ): TreeNode {
 	return { name: value, value, isDirectory: false, checked: true, expanded: false, depth };
 }
+
+describe( 'fetchJetpackPullTree', () => {
+	it( 'keeps file leaves from the remote tree', async () => {
+		const tree = [ checked( 'database', 0 ), checked( 'uploads/banner.jpg', 2 ) ];
+		vi.mocked( fetchPullTree ).mockResolvedValue( { tree, rewindId: 'rewind-1' } );
+
+		expect( await fetchJetpackPullTree( 'token', 123 ) ).toEqual( tree );
+	} );
+} );
 
 describe( 'mapCheckedNodesToSelection', () => {
 	it( 'maps a full selection to no --only and keeps the database', () => {
@@ -34,6 +49,14 @@ describe( 'mapCheckedNodesToSelection', () => {
 		] );
 	} );
 
+	it( 'maps a selected file to its wp-content path', () => {
+		expect( mapCheckedNodesToSelection( [ checked( 'uploads/2026/banner.jpg', 3 ) ] ) ).toEqual( {
+			fileOnlyPaths: [ ':wp-content:/uploads/2026/banner.jpg' ],
+			skipDatabase: true,
+			hasAnyFile: true,
+		} );
+	} );
+
 	it( 'collapses a fully-checked directory and keeps a deep partial selection as a path', () => {
 		expect(
 			mapCheckedNodesToSelection( [ checked( 'plugins' ), checked( 'plugins/akismet', 2 ) ] )
@@ -47,51 +70,6 @@ describe( 'mapCheckedNodesToSelection', () => {
 
 	it( 'reports no files selected when only the database is checked', () => {
 		expect( mapCheckedNodesToSelection( [ checked( 'database', 0 ) ] ).hasAnyFile ).toBe( false );
-	} );
-} );
-
-describe( 'filterTreeToDirectories', () => {
-	it( 'keeps the database toggle and canonical directory hierarchy while dropping files', () => {
-		const tree: TreeNode[] = [
-			checked( 'database', 0 ),
-			{
-				name: 'wp-content/',
-				value: 'wp-content',
-				isDirectory: true,
-				checked: true,
-				expanded: true,
-				depth: 0,
-				children: [
-					checked( 'plugins/f26d-error.php', 2 ),
-					{
-						name: 'plugins/',
-						value: 'plugins/',
-						isDirectory: true,
-						checked: true,
-						expanded: false,
-						depth: 1,
-						children: [
-							{
-								name: 'akismet/',
-								value: 'plugins/akismet/',
-								isDirectory: true,
-								checked: true,
-								expanded: false,
-								depth: 2,
-							},
-						],
-					},
-				],
-			},
-		];
-
-		const filtered = filterTreeToDirectories( tree );
-
-		expect( filtered.map( ( node ) => node.value ) ).toEqual( [ 'database', 'wp-content' ] );
-		expect( filtered[ 1 ].children?.map( ( node ) => node.value ) ).toEqual( [ 'plugins' ] );
-		expect( filtered[ 1 ].children?.[ 0 ].children?.map( ( node ) => node.value ) ).toEqual( [
-			'plugins/akismet',
-		] );
 	} );
 } );
 

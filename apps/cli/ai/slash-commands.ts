@@ -2,6 +2,17 @@ import { getAiModelFamily, getVisibleAiModels } from '@studio/common/ai/models';
 import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	clampQuotaFraction,
+	fetchStudioAssistantQuota,
+	formatQuotaPercentage,
+	getAddAiCreditsUrl,
+	type StudioAssistantQuota,
+} from '@studio/common/lib/studio-assistant-quota';
+import {
+	fetchStudioAssistantTopUpPricing,
+	formatTopUpOptionCreditsLabel,
+} from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -15,9 +26,6 @@ import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
-import { loadRemoteSessionConfig } from 'cli/remote-session/config';
-import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
-import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -44,12 +52,6 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
-	/**
-	 * Optional argument completion. When the user has typed past the first
-	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
-	 * this to surface subcommand suggestions.
-	 */
-	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
 }
 
 export function getActiveSlashCommands(): SlashCommandDef[] {
@@ -65,173 +67,51 @@ function isPromptAbortError( error: unknown ): boolean {
 	);
 }
 
-function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | undefined {
-	const tokens = prompt.trim().split( /\s+/ );
-	const sub = tokens[ 1 ]?.toLowerCase();
-	if ( sub === 'start' || sub === 'stop' ) {
-		return sub;
-	}
-	return undefined;
-}
-
-async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void > {
-	// Validate config in-process so a missing token surfaces as an error in the
-	// REPL rather than silently spawning a child that exits on its own.
-	try {
-		await loadRemoteSessionConfig();
-	} catch ( error ) {
-		// RemoteSessionConfigError already carries a user-facing message
-		// telling the user how to authenticate. Anything else (fs permissions,
-		// JSON parse, etc.) gets a generic surface so the REPL stays alive —
-		// the dispatcher does not catch handler throws.
-		ctx.ui.showError(
-			error instanceof Error ? error.message : __( 'Failed to load remote-session config.' )
-		);
-		return;
-	}
-
-	try {
-		const result = await startDaemon();
-		ctx.ui.showSuccess(
-			sprintf(
-				/* translators: %d: daemon PID */
-				__(
-					'Remote-session started (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
-				),
-				result.pid
-			)
-		);
-		ctx.ui.setDaemonStatus( { running: true, pid: result.pid } );
-	} catch ( error ) {
-		if ( error instanceof DaemonAlreadyRunningError ) {
-			ctx.ui.showInfo(
+/**
+ * Print the account's AI credit balance. Which figure exists depends on the
+ * account: the server reports the two credit pools only where AI credits are
+ * enabled (their absence — not a zero — means the older monthly-cap design),
+ * and reports neither when it can't price the account at all.
+ */
+function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuota | null ): void {
+	const credits = new Intl.NumberFormat();
+	if (
+		quota &&
+		( quota.allowanceRemaining !== undefined || quota.purchasedRemaining !== undefined )
+	) {
+		// One showInfo for all the lines: each call pads itself with blank
+		// lines, so per-line calls read as separate paragraphs.
+		const lines = [];
+		if ( ( quota.allowanceRemaining ?? 0 ) > 0 ) {
+			lines.push(
 				sprintf(
-					/* translators: %d: daemon PID */
-					__(
-						'Remote-session already running (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
-					),
-					error.pid
+					/* translators: %s: number of free AI credits remaining (e.g. 960,000). */
+					__( 'Free credits remaining: %s' ),
+					credits.format( quota.allowanceRemaining ?? 0 )
 				)
 			);
-			ctx.ui.setDaemonStatus( { running: true, pid: error.pid } );
-			return;
 		}
-		// DaemonStartTimeoutError and any other unexpected errors (spawn
-		// failure, fs write failure, etc.) get surfaced via showError so the
-		// REPL stays alive.
-		ctx.ui.showError(
-			error instanceof Error ? error.message : __( 'Failed to start the remote-session daemon.' )
-		);
-	}
-}
-
-async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void > {
-	let result;
-	try {
-		result = await stopDaemon();
-	} catch ( error ) {
-		// stopDaemon rethrows non-ESRCH errors from process.kill (e.g. EPERM
-		// when the PID was reused by another user, or any unexpected fs error
-		// while removing the PID file). The REPL dispatcher does not wrap
-		// handlers in a try/catch, so we surface these as a friendly error
-		// rather than letting them terminate the interactive session.
-		ctx.ui.showError(
-			error instanceof Error ? error.message : __( 'Failed to stop the remote-session daemon.' )
-		);
-		return;
-	}
-	ctx.ui.setDaemonStatus( { running: false } );
-	if ( result.alreadyStopped ) {
-		ctx.ui.showInfo( __( 'Remote-session daemon was not running.' ) );
-		return;
-	}
-	if ( ! result.stopped ) {
-		ctx.ui.showError(
+		lines.push(
 			sprintf(
-				/* translators: %d: daemon PID */
-				__( 'Remote-session daemon (PID %d) did not exit after SIGKILL. PID file left in place.' ),
-				result.pid ?? 0
+				/* translators: %s: number of purchased AI credits remaining (e.g. 150,000). */
+				__( 'Purchased credits remaining: %s' ),
+				credits.format( quota.purchasedRemaining ?? 0 )
 			)
 		);
+		ctx.ui.showInfo( lines.join( '\n' ) );
 		return;
 	}
-	if ( result.usedSigKill ) {
+	if ( quota && quota.costCap > 0 ) {
 		ctx.ui.showInfo(
 			sprintf(
-				/* translators: %d: daemon PID */
-				__( 'Remote-session daemon (PID %d) did not exit gracefully; sent SIGKILL.' ),
-				result.pid ?? 0
+				/* translators: %s: percentage of monthly limit used (e.g. 7.5%). */
+				__( '%s of monthly limit used' ),
+				formatQuotaPercentage( clampQuotaFraction( quota.costUsage, quota.costCap ) )
 			)
 		);
 		return;
 	}
-	ctx.ui.showSuccess(
-		sprintf(
-			/* translators: %d: daemon PID */
-			__( 'Remote-session stopped (PID %d).' ),
-			result.pid ?? 0
-		)
-	);
-}
-
-async function pickRemoteSessionSubcommand(
-	ctx: SlashCommandContext
-): Promise< 'start' | 'stop' | undefined > {
-	try {
-		const answer = await ctx.ui.askUser( [
-			{
-				question: __( 'Remote session' ),
-				options: [
-					{ label: __( 'Start' ), description: __( 'Spawn the daemon' ) },
-					{ label: __( 'Stop' ), description: __( 'Stop the daemon' ) },
-				],
-			},
-		] );
-		const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase();
-		if ( selected === undefined ) {
-			return undefined;
-		}
-		if ( selected.startsWith( 'start' ) ) {
-			return 'start';
-		}
-		if ( selected.startsWith( 'stop' ) ) {
-			return 'stop';
-		}
-		return undefined;
-	} catch ( error ) {
-		if ( isPromptAbortError( error ) ) {
-			return undefined;
-		}
-		throw error;
-	}
-}
-
-async function runRemoteSessionSlashCommand(
-	prompt: string,
-	ctx: SlashCommandContext
-): Promise< 'continue' | 'break' > {
-	let sub = parseRemoteSessionSubcommand( prompt );
-	if ( sub === undefined ) {
-		const tokens = prompt.trim().split( /\s+/ );
-		// `tokens.length > 1` means the user typed something like
-		// `/remote-session bogus` — surface usage rather than silently popping
-		// a picker that ignores the bad input.
-		if ( tokens.length > 1 ) {
-			ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
-			return 'continue';
-		}
-		sub = await pickRemoteSessionSubcommand( ctx );
-		if ( sub === undefined ) {
-			ctx.ui.showInfo( __( 'Remote session selection canceled.' ) );
-			return 'continue';
-		}
-	}
-	if ( sub === 'start' ) {
-		await runRemoteSessionStart( ctx );
-	} else if ( sub === 'stop' ) {
-		await runRemoteSessionStop( ctx );
-	}
-	return 'continue';
+	ctx.ui.showInfo( __( 'Studio Code limits are temporarily unavailable.' ) );
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -251,6 +131,82 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Clear the conversation and start a fresh session' ),
 		handler: async ( _prompt, ctx ) => {
 			await ctx.clearSession();
+			return 'continue';
+		},
+	},
+	{
+		name: 'credits',
+		description: __( 'Show your AI credit balance and buy more' ),
+		handler: async ( _prompt, ctx ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
+			ctx.ui.showProgress( __( 'Fetching your AI credits…' ) );
+			ctx.ui.setBusy( true );
+			// Independent endpoints, and neither is a gate on the other: the
+			// balance is worth printing when pricing is down, and the top-ups
+			// are worth offering when the balance can't be read.
+			const [ quota, pricing ] = await Promise.all( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				fetchStudioAssistantTopUpPricing( token.accessToken ),
+			] );
+			ctx.ui.setBusy( false );
+
+			showCreditBalance( ctx, quota );
+
+			// Whatever the store priced for this account, in whatever number.
+			// With no pricing at all the fixed top-up still checks out, so it
+			// stands in rather than leaving the user with nothing to pick.
+			const options = pricing?.options ?? [];
+			const choices: { label: string; description: string; credits?: number }[] = options.length
+				? options.map( ( option ) => ( {
+						label: formatTopUpOptionCreditsLabel( option ),
+						description: option.display,
+						credits: option.credits,
+				  } ) )
+				: [
+						{
+							label: __( 'Add AI credits' ),
+							description: __( 'Pricing unavailable — opens WordPress.com checkout' ),
+						},
+				  ];
+
+			try {
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'Select a top-up to buy' ),
+						options: choices.map( ( { label, description } ) => ( { label, description } ) ),
+					},
+				] );
+				const selectedLabel = Object.values( answer )[ 0 ] as string;
+				const choice = choices.find( ( candidate ) => candidate.label === selectedLabel );
+				if ( ! choice ) {
+					ctx.ui.showInfo( __( 'No top-up selected.' ) );
+					return 'continue';
+				}
+
+				// The terminal has nothing for checkout to return to, so the URL
+				// carries no `wp-studio://` return parameters.
+				const url = getAddAiCreditsUrl( { returnsToDesktop: false, credits: choice.credits } );
+				await openBrowser( url );
+				// The terminal can't render a link, so the URL goes on its own
+				// line, as-is — it stays copyable and most terminals auto-link it.
+				ctx.ui.showInfo(
+					__( 'Opening WordPress.com checkout. If your browser didn’t open, use the link below:' ) +
+						'\n' +
+						url
+				);
+			} catch ( error ) {
+				ctx.ui.setBusy( false );
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'Canceled.' ) );
+					return 'continue';
+				}
+				ctx.ui.showError( __( 'Failed to open WordPress.com checkout.' ) );
+			}
 			return 'continue';
 		},
 	},
@@ -598,19 +554,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			}
 			return 'continue';
 		},
-	},
-	{
-		name: 'remote-session',
-		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
-		getArgumentCompletions: ( argumentPrefix ) => {
-			const items: AutocompleteItem[] = [
-				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
-				{ value: 'stop', label: 'stop', description: __( 'Stop the daemon' ) },
-			];
-			const lower = argumentPrefix.toLowerCase();
-			return items.filter( ( item ) => item.value.startsWith( lower ) );
-		},
-		handler: runRemoteSessionSlashCommand,
 	},
 	{
 		name: 'swag',

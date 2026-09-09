@@ -1901,10 +1901,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			  uniqueAssetPath( requestedPath, contentHash, assetHashesByPath );
 		const destination = resolve( websiteDir, relativePath );
 		const portablePath = `/${ relativePath.replace( /\\/g, '/' ) }`;
-		if ( ! isText && assetPathsByHash.has( contentHash ) ) return true;
-		if ( copiedResources.has( resource.path ) ) return true;
-		if ( copyingResources.has( resource.path ) ) return true;
+		const alreadyCopied =
+			( ! isText && assetPathsByHash.has( contentHash ) ) ||
+			copiedResources.has( resource.path ) ||
+			copyingResources.has( resource.path );
 		if (
+			! alreadyCopied &&
 			baseArtifactFileCount + reservedHoistedStyleFiles + assets.length >=
 			MAX_ARTIFACT_FILES
 		) {
@@ -1925,7 +1927,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		}
 		resourceReplacements.set( dependency.reference, portablePath );
 		resourceReplacements.set( dependency.url, portablePath );
-
+		if ( alreadyCopied ) return true;
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyingResources.add( resource.path );
 		if ( isText ) {

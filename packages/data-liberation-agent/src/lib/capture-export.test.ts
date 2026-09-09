@@ -858,6 +858,59 @@ describe( 'exportWebsiteCapture', () => {
 		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
 	} );
 
+	it( 'localizes deduplicated captured width renditions before returning early', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-lazy-image-resource-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'resources/media', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const bare = 'https://example.com/media/plant.webp';
+		const firstRendition = `${ bare }?format=300w`;
+		const secondRendition = `${ bare }?format=600w`;
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<img data-src="${ bare }" src="${ firstRendition }"><img data-src="${ bare }" src="${ secondRendition }">`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		writeFileSync( join( outputDir, 'resources', 'media', 'plant-300.webp' ), 'plant' );
+		writeFileSync( join( outputDir, 'resources', 'media', 'plant-600.webp' ), 'plant' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					[ firstRendition ]: {
+						path: 'resources/media/plant-300.webp',
+						contentType: 'image/webp',
+					},
+					[ secondRendition ]: {
+						path: 'resources/media/plant-600.webp',
+						contentType: 'image/webp',
+					},
+				},
+				failures: [],
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		expect( $( 'img' ).eq( 0 ).attr( 'src' ) ).toBe( '/media/plant-300.webp' );
+		expect( $( 'img' ).eq( 1 ).attr( 'src' ) ).toBe( '/media/plant-300.webp' );
+		expect( readFileSync( join( outputDir, 'website', 'media', 'plant-300.webp' ), 'utf8' ) ).toBe( 'plant' );
+	} );
+
 	it( 'exports captured routes and localized media as a website directory', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

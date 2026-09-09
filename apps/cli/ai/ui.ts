@@ -1092,9 +1092,9 @@ export class AiChatUI implements AiOutputAdapter {
 				this.tui.requestRender( true );
 			}
 		} );
-		// Logger progress and daemon-status updates can request renders while
-		// the TUI is stopped for an external prompt. pi-tui leaves that request
-		// pending, so force a fresh render when resuming.
+		// Logger progress can request renders while the TUI is stopped for an
+		// external prompt. pi-tui leaves that request pending, so force a fresh
+		// render when resuming.
 		this.tui.requestRender( true );
 	}
 

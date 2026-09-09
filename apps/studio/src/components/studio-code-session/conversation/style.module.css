@@ -366,6 +366,14 @@
 	cursor: default;
 }
 
+/* A composer reply answers the question without matching a listed option, so
+   it renders as text rather than a lit-up button. */
+.questionTypedAnswer {
+	margin: 8px 0 0;
+	font-weight: 600;
+	color: var(--color-frame-text);
+}
+
 .interruptedMarker {
 	align-self: center;
 	margin: var(--wpds-dimension-padding-sm) 0;

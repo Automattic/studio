@@ -128,6 +128,7 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 		entries: SessionEntry[],
 		props: {
 			pendingQuestions?: Set< string >;
+			pendingAnswers?: Record< string, string >;
 			freeFormQuestion?: string | null;
 			onChooseFreeForm?: ( question: string ) => void;
 		} = {}
@@ -138,7 +139,7 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 				isRunning={ false }
 				startedAt={ null }
 				pendingQuestions={ props.pendingQuestions ?? new Set( [ 'Q1' ] ) }
-				pendingAnswers={ {} }
+				pendingAnswers={ props.pendingAnswers ?? {} }
 				answeredQuestions={ {} }
 				freeFormQuestion={ props.freeFormQuestion ?? null }
 				onAnswerQuestion={ () => {} }
@@ -171,6 +172,20 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { pendingQuestions: new Set() } );
 
 		expect( screen.queryByRole( 'button', { name: 'Something else' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a composer reply that matches none of the listed options', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], {
+			pendingAnswers: { Q1: 'a mu-plugin' },
+		} );
+
+		expect( screen.getByText( 'a mu-plugin' ) ).toBeInTheDocument();
+	} );
+
+	it( 'leaves a picked option to the button rather than repeating it as text', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { pendingAnswers: { Q1: 'A' } } );
+
+		expect( screen.getAllByText( 'A' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'does not duplicate an option an off-contract model wrote itself', () => {

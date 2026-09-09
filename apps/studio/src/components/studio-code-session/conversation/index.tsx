@@ -634,6 +634,13 @@ function AgentQuestion( {
 } ) {
 	const freeFormLabel = getFreeFormOptionLabel();
 	const showFreeForm = isInteractive && ! hasOwnFreeFormOption( options );
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
+	const typedAnswer =
+		pickedLabel && ! options.some( ( option ) => option.label === pickedLabel )
+			? pickedLabel
+			: null;
 
 	return (
 		<div className={ styles.question }>
@@ -675,6 +682,7 @@ function AgentQuestion( {
 					) : null }
 				</ul>
 			) : null }
+			{ typedAnswer ? <p className={ styles.questionTypedAnswer }>{ typedAnswer }</p> : null }
 		</div>
 	);
 }

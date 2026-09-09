@@ -1258,6 +1258,13 @@ export const registerCommand = (
 						return path.resolve( untildify( value ) );
 					},
 				} )
+				.option( 'keep-source', {
+					type: 'boolean',
+					describe: __(
+						'Keep the Data Liberation source capture at the sibling <site>-source directory when importing from a URL'
+					),
+					implies: 'from',
+				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
@@ -1331,6 +1338,12 @@ export const registerCommand = (
 					// desktop app when it spawns the CLI. Hidden from `--help`.
 					type: 'string',
 					hidden: true,
+				} )
+				.check( ( argv ) => {
+					if ( argv.keepSource && ( ! argv.from || ! isUrl( argv.from ) ) ) {
+						throw new Error( __( '--keep-source requires --from with an HTTP(S) URL' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
@@ -1614,7 +1627,7 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir ) {
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
 						await fs.promises
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );

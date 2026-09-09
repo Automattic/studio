@@ -253,6 +253,20 @@ describe( 'CLI: studio create', () => {
 	};
 
 	describe( 'Validation Errors', () => {
+		it( 'requires a URL source when keeping a capture', () => {
+			const createParser = () =>
+				registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+				).exitProcess( false );
+
+			expect( () => createParser().parse( [ 'create', '--keep-source' ] ) ).toThrow(
+				'Missing dependent arguments'
+			);
+			expect( () =>
+				createParser().parse( [ 'create', '--from', '/tmp/source', '--keep-source' ] )
+			).toThrow( '--keep-source requires --from with an HTTP(S) URL' );
+		} );
+
 		it( 'validates and resolves the local Static Site Importer zip option', async () => {
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const createParser = () =>
@@ -398,42 +412,89 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'liberates a URL before handing the portable site to SSI', async () => {
-			const captureRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-source-' ) );
-			const websiteDir = path.join( captureRoot, 'example.com', 'website' );
-			await fs.promises.mkdir( websiteDir, { recursive: true } );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Liberated</main>' );
-			const liberate = vi.fn().mockResolvedValue( websiteDir );
+		it( 'removes the URL source capture after importing by default', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				await fs.promises.mkdir( outputDir, { recursive: true } );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'index.html' ),
+					'<main>Liberated</main>'
+				);
+				return outputDir;
+			} );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			const rmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 			const parser = registerCommand(
-				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
 				{ liberate }
 			).exitProcess( false );
 
-			await parser.parseAsync( [
-				'create',
-				'--from',
-				'https://example.com',
-				'--name',
-				'Liberated Site',
-				'--no-start',
-				'--skip-browser',
-			] );
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
 
-			const outputBase = path.normalize( `${ mockSitePath }-source` );
-			expect( liberate ).toHaveBeenCalledWith(
-				'https://example.com',
-				outputBase,
-				expect.objectContaining( { onProgress: expect.any( Function ) } )
-			);
-			expect( copySpy ).toHaveBeenCalledWith(
-				websiteDir,
-				path.join( mockSitePath, '.studio-import', 'source' ),
-				{ recursive: true, errorOnExist: true, force: false }
-			);
-			expect( rmSpy ).toHaveBeenCalledWith( outputBase, { recursive: true, force: true } );
+				expect( liberate ).toHaveBeenCalledWith(
+					'https://example.com',
+					capturePath,
+					expect.objectContaining( { onProgress: expect.any( Function ) } )
+				);
+				expect( copySpy ).toHaveBeenCalledWith(
+					capturePath,
+					path.join( sitePath, '.studio-import', 'source' ),
+					{ recursive: true, errorOnExist: true, force: false }
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'keeps the URL source capture when requested', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				await fs.promises.mkdir( outputDir, { recursive: true } );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'index.html' ),
+					'<main>Liberated</main>'
+				);
+				return outputDir;
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--keep-source',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( fs.readFileSync( path.join( capturePath, 'index.html' ), 'utf8' ) ).toBe(
+					'<main>Liberated</main>'
+				);
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
 		} );
 
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {

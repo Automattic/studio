@@ -25,7 +25,7 @@ import {
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
-	hasOwnFreeFormOption,
+	findOwnFreeFormOptionLabel,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
@@ -879,7 +879,12 @@ function AgentQuestion( {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
 	const freeFormLabel = getFreeFormOptionLabel();
-	const showFreeForm = isInteractive && ! isFolding && ! hasOwnFreeFormOption( options );
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel =
+		isInteractive && ! isFolding ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! isFolding && ! ownFreeFormLabel;
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
@@ -887,9 +892,11 @@ function AgentQuestion( {
 			{ options.length > 0 ? (
 				<ol className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : option.label === pickedLabel;
+						const description = isOwnFreeForm ? getFreeFormOptionDescription() : option.description;
 						const descriptionId =
-							option.description && ! isFolding
+							description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
 								: undefined;
 						return (
@@ -900,9 +907,13 @@ function AgentQuestion( {
 							>
 								<button
 									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ clsx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ isOwnFreeForm ? onChooseFreeForm : () => onAnswer( option.label ) }
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
@@ -912,9 +923,9 @@ function AgentQuestion( {
 									</span>
 									<span className={ styles.questionOptionCopy }>
 										<span className={ styles.questionOptionLabel }>{ option.label }</span>
-										{ option.description ? (
+										{ description ? (
 											<span id={ descriptionId } className={ styles.questionOptionDescription }>
-												{ option.description }
+												{ description }
 											</span>
 										) : null }
 									</span>

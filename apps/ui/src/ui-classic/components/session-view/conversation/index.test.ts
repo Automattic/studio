@@ -630,6 +630,27 @@ describe( 'Conversation Ask User questions', () => {
 		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
 	} );
 
+	it( 'arms the composer from the escape hatch the model wrote itself', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'Something else' ], 'q1' ),
+		] );
+		const onChooseFreeForm = vi.fn();
+		const onAnswerQuestion = vi.fn();
+
+		renderConversation( data, {
+			pendingQuestions: new Set( [ 'Install Jetpack?' ] ),
+			onChooseFreeForm,
+			onAnswerQuestion,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Something else' } ) );
+
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Install Jetpack?' );
+		// Answering with the literal label tells the agent nothing, and it has to
+		// ask what the user actually meant.
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+	} );
+
 	it( 'resolves picked answers positionally for a multi-question batch', () => {
 		const items = entriesToRenderItems( [
 			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),

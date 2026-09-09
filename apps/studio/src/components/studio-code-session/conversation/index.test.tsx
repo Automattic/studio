@@ -131,6 +131,7 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 			pendingAnswers?: Record< string, string >;
 			freeFormQuestion?: string | null;
 			onChooseFreeForm?: ( question: string ) => void;
+			onAnswerQuestion?: ( question: string, label: string ) => void;
 		} = {}
 	) {
 		render(
@@ -142,7 +143,7 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 				pendingAnswers={ props.pendingAnswers ?? {} }
 				answeredQuestions={ {} }
 				freeFormQuestion={ props.freeFormQuestion ?? null }
-				onAnswerQuestion={ () => {} }
+				onAnswerQuestion={ props.onAnswerQuestion ?? ( () => {} ) }
 				onChooseFreeForm={ props.onChooseFreeForm ?? ( () => {} ) }
 			/>
 		);
@@ -192,6 +193,40 @@ describe( 'AgentQuestion – free-form escape hatch', () => {
 		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ] );
 
 		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'arms the composer from the escape hatch the model wrote itself', () => {
+		const onChooseFreeForm = vi.fn();
+		const onAnswerQuestion = vi.fn();
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], {
+			onChooseFreeForm,
+			onAnswerQuestion,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Something else' } ) );
+
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Q1' );
+		// Answering with the literal label tells the agent nothing, and it has to
+		// ask what the user actually meant.
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+	} );
+
+	it( 'marks the escape hatch the model wrote as armed once chosen', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], { freeFormQuestion: 'Q1' } );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'leaves the escape hatch as a plain answer once the batch is history', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], {
+			pendingQuestions: new Set(),
+			pendingAnswers: { Q1: 'Something else' },
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toBeDisabled();
 	} );
 } );
 

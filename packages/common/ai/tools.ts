@@ -389,10 +389,15 @@ export function getFreeFormOptionDescription(): string {
 // would never match outside an English locale.
 const MODEL_FREE_FORM_LABELS = new Set( [ 'other', 'something else', 'none of the above' ] );
 
-export function hasOwnFreeFormOption( options: Array< { label: string } > ): boolean {
-	return options.some( ( option ) =>
+// Returns the model's own escape hatch so the GUIs can drive the composer from
+// it. Answering it literally sends "Something else" as the answer, which tells
+// the agent nothing and costs a whole extra round of questions.
+export function findOwnFreeFormOptionLabel(
+	options: Array< { label: string } >
+): string | undefined {
+	return options.find( ( option ) =>
 		MODEL_FREE_FORM_LABELS.has( option.label.trim().toLowerCase() )
-	);
+	)?.label;
 }
 
 function getAskUserDetail( input: Record< string, unknown > | undefined ): string {

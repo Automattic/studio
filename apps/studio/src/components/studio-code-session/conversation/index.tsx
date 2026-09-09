@@ -25,7 +25,7 @@ import {
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
-	hasOwnFreeFormOption,
+	findOwnFreeFormOptionLabel,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
@@ -633,7 +633,11 @@ function AgentQuestion( {
 	onChooseFreeForm: () => void;
 } ) {
 	const freeFormLabel = getFreeFormOptionLabel();
-	const showFreeForm = isInteractive && ! hasOwnFreeFormOption( options );
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel = isInteractive ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! ownFreeFormLabel;
 	// A reply typed into the composer answers the question without matching any
 	// listed label, so no button lights up. Show it instead, or the answer the
 	// user gave leaves no trace in the transcript.
@@ -648,15 +652,21 @@ function AgentQuestion( {
 			{ options.length > 0 ? (
 				<ul className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : option.label === pickedLabel;
 						return (
 							<li key={ index }>
 								<button
 									type="button"
-									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ cx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									onClick={ isOwnFreeForm ? onChooseFreeForm : () => onAnswer( option.label ) }
+									aria-pressed={ isOwnFreeForm ? freeFormActive : undefined }
+									title={ isOwnFreeForm ? getFreeFormOptionDescription() : option.description }
 								>
 									{ option.label }
 								</button>

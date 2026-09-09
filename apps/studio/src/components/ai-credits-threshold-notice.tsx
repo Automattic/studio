@@ -7,39 +7,33 @@ import {
 	resolveAiCreditsThresholdNotice,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Notice } from '@wordpress/ui';
 import { useEffect } from 'react';
 import { AddAiCreditsButton } from 'src/components/add-ai-credits-button';
-import { unlock } from 'src/components/studio-code-session/lock-unlock';
-import { usePrefersColorScheme } from 'src/hooks/use-prefers-color-scheme';
+import { useFrameBackgroundColor } from 'src/hooks/use-frame-background-color';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import { selectDismissedAiCreditsIntent, setDismissedAiCreditsIntent } from 'src/stores/ui-slice';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
-
-const { ThemeProvider } = unlock( privateApis );
+import buttonDefense from './studio-code-session/wp-ui-button-defense.module.css';
 
 // Classic has no composer strip and no lockout banner of its own, so this one
 // slot announces both warning steps. The agentic UI splits them across the
 // sidebar and the composer instead.
 const CLASSIC_NOTICE_INTENTS = [ 'warning', 'critical' ] as const;
 
-// @wordpress/ui derives its palette from a seed color rather than from a media
-// query, and Classic has no app-wide themed root to inherit one from — without
-// a seed the notice keeps the design system's static light colors and turns
-// into a cream card on the dark frame. Mirrors --color-frame-bg in index.css.
-const FRAME_BG_LIGHT = '#fff';
-const FRAME_BG_DARK = '#2f2f2f';
-
 /**
  * Warns above the Classic composer as the AI credit balance runs down. Classic
  * has no persistent-message surface, so the warning sits where the user is
  * about to spend the credits.
+ *
+ * The nested `ThemeProvider` is what makes the Notice follow dark mode, on the
+ * same terms as {@link AiCreditsPurchasedNotice}.
  */
 export function AiCreditsThresholdNotice() {
 	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
-	const colorScheme = usePrefersColorScheme();
+	const frameBackgroundColor = useFrameBackgroundColor();
 	const dismissedIntent = useRootSelector( selectDismissedAiCreditsIntent );
 	const { data: quota } = useGetStudioAssistantQuota();
 	const meter =
@@ -66,10 +60,7 @@ export function AiCreditsThresholdNotice() {
 	const description = formatAiCreditsThresholdDescription();
 
 	return (
-		<ThemeProvider
-			color={ { background: colorScheme === 'dark' ? FRAME_BG_DARK : FRAME_BG_LIGHT } }
-			density="compact"
-		>
+		<ThemeProvider color={ { background: frameBackgroundColor } }>
 			<Notice.Root
 				intent="warning"
 				// Announcing the rendered children would run the purchase
@@ -85,6 +76,7 @@ export function AiCreditsThresholdNotice() {
 				</Notice.Actions>
 				<Notice.CloseIcon
 					label={ __( 'Dismiss' ) }
+					className={ buttonDefense.button }
 					onClick={ () => dispatch( setDismissedAiCreditsIntent( thresholdIntent ) ) }
 				/>
 			</Notice.Root>

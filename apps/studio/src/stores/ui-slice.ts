@@ -8,12 +8,16 @@ type UiState = {
 	// AI credits notice state, session-only on purpose: a threshold notice
 	// describes the balance right now, not a standing preference.
 	dismissedAiCreditsIntent: AiCreditsMeterIntent | null;
+	// Credits confirmed to have landed since the app opened. Session-only on
+	// purpose: this reports one purchase, not a standing preference.
+	aiCreditsAdded: number | null;
 };
 
 const initialState: UiState = {
 	isAddSiteModalOpen: false,
 	isWapuuWorldOpen: false,
 	dismissedAiCreditsIntent: null,
+	aiCreditsAdded: null,
 };
 
 const uiSlice = createSlice( {
@@ -41,6 +45,9 @@ const uiSlice = createSlice( {
 		) => {
 			state.dismissedAiCreditsIntent = action.payload;
 		},
+		setAiCreditsAdded: ( state, action: PayloadAction< number | null > ) => {
+			state.aiCreditsAdded = action.payload;
+		},
 	},
 } );
 
@@ -50,11 +57,13 @@ export const {
 	openWapuuWorld,
 	closeWapuuWorld,
 	setDismissedAiCreditsIntent,
+	setAiCreditsAdded,
 } = uiSlice.actions;
 
 export const selectIsAddSiteModalOpen = ( state: RootState ) => state.ui.isAddSiteModalOpen;
 export const selectIsWapuuWorldOpen = ( state: RootState ) => state.ui.isWapuuWorldOpen;
 export const selectDismissedAiCreditsIntent = ( state: RootState ) =>
 	state.ui.dismissedAiCreditsIntent;
+export const selectAiCreditsAdded = ( state: RootState ) => state.ui.aiCreditsAdded;
 
 export default uiSlice.reducer;

@@ -31,6 +31,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
+import { AiCreditsControl } from './ai-credits-control';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -673,6 +674,7 @@ export function Composer( {
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<AiCreditsControl />
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
 									render={

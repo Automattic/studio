@@ -59,16 +59,11 @@ export function formatTosNoticeLines(): string[] {
 /**
  * Runs the Studio Code first-run gate: renders the notice via the provided
  * callback and persists the flag, unless running headless (IPC-spawned by the
- * desktop app, a remote-session daemon turn, or stderr is not a TTY — nobody
- * would see the notice, so it defers to the next visible run) or already shown.
+ * desktop app, or stderr is not a TTY — nobody would see the notice, so it
+ * defers to the next visible run) or already shown.
  */
 export async function maybeShowTosNotice( render: () => void ): Promise< void > {
-	if (
-		Boolean( process.send ) ||
-		process.env.STUDIO_REMOTE_SESSION ||
-		! process.stderr.isTTY ||
-		readTosNoticeShownAt() !== null
-	) {
+	if ( Boolean( process.send ) || ! process.stderr.isTTY || readTosNoticeShownAt() !== null ) {
 		return;
 	}
 	try {

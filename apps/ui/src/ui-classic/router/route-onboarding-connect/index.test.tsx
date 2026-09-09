@@ -20,6 +20,7 @@ const mocks = vi.hoisted( () => ( {
 	generateNumberedSiteName: vi.fn(),
 	generateProposedSitePath: vi.fn(),
 	connectWpcomSite: vi.fn(),
+	trackEvent: vi.fn(),
 	createSite: vi.fn(),
 	deleteSite: vi.fn(),
 	pullSite: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock( '@/data/core', () => ( {
 		generateProposedSitePath: mocks.generateProposedSitePath,
 		connectWpcomSite: mocks.connectWpcomSite,
 		openExternalUrl: mocks.openExternalUrl,
+		trackEvent: mocks.trackEvent,
 	} ),
 } ) );
 
@@ -279,6 +281,29 @@ describe( 'OnboardingConnectPage', () => {
 		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Connection failed' );
 		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'local-1', deleteFiles: true } );
 		expect( mocks.toastError ).not.toHaveBeenCalled();
+	} );
+
+	// The local site is created by this flow, so the connected-sites cache the pull
+	// hook reads is empty for it. Without the site passed through, every
+	// onboarding pull reported `sync_type: unknown`.
+	it( 'passes the remote site to the pull so its sync type is known', async () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1, { isPressable: true } ) ];
+
+		render( <OnboardingConnectPage /> );
+		const connectButton = screen.getByRole( 'button', { name: 'Connect site' } );
+		await waitFor( () => expect( connectButton ).toHaveAttribute( 'aria-disabled', 'false' ) );
+		fireEvent.click( connectButton );
+
+		await waitFor( () =>
+			expect( mocks.pullSite ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					siteId: 'local-1',
+					remoteSiteId: 1,
+					syncSite: expect.objectContaining( { isPressable: true } ),
+				} )
+			)
+		);
 	} );
 
 	it( 'opens the local site while pull and start continue in the background', async () => {

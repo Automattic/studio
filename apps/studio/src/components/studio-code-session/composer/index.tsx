@@ -290,7 +290,7 @@ export function Composer( {
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( awaitingAnswer );
 
 	useEffect( () => {
 		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {
@@ -679,6 +679,7 @@ export function Composer( {
 								className={ styles.iconButton }
 								aria-label={ __( 'Attach files' ) }
 								title={ __( 'Attach files' ) }
+								disabled={ awaitingAnswer }
 								onClick={ openFilePicker }
 							>
 								<Icon icon={ paperclipIcon } size={ 16 } />

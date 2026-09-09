@@ -418,7 +418,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments( initialDraft.attachments );
+	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
 	const hasAttachments = attachments.length > 0;
 
 	useEffect( () => {
@@ -1059,7 +1059,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
+									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
+										{ __( 'Upload attachment' ) }
+									</Menu.Item>
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>

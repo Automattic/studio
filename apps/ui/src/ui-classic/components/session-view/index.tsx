@@ -235,7 +235,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const { enabled, isReady, reason } = useAgenticFeatures();
+	const { enabled, isReady, reason, chatPromptsSignIn } = useAgenticFeatures();
 	// `reason` dips through null while auth reloads, so the signed-out state has
 	// to be latched — the preceding value is never 'signed-out' when it matters.
 	const wasSignedOutRef = useRef( false );
@@ -249,14 +249,14 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 			void navigate( { to: '/', replace: true } );
 			return;
 		}
-		if ( isReady && ! enabled && reason !== 'signed-out' ) {
+		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId },
 				replace: true,
 			} );
 		}
-	}, [ enabled, isReady, navigate, reason, siteId ] );
+	}, [ chatPromptsSignIn, enabled, isReady, navigate, reason, siteId ] );
 
 	return (
 		<SessionFrame
@@ -266,7 +266,11 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 			footer={ <div aria-hidden /> }
 			footerEnd={ site ? <PreviewToggleButton /> : null }
 		>
-			<AgenticSigninPrompt />
+			<AgenticSigninPrompt
+				onOpenOverview={ () =>
+					void navigate( { to: '/sites/$siteId/overview', params: { siteId } } )
+				}
+			/>
 		</SessionFrame>
 	);
 }

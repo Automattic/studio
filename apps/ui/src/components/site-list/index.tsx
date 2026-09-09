@@ -576,7 +576,7 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate,
 	chatEnabled,
-	agenticReason,
+	chatPromptsSignIn,
 	onSiteOpen,
 }: {
 	row: SiteRow;
@@ -584,7 +584,7 @@ function SiteSection( {
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
-	agenticReason: ReturnType< typeof useAgenticFeatures >[ 'reason' ];
+	chatPromptsSignIn: boolean;
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
@@ -592,7 +592,7 @@ function SiteSection( {
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
-	const canOpenChatSurface = chatEnabled || agenticReason === 'signed-out';
+	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
 	// Offline users and users who switched Studio Code off use Overview as the
 	// site's home. Signed-out users still get the chat surface, where the value
 	// of logging in can be explained in context.
@@ -638,7 +638,7 @@ function SiteSection( {
 			return;
 		}
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		if ( agenticReason === 'signed-out' ) {
+		if ( chatPromptsSignIn ) {
 			void navigate( {
 				to: '/sites/$siteId/new',
 				params: { siteId: site.id },
@@ -735,7 +735,7 @@ export function SiteList( {
 } ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { chatEnabled, reason: agenticReason } = useAgenticFeatures();
+	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -829,7 +829,7 @@ export function SiteList( {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
-			agenticReason={ agenticReason }
+			chatPromptsSignIn={ chatPromptsSignIn }
 			onSiteOpen={ onSiteOpen }
 		/>
 	);

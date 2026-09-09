@@ -17,9 +17,9 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		const { chatEnabled, reason } = await resolveAgenticFeatures( context );
+		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
-			if ( reason === 'signed-out' ) {
+			if ( chatPromptsSignIn ) {
 				return;
 			}
 			throw redirect( {

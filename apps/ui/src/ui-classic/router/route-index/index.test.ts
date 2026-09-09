@@ -117,6 +117,18 @@ describe( 'indexRoute.beforeLoad', () => {
 		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
+	it( 'opens the overview when signed out with Studio Code switched off', async () => {
+		writeLastVisited( { siteId: 'site-2' } );
+		const redirect = await runBeforeLoad(
+			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
+			[],
+			false,
+			true
+		);
+		expect( redirect.to ).toBe( '/sites/$siteId/overview' );
+		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
+	} );
+
 	it( "opens the target site's Studio Code sign-in screen when signed out", async () => {
 		writeLastVisited( { siteId: 'site-2' } );
 		const redirect = await runBeforeLoad(

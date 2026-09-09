@@ -34,6 +34,25 @@ describe( 'newSessionRoute.beforeLoad', () => {
 		expect( context.connector.createSession ).not.toHaveBeenCalled();
 	} );
 
+	it( 'redirects signed-out users to overview when Studio Code is switched off', async () => {
+		const context = createContext( {
+			agenticRequiresAuth: true,
+			agenticFeaturesEnabled: false,
+		} );
+
+		await expect(
+			newSessionRoute.options.beforeLoad?.( {
+				context,
+				params: { siteId: 'site-1' },
+			} as never )
+		).rejects.toMatchObject( {
+			options: {
+				to: '/sites/$siteId/overview',
+				params: { siteId: 'site-1' },
+			},
+		} );
+	} );
+
 	it( 'redirects to overview when Studio Code is switched off', async () => {
 		const context = createContext( {
 			agenticRequiresAuth: false,

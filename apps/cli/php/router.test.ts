@@ -4,10 +4,14 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import nock from 'nock';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 
 const routerPath = path.resolve( import.meta.dirname, 'router.php' );
+const phpBinaryPath = getPhpBinaryPath( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) );
 const assetContents = 'asset bytes with a literal plus';
 
 let root: string;
@@ -59,7 +63,7 @@ async function request( requestPath: string ): Promise< { status: number; body: 
 	} );
 }
 
-describe( 'native PHP router', () => {
+describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 	beforeAll( async () => {
 		nock.enableNetConnect( '127.0.0.1' );
 		fixtureDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-router-' ) );
@@ -72,7 +76,7 @@ describe( 'native PHP router', () => {
 
 		const port = await getAvailablePort();
 		baseUrl = `http://127.0.0.1:${ port }`;
-		server = spawn( 'php', [ '-S', `127.0.0.1:${ port }`, routerPath ], {
+		server = spawn( phpBinaryPath, [ '-S', `127.0.0.1:${ port }`, routerPath ], {
 			cwd: root,
 			stdio: 'ignore',
 		} );

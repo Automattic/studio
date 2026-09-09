@@ -157,6 +157,98 @@ describe( 'SessionChatActions', () => {
 		expect( onNewChat ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'hides the new chat button when new chats are unavailable', () => {
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ vi.fn() }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Chat history' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'ignores the new chat shortcut when new chats are unavailable', () => {
+		const onNewChat = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		fireEvent.keyDown( document, { key: 'n', ctrlKey: true } );
+		fireEvent.keyDown( document, { key: 'n', metaKey: true } );
+
+		expect( onNewChat ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not archive the current chat into a new one when new chats are unavailable', async () => {
+		const onNewChat = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ vi.fn() }
+				sessions={ [ createSession( { id: 'current', firstPrompt: 'Current chat' } ) ] }
+				showNewChat={ false }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Chat history' } ) );
+		const archive = await screen.findByRole( 'button', { name: 'Archive chat' } );
+
+		// @wordpress/ui marks it aria-disabled and leaves it clickable, so the
+		// guard inside archiveSession is what actually stops the archive.
+		expect( archive ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		fireEvent.click( archive );
+
+		expect( updateSessionMetadataMutate ).not.toHaveBeenCalled();
+		expect( onNewChat ).not.toHaveBeenCalled();
+	} );
+
+	it( 'still archives other chats when new chats are unavailable', async () => {
+		const onNewChat = vi.fn();
+
+		render(
+			<SessionChatActions
+				currentSessionId="current"
+				onNewChat={ onNewChat }
+				onSwitchSession={ vi.fn() }
+				sessions={ [
+					createSession( { id: 'current', firstPrompt: 'Current chat' } ),
+					createSession( { id: 'older', firstPrompt: 'Older chat' } ),
+				] }
+				showNewChat={ false }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Chat history' } ) );
+		const archiveButtons = await screen.findAllByRole( 'button', { name: 'Archive chat' } );
+		const olderArchive = archiveButtons.find(
+			( button ) => button.getAttribute( 'aria-disabled' ) !== 'true'
+		);
+
+		expect( olderArchive ).toBeDefined();
+		fireEvent.click( olderArchive as HTMLElement );
+
+		expect( updateSessionMetadataMutate ).toHaveBeenCalledWith( {
+			sessionId: 'older',
+			patch: { archived: true },
+		} );
+		expect( onNewChat ).not.toHaveBeenCalled();
+	} );
+
 	it( 'shows tooltips for chat history and new chat', async () => {
 		render(
 			<SessionChatActions

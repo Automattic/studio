@@ -12,7 +12,7 @@
    — overriding the 2px theme-accent default the WP component ships with. */
 .list::before {
 	border-bottom-width: 1px !important;
-	border-bottom-color: var(--wpds-color-fg-content-neutral) !important;
+	border-bottom-color: var(--wpds-color-foreground-content-neutral) !important;
 }
 
 /* Override WP Tabs defaults:
@@ -34,16 +34,16 @@
 	flex: 0 0 auto;
 	font-size: var(--wpds-typography-font-size-md);
 	font-weight: 400;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .list .tab[aria-selected='true'] {
 	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .list .tab:not([aria-disabled='true']):is(:hover, [data-focus-visible]) {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .panel {

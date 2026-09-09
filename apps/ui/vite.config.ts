@@ -5,10 +5,11 @@ import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds
 import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
 import { defineConfig, type Plugin } from 'vite';
 
-const require = createRequire( import.meta.url );
-const pkg = require( './package.json' ) as {
+const __dirname = import.meta.dirname;
+const pkg = createRequire( import.meta.url )( './package.json' ) as {
 	dependencies?: Record< string, string >;
 };
+
 // Dedupe + pre-bundle every direct dep so packages with module-scoped state
 // (React's hooks dispatcher, @wordpress/private-apis' lock/unlock registry,
 // etc.) can't accidentally resolve to two instances. Workspace packages

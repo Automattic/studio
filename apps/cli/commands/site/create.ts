@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
-import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import {
 	createBlueprintTempDirSync,
@@ -53,10 +53,6 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
-import {
-	isValidWordPressVersion,
-	isWordPressVersionAtLeast,
-} from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import {
@@ -98,17 +94,22 @@ import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	CLI_AUTO_UPDATE_WP_VERSION,
+	coerceWpVersionOption,
+	getWpVersionOptionDescription,
+} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
-// The importer vendors its own transformer layers (blocks-engine php-transformer and
-// figma-transformer) inside this zip, so pinning the plugin pins the whole stack. To run
-// against an unreleased transformer, build a paired zip with the importer's
+// The HTML importer vendors blocks-engine php-transformer inside this zip, so pinning the
+// plugin pins the whole runtime. To run against an unreleased transformer, build a paired
+// zip with the importer's
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.8.5/static-site-importer.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.9.5/static-site-importer-html-site-import.zip';
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
@@ -1110,28 +1111,6 @@ function coerceSiteId( value: string ) {
 	return value;
 }
 
-function coerceWpVersion( value: string ) {
-	if ( ! isValidWordPressVersion( value ) ) {
-		throw new ValidationError(
-			'wp',
-			value,
-			__(
-				'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-			)
-		);
-	}
-
-	if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-		throw new ValidationError(
-			'wp',
-			value,
-			sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
-		);
-	}
-
-	return value;
-}
-
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
@@ -1150,9 +1129,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					defaultDescription: DEFAULT_WORDPRESS_VERSION,
-					coerce: coerceWpVersion,
+					describe: getWpVersionOptionDescription(),
+					defaultDescription: CLI_AUTO_UPDATE_WP_VERSION,
+					coerce: coerceWpVersionOption,
 				} )
 				.option( 'php', {
 					type: 'string',
@@ -1377,15 +1356,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						try {
 							const versions = await fetchWordPressVersions();
 							wpChoices = versions.map( ( v ) => ( {
-								name: v.value === 'latest' ? `latest (${ v.label })` : v.label,
+								name:
+									v.value === DEFAULT_WORDPRESS_VERSION
+										? sprintf( __( 'Auto-update (%s)' ), v.label )
+										: v.label,
 								value: v.value,
 							} ) );
 						} catch {
-							// Offline or API failure — offer only "latest"
+							// Offline or API failure — offer only the auto-update mode
 							wpChoices = [
 								{
-									name: __( 'Latest (recommended)' ),
-									value: 'latest',
+									name: __( 'Auto-update (recommended)' ),
+									value: DEFAULT_WORDPRESS_VERSION,
 								},
 							];
 						}

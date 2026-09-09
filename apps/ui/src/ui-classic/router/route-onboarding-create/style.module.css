@@ -19,7 +19,7 @@
 /* A quiet section label, so the Blueprint's own name below stays dominant. */
 .summaryHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	font-weight: 500;
 }
@@ -28,7 +28,7 @@
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: var( --wpds-color-fg-interactive-brand );
+	color: var( --wpds-color-foreground-interactive-brand );
 	font: inherit;
 	font-size: var( --wpds-typography-font-size-sm );
 	cursor: pointer;
@@ -40,7 +40,7 @@
 
 .summaryRemove:focus-visible {
 	border-radius: 2px;
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline: 2px solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 }
 
@@ -61,7 +61,7 @@
 	aspect-ratio: 16 / 10;
 	overflow: hidden;
 	border-radius: 6px;
-	background: var( --wpds-color-bg-surface-neutral );
+	background: var( --wpds-color-background-surface-neutral );
 }
 
 .summaryImage {
@@ -77,14 +77,14 @@
 
 .summaryTitle {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 600;
 }
 
 .summaryExcerpt {
 	margin: 4px 0 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: 1.4;
 }
@@ -98,7 +98,7 @@
 
 .summaryPackageGroup h3 {
 	margin: 0 0 6px;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-sm );
 	font-weight: 600;
 }
@@ -114,12 +114,12 @@
 
 .summaryPackageGroup li {
 	margin-top: 3px;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .summaryPackageGroup a {
-	color: var( --wpds-color-fg-interactive-brand );
+	color: var( --wpds-color-foreground-interactive-brand );
 	overflow-wrap: anywhere;
 	text-decoration: none;
 }
@@ -130,7 +130,7 @@
 
 .summaryPackageGroup a:focus-visible {
 	border-radius: 2px;
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline: 2px solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 }
 

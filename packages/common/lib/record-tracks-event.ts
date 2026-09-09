@@ -45,6 +45,12 @@ export const TRACKS_EVENTS = {
 	CODE_SESSION_CREATED: 'studio_code_session_created',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
+	SYNC_PULL: 'studio_sync_pull',
+	SYNC_PUSH: 'studio_sync_push',
+	SYNC_CONNECT: 'studio_sync_connect',
+	SYNC_DISCONNECT: 'studio_sync_disconnect',
+	SYNC_CREATE_SITE: 'studio_sync_create_site',
+	SYNC_PUBLISH_SITE: 'studio_sync_publish_site',
 } as const;
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];
@@ -165,6 +171,34 @@ export type TracksAuthFailureReason =
 	| 'access_denied'
 	| 'token_error'
 	| 'profile_fetch_failed'
+	| 'unknown';
+
+// Which kind of live site a sync exchanged data with, sent as `sync_type` on the push/pull events.
+// Derived from the persisted `isPressable` flag; `unknown` is the connected site being unavailable at
+// emit time (a deep-link connection whose site lookup missed, so the hosting kind was never known).
+export type TracksSyncType = 'wpcom' | 'pressable' | 'unknown';
+
+// Coarse, low-cardinality sync failure classification, sent as `failure_reason` when `success` is
+// false. The raw error is never sent — it can embed site names, URLs, and filesystem paths. Buckets
+// name the step that broke: the local export/import Studio runs, the upload, the backup and import
+// WordPress.com runs remotely, or a transport/environment problem. Cancels are not a value here —
+// a cancelled sync emits no event at all.
+export type TracksSyncFailureReason =
+	| 'size_limit'
+	| 'sql_import'
+	| 'timeout'
+	| 'remote_backup'
+	| 'remote_import'
+	| 'upload'
+	| 'network'
+	| 'payload_too_large'
+	| 'auth'
+	| 'not_found'
+	| 'local_import'
+	| 'local_export'
+	| 'disk_full'
+	| 'storage_write'
+	| 'site_fetch'
 	| 'unknown';
 
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are

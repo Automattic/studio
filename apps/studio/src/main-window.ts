@@ -323,7 +323,7 @@ export function getTitleBarOverlayOptions() {
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
 	// Chrome is dark in both schemes; the content surface tracks
-	// `--wpds-color-bg-surface-neutral`.
+	// `--wpds-color-background-surface-neutral`.
 	const onChrome = agenticControlsSurface === 'chrome';
 	return {
 		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',
@@ -381,6 +381,25 @@ export function getMainWindow() {
 				console.error( 'Failed to create main window:', error );
 			} );
 	} );
+}
+
+/**
+ * Returns the existing main window if one is open and alive, or null.
+ * Unlike getMainWindow(), this never creates a new window.
+ */
+export function getExistingMainWindow(): BrowserWindow | null {
+	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
+		return mainWindow;
+	}
+	const windows = BrowserWindow.getAllWindows();
+	if ( windows.length > 0 ) {
+		const focused = BrowserWindow.getFocusedWindow();
+		const win = focused || windows[ 0 ];
+		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
+			return win;
+		}
+	}
+	return null;
 }
 
 /**

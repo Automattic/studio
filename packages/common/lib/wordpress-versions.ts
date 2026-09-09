@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
@@ -127,4 +127,12 @@ export async function fetchWordPressVersions(): Promise< WordPressVersion[] > {
 	}
 
 	return versions;
+}
+
+/**
+ * Version `latest` resolves to right now, e.g. `7.1` — what a new site gets
+ * installed. Undefined when the version list couldn't be fetched.
+ */
+export function getLatestVersionLabel( versions: WordPressVersion[] = [] ): string | undefined {
+	return versions.find( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )?.label;
 }

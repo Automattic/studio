@@ -25,7 +25,6 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
-	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
 	beginAgentTurn( sessionId?: string ): void;
@@ -115,10 +114,6 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	setStatusMessage(): void {
-		// No-op in JSON mode
-	}
-
-	setDaemonStatus(): void {
 		// No-op in JSON mode
 	}
 

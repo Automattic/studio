@@ -314,7 +314,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
-		share_screenshot: __( 'Share screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
 		wait_for_annotations: __( 'Wait for annotations' ),
@@ -440,7 +439,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			}
 			return __( 'inline content' );
 		case 'take_screenshot':
-		case 'share_screenshot':
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {

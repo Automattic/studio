@@ -7,7 +7,7 @@
 	margin: 0;
 	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 }
 
 .sectionHeader {
@@ -37,7 +37,7 @@
 	overflow: hidden;
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 10px;
-	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-strong ) 50%, transparent );
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-strong ) 50%, transparent );
 	backdrop-filter: blur( 12px );
 	cursor: pointer;
 	transition: border-color 0.15s ease;
@@ -54,7 +54,7 @@
 }
 
 .card:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline: 2px solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 	border-color: var( --wpds-color-stroke-interactive-brand );
 }
@@ -65,7 +65,7 @@
 	width: 100%;
 	aspect-ratio: 16 / 9;
 	overflow: hidden;
-	background: var( --wpds-color-bg-surface-neutral );
+	background: var( --wpds-color-background-surface-neutral );
 }
 
 .cardImage {
@@ -87,8 +87,8 @@
 	justify-content: center;
 	width: 100%;
 	aspect-ratio: 16 / 9;
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral-weak );
+	background: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
@@ -103,17 +103,17 @@
 	margin: 0;
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 500;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	transition: color 0.15s ease;
 }
 
 .card:hover .cardTitle {
-	color: var( --wpds-color-fg-interactive-brand );
+	color: var( --wpds-color-foreground-interactive-brand );
 }
 
 .cardExcerpt {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: 1.4;
 	display: -webkit-box;
@@ -131,14 +131,14 @@
 	padding-inline: var( --wpds-dimension-padding-sm );
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral-strong );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-background-surface-neutral-strong );
+	color: var( --wpds-color-foreground-content-neutral );
 	font: inherit;
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
 .searchInput:focus-visible {
-	outline: 2px solid var( --wpds-color-stroke-focus-brand );
+	outline: 2px solid var( --wpds-color-stroke-focus );
 	outline-offset: -1px;
 	border-color: var( --wpds-color-stroke-interactive-brand );
 }
@@ -146,7 +146,7 @@
 .notice {
 	margin: 0;
 	padding: 24px;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
@@ -157,7 +157,7 @@
 .uploadButton {
 	/* The gallery sits on the grid-lined canvas, so the button needs an opaque
 	   fill; the outline variant is transparent by default. */
-	--wp-ui-button-background-color: var( --wpds-color-bg-surface-neutral-strong );
+	--wp-ui-button-background-color: var( --wpds-color-background-surface-neutral-strong );
 }
 
 .uploadButtonDragging {

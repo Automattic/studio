@@ -8,14 +8,14 @@
 	padding: 0;
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--wpds-color-background-surface-neutral);
 	background-color: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 82%),
+		var(--wpds-color-background-surface-neutral) var(--surface-alpha, 82%),
 		transparent
 	);
 	backdrop-filter: blur(4px);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	line-height: 1;
 	cursor: pointer;
 	transition: color 0.12s ease, background-color 0.12s ease;
@@ -23,13 +23,13 @@
 
 .copyButton:hover,
 .copyButton:focus-visible {
-	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .copyButton[data-copied='true'] {
-	color: var(--wpds-color-fg-content-success);
-	background-color: var(--wpds-color-bg-surface-success-weak);
+	color: var(--wpds-color-foreground-content-success);
+	background-color: var(--wpds-color-background-surface-success-weak);
 }
 
 .copyButton[data-variant='plain'],

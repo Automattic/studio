@@ -1,5 +1,5 @@
 import { defineConfig, mergeConfig } from 'vite';
-import prodConfig from './vite.config.prod';
+import prodConfig from './vite.config.prod.ts';
 
 // Identical to the production build (the desktop-embedded CLI), but stamps
 // `__IS_PACKAGED_FOR_STANDALONE__` so the curl-installed bundle can identify itself at

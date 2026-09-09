@@ -1,4 +1,5 @@
 // Run tests: npm test -- apps/studio/src/components/studio-code-session/tests/use-agent-run.test.tsx
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -47,6 +48,7 @@ function renderWithAgentRun() {
 				<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
 				<button onClick={ () => run.answerQuestion( 'Q2', 'A2' ) }>Answer Q2</button>
 				<button onClick={ () => run.clearQuestionAnswer( 'Q2' ) }>Unanswer Q2</button>
+				<button onClick={ () => void run.interrupt() }>Stop</button>
 			</>
 		);
 	}
@@ -148,6 +150,56 @@ describe( 'useAgentRun message queueing', () => {
 				Q2: 'A2',
 			} )
 		);
+	} );
+
+	it( 'closes a blocked question batch before it interrupts', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+			emit( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-08-26T12:00:01.000Z',
+					questions: [
+						{ question: 'Q1', options: [ { label: 'A1', description: '' } ] },
+						{ question: 'Q2', options: [ { label: 'A2', description: '' } ] },
+					],
+				},
+			} as AgentRunEvent );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		// A call killed without a result reads to the model as a broken tool, so
+		// the picks so far go through and the rest are marked as unanswered.
+		await waitFor( () =>
+			expect( mockIpc.answerAiAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				Q1: 'A1',
+				Q2: STOPPED_WITHOUT_ANSWER,
+			} )
+		);
+		expect( mockIpc.answerAiAgentQuestion.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			mockIpc.interruptAiAgentRun.mock.invocationCallOrder[ 0 ]
+		);
+	} );
+
+	it( 'interrupts without answering anything when no questions are open', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		await waitFor( () => expect( mockIpc.interruptAiAgentRun ).toHaveBeenCalledWith( 'run-old' ) );
+		expect( mockIpc.answerAiAgentQuestion ).not.toHaveBeenCalled();
 	} );
 
 	it( 'leaves a running turn alone when no questions are pending', async () => {

@@ -384,6 +384,13 @@ export function getFreeFormOptionDescription(): string {
 	return __( 'Reply in your own words instead of picking an option.' );
 }
 
+// Answers the questions still open when the user stops the run. Killing the
+// call without one leaves it with no result, which the model reads as a broken
+// tool: it then stops asking through the UI and writes its options out in prose
+// for the rest of the session. Untranslated on purpose — it goes to the model,
+// not the transcript.
+export const STOPPED_WITHOUT_ANSWER = 'The user stopped the run without answering.';
+
 // Off-contract models do write their own escape hatch. Match the English
 // labels they actually use — comparing against the translated label above
 // would never match outside an English locale.

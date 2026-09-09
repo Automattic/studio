@@ -5,6 +5,7 @@ import {
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import {
 	formatOutOfCreditsNotice,
 	formatUsageCapNotice,
@@ -617,6 +618,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const state = statesRef.current[ sessionId ] ?? initialState;
 			if ( state.phase === 'idle' ) {
 				return;
+			}
+			// A run blocked on `ask_user` is killed mid-call, so settle the call
+			// first. Without a result the model treats the question UI as broken
+			// and falls back to prose for the rest of the session.
+			if ( state.runId && state.pendingQuestions.length > 0 ) {
+				const answers = { ...state.pendingAnswers };
+				for ( const pending of state.pendingQuestions ) {
+					if ( typeof answers[ pending.question ] !== 'string' ) {
+						answers[ pending.question ] = STOPPED_WITHOUT_ANSWER;
+					}
+				}
+				await getIpcApi().answerAiAgentQuestion( state.runId, answers );
 			}
 			const interruptedRunId = state.runId;
 			if ( interruptedRunId ) {

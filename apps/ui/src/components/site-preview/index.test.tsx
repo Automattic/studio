@@ -14,6 +14,7 @@ import {
 	getPathFromPreviewUrl,
 	getFrameSize,
 	getSimulatedViewport,
+	getZoomedPaneViewport,
 	SitePreview,
 } from './index';
 import type { SiteDetails } from '@/data/core';
@@ -942,6 +943,29 @@ describe( 'getSimulatedViewport', () => {
 	} );
 } );
 
+describe( 'getZoomedPaneViewport', () => {
+	it( 'shows the pane as is at 100%', () => {
+		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1 ) ).toBe( null );
+		expect( getZoomedPaneViewport( null, 1, 1.5 ) ).toBe( null );
+	} );
+
+	it( 'lays the page out at the pane device size over the zoom and renders it back up', () => {
+		expect( getZoomedPaneViewport( { width: 900, height: 700 }, 1, 1.5 ) ).toEqual( {
+			width: 600,
+			height: 467,
+			scale: 1.5,
+			mobile: false,
+		} );
+		// The pane is measured in zoomed CSS px; its device size is what the zoom divides.
+		expect( getZoomedPaneViewport( { width: 720, height: 560 }, 1.25, 0.5 ) ).toEqual( {
+			width: 1800,
+			height: 1400,
+			scale: 0.5,
+			mobile: false,
+		} );
+	} );
+} );
+
 describe( 'getFrameSize', () => {
 	it( 'lays the scaled device box out in the host document CSS px', () => {
 		const viewport = { width: 1440, height: 900, scale: 0.5 };
@@ -1149,6 +1173,55 @@ describe( 'SitePreview responsive emulation', () => {
 		expect( webview.parentElement ).toHaveStyle( {
 			width: `${ ( 1440 * scale ) / 1.25 }px`,
 		} );
+	} );
+
+	it( 'zooms the natural view by laying it out at the pane size over the zoom', async () => {
+		const { webview, setWebviewViewport } = renderWebviewPreview();
+
+		await selectResponsiveMode( '150%' );
+
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenCalledWith( 7, {
+				width: 600,
+				height: 467,
+				scale: 1.5,
+				mobile: false,
+			} )
+		);
+		// No device frame: the zoomed page still fills the pane.
+		expect( webview.parentElement ).not.toHaveAttribute( 'style' );
+	} );
+
+	it( 'offers zoom for the natural view only, and keeps it for the return trip', async () => {
+		const { setWebviewViewport } = renderWebviewPreview();
+
+		await selectResponsiveMode( '150%' );
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { scale: 1.5 } )
+			)
+		);
+
+		// A preset is already a device frame scaled to fit, so the zoom group
+		// gives way (radio items keep the menu open).
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Desktop · 1440×900' } ) );
+		expect( screen.queryByText( 'Zoom' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { width: 1440, scale: ( PANE_SIZE.width - 32 ) / 1440 } )
+			)
+		);
+
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Fit pane' } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: '150%' } ) ).toBeChecked();
+		await waitFor( () =>
+			expect( setWebviewViewport ).toHaveBeenLastCalledWith(
+				7,
+				expect.objectContaining( { width: 600, scale: 1.5 } )
+			)
+		);
 	} );
 
 	it( 're-applies the simulated viewport after each load', async () => {

@@ -67,4 +67,16 @@ describe( 'AgenticSigninPrompt', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Pause the demo' } ) ).toBeVisible();
 	} );
+
+	it( 'keeps the slide and pause state across a remount (switching sites)', () => {
+		const first = render( <AgenticSigninPrompt /> );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Annotations' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pause the demo' } ) );
+		first.unmount();
+
+		render( <AgenticSigninPrompt /> );
+
+		expect( screen.getByRole( 'tab', { name: 'Annotations', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Resume the demo' } ) ).toBeVisible();
+	} );
 } );

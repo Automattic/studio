@@ -64,6 +64,10 @@ const SLIDE_TRANSITION_MS = 360;
 // Long enough to read a slide's description when the demos don't play.
 const REDUCED_MOTION_HOLD_MS = 9000;
 
+// The prompt remounts whenever the user switches sites; the deck picks up
+// where it was (same slide, still paused if it was) instead of starting over.
+const carouselMemory = { index: 0, paused: false };
+
 // Measures its own width and publishes the matching scale, so the slides
 // inside can render the scene at its design size and transform to fit.
 function Stage( {
@@ -207,12 +211,16 @@ export function AgenticSigninPrompt() {
 	// `run` changes on every move, so re-selecting the slide already showing
 	// restarts its clock rather than leaving it wherever it was scrubbed to.
 	const [ deck, setDeck ] = useState( {
-		index: 0,
+		index: carouselMemory.index,
 		leaving: null as number | null,
 		direction: 1,
 		run: 0,
 	} );
-	const [ paused, setPaused ] = useState( false );
+	const [ paused, setPaused ] = useState( carouselMemory.paused );
+	useEffect( () => {
+		carouselMemory.index = deck.index;
+		carouselMemory.paused = paused;
+	}, [ deck.index, paused ] );
 	const [ seek, setSeek ] = useState< { to: number; key: number } >();
 	const ringRef = useRef< HTMLButtonElement >( null );
 	const scrubRef = useRef< HTMLDivElement >( null );

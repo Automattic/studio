@@ -298,6 +298,7 @@ export interface Connector {
 	// pricing source) so callers can fall back to the single fixed top-up.
 	getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null >;
 	deleteAllSnapshots(): Promise< void >;
+	deletePreviewSite( hostname: string ): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
 	confirmDeleteAllPreviewSites(): Promise< boolean >;

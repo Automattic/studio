@@ -1,0 +1,201 @@
+/* 480px: wider than wpds `small` (400) and narrower than `medium` (560).
+   Unlayered, so it beats the size rule in wpds's `wp-ui-components` layer. */
+.popup {
+	max-width: 480px;
+}
+
+/* Segmented control, matching Settings' appearance picker: a sliding
+   indicator behind two equal segments. */
+.directionPicker {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	align-items: center;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-background-interactive-neutral-weak);
+	line-height: 1;
+}
+
+.directionPicker::before {
+	content: '';
+	position: absolute;
+	inset-block: calc(var(--wpds-border-width-xs) * -1);
+	inset-inline-start: 0;
+	box-sizing: border-box;
+	inline-size: 50%;
+	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-background-interactive-neutral-weak);
+	pointer-events: none;
+	transform: translateX(
+		calc(var(--direction-active-index, 0) * 100% + var(--direction-edge-shift, 0px))
+	);
+}
+
+/* Physical translateX against a logical inset — flip the sign in RTL. */
+.directionPicker:dir(rtl)::before {
+	transform: translateX(
+		calc(var(--direction-active-index, 0) * -100% - var(--direction-edge-shift, 0px))
+	);
+}
+
+/* At either end, slide the indicator one border-width outward so its border
+   overlays the container's rather than doubling it. */
+.directionPicker[data-active-index='0'] {
+	--direction-active-index: 0;
+	--direction-edge-shift: calc(var(--wpds-border-width-xs) * -1);
+}
+
+.directionPicker[data-active-index='1'] {
+	--direction-active-index: 1;
+	--direction-edge-shift: var(--wpds-border-width-xs);
+}
+
+@media not (prefers-reduced-motion) {
+	.directionPicker::before {
+		transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+	}
+}
+
+.directionButton {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-gap-xs);
+	min-height: 32px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	cursor: var(--wpds-cursor-control);
+}
+
+.directionButton:hover,
+.directionButtonActive {
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.directionButton:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+}
+
+.directionIcon {
+	flex: 0 0 auto;
+	fill: currentColor;
+	width: 16px;
+	height: 16px;
+}
+
+/* The URL identifies the connection; Production/Staging is a hint under it,
+   because that flag isn't always known when a connection is stored. */
+.destination {
+	min-width: 0;
+	margin-block-end: var(--wpds-dimension-padding-md);
+}
+
+.destinationTrigger {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	inline-size: 100%;
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md);
+	background: transparent;
+	text-align: start;
+	cursor: var(--wpds-cursor-control);
+}
+
+.destinationTrigger:hover {
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+.destinationTrigger:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+}
+
+.destinationTriggerText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+
+.destinationChevron {
+	flex: 0 0 auto;
+	fill: var(--wpds-color-foreground-content-neutral-weak);
+	width: 16px;
+	height: 16px;
+}
+
+.destinationStatic {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+/* Wide enough that a connection's URL isn't the thing that wraps. */
+.menu {
+	min-width: 280px;
+	max-width: 420px;
+}
+
+.menuItem {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.destinationUrl {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.destinationMeta {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.consequence {
+	margin: var(--wpds-dimension-gap-sm) 0 var(--wpds-dimension-padding-lg);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.whatToSync {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.legend {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+/* A stable floor so Push and Pull are the same width and the footer doesn't
+   reflow when the direction changes. */
+.run {
+	min-width: 88px;
+	justify-content: center;
+}

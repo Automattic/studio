@@ -1,3 +1,7 @@
+:global([data-site-toolbar-layout='compact']) .label {
+	display: none;
+}
+
 .popup {
 	min-width: 180px;
 }

@@ -635,11 +635,12 @@ def linux_deb_path(arch:)
   clean_path
 end
 
-# The builds announced in the release Slack message, in display order: the desktop
-# installers users actually download. Excludes the Mac/Windows "Update" payloads (consumed
-# by the in-app updater), the unsigned Appx builds (Buildkite artifacts for the Microsoft
-# Store publish), and the standalone CLI bundles that {distribute_builds} merges in.
-SLACK_ANNOUNCED_BUILD_KEYS = %i[
+# The builds offered to users as downloads, in display order: the desktop installers, shared
+# by the GitHub release notes and the release Slack message. Excludes the Mac/Windows "Update"
+# payloads (consumed by the in-app updater), the unsigned Appx builds (Buildkite artifacts for
+# the Microsoft Store publish), and the standalone CLI bundles that {distribute_builds} merges
+# in — none of which a person reading a release announcement should be handed.
+RELEASE_ATTACHED_BUILD_KEYS = %i[
   x64_dmg
   arm64_dmg
   windows
@@ -648,14 +649,20 @@ SLACK_ANNOUNCED_BUILD_KEYS = %i[
   linux_arm64_deb
 ].freeze
 
+# Markdown download links for the release installers, in RELEASE_ATTACHED_BUILD_KEYS order.
+# Builds that were never uploaded (no CDN URL) are skipped and reported by the caller.
+def release_download_links(builds)
+  RELEASE_ATTACHED_BUILD_KEYS
+    .filter_map { |key| builds[key] }
+    .select { |build| build[:cdn_url] }
+    .map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }
+end
+
 def slack_release_links(builds)
-  missing = SLACK_ANNOUNCED_BUILD_KEYS.reject { |key| builds[key] }
+  missing = RELEASE_ATTACHED_BUILD_KEYS.reject { |key| builds[key]&.dig(:cdn_url) }
   UI.important("Slack release message is missing builds: #{missing.join(', ')}") unless missing.empty?
 
-  SLACK_ANNOUNCED_BUILD_KEYS
-    .filter_map { |key| builds[key] }
-    .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }
-    .join(', ')
+  release_download_links(builds).join(', ')
 end
 
 def distribute_builds(
@@ -1380,14 +1387,7 @@ end
 def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
-  # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
-  links = download_link_keys.filter_map do |key|
-    build = builds[key]
-    next unless build&.dig(:cdn_url)
-
-    "[#{build[:name]}](#{build[:cdn_url]})"
-  end
+  links = release_download_links(builds)
 
   body = notes
   unless links.empty?

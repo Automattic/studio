@@ -95,6 +95,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	clearQuestionAnswer: ( question: string ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -140,6 +141,7 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
+	| { type: 'question_answer_cleared'; question: string }
 	| { type: 'batch_dispatched'; answers: Record< string, string > }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
@@ -219,6 +221,10 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
+		case 'question_answer_cleared': {
+			const { [ action.question ]: _cleared, ...rest } = state.pendingAnswers;
+			return { ...state, pendingAnswers: rest };
+		}
 		case 'batch_dispatched':
 			return {
 				...state,
@@ -270,6 +276,7 @@ interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	clearQuestionAnswer: ( sessionId: string, question: string ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -669,6 +676,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ dispatchSession ]
 	);
 
+	// Arming a free-form reply retracts the pick it replaces, so the batch stays
+	// open until the typed answer lands.
+	const clearQuestionAnswer = useCallback(
+		( sessionId: string, question: string ) => {
+			dispatchSession( sessionId, { type: 'question_answer_cleared', question } );
+		},
+		[ dispatchSession ]
+	);
+
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			states,
@@ -676,8 +692,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			clearQuestionAnswer,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, states ]
+		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, states ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -695,6 +712,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		clearQuestionAnswer: clearRunQuestionAnswer,
 	} = store;
 	const state = sessionId ? states[ sessionId ] ?? initialState : initialState;
 	const {
@@ -786,6 +804,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const clearQuestionAnswer = useCallback(
+		( question: string ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			clearRunQuestionAnswer( sessionId, question );
+		},
+		[ clearRunQuestionAnswer, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -810,6 +838,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	};
 }

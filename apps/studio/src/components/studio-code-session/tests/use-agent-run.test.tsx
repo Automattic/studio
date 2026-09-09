@@ -44,6 +44,9 @@ function renderWithAgentRun() {
 			<>
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+				<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
+				<button onClick={ () => run.answerQuestion( 'Q2', 'A2' ) }>Answer Q2</button>
+				<button onClick={ () => run.clearQuestionAnswer( 'Q2' ) }>Unanswer Q2</button>
 			</>
 		);
 	}
@@ -82,6 +85,69 @@ describe( 'useAgentRun message queueing', () => {
 
 	afterEach( () => {
 		vi.clearAllMocks();
+	} );
+
+	it( 'holds the batch open after a picked option is cleared for a free-form reply', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+			emit( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-08-26T12:00:01.000Z',
+					questions: [
+						{ question: 'Q1', options: [ { label: 'A1', description: '' } ] },
+						{ question: 'Q2', options: [ { label: 'A2', description: '' } ] },
+					],
+				},
+			} as AgentRunEvent );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		// Pick an option for Q2, then arm a free-form reply for it instead.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q2' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Unanswer Q2' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+
+		// Q2 is unanswered again, so the batch must not dispatch the stale pick.
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+		expect( mockIpc.answerAiAgentQuestion ).not.toHaveBeenCalled();
+	} );
+
+	it( 'dispatches once the cleared question is answered again', async () => {
+		renderWithAgentRun();
+
+		act( () => {
+			emit( startRunEvent() );
+			emit( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-08-26T12:00:01.000Z',
+					questions: [
+						{ question: 'Q1', options: [ { label: 'A1', description: '' } ] },
+						{ question: 'Q2', options: [ { label: 'A2', description: '' } ] },
+					],
+				},
+			} as AgentRunEvent );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q2' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Unanswer Q2' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q2' } ) );
+
+		await waitFor( () =>
+			expect( mockIpc.answerAiAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				Q1: 'A1',
+				Q2: 'A2',
+			} )
+		);
 	} );
 
 	it( 'leaves a running turn alone when no questions are pending', async () => {

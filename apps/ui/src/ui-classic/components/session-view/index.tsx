@@ -250,6 +250,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 	const currentModel = useMemo(
@@ -284,10 +285,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} ),
 		[]
 	);
-	const chooseFreeFormAnswer = useCallback( ( question: string ) => {
-		setArmedFreeFormQuestion( question );
-		composerRef.current?.focus();
-	}, [] );
+	const chooseFreeFormAnswer = useCallback(
+		( question: string ) => {
+			// Retract any option already picked for this question: the typed reply
+			// replaces it, and leaving it in place would dispatch the stale pick.
+			clearQuestionAnswer( question );
+			setArmedFreeFormQuestion( question );
+			composerRef.current?.focus();
+		},
+		[ clearQuestionAnswer ]
+	);
 	// Picking a listed option supersedes an armed free-form reply for that same
 	// question. Answering a *different* one leaves the arming alone, and
 	// arming again after picking still works, so a pick stays changeable.

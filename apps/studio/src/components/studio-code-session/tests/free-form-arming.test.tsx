@@ -89,6 +89,9 @@ vi.mock( '../use-agent-run', async () => {
 					agentRun.answerQuestion( question, answer );
 					setPendingAnswers( ( answers ) => ( { ...answers, [ question ]: answer } ) );
 				},
+				clearQuestionAnswer: ( question: string ) => {
+					setPendingAnswers( ( { [ question ]: _cleared, ...rest } ) => rest );
+				},
 				removeQueuedPrompt: vi.fn(),
 			};
 		},
@@ -244,6 +247,23 @@ describe( 'free-form arming', () => {
 		expect( screen.getAllByRole( 'button', { name: 'Something else' } )[ 0 ] ).toHaveAttribute(
 			'aria-pressed',
 			'true'
+		);
+	} );
+
+	it( 'retracts the picked option it replaces', async () => {
+		renderSession();
+
+		await screen.findAllByRole( 'button', { name: 'Something else' } );
+		await userEvent.click( screen.getByRole( 'button', { name: 'A' } ) );
+		expect( screen.getByRole( 'button', { name: 'A' } ).className ).toMatch(
+			/questionOptionPicked/
+		);
+
+		await userEvent.click( screen.getAllByRole( 'button', { name: 'Something else' } )[ 0 ] );
+
+		// Leaving both lit dispatches the stale pick once the batch completes.
+		expect( screen.getByRole( 'button', { name: 'A' } ).className ).not.toMatch(
+			/questionOptionPicked/
 		);
 	} );
 } );

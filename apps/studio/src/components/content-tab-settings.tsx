@@ -1,3 +1,4 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
@@ -98,7 +99,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		}
 		const path = await getIpcApi().getAbsolutePathFromSite(
 			selectedSite.id,
-			'wp-content/debug.log'
+			DEBUG_LOG_RELATIVE_PATH
 		);
 		setDebugLogPath( path );
 	}, [ selectedSite.id, selectedSite.enableDebugLog ] );

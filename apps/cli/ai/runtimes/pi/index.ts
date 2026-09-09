@@ -54,7 +54,7 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
+import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -325,8 +325,8 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const visionEnabled = aiModelSupportsImages( config.model );
 	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
@@ -341,23 +341,23 @@ async function createStudioAgentSession(
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
-					remoteSession,
 					userInstructions,
+					visionEnabled,
 			  }
 			: {
 					chatArtifactsEnabled,
-					remoteSession,
 					runtime,
 					userInstructions,
 					imageGenerationEnabled,
+					visionEnabled,
 			  }
 	);
 
 	const tools = buildAgentTools(
 		config,
 		chatArtifactsEnabled,
-		remoteSession,
-		imageGenerationEnabled
+		imageGenerationEnabled,
+		visionEnabled
 	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
@@ -675,8 +675,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean,
-	imageGenerationEnabled: boolean
+	imageGenerationEnabled: boolean,
+	visionEnabled: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -705,24 +705,19 @@ function buildAgentTools(
 		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
 	];
 
-	// A text-only model drops image blocks from tool results while still
-	// receiving their text, so it would report on a screenshot it never saw.
-	const withoutUnusableTools = ( tools: AgentToolAny[] ): AgentToolAny[] =>
-		aiModelSupportsImages( config.model )
-			? tools
-			: tools.filter( ( tool ) => tool.name !== takeScreenshotTool.name );
-
 	if ( isRemoteSite ) {
-		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
-			withChatArtifactEmission( tool, chatArtifactsEnabled )
-		);
-		return withoutUnusableTools( [
+		const remoteStudioTools = [
+			visionEnabled ? takeScreenshotTool : createTakeScreenshotTool( { visionEnabled: false } ),
+			createSiteTool,
+			pullSiteTool,
+		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
+		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
-		] );
+		];
 	}
 
 	const piTools: AgentToolAny[] = [
@@ -736,10 +731,10 @@ function buildAgentTools(
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
-		remoteSession,
 		imageGeneration: imageGenerationEnabled,
+		visionEnabled,
 	} ) as unknown as AgentToolAny[];
-	return withoutUnusableTools( [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ] );
+	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

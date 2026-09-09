@@ -1,6 +1,8 @@
 import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
-import sharedConfig from '../../vitest.shared';
+import sharedConfig from '../../vitest.shared.ts';
+
+const __dirname = import.meta.dirname;
 
 export default mergeConfig(
 	sharedConfig,

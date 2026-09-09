@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	formatAiAccessRequiredNotice,
+	formatAiCreditsAddedTitle,
 	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
 	formatAiCreditsUsedLabel,
@@ -322,5 +323,12 @@ describe( 'formatAiCreditsCallout', () => {
 		expect( formatAiCreditsCallout( neverBought, { fraction: 1 } ) ).toBe(
 			'Your next idea is ready when you are. Top up to bring it to life.'
 		);
+	} );
+} );
+
+describe( 'formatAiCreditsAddedTitle', () => {
+	it( 'formats the added credits for the locale', () => {
+		expect( formatAiCreditsAddedTitle( 500000, 'en' ) ).toBe( '500,000 AI credits added' );
+		expect( formatAiCreditsAddedTitle( 500000, 'de' ) ).toBe( '500.000 AI credits added' );
 	} );
 } );

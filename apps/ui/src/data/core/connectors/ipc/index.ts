@@ -1,3 +1,4 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -954,6 +955,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		async siteDebugLogExists( siteId ): Promise< boolean > {
+			return Boolean( await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH ) );
+		},
+
+		async openSiteDebugLog( siteId ): Promise< void > {
+			const logPath = await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH );
+			if ( ! logPath ) {
+				throw new Error( 'Debug log not found.' );
+			}
+			ipcApi.openLocalPath( logPath );
+		},
+
 		async openStudioLogs(): Promise< void > {
 			ipcApi.openStudioLogs();
 		},
@@ -1133,6 +1146,13 @@ export function createIpcConnector(): Connector {
 		onAppUpdateStatusChanged( listener ) {
 			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
 				listener( status as AppUpdateStatus )
+			);
+		},
+
+		onAppUpdateNotAvailable( listener ) {
+			return ipcListener.subscribe(
+				'app-update-not-available',
+				( _event: unknown, info: unknown ) => listener( info as { currentVersion: string } )
 			);
 		},
 	};

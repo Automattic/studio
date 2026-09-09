@@ -766,17 +766,10 @@ export async function runCommand( options: {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			// Match exact-prompt by default (preserves the legacy behavior where
-			// `/clear foo` falls through to the AI agent). Commands that opt into
-			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/command arg` route to the right handler.
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			// Match the exact prompt: `/clear foo` falls through to the AI agent
+			// rather than running `/clear`.
 			const cmd = trimmedPrompt.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) =>
-						c.getArgumentCompletions
-							? `/${ c.name }` === firstToken
-							: `/${ c.name }` === trimmedPrompt
-				  )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === trimmedPrompt )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {

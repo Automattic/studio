@@ -26,7 +26,6 @@ import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
-import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -53,12 +52,6 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
-	/**
-	 * Optional argument completion. When the user has typed past the first
-	 * whitespace, the autocomplete provider calls this to surface subcommand
-	 * suggestions.
-	 */
-	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
 }
 
 export function getActiveSlashCommands(): SlashCommandDef[] {

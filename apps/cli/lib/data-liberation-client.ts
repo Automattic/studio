@@ -4,7 +4,8 @@ import path from 'node:path';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 
 type DataLiberationCliResult = {
-	exitCode: number;
+	exitCode: number | null;
+	signal: NodeJS.Signals | null;
 	stdout: string;
 	stderr: string;
 };
@@ -70,11 +71,11 @@ async function runDataLiberationCli(
 			}
 		} );
 		child.once( 'error', reject );
-		child.once( 'close', ( code ) => {
+		child.once( 'close', ( code, signal ) => {
 			if ( pendingProgress.trim() ) {
 				onProgress?.( pendingProgress.trim() );
 			}
-			resolve( { exitCode: code ?? 1, stdout, stderr } );
+			resolve( { exitCode: code, signal, stdout, stderr } );
 		} );
 	} );
 }
@@ -95,6 +96,9 @@ export async function liberateWebsite(
 		[ parsed.href, '--output', resolvedOutputBase, '--resume' ],
 		options.onProgress
 	);
+	if ( result.signal ) {
+		throw new Error( `Data Liberation was terminated by ${ result.signal }.` );
+	}
 	if ( result.exitCode !== 0 ) {
 		throw new Error( result.stderr.trim() || result.stdout.trim() || 'Data Liberation failed.' );
 	}

@@ -36,6 +36,7 @@ describe( 'Data Liberation CLI', () => {
 		const onProgress = vi.fn();
 		const runCli = vi.fn().mockResolvedValue( {
 			exitCode: 0,
+			signal: null,
 			stdout: `Liberated 1/1 routes\nSite: ${ websiteDir }\n`,
 			stderr: '',
 		} );
@@ -56,11 +57,27 @@ describe( 'Data Liberation CLI', () => {
 			liberateWebsite( 'https://example.com', outputBase, {
 				runCli: vi.fn().mockResolvedValue( {
 					exitCode: 1,
+					signal: null,
 					stdout: '',
 					stderr: 'Capture failed',
 				} ),
 			} )
 		).rejects.toThrow( 'Capture failed' );
+	} );
+
+	it( 'reports the signal that terminated the CLI instead of progress output', async () => {
+		const { outputBase } = createOutput();
+
+		await expect(
+			liberateWebsite( 'https://example.com', outputBase, {
+				runCli: vi.fn().mockResolvedValue( {
+					exitCode: null,
+					signal: 'SIGTERM',
+					stdout: '',
+					stderr: '[liberate] finalizing',
+				} ),
+			} )
+		).rejects.toThrow( 'terminated by SIGTERM' );
 	} );
 
 	it( 'rejects a website directory outside its output base', async () => {
@@ -72,6 +89,7 @@ describe( 'Data Liberation CLI', () => {
 			liberateWebsite( 'https://example.com', outputBase, {
 				runCli: vi.fn().mockResolvedValue( {
 					exitCode: 0,
+					signal: null,
 					stdout: `Site: ${ outsideDir }\n`,
 					stderr: '',
 				} ),

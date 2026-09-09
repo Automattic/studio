@@ -20,6 +20,7 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -38,6 +39,12 @@ export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+
+export type PreviewSiteProgress = {
+	action: PreviewCommandLoggerAction;
+	status: 'inprogress' | 'fail' | 'success';
+	message: string;
+};
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type {
 	StudioCustomEntry,
@@ -305,7 +312,11 @@ export interface Connector {
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
 	// final preview URL when the CLI command completes.
-	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
+	publishPreviewSite(
+		siteId: string,
+		existingHostname?: string,
+		onProgress?: ( progress: PreviewSiteProgress ) => void
+	): Promise< { url: string } >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.

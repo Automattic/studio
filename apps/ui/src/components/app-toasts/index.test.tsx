@@ -1,11 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { AppToasts } from './index';
 
 describe( 'AppToasts', () => {
 	afterEach( () => {
+		vi.useRealTimers();
 		resetAppMessagesForTests();
 	} );
 
@@ -48,13 +49,16 @@ describe( 'AppToasts', () => {
 		expect( screen.queryByText( 'Uploading… 62%' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps a pinned toast open with no expiry timer', () => {
+	it( 'keeps a pinned toast open with no expiry timer', async () => {
+		vi.useFakeTimers();
 		render( <AppToasts /> );
 
 		act( () => {
 			showToast( { id: 'sync-1', intent: 'info', title: 'Pulling from live', durationMs: 0 } );
 		} );
 
+		expect( screen.getByText( 'Pulling from live' ) ).toBeVisible();
+		await act( async () => vi.advanceTimersByTime( 60_000 ) );
 		expect( screen.getByText( 'Pulling from live' ) ).toBeVisible();
 	} );
 } );

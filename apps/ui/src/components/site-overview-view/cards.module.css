@@ -9,6 +9,7 @@
 }
 
 .cardSection {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-md);
@@ -16,9 +17,23 @@
 	min-width: 0;
 }
 
-.sectionDivider {
-	height: var(--wpds-border-width-xs);
-	background: var(--wpds-color-stroke-surface-neutral);
+.sectionFooter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-sm);
+	margin: 0 calc(-1 * var(--wpds-dimension-padding-lg))
+		calc(-1 * var(--wpds-dimension-padding-lg));
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.footerDestructiveAction {
+	--wp-ui-button-color: var(--wpds-color-foreground-content-error);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-min-width: 0;
 }
 
 .cardHeader {
@@ -55,8 +70,37 @@
 	cursor: default;
 }
 
+.headerAction {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-weak);
+	--wp-ui-button-background-color-active: var(
+		--wpds-color-background-interactive-neutral-weak-active
+	);
+	--wp-ui-button-background-color-disabled: var(--wpds-color-background-surface-neutral-weak);
+	--wp-ui-button-foreground-color-disabled: var(
+		--wpds-color-foreground-interactive-neutral-disabled
+	);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-min-width: 0;
+}
+
+.buttonTooltipTrigger {
+	display: inline-flex;
+}
+
 .empty {
 	margin: 0;
+	text-wrap: pretty;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.loadingState {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-height: var(--wpds-typography-line-height-sm);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-foreground-content-neutral-weak);
@@ -71,16 +115,17 @@
 
 .row {
 	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
 }
 
-.rowText {
+.rowLine {
 	display: flex;
-	flex: 1;
-	flex-direction: column;
-	gap: 2px;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
 	min-width: 0;
 }
 
@@ -112,6 +157,65 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	flex: 0 0 auto;
+}
+
+.rowAction {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-weak);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-xs);
+	--wp-ui-button-min-width: 0;
+}
+
+.rowActionDestructive {
+	--wp-ui-button-color: var(--wpds-color-foreground-content-error);
+}
+
+.rowBadge {
+	padding: 1px 6px;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
+}
+
+.operationProgress {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.operationProgressTrack {
+	width: 80px;
+	height: 4px;
+	overflow: hidden;
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-background-surface-neutral-weak);
+}
+
+.operationProgressValue {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--wpds-color-background-interactive-brand-strong);
+	transition: inline-size 160ms ease;
+}
+
+.operationProgressValue[data-indeterminate] {
+	width: 35%;
+	animation: operation-progress 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes operation-progress {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(285%);
+	}
 }
 
 .rowDivider {
@@ -162,27 +266,16 @@
 	fill: currentColor;
 }
 
-.connectionSkeleton {
-	height: 10px;
-	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-background-surface-neutral-weak);
-	animation: connection-loading 1.4s ease-in-out infinite alternate;
-}
-
-@keyframes connection-loading {
-	to {
-		opacity: 0.55;
-	}
-}
-
-.pickerPopup {
-	width: 320px;
-	padding: 0;
+.themeMenuAnchor {
+	position: absolute;
+	top: var(--wpds-dimension-padding-lg);
+	right: var(--wpds-dimension-padding-lg);
+	z-index: 1;
 }
 
 .themeSummary {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: var(--wpds-dimension-padding-md);
 	min-width: 0;
 }
@@ -225,8 +318,7 @@
 }
 
 .thumbnail:hover .thumbnailOverlay,
-.thumbnail:focus-visible .thumbnailOverlay,
-.thumbnail[data-empty] .thumbnailOverlay {
+.thumbnail:focus-visible .thumbnailOverlay {
 	opacity: 0.94;
 }
 
@@ -241,12 +333,18 @@
 
 .themeDetails {
 	display: flex;
+	flex: 1 1 auto;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
 }
 
 .themeValue {
+	/* Clears the absolutely positioned login menu button in the card's
+	   top-right corner. Scoped to this line only — the one line at that
+	   height — so the longer WP/PHP meta line below keeps its full width and
+	   doesn't wrap. */
+	padding-right: 2rem;
 	overflow-wrap: anywhere;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -407,29 +505,6 @@
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-.credentialRow {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.credentialValue {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	min-width: 0;
-}
-
-.credentialText {
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
 .storageSkeleton {
 	background: linear-gradient(
 		90deg,
@@ -453,7 +528,7 @@
 @media (prefers-reduced-motion: reduce) {
 	.storageSkeleton,
 	.storageLegend,
-	.connectionSkeleton {
+	.operationProgressValue[data-indeterminate] {
 		animation: none;
 		transition: none;
 	}

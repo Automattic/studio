@@ -124,6 +124,42 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
+	it( 'loads theme details from the local server', async () => {
+		const theme = {
+			name: 'Twenty Twenty-Five',
+			path: '/sites/site-1/wp-content/themes/twentytwentyfive',
+			slug: 'twentytwentyfive',
+			isBlockTheme: true,
+		};
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( theme ) ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getThemeDetails?.( 'site-1' ) ).resolves.toEqual( theme );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/sites/site-1/theme',
+			expect.any( Object )
+		);
+	} );
+
+	it( 'loads the cached site thumbnail as a data URL', async () => {
+		fetchMock.mockResolvedValue(
+			new Response( new Uint8Array( [ 1, 2, 3 ] ), { headers: { 'Content-Type': 'image/png' } } )
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getSiteThumbnail( 'site-1' ) ).resolves.toBe(
+			'data:image/png;base64,AQID'
+		);
+		expect( fetchMock ).toHaveBeenCalledWith( 'http://localhost:8081/api/sites/site-1/thumbnail' );
+	} );
+
+	it( 'treats a missing cached thumbnail as an empty thumbnail', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 404 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.getSiteThumbnail( 'site-1' ) ).resolves.toBeNull();
+	} );
+
 	it( 'forwards matching pull progress from the local server event stream', async () => {
 		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
 		class MockEventSource {
@@ -159,6 +195,52 @@ describe( 'createLocalConnector Connect contracts', () => {
 		expect( onProgress ).toHaveBeenCalledWith( {
 			message: 'Creating remote backup… (20%)',
 			progress: 20,
+		} );
+	} );
+
+	it( 'forwards preview publishing progress from the snapshot event stream', async () => {
+		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
+		class MockEventSource {
+			set onmessage( listener: ( ( event: MessageEvent ) => void ) | null ) {
+				onMessage = listener;
+			}
+
+			close() {}
+		}
+		vi.stubGlobal( 'EventSource', MockEventSource );
+		fetchMock.mockResolvedValue(
+			new Response( JSON.stringify( { operationId: 'preview-operation' } ) )
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const onProgress = vi.fn();
+		await connector.init?.();
+
+		const publishing = connector.publishPreviewSite( 'site-1', undefined, onProgress );
+		await vi.waitFor( () => expect( fetchMock ).toHaveBeenCalled() );
+		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+		const emitSnapshot = ( payload: object ) =>
+			onMessage?.(
+				new MessageEvent( 'message', {
+					data: JSON.stringify( { channel: 'snapshot', payload } ),
+				} )
+			);
+		emitSnapshot( {
+			kind: 'output',
+			operationId: 'preview-operation',
+			data: { action: 'upload', status: 'inprogress', message: 'Uploading archive' },
+		} );
+		emitSnapshot( {
+			kind: 'key-value',
+			operationId: 'preview-operation',
+			data: { key: 'url', value: 'preview.wp.build' },
+		} );
+		emitSnapshot( { kind: 'success', operationId: 'preview-operation' } );
+
+		await expect( publishing ).resolves.toEqual( { url: 'preview.wp.build' } );
+		expect( onProgress ).toHaveBeenCalledWith( {
+			action: 'upload',
+			status: 'inprogress',
+			message: 'Uploading archive',
 		} );
 	} );
 } );

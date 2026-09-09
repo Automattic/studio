@@ -87,7 +87,9 @@
 	justify-content: space-between;
 }
 
-.radioItem {
+/* Shared by RadioItem and CheckboxItem — both indent their label to make room
+   for the indicator dot/check to their left. */
+.indicatorItem {
 	padding-inline-start: var(--wpds-dimension-padding-xs);
 }
 

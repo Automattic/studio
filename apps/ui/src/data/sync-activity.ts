@@ -28,6 +28,7 @@ export type SyncActivity =
 	| {
 			kind: 'pending';
 			direction: SyncDirection;
+			remoteSiteId?: number;
 			message?: string;
 			progress?: number;
 			// How far a push has got; drives the cancel gate. Pull reports the
@@ -76,19 +77,33 @@ function scheduleExpiry( siteId: string ) {
 	timers.set( siteId, timer );
 }
 
-export function reportSyncPending( siteId: string, direction: SyncDirection ): void {
+export function reportSyncPending(
+	siteId: string,
+	direction: SyncDirection,
+	remoteSiteId?: number
+): void {
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction } );
+	entries.set( siteId, {
+		kind: 'pending',
+		direction,
+		...( remoteSiteId === undefined ? {} : { remoteSiteId } ),
+	} );
 	emit();
 }
 
 export function reportSyncProgress(
 	siteId: string,
-	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	direction: Extract< SyncDirection, 'pull' | 'preview' | 'import' >,
 	progress: ActivityProgress
 ): void {
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction, ...progress } );
+	const current = entries.get( siteId );
+	entries.set( siteId, {
+		...( current?.kind === 'pending' && current.direction === direction ? current : {} ),
+		kind: 'pending',
+		direction,
+		...progress,
+	} );
 	emit();
 }
 
@@ -107,14 +122,21 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 	return progress ? sprintf( '%1$s (%2$d%%)', message, Math.round( progress ) ) : message;
 }
 
-export function reportPushPhase( siteId: string, phase: PushPhase, progress?: number ): void {
+export function reportPushPhase( siteId: string, phase: PushPhase, progress?: number ): string {
+	const message = getPushPhaseMessage( phase, progress );
 	const current = entries.get( siteId );
 	if ( current?.kind !== 'pending' || current.direction !== 'push' ) {
-		return;
+		return message;
 	}
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { ...current, phase, message: getPushPhaseMessage( phase, progress ) } );
+	entries.set( siteId, {
+		...current,
+		phase,
+		progress,
+		message,
+	} );
 	emit();
+	return message;
 }
 
 export function reportSyncCancelled( siteId: string, direction: SyncDirection ): void {

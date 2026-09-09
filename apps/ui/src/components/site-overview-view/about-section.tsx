@@ -4,6 +4,7 @@ import { useConnector } from '@/data/core';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { LoginMenuButton, LoginValueLine, useAboutLogin } from './about-admin';
 import styles from './cards.module.css';
 import { CardSection } from './overview-card';
 import type { SiteDetails, SiteStorageUsage } from '@/data/core';
@@ -40,6 +41,7 @@ export function AboutSection( {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const login = useAboutLogin( site );
 	const themeName = themeDetails?.name || themeDetails?.slug || '—';
 	const thumbnail = useSiteThumbnail( site.id );
 	const storage = useSiteStorageUsage( site.id );
@@ -68,6 +70,12 @@ export function AboutSection( {
 
 	return (
 		<CardSection>
+			<LoginMenuButton
+				className={ styles.themeMenuAnchor }
+				email={ login.email }
+				passwordHidden={ login.passwordHidden }
+				setPasswordHidden={ login.setPasswordHidden }
+			/>
 			<div className={ styles.themeSummary }>
 				<button
 					type="button"
@@ -93,13 +101,17 @@ export function AboutSection( {
 					</span>
 				</button>
 				<div className={ styles.themeDetails }>
-					<span className={ styles.tileLabel }>{ __( 'Theme' ) }</span>
 					<span className={ styles.themeValue }>{ themeName }</span>
 					<span className={ styles.themeMeta }>
 						<span>{ wpLabel }</span>
 						<span aria-hidden="true">•</span>
 						<span>{ phpLabel }</span>
 					</span>
+					<LoginValueLine
+						username={ login.username }
+						password={ login.password }
+						passwordHidden={ login.passwordHidden }
+					/>
 				</div>
 			</div>
 			<div className={ styles.storageSection }>

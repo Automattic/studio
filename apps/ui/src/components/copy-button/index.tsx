@@ -1,8 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { check, copy, Icon } from '@wordpress/icons';
+import { check, copy as copyIcon, Icon } from '@wordpress/icons';
 import { Tooltip } from '@wordpress/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
+import { useCopyFeedback } from '@/hooks/use-copy-feedback';
 import styles from './style.module.css';
 
 export function CopyButton( {
@@ -16,39 +15,10 @@ export function CopyButton( {
 	className?: string;
 	variant?: 'filled' | 'plain';
 } ) {
-	const connector = useConnector();
-	const [ copied, setCopied ] = useState( false );
-	const resetTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
-
-	// Clear any pending reset when the button unmounts.
-	useEffect( () => {
-		return () => {
-			if ( resetTimer.current ) {
-				clearTimeout( resetTimer.current );
-			}
-		};
-	}, [] );
-
-	// Route through the connector (host clipboard) — the renderer's
+	// Routes through the connector (host clipboard) — the renderer's
 	// `navigator.clipboard` is denied in the Electron desktop, which left the
 	// copy silently failing and the button stuck on "Copy".
-	const handleCopy = useCallback( () => {
-		void connector
-			.copyText( text )
-			.then( () => {
-				setCopied( true );
-				// Re-arm the reset on every click so copying again mid-"Copied"
-				// doesn't let the earlier timer flip the state back too soon.
-				if ( resetTimer.current ) {
-					clearTimeout( resetTimer.current );
-				}
-				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
-			} )
-			.catch( ( error ) => {
-				console.error( 'Failed to copy text:', error );
-			} );
-	}, [ connector, text ] );
-
+	const { copied, copy: handleCopy } = useCopyFeedback( text );
 	const copiedLabel = __( 'Copied' );
 	const tooltipLabel = copied ? copiedLabel : label;
 
@@ -66,7 +36,7 @@ export function CopyButton( {
 							data-variant={ variant }
 						>
 							<Icon
-								icon={ copied ? check : copy }
+								icon={ copied ? check : copyIcon }
 								size={ copied ? 20 : 16 }
 								fill="currentColor"
 								aria-hidden="true"

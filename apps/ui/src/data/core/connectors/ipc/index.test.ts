@@ -340,3 +340,54 @@ describe( 'createIpcConnector debug log', () => {
 		expect( openLocalPath ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'createIpcConnector preview progress', () => {
+	const createSnapshot = vi.fn().mockResolvedValue( { operationId: 'preview-operation' } );
+	const getSiteDetails = vi
+		.fn()
+		.mockResolvedValue( [ { id: 'site-1', name: 'Demo', path: '/sites/demo' } ] );
+	const unsubscribe = vi.fn();
+	const listeners = new Map< string, ( event: unknown, payload: never ) => void >();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		listeners.clear();
+		vi.stubGlobal( 'ipcApi', { createSnapshot, getSiteDetails } );
+		vi.stubGlobal( 'ipcListener', {
+			subscribe: vi.fn( ( channel, listener ) => {
+				listeners.set( channel, listener );
+				return unsubscribe;
+			} ),
+		} );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'forwards matching phases and resolves with the published URL', async () => {
+		const onProgress = vi.fn();
+		const publishing = createIpcConnector().publishPreviewSite( 'site-1', undefined, onProgress );
+		await vi.waitFor( () => expect( listeners.has( 'snapshot-success' ) ).toBe( true ) );
+
+		listeners.get( 'snapshot-output' )?.( {}, {
+			operationId: 'preview-operation',
+			data: { action: 'archive', status: 'inprogress', message: 'Creating archive' },
+		} as never );
+		listeners.get( 'snapshot-key-value' )?.( {}, {
+			operationId: 'preview-operation',
+			data: { key: 'url', value: 'preview.wp.build' },
+		} as never );
+		listeners.get( 'snapshot-success' )?.( {}, {
+			operationId: 'preview-operation',
+		} as never );
+
+		await expect( publishing ).resolves.toEqual( { url: 'preview.wp.build' } );
+		expect( onProgress ).toHaveBeenCalledWith( {
+			action: 'archive',
+			status: 'inprogress',
+			message: 'Creating archive',
+		} );
+		expect( unsubscribe ).toHaveBeenCalledTimes( 5 );
+	} );
+} );

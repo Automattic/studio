@@ -28,7 +28,7 @@ describe( 'NoticeHistory', () => {
 				<NoticeHistoryDialog />
 			</>
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Recent notifications' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Notification history' } ) );
 		expect( screen.getByText( 'No notifications yet' ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Clear all' } ) ).not.toBeInTheDocument();
 	} );
@@ -44,7 +44,7 @@ describe( 'NoticeHistory', () => {
 			toast.error( 'Could not open the terminal.', { description: 'iTerm is not installed.' } );
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Recent notifications' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Notification history' } ) );
 		expect( screen.getByText( 'Could not open the terminal.' ) ).toBeVisible();
 		expect( screen.getByText( 'iTerm is not installed.' ) ).toBeVisible();
 

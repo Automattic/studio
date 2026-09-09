@@ -4,16 +4,17 @@
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-/* The chrome's header padding puts a full gap between the title and the
-   intro paragraph; tighten it so the two read as one block, and put the
-   space below the paragraph instead. Text zeroes the paragraph's own margin,
-   so it has to be set here. */
-.header {
-	padding-block-end: var(--wpds-dimension-gap-xs);
-}
-
-.intro {
-	margin-block-end: var(--wpds-dimension-gap-lg);
+/* A quiet footnote under the list rather than a subtitle above it: it
+   explains the log's lifetime, which the reader only wants once. */
+.outro {
+	margin-block-start: var(--wpds-dimension-gap-lg);
+	font-size: var(--wpds-typography-font-size-xs);
+	/* A step below the notice body text, which is already `-weak`. */
+	color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral-weak) 75%,
+		transparent
+	);
 }
 
 .list {

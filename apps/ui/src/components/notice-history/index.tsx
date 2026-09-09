@@ -116,7 +116,7 @@ export function NoticeHistoryDialog() {
 		<AppThemeScope>
 			<Dialog.Root open={ open } onOpenChange={ setOpen }>
 				<Dialog.Popup size="medium">
-					<Dialog.Header className={ styles.header }>
+					<Dialog.Header>
 						<Dialog.Title>{ __( 'Notification history' ) }</Dialog.Title>
 					</Dialog.Header>
 					<Dialog.Content>
@@ -130,13 +130,6 @@ export function NoticeHistoryDialog() {
 							</EmptyState.Root>
 						) : (
 							<>
-								{ /* Description drops a passed className, so the spacing lives on
-							     a wrapper. The NBSP keeps the last word from wrapping alone. */ }
-								<div className={ styles.intro }>
-									<Dialog.Description>
-										{ __( 'Cleared when Studio\u00a0restarts.' ) }
-									</Dialog.Description>
-								</div>
 								<ul className={ styles.list }>
 									{ notices.map( ( notice ) => (
 										<li key={ `${ notice.id }:${ notice.shownAt }` }>
@@ -162,6 +155,13 @@ export function NoticeHistoryDialog() {
 										</li>
 									) ) }
 								</ul>
+								{ /* Description drops a passed className, so the note lives on a
+								     wrapper. */ }
+								<div className={ styles.outro }>
+									<Dialog.Description>
+										{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
+									</Dialog.Description>
+								</div>
 							</>
 						) }
 					</Dialog.Content>

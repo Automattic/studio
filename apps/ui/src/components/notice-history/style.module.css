@@ -28,6 +28,22 @@
 .notice {
 	width: 100%;
 	box-sizing: border-box;
+
+	/* Flat grey entries, matching the sidebar notices: the intent icon carries
+	   the severity rather than a tinted surface. Unlike the sidebar this sits on
+	   the app canvas, so the lift follows the color scheme — mixing toward the
+	   content foreground darkens it in light mode and lightens it in dark. */
+	--wp-ui-notice-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-foreground-content-neutral) 6%,
+		var(--wpds-color-background-surface-neutral-strong)
+	);
+	--wp-ui-notice-border-color: transparent;
+	--wp-ui-notice-text-color: var(--wpds-color-foreground-content-neutral);
+}
+
+.notice [class*='__description'] {
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 /* Notice sizes its title row for a 24px icon, but at this density the glyph

@@ -15,8 +15,6 @@ import {
 } from '@/data/app-messages';
 import styles from './style.module.css';
 
-export type NoticeAppearance = 'neutral' | 'intent';
-
 // Error text is clamped in the toast; these get Copy (the full text) and More
 // (the recent-notifications dialog, where it runs in full).
 function hasErrorDetails( item: ToastMessage ) {
@@ -26,16 +24,12 @@ function hasErrorDetails( item: ToastMessage ) {
 export function AppToasts( {
 	className,
 	fit = 'row',
-	appearance = 'neutral',
 }: {
 	className?: string;
 	// 'row' stretches toasts to the shelf width (sidebar footer, matching the
 	// site rows); 'content' lets each toast hug its text up to the shelf's
 	// max-width (the floating collapsed shelf).
 	fit?: 'row' | 'content';
-	// 'neutral' flattens every toast to one quiet card; 'intent' keeps
-	// Notice's tinted surface so an error reads red at a glance.
-	appearance?: NoticeAppearance;
 } ) {
 	const toasts = useVisibleToasts();
 	const queuedCount = useQueuedToastCount();
@@ -71,7 +65,7 @@ export function AppToasts( {
 								<Notice.Root
 									key={ `${ item.intent }:${ !! item.description }:${ !! item.action }` }
 									intent={ item.intent }
-									className={ clsx( styles.notice, appearance === 'neutral' && styles.neutral ) }
+									className={ clsx( styles.notice, styles.neutral ) }
 								>
 									<Notice.Title>{ item.title }</Notice.Title>
 									{ item.description ? (

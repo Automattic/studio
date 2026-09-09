@@ -4,7 +4,6 @@ import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
-import { appThemeColor } from '@/components/app-theme-scope';
 import { AppToasts } from '@/components/app-toasts';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { NoticeHistoryDialog } from '@/components/notice-history';
@@ -162,15 +161,9 @@ export function SidebarLayout( {
 									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
+									{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 									{ ! effectiveCollapsed ? (
-										// Notices sit on the dark chrome, so they take the app's
-										// own theme (a step up from the chrome in both schemes) and
-										// keep their intent tints instead of flattening to a
-										// chrome-on-chrome neutral card.
-										<ThemeProvider color={ appThemeColor( colorScheme ) }>
-											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
-											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
-										</ThemeProvider>
+										<AppMessageCards className={ styles.sidebarCards } />
 									) : null }
 									<UserMenu onToggleSidebar={ toggleSidebar } />
 								</div>

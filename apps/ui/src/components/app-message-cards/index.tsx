@@ -5,15 +5,8 @@ import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import toastStyles from '@/components/app-toasts/style.module.css';
 import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
-import type { NoticeAppearance } from '@/components/app-toasts';
 
-export function AppMessageCards( {
-	className,
-	appearance = 'neutral',
-}: {
-	className?: string;
-	appearance?: NoticeAppearance;
-} ) {
+export function AppMessageCards( { className }: { className?: string } ) {
 	const { messages, dismiss } = useActivePersistentMessages();
 
 	if ( ! messages.length ) {
@@ -27,11 +20,7 @@ export function AppMessageCards( {
 					<Notice.Root
 						intent={ message.intent }
 						icon={ null }
-						className={ clsx(
-							toastStyles.notice,
-							appearance === 'neutral' && toastStyles.neutral,
-							styles.card
-						) }
+						className={ clsx( toastStyles.notice, toastStyles.neutral, styles.card ) }
 					>
 						<Notice.Title>{ message.title }</Notice.Title>
 						{ message.description ? (

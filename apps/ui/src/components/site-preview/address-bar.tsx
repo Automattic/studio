@@ -228,6 +228,9 @@ export function PreviewAddressBar( {
 	return (
 		<Popover.Root
 			open={ shortcutsOpen }
+			// The webview swallows outside clicks, so the modal backdrop is what
+			// lets a click on the page dismiss the shortcuts.
+			modal
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );
 				if ( ! open ) {
@@ -236,7 +239,13 @@ export function PreviewAddressBar( {
 			} }
 		>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				<span className={ styles.siteIcon } data-realm={ activeRealm } aria-hidden="true">
+				<button
+					type="button"
+					className={ styles.siteIcon }
+					data-realm={ activeRealm }
+					aria-label={ __( 'Preview shortcuts' ) }
+					onClick={ () => setShortcutsOpen( true ) }
+				>
 					{ activeRealm === 'frontend' ? (
 						<SiteIcon
 							seed={ `${ site.id }:${ site.name }:${ site.path }` }
@@ -249,7 +258,7 @@ export function PreviewAddressBar( {
 							className={ activeRealm === 'admin' ? styles.wordpressIcon : undefined }
 						/>
 					) }
-				</span>
+				</button>
 				<input
 					className={ styles.input }
 					value={ value }

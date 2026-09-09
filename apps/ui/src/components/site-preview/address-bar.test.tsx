@@ -151,7 +151,17 @@ describe( 'PreviewAddressBar', () => {
 		expect(
 			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
 		).toBeInTheDocument();
-		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 0 );
+		// The icon is the only button in the field: it opens the shortcuts,
+		// same as clicking the address.
+		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'opens the shortcuts from the site icon too', async () => {
+		renderAddressBar();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Preview shortcuts' } ) );
+
+		expect( await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } ) ).toBeVisible();
 	} );
 
 	it( 'changes the address icon for WP Admin and Database', () => {

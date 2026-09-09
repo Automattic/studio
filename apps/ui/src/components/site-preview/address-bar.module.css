@@ -26,6 +26,17 @@
 	flex: 0 0 16px;
 	align-items: center;
 	justify-content: center;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: default;
+}
+
+.siteIcon:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+	border-radius: var(--wpds-border-radius-xs);
 }
 
 .wordpressIcon {

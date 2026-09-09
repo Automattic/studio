@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,11 +24,8 @@ import {
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/lib/resizable-panels';
 import { chromeBackground } from '@/lib/window-chrome';
-import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 interface SidebarLayoutProps {
 	children: ReactNode;
@@ -152,7 +149,7 @@ export function SidebarLayout( {
 						{ /* The sidebar sits on the dark window chrome in both color
 					     schemes, so its wpds tokens come from a nested dark theme
 					     scope. */ }
-						<ThemeProvider color={ { bg: chromeBg } }>
+						<ThemeProvider color={ { background: chromeBg } }>
 							<div className={ styles.sidebarThemeScope }>
 								<SidebarHeader />
 								<SiteList />
@@ -175,7 +172,7 @@ export function SidebarLayout( {
 					{ ! effectiveCollapsed ? (
 						// Same dark theme scope as the sidebar so the indicator's
 						// brand token resolves against the dark ramp.
-						<ThemeProvider color={ { bg: chromeBg } }>
+						<ThemeProvider color={ { background: chromeBg } }>
 							<ResizeHandle
 								className={ styles.resizeHandle }
 								label={ __( 'Resize sidebar' ) }

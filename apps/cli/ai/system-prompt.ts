@@ -30,14 +30,18 @@ export interface BuildSystemPromptOptions {
 	// every imagery-related prompt section so unavailable sessions get exactly
 	// the pre-imagery prompt.
 	imageGenerationEnabled?: boolean;
+	// False for models that cannot view images. Defaults to true.
+	visionEnabled?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
 	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
 
+	const visionEnabled = options?.visionEnabled ?? true;
+
 	if ( options?.remoteSite ) {
-		return `${ buildRemoteIntro( options.remoteSite ) }
+		return `${ buildRemoteIntro( options.remoteSite, visionEnabled ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
@@ -52,6 +56,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
 		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
+		visionEnabled,
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ remoteSessionAddendum }${ userInstructionsSection }
@@ -78,7 +83,10 @@ The user saved these standing instructions in Studio's settings. They apply to e
 ${ instructions }`;
 }
 
-function buildRemoteIntro( site: RemoteSiteContext ): string {
+function buildRemoteIntro( site: RemoteSiteContext, visionEnabled: boolean ): string {
+	const verifyStep = visionEnabled
+		? `Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.`
+		: `You cannot view images, so verify from the rendered DOM with inspect_design instead. Fix any issues.`;
 	return `${ AGENT_IDENTITY } You manage WordPress.com sites using the WordPress.com REST API.
 
 IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
@@ -99,7 +107,7 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
 2. **Load remote guidance**: Load the \`wpcom-remote-management\` skill before selecting endpoints, creating or updating content, managing templates, switching themes, or managing plugins.
 3. **Understand and change the site**: Use wpcom_request according to the \`wpcom-remote-management\` skill.
-4. **Verify visually**: Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
+4. **Verify the result**: ${ verifyStep }
 
 ## General rules
 
@@ -132,8 +140,14 @@ function buildLocalIntro( options: {
 	remoteSession: boolean;
 	runtime?: SiteRuntime;
 	imageGenerationEnabled: boolean;
+	visionEnabled: boolean;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
+	const takeScreenshotToolBullet = options.visionEnabled
+		? `- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.`
+		: `- take_screenshot: Save a full-page screenshot of a URL to a file (supports desktop, mobile, or \`viewport: "all"\` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector. This is your verification tool: read widths, positions, and padding from it instead of looking at a capture.`;
 	const imageryWorkflowSection = options.imageGenerationEnabled
 		? `
 
@@ -209,9 +223,10 @@ Then continue with:
 2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: layout, colors, typography, and spacing.
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
-5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
+5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
-7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.${ imageryWorkflowSection }
+7. **Check and polish the result**: You MUST load the \`visual-polish\` skill and follow its instructions to do so. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
+8. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, finish by copying your final desktop take_screenshot capture (each capture's saved file path is reported in the tool result) to \`screenshot.jpg\` in the theme's directory — it becomes the theme's thumbnail in Appearance → Themes. Copy the existing capture file; do not generate or hand-craft a screenshot image.${ imageryWorkflowSection }
 
 ## Working cadence
 
@@ -238,8 +253,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - wp_cli: Run WP-CLI commands on a running site${ refreshBrowserToolBullet }
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
-- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.${ generateImagesToolBullet }
+${ takeScreenshotToolBullet }${ generateImagesToolBullet }
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.

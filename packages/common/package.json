@@ -12,7 +12,7 @@
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",
 		"@sentry/core": "^10.50.0",
-		"@wordpress/i18n": "^6.20.0",
+		"@wordpress/i18n": "^6.27.0",
 		"atomically": "^2.1.0",
 		"date-fns": "^4.1.0",
 		"fast-deep-equal": "^3.1.3",

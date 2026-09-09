@@ -21,7 +21,7 @@
 .placeholder {
 	position: absolute;
 	inset: 0;
-	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 8%, transparent);
+	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 8%, transparent);
 }
 
 /* ---- Overview scene ---- */
@@ -32,7 +32,7 @@
 	display: grid;
 	place-items: center;
 	overflow: hidden;
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .overviewPanel {
@@ -58,9 +58,9 @@
 
 .overviewContent h3 {
 	margin: 0 0 4px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: 6px;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	line-height: 1;
 }
 
@@ -75,7 +75,7 @@
 	padding: 7px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 3px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	transition: border-color 120ms ease;
 }
 
@@ -136,14 +136,14 @@
 
 .overviewThemeDetails > span,
 .overviewThemeDetails small {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: 4.5px;
 }
 
 .overviewThemeDetails strong {
 	overflow: hidden;
 	font-size: 5.5px;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -161,7 +161,7 @@
 }
 
 .overviewStorageHeading strong {
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 }
 
 .overviewStorageBar {
@@ -170,7 +170,7 @@
 	height: 4px;
 	overflow: hidden;
 	border-radius: 99px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 }
 
 .overviewStorageBar span {
@@ -194,7 +194,7 @@
 
 .overviewStorageBar [data-storage='other'] {
 	width: 26%;
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 }
 
 .overviewAction {
@@ -208,7 +208,7 @@
 	padding-inline: 6px 3px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 3px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: 6px;
 	white-space: nowrap;
 	transition: border-color 120ms ease;
@@ -261,7 +261,7 @@
 	display: grid;
 	place-items: center;
 	overflow: hidden;
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .previewSequence {
@@ -290,7 +290,7 @@
 	padding: 2px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 999px;
-	background: var(--wpds-color-bg-interactive-neutral-weak);
+	background: var(--wpds-color-background-interactive-neutral-weak);
 }
 
 .previewTabsIndicator {
@@ -299,7 +299,7 @@
 	bottom: 2px;
 	left: 0;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
 	transition:
 		width 200ms ease,
 		transform 200ms ease;
@@ -318,9 +318,9 @@
 	padding: 0 9px;
 	overflow: hidden;
 	border-radius: 999px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	line-height: 16px;
 	white-space: nowrap;
 	transition:
@@ -331,7 +331,7 @@
 
 .previewTabActive {
 	gap: 6px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .previewTabActive[data-realm='frontend'] {
@@ -403,7 +403,7 @@
 	width: 40px;
 	height: 40px;
 	border-radius: var(--wpds-border-radius-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	transition:
 		background 160ms ease,
 		color 160ms ease;
@@ -417,8 +417,8 @@
 }
 
 .previewAnnotateButtonActive {
-	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
-	color: var(--wpds-color-fg-content-neutral);
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .previewAnnotateTooltip {
@@ -428,9 +428,9 @@
 	padding: 7px 12px;
 	border-radius: var(--wpds-border-radius-sm);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: var(--wpds-elevation-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04), 0 6px 6px 0 rgba(0, 0, 0, 0.03), 0 8px 8px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: 11px;
 	font-weight: 500;
 	line-height: 1;
@@ -448,7 +448,7 @@
 	padding: 14px;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 5px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-background-surface-neutral-strong);
 	transform: translateX(-50%);
 }
 
@@ -456,7 +456,7 @@
 .previewSkeletonCopy,
 .previewSkeletonCta {
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 18%, transparent);
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 18%, transparent);
 }
 
 .previewSkeletonTitle {
@@ -484,8 +484,8 @@
 }
 
 .previewSkeletonCtaPicking {
-	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 12%, transparent);
-	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus-brand);
+	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 12%, transparent);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus);
 }
 
 .previewCommentComposer {
@@ -659,7 +659,7 @@
 	overflow: hidden;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
@@ -674,7 +674,7 @@
 	height: 34px;
 	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-md);
 	border-radius: 6px;
-	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 .rowName {
@@ -683,7 +683,7 @@
 	overflow: hidden;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
@@ -703,7 +703,7 @@
 	width: 24px;
 	height: 24px;
 	border-radius: 4px;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .btnGlyph {
@@ -722,7 +722,7 @@
 .statusPlay {
 	width: 9px;
 	height: 9px;
-	fill: var(--wpds-color-fg-content-neutral);
+	fill: var(--wpds-color-foreground-content-neutral);
 }
 
 .statusDot {
@@ -742,7 +742,7 @@
 	background: #fff;
 	color: #1e1e1e;
 	font-size: 11px;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	line-height: 1.4;
 	white-space: nowrap;
 	box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
@@ -766,7 +766,7 @@
 	inset: 0;
 	box-sizing: border-box;
 	overflow: hidden;
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 }
 
 /* Above the resting composer, with room up top so the first bubble clears the
@@ -788,15 +788,15 @@
 	max-width: 82%;
 	padding: 5px 11px;
 	border-radius: 14px 14px 6px 14px;
-	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 12%, transparent);
-	color: var(--wpds-color-fg-content-neutral);
+	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 12%, transparent);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 1.4;
 	transform-origin: bottom right;
 }
 
 .assistantText {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 1.45;
 }
@@ -808,7 +808,7 @@
 	height: 13px;
 	margin-left: 2px;
 	vertical-align: -2px;
-	background: var(--wpds-color-fg-content-neutral-weak);
+	background: var(--wpds-color-foreground-content-neutral-weak);
 	animation: chatCaretBlink 1s steps(1) infinite;
 }
 
@@ -817,7 +817,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 }
 
@@ -831,9 +831,9 @@
 .toolShimmer {
 	background: linear-gradient(
 		100deg,
-		var(--wpds-color-fg-content-neutral-weak) 35%,
-		var(--wpds-color-fg-content-neutral) 50%,
-		var(--wpds-color-fg-content-neutral-weak) 65%
+		var(--wpds-color-foreground-content-neutral-weak) 35%,
+		var(--wpds-color-foreground-content-neutral) 50%,
+		var(--wpds-color-foreground-content-neutral-weak) 65%
 	);
 	background-size: 220% 100%;
 	background-clip: text;
@@ -862,15 +862,15 @@
 	padding: 2px 4px;
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	cursor: var(--wpds-cursor-control, pointer);
 	transition: color 120ms ease;
 }
 
 .replayButton:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .composer {
@@ -884,8 +884,8 @@
 	gap: 6px;
 	padding: 8px 10px 7px;
 	border-radius: 8px 8px 20px 8px;
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	outline: 1.5px solid var(--wpds-color-fg-interactive-brand, #2563eb);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	outline: 1.5px solid var(--wpds-color-foreground-interactive-brand, #2563eb);
 	will-change: transform;
 }
 
@@ -897,7 +897,7 @@
 .composerPlaceholder {
 	position: absolute;
 	inset: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 17px;
 	white-space: nowrap;
@@ -909,7 +909,7 @@
 	display: inline-flex;
 	align-items: center;
 	overflow: hidden;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 17px;
 	white-space: nowrap;
@@ -920,7 +920,7 @@
 	width: 1.5px;
 	height: 13px;
 	margin-left: 1px;
-	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	animation: chatCaretBlink 1s steps(1) infinite;
 }
 
@@ -944,8 +944,8 @@
 	width: 22px;
 	height: 22px;
 	border-radius: 999px;
-	background: var(--wpds-color-fg-content-neutral);
-	color: var(--wpds-color-bg-surface-neutral-strong);
+	background: var(--wpds-color-foreground-content-neutral);
+	color: var(--wpds-color-background-surface-neutral-strong);
 }
 
 .stopGlyph {
@@ -960,7 +960,7 @@
 	place-items: center;
 	width: 18px;
 	height: 18px;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .plusButton svg {
@@ -974,8 +974,8 @@
 	width: 22px;
 	height: 22px;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 14%, transparent);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	transition: background 150ms ease, color 150ms ease;
 }
 
@@ -985,7 +985,7 @@
 }
 
 .sendButtonActive {
-	background: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	color: #fff;
 }
 
@@ -1015,8 +1015,8 @@
 	.toolShimmer {
 		animation: none;
 		background: none;
-		color: var(--wpds-color-fg-content-neutral-weak);
-		-webkit-text-fill-color: var(--wpds-color-fg-content-neutral-weak);
+		color: var(--wpds-color-foreground-content-neutral-weak);
+		-webkit-text-fill-color: var(--wpds-color-foreground-content-neutral-weak);
 	}
 }
 

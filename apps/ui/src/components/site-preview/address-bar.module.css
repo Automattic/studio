@@ -10,12 +10,12 @@
 	align-items: center;
 	border: 0;
 	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-bg-surface-neutral-weak);
+	background: var(--wpds-color-background-surface-neutral-weak);
 	overflow: hidden;
 }
 
 .addressBar:focus-within {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 1px;
 }
 
@@ -29,7 +29,7 @@
 }
 
 .wordpressIcon {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	fill: currentColor;
 }
 
@@ -40,7 +40,7 @@
 	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-xs);
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
@@ -58,9 +58,13 @@
 	padding: var(--wpds-dimension-padding-xs);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-lg);
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: var(--wpds-elevation-md);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow:
+		0 2px 3px 0 rgba(0, 0, 0, 0.05),
+		0 4px 5px 0 rgba(0, 0, 0, 0.04),
+		0 12px 12px 0 rgba(0, 0, 0, 0.03),
+		0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .shortcutsList {
@@ -80,7 +84,7 @@
 
 .shortcutsLabel {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
 }
@@ -95,7 +99,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -105,7 +109,7 @@
 
 .shortcut:hover,
 .shortcut:focus-visible {
-	background: var(--wpds-color-bg-surface-neutral);
+	background: var(--wpds-color-background-surface-neutral);
 	outline: none;
 }
 

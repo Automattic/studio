@@ -129,7 +129,7 @@ export function SiteDropdown( {
 		const options = convertTreeToPushOptions( tree );
 		startSyncFromDialog( () =>
 			pushSiteToLive.mutate(
-				{ siteId: site.id, remoteSiteId: liveSite.id, options },
+				{ siteId: site.id, remoteSiteId: liveSite.id, options, syncSite: liveSite },
 				{ onSuccess: () => void connector.openExternalUrl( ensureProtocol( liveSite.url ) ) }
 			)
 		);
@@ -143,6 +143,7 @@ export function SiteDropdown( {
 				siteId: site.id,
 				remoteSiteId: liveSite.id,
 				options: { optionsToSync, includePathList },
+				syncSite: liveSite,
 			} )
 		);
 	};

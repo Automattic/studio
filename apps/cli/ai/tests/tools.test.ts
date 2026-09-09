@@ -408,6 +408,9 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
+		// The saved path is the agent's only handle for reusing a capture as a
+		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
+		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
 		expect( text ).not.toContain( 'mediaWidgetPayload' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -423,6 +426,26 @@ describe( 'Studio AI MCP tools', () => {
 			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
 		);
 		await cleanUpScreenshotArtifacts( artifacts );
+	} );
+
+	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
+		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const findTakeScreenshot = (
+			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+		) =>
+			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
+		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
+		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
+		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
+		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
+
+		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
+
+		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
+		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
+		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
 	} );
 
 	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
@@ -1490,6 +1513,14 @@ describe( 'Studio AI MCP tools', () => {
 			expect( styleCss ).not.toContain( 'Template:' );
 			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
 			expect( styleCss ).toContain( 'margin-block-start: 0;' );
+			expect( styleCss ).toContain( '.wp-site-blocks main {' );
+			expect( styleCss ).toContain( '.wp-site-blocks main.is-flush {' );
+
+			const pageNoTitle = await readFile(
+				path.join( themeDir, 'templates', 'page-no-title.html' ),
+				'utf8'
+			);
+			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
@@ -1520,6 +1551,28 @@ describe( 'Studio AI MCP tools', () => {
 			await expect(
 				stat( path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' ) )
 			).rejects.toThrow();
+		} );
+
+		it( 'treats an empty parentTheme as no parent and scaffolds a blank theme', async () => {
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				parentTheme: '',
+			} as never );
+
+			expect( getTextContent( result ) ).not.toMatch( /Child theme/ );
+			await expect(
+				stat(
+					path.join(
+						tempSiteRoot,
+						'wp-content',
+						'themes',
+						'acme-studio',
+						'templates',
+						'index.html'
+					)
+				)
+			).resolves.toBeDefined();
 		} );
 
 		it( 'fails when the target theme directory already exists', async () => {

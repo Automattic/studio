@@ -37,8 +37,8 @@
 	padding: 2px 8px;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 }
 
@@ -63,14 +63,14 @@
 .userText {
 	align-self: flex-end;
 	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);
-	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
+	background-color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand, #2563eb) 10%, transparent);
 	/* Bottom-right tight so the bubble reads as originating from the user
 	   on the right; other corners round generously. */
 	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
 	max-width: 80%;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	white-space: pre-wrap;
 	word-wrap: break-word;
 }
@@ -84,7 +84,7 @@
 .toolRow {
 	--tool-trigger-color: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral-weak) 70%,
+		var(--wpds-color-foreground-content-neutral-weak) 70%,
 		transparent
 	);
 	--tool-text-color: var(--tool-trigger-color);
@@ -106,12 +106,12 @@
 
 @media (prefers-color-scheme: light) {
 	.toolRow {
-		--tool-text-color: var(--wpds-color-fg-content-neutral-weak);
+		--tool-text-color: var(--wpds-color-foreground-content-neutral-weak);
 	}
 }
 
 .toolRowButton {
-	--tool-row-active-background: var(--wpds-color-bg-interactive-neutral-weak-active, #ededed);
+	--tool-row-active-background: var(--wpds-color-background-interactive-neutral-weak-active, #ededed);
 
 	appearance: none;
 	align-self: flex-start;
@@ -130,8 +130,8 @@
 }
 
 .toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
-	--tool-text-color: var(--wpds-color-fg-interactive-neutral-active);
-	--tool-icon-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-text-color: var(--wpds-color-foreground-interactive-neutral-active);
+	--tool-icon-color: var(--wpds-color-foreground-interactive-neutral-active);
 
 	background-color: var(--tool-row-active-background);
 }
@@ -147,7 +147,7 @@
 }
 
 .toolRowButton:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline: 2px solid var(--wpds-color-stroke-focus, #2563eb);
 	outline-offset: 2px;
 }
 
@@ -186,13 +186,13 @@
 	max-height: min(320px, 45vh);
 	overflow: auto;
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .toolInput,
 .toolOutput {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
@@ -202,11 +202,11 @@
 }
 
 .toolInput {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .toolOutputError {
-	color: var(--wpds-color-fg-content-error, #dc2626);
+	color: var(--wpds-color-foreground-content-error, #dc2626);
 }
 
 .toolDiff {
@@ -222,17 +222,17 @@
 }
 
 .diffLine {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .diffLineAdded {
-	color: var(--wpds-color-fg-content-success);
-	background-color: var(--wpds-color-bg-surface-success-weak);
+	color: var(--wpds-color-foreground-content-success);
+	background-color: var(--wpds-color-background-surface-success-weak);
 }
 
 .diffLineRemoved {
-	color: var(--wpds-color-fg-content-error);
-	background-color: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-foreground-content-error);
+	background-color: var(--wpds-color-background-surface-error-weak);
 }
 
 .toolLabel {
@@ -286,7 +286,7 @@
 	max-height: min(520px, 58vh);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
 	object-fit: contain;
 }
 
@@ -296,14 +296,14 @@
 	min-height: 180px;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
 }
 
 .mediaArtifactLoading {
 	background-image: linear-gradient(
 		90deg,
 		transparent,
-		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 8%, transparent),
+		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 8%, transparent),
 		transparent
 	);
 	background-size: 200% 100%;
@@ -315,7 +315,7 @@
 	align-items: center;
 	justify-content: center;
 	padding: var(--wpds-dimension-padding-md);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
@@ -407,7 +407,7 @@
 	display: inline-flex;
 	align-items: center;
 	align-self: flex-start;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	font-weight: 500;
 	line-height: 1.4;
@@ -426,7 +426,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	text-align: left;
 }
@@ -440,7 +440,7 @@
 }
 
 .questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryText {
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryOption {
@@ -453,7 +453,7 @@
 }
 
 .questionSummary:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline: 2px solid var(--wpds-color-stroke-focus, #2563eb);
 	outline-offset: 2px;
 }
 
@@ -471,7 +471,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .questionSummaryOption {
@@ -511,7 +511,7 @@
 
 .questionText {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .questionOptions {
@@ -549,7 +549,7 @@
 	border: none;
 	padding: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font: inherit;
 	text-align: left;
 	cursor: pointer;
@@ -564,18 +564,18 @@
 
 .questionOption:focus-visible:not(:disabled) {
 	outline: none;
-	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-focus, #2563eb);
 }
 
 .questionOption:hover:not(:disabled) .questionOptionLabel,
 .questionOption:focus-visible:not(:disabled) .questionOptionLabel {
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .questionOption:hover:not(:disabled) .questionOptionNumber,
 .questionOption:focus-visible:not(:disabled) .questionOptionNumber {
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .questionOptionNumber {
@@ -589,8 +589,8 @@
 	padding: 0 0.35em;
 	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1;
 	transition:
@@ -606,12 +606,12 @@
 }
 
 .questionOptionLabel {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	transition: color 120ms ease;
 }
 
 .questionOptionDescription {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: 1.4;
 }
@@ -631,15 +631,15 @@
 .questionOption.questionOptionPicked .questionOptionNumber,
 .questionOption.questionOptionPicked:disabled .questionOptionNumber,
 .questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionNumber {
-	border-color: var(--wpds-color-bg-interactive-brand-strong);
-	background-color: var(--wpds-color-bg-interactive-brand-strong);
-	color: var(--wpds-color-fg-interactive-brand-strong);
+	border-color: var(--wpds-color-background-interactive-brand-strong);
+	background-color: var(--wpds-color-background-interactive-brand-strong);
+	color: var(--wpds-color-foreground-interactive-brand-strong);
 }
 
 .questionOption.questionOptionPicked .questionOptionLabel,
 .questionOption.questionOptionPicked:disabled .questionOptionLabel,
 .questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionLabel {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-weight: 500;
 }
 
@@ -647,18 +647,18 @@
 	border-style: solid;
 	border-color: color-mix(
 		in srgb,
-		var(--wpds-color-fg-interactive-brand, #2563eb) 45%,
+		var(--wpds-color-foreground-interactive-brand, #2563eb) 45%,
 		var(--wpds-color-stroke-surface-neutral)
 	);
 	background-color: transparent;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .question[data-state='folding'] .questionOption.questionOptionPicked .questionOptionNumber {
 	border-style: solid;
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 	background-color: transparent;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-foreground-interactive-brand, #2563eb);
 }
 
 .interruptedMarker {
@@ -666,8 +666,8 @@
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 2px 10px;
 	border-radius: 9999px;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 }
@@ -677,9 +677,9 @@
 	max-width: 100%;
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 4px 12px;
-	border-radius: var(--wpds-dimension-radius-md, 8px);
-	background-color: color-mix(in srgb, var(--wpds-color-fg-content-error) 8%, transparent);
-	color: var(--wpds-color-fg-content-error);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: color-mix(in srgb, var(--wpds-color-foreground-content-error) 8%, transparent);
+	color: var(--wpds-color-foreground-content-error);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 	overflow-wrap: anywhere;

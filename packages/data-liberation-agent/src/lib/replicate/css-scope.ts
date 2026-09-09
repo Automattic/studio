@@ -1,4 +1,4 @@
-import postcss, { type Rule } from 'postcss';
+import postcss, { CssSyntaxError, type Rule } from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 
 export interface ScopeOpts {
@@ -12,6 +12,31 @@ export interface ScopeOpts {
 
 const ROOTISH = new Set(['html', 'body', ':root']);
 const ROOT_ANCHOR = new Set(['html', ':root']);
+
+function errorOffset(css: string, line: number, column: number): number {
+  let offset = 0;
+  for (let currentLine = 1; currentLine < line; currentLine++) {
+    offset = css.indexOf('\n', offset) + 1;
+    if (offset === 0) return -1;
+  }
+  return offset + column - 1;
+}
+
+function parseCss(css: string) {
+  let recovered = css;
+  for (;;) {
+    try {
+      return postcss.parse(recovered);
+    } catch (error) {
+      if (!(error instanceof CssSyntaxError) || !/^Unknown word [)\]]$/.test(error.reason))
+        throw error;
+      if (error.line === undefined || error.column === undefined) throw error;
+      const offset = errorOffset(recovered, error.line, error.column);
+      if (offset < 0 || !/[)\]]/.test(recovered[offset])) throw error;
+      recovered = recovered.slice(0, offset) + recovered.slice(offset + 1);
+    }
+  }
+}
 
 function scopeSelector(selector: string, scope: string): string {
   // Wrap the scope in :where() so it contributes ZERO specificity. The carried
@@ -44,7 +69,7 @@ function scopeSelector(selector: string, scope: string): string {
 }
 
 export function scopeCss(css: string, opts: ScopeOpts): string {
-  const root = postcss.parse(css);
+  const root = parseCss(css);
 
   // Hoist root font-size to a real :root rule so `rem` resolves correctly. The
   // scoper otherwise rewrites html/:root -> :where(scope) (body), which silently

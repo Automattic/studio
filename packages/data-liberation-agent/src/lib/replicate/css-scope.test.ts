@@ -69,6 +69,18 @@ describe('scopeCss — combined-root + edge selectors', () => {
     expect(scopeCss('', { scope: 'body.lib-carry-site' })).toBe('');
   });
 
+  it('recovers malformed declarations without dropping valid scoped CSS', () => {
+    const out = scopeCss(
+      '#DrpDwnMn0 { --shd: 0 1px 4px rgba(0,0,0,0.6);); --bgDrop: #fff; color: red }',
+      { scope: 'body.lib-carry-site' },
+    );
+
+    expect(out).toContain(':where(body.lib-carry-site) #DrpDwnMn0');
+    expect(out).toContain('--shd: 0 1px 4px rgba(0,0,0,0.6)');
+    expect(out).toContain('--bgDrop: #fff');
+    expect(out).toContain('color: red');
+  });
+
   it('leaves no un-renamed animation reference after keyframe namespacing', () => {
     const css = '@keyframes spin { from {opacity:0} to {opacity:1} } .x { animation: spin 1s }';
     const out = scopeCss(css, { scope: 'body.lib-carry-site', scopeId: 'p1' });

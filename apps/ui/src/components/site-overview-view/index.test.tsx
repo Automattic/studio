@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import settingsStyles from '@/components/site-settings-view/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
@@ -23,8 +24,10 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useIsSiteSyncing } from '@/hooks/use-is-site-syncing';
 import { useOffline } from '@/hooks/use-offline';
 import { useThemeDetails } from '@/hooks/use-theme-details';
 import styles from './style.module.css';
@@ -33,6 +36,7 @@ import type {
 	ConnectorCapabilities,
 	SiteDetails,
 	SupportedEditor,
+	SyncSite,
 	UserPreferences,
 } from '@/data/core';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -49,6 +53,18 @@ const WP_VERSIONS = [
 	{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
 	{ label: '6.7.2', value: '6.7.2', isBeta: false, isDevelopment: false },
 ];
+
+const CONNECTED_SITE: SyncSite = {
+	id: 42,
+	localSiteId: 'site-1',
+	name: 'Demo Live',
+	url: 'demo.example.com',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+};
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -77,6 +93,10 @@ vi.mock( '@/components/site-dropdown', () => ( {
 	},
 } ) );
 
+vi.mock( '@/components/site-dropdown/publish-picker-view', () => ( {
+	PublishPickerView: () => <div>Connection picker</div>,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
@@ -86,7 +106,12 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: vi.fn(),
 	useLogin: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -130,6 +155,11 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-sync-site', () => ( {
+	usePullSiteFromLive: vi.fn(),
+	usePushSiteToLive: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	WP_VERSION_QUERY_KEY: [ 'wp-version' ],
 	useWordPressVersions: vi.fn(),
@@ -153,12 +183,18 @@ vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
 } ) );
 
+vi.mock( '@/hooks/use-is-site-syncing', () => ( {
+	useIsSiteSyncing: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: useTrafficLightSpaceMock,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useAuthUserMock = vi.mocked( useAuthUser, { partial: true } );
+const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites, { partial: true } );
 const useLoginMock = vi.mocked( useLogin, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
@@ -175,10 +211,13 @@ const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useOfflineMock = vi.mocked( useOffline );
 const useThemeDetailsMock = vi.mocked( useThemeDetails );
+const usePullSiteFromLiveMock = vi.mocked( usePullSiteFromLive, { partial: true } );
+const usePushSiteToLiveMock = vi.mocked( usePushSiteToLive, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
+const useIsSiteSyncingMock = vi.mocked( useIsSiteSyncing );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
@@ -192,6 +231,9 @@ describe( 'SiteOverviewView', () => {
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
+	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
+	const pullSiteFromLive = vi.fn();
+	const pushSiteToLive = vi.fn();
 	const onTabChange = vi.fn();
 
 	const getFilePath = vi.fn().mockResolvedValue( '/tmp/backup.tar.gz' );
@@ -206,6 +248,7 @@ describe( 'SiteOverviewView', () => {
 		copyText,
 		getFilePath,
 		importSiteFromBackup,
+		openExternalUrl,
 		capabilities: { openInOS } as ConnectorCapabilities,
 	} );
 
@@ -247,7 +290,14 @@ describe( 'SiteOverviewView', () => {
 			reason: null,
 			isReady: true,
 		} );
+		useAuthUserMock.mockReturnValue( {
+			data: { id: 1, email: 'person@example.com', displayName: 'Person' },
+		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useConnectedWpcomSitesMock.mockReturnValue( { data: [], isLoading: false } );
+		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullSiteFromLive } );
+		usePushSiteToLiveMock.mockReturnValue( { mutate: pushSiteToLive } );
+		useIsSiteSyncingMock.mockReturnValue( { push: false, pull: false } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
@@ -388,6 +438,65 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect( screen.getByText( 'Measuring…' ) ).toBeVisible();
+	} );
+
+	it( 'offers a complete empty state for connecting a live site', () => {
+		renderView();
+
+		expect( screen.getByRole( 'heading', { name: 'Connections' } ) ).toBeVisible();
+		expect(
+			screen.getByText( 'Not connected to a live site yet. Connect one to pull or push changes.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Connect a WordPress.com site' } ) ).toBeVisible();
+	} );
+
+	it( 'offers login from Connections when signed out', () => {
+		const login = vi.fn();
+		useAuthUserMock.mockReturnValue( { data: null } );
+		useLoginMock.mockReturnValue( { isPending: false, mutate: login } );
+
+		renderView();
+
+		expect(
+			screen.getByText( 'Sign in to connect this site to WordPress.com and sync it.' )
+		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
+		expect( login ).toHaveBeenCalled();
+	} );
+
+	it( 'shows a connected site and exposes pull and push actions', async () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [ CONNECTED_SITE ],
+			isLoading: false,
+		} );
+
+		renderView();
+
+		expect( screen.getByText( 'demo.example.com' ) ).toBeVisible();
+		expect( screen.getByText( 'Never synced' ) ).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		fireEvent.click( await screen.findByText( 'Pull from live' ) );
+		expect( pullSiteFromLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+		fireEvent.click( await screen.findByText( 'Push to live' ) );
+		expect( pushSiteToLive ).toHaveBeenCalledWith( { siteId: 'site-1', remoteSiteId: 42 } );
+	} );
+
+	it( 'reflects sync work started from another surface', () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [ CONNECTED_SITE ],
+			isLoading: false,
+		} );
+		useIsSiteSyncingMock.mockReturnValue( { push: true, pull: false } );
+
+		renderView();
+
+		expect( screen.getByRole( 'button', { name: 'Pushing…' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	} );
 
 	it( 'keeps the browser action available without a cached thumbnail', () => {

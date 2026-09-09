@@ -10,7 +10,7 @@ import nock from 'nock';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 
-const routerPath = path.resolve( import.meta.dirname, 'router.php' );
+const routerPath = path.resolve( import.meta.dirname, '../../php/router.php' );
 const phpBinaryPath = getPhpBinaryPath( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) );
 const assetContents = 'asset bytes with a literal plus';
 

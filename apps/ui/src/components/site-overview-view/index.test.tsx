@@ -118,6 +118,18 @@ vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
+	useSaveUserPreferences: () => ( { isPending: false, mutate: vi.fn() } ),
+} ) );
+
+// Chat is on in these tests, so the Studio Code upsell stays hidden.
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: () => ( {
+		enabled: true,
+		chatEnabled: true,
+		chatPromptsSignIn: false,
+		reason: null,
+		isReady: true,
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {

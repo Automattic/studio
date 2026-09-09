@@ -46,6 +46,7 @@ import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
 import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
+import { StudioCodeUpsell } from './studio-code-upsell';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -327,6 +328,7 @@ function SiteOverviewBody( {
 									<OverviewCard>
 										<AdminSection site={ site } />
 									</OverviewCard>
+									<StudioCodeUpsell siteId={ site.id } />
 								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection

@@ -336,6 +336,25 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
+	it( 'pick_concept draws one of the shortlisted catalog concepts and refuses short lists', async () => {
+		const { findSkill, getCurrentConceptPool, renderSkillBody } = await import( '../skills' );
+		renderSkillBody( findSkill( 'visual-design' )! );
+		const pool = getCurrentConceptPool();
+		const tool = getTool( 'pick_concept' );
+		const candidates = pool.slice( 0, 3 ).map( ( name ) => ( { name, reason: 'fits' } ) );
+		const text = getTextContent( await executeTool( tool, { candidates } ) ) ?? '';
+		const drawn = text.match( /^Drawn concept: (.+)$/m )?.[ 1 ];
+		expect( pool.slice( 0, 3 ) ).toContain( drawn );
+		expect( text ).toMatch( /^Build: /m );
+		await expect( executeTool( tool, { candidates: candidates.slice( 0, 2 ) } ) ).rejects.toThrow(
+			/at least 3/
+		);
+		const named = getTextContent(
+			await executeTool( tool, { candidates: [], namedInBrief: pool[ 0 ] } )
+		);
+		expect( named ).toContain( `Concept named in the brief: ${ pool[ 0 ] }` );
+	} );
+
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'refresh_browser' );

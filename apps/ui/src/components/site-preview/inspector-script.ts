@@ -677,14 +677,17 @@ export const INSPECTOR_PAGE_SCRIPT =
 				return;
 			}
 			if ( e.key !== 'Escape' ) return;
-			if ( isPicking ) {
+			if ( activePopup ) {
+				e.preventDefault();
+				e.stopPropagation();
+				activePopup = null;
+				persistAnnotations();
+				sendState();
+				render();
+			} else if ( isPicking ) {
 				e.preventDefault();
 				e.stopPropagation();
 				send( { type: 'cancel-requested' } );
-			} else if ( activePopup ) {
-				activePopup = null;
-				persistAnnotations();
-				render();
 			}
 		},
 		{ capture: true, signal: teardown.signal }

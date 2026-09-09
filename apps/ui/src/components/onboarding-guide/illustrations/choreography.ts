@@ -47,6 +47,11 @@ export interface Playback {
 	 * it a host that advances on `onEnd` would never advance at all.
 	 */
 	reducedMotionHoldMs?: number;
+	/**
+	 * Where (0→1) a fresh mount starts its clock — for a host that remounts a
+	 * scene and wants it to carry on from where it was, with no frame at zero.
+	 */
+	initialProgress?: number;
 }
 
 // A single requestAnimationFrame clock. Reduced motion skips the animation and
@@ -61,11 +66,15 @@ export function useTimeline( {
 	loop?: boolean;
 	playback?: Playback;
 } ): Timeline {
-	const [ t, setT ] = useState( () => ( ! loop && prefersReducedMotion() ? duration : 0 ) );
+	const initialElapsed =
+		Math.min( 0.999, Math.max( 0, playback?.initialProgress ?? 0 ) ) * duration;
+	const [ t, setT ] = useState( () =>
+		! loop && prefersReducedMotion() ? duration : initialElapsed
+	);
 	const [ nonce, setNonce ] = useState( 0 );
 	const rafRef = useRef( 0 );
 	// Elapsed time survives a pause so resuming picks up where it stopped.
-	const elapsedRef = useRef( 0 );
+	const elapsedRef = useRef( initialElapsed );
 	// Whether this run already reported its end, so it reports it only once.
 	const endedRef = useRef( false );
 	const playbackRef = useRef( playback );
@@ -82,7 +91,14 @@ export function useTimeline( {
 		setNonce( ( n ) => n + 1 );
 	}, [] );
 
+	// A restart only applies when the key changes after mount, so a mount that
+	// starts mid-way (initialProgress) isn't zeroed straight away.
+	const appliedRestartRef = useRef( restartKey );
 	useEffect( () => {
+		if ( appliedRestartRef.current === restartKey ) {
+			return;
+		}
+		appliedRestartRef.current = restartKey;
 		elapsedRef.current = 0;
 		endedRef.current = false;
 	}, [ restartKey ] );

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLogin } from '@/data/queries/use-auth-user';
+import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { AgenticSigninPrompt } from './index';
 
 vi.mock( '@/data/queries/use-auth-user', () => ( {
@@ -9,18 +10,29 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 
 // The annotation slide inverts its mock site against the app color scheme,
 // which reads through the connector.
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useSaveUserPreferences: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
 describe( 'AgenticSigninPrompt', () => {
 	const login = vi.fn();
+	const savePreferences = vi.fn(
+		( _partial, options?: { onSuccess?: () => void } ) => options?.onSuccess?.()
+	);
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( useLogin, { partial: true } ).mockReturnValue( {
 			isPending: false,
 			mutate: login,
+		} );
+		vi.mocked( useSaveUserPreferences, { partial: true } ).mockReturnValue( {
+			isPending: false,
+			mutate: savePreferences as never,
 		} );
 	} );
 
@@ -30,11 +42,11 @@ describe( 'AgenticSigninPrompt', () => {
 		expect(
 			screen.getByRole( 'heading', { name: 'Your personal WordPress expert' } )
 		).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Studio Code', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Chat', selected: true } ) ).toBeVisible();
 		expect( screen.getByText( /Chat to build themes, write plugins/ ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Next feature' } ) );
-		expect( screen.getByRole( 'tab', { name: 'Annotations', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Annotate', selected: true } ) ).toBeVisible();
 		expect( screen.getByText( /Point at anything in the site preview/ ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
@@ -42,7 +54,7 @@ describe( 'AgenticSigninPrompt', () => {
 		expect( screen.getByText( /Sync content, plugins, themes, and files/ ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Previous feature' } ) );
-		expect( screen.getByRole( 'tab', { name: 'Annotations', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Annotate', selected: true } ) ).toBeVisible();
 		expect( useLogin ).toHaveBeenCalledWith( { source: 'assistant_tab' } );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
@@ -68,15 +80,32 @@ describe( 'AgenticSigninPrompt', () => {
 		expect( screen.getByRole( 'button', { name: 'Pause the demo' } ) ).toBeVisible();
 	} );
 
+	it( 'turns agentic features off before switching to the overview', () => {
+		const onOpenOverview = vi.fn();
+		render( <AgenticSigninPrompt onOpenOverview={ onOpenOverview } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to Overview' } ) );
+		expect( screen.getByRole( 'dialog', { name: 'Turn off agentic features?' } ) ).toBeVisible();
+		expect( onOpenOverview ).not.toHaveBeenCalled();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Turn off and switch' } ) );
+
+		expect( savePreferences ).toHaveBeenCalledWith(
+			{ agenticFeaturesEnabled: false },
+			expect.anything()
+		);
+		expect( onOpenOverview ).toHaveBeenCalledOnce();
+	} );
+
 	it( 'keeps the slide and pause state across a remount (switching sites)', () => {
 		const first = render( <AgenticSigninPrompt /> );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Annotations' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Annotate' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pause the demo' } ) );
 		first.unmount();
 
 		render( <AgenticSigninPrompt /> );
 
-		expect( screen.getByRole( 'tab', { name: 'Annotations', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Annotate', selected: true } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Resume the demo' } ) ).toBeVisible();
 	} );
 } );

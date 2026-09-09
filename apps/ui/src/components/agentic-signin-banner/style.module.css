@@ -46,12 +46,14 @@
 	box-sizing: border-box;
 	align-items: center;
 	justify-content: center;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-lg);
+	container: signin-prompt / inline-size;
 }
 
 .copy {
 	display: flex;
-	width: min(100%, 500px);
+	width: min(100%, 532px);
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-lg);
 	flex-direction: column;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-md);
@@ -62,8 +64,11 @@
 	margin: 0 0 var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-xl);
-	line-height: var(--wpds-typography-line-height-xl);
+	/* Display size: the xl line-height token is body-ish and reads loose once
+	   this wraps to two lines. */
+	line-height: 1.15;
 	font-weight: var(--wpds-typography-font-weight-emphasis);
+	text-wrap: balance;
 }
 
 /* Arrows flank the stage; the transport row sits under the stage in the
@@ -74,7 +79,9 @@
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
 	column-gap: var(--wpds-dimension-gap-xs);
-	row-gap: var(--wpds-dimension-gap-sm);
+	/* A touch more than .copy's gap: the labels have no cap height above them
+	   to speak of, so an equal gap reads tighter on top. */
+	row-gap: var(--wpds-dimension-gap-lg);
 }
 
 .carousel > .stage {
@@ -92,10 +99,16 @@
 	overflow: hidden;
 	border-radius: var(--wpds-border-radius-xl);
 	background: var(--wpds-color-background-surface-neutral-weak);
+	/* A hairline ring plus a light lift; dark mode keeps only the ring, since
+	   a shadow has nothing to fall on there. */
 	box-shadow:
-		0 1px 2px rgba(0, 0, 0, 0.05),
-		0 4px 8px rgba(0, 0, 0, 0.05),
-		0 12px 28px rgba(0, 0, 0, 0.07);
+		0 0 0 1px var(--wpds-color-stroke-surface-neutral-weak),
+		0 1px 2px rgba(0, 0, 0, 0.04),
+		0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+:global([data-color-scheme='dark']) .stage {
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
 }
 
 .scenes {
@@ -135,8 +148,8 @@
 	left: 50%;
 	z-index: 2;
 	display: grid;
-	width: 44px;
-	height: 44px;
+	width: 72px;
+	height: 72px;
 	place-items: center;
 	border-radius: 50%;
 	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 70%, transparent);
@@ -145,21 +158,33 @@
 	pointer-events: none;
 }
 
-.pausedBadge svg {
-	fill: currentColor;
+/* The wp play icon is a small glyph in a big box; a clip-path triangle fills
+   the badge properly. Nudged right so it reads centered. */
+.pausedGlyph {
+	width: 22px;
+	height: 26px;
+	background: currentColor;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	transform: translateX(3px);
 }
 
 /* Hover the bottom of the stage to reveal a scrubbable timeline. The hit area
    is taller than the bar so it's easy to grab. */
+/* The bar's round ends sit concentric with the stage's rounded corners: its
+   center line is one corner radius in from the bottom and the sides. */
 .scrubber {
+	--scrubber-height: 4px;
 	position: absolute;
 	right: 0;
 	bottom: 0;
 	left: 0;
 	z-index: 2;
-	height: 22px;
-	padding: 14px 12px 0;
+	height: calc(var(--wpds-border-radius-xl) + var(--scrubber-height) / 2 + 10px);
+	padding: 0 calc(var(--wpds-border-radius-xl) - var(--scrubber-height) / 2)
+		calc(var(--wpds-border-radius-xl) - var(--scrubber-height) / 2);
 	box-sizing: border-box;
+	display: flex;
+	align-items: flex-end;
 	opacity: 0;
 	cursor: var(--wpds-cursor-control, pointer);
 	transition: opacity 160ms ease;
@@ -172,7 +197,8 @@
 }
 
 .scrubberTrack {
-	height: 3px;
+	width: 100%;
+	height: var(--scrubber-height);
 	overflow: hidden;
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 18%, transparent);
@@ -264,78 +290,95 @@
 
 .pager {
 	display: flex;
-	gap: var(--wpds-dimension-gap-md);
+	gap: var(--wpds-dimension-gap-lg);
 }
 
 /* The global `button:focus:not(:focus-visible)` rule paints buttons with
-   --wp-ui-button-background-color, so the dots define it or they vanish after
-   a click. */
-.dot {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 25%,
-		transparent
-	);
+   --wp-ui-button-background-color, so these define it. */
+.pagerLabel {
+	--wp-ui-button-background-color: transparent;
 	--wp-ui-button-border-color: transparent;
-	position: relative;
-	width: 6px;
-	height: 6px;
-	padding: 0;
+	padding: 2px 0;
 	border: 0;
-	border-radius: 50%;
 	background: var(--wp-ui-button-background-color);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
 	cursor: var(--wpds-cursor-control, pointer);
-	transition: background 150ms ease;
+	transition: color 150ms ease;
 }
 
-.dot:hover {
-	--wp-ui-button-background-color: color-mix(
-		in srgb,
-		var(--wpds-color-foreground-content-neutral) 50%,
-		transparent
-	);
+.pagerLabel:hover {
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
-.dotActive,
-.dotActive:hover {
-	--wp-ui-button-background-color: var(--wpds-color-foreground-interactive-brand);
+.pagerLabelActive,
+.pagerLabelActive:hover {
+	color: var(--wpds-color-foreground-interactive-brand);
 }
 
-.dot:focus-visible {
+.pagerLabel:focus-visible {
 	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
-	outline-offset: 4px;
-}
-
-/* The active dot's progress ring: a conic sweep masked to a 1.25px stroke,
-   driven by --progress (0→1) that the slide's clock sets on the dot. */
-.dotActive::after {
-	content: '';
-	position: absolute;
-	inset: -3px;
-	border-radius: 50%;
-	background: conic-gradient(
-		var(--wpds-color-foreground-interactive-brand) calc(var(--progress, 0) * 360deg),
-		transparent 0
-	);
-	mask: radial-gradient(farthest-side, transparent calc(100% - 1.25px), #000 calc(100% - 1.25px));
-	-webkit-mask: radial-gradient(
-		farthest-side,
-		transparent calc(100% - 1.25px),
-		#000 calc(100% - 1.25px)
-	);
-	pointer-events: none;
+	outline-offset: 2px;
+	border-radius: var(--wpds-border-radius-xs);
 }
 
 .description {
-	max-width: 380px;
+	max-width: min(380px, 100%);
 	margin: 0;
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	text-wrap: balance;
+	text-wrap: pretty;
 }
 
 .loginButton {
 	margin-top: var(--wpds-dimension-padding-sm);
 	padding-inline: var(--wpds-dimension-padding-lg);
+}
+
+.overviewButton {
+	margin-top: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-weight: var(--wpds-typography-font-weight-default);
+}
+
+/* Narrow panels: the side padding drops and the arrows move out into the
+   remaining side whitespace (the scroll gutter included), so the stage gets
+   nearly the full width without anything sitting on top of it. */
+@container signin-prompt (max-width: 480px) {
+	.copy {
+		padding-inline: var(--wpds-dimension-padding-md);
+	}
+
+	.carousel {
+		position: relative;
+		grid-template-columns: minmax(0, 1fr);
+		column-gap: 0;
+	}
+
+	.carousel > .stage,
+	.transport {
+		grid-column: 1;
+	}
+
+	.transport {
+		grid-row: 2;
+	}
+
+	.arrow {
+		position: absolute;
+		top: calc(50% - var(--wpds-dimension-gap-sm) - 14px);
+		z-index: 3;
+	}
+
+	.arrowPrev {
+		left: -30px;
+	}
+
+	.arrowNext {
+		right: -30px;
+	}
 }

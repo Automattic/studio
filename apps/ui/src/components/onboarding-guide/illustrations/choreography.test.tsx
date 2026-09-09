@@ -35,6 +35,20 @@ describe( 'useTimeline', () => {
 		vi.restoreAllMocks();
 	} );
 
+	// A host that remounts a scene (the sign-in prompt, when the user switches
+	// sites) hands it where it was; the first frame is already there.
+	it( 'starts a fresh mount at initialProgress', () => {
+		mockReducedMotion( false );
+		const raf = mockRaf();
+
+		const { getByTestId } = render( <Scene playback={ { initialProgress: 0.4 } } /> );
+		expect( getByTestId( 't' ) ).toHaveTextContent( '400' );
+
+		raf.frame( 100 );
+		raf.frame( 200 );
+		expect( getByTestId( 't' ) ).toHaveTextContent( '500' );
+	} );
+
 	// The host advances its carousel on `onEnd`; firing it twice skips a slide.
 	it( 'reports the end of a one-shot only once, across a pause', () => {
 		mockReducedMotion( false );

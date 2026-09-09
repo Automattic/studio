@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, play } from '@wordpress/icons';
-import { Button, Icon, IconButton, VisuallyHidden } from '@wordpress/ui';
+import { chevronLeft, chevronRight } from '@wordpress/icons';
+import { Button, Dialog, IconButton, VisuallyHidden } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -18,6 +18,8 @@ import { SigninAnnotateIllustration } from '@/components/onboarding-guide/illust
 import { SigninChatIllustration } from '@/components/onboarding-guide/illustrations/signin-chat';
 import { SigninSyncIllustration } from '@/components/onboarding-guide/illustrations/signin-sync';
 import { useLogin } from '@/data/queries/use-auth-user';
+import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { Playback } from '@/components/onboarding-guide/illustrations/choreography';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
@@ -66,7 +68,7 @@ const REDUCED_MOTION_HOLD_MS = 9000;
 
 // The prompt remounts whenever the user switches sites; the deck picks up
 // where it was (same slide, still paused if it was) instead of starting over.
-const carouselMemory = { index: 0, paused: false };
+const carouselMemory = { index: 0, paused: false, progress: 0 };
 
 // Measures its own width and publishes the matching scale, so the slides
 // inside can render the scene at its design size and transform to fit.
@@ -132,7 +134,7 @@ function Stage( {
 				</VisuallyHidden>
 				{ paused ? (
 					<span className={ styles.pausedBadge } aria-hidden="true">
-						<Icon icon={ play } size={ 20 } />
+						<span className={ styles.pausedGlyph } />
 					</span>
 				) : null }
 			</button>
@@ -180,7 +182,7 @@ const slides: {
 }[] = [
 	{
 		id: 'chat',
-		label: __( 'Studio Code' ),
+		label: __( 'Chat' ),
 		description: __(
 			'Chat to build themes, write plugins, and make changes to your site. Studio Code reads your files, makes the edits, and checks its work.'
 		),
@@ -188,7 +190,7 @@ const slides: {
 	},
 	{
 		id: 'annotate',
-		label: __( 'Annotations' ),
+		label: __( 'Annotate' ),
 		description: __(
 			'Point at anything in the site preview and leave a note. Send the notes to chat and watch Studio Code work through them.'
 		),
@@ -204,7 +206,77 @@ const slides: {
 	},
 ];
 
-export function AgenticSigninPrompt() {
+// "Switch to Overview" is really "turn Studio Code off": with agentic
+// features off, Overview becomes every site's home. Say so, and say how to
+// get chat back, before flipping the switch.
+function SwitchToOverviewDialog( {
+	open,
+	onOpenChange,
+	onSwitched,
+}: {
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+	onSwitched: () => void;
+} ) {
+	const savePreferences = useSaveUserPreferences();
+	const confirmLabel = __( 'Turn off and switch' );
+	const handleKeyDown = useConfirmOnEnter( confirmLabel );
+	const handleConfirm = () =>
+		savePreferences.mutate(
+			{ agenticFeaturesEnabled: false },
+			{
+				onSuccess: () => {
+					onOpenChange( false );
+					onSwitched();
+				},
+			}
+		);
+
+	return (
+		<Dialog.Root
+			open={ open }
+			onOpenChange={ ( next ) => {
+				if ( ! savePreferences.isPending ) {
+					onOpenChange( next );
+				}
+			} }
+		>
+			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
+				<Dialog.Header>
+					<Dialog.Title>{ __( 'Turn off agentic features?' ) }</Dialog.Title>
+				</Dialog.Header>
+				<Dialog.Content>
+					<Dialog.Description>
+						{ __(
+							'Switching to Overview turns off agentic features, so Overview becomes the home for all of your sites. You can turn them back on any time in settings.'
+						) }
+					</Dialog.Description>
+				</Dialog.Content>
+				<Dialog.Footer>
+					<Dialog.Action variant="minimal" tone="neutral" disabled={ savePreferences.isPending }>
+						{ __( 'Cancel' ) }
+					</Dialog.Action>
+					<Button
+						variant="solid"
+						tone="brand"
+						loading={ savePreferences.isPending }
+						loadingAnnouncement={ __( 'Turning off agentic features' ) }
+						onClick={ handleConfirm }
+					>
+						{ confirmLabel }
+					</Button>
+				</Dialog.Footer>
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
+}
+
+export function AgenticSigninPrompt( {
+	onOpenOverview,
+}: {
+	/** Where "Switch to Overview" goes: the site's overview view. */
+	onOpenOverview?: () => void;
+} ) {
 	const login = useLogin( { source: 'assistant_tab' } );
 	// `leaving` keeps the previous slide mounted while it slides out; `direction`
 	// is +1 when the deck moves forward (new slide enters from the right).
@@ -217,16 +289,20 @@ export function AgenticSigninPrompt() {
 		run: 0,
 	} );
 	const [ paused, setPaused ] = useState( carouselMemory.paused );
+	const [ overviewDialogOpen, setOverviewDialogOpen ] = useState( false );
 	useEffect( () => {
 		carouselMemory.index = deck.index;
 		carouselMemory.paused = paused;
 	}, [ deck.index, paused ] );
+	// Only the slide restored on mount resumes mid-way; every move after that
+	// starts its slide from the top.
+	const resumeProgress = deck.run === 0 ? carouselMemory.progress : 0;
 	const [ seek, setSeek ] = useState< { to: number; key: number } >();
-	const ringRef = useRef< HTMLButtonElement >( null );
 	const scrubRef = useRef< HTMLDivElement >( null );
 	const slide = slides[ deck.index ];
 	const goTo = ( next: number, direction: number ) => {
 		setSeek( undefined );
+		carouselMemory.progress = 0;
 		setDeck( ( current ) => ( {
 			index: next,
 			leaving: next === current.index ? null : current.index,
@@ -248,17 +324,14 @@ export function AgenticSigninPrompt() {
 		return () => window.clearTimeout( id );
 	}, [ deck.index, deck.leaving ] );
 
-	// The ring is painted onto the active dot imperatively, so clear it whenever
-	// the deck moves — otherwise the dot we just left keeps a full ring, which
-	// shows again the next time that slide comes round.
+	// The scrubber is painted imperatively, so clear it whenever the deck moves.
 	useLayoutEffect( () => {
-		ringRef.current?.style.setProperty( '--progress', '0' );
 		scrubRef.current?.style.setProperty( '--progress', '0' );
 	}, [ deck.index, deck.run ] );
 
-	// The active slide's clock drives the ring around its dot and advances the
-	// deck when it ends; the ring is painted through a ref (a CSS variable on
-	// the dot) so the frame-rate progress never re-renders the prompt.
+	// The active slide's clock drives the scrubber and advances the deck when
+	// it ends; the scrubber is painted through a ref (a CSS variable) so the
+	// frame-rate progress never re-renders the prompt.
 	const playback = useMemo< Playback >(
 		() => ( {
 			paused,
@@ -266,12 +339,14 @@ export function AgenticSigninPrompt() {
 			// Reduced motion plays no frames, so rest on each slide long enough to
 			// read it, then move on — otherwise the deck would never advance.
 			reducedMotionHoldMs: REDUCED_MOTION_HOLD_MS,
+			initialProgress: resumeProgress,
 			onProgress: ( progress ) => {
-				ringRef.current?.style.setProperty( '--progress', String( progress ) );
+				carouselMemory.progress = progress;
 				scrubRef.current?.style.setProperty( '--progress', String( progress ) );
 			},
 			onEnd: () => {
 				setSeek( undefined );
+				carouselMemory.progress = 0;
 				setDeck( ( current ) => ( {
 					index: ( current.index + 1 ) % slides.length,
 					leaving: current.index,
@@ -280,7 +355,7 @@ export function AgenticSigninPrompt() {
 				} ) );
 			},
 		} ),
-		[ paused, seek ]
+		[ paused, seek, resumeProgress ]
 	);
 	const seekTo = ( to: number ) =>
 		setSeek( ( current ) => ( { to, key: ( current?.key ?? 0 ) + 1 } ) );
@@ -294,6 +369,7 @@ export function AgenticSigninPrompt() {
 				<h1 className={ styles.promptHeading }>{ __( 'Your personal WordPress expert' ) }</h1>
 				<div className={ styles.carousel }>
 					<IconButton
+						className={ clsx( styles.arrow, styles.arrowPrev ) }
 						icon={ chevronLeft }
 						label={ __( 'Previous feature' ) }
 						size="small"
@@ -330,6 +406,7 @@ export function AgenticSigninPrompt() {
 						</Slide>
 					</Stage>
 					<IconButton
+						className={ clsx( styles.arrow, styles.arrowNext ) }
 						icon={ chevronRight }
 						label={ __( 'Next feature' ) }
 						size="small"
@@ -342,14 +419,17 @@ export function AgenticSigninPrompt() {
 							{ slides.map( ( item, i ) => (
 								<button
 									key={ item.id }
-									ref={ i === deck.index ? ringRef : undefined }
 									type="button"
 									role="tab"
 									aria-selected={ i === deck.index }
-									aria-label={ item.label }
-									className={ clsx( styles.dot, i === deck.index && styles.dotActive ) }
+									className={ clsx(
+										styles.pagerLabel,
+										i === deck.index && styles.pagerLabelActive
+									) }
 									onClick={ () => goTo( i, i > deck.index ? 1 : -1 ) }
-								/>
+								>
+									{ item.label }
+								</button>
 							) ) }
 						</div>
 					</div>
@@ -365,6 +445,25 @@ export function AgenticSigninPrompt() {
 				>
 					{ __( 'Log in with WordPress.com' ) }
 				</Button>
+				{ onOpenOverview ? (
+					<Button
+						className={ styles.overviewButton }
+						type="button"
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						onClick={ () => setOverviewDialogOpen( true ) }
+					>
+						{ __( 'Switch to Overview' ) }
+					</Button>
+				) : null }
+				{ onOpenOverview ? (
+					<SwitchToOverviewDialog
+						open={ overviewDialogOpen }
+						onOpenChange={ setOverviewDialogOpen }
+						onSwitched={ onOpenOverview }
+					/>
+				) : null }
 			</div>
 		</div>
 	);

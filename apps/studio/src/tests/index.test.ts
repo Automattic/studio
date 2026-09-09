@@ -234,6 +234,48 @@ describe( 'App initialization', () => {
 		} );
 	} );
 
+	describe( 'app zoom in the site preview', () => {
+		async function captureWebContents( contentsType: string ) {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			await mockedEvents.ready();
+
+			const contents = {
+				getType: () => contentsType,
+				on: vi.fn(),
+				setWindowOpenHandler: vi.fn(),
+				isDestroyed: vi.fn().mockReturnValue( false ),
+				getZoomLevel: vi.fn().mockReturnValue( 0.5 ),
+				setZoomLevel: vi.fn(),
+			};
+			await mockedEvents[ 'web-contents-created' ]( {}, contents );
+
+			const onNavigate = contents.on.mock.calls.find(
+				( [ event ] ) => event === 'did-navigate'
+			)?.[ 1 ] as ( () => void ) | undefined;
+
+			return { contents, onNavigate };
+		}
+
+		it( 'pins a site preview back to 1:1 after Electron re-applies the app zoom on navigation', async () => {
+			const { contents, onNavigate } = await captureWebContents( 'webview' );
+
+			onNavigate?.();
+			// Electron's own zoom observer runs after `did-navigate`, so the reset is deferred a tick.
+			expect( contents.setZoomLevel ).not.toHaveBeenCalled();
+			await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+			expect( contents.setZoomLevel ).toHaveBeenCalledWith( 0 );
+		} );
+
+		it( 'leaves web contents outside the site preview alone', async () => {
+			const { onNavigate } = await captureWebContents( 'window' );
+
+			expect( onNavigate ).toBeUndefined();
+		} );
+	} );
+
 	describe( 'unsaved changes in the site preview', () => {
 		// Electron inverts the usual contract here: `preventDefault()` on
 		// `will-prevent-unload` *allows* the page to be unloaded, and doing

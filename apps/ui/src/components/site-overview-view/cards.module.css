@@ -41,6 +41,20 @@
 	color: var(--wpds-color-foreground-content-neutral);
 }
 
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.headerMeta {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	white-space: nowrap;
+	cursor: default;
+}
+
 .empty {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -68,6 +82,20 @@
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
+}
+
+.rowTitle {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.rowTitleExpired {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	text-decoration: line-through;
 }
 
 .rowMeta {
@@ -116,6 +144,10 @@
 
 .stale {
 	color: var(--wpds-color-foreground-content-warning);
+}
+
+.expired {
+	color: var(--wpds-color-foreground-content-error);
 }
 
 .itemIcon {

@@ -116,14 +116,6 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-async function readAllStdin(): Promise< string > {
-	const chunks: Buffer[] = [];
-	for await ( const chunk of process.stdin ) {
-		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
-	}
-	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
-}
-
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
@@ -822,7 +814,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
-			let chain = yargs
+			const chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -851,17 +843,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point for external
-			// drivers. It stays hidden so it doesn't clutter `--help` for direct callers.
-			chain = chain.option( 'message-from-stdin', {
-				type: 'boolean',
-				hidden: true,
-				default: false,
-				description: __( 'Read the initial message from stdin (for headless drivers)' ),
-			} );
-
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -875,22 +858,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					messageFromStdin?: boolean;
 				};
 
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
-					initialMessage = await readAllStdin();
-					if ( ! initialMessage ) {
-						process.stderr.write(
-							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
-						);
-						process.exitCode = 1;
-						return;
-					}
-				}
+				const initialMessage = typedArgv.message;
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<

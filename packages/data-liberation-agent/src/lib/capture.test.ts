@@ -80,7 +80,7 @@ describe( 'downloadCaptureSectionMedia', () => {
 				] ),
 			],
 			[],
-			{ width: 390, height: 844 }
+			{ width: 402, height: 681 }
 		);
 
 		expect( await downloadCaptureSectionMedia( root, [ sourceUrl ] ) ).toBe( 2 );
@@ -108,7 +108,7 @@ describe( 'downloadCaptureSectionMedia', () => {
 			sourceUrl,
 			[ section( [ { url: 'https://example.com/about' } ] ) ],
 			[],
-			{ width: 390, height: 844 }
+			{ width: 402, height: 681 }
 		);
 
 		expect(

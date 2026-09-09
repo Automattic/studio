@@ -1,26 +1,42 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
+import { findAdapter } from '../src/adapters/index.js';
 import { detectFromUrl, detectFromHttp } from '../src/lib/detect-platform/index.js';
 
 describe('detectFromUrl (heuristics)', () => {
-  it('detects wixsite.com', () => {
-    expect(detectFromUrl('https://mysite.wixsite.com/blog')).toBe('wix');
+  // Every URL pattern the table claims, asserted against the one detector that
+  // owns them. Adapters used to carry a duplicate copy of these regexes behind
+  // an uncalled `PlatformAdapter.detect`; this is where that coverage lives now.
+  it.each([
+    ['https://mysite.wixsite.com/blog', 'wix'],
+    ['https://www.wix.com/mysite', 'wix'],
+    ['https://mysite.squarespace.com', 'squarespace'],
+    ['https://www.squarespace.com/mysite', 'squarespace'],
+    ['https://mysite.webflow.io', 'webflow'],
+    ['https://example.webflow.io/blog', 'webflow'],
+    ['https://webflow.com', 'webflow'],
+    ['https://www.webflow.com/made-in-webflow', 'webflow'],
+    ['https://mystore.myshopify.com', 'shopify'],
+    ['https://mystore.myshopify.com/blogs/news', 'shopify'],
+    ['https://shopify.com', 'shopify'],
+    ['https://www.shopify.com/something', 'shopify'],
+    ['https://mysite.weebly.com', 'weebly'],
+  ])('detects %s as %s', (url, platform) => {
+    const detected = detectFromUrl(url);
+    expect(detected).toBe(platform);
+    expect(findAdapter(detected!)).toMatchObject({ id: platform });
   });
 
-  it('detects squarespace.com', () => {
-    expect(detectFromUrl('https://mysite.squarespace.com')).toBe('squarespace');
-  });
-
-  it('detects webflow.io', () => {
-    expect(detectFromUrl('https://mysite.webflow.io')).toBe('webflow');
-  });
-
-  it('detects myshopify.com', () => {
-    expect(detectFromUrl('https://mystore.myshopify.com')).toBe('shopify');
-  });
-
-  it('returns null for custom domains', () => {
-    expect(detectFromUrl('https://www.mybusiness.com')).toBeNull();
+  // Platforms that serve custom domains carry no URL signal at all, so the URL
+  // tier must decline rather than guess. GoDaddy W+M is the sharp case: these
+  // are real W+M sites, identified later by header and source signals.
+  it.each([
+    'https://www.mybusiness.com',
+    'https://skywaydiner.com',
+    'https://cruisewarehouse.com',
+  ])('returns null for the custom domain %s', (url) => {
+    expect(detectFromUrl(url)).toBeNull();
+    expect(findAdapter('unknown')).toMatchObject({ id: 'default' });
   });
 
   it('handles URLs without protocol', () => {

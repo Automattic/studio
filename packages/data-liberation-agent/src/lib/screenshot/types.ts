@@ -1,5 +1,8 @@
 import type { ExtractedNav } from './nav-extract.js';
 import type { UrlType } from '../extraction/sitemap.js';
+import { devices } from 'playwright';
+
+const IPHONE_17 = devices[ 'iPhone 17' ];
 
 export interface CaptureLogSink {
 	sendLoggingMessage( message: { level: 'info'; data: string } ): void | Promise< void >;
@@ -20,14 +23,14 @@ export interface Viewport {
 // without changing what the page actually looks like.
 export const DEFAULT_VIEWPORTS: Viewport[] = [
 	{ id: 'desktop', width: 1440, height: 900 },
-	{ id: 'mobile', width: 390, height: 844 },
+	{ id: 'mobile', width: IPHONE_17.viewport.width, height: IPHONE_17.viewport.height },
 ];
 
 /**
  * Default deviceScaleFactor for screenshot capture. 0.7 gives ~49% fewer
  * output pixels (0.7² ≈ 0.49) while the browser keeps rendering at the
  * full logical viewport — so the agent sees the real desktop layout in a
- * smaller PNG. Mobile is already small (390×844 = 330 kpx) so we don't
+ * smaller PNG. Mobile is already small (402×681 = 274 kpx) so we don't
  * scale it.
  */
 export const SCREENSHOT_DEVICE_SCALE_FACTOR = 0.7;

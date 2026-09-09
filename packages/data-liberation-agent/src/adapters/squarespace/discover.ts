@@ -1,9 +1,107 @@
 import { fetchSitemap, classifyUrl } from '../../lib/extraction/sitemap.js';
+import { extractNavLinks } from '../../lib/html-extract/index.js';
 import type { InventoryUrl } from '../shared.js';
 import type { NavLink } from '../../lib/html-extract/index.js';
 import type { SquarespaceAdapterOpts, SquarespaceInventory } from './types.js';
 import { fetchSqsJson } from './content.js';
 import { discoverAdmin, mergeAdminDiscovery } from './admin.js';
+
+const MAX_ARCHIVE_PAGES = 200;
+const BLOG_PREFIXES = ['/blog', '/journal', '/news', '/posts', '/stories'];
+
+interface ArchivePage {
+  items?: Array<{ urlId?: string; fullUrl?: string; addedOn?: number | string } | null>;
+  pagination?: { nextPageOffset?: number | string };
+}
+
+function blogPrefixes(urls: InventoryUrl[]): string[] {
+  const datePrefixes = new Map<string, number>();
+  const conventions = new Set<string>();
+  const datePath = /^(\/[^/]+(?:\/[^/]+)*?)\/\d{4}\/\d{1,2}\/\d{1,2}\/[^/]+\/?$/;
+
+  for (const { url } of urls) {
+    let path: string;
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      continue;
+    }
+
+    const match = datePath.exec(path);
+    if (match) {
+      const prefix = match[1];
+      datePrefixes.set(prefix, (datePrefixes.get(prefix) || 0) + 1);
+      continue;
+    }
+    for (const prefix of BLOG_PREFIXES) {
+      if (path === prefix || path.startsWith(`${prefix}/`)) {
+        conventions.add(prefix);
+        break;
+      }
+    }
+  }
+
+  const detected = [...datePrefixes.entries()]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .map(([prefix]) => prefix);
+  return [...new Set([...detected, ...conventions])];
+}
+
+async function discoverArchiveUrls(siteUrl: string, prefix: string): Promise<string[]> {
+  const origin = new URL(siteUrl).origin;
+  const urls: string[] = [];
+  const seenUrlIds = new Set<string>();
+  const seenOffsets = new Set<string>();
+  let offset: number | string | undefined;
+
+  for (let page = 0; page < MAX_ARCHIVE_PAGES; page++) {
+    const archiveUrl = new URL(prefix, origin);
+    archiveUrl.searchParams.set('format', 'json-pretty');
+    if (offset !== undefined) archiveUrl.searchParams.set('offset', String(offset));
+
+    let response: Response;
+    try {
+      response = await fetch(archiveUrl, {
+        signal: AbortSignal.timeout(15_000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DataLiberation/1.0)' },
+      });
+    } catch {
+      break;
+    }
+    if (!response.ok) break;
+
+    let archive: ArchivePage | null;
+    try {
+      archive = await response.json() as ArchivePage;
+    } catch {
+      break;
+    }
+    if (!archive || !Array.isArray(archive.items) || archive.items.length === 0) break;
+
+    for (const item of archive.items) {
+      if (!item || typeof item.urlId !== 'string' || !item.urlId || seenUrlIds.has(item.urlId) || typeof item.fullUrl !== 'string' || !item.fullUrl) continue;
+      let itemUrl: URL;
+      try {
+        itemUrl = new URL(item.fullUrl, origin);
+      } catch {
+        continue;
+      }
+      if (itemUrl.origin !== origin || itemUrl.username || itemUrl.password) continue;
+      seenUrlIds.add(item.urlId);
+      itemUrl.hash = '';
+      urls.push(itemUrl.href);
+    }
+
+    const next = archive.pagination?.nextPageOffset
+      ?? archive.items[archive.items.length - 1]?.addedOn;
+    if ((typeof next !== 'string' && typeof next !== 'number') || String(next).trim() === '' || (typeof next === 'number' && !Number.isFinite(next)) || seenOffsets.has(String(next))) break;
+    seenOffsets.add(String(next));
+    offset = next;
+  }
+
+  return urls;
+}
 
 export async function discover(url: string, opts: Record<string, unknown>): Promise<SquarespaceInventory> {
   const sqOpts = opts as SquarespaceAdapterOpts;
@@ -24,10 +122,19 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
   // 2. Fetch sitemap
   const sitemapUrls = await fetchSitemap(url);
 
-  // 3. Extract navigation from the homepage JSON or sitemap
-  const navigation: NavLink[] = [];
-  // Squarespace JSON sometimes includes navigation in the website object;
-  // for now, we derive nav from the top-level sitemap pages.
+  // 3. Squarespace renders its primary navigation in the public homepage HTML.
+  // Admin discovery below supplements this list with published admin-only pages.
+  let navigation: NavLink[] = [];
+  try {
+    const homepageResp = await fetch(url, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DataLiberation/1.0)' },
+    });
+    if (homepageResp.ok) navigation = extractNavLinks(await homepageResp.text(), url);
+    else await homepageResp.body?.cancel();
+  } catch {
+    // Public navigation is best-effort; sitemap and optional admin discovery continue.
+  }
 
   // 4. Classify URLs — for Squarespace, we can probe each URL with ?format=json
   // to determine if it's a collection or item, but for the initial pass we use
@@ -60,6 +167,20 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
   if (inventoryUrls.length === 0) {
     inventoryUrls.push({ url, type: 'homepage' });
     counts['homepage'] = 1;
+  }
+
+  // Squarespace blog listings expose a compact paginated feed which can recover
+  // recently published posts before the sitemap catches up. It is discovery-only:
+  // captured pages remain the portable artifact contract.
+  const knownUrls = new Set(inventoryUrls.map(({ url: discoveredUrl }) => discoveredUrl));
+  for (const prefix of blogPrefixes(inventoryUrls)) {
+    const archiveUrls = await discoverArchiveUrls(url, prefix);
+    for (const archiveUrl of archiveUrls) {
+      if (knownUrls.has(archiveUrl)) continue;
+      knownUrls.add(archiveUrl);
+      inventoryUrls.push({ url: archiveUrl, type: 'post' });
+      counts.post = (counts.post || 0) + 1;
+    }
   }
 
   let inventory: SquarespaceInventory = {

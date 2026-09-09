@@ -144,6 +144,47 @@ Ran the real `wixAdapter.extract` against just `https://www.swiftlumber.com/proj
 
 ---
 
+## 2026-05-28 — Squarespace blog archive `?format=json-pretty` recovers sitemap-missed routes
+
+**Found by:** Davi Pontes
+**During:** Migrating walkaboutchronicles.com, a 1,500+ post Squarespace 7.1 blog.
+**Type:** API endpoint
+
+Squarespace blog sections expose a paginated JSON feed at `<blog-prefix>?format=json-pretty[&offset=<addedOn>]`. Discovery recognizes date-based blog paths and conventional blog prefixes, then walks that feed to recover same-origin post URLs that the sitemap has not yet listed. The walker deduplicates by `urlId` and stops on empty or malformed responses, failed requests, repeated offsets, or a 200-page limit. Archive metadata remains outside the portable capture contract; each recovered route is captured normally.
+
+---
+
+## 2026-05-28 — Squarespace public navigation was not discovered
+
+**Found by:** Davi Pontes
+**During:** Migrating walkaboutchronicles.com — the discovered inventory had no top-nav links even though the live site has a 7-item primary navigation (Journal, Collections, Purchase, Gear, Contributors, Contact & Copyright, Walkabout Logs).
+**Type:** bug fix
+
+### What I found
+`squarespaceAdapter.discover()` declared `const navigation: NavLink[] = [];` with a TODO comment ("Squarespace JSON sometimes includes navigation in the website object; for now, we derive nav from the top-level sitemap pages") — but the loop never actually populated it, so the inventory always had an empty `navigation` array.
+
+Every other adapter (`godaddy-wm.ts`, `hostinger.ts`, `hubspot.ts`, `shopify.ts`, `webflow.ts`) already imports the shared `extractNavLinks(homepageHtml, baseUrl)` helper, fetches the homepage HTML, and assigns the result to `navigation` before building the inventory. Squarespace was the only adapter missing this single step.
+
+### How it works
+Squarespace renders its primary navigation server-side as plain `<nav><a href="...">…</a></nav>` markup on the homepage, so a public `fetch(url)` followed by `extractNavLinks` is sufficient — no admin auth, no `?format=json` quirks, no Playwright. The existing CDP admin discovery path can still enrich the menu later via `mergeAdminDiscovery`, which only appends published admin pages that aren't already in the nav.
+
+```ts
+import { /* … */, extractNavLinks } from './shared.js';
+
+let navigation: NavLink[] = [];
+try {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': '…' } });
+  if (resp.ok) navigation = extractNavLinks(await resp.text(), url);
+} catch { /* non-fatal */ }
+```
+
+### Why it's better than the previous approach
+Before: every Squarespace discovery inventory omitted the public top-nav links.
+
+After: the public homepage nav is discovered during `discover()` with no new dependencies, and CDP admin discovery continues to layer published admin-only pages on top of it.
+
+---
+
 ## 2026-04-30 — `--resume` overwrites the existing WXR with only newly-extracted items
 
 **Found by:** Claude + James

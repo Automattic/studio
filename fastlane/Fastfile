@@ -655,7 +655,7 @@ def release_download_links(builds)
   RELEASE_ATTACHED_BUILD_KEYS
     .filter_map { |key| builds[key] }
     .select { |build| build[:cdn_url] }
-    .map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }
+    .map { |build| "[#{build[:display_name] || build[:name]}](#{build[:cdn_url]})" }
 end
 
 def slack_release_links(builds)

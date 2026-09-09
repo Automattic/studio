@@ -239,11 +239,9 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
-	// The agent is blocked on `ask_user`. Sending cancels the questions and
-	// delivers the message as a new turn, so this is a send, not a queue.
+	// The agent is blocked on `ask_user`. Sending answers the question it is
+	// waiting on, so this is a send, not a queue.
 	awaitingAnswer?: boolean;
-	// The user armed a question's "Something else" option.
-	freeFormActive?: boolean;
 	// Blocks sending and queueing while leaving the rest of the composer alone,
 	// so a run already in flight keeps its Stop control.
 	canSubmit?: boolean;
@@ -348,7 +346,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	{
 		busy,
 		awaitingAnswer = false,
-		freeFormActive = false,
 		canSubmit = true,
 		isInterrupting = false,
 		error,
@@ -792,10 +789,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'What are we tuning now?' ),
 		  ];
 	let placeholder: string = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
-	if ( freeFormActive ) {
-		placeholder = __( 'Type your own answer…' );
-	} else if ( awaitingAnswer ) {
-		placeholder = __( 'Reply instead of choosing an option…' );
+	if ( awaitingAnswer ) {
+		placeholder = __( 'Write your own answer to the question…' );
 	}
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );

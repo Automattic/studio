@@ -47,6 +47,7 @@ import { getSiteSessionHistory, SessionChatActions } from './session-chat-action
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { AiSessionSummary } from '@/data/core';
+import type { ComposerSendAttachments } from '@studio/common/ai/composer-attachments';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
@@ -297,6 +298,26 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ answerQuestion ]
 	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	// A reply typed while questions are open answers one; it does not start a
+	// turn. Only Stop cancels the batch.
+	const sendComposerMessage = useCallback(
+		async ( prompt: string, attachments?: ComposerSendAttachments ) => {
+			if ( targetQuestion ) {
+				setArmedFreeFormQuestion( null );
+				answerQuestion( targetQuestion, prompt );
+				return;
+			}
+			await sendMessage( prompt, attachments );
+		},
+		[ answerQuestion, sendMessage, targetQuestion ]
+	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 	const hasSession = !! data;
 
@@ -534,12 +555,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							ref={ composerRef }
 							busy={ composerBusy }
 							awaitingAnswer={ pendingQuestions.length > 0 }
-							freeFormActive={ freeFormQuestion !== null }
 							canSubmit={ ! isOutOfCredits }
 							isInterrupting={ isInterrupting }
 							error={ runError }
 							model={ currentModel }
-							onSend={ sendMessage }
+							onSend={ sendComposerMessage }
 							onInterrupt={ interrupt }
 							sessionId={ sessionId }
 							entries={ data.entries }

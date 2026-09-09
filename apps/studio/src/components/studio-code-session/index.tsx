@@ -49,6 +49,7 @@ import { useSingleSession } from './use-single-session';
 import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { ComposerSendAttachments } from '@studio/common/ai/composer-attachments';
 import '@wordpress/theme/design-tokens.css';
 
 interface SessionFrameProps {
@@ -316,6 +317,26 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		},
 		[ answerQuestion ]
 	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	// A reply typed while questions are open answers one; it does not start a
+	// turn. Only Stop cancels the batch.
+	const sendComposerMessage = useCallback(
+		async ( prompt: string, attachments: ComposerSendAttachments ) => {
+			if ( targetQuestion ) {
+				setArmedFreeFormQuestion( null );
+				answerQuestion( targetQuestion, prompt );
+				return;
+			}
+			await sendMessage( prompt, attachments );
+		},
+		[ answerQuestion, sendMessage, targetQuestion ]
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -449,13 +470,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							<Composer
 								busy={ composerBusy }
 								awaitingAnswer={ pendingQuestions.length > 0 }
-								freeFormActive={ freeFormQuestion !== null }
 								focusRequestId={ composerFocusRequestId }
 								isInterrupting={ isInterrupting }
 								error={ usageCapReached ? null : runError }
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
-								onSend={ sendMessage }
+								onSend={ sendComposerMessage }
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }

@@ -25,7 +25,12 @@ const { mockIpc } = vi.hoisted( () => ( {
 const { agentRun } = vi.hoisted( () => ( {
 	agentRun: {
 		pendingAnswers: {} as Record< string, string >,
+		pendingQuestions: [] as Array< {
+			question: string;
+			options: Array< { label: string; description: string } >;
+		} >,
 		answerQuestion: vi.fn(),
+		sendMessage: vi.fn(),
 	},
 } ) );
 
@@ -72,11 +77,11 @@ vi.mock( '../use-agent-run', async () => {
 				startedAt: Date.now(),
 				error: null,
 				usageCapReached: false,
-				pendingQuestions: QUESTIONS,
+				pendingQuestions: agentRun.pendingQuestions,
 				pendingAnswers,
 				answeredQuestions: {},
 				queuedPrompts: [],
-				sendMessage: vi.fn(),
+				sendMessage: agentRun.sendMessage,
 				interrupt: vi.fn(),
 				// Mirrors the real reducer's `question_answered`: the batch stays
 				// pending until every question has an answer.
@@ -91,8 +96,14 @@ vi.mock( '../use-agent-run', async () => {
 } );
 
 vi.mock( '../composer', () => ( {
-	Composer: ( { freeFormActive }: { freeFormActive?: boolean } ) => (
-		<div data-testid="composer" data-free-form-active={ freeFormActive ? 'true' : 'false' } />
+	Composer: ( {
+		onSend,
+	}: {
+		onSend: ( prompt: string, attachments: Record< string, never > ) => Promise< void >;
+	} ) => (
+		<div data-testid="composer">
+			<button onClick={ () => void onSend( 'a mu-plugin', {} ) }>Send reply</button>
+		</div>
 	),
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,
 	clearSessionDraft: vi.fn(),
@@ -125,6 +136,7 @@ function questionEntry( id: string, question: string, optionLabel: string ) {
 
 beforeEach( () => {
 	vi.clearAllMocks();
+	agentRun.pendingQuestions = QUESTIONS;
 	localStorage.clear();
 	queryClient.clear();
 	localStorage.setItem( STORAGE_KEY, JSON.stringify( { 'site-1': 'session-1' } ) );
@@ -142,6 +154,49 @@ function renderSession() {
 	);
 }
 
+describe( 'composer replies while the agent is asking', () => {
+	it( 'answers the first unanswered question instead of queueing a new turn', async () => {
+		renderSession();
+		await screen.findAllByRole( 'button', { name: 'Something else' } );
+
+		await userEvent.click( screen.getByRole( 'button', { name: 'Send reply' } ) );
+
+		expect( agentRun.answerQuestion ).toHaveBeenCalledWith( 'Q1', 'a mu-plugin' );
+		expect( agentRun.sendMessage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'answers the armed question rather than the first one', async () => {
+		renderSession();
+		const freeFormButtons = await screen.findAllByRole( 'button', { name: 'Something else' } );
+
+		await userEvent.click( freeFormButtons[ 1 ] );
+		await userEvent.click( screen.getByRole( 'button', { name: 'Send reply' } ) );
+
+		expect( agentRun.answerQuestion ).toHaveBeenCalledWith( 'Q2', 'a mu-plugin' );
+	} );
+
+	it( 'skips questions the user already answered', async () => {
+		renderSession();
+		const options = await screen.findAllByRole( 'button', { name: 'A' } );
+
+		await userEvent.click( options[ 0 ] );
+		await userEvent.click( screen.getByRole( 'button', { name: 'Send reply' } ) );
+
+		expect( agentRun.answerQuestion ).toHaveBeenLastCalledWith( 'Q2', 'a mu-plugin' );
+	} );
+
+	it( 'sends a normal message when nothing is pending', async () => {
+		agentRun.pendingQuestions = [];
+		renderSession();
+		await screen.findByTestId( 'composer' );
+
+		await userEvent.click( screen.getByRole( 'button', { name: 'Send reply' } ) );
+
+		expect( agentRun.sendMessage ).toHaveBeenCalledWith( 'a mu-plugin', {} );
+		expect( agentRun.answerQuestion ).not.toHaveBeenCalled();
+	} );
+} );
+
 describe( 'free-form arming', () => {
 	it( 'disarms "Something else" when the user picks a listed option instead', async () => {
 		renderSession();
@@ -151,7 +206,6 @@ describe( 'free-form arming', () => {
 
 		await userEvent.click( q1FreeForm );
 		expect( q1FreeForm ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( screen.getByTestId( 'composer' ) ).toHaveAttribute( 'data-free-form-active', 'true' );
 
 		await userEvent.click( screen.getByRole( 'button', { name: 'A' } ) );
 
@@ -163,7 +217,6 @@ describe( 'free-form arming', () => {
 				'false'
 			)
 		);
-		expect( screen.getByTestId( 'composer' ) ).toHaveAttribute( 'data-free-form-active', 'false' );
 		expect( agentRun.answerQuestion ).toHaveBeenCalledWith( 'Q1', 'A' );
 	} );
 
@@ -179,7 +232,6 @@ describe( 'free-form arming', () => {
 			'aria-pressed',
 			'true'
 		);
-		expect( screen.getByTestId( 'composer' ) ).toHaveAttribute( 'data-free-form-active', 'true' );
 	} );
 
 	it( 'lets the user arm free-form after already picking an option', async () => {
@@ -193,6 +245,5 @@ describe( 'free-form arming', () => {
 			'aria-pressed',
 			'true'
 		);
-		expect( screen.getByTestId( 'composer' ) ).toHaveAttribute( 'data-free-form-active', 'true' );
 	} );
 } );

@@ -68,11 +68,9 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
-	// The agent is blocked on `ask_user`. Sending cancels the questions and
-	// delivers the message as a new turn, so this is a send, not a queue.
+	// The agent is blocked on `ask_user`. Sending answers the question it is
+	// waiting on, so this is a send, not a queue.
 	awaitingAnswer?: boolean;
-	// The user armed a question's "Something else" option.
-	freeFormActive?: boolean;
 	// Bump to move focus into the textarea without touching its content.
 	focusRequestId?: number;
 	isInterrupting?: boolean;
@@ -245,7 +243,6 @@ function getSessionPlaceholder( sessionId: string | undefined ): string {
 export function Composer( {
 	busy,
 	awaitingAnswer = false,
-	freeFormActive = false,
 	focusRequestId = 0,
 	isInterrupting = false,
 	error,
@@ -469,10 +466,8 @@ export function Composer( {
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
 	let placeholder = getSessionPlaceholder( sessionId );
-	if ( freeFormActive ) {
-		placeholder = __( 'Type your own answer…' );
-	} else if ( awaitingAnswer ) {
-		placeholder = __( 'Reply instead of choosing an option…' );
+	if ( awaitingAnswer ) {
+		placeholder = __( 'Write your own answer to the question…' );
 	} else if ( busy ) {
 		placeholder = __( 'Queue a follow-up instruction…' );
 	}

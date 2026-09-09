@@ -28,9 +28,8 @@
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
-	padding-inline-start: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	min-height: 32px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
@@ -65,10 +64,6 @@
 .headerSide {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
-}
-
-.headerSideStart {
 	gap: var(--wpds-dimension-padding-xs);
 }
 
@@ -81,7 +76,6 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
-	padding-inline: var(--wpds-dimension-gap-sm);
 }
 
 .historyEntry {
@@ -129,6 +123,24 @@
 	flex-shrink: 0;
 }
 
+.annotationMenuTrigger {
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+
+	gap: var(--wpds-dimension-gap-xs);
+	white-space: nowrap;
+}
+
+/* Base UI marks a menu's trigger while it is open; hold the hover fill on
+   the toolbar's dropdown triggers so each reads as the thing its menu
+   belongs to. */
+.responsiveModeTrigger[data-popup-open],
+.annotationMenuTrigger[data-popup-open] {
+	background-color: var(--wp-ui-button-background-color-active);
+	color: var(--wp-ui-button-foreground-color-active);
+}
+
 .responsiveModeIndicator {
 	width: 18px;
 	height: 18px;
@@ -143,10 +155,7 @@
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
 
-	white-space: nowrap;
-}
-
-.responsiveModeLabel {
+	gap: var(--wpds-dimension-gap-xs);
 	white-space: nowrap;
 }
 
@@ -165,14 +174,6 @@
 @container studio-preview-toolbar (max-width: 640px) {
 	.toolbarLabel {
 		display: none;
-	}
-
-	.headerSide {
-		gap: var(--wpds-dimension-padding-xs);
-	}
-
-	.browserLocation {
-		padding-inline: 0;
 	}
 }
 

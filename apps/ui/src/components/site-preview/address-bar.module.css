@@ -6,7 +6,7 @@
 	min-width: 80px;
 	height: 32px;
 	margin: 0;
-	padding-inline: var(--wpds-dimension-padding-lg);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
 	align-items: center;
 	border: 0;
 	border-radius: var(--wpds-border-radius-lg);

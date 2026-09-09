@@ -1,7 +1,17 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronDown, fullscreen as fullscreenIcon, Icon, pencil } from '@wordpress/icons';
+import {
+	aspectRatio,
+	check,
+	chevronDown,
+	desktop,
+	fullscreen as fullscreenIcon,
+	Icon,
+	mobile,
+	pencil,
+	tablet,
+} from '@wordpress/icons';
 import {
 	ariaKeyShortcut,
 	displayShortcut,
@@ -14,7 +24,6 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
-import splitStyles from '@/components/split-button/style.module.css';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -26,7 +35,13 @@ import {
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { browserBackIcon, browserForwardIcon, playIcon, refreshIcon } from '@/lib/icons';
+import {
+	browserBackIcon,
+	browserForwardIcon,
+	drawerIcon,
+	playIcon,
+	refreshIcon,
+} from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -595,6 +610,13 @@ function PreviewResponsiveControls( {
 		desktop: __( 'Desktop' ),
 		split: __( 'Desktop + Mobile' ),
 	};
+	const viewportIcons: Record< ViewportMode, typeof desktop > = {
+		fit: aspectRatio,
+		mobile,
+		tablet,
+		desktop,
+		split: drawerIcon,
+	};
 	const selectedLabel = viewportLabels[ viewportMode ];
 	const tooltipLabel = viewportControlsDisabled
 		? __( 'Not available for Database' )
@@ -634,7 +656,8 @@ function PreviewResponsiveControls( {
 									/>
 								}
 							>
-								<span className={ styles.responsiveModeLabel }>{ selectedLabel }</span>
+								<Icon icon={ viewportIcons[ viewportMode ] } size={ 18 } />
+								<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
 								<Icon
 									icon={ chevronDown }
 									size={ 12 }
@@ -802,62 +825,44 @@ function PreviewAnnotationControls( {
 			</div>
 			{ hasPending ? (
 				<div className={ styles.annotationMenu }>
-					{ /* Two commands to offer, so it becomes a split button matching the
-						"Open in…" control beside it: the main action controls annotation,
-						and the chevron opens the pair. Modal for the same reason as the
-						overflow menu — the webview swallows outside clicks, so the
-						backdrop is what dismisses it. */ }
+					{ /* Two commands to offer, so the narrow layout folds them into one
+						menu, like the "Open in…" control beside it. Modal for the same
+						reason as the overflow menu — the webview swallows outside clicks,
+						so the backdrop is what dismisses it. */ }
 					<Menu.Root>
-						<div className={ splitStyles.splitTrigger }>
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<Button
-											variant="minimal"
-											tone="neutral"
-											size="small"
-											className={ clsx( splitStyles.splitAction, styles.annotationToggle ) }
-											aria-label={ toggleLabel }
-											disabled={ disabled }
-											onClick={ handleToggle }
-										>
-											{ isPicking ? __( 'Cancel' ) : <Icon icon={ pencil } size={ 18 } /> }
-										</Button>
-									}
-								/>
-								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-									{ toggleLabel }
-								</Tooltip.Popup>
-							</Tooltip.Root>
-							<Tooltip.Root>
-								<Menu.Trigger
-									render={
-										<Tooltip.Trigger
-											render={
-												<Button
-													variant="minimal"
-													tone="neutral"
-													size="small"
-													className={ splitStyles.splitMenuButton }
-													aria-label={ __( 'Annotation options' ) }
-													disabled={ disabled }
-												/>
-											}
-										>
-											<Icon
-												icon={ chevronDown }
-												size={ 12 }
-												className={ splitStyles.chevron }
-												data-keep-size
+						<Tooltip.Root>
+							<Menu.Trigger
+								render={
+									<Tooltip.Trigger
+										render={
+											<Button
+												variant="minimal"
+												tone="neutral"
+												size="small"
+												className={ styles.annotationMenuTrigger }
+												aria-label={ __( 'Annotation options' ) }
+												disabled={ disabled }
 											/>
-										</Tooltip.Trigger>
-									}
-								/>
-								<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-									{ __( 'Annotation options' ) }
-								</Tooltip.Popup>
-							</Tooltip.Root>
-						</div>
+										}
+									>
+										{ isPicking ? (
+											<span className={ styles.toolbarLabel }>{ __( 'Cancel' ) }</span>
+										) : (
+											<Icon icon={ pencil } size={ 18 } />
+										) }
+										<Icon
+											icon={ chevronDown }
+											size={ 12 }
+											className={ styles.responsiveModeChevron }
+											data-keep-size
+										/>
+									</Tooltip.Trigger>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+								{ __( 'Annotation options' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
 						<Menu.Popup side="bottom" align="end">
 							<Menu.Item onClick={ handleToggle }>{ toggleLabel }</Menu.Item>
 							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
@@ -1410,7 +1415,7 @@ export function SitePreview( {
 			>
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }
-				<div className={ clsx( styles.headerSide, styles.headerSideStart ) }>
+				<div className={ styles.headerSide }>
 					{ canPreview && ! inspectorState.isPicking ? (
 						<>
 							<BrowserHistoryButton

@@ -65,7 +65,7 @@ describe( 'native PHP router', () => {
 		fixtureDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-router-' ) );
 		root = path.join( fixtureDirectory, 'site' );
 		fs.mkdirSync( root );
-		fs.writeFileSync( path.join( root, 'POTTED+GIF+20.gif404' ), assetContents );
+		fs.writeFileSync( path.join( root, 'logo+large.gif' ), assetContents );
 		fs.writeFileSync( path.join( root, 'asset with spaces.gif' ), 'space asset bytes' );
 		fs.writeFileSync( path.join( root, 'index.php' ), '<?php http_response_code( 404 );' );
 		fs.writeFileSync( path.join( fixtureDirectory, 'secret.txt' ), 'must not be served' );
@@ -84,11 +84,7 @@ describe( 'native PHP router', () => {
 		fs.rmSync( fixtureDirectory, { recursive: true, force: true } );
 	} );
 
-	it.each( [
-		'/POTTED+GIF+20.gif404',
-		'/POTTED%2BGIF%2B20.gif404',
-		'/POTTED%2BGIF%2B20.gif404?cache=1',
-	] )(
+	it.each( [ '/logo+large.gif', '/logo%2Blarge.gif', '/logo%2Blarge.gif?cache=1' ] )(
 		'serves literal and encoded plus signs without changing asset bytes: %s',
 		async ( requestPath ) => {
 			const response = await request( requestPath );

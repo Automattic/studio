@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
 import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
+import { AiCreditsThresholdNotice } from 'src/components/ai-credits-threshold-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
@@ -420,6 +421,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+						<AiCreditsThresholdNotice />
 						<AiCreditsPurchasedNotice />
 						{ isOutOfCredits ? (
 							<OutOfCreditsNotice />

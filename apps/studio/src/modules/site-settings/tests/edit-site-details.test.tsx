@@ -82,7 +82,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, enableAgenticUi: false },
+				features: { enableAgenticUi: false },
 				loading: false,
 			},
 		},

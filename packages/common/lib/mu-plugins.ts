@@ -362,8 +362,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Configure auto-updates based on Studio settings
-	if ( ! options.isWpAutoUpdating ) {
+	// Only an explicit `false` disables auto-updates. Sites created before this
+	// option existed have no flag, and every other reader treats that as
+	// auto-updating — reading it as falsy here left them pinned for good while
+	// Settings showed "latest" (STU-2348).
+	if ( options.isWpAutoUpdating === false ) {
 		muPlugins.push( {
 			filename: '0-disable-auto-updates.php',
 			content: `<?php

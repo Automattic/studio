@@ -14,12 +14,12 @@ import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
+import { pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
-import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -47,11 +47,11 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	runWpCliTool,
 	refreshBrowserTool,
 	scaffoldThemeTool,
+	pickDesignTool,
 	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,
 	generateImagesTool,
-	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	dataLiberationTool,
 	auditPerformanceTool,
@@ -70,11 +70,6 @@ export interface CreateStudioToolsOptions {
 	// runs set this; standalone CLI/MCP runs leave it off so visual artifacts are
 	// ignored instead of leaking into terminal transcripts.
 	emitChatArtifacts?: boolean;
-	// Enable share_screenshot. Only meaningful when the agent is actually
-	// being driven by the remote-session daemon (Telegram bridge), signaled
-	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
-	// this off because the image would have nowhere to go.
-	remoteSession?: boolean;
 	// Enable generate_images. Callers resolve isImageGenerationAvailable()
 	// (async) and pass it; when off, sessions behave exactly as before the tool
 	// existed (no tool, no imagery prompt sections).
@@ -92,9 +87,6 @@ export function resolveStudioToolDefinitions(
 			: studioToolDefinitions;
 
 	return definitions.flatMap( ( candidate ) => {
-		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
-			return [];
-		}
 		// refresh_browser only makes sense when a Studio UI with a preview pane
 		// is attached to consume the preview.reload event; emitChatArtifacts is
 		// the existing "UI attached" signal (process.send available).

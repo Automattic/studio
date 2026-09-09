@@ -262,6 +262,56 @@ export function getAiCreditsMeterIntent( fraction: number ): AiCreditsMeterInten
 	return 'ok';
 }
 
+export interface AiCreditsThresholdNoticeState {
+	visible: boolean;
+	// The dismissal that survives this intent. Null once the current usage has
+	// left the dismissed threshold behind — without dropping it, a threshold
+	// reached again after a top-up would stay silenced for the whole session.
+	dismissedIntent: AiCreditsMeterIntent | null;
+}
+
+/**
+ * Whether the threshold notice belongs on screen, and which dismissal outlives
+ * this intent.
+ *
+ * `ownedIntents` is the escalation steps the calling surface announces, so one
+ * step is never stated twice on one screen. The agentic UI splits the ladder:
+ * the sidebar notice takes `warning`, the composer strip takes `critical`, and
+ * the composer lockout takes exhaustion. Classic has only the one slot above
+ * its composer, so that slot passes both warning steps.
+ *
+ * A dismissal is recorded against the intent it was made at, so moving between
+ * steps re-arms the notice without a separate expiry rule.
+ */
+export function resolveAiCreditsThresholdNotice(
+	intent: AiCreditsMeterIntent | null,
+	dismissedIntent: AiCreditsMeterIntent | null,
+	ownedIntents: readonly AiCreditsMeterIntent[]
+): AiCreditsThresholdNoticeState {
+	const surviving = dismissedIntent === intent ? dismissedIntent : null;
+	const owned = intent !== null && ownedIntents.includes( intent );
+	return { visible: owned && surviving === null, dismissedIntent: surviving };
+}
+
+/**
+ * Title shared by every AI credit usage warning — the sidebar notice and the
+ * composer strip — so the two can never word the same fact differently.
+ */
+export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): string {
+	return sprintf(
+		/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */
+		__( 'At %s usage' ),
+		// Formatted, not concatenated: the percent sign moves and changes by locale.
+		new Intl.NumberFormat( locale, { style: 'percent', maximumFractionDigits: 0 } ).format(
+			fraction
+		)
+	);
+}
+
+export function formatAiCreditsThresholdDescription(): string {
+	return __( 'Add AI credits to keep chatting without interruption.' );
+}
+
 export function formatAiCreditsUsedLabel(
 	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
 	locale?: string

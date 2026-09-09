@@ -147,7 +147,6 @@ describe( 'setupTosNotice', () => {
 
 describe( 'maybeShowTosNotice', () => {
 	const originalSend = process.send;
-	const originalRemoteSession = process.env.STUDIO_REMOTE_SESSION;
 	let readFileSyncSpy: MockInstance;
 
 	beforeEach( () => {
@@ -161,7 +160,6 @@ describe( 'maybeShowTosNotice', () => {
 		// In vitest fork pool, process.send is defined (IPC with the runner).
 		// Clear it so the IPC-mode guard doesn't suppress the notice in non-IPC tests.
 		process.send = undefined;
-		delete process.env.STUDIO_REMOTE_SESSION;
 		// stderr is piped in the test runner, so isTTY is falsy; the notice only
 		// renders on a visible terminal.
 		setStderrIsTTY( true );
@@ -170,11 +168,6 @@ describe( 'maybeShowTosNotice', () => {
 
 	afterEach( () => {
 		process.send = originalSend;
-		if ( originalRemoteSession === undefined ) {
-			delete process.env.STUDIO_REMOTE_SESSION;
-		} else {
-			process.env.STUDIO_REMOTE_SESSION = originalRemoteSession;
-		}
 		restoreStderrIsTTY();
 		readFileSyncSpy.mockRestore();
 	} );
@@ -200,14 +193,6 @@ describe( 'maybeShowTosNotice', () => {
 
 	it( 'does nothing in IPC mode (spawned by the desktop app)', async () => {
 		process.send = vi.fn();
-		const render = vi.fn();
-		await maybeShowTosNotice( render );
-		expect( render ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
-	} );
-
-	it( 'does nothing during a remote-session daemon turn', async () => {
-		process.env.STUDIO_REMOTE_SESSION = '1';
 		const render = vi.fn();
 		await maybeShowTosNotice( render );
 		expect( render ).not.toHaveBeenCalled();

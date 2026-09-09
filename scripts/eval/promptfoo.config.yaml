@@ -396,6 +396,39 @@ tests:
             return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
           });
 
+      # The visual-design skill injects random concept and direction pools;
+      # the agent shortlists, pick_design draws one of each, and the Site
+      # Spec must commit to the drawn pair before building.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
+            if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
+            const text = (d.textSegments || []).join('\n');
+            const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
+            if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
+            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readFileSync(`${p}/concepts.md`); return true; } catch { return false; } });
+            if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
+            const stated = [];
+            for (const [label, file, heading] of [['Concept', 'concepts.md', 'layout concept'], ['Direction', 'directions.md', 'artistic direction']]) {
+              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\s*[:—-]`, 'i').test(l));
+              if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
+              const catalog = readFileSync(`${skillsDir}/${file}`, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+              const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
+              if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+              // Each must be what pick_design drew (or returned for a named brief), not a substitute.
+              const drawn = (picks.match(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'm')) || [])[1];
+              if (!drawn) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
+              if (!fromCatalog.toLowerCase().includes(drawn.toLowerCase())) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match the pick_design result "${drawn}"` };
+              stated.push(drawn);
+            }
+            if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
+            return { pass: true, score: 1, reason: `concept and direction drawn and stated: ${stated.join(' / ')}` };
+          });
+
   # One-page sites get header navigation that links to page sections. The
   # header template part renders on EVERY template (posts, archives, search,
   # 404), and a bare-hash URL like "#contact" resolves against the current

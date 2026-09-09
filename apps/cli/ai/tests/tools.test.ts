@@ -408,6 +408,9 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
+		// The saved path is the agent's only handle for reusing a capture as a
+		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
+		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
 		expect( text ).not.toContain( 'mediaWidgetPayload' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -423,6 +426,26 @@ describe( 'Studio AI MCP tools', () => {
 			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
 		);
 		await cleanUpScreenshotArtifacts( artifacts );
+	} );
+
+	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
+		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const findTakeScreenshot = (
+			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+		) =>
+			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
+		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
+		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
+		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
+		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
+
+		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
+
+		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
+		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
+		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
 	} );
 
 	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {

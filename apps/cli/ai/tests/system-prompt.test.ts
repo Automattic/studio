@@ -165,6 +165,32 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 
+	it( 'describes the screenshot and inspect tools for models without vision', () => {
+		const polishStep = 'You MUST load the `visual-polish` skill and follow its instructions';
+		const withVision = buildSystemPrompt( {} );
+		expect( withVision ).toContain( polishStep );
+		expect( withVision ).toContain( 'Pair with take_screenshot' );
+		expect( withVision ).not.toContain( 'You cannot view' );
+
+		const textOnly = buildSystemPrompt( { visionEnabled: false } );
+		expect( textOnly ).toContain( polishStep );
+		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
+		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );
+		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
+	} );
+
+	it( 'verifies remote sites from the rendered DOM without vision', () => {
+		expect( buildSystemPrompt( { remoteSite } ) ).toContain(
+			'**Verify the result**: Use take_screenshot with `viewport: "all"`'
+		);
+
+		const textOnly = buildSystemPrompt( { remoteSite, visionEnabled: false } );
+		expect( textOnly ).toContain(
+			'**Verify the result**: You cannot view images, so verify from the rendered DOM'
+		);
+		expect( textOnly ).not.toContain( 'Use take_screenshot with `viewport: "all"`' );
+	} );
+
 	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 

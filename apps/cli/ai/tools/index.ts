@@ -23,7 +23,7 @@ import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
 import { studioPresentTool } from './studio-present';
-import { takeScreenshotTool } from './take-screenshot';
+import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
@@ -72,6 +72,8 @@ export interface CreateStudioToolsOptions {
 	// (async) and pass it; when off, sessions behave exactly as before the tool
 	// existed (no tool, no imagery prompt sections).
 	imageGeneration?: boolean;
+	// False for models that cannot view images. Defaults to true.
+	visionEnabled?: boolean;
 }
 
 export function resolveStudioToolDefinitions(
@@ -92,7 +94,11 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
-		return [ withChatArtifactEmission( candidate, options.emitChatArtifacts === true ) ];
+		const tool =
+			candidate.name === takeScreenshotTool.name && options.visionEnabled === false
+				? createTakeScreenshotTool( { visionEnabled: false } )
+				: candidate;
+		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
 	} );
 }
 

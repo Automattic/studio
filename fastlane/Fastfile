@@ -1402,7 +1402,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
 
   # Every build must have a post ID: builds missing from the embedded list would
   # silently stay Internal after publish_release and never reach users.
-  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:name] }
+  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:display_name] || b[:name] }
   UI.user_error!("Missing CDN post IDs for: #{missing.join(', ')}. publish_release needs every build's post ID to flip its visibility to External.") unless missing.empty?
 
   body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->"

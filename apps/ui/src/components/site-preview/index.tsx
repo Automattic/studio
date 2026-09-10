@@ -5,6 +5,7 @@ import {
 	aspectRatio,
 	check,
 	chevronDown,
+	closeSmall,
 	desktop,
 	fullscreen as fullscreenIcon,
 	Icon,
@@ -792,13 +793,16 @@ function PreviewAnnotationControls( {
 									variant="outline"
 									tone="neutral"
 									size="small"
-									className={ styles.annotationToggle }
+									className={ clsx(
+										styles.annotationToggle,
+										isPicking && styles.annotationToggleActive
+									) }
 									aria-label={ toggleLabel }
 									aria-description={ disabled ? disabledReason : undefined }
 									disabled={ disabled }
 									onClick={ handleToggle }
 								>
-									{ ! isPicking ? <Icon icon={ pencil } size={ 18 } /> : null }
+									<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
 									<span className={ styles.toolbarLabel }>
 										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
 									</span>
@@ -815,6 +819,7 @@ function PreviewAnnotationControls( {
 						variant="solid"
 						tone="brand"
 						size="small"
+						className={ styles.annotationSubmit }
 						disabled={ disabled }
 						aria-label={ submitLabel }
 						onClick={ () => onCommand( 'submit' ) }
@@ -845,11 +850,7 @@ function PreviewAnnotationControls( {
 											/>
 										}
 									>
-										{ isPicking ? (
-											<span className={ styles.toolbarLabel }>{ __( 'Cancel' ) }</span>
-										) : (
-											<Icon icon={ pencil } size={ 18 } />
-										) }
+										<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
 										<Icon
 											icon={ chevronDown }
 											size={ 12 }
@@ -1403,6 +1404,7 @@ export function SitePreview( {
 				className={ clsx(
 					styles.header,
 					! canPreview && styles.browserChromeHidden,
+					inspectorState.isPicking && styles.headerAnnotating,
 					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
 				style={
@@ -1445,6 +1447,11 @@ export function SitePreview( {
 					) : null }
 				</div>
 				<div className={ styles.browserLocation }>
+					{ canPreview && inspectorState.isPicking ? (
+						<p className={ styles.annotatingMessage } role="status">
+							{ __( 'Click anything on the page to add a note' ) }
+						</p>
+					) : null }
 					{ canPreview && ! inspectorState.isPicking ? (
 						<PreviewAddressBar
 							site={ site }

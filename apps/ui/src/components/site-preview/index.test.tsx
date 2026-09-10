@@ -476,7 +476,8 @@ describe( 'SitePreview', () => {
 
 		const cancelButton = screen.getByRole( 'button', { name: 'Cancel annotation' } );
 		expect( cancelButton ).toBeVisible();
-		expect( cancelButton.querySelector( 'svg' ) ).toBeNull();
+		// Keeps an icon so the control still reads once the label collapses.
+		expect( cancelButton.querySelector( 'svg' ) ).not.toBeNull();
 		expect( cancelButton ).not.toHaveAttribute( 'aria-pressed' );
 		expect( screen.queryByRole( 'button', { name: 'Back' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Forward' } ) ).not.toBeInTheDocument();

@@ -200,14 +200,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 		* { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 		.highlight {
 			position: absolute; pointer-events: none;
-			border: 2px solid #2563eb;
-			background: rgba(37,99,235,0.1);
+			border: 2px solid #7c3aed;
+			background: rgba(124,58,237,0.12);
 			border-radius: 2px;
 		}
 		.marker {
 			position: absolute; pointer-events: auto; cursor: pointer;
 			width: 22px; height: 22px;
-			background: #2563eb; color: #fff;
+			background: #7c3aed; color: #fff;
 			border: 2px solid #fff;
 			border-radius: 50%;
 			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -234,7 +234,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
 			padding: 8px; font: 13px/1.4 inherit; outline: none;
 		}
-		.popup textarea:focus { border-color: #2563eb; }
+		.popup textarea:focus { border-color: #7c3aed; }
 		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
 		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
 		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
@@ -249,7 +249,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
-		.popup .submit { background: rgba(255,255,255,0.12); color: #fff; }
+		.popup .submit { background: #7c3aed; color: #fff; }
+		.popup .submit:hover:not([disabled]) { background: #6d28d9; }
 		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
 	` +
 	'`' +

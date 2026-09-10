@@ -36,12 +36,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import {
-	pathForSite,
-	SessionUIProvider,
-	useSessionPreviewAnnotations,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
@@ -81,7 +76,6 @@ function SessionHeader( {
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const preview = useSessionPreviewUI();
 	if ( ! siteName ) {
 		return null;
 	}
@@ -113,11 +107,7 @@ function SessionHeader( {
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ site ? (
 				<div className={ styles.headerActions }>
-					<OpenInMenu
-						key={ site.id }
-						site={ site }
-						browserPath={ pathForSite( preview.pathsBySiteId, site.id ) }
-					/>
+					<OpenInMenu key={ site.id } site={ site } />
 				</div>
 			) : null }
 		</div>

@@ -795,7 +795,7 @@ describe( 'SiteOverviewView', () => {
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'internal',
+			browser: 'external',
 		} );
 	} );
 

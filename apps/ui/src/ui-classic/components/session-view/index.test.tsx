@@ -27,8 +27,8 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 vi.mock( '@/components/open-in-menu', () => ( {
-	OpenInMenu: ( { site, browserPath }: { site: { name: string }; browserPath: string } ) => (
-		<div data-testid="open-in-menu">{ `${ site.name }:${ browserPath }` }</div>
+	OpenInMenu: ( { site }: { site: { name: string } } ) => (
+		<div data-testid="open-in-menu">{ site.name }</div>
 	),
 } ) );
 
@@ -198,7 +198,7 @@ describe( 'SessionView', () => {
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site:/wp-admin/' );
+		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

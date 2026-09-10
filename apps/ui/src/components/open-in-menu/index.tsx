@@ -10,16 +10,8 @@ import type { SiteDetails } from '@/data/core';
  * "Open in…" menu for the session header: one trigger that lists every app
  * the site can open in, mirroring the Overview's shortcuts.
  */
-export function OpenInMenu( {
-	site,
-	// The site-relative path the "Browser" destination opens — the preview's
-	// current page.
-	browserPath,
-}: {
-	site: SiteDetails;
-	browserPath: string;
-} ) {
-	const destinations = useOpenInDestinations( site, browserPath );
+export function OpenInMenu( { site }: { site: SiteDetails } ) {
+	const destinations = useOpenInDestinations( site );
 
 	return (
 		<Menu.Root>

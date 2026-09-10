@@ -171,7 +171,7 @@ function ButtonSection( {
 
 function OpenInSection( { site, busy }: { site: SiteDetails; busy: boolean } ) {
 	const { data: preferences } = useUserPreferences();
-	const destinations = useOpenInDestinations( site, '/' );
+	const destinations = useOpenInDestinations( site );
 	const editorConfigured = Boolean( preferences?.editor );
 
 	const apps = destinations.filter(

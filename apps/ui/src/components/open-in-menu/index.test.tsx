@@ -94,8 +94,6 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
-const BROWSER_PATH = '/about/';
-
 describe( 'OpenInMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
 	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
@@ -148,9 +146,10 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
 
-		// The browser goes through the host's openSiteUrl, which wraps the path
-		// in /studio-auto-login — opening it raw would hit the login form.
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
+		// The browser opens the site's front page through the host's openSiteUrl,
+		// which wraps it in /studio-auto-login — opening it raw would hit the
+		// login form. The preview's address bar owns "open the current page".
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
 		expect( openExternalUrl ).not.toHaveBeenCalled();
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
@@ -187,17 +186,7 @@ describe( 'OpenInMenu', () => {
 		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
 	} );
 
-	it( 'records the browser event matching the active preview realm', () => {
-		renderMenu( { running: true }, '/wp-admin/plugins.php' );
-
-		fireEvent.click( destination( 'Browser' ) );
-
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'external',
-		} );
-	} );
-
-	it( 'offers phpMyAdmin like the Overview, opening the database in the preview', () => {
+	it( 'offers phpMyAdmin like the Overview, opening it in the OS browser like the rest', () => {
 		renderMenu( { running: true } );
 
 		fireEvent.click( destination( 'phpMyAdmin' ) );
@@ -207,7 +196,7 @@ describe( 'OpenInMenu', () => {
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'internal',
+			browser: 'external',
 		} );
 	} );
 
@@ -219,10 +208,11 @@ describe( 'OpenInMenu', () => {
 		expect( screen.queryByRole( 'button', { name: 'Open in Browser' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'stays available while the site is stopped, minus the browser', () => {
+	it( 'stays available while the site is stopped, minus the browser and phpMyAdmin', () => {
 		renderMenu( { running: false } );
 
 		expect( destination( 'Browser' ) ).toBeDisabled();
+		expect( destination( 'phpMyAdmin' ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeEnabled();
 
 		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
@@ -241,8 +231,8 @@ describe( 'OpenInMenu', () => {
 	} );
 } );
 
-function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string = BROWSER_PATH ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ browserPath } /> );
+function renderMenu( overrides: Partial< SiteDetails > = {} ) {
+	return render( <OpenInMenu site={ createSite( overrides ) } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {

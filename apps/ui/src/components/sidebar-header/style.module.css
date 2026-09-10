@@ -1,6 +1,10 @@
 .root {
+	/* The action buttons pull back by `sm` (see .actions), so this lands their
+	   trailing edge on `lg` — the same column the site rows' status buttons end
+	   on (row outer inset + row inline-end padding in site-list). Keep the two
+	   in sync. */
 	--sidebar-header-inline-end: calc(
-		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+		var(--wpds-dimension-padding-lg) + var(--wpds-dimension-padding-sm)
 	);
 
 	display: flex;

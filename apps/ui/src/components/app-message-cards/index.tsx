@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import toastStyles from '@/components/app-toasts/style.module.css';
 import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
@@ -25,7 +26,15 @@ export function AppMessageCards( { className }: { className?: string } ) {
 						{ message.description ? (
 							<Notice.Description>{ message.description }</Notice.Description>
 						) : null }
-						{ message.cta ? (
+						{ message.purchaseCta ? (
+							<Notice.Actions>
+								<AddAiCreditsButton
+									variant="solid"
+									tone="neutral"
+									className={ toastStyles.actionButton }
+								/>
+							</Notice.Actions>
+						) : message.cta ? (
 							<Notice.Actions>
 								<Button
 									size="small"

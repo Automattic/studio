@@ -1,9 +1,6 @@
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { unlock } from '@/lock-unlock';
 import type { PropsWithChildren } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 // `#fcfcfc` is the design system's own light seed. Naming it explicitly rather
 // than leaving `color` unset is what lets a nested scope reset back to the app

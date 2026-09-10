@@ -32,7 +32,6 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -49,7 +48,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -115,14 +114,6 @@ function getErrorMessage( error: unknown ): string {
 	}
 
 	return String( error );
-}
-
-async function readAllStdin(): Promise< string > {
-	const chunks: Buffer[] = [];
-	for await ( const chunk of process.stdin ) {
-		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
-	}
-	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
 }
 
 export async function runCommand( options: {
@@ -557,12 +548,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with
@@ -769,28 +756,16 @@ export async function runCommand( options: {
 		},
 	};
 
-	// Surface remote-session daemon status in the editor's bottom bar. Cheap
-	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL.
-	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
-
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			// Match exact-prompt by default (preserves the legacy behavior where
-			// `/clear foo` falls through to the AI agent). Commands that opt into
-			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/remote-session start` route to the right handler.
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			// Match the exact prompt: `/clear foo` falls through to the AI agent
+			// rather than running `/clear`.
 			const cmd = trimmedPrompt.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) =>
-						c.getArgumentCompletions
-							? `/${ c.name }` === firstToken
-							: `/${ c.name }` === trimmedPrompt
-				  )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === trimmedPrompt )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
@@ -818,7 +793,6 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
-		stopDaemonStatusPolling();
 		ui.stop();
 		process.exit( 0 );
 	}
@@ -829,7 +803,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
-			let chain = yargs
+			const chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -858,18 +832,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point used by the
-			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden so it doesn't clutter `--help` for direct callers.
-			chain = chain.option( 'message-from-stdin', {
-				type: 'boolean',
-				hidden: true,
-				default: false,
-				description: __( 'Read the initial message from stdin (for headless drivers)' ),
-			} );
-
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -883,22 +847,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					messageFromStdin?: boolean;
 				};
 
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
-					initialMessage = await readAllStdin();
-					if ( ! initialMessage ) {
-						process.stderr.write(
-							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
-						);
-						process.exitCode = 1;
-						return;
-					}
-				}
+				const initialMessage = typedArgv.message;
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<

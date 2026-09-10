@@ -34,3 +34,8 @@
 		flex-direction: column !important;
 	}
 }
+
+.debugLogAction {
+	display: flex;
+	margin-block-start: var(--wpds-dimension-gap-xs);
+}

@@ -17,10 +17,6 @@ export interface BuildSystemPromptOptions {
 	remoteSite?: RemoteSiteContext;
 	// True when a Studio UI is attached and can receive chat artifact events.
 	chatArtifactsEnabled?: boolean;
-	// True when the agent is being driven by the Telegram remote-session bridge.
-	// Adds guidance about delivering screenshots via `share_screenshot` and
-	// offering a preview-site follow-up.
-	remoteSession?: boolean;
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
 	// constraints that the native PHP runtime does not. Defaults to native-php.
 	runtime?: SiteRuntime;
@@ -30,18 +26,21 @@ export interface BuildSystemPromptOptions {
 	// every imagery-related prompt section so unavailable sessions get exactly
 	// the pre-imagery prompt.
 	imageGenerationEnabled?: boolean;
+	// False for models that cannot view images. Defaults to true.
+	visionEnabled?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
-	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
 
+	const visionEnabled = options?.visionEnabled ?? true;
+
 	if ( options?.remoteSite ) {
-		return `${ buildRemoteIntro( options.remoteSite ) }
+		return `${ buildRemoteIntro( options.remoteSite, visionEnabled ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
-${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSection }
+${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
 `;
 	}
 
@@ -49,12 +48,12 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }${ userInstructionsSectio
 
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
-		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
 		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
+		visionEnabled,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ remoteSessionAddendum }${ userInstructionsSection }
+${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ userInstructionsSection }
 `;
 }
 
@@ -78,7 +77,10 @@ The user saved these standing instructions in Studio's settings. They apply to e
 ${ instructions }`;
 }
 
-function buildRemoteIntro( site: RemoteSiteContext ): string {
+function buildRemoteIntro( site: RemoteSiteContext, visionEnabled: boolean ): string {
+	const verifyStep = visionEnabled
+		? `Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.`
+		: `You cannot view images, so verify from the rendered DOM with inspect_design instead. Fix any issues.`;
 	return `${ AGENT_IDENTITY } You manage WordPress.com sites using the WordPress.com REST API.
 
 IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
@@ -99,7 +101,7 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
 2. **Load remote guidance**: Load the \`wpcom-remote-management\` skill before selecting endpoints, creating or updating content, managing templates, switching themes, or managing plugins.
 3. **Understand and change the site**: Use wpcom_request according to the \`wpcom-remote-management\` skill.
-4. **Verify visually**: Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
+4. **Verify the result**: ${ verifyStep }
 
 ## General rules
 
@@ -129,11 +131,16 @@ function getPostContentGuidance( runtime?: SiteRuntime ): string {
 
 function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
-	remoteSession: boolean;
 	runtime?: SiteRuntime;
 	imageGenerationEnabled: boolean;
+	visionEnabled: boolean;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
+	const takeScreenshotToolBullet = options.visionEnabled
+		? `- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.`
+		: `- take_screenshot: Save a full-page screenshot of a URL to a file (supports desktop, mobile, or \`viewport: "all"\` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.
+- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector. This is your verification tool: read widths, positions, and padding from it instead of looking at a capture.`;
 	const imageryWorkflowSection = options.imageGenerationEnabled
 		? `
 
@@ -143,12 +150,7 @@ Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery,
 		? `
 - generate_images: Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the \`imagery\` skill first for spec-writing rules and file placement.`
 		: '';
-	// Remote-bridge sessions also run without chat artifacts, but their user is
-	// on the other end of a messaging bridge: local file paths are unreachable
-	// and REMOTE_SESSION_GUIDANCE (share_screenshot) already covers delivery.
-	const terminalScreenshotSection = options.remoteSession
-		? ''
-		: `
+	const terminalScreenshotSection = `
 
 ## Screenshots
 
@@ -193,25 +195,25 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 
 ## Workflow
 
-For any request that involves a WordPress site, you MUST first determine which site to use:
+For any request that involves a WordPress site, you MUST first pick the site to work on. This step ends with exactly one active site; do not load skills or plan a design before it is settled. site_create, site_info, and site_start make the site they touch the active site.
 
-- **Active site + ambiguous "create" / "build" / "make" / "design a site"**: Ask whether to update the active site or create a separate new site before calling site_create. Use AskUserQuestion when available with options like "Use current site" and "Create new site".
-- **Active site + explicit "new" / "separate" / "another" site**: Always run the \`site-spec\` skill FIRST, then call site_create. Run it even when the prompt already provides the name and layout — in that case skip the discovery questions but still produce the site spec.
-- **No active site + "create" / "build" / "make" a site**: Always run the \`site-spec\` skill FIRST, then call site_create. Run it even when the prompt already provides the name and layout — in that case skip the discovery questions but still produce the site spec.
-- **"Redesign" / "update" / "change this site"**: Reuse the active site.
-- **User names a specific existing site**: Call site_list to find it.
-- **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
-- **Resuming work on an existing site**: Use site_info to get details and continue working.
+- **Active site, and the prompt gives no site or business name, or gives the active site's name** (including "redesign" / "update" / "change this site"): Work on the active site. Do not ask whether to create a new one.
+- **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create, load a skill, or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
+- **Explicit "new" / "separate" / "another" site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
+- **No active site + "create" / "build" / "make" a site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
+- **User names a specific existing site**: Call site_list to find it, then site_info to select it.
+- **No active site and no request to create one**: Ask the user whether to use an existing site (site_list) or create a new one.
 
 Then continue with:
 
-1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: layout, colors, typography, and spacing.
+1. **Run the site spec**: When the request is to create, build, make, design, redesign, or rebuild a site, run the \`site-spec\` skill on the active site before any design work. Run it even when the prompt already answers its questions — skip the questions but still produce the Site Spec. Skip the skill for smaller changes such as adding a page or section, fixing styles, or plugin work.
+2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: a signature layout concept and an artistic direction drawn with pick_design from your shortlists, then layout, colors, typography, and spacing.
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
-5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
+5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
-7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.${ imageryWorkflowSection }
+7. **Check and polish the result**: You MUST load the \`visual-polish\` skill and follow its instructions to do so. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
+8. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, finish by copying your final desktop take_screenshot capture (each capture's saved file path is reported in the tool result) to \`screenshot.jpg\` in the theme's directory — it becomes the theme's thumbnail in Appearance → Themes. Copy the existing capture file; do not generate or hand-craft a screenshot image.${ imageryWorkflowSection }
 
 ## Working cadence
 
@@ -238,8 +240,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - wp_cli: Run WP-CLI commands on a running site${ refreshBrowserToolBullet }
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
-- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.${ generateImagesToolBullet }
+${ takeScreenshotToolBullet }${ generateImagesToolBullet }
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
@@ -291,20 +292,6 @@ When the user asks to push a site to WordPress.com, you MUST resolve the target 
 When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
 Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
-
-const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
-
-You are running over Telegram. The user iterates turn-by-turn; keep replies short and image-driven.
-
-When the user explicitly asks to see the site, or when you finish a logical milestone with a clear visible result, call \`share_screenshot\` before ending the turn — no preamble, no permission-asking. One screenshot per milestone, not per edit: don't pepper the user with intermediate snapshots while you iterate. It is fire-and-forget: the image goes to the user but is NOT returned to you. Do not analyze or describe what you sent. Follow up with at most one short sentence (e.g. "Heading is now red." or "Want me to publish this as a preview?").
-
-Defaults to a 16:9 above-the-fold view. Pass \`fullPage: true\` only when the user explicitly asks for the whole page. Captions describe what the user is looking at; never mention "full page", "viewport", or other capture-mode wording.
-
-\`take_screenshot\` is separate — use it only when YOU need to inspect a render before continuing. Don't pair it with \`share_screenshot\` for the same URL.
-
-For non-visual changes (data, logs, listings), reply with a concise text summary; no screenshot needed.
-
-Never claim to have stored, saved, or remembered anything beyond what your tools actually did. There is no gist storage, no preview-link memory, no session summary. Do not invent epilogues like "gist stored" or "preview link saved".`;
 
 const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 

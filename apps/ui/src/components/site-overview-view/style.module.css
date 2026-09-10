@@ -304,3 +304,33 @@
 			calc(var(--wpds-dimension-padding-2xl) + 46px);
 	}
 }
+
+/* The Studio Code nudge: heading, a line, a button — no card. */
+.upsell {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+/* Heading and paragraph read as one block; the button stands off from them. */
+.upsellHeading + .upsellText {
+	margin-top: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
+.upsellHeading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+	font-weight: var(--wpds-typography-font-weight-emphasis);
+	color: var(--wpds-color-foreground-content-neutral);
+	text-wrap: balance;
+}
+
+.upsellText {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	text-wrap: pretty;
+}

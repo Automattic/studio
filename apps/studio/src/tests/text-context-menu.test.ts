@@ -14,7 +14,7 @@ import {
 vi.mock( 'electron', () => ( {
 	BrowserWindow: { fromWebContents: vi.fn() },
 	Menu: { buildFromTemplate: vi.fn() },
-	clipboard: { availableFormats: vi.fn(), writeText: vi.fn() },
+	clipboard: { has: vi.fn(), writeText: vi.fn() },
 } ) );
 
 function makeContext( overrides: Partial< TextContextMenuContext > = {} ): TextContextMenuContext {
@@ -239,11 +239,13 @@ describe( 'buildTextContextMenuTemplate', () => {
 } );
 
 describe( 'hasTextClipboardFormat', () => {
-	it( 'detects normalized and native plain-text formats without reading clipboard contents', () => {
-		expect( hasTextClipboardFormat( [ 'text/plain' ] ) ).toBe( true );
-		expect( hasTextClipboardFormat( [ 'text/plain;charset=utf-8' ] ) ).toBe( true );
-		expect( hasTextClipboardFormat( [ 'public.utf8-plain-text' ] ) ).toBe( true );
-		expect( hasTextClipboardFormat( [ 'image/png' ] ) ).toBe( false );
+	it( 'detects plain text without reading clipboard contents', async () => {
+		vi.mocked( clipboard.has ).mockResolvedValue( true );
+		await expect( hasTextClipboardFormat() ).resolves.toBe( true );
+		expect( clipboard.has ).toHaveBeenCalledWith( 'text/plain' );
+
+		vi.mocked( clipboard.has ).mockResolvedValue( false );
+		await expect( hasTextClipboardFormat() ).resolves.toBe( false );
 	} );
 } );
 
@@ -251,7 +253,7 @@ describe( 'showTextContextMenu', () => {
 	it( 'returns the selected text when Quote in composer is chosen', async () => {
 		const popup = vi.fn();
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValue( null );
-		vi.mocked( clipboard.availableFormats ).mockReturnValue( [] );
+		vi.mocked( clipboard.has ).mockResolvedValue( false );
 		vi.mocked( Menu.buildFromTemplate ).mockReturnValue( { popup } as unknown as Menu );
 		const event = {
 			sender: { showDefinitionForSelection: vi.fn() },
@@ -261,6 +263,8 @@ describe( 'showTextContextMenu', () => {
 			event,
 			makeContext( { selectionText: 'Selected reply', canQuoteSelection: true } )
 		);
+		// The clipboard check is awaited before the menu is built.
+		await vi.waitFor( () => expect( Menu.buildFromTemplate ).toHaveBeenCalled() );
 		const template = vi.mocked( Menu.buildFromTemplate ).mock.calls[ 0 ][ 0 ];
 		const quote = template.find( ( item ) => item.label === 'Quote in composer' );
 		( quote?.click as () => void )();

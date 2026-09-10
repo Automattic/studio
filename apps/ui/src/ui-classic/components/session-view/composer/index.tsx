@@ -66,6 +66,7 @@ import {
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
+import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -238,6 +239,9 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// Blocks sending and queueing while leaving the rest of the composer alone,
+	// so a run already in flight keeps its Stop control.
+	canSubmit?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
@@ -328,6 +332,7 @@ function resizeComposerTextarea(
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
+		canSubmit = true,
 		isInterrupting = false,
 		error,
 		model,
@@ -497,6 +502,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	);
 
 	const send = useCallback( async () => {
+		// Guarded here as well as on the button: Enter reaches this directly, and
+		// while busy a send becomes a queued prompt that would dispatch later.
+		if ( ! canSubmit ) {
+			return;
+		}
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
@@ -532,6 +542,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			restoreAttachments( sentAttachments );
 		}
 	}, [
+		canSubmit,
 		value,
 		attachments,
 		suggestionBaseline,
@@ -758,7 +769,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -811,6 +822,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<AiCreditsWarningStrip />
 					<div
 						className={ styles.resizeHandle }
 						role="separator"

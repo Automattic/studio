@@ -94,7 +94,6 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
-	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -211,9 +210,6 @@ class PromptEditor implements Component, Focusable {
 				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
 		const rightSegments: string[] = [];
-		if ( this.daemonStatusMessage ) {
-			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
-		}
 		if ( this.statusMessage ) {
 			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
 		}
@@ -1096,9 +1092,9 @@ export class AiChatUI implements AiOutputAdapter {
 				this.tui.requestRender( true );
 			}
 		} );
-		// Logger progress and daemon-status updates can request renders while
-		// the TUI is stopped for an external prompt. pi-tui leaves that request
-		// pending, so force a fresh render when resuming.
+		// Logger progress can request renders while the TUI is stopped for an
+		// external prompt. pi-tui leaves that request pending, so force a fresh
+		// render when resuming.
 		this.tui.requestRender( true );
 	}
 
@@ -1609,11 +1605,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
-		this.tui.requestRender();
-	}
-
-	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
-		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
 		this.tui.requestRender();
 	}
 

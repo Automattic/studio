@@ -78,9 +78,9 @@ vi.mock( 'cli/ai/runtimes/pi', () => ( {
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
 vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/site-selection', () => ( { setLocalSiteSelectedCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/daemon-status-poll', () => ( {
-	startDaemonStatusPolling: vi.fn( () => vi.fn() ),
+vi.mock( 'cli/ai/site-selection', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/site-selection') >() ),
+	setLocalSiteSelectedCallback: vi.fn(),
 } ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );

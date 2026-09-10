@@ -384,6 +384,25 @@ export function getMainWindow() {
 }
 
 /**
+ * Returns the existing main window if one is open and alive, or null.
+ * Unlike getMainWindow(), this never creates a new window.
+ */
+export function getExistingMainWindow(): BrowserWindow | null {
+	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
+		return mainWindow;
+	}
+	const windows = BrowserWindow.getAllWindows();
+	if ( windows.length > 0 ) {
+		const focused = BrowserWindow.getFocusedWindow();
+		const win = focused || windows[ 0 ];
+		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
+			return win;
+		}
+	}
+	return null;
+}
+
+/**
  * Reset the main window reference. Exported for testing as resetting modules
  * with Vitest while preserving manual Electron mocks proved quite difficult.
  */

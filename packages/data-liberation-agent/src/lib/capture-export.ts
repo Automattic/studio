@@ -42,7 +42,9 @@ type ManifestEntryFluid =
 	  }
 	| undefined;
 export const CAPTURED_INTERACTIONS_SCHEMA = 'data-liberation/captured-interactions/v1';
-export const CAPTURED_SEMANTIC_EVIDENCE_SCHEMA = 'data-liberation/captured-semantic-evidence/v1';
+/** Indexed semantic evidence sidecar schema. */
+export const INDEXED_SEMANTIC_EVIDENCE_SCHEMA = 'data-liberation/captured-semantic-evidence/v2';
+const MAX_SEMANTIC_EVIDENCE_FILE_BYTES = 10 * 1024 * 1024;
 
 type SemanticEvidencePage = {
 	path: string;
@@ -50,12 +52,49 @@ type SemanticEvidencePage = {
 	viewports: Record< string, Record< string, unknown >[] >;
 };
 
-function writeSemanticEvidence( outputDir: string, pages: SemanticEvidencePage[] ): void {
-	if ( pages.length === 0 ) return;
-	writeFileSync(
-		join( outputDir, 'semantic-evidence.json' ),
-		`${ JSON.stringify( { schema: CAPTURED_SEMANTIC_EVIDENCE_SCHEMA, pages } ) }\n`
-	);
+interface SemanticEvidenceArtifacts {
+	index: { path: string; content: string };
+	shards: Array< { path: string; content: string; pageCount: number }>;
+}
+
+function semanticEvidenceArtifacts( pages: SemanticEvidencePage[] ): SemanticEvidenceArtifacts {
+	const shards: SemanticEvidenceArtifacts[ 'shards' ] = [];
+	let shardPages: SemanticEvidencePage[] = [];
+	const shardContent = ( candidates: SemanticEvidencePage[] ) =>
+		`${ JSON.stringify( { schema: INDEXED_SEMANTIC_EVIDENCE_SCHEMA, pages: candidates } ) }\n`;
+	for ( const page of pages ) {
+		const single = shardContent( [ page ] );
+		if ( Buffer.byteLength( single ) > MAX_SEMANTIC_EVIDENCE_FILE_BYTES )
+			throw new Error(
+				`Semantic evidence page "${ page.path }" exceeds sidecar file limit: ${ Buffer.byteLength( single ) } bytes.`
+			);
+		const candidate = shardContent( [ ...shardPages, page ] );
+		if ( shardPages.length > 0 && Buffer.byteLength( candidate ) > MAX_SEMANTIC_EVIDENCE_FILE_BYTES ) {
+			shards.push( {
+				path: `semantic-evidence/shard-${ String( shards.length + 1 ).padStart( 4, '0' ) }.json`,
+				content: shardContent( shardPages ),
+				pageCount: shardPages.length,
+			} );
+			shardPages = [ page ];
+		} else shardPages.push( page );
+	}
+	if ( shardPages.length > 0 )
+		shards.push( {
+			path: `semantic-evidence/shard-${ String( shards.length + 1 ).padStart( 4, '0' ) }.json`,
+			content: shardContent( shardPages ),
+			pageCount: shardPages.length,
+		} );
+	const index = {
+		path: 'semantic-evidence.index.json',
+		content: `${ JSON.stringify( {
+			schema: INDEXED_SEMANTIC_EVIDENCE_SCHEMA,
+			page_count: pages.length,
+			shards: shards.map( ( shard ) => ( { path: shard.path, page_count: shard.pageCount } ) ),
+		} ) }\n`,
+	};
+	if ( Buffer.byteLength( index.content ) > MAX_SEMANTIC_EVIDENCE_FILE_BYTES )
+		throw new Error( `Semantic evidence index exceeds sidecar file limit: ${ Buffer.byteLength( index.content ) } bytes.` );
+	return { index, shards };
 }
 
 function withoutGeometryIdentities( html: string ): string {
@@ -1566,6 +1605,25 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		} );
 		canonicalRouteAliases.set( normalizedUrl( entry.url ), routePath );
 	}
+	const desktopSections = SectionSpecsStore.load( outputDir );
+	const mobileSections = SectionSpecsStore.loadMobile( outputDir );
+	const semanticPages: SemanticEvidencePage[] = retainedEntries.flatMap( ( entry ) => {
+		const desktop = desktopSections.get( entry.url );
+		if ( ! isUsableSectionEvidence( desktop ) ) return [];
+		const mobile = mobileSections.get( entry.url );
+		return [ {
+			path: `website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' ) }`,
+			url: entry.url,
+			viewports: {
+				desktop: semanticSectionEvidence( desktop ),
+				...( isUsableSectionEvidence( mobile )
+					? { mobile: semanticSectionEvidence( mobile ) }
+					: {} ),
+			},
+		} ];
+	} );
+	const semanticEvidence =
+		semanticPages.length > 0 ? semanticEvidenceArtifacts( semanticPages ) : undefined;
 	const mediaReplacements = new Map< string, string >();
 	const unresolvedMedia: Array< { url: string; error: string } > = [];
 	const assets: Array< { sourceUrl: string; path: string } > = [];
@@ -2074,26 +2132,14 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			( state ) => state.dismissal?.verified
 		).length,
 	};
-	const desktopSections = SectionSpecsStore.load( outputDir );
-	const mobileSections = SectionSpecsStore.loadMobile( outputDir );
-	const semanticPages: SemanticEvidencePage[] = routes.flatMap( ( route ) => {
-		const desktop = desktopSections.get( route.url );
-		if ( ! isUsableSectionEvidence( desktop ) ) return [];
-		const mobile = mobileSections.get( route.url );
-		return [
-			{
-				path: route.path,
-				url: route.url,
-				viewports: {
-					desktop: semanticSectionEvidence( desktop ),
-					...( isUsableSectionEvidence( mobile )
-						? { mobile: semanticSectionEvidence( mobile ) }
-						: {} ),
-				},
-			},
-		];
-	} );
-	writeSemanticEvidence( outputDir, semanticPages );
+	if ( semanticEvidence ) {
+		writeFileSync( join( outputDir, semanticEvidence.index.path ), semanticEvidence.index.content );
+		for ( const shard of semanticEvidence.shards ) {
+			const path = join( outputDir, shard.path );
+			mkdirSync( dirname( path ), { recursive: true } );
+			writeFileSync( path, shard.content );
+		}
+	}
 	if ( interactionPages.length > 0 ) {
 		writeFileSync(
 			join( outputDir, 'interaction-states.json' ),

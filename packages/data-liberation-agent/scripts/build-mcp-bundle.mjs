@@ -27,7 +27,7 @@
 import { build } from 'esbuild';
 import { relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 
 const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = resolve(pkgRoot, 'src');
@@ -41,6 +41,19 @@ const scriptsOutDir = resolve(pkgRoot, 'dist', 'scripts');
 // or the step only works in dev checkouts. The liberate skill drives the CLI
 // directly, so there are currently none.
 const SKILL_DRIVERS = [];
+
+/**
+ * esbuild can retain literal spaces and tabs before newlines in dependency
+ * template literals. Escape them to preserve the string data without making
+ * committed bundles fail git diff --check.
+ */
+async function escapeTrailingBundleWhitespace(path) {
+  const bundle = await readFile(path, 'utf8');
+  const normalized = bundle.replace(/[ \t]+(?=\r?\n)/g, (whitespace) =>
+    [...whitespace].map((character) => (character === '\t' ? '\\t' : '\\x20')).join('')
+  );
+  if (normalized !== bundle) await writeFile(path, normalized);
+}
 
 /** Rewrite import.meta.url in first-party modules to the original file's URL,
  * expressed relative to the bundle so it survives being copied anywhere. */
@@ -96,6 +109,8 @@ const capture = await build({
   outfile: captureOutfile,
   plugins: [perModuleImportMetaUrl(dirname(captureOutfile))],
 });
+
+await Promise.all([escapeTrailingBundleWhitespace(serverOutfile), escapeTrailingBundleWhitespace(captureOutfile)]);
 
 // Clean first so renamed entry points and stale shared chunks don't linger —
 // the committed dist/scripts/ must be exactly what this build emits.

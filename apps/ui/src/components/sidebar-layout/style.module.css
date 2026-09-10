@@ -169,8 +169,12 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	inset-inline-start: var(--wpds-dimension-padding-xl);
-	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	/* --app-main-composer-left is the composer box's start edge, published
+	   by the session view like the height. Views without a composer fall
+	   back to the panel's own control inset. */
+	--shelf-start: var(--app-main-composer-left, var(--wpds-dimension-padding-xl));
+	inset-inline-start: var(--shelf-start);
+	width: min(320px, calc(100% - 2 * var(--shelf-start)));
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;

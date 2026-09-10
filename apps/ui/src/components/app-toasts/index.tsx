@@ -9,7 +9,7 @@ import {
 	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
-	useQueuedToastCount,
+	useQueuedToasts,
 	useVisibleToasts,
 	type ToastMessage,
 } from '@/data/app-messages';
@@ -38,7 +38,7 @@ export function AppToasts( {
 	appearance?: NoticeAppearance;
 } ) {
 	const toasts = useVisibleToasts();
-	const queuedCount = useQueuedToastCount();
+	const queued = useQueuedToasts();
 
 	useEffect( () => {
 		notifyRendererMounted();
@@ -114,13 +114,14 @@ export function AppToasts( {
 							</div>
 						</div>
 					) ) }
-					{ queuedCount > 0 ? <div className={ styles.queuePeek } aria-hidden="true" /> : null }
-					{ queuedCount > 1 ? (
+					{ queued.slice( 0, 2 ).map( ( item, index ) => (
 						<div
-							className={ clsx( styles.queuePeek, styles.queuePeekDeeper ) }
+							key={ item.id }
+							className={ clsx( styles.queuePeek, index === 1 && styles.queuePeekDeeper ) }
+							data-intent={ appearance === 'intent' ? item.intent : undefined }
 							aria-hidden="true"
 						/>
-					) : null }
+					) ) }
 				</div>
 			) : null }
 		</div>

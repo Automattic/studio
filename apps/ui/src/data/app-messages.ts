@@ -68,9 +68,11 @@ const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
 
 let snapshot: readonly ToastMessage[] = visible;
+let queuedSnapshot: readonly ToastMessage[] = queued;
 
 function emit() {
 	snapshot = [ ...visible ];
+	queuedSnapshot = [ ...queued ];
 	for ( const listener of listeners ) {
 		listener();
 	}
@@ -262,11 +264,13 @@ export function getQueuedToastCount(): number {
 	return queued.length;
 }
 
-export function useQueuedToastCount(): number {
+// The toasts waiting behind the visible ones, in the order they will
+// surface — the stack's peek strips tint themselves to match.
+export function useQueuedToasts(): readonly ToastMessage[] {
 	return useSyncExternalStore(
 		subscribe,
-		() => queued.length,
-		() => 0
+		() => queuedSnapshot,
+		() => EMPTY_TOASTS
 	);
 }
 

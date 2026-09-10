@@ -58,7 +58,7 @@ export function NoticeHistoryButton( { className }: { className?: string } ) {
 			size="small"
 			className={ clsx( styles.bell, className ) }
 			icon={ bell }
-			label={ __( 'Recent notifications' ) }
+			label={ __( 'Notification history' ) }
 			onClick={ openNoticeHistory }
 		/>
 	);
@@ -116,8 +116,8 @@ export function NoticeHistoryDialog() {
 		<AppThemeScope>
 			<Dialog.Root open={ open } onOpenChange={ setOpen }>
 				<Dialog.Popup size="medium">
-					<Dialog.Header className={ styles.header }>
-						<Dialog.Title>{ __( 'Recent notifications' ) }</Dialog.Title>
+					<Dialog.Header>
+						<Dialog.Title>{ __( 'Notification history' ) }</Dialog.Title>
 					</Dialog.Header>
 					<Dialog.Content>
 						{ notices.length === 0 ? (
@@ -125,22 +125,11 @@ export function NoticeHistoryDialog() {
 								<EmptyState.Icon icon={ bell } />
 								<EmptyState.Title>{ __( 'No notifications yet' ) }</EmptyState.Title>
 								<EmptyState.Description>
-									{ __(
-										'Notices Studio shows you during this session collect here, until Studio\u00a0restarts.'
-									) }
+									{ __( 'Notices Studio shows you collect here, until Studio\u00a0restarts.' ) }
 								</EmptyState.Description>
 							</EmptyState.Root>
 						) : (
 							<>
-								{ /* Description drops a passed className, so the spacing lives on
-							     a wrapper. The NBSP keeps the last word from wrapping alone. */ }
-								<div className={ styles.intro }>
-									<Dialog.Description>
-										{ __(
-											'Notices from this session, newest first. They clear when Studio\u00a0restarts.'
-										) }
-									</Dialog.Description>
-								</div>
 								<ul className={ styles.list }>
 									{ notices.map( ( notice ) => (
 										<li key={ `${ notice.id }:${ notice.shownAt }` }>
@@ -166,6 +155,13 @@ export function NoticeHistoryDialog() {
 										</li>
 									) ) }
 								</ul>
+								{ /* Description drops a passed className, so the note lives on a
+								     wrapper. */ }
+								<div className={ styles.outro }>
+									<Dialog.Description>
+										{ __( 'Notifications are cleared automatically when Studio restarts.' ) }
+									</Dialog.Description>
+								</div>
 							</>
 						) }
 					</Dialog.Content>

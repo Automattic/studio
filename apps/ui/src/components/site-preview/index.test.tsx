@@ -28,6 +28,7 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn( () => ( {
 		enabled: true,
 		chatEnabled: true,
+		chatPromptsSignIn: false,
 		reason: null,
 		isReady: true,
 	} ) ),
@@ -595,6 +596,7 @@ describe( 'SitePreview', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: null,
 			isReady: true,
 		} );
@@ -609,6 +611,7 @@ describe( 'SitePreview', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 			isReady: true,
 		} );

@@ -86,10 +86,12 @@ function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: number } ) {
 export function ThinkingIndicator( {
 	active,
 	startedAt,
+	stepKey,
 	progressMessage,
 }: {
 	active: boolean;
 	startedAt: number | null;
+	stepKey: string | null;
 	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
@@ -100,11 +102,7 @@ export function ThinkingIndicator( {
 			return;
 		}
 		setMessage( randomThinkingMessage() );
-		const labelInterval = window.setInterval( () => {
-			setMessage( randomThinkingMessage() );
-		}, 4000 );
-		return () => window.clearInterval( labelInterval );
-	}, [ active ] );
+	}, [ active, stepKey ] );
 
 	useEffect( () => {
 		if ( ! active || startedAt === null ) {

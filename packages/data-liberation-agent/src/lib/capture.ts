@@ -29,7 +29,6 @@ export interface CaptureOptions {
 }
 
 export interface CaptureResult {
-	artifactPath: string;
 	captureReceiptPath: string;
 	outputDir: string;
 	summary: {
@@ -210,7 +209,6 @@ export async function captureWebsite(
 		discoveryDiagnostics: inventory.diagnostics ?? [],
 	} );
 	const result = {
-		artifactPath: join( outputDir, 'artifact.json' ),
 		captureReceiptPath,
 		outputDir,
 		summary,

@@ -37,7 +37,6 @@ describe( 'liberateSite', () => {
 		vi.mocked( captureWebsite ).mockImplementationOnce( async ( options ) => {
 			liberatedSite( options.outputDir );
 			return {
-				artifactPath: join( options.outputDir, 'artifact.json' ),
 				captureReceiptPath: join( options.outputDir, 'capture-receipt.json' ),
 				outputDir: options.outputDir,
 				summary: {
@@ -87,7 +86,6 @@ describe( 'liberateSite', () => {
 		vi.mocked( captureWebsite ).mockImplementationOnce( async ( options ) => {
 			liberatedSite( options.outputDir );
 			return {
-				artifactPath: join( options.outputDir, 'artifact.json' ),
 				captureReceiptPath: join( options.outputDir, 'capture-receipt.json' ),
 				outputDir: options.outputDir,
 				summary: {

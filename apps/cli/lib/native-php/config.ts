@@ -147,7 +147,7 @@ function toPhpIniPath( filePath: string ): string {
 	return filePath.replace( /[\\"]/g, ( char ) => ( char === '\\' ? '/' : '\\"' ) );
 }
 
-function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {
+export function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {
 	return path.join( getPhpBinaryDir( phpVersion ), PHP_INI_FILENAME );
 }
 

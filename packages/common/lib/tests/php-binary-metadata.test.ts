@@ -67,7 +67,7 @@ describe( 'Native PHP binary metadata', () => {
 		);
 	} );
 
-	it( 'selects a package that declares its required capability', () => {
+	it( 'uses the configured package only when it declares the required capability', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'win32', 'x64', [ 'zstd' ] ) ).toEqual(
 			expect.objectContaining( { capabilities: [ 'zstd' ] } )
 		);

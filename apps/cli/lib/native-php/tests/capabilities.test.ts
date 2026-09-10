@@ -5,12 +5,18 @@ vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 	getPhpBinaryPath: vi.fn().mockReturnValue( '/test/php' ),
 } ) );
 
+vi.mock( 'cli/lib/native-php/config', () => ( {
+	getNativePhpIniPath: vi.fn().mockReturnValue( '/test/php.ini' ),
+} ) );
+
 describe( 'assertNativePhpZstdAvailable', () => {
-	it( 'accepts a runtime that provides zstd_uncompress', () => {
+	it( 'probes the configured PHP version with its generated INI', () => {
 		const runPhp = vi.fn();
 
 		expect( () => assertNativePhpZstdAvailable( '8.4', runPhp ) ).not.toThrow();
 		expect( runPhp ).toHaveBeenCalledWith( '/test/php', [
+			'-c',
+			'/test/php.ini',
 			'-r',
 			'exit(function_exists("zstd_uncompress") ? 0 : 1);',
 		] );

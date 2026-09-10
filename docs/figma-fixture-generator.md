@@ -6,18 +6,22 @@ Engine test helper instead.
 
 Requirements:
 
+- The macOS ARM PHP artifact from [job 102892497452](https://github.com/Automattic/studio/actions/runs/34483685921/job/102892497452), artifact `10155344620`, which is not published and must be downloaded from the workflow.
 - PHP 8.2 or newer with `zip` and `zstd` extensions.
 - A checkout of [Blocks Engine](https://github.com/Automattic/blocks-engine) at
   `4f56d2dc29bc50d5d03285e5eb0f7e94029e7f1d` or a revision that retains
   `figma-transformer/tests/contract/SyntheticFigKiwiFixtureBuilder.php`.
 
 ```sh
-git clone https://github.com/Automattic/blocks-engine.git /tmp/blocks-engine
-git -C /tmp/blocks-engine checkout 4f56d2dc29bc50d5d03285e5eb0f7e94029e7f1d
-php scripts/generate-figma-fixture.php \
-  --blocks-engine-path=/tmp/blocks-engine/figma-transformer \
-  --output=/tmp/studio-fixture.fig
-unzip -t /tmp/studio-fixture.fig
+workdir="$( mktemp -d )"
+gh run download 34483685921 --repo Automattic/studio --name php-8.5.10-cli-macos-aarch64 --dir "$workdir/artifact"
+unzip "$workdir/artifact/php-8.5.10-cli-macos-aarch64.zip" -d "$workdir/php"
+git clone https://github.com/Automattic/blocks-engine.git "$workdir/blocks-engine"
+git -C "$workdir/blocks-engine" checkout 4f56d2dc29bc50d5d03285e5eb0f7e94029e7f1d
+"$workdir/php/php" scripts/generate-figma-fixture.php \
+	--blocks-engine-path="$workdir/blocks-engine/figma-transformer" \
+	--output="$workdir/studio-fixture.fig"
+unzip -t "$workdir/studio-fixture.fig"
 ```
 
 The generator calls `SyntheticFigKiwiFixtureBuilder` to create a `.fig` archive with
@@ -30,22 +34,26 @@ The repository integration test uses the same command and can run against an
 explicit PHP runtime with zstd:
 
 ```sh
-BLOCKS_ENGINE_FIGMA_TRANSFORMER_PATH=/tmp/blocks-engine/figma-transformer \
-PHP_BINARY_WITH_ZSTD=/path/to/php \
+BLOCKS_ENGINE_FIGMA_TRANSFORMER_PATH="$workdir/blocks-engine/figma-transformer" \
+PHP_BINARY_WITH_ZSTD="$workdir/php/php" \
 npm test -- scripts/generate-figma-fixture.test.mjs
 ```
 
 To exercise Studio's source request and staging path with the SSI #1581 candidate:
 
 ```sh
+SSI_CANDIDATE_ZIP=/absolute/path/to/static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip
+cp "$SSI_CANDIDATE_ZIP" "$workdir/static-site-importer.zip"
 npm run cli:build
 node apps/cli/dist/cli/main.mjs create \
-  --from=/tmp/studio-fixture.fig \
-  --static-site-importer-path=/path/to/static-site-importer-candidate.zip \
-  --name='Studio Fixture' --path=/tmp/studio-figma-fixture --no-start
+  --from="$workdir/studio-fixture.fig" \
+  --static-site-importer-path="$workdir/static-site-importer.zip" \
+  --runtime=native \
+  --name='Studio Fixture' --path="$workdir/studio-figma-fixture" --no-start
 ```
 
-Use a native PHP artifact whose `runtime.json` has `"capabilities":["zstd"]`; the
-workflow verifies both `zstd` loading and `zstd_uncompress`. This fixture proves only
-fixture generation plus the opaque Figma request/staging/import path. Observed output
-is Gutenberg markup, not a production-design fidelity or editability claim.
+Set `$workdir/static-site-importer.zip` to the archive built from SSI #1581 at
+`aa7ee1ba9b36f5f3245c0471ff73d72c8d8c40f1`. The release asset remains unverified,
+so it is deliberately not configured as a default package. The workflow verifies both
+`zstd` loading and `zstd_uncompress`. This fixture exercises only fixture generation
+and the opaque Figma request/staging/import path.

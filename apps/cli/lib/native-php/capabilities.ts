@@ -4,6 +4,7 @@ import {
 	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { getNativePhpIniPath } from 'cli/lib/native-php/config';
 
 export function assertNativePhpZstdAvailable(
 	phpVersion: string,
@@ -12,6 +13,8 @@ export function assertNativePhpZstdAvailable(
 	const nativePhpVersion = resolveNativePhpVersion( phpVersion );
 	try {
 		runPhp( getPhpBinaryPath( nativePhpVersion ), [
+			'-c',
+			getNativePhpIniPath( nativePhpVersion ),
 			'-r',
 			'exit(function_exists("zstd_uncompress") ? 0 : 1);',
 		] );

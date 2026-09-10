@@ -61,12 +61,7 @@ const phpBinaryPackageSchema = z.object( {
 } );
 
 const phpBinaryCdnMetadataSchema = z.object( {
-	versions: z.record(
-		z.string(),
-		phpBinaryPackageSchema.extend( {
-			candidates: z.array( phpBinaryPackageSchema ).default( [] ),
-		} )
-	),
+	versions: z.record( z.string(), phpBinaryPackageSchema ),
 } );
 
 const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataModule );
@@ -120,24 +115,25 @@ export function getPhpBinaryDownloadInfo(
 	}
 
 	const artifactKey = `${ platform }-${ getEffectivePhpBinaryArch( platform, arch ) }`;
-	const packageMetadata = [ versionMetadata, ...versionMetadata.candidates ].find( ( candidate ) =>
-		requiredCapabilities.every( ( capability ) => candidate.capabilities.includes( capability ) )
-	);
-	if ( ! packageMetadata ) {
+	if (
+		! requiredCapabilities.every( ( capability ) =>
+			versionMetadata.capabilities.includes( capability )
+		)
+	) {
 		return undefined;
 	}
-	const artifact = packageMetadata.artifacts[ artifactKey ];
+	const artifact = versionMetadata.artifacts[ artifactKey ];
 	if ( ! artifact ) {
 		return undefined;
 	}
 
 	return {
-		patchVersion: packageMetadata.version,
-		packageVersion: packageMetadata.packageVersion,
-		packageId: packageMetadata.packageVersion
-			? `${ packageMetadata.version }-${ packageMetadata.packageVersion }`
-			: packageMetadata.version,
-		capabilities: packageMetadata.capabilities,
+		patchVersion: versionMetadata.version,
+		packageVersion: versionMetadata.packageVersion,
+		packageId: versionMetadata.packageVersion
+			? `${ versionMetadata.version }-${ versionMetadata.packageVersion }`
+			: versionMetadata.version,
+		capabilities: versionMetadata.capabilities,
 		url: artifact.url,
 		sha: artifact.sha,
 	};

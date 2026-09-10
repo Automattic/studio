@@ -679,6 +679,16 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const siteRuntime = options.runtime;
+	if (
+		options.blueprint?.staticSiteImport?.requiresNativePhpZstd &&
+		siteRuntime !== SITE_RUNTIME_NATIVE_PHP
+	) {
+		throw new LoggerError(
+			__(
+				'Figma import requires the native PHP runtime. The sandbox runtime does not support zstd.'
+			)
+		);
+	}
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(

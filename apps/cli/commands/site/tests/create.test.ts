@@ -36,9 +36,11 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
+import { assertNativePhpZstdAvailable } from 'cli/lib/native-php/capabilities';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -84,6 +86,8 @@ vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
+vi.mock( 'cli/lib/dependency-management/php-binary' );
+vi.mock( 'cli/lib/native-php/capabilities' );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -577,7 +581,7 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'copies a request-bundled Figma file using an opaque source reference', async () => {
+		it( 'imports a Figma file with the native PHP zstd runtime', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-bundle-' ) );
 			const figmaPath = path.join( sourceDir, 'design.fig' );
 			fs.writeFileSync( figmaPath, 'figma' );
@@ -590,7 +594,12 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 
-			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				blueprint,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				noStart: true,
+			} );
 
 			expect( copySpy ).toHaveBeenCalledWith(
 				figmaPath,
@@ -601,6 +610,29 @@ describe( 'CLI: studio create', () => {
 				type: 'figma',
 				ref: 'request-bundle:source.fig',
 			} );
+			expect( ensurePhpBinaryAvailable ).toHaveBeenCalledWith( '8.3', undefined, [ 'zstd' ] );
+			expect( assertNativePhpZstdAvailable ).toHaveBeenCalledWith( '8.3' );
+		} );
+
+		it( 'rejects a Figma file for the sandbox before site mutation', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-sandbox-' ) );
+			const figmaPath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( figmaPath, 'figma' );
+			const blueprint = buildCreateFromSourceBlueprint(
+				figmaPath,
+				'Figma Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			vi.clearAllMocks();
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow( 'Figma import requires the native PHP runtime.' );
+
+			expect( updateServerFiles ).not.toHaveBeenCalled();
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( lockCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'rejects remote sources outside the canonical importer contract', () => {

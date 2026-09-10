@@ -978,9 +978,12 @@ tests:
             const calls = d.toolCalls ?? [];
             const created = calls.find(t => t.name === 'site_create');
             if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
+            const built = calls.find(t => building.includes(t.name));
+            if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
             const text = (d.textSegments ?? []).join('\n');
             const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
-            const mentionsNew = /\b(new|separate|another)\b/i.test(text);
-            const asks = mentionsCurrent && mentionsNew;
-            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
+            const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
+            const asks = mentionsCurrent && mentionsNew && text.includes('?');
+            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
           });

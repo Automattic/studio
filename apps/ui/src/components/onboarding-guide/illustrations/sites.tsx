@@ -1,14 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { unlock } from '@/lock-unlock';
 import { easings, envelope, sample, useTimeline, type Keyframe } from './choreography';
 import { Cursor, Tooltip } from './primitives';
 import styles from './style.module.css';
 import type { CSSProperties } from 'react';
-
-const { ThemeProvider } = unlock( privateApis );
 
 // The sidebar sits on the dark window chrome in both color schemes, so this
 // scene mirrors the sidebar-layout: a dark chrome background and a nested dark
@@ -99,7 +96,7 @@ export function SitesIllustration() {
 	const runningTip = envelope( t, 6820, 330, 8580, 440 );
 
 	return (
-		<ThemeProvider color={ { bg: chromeBg } }>
+		<ThemeProvider color={ { background: chromeBg } }>
 			<div
 				className={ styles.sitesScene }
 				style={ { '--sites-chrome-bg': chromeBg } as CSSProperties }

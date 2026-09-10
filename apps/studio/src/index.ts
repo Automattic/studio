@@ -53,7 +53,6 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -111,7 +110,6 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
-let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
 const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
 const YOUTUBE_EMBED_URL_PATTERNS = [
@@ -453,8 +451,6 @@ async function appBoot() {
 		await autoInstallMacOSCliIfNeeded();
 		await autoInstallLinuxCliIfNeeded();
 
-		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
-
 		finishedInitialization = true;
 	} );
 
@@ -589,7 +585,6 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

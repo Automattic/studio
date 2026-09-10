@@ -53,24 +53,31 @@ export function getLiveSiteOperation( site: SiteData ): SiteOperation | undefine
  * across CLI processes — the agent, the desktop app and a terminal all reach
  * this through the same commands.
  */
-async function acquire( siteId: string, kind: SiteOperationKind ): Promise< SiteOperation > {
+async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< SiteOperation > {
 	const operation: SiteOperation = { pid: process.pid, kind };
 
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
-		const site = config.sites.find( ( s ) => s.id === siteId );
+		const sites: SiteData[] = [];
 
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
+		for ( const siteId of siteIds ) {
+			const site = config.sites.find( ( candidate ) => candidate.id === siteId );
+			if ( ! site ) {
+				throw new LoggerError( __( 'Site not found' ) );
+			}
+
+			const blocking = getLiveSiteOperation( site );
+			if ( blocking ) {
+				throw siteBusyError( kind, blocking.kind );
+			}
+
+			sites.push( site );
 		}
 
-		const blocking = getLiveSiteOperation( site );
-		if ( blocking ) {
-			throw siteBusyError( kind, blocking.kind );
+		for ( const site of sites ) {
+			site.operation = operation;
 		}
-
-		site.operation = operation;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -79,21 +86,20 @@ async function acquire( siteId: string, kind: SiteOperationKind ): Promise< Site
 	return operation;
 }
 
-async function release( siteId: string, operation: SiteOperation ): Promise< void > {
+async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
-		const site = config.sites.find( ( s ) => s.id === siteId );
 
-		// A completed `site delete` removes the record entirely; nothing to release.
-		if ( ! site ) {
-			return;
-		}
+		for ( const siteId of siteIds ) {
+			const site = config.sites.find( ( candidate ) => candidate.id === siteId );
 
-		// Only clear our own: a reclaimed-then-reacquired site belongs to whoever
-		// holds it now.
-		if ( site.operation?.pid === operation.pid ) {
-			delete site.operation;
+			// A completed `site delete` removes the record entirely; nothing to release.
+			if ( site?.operation?.pid === operation.pid ) {
+				// Only clear our own: a reclaimed-then-reacquired site belongs to whoever
+				// holds it now.
+				delete site.operation;
+			}
 		}
 		await saveCliConfig( config );
 	} finally {
@@ -120,8 +126,21 @@ export async function withSiteOperation< T >(
 	fn: () => Promise< T >
 ): Promise< T > {
 	const { id: siteId } = await getSiteByFolder( siteFolder );
-	const operation = await acquire( siteId, kind );
-	await emitOperationsChanged( siteId );
+	return withSiteOperations( [ siteId ], kind, fn );
+}
+
+/**
+ * Acquires all requested sites in one config transaction before running `fn`.
+ * This prevents a batch operation from mutating earlier sites before discovering
+ * that a later site is missing or busy.
+ */
+export async function withSiteOperations< T >(
+	siteIds: string[],
+	kind: SiteOperationKind,
+	fn: () => Promise< T >
+): Promise< T > {
+	const operation = await acquire( siteIds, kind );
+	await Promise.all( siteIds.map( emitOperationsChanged ) );
 
 	try {
 		return await fn();
@@ -129,10 +148,10 @@ export async function withSiteOperation< T >(
 		// Releasing must never replace the operation's own failure: if the config
 		// lock times out here, `fn`'s error is the one worth seeing.
 		try {
-			await release( siteId, operation );
+			await release( siteIds, operation );
 		} catch ( error ) {
 			console.error( 'Failed to release the site operation:', error );
 		}
-		await emitOperationsChanged( siteId );
+		await Promise.all( siteIds.map( emitOperationsChanged ) );
 	}
 }

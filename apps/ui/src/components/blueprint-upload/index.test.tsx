@@ -130,8 +130,8 @@ describe( 'BlueprintUpload', () => {
 		render( <TestUpload onValidityChange={ onValidityChange } /> );
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
-			'Blueprint error: That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
+			'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
 		);
 		expect( onValidityChange ).toHaveBeenLastCalledWith( false );
 
@@ -143,7 +143,9 @@ describe( 'BlueprintUpload', () => {
 			)
 		);
 		await waitFor( () => expect( onValidityChange ).toHaveBeenLastCalledWith( true ) );
-		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Blueprint error' } ) ).not.toBeInTheDocument()
+		);
 	} );
 
 	it( 'allows an invalid upload to be removed', async () => {
@@ -151,12 +153,14 @@ describe( 'BlueprintUpload', () => {
 		render( <TestUpload onValidityChange={ onValidityChange } /> );
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
-			'Blueprint error: That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
+			'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 
-		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Blueprint error' } ) ).not.toBeInTheDocument()
+		);
 		expect( onValidityChange ).toHaveBeenLastCalledWith( true );
 		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
 	} );
@@ -170,8 +174,8 @@ describe( 'BlueprintUpload', () => {
 		render( <TestUpload /> );
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
-			'Blueprint error: This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
+		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
+			'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
 		);
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
 	} );

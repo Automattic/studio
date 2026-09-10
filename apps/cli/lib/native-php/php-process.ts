@@ -56,6 +56,20 @@ type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
 };
 
+function formatCommandOutputTail( label: string, output: string ): string | undefined {
+	const trimmedOutput = output.trim();
+	if ( ! trimmedOutput ) {
+		return undefined;
+	}
+
+	const maxLength = 4_000;
+	const tail =
+		trimmedOutput.length > maxLength
+			? trimmedOutput.slice( trimmedOutput.length - maxLength )
+			: trimmedOutput;
+	return `${ label }:\n${ tail }`;
+}
+
 export function spawnPhpProcess(
 	args: string[],
 	{
@@ -212,7 +226,16 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new PhpCommandError( `PHP command failed (code: ${ code })`, code, stdout, stderr ) );
+			const outputDetails = [
+				formatCommandOutputTail( 'PHP stdout', stdout ),
+				formatCommandOutputTail( 'PHP stderr', stderr ),
+			]
+				.filter( Boolean )
+				.join( '\n\n' );
+			const message = outputDetails
+				? `PHP command failed (code: ${ code })\n\n${ outputDetails }`
+				: `PHP command failed (code: ${ code })`;
+			reject( new PhpCommandError( message, code, stdout, stderr ) );
 		} );
 	} );
 }

@@ -55,7 +55,7 @@ function AnimatedDigit( { digit }: { digit: string } ) {
 	);
 }
 
-function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: number } ) {
+export function AnimatedElapsedTime( { elapsedSeconds }: { elapsedSeconds: number } ) {
 	const parts = getElapsedTimeParts( elapsedSeconds );
 	const label = formatElapsedTime( elapsedSeconds );
 

@@ -79,9 +79,13 @@ async function markDependencyCheckTime(): Promise< void > {
 /**
  * Checks for and applies dependency updates (e.g. WordPress versions), throttled
  * to at most once per 24 hours. Returns true if the check ran, false if skipped.
+ *
+ * @param force Bypass the throttle. Site creation passes this for "latest",
+ *              which installs by copying the cached directory instead of
+ *              downloading a numbered release, so the cache has to be current.
  */
-export async function updateServerFiles(): Promise< boolean > {
-	if ( ! ( await shouldCheckDependencyUpdates() ) ) {
+export async function updateServerFiles( force = false ): Promise< boolean > {
+	if ( ! force && ! ( await shouldCheckDependencyUpdates() ) ) {
 		return false;
 	}
 

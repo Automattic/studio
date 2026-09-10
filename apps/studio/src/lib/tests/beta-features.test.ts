@@ -48,9 +48,3 @@ it( 'does not emit when no surface is given (e.g. the boot-time migration)', asy
 
 	expect( mockRecord ).not.toHaveBeenCalled();
 } );
-
-it( 'does not emit for other beta feature keys', async () => {
-	await updateBetaFeature( 'remoteSession', true, 'settings' );
-
-	expect( mockRecord ).not.toHaveBeenCalled();
-} );

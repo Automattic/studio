@@ -14,8 +14,10 @@
  * render in this app.
  */
 .popup.popup {
-	--wpds-color-bg-surface-neutral-strong: var(--color-frame-bg);
-	--wpds-color-fg-content-neutral: var(--color-frame-text);
+	--wpds-color-background-surface-neutral-strong: var(--color-frame-bg);
+	--wpds-color-foreground-content-neutral: var(--color-frame-text);
 	--wpds-color-stroke-surface-neutral: var(--color-frame-border);
-	--wpds-color-fg-interactive-neutral: var(--color-frame-text);
+	--wpds-color-foreground-interactive-neutral: var(--color-frame-text);
+	--wpds-color-foreground-interactive-neutral-strong: var(--color-frame-text);
+	--wpds-color-foreground-interactive-neutral-strong-active: var(--color-frame-text);
 }

@@ -1,5 +1,5 @@
-import { act, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
 import type { ReactElement, ReactNode } from 'react';
@@ -48,9 +48,12 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 
 describe( 'SidebarLayout', () => {
 	let toggleSidebarListener: ( () => void ) | undefined;
-
+	let originalInnerWidth: number;
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.stubGlobal( 'ResizeObserver', undefined );
+		originalInnerWidth = window.innerWidth;
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 1024 } );
 		toggleSidebarListener = undefined;
 		useConnectorMock.mockReturnValue( {
 			onToggleSidebar: vi.fn( ( listener ) => {
@@ -60,7 +63,15 @@ describe( 'SidebarLayout', () => {
 		} );
 	} );
 
-	it( 'toggles the sidebar when the connector emits the shortcut command', () => {
+	afterEach( () => {
+		Object.defineProperty( window, 'innerWidth', {
+			configurable: true,
+			value: originalInnerWidth,
+		} );
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'toggles the sidebar when the connector emits the shortcut command', async () => {
 		render(
 			<SidebarLayout>
 				<div>Content</div>
@@ -69,19 +80,24 @@ describe( 'SidebarLayout', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 
-		act( () => toggleSidebarListener?.() );
+		await act( async () => toggleSidebarListener?.() );
 
 		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 
-		act( () => toggleSidebarListener?.() );
+		await act( async () => toggleSidebarListener?.() );
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
 		const onForceCollapsedToggle = vi.fn();
+		const onExpand = vi.fn();
 		render(
-			<SidebarLayout forceCollapsed onForceCollapsedToggle={ onForceCollapsedToggle }>
+			<SidebarLayout
+				forceCollapsed
+				onExpand={ onExpand }
+				onForceCollapsedToggle={ onForceCollapsedToggle }
+			>
 				<div>Content</div>
 			</SidebarLayout>
 		);
@@ -94,5 +110,72 @@ describe( 'SidebarLayout', () => {
 		act( () => toggleSidebarListener?.() );
 
 		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
+		expect( onExpand ).not.toHaveBeenCalled();
+	} );
+
+	it( 'collapses when the window enters compact width', async () => {
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 659 } );
+		await act( async () => window.dispatchEvent( new Event( 'resize' ) ) );
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'starts collapsed in a compact window', () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
+
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'delegates reopening so the parent can coordinate the panels', () => {
+		Object.defineProperty( window, 'innerWidth', { configurable: true, value: 420 } );
+		const onExpand = vi.fn();
+		render(
+			<SidebarLayout onExpand={ onExpand }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show sidebar' } ) );
+
+		expect( onExpand ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'observes the rendered layout width while the window is being resized', () => {
+		let resizeCallback: ResizeObserverCallback | undefined;
+		class ResizeObserverMock {
+			constructor( callback: ResizeObserverCallback ) {
+				resizeCallback = callback;
+			}
+			observe() {}
+			disconnect() {}
+		}
+		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
+
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		act( () => {
+			resizeCallback?.(
+				[ { contentRect: { width: 659 } } as unknown as ResizeObserverEntry ],
+				{} as ResizeObserver
+			);
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
 	} );
 } );

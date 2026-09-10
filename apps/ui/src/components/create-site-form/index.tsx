@@ -1,6 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
+import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -35,7 +36,7 @@ import type {
 	FormField,
 	FormValidity,
 } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -66,6 +67,7 @@ interface CreateSiteFormProps {
 	submitLabel?: string;
 	cancelLabel?: string;
 	loadingAnnouncement?: string;
+	panelFooter?: ReactNode;
 }
 
 interface FormData {
@@ -402,6 +404,7 @@ export function CreateSiteForm( {
 	submitLabel,
 	cancelLabel,
 	loadingAnnouncement,
+	panelFooter,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
@@ -468,6 +471,7 @@ export function CreateSiteForm( {
 			},
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
 				offline: isOffline,
 			} ),
 			adminUsernameField< FormData >(),
@@ -498,23 +502,32 @@ export function CreateSiteForm( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
 				{
-					id: 'path',
-					layout: { type: 'regular', labelPosition: 'top' },
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [
+						{ id: 'path', layout: { type: 'regular', labelPosition: 'top' } },
+						'wpVersion',
+					],
 				},
 				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'phpVersion' ],
 				},
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'wordpressAdmin',
+					label: __( 'WordPress admin' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]
@@ -713,6 +726,8 @@ export function CreateSiteForm( {
 						) }
 					</div>
 				) }
+
+				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
 			</div>
 
 			<OnboardingFooter>{ actions }</OnboardingFooter>

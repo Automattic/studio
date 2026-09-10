@@ -13,7 +13,14 @@
 
 .group {
 	position: absolute;
-	top: calc(50% + 72px);
+	/* Keep the full prompt group above the fixed composer at short window
+	   heights, while retaining its logo-relative position when there is room. */
+	top: min(
+		calc(50% + 72px),
+		calc(
+			100% - var(--classic-composer-height) - var(--classic-panel-footer-height) - 148px
+		)
+	);
 	left: 50%;
 	display: flex;
 	width: min(100%, 656px);
@@ -117,20 +124,20 @@
 .prompt {
 	--wp-ui-button-background-color: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 76%),
+		var(--wpds-color-background-surface-neutral) var(--surface-alpha, 76%),
 		transparent
 	);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 84%),
+		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 84%),
 		transparent
 	);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
 	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-brand);
-	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral);
-	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color: var(--wpds-color-foreground-content-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-foreground-content-neutral);
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
-	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
 
 	-webkit-backdrop-filter: blur(12px);
 	backdrop-filter: blur(12px);
@@ -150,14 +157,14 @@
 	border-radius: 6px 6px 12px 6px;
 	background: color-mix(
 		in srgb,
-		var(--wpds-color-bg-surface-neutral-strong) var(--surface-alpha, 88%),
+		var(--wpds-color-background-surface-neutral-strong) var(--surface-alpha, 88%),
 		transparent
 	);
 	box-shadow: 0 0 16px
 		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 24%, transparent);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: var(--wpds-typography-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-default);
 	line-height: var(--wpds-typography-line-height-sm);
 	white-space: nowrap;
 	pointer-events: none;

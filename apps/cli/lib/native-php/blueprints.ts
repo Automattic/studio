@@ -5,6 +5,7 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -33,6 +34,19 @@ export function normalizeBlueprintForRunner( contents: Record< string, unknown >
 		contents.features = supported;
 	} else {
 		delete contents.features;
+	}
+}
+
+export async function removeOwnedSqliteSymlink(
+	symlinkPath: string,
+	symlinkIno: number
+): Promise< void > {
+	try {
+		if ( fs.lstatSync( symlinkPath ).ino === symlinkIno ) {
+			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
+		}
+	} catch {
+		// Best effort - an already-removed symlink needs no cleanup.
 	}
 }
 
@@ -145,7 +159,7 @@ export async function runBlueprint(
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
 		// Remove only the entry created here, not unrelated content that replaced it.
-		symlinkIno = fs.statSync( pluginsSqlite ).ino;
+		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
 	try {
@@ -158,6 +172,7 @@ export async function runBlueprint(
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
+				`--db-path=${ path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`,
 			],
 			{
 				phpVersion,
@@ -183,13 +198,9 @@ export async function runBlueprint(
 			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
 		}
 		if ( needsSymlink ) {
-			try {
-				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
-					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
-				}
-			} catch {
-				// Best effort - leaving the symlink behind is non-fatal.
-			}
+			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
+			// The runner may remove the symlink target while managing its SQLite driver.
+			await keepSqliteIntegrationUpdated( config.sitePath );
 		}
 	}
 }

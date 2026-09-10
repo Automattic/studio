@@ -83,3 +83,76 @@ export function StreamingText( {
 		</span>
 	);
 }
+
+// Small inline glyphs for the mock composer and tool chip in the chat scenes.
+export function PlusGlyph() {
+	return (
+		<svg viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M8 3.5 V12.5 M3.5 8 H12.5"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+export function SendGlyph() {
+	return (
+		<svg viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M8 12.5 V4 M4.5 7.5 L8 4 L11.5 7.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
+export function FileGlyph() {
+	return (
+		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M4 2 H9 L12.5 5.5 V14 H4 Z M9 2 V5.5 H12.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.1"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
+export function CameraGlyph() {
+	return (
+		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M2.5 5.5 H5 L6 3.5 H10 L11 5.5 H13.5 V12.5 H2.5 Z"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.1"
+				strokeLinejoin="round"
+			/>
+			<circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.1" />
+		</svg>
+	);
+}
+
+export function CheckGlyph() {
+	return (
+		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.3"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}

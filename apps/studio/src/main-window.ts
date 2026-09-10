@@ -13,6 +13,7 @@ import {
 	DEFAULT_HEIGHT,
 	AGENTIC_TITLEBAR_HEIGHT,
 	DEFAULT_WIDTH,
+	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
 	MAIN_MIN_WIDTH,
@@ -91,6 +92,14 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 
 export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
 	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+	// Switching renderers changes the floor. Growing it (agentic → default)
+	// also widens a window that is already below the new minimum.
+	const minWidth = getMinWindowWidth();
+	window.setMinimumSize( minWidth, MAIN_MIN_HEIGHT );
+	const [ width, height ] = window.getSize();
+	if ( width < minWidth ) {
+		window.setSize( minWidth, height, true );
+	}
 	if ( process.platform === 'win32' || process.platform === 'linux' ) {
 		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
 	}
@@ -140,8 +149,14 @@ function initializePortFinder( sites: SiteDetails[] ) {
 	} );
 }
 
+// Each renderer has its own floor, so the window can't be dragged narrower
+// than whichever one is on screen.
+function getMinWindowWidth(): number {
+	return getPreferredStudioUiMode() === 'agentic' ? AGENTIC_MIN_WIDTH : MAIN_MIN_WIDTH;
+}
+
 function isValidWindowBounds( bounds: WindowBounds ): boolean {
-	if ( bounds.width < MAIN_MIN_WIDTH || bounds.height < MAIN_MIN_HEIGHT ) {
+	if ( bounds.width < getMinWindowWidth() || bounds.height < MAIN_MIN_HEIGHT ) {
 		return false;
 	}
 
@@ -171,7 +186,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
-		minWidth: MAIN_MIN_WIDTH,
+		minWidth: getMinWindowWidth(),
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
@@ -308,7 +323,7 @@ export function getTitleBarOverlayOptions() {
 	}
 	const isDark = nativeTheme.shouldUseDarkColors;
 	// Chrome is dark in both schemes; the content surface tracks
-	// `--wpds-color-bg-surface-neutral`.
+	// `--wpds-color-background-surface-neutral`.
 	const onChrome = agenticControlsSurface === 'chrome';
 	return {
 		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',
@@ -366,6 +381,25 @@ export function getMainWindow() {
 				console.error( 'Failed to create main window:', error );
 			} );
 	} );
+}
+
+/**
+ * Returns the existing main window if one is open and alive, or null.
+ * Unlike getMainWindow(), this never creates a new window.
+ */
+export function getExistingMainWindow(): BrowserWindow | null {
+	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
+		return mainWindow;
+	}
+	const windows = BrowserWindow.getAllWindows();
+	if ( windows.length > 0 ) {
+		const focused = BrowserWindow.getFocusedWindow();
+		const win = focused || windows[ 0 ];
+		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
+			return win;
+		}
+	}
+	return null;
 }
 
 /**

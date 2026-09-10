@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { Icon, wordpress } from '@wordpress/icons';
-import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { external, Icon, wordpress } from '@wordpress/icons';
+import { Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
@@ -101,6 +101,9 @@ interface PreviewAddressBarProps {
 	path: string;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
+	// Opens the page the preview is showing in the OS browser. Omitted when
+	// the host can't (no running site to point it at).
+	onOpenExternal?: () => void;
 }
 
 interface RecentPreviewLocation {
@@ -168,6 +171,7 @@ export function PreviewAddressBar( {
 	path,
 	onNavigate,
 	onSwitchRealm,
+	onOpenExternal,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const activeRealm = getPreviewRealm( path );
@@ -270,6 +274,25 @@ export function PreviewAddressBar( {
 					aria-label={ __( 'Address' ) }
 					spellCheck={ false }
 				/>
+				{ onOpenExternal ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<button
+									type="button"
+									className={ styles.openExternal }
+									aria-label={ __( 'Open this page in your browser' ) }
+									onClick={ onOpenExternal }
+								/>
+							}
+						>
+							<Icon icon={ external } size={ 18 } />
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ __( 'Open this page in your browser' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : null }
 			</form>
 			<Popover.Popup
 				variant="unstyled"

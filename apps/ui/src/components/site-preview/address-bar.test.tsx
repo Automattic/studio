@@ -151,9 +151,28 @@ describe( 'PreviewAddressBar', () => {
 		expect(
 			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
 		).toBeInTheDocument();
-		// The icon is the only button in the field: it opens the shortcuts,
-		// same as clicking the address.
+		// The site icon opens the shortcuts, same as clicking the address. No
+		// external-open button without a host callback.
 		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'offers to open the current page in the OS browser when the host allows', () => {
+		const onOpenExternal = vi.fn();
+		render(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/wp-admin/plugins.php"
+				onNavigate={ vi.fn() }
+				onSwitchRealm={ vi.fn() }
+				onOpenExternal={ onOpenExternal }
+			/>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+
+		expect( onOpenExternal ).toHaveBeenCalledTimes( 1 );
+		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the shortcuts from the site icon too', async () => {

@@ -6,7 +6,7 @@
 	min-width: 80px;
 	height: 32px;
 	margin: 0;
-	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	padding-inline: var(--wpds-dimension-padding-sm);
 	align-items: center;
 	border: 0;
 	border-radius: var(--wpds-border-radius-lg);
@@ -33,7 +33,34 @@
 	cursor: default;
 }
 
-.siteIcon:focus-visible {
+.openExternal {
+	display: inline-flex;
+	width: 24px;
+	height: 24px;
+	flex: 0 0 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	cursor: var(--wpds-cursor-control);
+}
+
+.openExternal svg {
+	fill: currentColor;
+}
+
+.openExternal:hover,
+.openExternal:focus-visible {
+	background: var(--wpds-color-background-interactive-neutral-weak-active);
+	color: var(--wpds-color-foreground-content-neutral);
+	outline: none;
+}
+
+.siteIcon:focus-visible,
+.openExternal:focus-visible {
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 	border-radius: var(--wpds-border-radius-xs);

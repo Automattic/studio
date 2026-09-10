@@ -140,7 +140,7 @@ function getStaticSiteImporterPlugin(
 	if ( source.type === 'figma' ) {
 		throw new LoggerError(
 			__(
-				'Figma import requires a full Static Site Importer package with Figma support. No verified published package is configured. Provide one with --static-site-importer-path or --static-site-importer-url.'
+				'Figma import requires an explicit Static Site Importer package override because no published default is configured. Provide one with --static-site-importer-path or --static-site-importer-url.'
 			)
 		);
 	}
@@ -343,7 +343,7 @@ function buildStaticSiteImporterRequest(
 	if ( source.stagedSourcePath ) {
 		requestSource =
 			source.type === 'figma'
-				? { type: 'figma', ref: 'request-bundle:source' }
+				? { type: 'figma', ref: 'request-bundle:source.fig' }
 				: { type: 'files', ref: 'request-bundle:source' };
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
@@ -492,8 +492,8 @@ function staticSiteImportRequestPath( sitePath: string ): string {
 	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE );
 }
 
-function staticSiteImportSourcePath( sitePath: string ): string {
-	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, 'source' );
+function staticSiteImportSourcePath( sitePath: string, isFigma = false ): string {
+	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, isFigma ? 'source.fig' : 'source' );
 }
 
 type WpCliResult = { exitCode: number; stdout: string; stderr: string };
@@ -569,11 +569,15 @@ async function runStaticSiteImport(
 	} else {
 		fs.mkdirSync( path.dirname( requestPath ), { recursive: true } );
 		if ( sourcePath ) {
-			await fs.promises.cp( sourcePath, staticSiteImportSourcePath( site.path ), {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
+			await fs.promises.cp(
+				sourcePath,
+				staticSiteImportSourcePath( site.path, requiresNativePhpZstd ),
+				{
+					recursive: true,
+					errorOnExist: true,
+					force: false,
+				}
+			);
 		}
 		fs.writeFileSync( requestPath, request );
 	}
@@ -769,7 +773,9 @@ export async function runCommand(
 			staticSiteImport &&
 			fs.existsSync( staticSiteImportRequestPath( sitePath ) ) &&
 			( ! staticSiteImport.sourcePath ||
-				fs.existsSync( staticSiteImportSourcePath( sitePath ) ) ) &&
+				fs.existsSync(
+					staticSiteImportSourcePath( sitePath, staticSiteImport.requiresNativePhpZstd )
+				) ) &&
 			fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' ) ===
 				staticSiteImport.request;
 		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {

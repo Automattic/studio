@@ -5,7 +5,12 @@ import { formatElapsedTime, ThinkingIndicator } from './index';
 describe( 'ThinkingIndicator', () => {
 	it( 'uses the shared working mark without adding a nested status', () => {
 		const { container } = render(
-			<ThinkingIndicator active startedAt={ Date.now() } progressMessage={ null } />
+			<ThinkingIndicator
+				active
+				startedAt={ Date.now() }
+				stepKey={ null }
+				progressMessage={ null }
+			/>
 		);
 
 		expect( screen.getAllByRole( 'status' ) ).toHaveLength( 1 );

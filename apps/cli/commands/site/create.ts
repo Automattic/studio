@@ -127,6 +127,11 @@ type StaticSiteImporterSource = {
 	type?: 'figma';
 };
 
+type FigmaTransformOptions = {
+	frame_ids?: string[];
+	entry_frame_id?: string;
+};
+
 type StaticSiteImporterPlugin = string | { path: string };
 
 function getStaticSiteImporterPlugin(
@@ -333,7 +338,8 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 function buildStaticSiteImporterRequest(
 	source: StaticSiteImporterSource,
 	siteName: string,
-	originalSourceUrl?: string
+	originalSourceUrl?: string,
+	figmaTransformOptions?: FigmaTransformOptions
 ): Record< string, unknown > {
 	const payload = source.payload;
 	let requestSource: Record< string, unknown >;
@@ -395,6 +401,9 @@ function buildStaticSiteImporterRequest(
 	if ( themeMaterialization === 'block' || themeMaterialization === 'classic' ) {
 		request.theme_materialization = themeMaterialization;
 	}
+	if ( source.type === 'figma' && figmaTransformOptions ) {
+		request.transform_options = figmaTransformOptions;
+	}
 	return request;
 }
 
@@ -419,7 +428,8 @@ export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
 	staticSiteImporterPlugin?: StaticSiteImporterPlugin,
-	originalSourceUrl?: string
+	originalSourceUrl?: string,
+	figmaTransformOptions?: FigmaTransformOptions
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
@@ -432,7 +442,12 @@ export function buildCreateFromSourceBlueprint(
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
 	const plugin = getStaticSiteImporterPlugin( source, staticSiteImporterPlugin );
-	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
+	const request = buildStaticSiteImporterRequest(
+		source,
+		siteName,
+		originalSourceUrl,
+		figmaTransformOptions
+	);
 	const tempDir = createBlueprintTempDirSync();
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const pluginData =
@@ -1237,6 +1252,17 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						return path.resolve( untildify( value ) );
 					},
 				} )
+				.option( 'figma-frame', {
+					type: 'string',
+					array: true,
+					describe: __(
+						'Restrict a Figma .fig import to a frame ID; repeat to select multiple frames (e.g., --figma-frame 123:456)'
+					),
+				} )
+				.option( 'figma-entry-frame', {
+					type: 'string',
+					describe: __( 'Set the entry frame ID for a Figma .fig import' ),
+				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
@@ -1313,6 +1339,23 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			const figmaFrameIds = argv.figmaFrame as string[] | undefined;
+			const figmaEntryFrameId = argv.figmaEntryFrame as string | undefined;
+			if (
+				( figmaFrameIds?.length || figmaEntryFrameId ) &&
+				( ! argv.from || path.extname( argv.from ).toLowerCase() !== '.fig' )
+			) {
+				throw new LoggerError(
+					__( '--figma-frame and --figma-entry-frame can only be used with a .fig --from source.' )
+				);
+			}
+			const figmaTransformOptions =
+				figmaFrameIds?.length || figmaEntryFrameId
+					? {
+							...( figmaFrameIds?.length ? { frame_ids: figmaFrameIds } : {} ),
+							...( figmaEntryFrameId ? { entry_frame_id: figmaEntryFrameId } : {} ),
+					  }
+					: undefined;
 			const artifact =
 				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
 					? readSiteArtifact( argv.from )
@@ -1533,7 +1576,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						argv.staticSiteImporterPath
 							? { path: argv.staticSiteImporterPath }
 							: argv.staticSiteImporterUrl,
-						sourceUrl
+						sourceUrl,
+						figmaTransformOptions
 					);
 				} else if ( argv.blueprint ) {
 					if ( isUrl( argv.blueprint ) ) {

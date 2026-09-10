@@ -672,6 +672,63 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
+		it( 'forwards selected Figma frame IDs through SSI transform_options', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
+			const figmaPath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( figmaPath, 'figma' );
+
+			const request = JSON.parse(
+				buildCreateFromSourceBlueprint(
+					figmaPath,
+					'Figma Site',
+					'https://example.com/static-site-importer.zip',
+					undefined,
+					{
+						frame_ids: [ '123:456', '789:012' ],
+						entry_frame_id: '123:456',
+					}
+				).staticSiteImport.request
+			);
+
+			expect( request ).toMatchObject( {
+				source: { type: 'figma', ref: 'request-bundle:source.fig' },
+				transform_options: {
+					frame_ids: [ '123:456', '789:012' ],
+					entry_frame_id: '123:456',
+				},
+			} );
+		} );
+
+		it( 'keeps Figma transformer defaults absent when no frame flags are supplied', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
+			const figmaPath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( figmaPath, 'figma' );
+
+			const request = JSON.parse(
+				buildCreateFromSourceBlueprint(
+					figmaPath,
+					'Figma Site',
+					'https://example.com/static-site-importer.zip'
+				).staticSiteImport.request
+			);
+
+			expect( request ).not.toHaveProperty( 'transform_options' );
+		} );
+
+		it( 'rejects Figma frame flags for non-Figma sources before site mutation', async () => {
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await expect(
+				parser.parseAsync( [ 'create', '--from', '/tmp/source.html', '--figma-frame', '123:456' ] )
+			).rejects.toThrow( 'can only be used with a .fig --from source' );
+
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
+			expect( lockCliConfig ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
 		it( 'accepts and bundles a local Figma SSI override without inspecting capabilities', () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
 			const figmaPath = path.join( sourceDir, 'design.fig' );

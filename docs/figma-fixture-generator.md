@@ -4,6 +4,20 @@ This repository does not store binary Figma fixtures. Generate the small, synthe
 fixture used to exercise Studio's staged Figma request with the exact upstream Blocks
 Engine test helper instead.
 
+## Selecting Figma frames
+
+Use `studio create --from=<design.fig>` with repeatable `--figma-frame` options to
+select one or more canonical Figma frame IDs. `--figma-entry-frame` selects the
+entry frame when a multi-frame import needs one:
+
+```sh
+studio create --from=./design.fig --figma-frame=123:456 --figma-frame=789:012 \
+	--figma-entry-frame=123:456
+```
+
+These options apply only to `.fig` sources. Without them, Figma imports keep the
+transformer's default frame selection.
+
 Requirements:
 
 - The macOS ARM PHP artifact from [job 102892497452](https://github.com/Automattic/studio/actions/runs/34483685921/job/102892497452), artifact `10155344620`, which is not published and must be downloaded from the workflow.

@@ -19,7 +19,6 @@ import {
 } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
 import { useRef, useState } from 'react';
-import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import {
 	ImportSiteDialog,
@@ -47,6 +46,7 @@ import { databaseLogo } from '@/lib/logos';
 import { AboutSection } from './about-section';
 import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
+import { StudioCodeUpsell } from './studio-code-upsell';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { SiteDetails } from '@/data/core';
@@ -315,7 +315,6 @@ function SiteOverviewBody( {
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<OfflineBanner />
-								<AgenticSigninBanner />
 								<div className={ styles.cardColumn }>
 									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 									<OverviewCard>
@@ -329,6 +328,7 @@ function SiteOverviewBody( {
 									<OverviewCard>
 										<AdminSection site={ site } />
 									</OverviewCard>
+									<StudioCodeUpsell siteId={ site.id } />
 								</div>
 								<div className={ styles.actionsColumn }>
 									<ButtonSection

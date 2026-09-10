@@ -311,6 +311,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		refresh_browser: __( 'Refresh preview' ),
 		site_connected_remote_sites: __( 'List connected remote sites' ),
 		scaffold_theme: __( 'Scaffold theme' ),
+		pick_design: __( 'Pick concept and direction' ),
 		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
@@ -464,6 +465,25 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':
 			return typeof input.name === 'string' ? input.name : '';
+		case 'pick_design':
+			return [ 'layout', 'direction' ]
+				.map( ( side ) => {
+					const named = input[ `${ side }NamedInBrief` ];
+					if ( typeof named === 'string' ) return named;
+					const candidates = input[ `${ side }Candidates` ];
+					return ( Array.isArray( candidates ) ? candidates : [] )
+						.map( ( candidate ) =>
+							candidate &&
+							typeof candidate === 'object' &&
+							typeof ( candidate as { name?: unknown } ).name === 'string'
+								? ( candidate as { name: string } ).name
+								: ''
+						)
+						.filter( Boolean )
+						.join( ', ' );
+				} )
+				.filter( Boolean )
+				.join( ' · ' );
 		case 'inspect_design':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'validate_blocks':

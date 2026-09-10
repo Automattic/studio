@@ -396,6 +396,39 @@ tests:
             return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
           });
 
+      # The visual-design skill injects random concept and direction pools;
+      # the agent shortlists, pick_design draws one of each, and the Site
+      # Spec must commit to the drawn pair before building.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
+            if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
+            const text = (d.textSegments || []).join('\n');
+            const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
+            if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
+            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readFileSync(`${p}/concepts.md`); return true; } catch { return false; } });
+            if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
+            const stated = [];
+            for (const [label, file, heading] of [['Concept', 'concepts.md', 'layout concept'], ['Direction', 'directions.md', 'artistic direction']]) {
+              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\s*[:—-]`, 'i').test(l));
+              if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
+              const catalog = readFileSync(`${skillsDir}/${file}`, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+              const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
+              if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+              // Each must be what pick_design drew (or returned for a named brief), not a substitute.
+              const drawn = (picks.match(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'm')) || [])[1];
+              if (!drawn) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
+              if (!fromCatalog.toLowerCase().includes(drawn.toLowerCase())) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match the pick_design result "${drawn}"` };
+              stated.push(drawn);
+            }
+            if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
+            return { pass: true, score: 1, reason: `concept and direction drawn and stated: ${stated.join(' / ')}` };
+          });
+
   # One-page sites get header navigation that links to page sections. The
   # header template part renders on EVERY template (posts, archives, search,
   # 404), and a bare-hash URL like "#contact" resolves against the current
@@ -886,4 +919,71 @@ tests:
               return { pass: false, score: 0, reason: `raw font-size value(s) repeated across blocks instead of a theme.json size preset: ${repeatedSizes.join(', ')}` };
             }
             return { pass: true, score: 1, reason: `repeated card treatment uses a registered block style variation (${registeredPhp ? 'register_block_style' : 'styles/*.json'}; applied ${applied.length} times: ${[...new Set(applied)].join(', ')}); no raw font-size repeated ${'>'}= 3 times` };
+          });
+
+  # Site pick: with an active site and a prompt that names no other site, the
+  # agent builds into the active site instead of asking whether to create a
+  # separate one. Seeds a real (stopped) site as the active site.
+  - description: active site is reused when the prompt names no other site
+    vars:
+      caseId: active-site-reused
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build me a minimal one-page site for a small neighborhood bakery: a
+        hero and a short about section. Skip the discovery questions. Before
+        writing any files, state the Site Spec and stop — I will confirm the
+        plan first.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
+            const reused = calls.some(t => {
+              if (t.name === 'Skill') return t.input?.name === 'site-spec';
+              const target = t.input?.nameOrPath;
+              return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
+            });
+            return { pass: reused, score: reused ? 1 : 0, reason: reused ? 'agent worked on the active site without asking to create a new one' : `no site_info/skill call on the active site in ${JSON.stringify(calls.map(t => t.name))}` };
+          });
+
+  # Site pick: with an active site and a prompt that names a different site,
+  # the agent asks whether to update the active site or create a new one
+  # before calling site_create.
+  - description: active site with a different site name asks before creating
+    vars:
+      caseId: active-site-different-name
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build a one-page site named "Joe's Bakery".
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
+            const built = calls.find(t => building.includes(t.name));
+            if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
+            const text = (d.textSegments ?? []).join('\n');
+            const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
+            const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
+            const asks = mentionsCurrent && mentionsNew && text.includes('?');
+            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
           });

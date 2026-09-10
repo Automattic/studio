@@ -116,6 +116,24 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 
+	it.each( [
+		[ 'enables them when the flag is true', true, '0-enable-auto-updates.php' ],
+		[ 'disables them only on an explicit false', false, '0-disable-auto-updates.php' ],
+		// Sites created before the flag existed have no value. The settings UI reads
+		// that as auto-updating, so the mu-plugins must agree (STU-2348).
+		[ 'enables them when the flag is unset', undefined, '0-enable-auto-updates.php' ],
+	] )( 'auto-updates: %s', async ( _label, flag, expected ) => {
+		const muPluginsDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, flag );
+		const generatedPlugins = await readdir( muPluginsDir );
+
+		const other =
+			expected === '0-enable-auto-updates.php'
+				? '0-disable-auto-updates.php'
+				: '0-enable-auto-updates.php';
+		expect( generatedPlugins ).toContain( expected );
+		expect( generatedPlugins ).not.toContain( other );
+	} );
+
 	it( 'should reuse the existing mu-plugins directory when contents are up to date', async () => {
 		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
 		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );

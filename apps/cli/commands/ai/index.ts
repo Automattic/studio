@@ -48,7 +48,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -548,12 +548,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with

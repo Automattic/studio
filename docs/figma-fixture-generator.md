@@ -50,17 +50,59 @@ package normally lives. The existing staged binary makes `ensurePhpBinaryAvailab
 skip the capability-gated download, then it creates or synchronizes `php.ini`; the
 Figma probe runs that binary with the generated INI.
 
-The supplied SSI candidate must be the full development ZIP from [SSI #1581](https://github.com/Automattic/static-site-importer/pull/1581), source commit [`165bf27363a0616c1c2ecb78c687e2bd2f05bc52`](https://github.com/Automattic/static-site-importer/commit/165bf27363a0616c1c2ecb78c687e2bd2f05bc52), named `static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip`, with SHA-256 `7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751`. It is candidate evidence only, not a release asset or configured default.
+The original tested SSI candidate was the full development ZIP from [SSI #1581](https://github.com/Automattic/static-site-importer/pull/1581), source commit [`165bf27363a0616c1c2ecb78c687e2bd2f05bc52`](https://github.com/Automattic/static-site-importer/commit/165bf27363a0616c1c2ecb78c687e2bd2f05bc52), named `static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip`, with SHA-256 `7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751`. It is candidate evidence only, not a release asset or configured default.
+
+To build a reader-resolvable replacement, install `git`, Node.js, Composer, and the
+`homeboy` CLI, then clone the two pinned source trees and run SSI's [development
+package build contract](https://github.com/Automattic/static-site-importer/tree/165bf27363a0616c1c2ecb78c687e2bd2f05bc52#development-packages):
+
+```sh
+ssi_workdir="$( mktemp -d )"
+git clone https://github.com/Automattic/static-site-importer.git "$ssi_workdir/static-site-importer"
+git -C "$ssi_workdir/static-site-importer" checkout 165bf27363a0616c1c2ecb78c687e2bd2f05bc52
+git clone https://github.com/Automattic/blocks-engine.git "$ssi_workdir/blocks-engine"
+git -C "$ssi_workdir/blocks-engine" checkout 573e126b7fc1d95df757e183366384c2d72f691c
+test "$( git -C "$ssi_workdir/static-site-importer" rev-parse HEAD )" = 165bf27363a0616c1c2ecb78c687e2bd2f05bc52
+test "$( git -C "$ssi_workdir/blocks-engine" rev-parse HEAD )" = 573e126b7fc1d95df757e183366384c2d72f691c
+test -z "$( git -C "$ssi_workdir/static-site-importer" status --porcelain )"
+test -z "$( git -C "$ssi_workdir/blocks-engine" status --porcelain )"
+(
+	cd "$ssi_workdir/static-site-importer"
+	npm run build:dev-package -- \
+		--blocks-engine-path="$ssi_workdir/blocks-engine" \
+		--blocks-engine-ref=573e126b7fc1d95df757e183366384c2d72f691c \
+		--output-dir="$ssi_workdir/build"
+)
+SSI_CANDIDATE_ZIP="$ssi_workdir/build/static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip"
+test -f "$SSI_CANDIDATE_ZIP"
+```
+
+The build command creates an isolated snapshot, runs its pinned `composer update`
+dependency step, and delegates ZIP assembly to `homeboy review build`; it does not
+require a separate `npm install` in the SSI checkout. Keep `ssi_workdir` until the
+integration check completes, then remove it with `rm -rf "$ssi_workdir"`.
+
+The original tested ZIP's SHA-256 is useful only when that exact archive is supplied:
+
+```sh
+test "$( shasum -a 256 /path/to/static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip | cut -d " " -f 1 )" = \
+	7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751
+```
+
+A local rebuild can have different archive bytes because ZIP assembly can preserve
+timestamps. Do not claim it matches that historical checksum. Instead, verify the
+clean source-tree commits above and the adjacent `$SSI_CANDIDATE_ZIP.json` provenance
+receipt, which records SSI commit `165bf27363a0616c1c2ecb78c687e2bd2f05bc52` and
+Blocks Engine commit `573e126b7fc1d95df757e183366384c2d72f691c`. Use the receipt's
+recorded ZIP checksum for the locally rebuilt file.
 
 From the Studio repository root, run:
 
 ```sh
-SSI_CANDIDATE_ZIP=/absolute/path/to/static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip
+# Set SSI_CANDIDATE_ZIP with the acquisition procedure above.
 npm run cli:build
 workdir="$( mktemp -d )"
 trap 'rm -rf "$workdir"' EXIT
-test "$( shasum -a 256 "$SSI_CANDIDATE_ZIP" | cut -d " " -f 1 )" = \
-  7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751
 gh run download 34483685921 --repo Automattic/studio \
   --name php-8.5.10-cli-macos-aarch64 --dir "$workdir/artifact"
 mkdir -p "$workdir/home/.studio/php-bin/8.5.10-studio-1"

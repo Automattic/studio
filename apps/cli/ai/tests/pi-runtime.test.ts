@@ -388,6 +388,14 @@ describe( 'pi runtime', () => {
 		);
 		expect( toolNames( 0 ) ).toContain( 'AskUserQuestion' );
 		expect( toolNames( 0 ) ).not.toContain( 'present_design_options' );
+		const pickDesign = ( index: number ) =>
+			(
+				( mocks.createdSessions[ index ].options.customTools ?? [] ) as {
+					name: string;
+					description: string;
+				}[]
+			 ).find( ( tool ) => tool.name === 'pick_design' )?.description;
+		expect( pickDesign( 0 ) ).toContain( 'options: 4' );
 
 		// Forked by the Desktop app or `studio ui`.
 		await withProcessSend( vi.fn() as unknown as typeof process.send, () =>
@@ -401,6 +409,7 @@ describe( 'pi runtime', () => {
 		);
 		expect( toolNames( 2 ) ).not.toContain( 'AskUserQuestion' );
 		expect( toolNames( 2 ) ).not.toContain( 'present_design_options' );
+		expect( pickDesign( 2 ) ).not.toContain( 'options: 4' );
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

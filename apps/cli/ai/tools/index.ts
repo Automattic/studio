@@ -14,7 +14,7 @@ import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
-import { pickDesignTool } from './pick-design';
+import { createPickDesignTool, pickDesignTool } from './pick-design';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
@@ -76,6 +76,9 @@ export interface CreateStudioToolsOptions {
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
+	// True when a question tool can collect an answer from the user, so
+	// pick_design may offer options to pick from. Defaults to false.
+	canAskUser?: boolean;
 }
 
 export function resolveStudioToolDefinitions(
@@ -96,10 +99,13 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
-		const tool =
-			candidate.name === takeScreenshotTool.name && options.visionEnabled === false
-				? createTakeScreenshotTool( { visionEnabled: false } )
-				: candidate;
+		let tool = candidate;
+		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
+			tool = createTakeScreenshotTool( { visionEnabled: false } );
+		}
+		if ( candidate.name === pickDesignTool.name && options.canAskUser === true ) {
+			tool = createPickDesignTool( { canAskUser: true } );
+		}
 		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
 	} );
 }

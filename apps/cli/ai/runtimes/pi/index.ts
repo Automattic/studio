@@ -740,6 +740,7 @@ function buildAgentTools(
 		emitChatArtifacts: chatArtifactsEnabled,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
+		canAskUser: Boolean( config.onAskUser ),
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
 }

@@ -33,6 +33,7 @@ import {
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
+import { createPickDesignTool } from '../tools/pick-design';
 import { createPresentDesignOptionsTool } from '../tools/present-design-options';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
 
@@ -339,7 +340,7 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'pick_design draws one random pair with its notes when the user will not pick', async () => {
-		const tool = getTool( 'pick_design' );
+		const tool = createPickDesignTool( { canAskUser: true } ) as unknown as AnyStudioAgentTool;
 		const text = getTextContent( await executeTool( tool, { options: 1 } ) ) ?? '';
 		expect( text ).toMatch( /^Layout concept: .+$/m );
 		expect( text ).toMatch( /^Artistic direction: .+$/m );
@@ -354,11 +355,23 @@ describe( 'Studio AI MCP tools', () => {
 		).rejects.toThrow( /single draw is random/ );
 	} );
 
+	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
+		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
+		expect(
+			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
+				?.description
+		).toContain( 'options: 4' );
+		const text =
+			getTextContent( await executeTool( getTool( 'pick_design' ), { options: 4 } ) ) ?? '';
+		expect( text ).not.toContain( 'Option 1' );
+		expect( text ).toContain( 'cannot be asked in this session' );
+	} );
+
 	it( 'pick_design returns four distinct options around the chosen pairs', async () => {
 		const { loadDesignCatalog } = await import( '../skills' );
 		const concepts = loadDesignCatalog( 'concept' ).map( ( c ) => c.name );
 		const directions = loadDesignCatalog( 'direction' ).map( ( d ) => d.name );
-		const tool = getTool( 'pick_design' );
+		const tool = createPickDesignTool( { canAskUser: true } ) as unknown as AnyStudioAgentTool;
 		const text =
 			getTextContent(
 				await executeTool( tool, {

@@ -1,50 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { at, easings, envelope, span, useTimeline } from './choreography';
-import { StreamingText } from './primitives';
+import { FileGlyph, PlusGlyph, SendGlyph, StreamingText } from './primitives';
 import styles from './style.module.css';
-
-function PlusGlyph() {
-	return (
-		<svg viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M8 3.5 V12.5 M3.5 8 H12.5"
-				stroke="currentColor"
-				strokeWidth="1.5"
-				strokeLinecap="round"
-			/>
-		</svg>
-	);
-}
-
-function SendGlyph() {
-	return (
-		<svg viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M8 12.5 V4 M4.5 7.5 L8 4 L11.5 7.5"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.6"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</svg>
-	);
-}
-
-function FileGlyph() {
-	return (
-		<svg className={ styles.toolIcon } viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M4 2 H9 L12.5 5.5 V14 H4 Z M9 2 V5.5 H12.5"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.1"
-				strokeLinejoin="round"
-			/>
-		</svg>
-	);
-}
 
 const TYPE_MS = 42;
 const STREAM_MS = 17;

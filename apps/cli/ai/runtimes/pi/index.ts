@@ -52,6 +52,7 @@ import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
+import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
@@ -685,6 +686,12 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
+	// Rendered design previews need a Studio UI to draw the image grid; the
+	// terminal asks the same question with text options instead.
+	const designOptionsTool: AgentToolAny[] =
+		config.onAskUser && chatArtifactsEnabled
+			? [ createPresentDesignOptionsTool( config.onAskUser ) as unknown as AgentToolAny ]
+			: [];
 
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
@@ -734,7 +741,7 @@ function buildAgentTools(
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

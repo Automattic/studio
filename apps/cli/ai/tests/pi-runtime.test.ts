@@ -362,6 +362,47 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
 	} );
 
+	it( 'offers present_design_options only when a Studio UI can draw the grid', async () => {
+		const toolNames = ( index: number ) =>
+			( ( mocks.createdSessions[ index ].options.customTools ?? [] ) as { name: string }[] ).map(
+				( tool ) => tool.name
+			);
+		const onAskUser = vi.fn().mockResolvedValue( {} );
+		const env = { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://proxy.example.com/v1' };
+		const model = 'gpt-5.6-sol';
+		// The runtime reads "a UI is attached" off the Node IPC channel, which the
+		// test worker itself may have, so each case pins it explicitly.
+		const originalSend = process.send;
+		const withProcessSend = async ( send: typeof process.send, run: () => Promise< unknown > ) => {
+			process.send = send;
+			try {
+				await run();
+			} finally {
+				process.send = originalSend;
+			}
+		};
+
+		// Terminal: questions are possible, but nothing can show an image grid.
+		await withProcessSend( undefined, () =>
+			runRuntime( { prompt: 'hello', env, model, session: newSession(), onAskUser } )
+		);
+		expect( toolNames( 0 ) ).toContain( 'AskUserQuestion' );
+		expect( toolNames( 0 ) ).not.toContain( 'present_design_options' );
+
+		// Forked by the Desktop app or `studio ui`.
+		await withProcessSend( vi.fn() as unknown as typeof process.send, () =>
+			runRuntime( { prompt: 'hello', env, model, session: newSession(), onAskUser } )
+		);
+		expect( toolNames( 1 ) ).toContain( 'present_design_options' );
+
+		// No way to ask at all (MCP-style runs): neither tool.
+		await withProcessSend( vi.fn() as unknown as typeof process.send, () =>
+			runRuntime( { prompt: 'hello', env, model, session: newSession() } )
+		);
+		expect( toolNames( 2 ) ).not.toContain( 'AskUserQuestion' );
+		expect( toolNames( 2 ) ).not.toContain( 'present_design_options' );
+	} );
+
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',

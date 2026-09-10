@@ -185,12 +185,14 @@ function findDesignEntry( kind: DesignCatalogKind, name: string ): DesignEntry |
 // The model shortlists; the code draws. An entry the user named in the
 // brief bypasses the draw. Candidates must be distinct catalog entries from
 // the pool the model was shown, and at least three of them, so the draw is
-// real rather than a shortlist of one.
-export function pickDesignEntry(
+// real rather than a shortlist of one. `count` distinct entries come back
+// when the user is going to pick between rendered previews.
+export function pickDesignEntries(
 	kind: DesignCatalogKind,
 	input: { candidates: string[]; namedInBrief?: string },
+	count = 1,
 	random: () => number = Math.random
-): { entry: DesignEntry; drawn: boolean } {
+): { entries: DesignEntry[]; drawn: boolean } {
 	const { label } = DESIGN_CATALOGS[ kind ];
 	if ( input.namedInBrief ) {
 		const entry = findDesignEntry( kind, input.namedInBrief );
@@ -205,7 +207,7 @@ export function pickDesignEntry(
 					.join( ', ' ) }`
 			);
 		}
-		return { entry, drawn: false };
+		return { entries: [ entry ], drawn: false };
 	}
 	const candidates = [ ...new Set( input.candidates.map( ( name ) => name.trim() ) ) ];
 	const unknown = candidates.filter( ( name ) => ! findDesignEntry( kind, name ) );
@@ -229,6 +231,8 @@ export function pickDesignEntry(
 			`Shortlist at least ${ MIN_DESIGN_CANDIDATES } distinct ${ label }s that fit the site.`
 		);
 	}
-	const entry = findDesignEntry( kind, candidates[ Math.floor( random() * candidates.length ) ] );
-	return { entry: entry as DesignEntry, drawn: true };
+	const entries = shuffle( candidates, random )
+		.slice( 0, count )
+		.map( ( name ) => findDesignEntry( kind, name ) as DesignEntry );
+	return { entries, drawn: true };
 }

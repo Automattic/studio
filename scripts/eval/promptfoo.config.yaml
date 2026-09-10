@@ -373,6 +373,7 @@ tests:
               return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
             }
             return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
+          });
       # Theme templates and parts are live as soon as they are written, so each
       # Write/Edit on one must be followed by validate_blocks on that file —
       # the serialization fix is what puts comment attributes (padding, align,
@@ -420,9 +421,11 @@ tests:
               const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
               if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
               // Each must be what pick_design drew (or returned for a named brief), not a substitute.
-              const drawn = (picks.match(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'm')) || [])[1];
-              if (!drawn) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
-              if (!fromCatalog.toLowerCase().includes(drawn.toLowerCase())) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match the pick_design result "${drawn}"` };
+              // With `options: 3` the tool returns several drawn pairs; the stated one must be among them.
+              const drawnNames = [...picks.matchAll(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'gm'))].map(m => m[1]);
+              if (!drawnNames.length) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
+              const drawn = drawnNames.find(name => fromCatalog.toLowerCase().includes(name.toLowerCase()));
+              if (!drawn) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match any pick_design result (${drawnNames.join(', ')})` };
               stated.push(drawn);
             }
             if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems, getQuestionScrollDelta } from './index';
@@ -333,6 +333,65 @@ function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
 }
 
 describe( 'Conversation Ask User questions', () => {
+	it( 'lays options with rendered previews out as a grid of image buttons', async () => {
+		connectorMocks.readLocalMediaFile.mockImplementation( async ( path: string ) => ( {
+			name: path.split( '/' ).pop(),
+			mimeType: 'image/png',
+			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
+		} ) );
+		const onAnswerQuestion = vi.fn();
+		const question = 'Which look should I build?';
+		const data = loadedSession( [
+			agentQuestionEntry( question, [
+				{
+					label: 'Broadsheet × Noir',
+					description: 'Newspaper front page, dark.',
+					image: '/s/one.png',
+				},
+				{ label: 'Collage × Playful', description: 'Overlapping cut-outs.', image: '/s/two.png' },
+			] ),
+		] );
+
+		renderConversation( data, {
+			pendingQuestions: new Set( [ question ] ),
+			onAnswerQuestion,
+		} );
+
+		expect( screen.getByRole( 'list' ) ).toHaveAttribute( 'data-layout', 'grid' );
+		const buttons = screen.getAllByRole( 'button' );
+		expect( buttons ).toHaveLength( 2 );
+		expect( buttons[ 0 ] ).toHaveAttribute( 'data-has-image', 'true' );
+		await waitFor( () =>
+			expect( buttons[ 1 ].querySelector( 'img' ) ).toHaveAttribute(
+				'src',
+				'data:image/png;base64,AQID'
+			)
+		);
+		expect( connectorMocks.readLocalMediaFile ).toHaveBeenCalledWith( '/s/one.png' );
+
+		fireEvent.click( buttons[ 1 ] );
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'Collage × Playful' );
+	} );
+
+	it( 'keeps image options clickable with a placeholder when local reads are unavailable', () => {
+		connectorMocks.capabilities.readLocalMedia = false;
+		const question = 'Which look should I build?';
+		renderConversation(
+			loadedSession( [
+				agentQuestionEntry( question, [
+					{ label: 'A', description: '', image: '/s/one.png' },
+					{ label: 'B', description: '', image: '/s/two.png' },
+				] ),
+			] ),
+			{ pendingQuestions: new Set( [ question ] ) }
+		);
+
+		expect( screen.getAllByRole( 'button' ) ).toHaveLength( 2 );
+		expect( screen.queryByRole( 'img' ) ).not.toBeInTheDocument();
+		expect( connectorMocks.readLocalMediaFile ).not.toHaveBeenCalled();
+		expect( screen.getAllByText( 'Preview unavailable' ) ).toHaveLength( 2 );
+	} );
+
 	it( 'shows option descriptions and a selected historical answer', () => {
 		const question = "What kind of vibe do you want for your blog's design?";
 		const data = loadedSession( [
@@ -793,7 +852,7 @@ function toolResultEntry( text: string ): SessionEntry {
 
 function agentQuestionEntry(
 	question: string,
-	options: Array< string | { label: string; description: string } >,
+	options: Array< string | { label: string; description: string; image?: string } >,
 	id = 'question',
 	selectedLabel?: string
 ): SessionEntry {

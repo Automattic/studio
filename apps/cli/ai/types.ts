@@ -1,6 +1,7 @@
 export interface AskUserQuestion {
 	question: string;
-	options: { label: string; description: string }[];
+	// `image` is an absolute path to a rendered preview shown above the options.
+	options: { label: string; description: string; image?: string }[];
 	allowFreeForm?: boolean;
 }
 

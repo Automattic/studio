@@ -20,7 +20,7 @@ export type JsonEvent =
 			timestamp: string;
 			questions: Array< {
 				question: string;
-				options: Array< { label: string; description: string } >;
+				options: Array< { label: string; description: string; image?: string } >;
 			} >;
 	  }
 	| { type: 'turn.started'; timestamp: string }

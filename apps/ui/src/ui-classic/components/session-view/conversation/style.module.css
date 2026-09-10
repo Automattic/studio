@@ -528,6 +528,75 @@
 	padding: 0;
 }
 
+/* Image options (design sneak peeks) tile into a grid of cards. */
+.questionOptions[data-layout='grid'] {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-md);
+	width: min(100%, 760px);
+}
+
+.questionOptions[data-layout='grid'] .questionOptionItem {
+	min-width: 0;
+}
+
+.questionOption[data-has-image='true'] {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	height: 100%;
+}
+
+.questionOptionImage,
+.questionOptionImageLoading,
+.questionOptionImageUnavailable {
+	grid-column: 1 / -1;
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-background-surface-neutral-weak);
+	transition:
+		border-color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.questionOptionImage {
+	object-fit: cover;
+	object-position: top;
+}
+
+.questionOptionImageLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--wpds-color-foreground-content-neutral) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.questionOptionImageUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.questionOption[data-has-image='true']:is(:hover, :focus-visible):not(:disabled) .questionOptionImage {
+	border-color: var(--wpds-color-foreground-interactive-brand, #2563eb);
+}
+
+.questionOption[data-has-image='true'].questionOptionPicked .questionOptionImage {
+	border-color: var(--wpds-color-background-interactive-brand-strong);
+	box-shadow: 0 0 0 2px var(--wpds-color-background-interactive-brand-strong);
+}
+
 .question[data-state='folding'] .questionOptionItem:not([data-picked='true']) {
 	animation: questionAnsweredElementFade 180ms ease-out forwards;
 }

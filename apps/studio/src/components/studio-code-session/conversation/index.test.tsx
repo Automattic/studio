@@ -36,10 +36,15 @@ function customEntry( customType: string, data: unknown ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
-function question( q: string, options: string[] ): SessionEntry {
+function question(
+	q: string,
+	options: Array< string | { label: string; description: string; image?: string } >
+): SessionEntry {
 	return customEntry( 'studio.agent_question', {
 		question: q,
-		options: options.map( ( label ) => ( { label, description: '' } ) ),
+		options: options.map( ( option ) =>
+			typeof option === 'string' ? { label: option, description: '' } : option
+		),
 	} );
 }
 
@@ -420,5 +425,61 @@ describe( 'Conversation – assistant message copy button', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'tooltip' ) ).toHaveTextContent( 'Copy message' )
 		);
+	} );
+} );
+
+describe( 'Conversation image options', () => {
+	beforeEach( () => {
+		ipcApiMocks.readLocalMediaFile.mockReset();
+	} );
+
+	it( 'lays options with rendered previews out as a grid of image buttons', async () => {
+		ipcApiMocks.readLocalMediaFile.mockImplementation( async ( path: string ) => ( {
+			name: path.split( '/' ).pop(),
+			mimeType: 'image/png',
+			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
+		} ) );
+		const onAnswerQuestion = vi.fn();
+		const q = 'Which look should I build?';
+		// Paths are unique per test: the component caches data URLs by path.
+		render(
+			<Conversation
+				data={
+					{
+						entries: [
+							question( q, [
+								{
+									label: 'Broadsheet × Noir',
+									description: 'Dark newspaper.',
+									image: '/grid/one.png',
+								},
+								{ label: 'Collage × Playful', description: 'Cut-outs.', image: '/grid/two.png' },
+							] ),
+						],
+					} as unknown as LoadedAiSession
+				}
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ new Set( [ q ] ) }
+				pendingAnswers={ {} }
+				answeredQuestions={ {} }
+				onAnswerQuestion={ onAnswerQuestion }
+			/>
+		);
+
+		expect( screen.getByRole( 'list' ) ).toHaveAttribute( 'data-layout', 'grid' );
+		const buttons = screen.getAllByRole( 'button' );
+		expect( buttons ).toHaveLength( 2 );
+		expect( screen.getByText( 'Cut-outs.' ) ).toBeInTheDocument();
+		await waitFor( () =>
+			expect( buttons[ 0 ].querySelector( 'img' ) ).toHaveAttribute(
+				'src',
+				'data:image/png;base64,AQID'
+			)
+		);
+		expect( ipcApiMocks.readLocalMediaFile ).toHaveBeenCalledWith( '/grid/two.png' );
+
+		fireEvent.click( buttons[ 1 ] );
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( q, 'Collage × Playful' );
 	} );
 } );

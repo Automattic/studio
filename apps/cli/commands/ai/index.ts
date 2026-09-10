@@ -483,6 +483,7 @@ export async function runCommand( options: {
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
 						description: option.description,
+						...( option.image ? { image: option.image } : {} ),
 					} ) ),
 				} )
 			);

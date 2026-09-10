@@ -4,7 +4,7 @@ import {
 	findSkill,
 	getCurrentDesignPool,
 	loadDesignCatalog,
-	pickDesignEntry,
+	pickDesignEntries,
 	renderSkillBody,
 	sampleDesignCatalog,
 } from '../skills';
@@ -89,7 +89,7 @@ describe( 'renderSkillBody', () => {
 	} );
 } );
 
-describe.each( DESIGN_CATALOG_KINDS )( 'pickDesignEntry(%s)', ( kind ) => {
+describe.each( DESIGN_CATALOG_KINDS )( 'pickDesignEntries(%s)', ( kind ) => {
 	const pool = () => {
 		renderSkillBody( findSkill( 'visual-design' )! );
 		return getCurrentDesignPool( kind );
@@ -97,35 +97,50 @@ describe.each( DESIGN_CATALOG_KINDS )( 'pickDesignEntry(%s)', ( kind ) => {
 
 	it( 'draws one of the candidates and returns its notes', () => {
 		const candidates = pool().slice( 0, 4 );
-		const { entry, drawn } = pickDesignEntry( kind, { candidates }, seededRandom( 3 ) );
+		const { entries, drawn } = pickDesignEntries( kind, { candidates }, 1, seededRandom( 3 ) );
 		expect( drawn ).toBe( true );
-		expect( candidates ).toContain( entry.name );
-		expect( entry.body ).toMatch( kind === 'concept' ? /^Build: /m : /^Palette: /m );
+		expect( entries ).toHaveLength( 1 );
+		expect( candidates ).toContain( entries[ 0 ].name );
+		expect( entries[ 0 ].body ).toMatch( kind === 'concept' ? /^Build: /m : /^Palette: /m );
+	} );
+
+	it( 'draws several distinct candidates when the user will pick between them', () => {
+		const candidates = pool().slice( 0, 4 );
+		const { entries } = pickDesignEntries( kind, { candidates }, 3, seededRandom( 7 ) );
+		expect( entries ).toHaveLength( 3 );
+		expect( new Set( entries.map( ( entry ) => entry.name ) ).size ).toBe( 3 );
+		for ( const entry of entries ) {
+			expect( candidates ).toContain( entry.name );
+		}
 	} );
 
 	it( 'rejects shortlists of fewer than three distinct entries', () => {
 		const [ a, b ] = pool();
-		expect( () => pickDesignEntry( kind, { candidates: [ a, b, b ] } ) ).toThrow( /at least 3/ );
+		expect( () => pickDesignEntries( kind, { candidates: [ a, b, b ] } ) ).toThrow( /at least 3/ );
 	} );
 
 	it( 'rejects candidates outside the pool the model was shown', () => {
 		const shown = pool();
 		const outside = loadDesignCatalog( kind ).find( ( c ) => ! shown.includes( c.name ) )!.name;
 		expect( () =>
-			pickDesignEntry( kind, { candidates: [ ...shown.slice( 0, 3 ), outside ] } )
+			pickDesignEntries( kind, { candidates: [ ...shown.slice( 0, 3 ), outside ] } )
 		).toThrow( /Not in this build's .* pool/ );
 	} );
 
 	it( 'rejects names that are not catalog entries', () => {
-		expect( () => pickDesignEntry( kind, { candidates: [ 'Nope', 'Nah', 'Never' ] } ) ).toThrow(
+		expect( () => pickDesignEntries( kind, { candidates: [ 'Nope', 'Nah', 'Never' ] } ) ).toThrow(
 			/Not catalog/
 		);
 	} );
 
 	it( 'returns an entry named in the brief without drawing', () => {
 		const named = loadDesignCatalog( kind )[ 0 ].name;
-		const { entry, drawn } = pickDesignEntry( kind, { candidates: [], namedInBrief: named } );
+		const { entries, drawn } = pickDesignEntries(
+			kind,
+			{ candidates: [], namedInBrief: named },
+			3
+		);
 		expect( drawn ).toBe( false );
-		expect( entry.name ).toBe( named );
+		expect( entries.map( ( entry ) => entry.name ) ).toEqual( [ named ] );
 	} );
 } );

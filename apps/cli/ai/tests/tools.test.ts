@@ -9,6 +9,7 @@ import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
@@ -32,6 +33,7 @@ import {
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
+import { createPresentDesignOptionsTool } from '../tools/present-design-options';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -366,6 +368,125 @@ describe( 'Studio AI MCP tools', () => {
 			) ?? '';
 		expect( named ).toContain( `Artistic direction named in the brief: ${ directions[ 0 ] }` );
 		expect( named ).not.toContain( 'layout concept' );
+	} );
+
+	it( 'pick_design draws four distinct pairs when the user will pick one', async () => {
+		const { findSkill, getCurrentDesignPool, renderSkillBody } = await import( '../skills' );
+		renderSkillBody( findSkill( 'visual-design' )! );
+		const concepts = getCurrentDesignPool( 'concept' ).slice( 0, 5 );
+		const directions = getCurrentDesignPool( 'direction' ).slice( 0, 4 );
+		const shortlist = ( names: string[] ) => names.map( ( name ) => ( { name, reason: 'fits' } ) );
+		const tool = getTool( 'pick_design' );
+		const text =
+			getTextContent(
+				await executeTool( tool, {
+					layoutCandidates: shortlist( concepts ),
+					directionCandidates: shortlist( directions ),
+					options: 4,
+				} )
+			) ?? '';
+		expect( text ).toMatch( /^Option 1$/m );
+		expect( text ).toMatch( /^Option 4$/m );
+		expect( text ).not.toMatch( /^Option 5$/m );
+		const drawnConcepts = [ ...text.matchAll( /^Drawn layout concept: (.+)$/gm ) ].map(
+			( m ) => m[ 1 ]
+		);
+		const drawnDirections = [ ...text.matchAll( /^Drawn artistic direction: (.+)$/gm ) ].map(
+			( m ) => m[ 1 ]
+		);
+		expect( new Set( drawnConcepts ).size ).toBe( 4 );
+		expect( new Set( drawnDirections ).size ).toBe( 4 );
+		for ( const name of drawnConcepts ) expect( concepts ).toContain( name );
+		for ( const name of drawnDirections ) expect( directions ).toContain( name );
+		expect( text ).toContain( 'present_design_options' );
+
+		// A side named in the brief is stated once and stays fixed across options.
+		const named =
+			getTextContent(
+				await executeTool( tool, {
+					layoutNamedInBrief: concepts[ 0 ],
+					directionCandidates: shortlist( directions ),
+					options: 4,
+				} )
+			) ?? '';
+		expect( named.match( /^Layout concept named in the brief: /gm ) ).toHaveLength( 1 );
+		expect( named.match( /^Drawn artistic direction: /gm ) ).toHaveLength( 4 );
+	} );
+
+	it( 'present_design_options renders each sneak peek and asks the user with the images', async () => {
+		const root = await mkdtemp( path.join( os.tmpdir(), 'studio-design-options-' ) );
+		setScreenshotDirectoryProvider( () => root );
+		const pages = [
+			createMockPage( { buffer: Buffer.from( 'png-1' ) } ),
+			createMockPage( { buffer: Buffer.from( 'png-2' ) } ),
+		];
+		mockScreenshotBrowser( ...pages );
+		const onAskUser = vi
+			.fn()
+			.mockImplementation( async ( questions: Array< { question: string } > ) => ( {
+				[ questions[ 0 ].question ]: 'Collage × Playful',
+			} ) );
+		try {
+			const result = await createPresentDesignOptionsTool( onAskUser ).rawHandler(
+				{
+					question: 'Which look should I build?',
+					options: [
+						{ label: 'Broadsheet × Noir', description: 'Dark newspaper.', html: '<h1>One</h1>' },
+						{ label: 'Collage × Playful', description: 'Cut-outs.', html: '<h1>Two</h1>' },
+					],
+				} as never,
+				{ onProgress: () => {} }
+			);
+			expect( getTextContent( result ) ).toBe( 'The user picked option 2: Collage × Playful' );
+			expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+			const [ asked ] = onAskUser.mock.calls[ 0 ][ 0 ];
+			expect( asked.question ).toBe( 'Which look should I build?' );
+			expect( asked.allowFreeForm ).toBe( true );
+			expect( asked.options.map( ( option: { label: string } ) => option.label ) ).toEqual( [
+				'Broadsheet × Noir',
+				'Collage × Playful',
+			] );
+			for ( const option of asked.options ) {
+				expect( option.image ).toMatch( /screenshot-preview-\d-[0-9a-f]{8}\.png$/ );
+				await expect( stat( option.image ) ).resolves.toBeTruthy();
+			}
+			for ( const page of pages ) {
+				expect( page.goto ).toHaveBeenCalledWith(
+					expect.stringMatching( /^file:\/\/.*preview-\d-[a-z0-9-]+\.html$/ ),
+					expect.anything()
+				);
+			}
+			expect( result.content.some( ( block ) => block.type === 'image' ) ).toBe( false );
+		} finally {
+			setScreenshotDirectoryProvider( null );
+			await rm( root, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'present_design_options relays a typed answer verbatim', async () => {
+		const root = await mkdtemp( path.join( os.tmpdir(), 'studio-design-options-' ) );
+		setScreenshotDirectoryProvider( () => root );
+		mockScreenshotBrowser(
+			createMockPage( { buffer: Buffer.from( 'png' ) } ),
+			createMockPage( { buffer: Buffer.from( 'png' ) } )
+		);
+		const onAskUser = vi.fn().mockResolvedValue( { 'Which look?': '2 but darker' } );
+		try {
+			const result = await createPresentDesignOptionsTool( onAskUser ).rawHandler(
+				{
+					question: 'Which look?',
+					options: [
+						{ label: 'A', description: 'a', html: '<p>a</p>' },
+						{ label: 'B', description: 'b', html: '<p>b</p>' },
+					],
+				} as never,
+				{ onProgress: () => {} }
+			);
+			expect( getTextContent( result ) ).toBe( 'The user answered: 2 but darker' );
+		} finally {
+			setScreenshotDirectoryProvider( null );
+			await rm( root, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {

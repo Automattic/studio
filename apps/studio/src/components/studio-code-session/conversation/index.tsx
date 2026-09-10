@@ -61,7 +61,7 @@ type RenderItem =
 			kind: 'agent-question';
 			key: string;
 			question: string;
-			options: Array< { label: string; description: string } >;
+			options: Array< { label: string; description: string; image?: string } >;
 			answer?: string;
 	  }
 	| {
@@ -93,7 +93,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'present_design_options' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -620,16 +620,19 @@ function AgentQuestion( {
 	onAnswer,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
+	// Options with rendered previews (design sneak peeks) lay out as a grid of
+	// image cards instead of a row of chips.
+	const hasImages = options.some( ( option ) => option.image );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
 						return (
@@ -640,8 +643,18 @@ function AgentQuestion( {
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
 									title={ option.description }
+									aria-pressed={ picked }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
-									{ option.label }
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									<span className={ styles.questionOptionCopy }>
+										<span>{ option.label }</span>
+										{ hasImages && option.description ? (
+											<span className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
@@ -650,6 +663,46 @@ function AgentQuestion( {
 			) : null }
 		</div>
 	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const [ src, setSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! path ) {
+			return;
+		}
+		let active = true;
+		setSrc( null );
+		setFailed( false );
+		readLocalMediaDataUrl( path )
+			.then( ( dataUrl ) => {
+				if ( active ) {
+					setSrc( dataUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ path ] );
+
+	if ( ! path || failed ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! src ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ src } alt="" />;
 }
 
 // In-flow marker for a turn that ended in an error. The proxy's quota

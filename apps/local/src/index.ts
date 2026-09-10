@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -54,6 +55,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
@@ -215,6 +217,16 @@ function backupFilename( siteName: string ): string {
 // Express 4 doesn't forward async rejections to the error middleware — an
 // unhandled rejection would take the whole process down — so async routes go
 // through this wrapper.
+// Raster formats only: an SVG served from the API origin could run scripts
+// there, and nothing in the transcript needs one.
+const SERVED_MEDIA_MIME_TYPES = new Set( [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'image/avif',
+] );
+
 function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) {
 	return ( req: Request, res: Response, next: ( e?: unknown ) => void ) => {
 		fn( req, res ).catch( next );
@@ -1197,12 +1209,41 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// NOTE: there is intentionally no `/media/read` endpoint. Streaming an
-	// arbitrary local file by absolute path over HTTP is an arbitrary-read risk
-	// (the API is reachable cross-origin from the browser), and nothing in the UI
-	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
-	// consumer and a path-containment policy (e.g. restricted to the sites root)
-	// exist.
+	// Local media for the transcript: agent screenshots and design previews,
+	// which the CLI saves in `<session>.screenshots/` sidecars. The API is
+	// reachable cross-origin from the browser, so this is deliberately not a
+	// general file read: only raster images under the sessions root are served,
+	// with symlinks resolved before the containment check.
+	api.get(
+		'/media/read',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = typeof req.query.path === 'string' ? req.query.path : '';
+			const mimeType = getLocalMediaMimeType( requested );
+			if ( ! requested || ! SERVED_MEDIA_MIME_TYPES.has( mimeType ) ) {
+				res.status( 400 ).json( { error: 'Unsupported media path' } );
+				return;
+			}
+			let resolved: string | null;
+			try {
+				resolved = confineToRoot( await realpath( sessionsRoot ), await realpath( requested ) );
+			} catch {
+				resolved = null;
+			}
+			if ( ! resolved || ! confineToRoot( sessionsRoot, requested ) ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			const stats = await stat( resolved );
+			if ( ! stats.isFile() ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			res.setHeader( 'Content-Type', mimeType );
+			res.setHeader( 'Content-Length', stats.size );
+			res.setHeader( 'Cache-Control', 'private, max-age=31536000, immutable' );
+			await pipeline( createReadStream( resolved ), res );
+		} )
+	);
 
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's

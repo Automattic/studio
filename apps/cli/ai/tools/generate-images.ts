@@ -67,6 +67,12 @@ export const generateImagesTool = defineTool(
 						}
 					)
 				),
+				imageGrade: Type.Optional(
+					Type.String( {
+						description:
+							'Per-image photographic treatment overriding the call-wide imageGrade. Only for design-option previews, where each image belongs to a different artistic direction; images shown together on a site share the call-wide grade.',
+					} )
+				),
 			} ),
 			{ minItems: 1, maxItems: MAX_IMAGES_PER_CALL }
 		),
@@ -102,7 +108,7 @@ export const generateImagesTool = defineTool(
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
-				imageGrade: args.imageGrade,
+				imageGrade: image.imageGrade ?? args.imageGrade,
 			} ),
 			aspectRatio: image.aspectRatio,
 		} ) );

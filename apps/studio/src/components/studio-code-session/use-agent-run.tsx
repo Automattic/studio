@@ -47,7 +47,7 @@ function shortEntryId(): string {
 
 export interface PendingQuestion {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 }
 
 export interface QueuedPrompt {

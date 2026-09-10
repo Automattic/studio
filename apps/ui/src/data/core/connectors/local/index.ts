@@ -250,7 +250,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: false,
+			readLocalMedia: true,
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: false,
@@ -477,11 +477,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// back the server-side temp path the path-based operations expect.
 			return uploadFile( file );
 		},
-		async readLocalMediaFile(): Promise< LocalMediaFile > {
-			// Not exposed over HTTP: reading an arbitrary local file by absolute
-			// path is an arbitrary-read risk and nothing consumes it yet. Reinstate
-			// with a server-side path-containment policy when a real consumer lands.
-			throw new UnsupportedError( 'readLocalMediaFile' );
+		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
+			// The server only serves files under the sessions directory (agent
+			// screenshots and design previews), so this is not a general file read.
+			const response = await fetch(
+				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
+			);
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
+			}
+			return {
+				name: filePath.split( '/' ).pop() ?? filePath,
+				mimeType: response.headers.get( 'Content-Type' ) ?? 'application/octet-stream',
+				data: await response.arrayBuffer(),
+			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
 			const response = await fetch( `${ base }/blueprints/extract`, {

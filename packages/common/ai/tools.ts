@@ -312,6 +312,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		site_connected_remote_sites: __( 'List connected remote sites' ),
 		scaffold_theme: __( 'Scaffold theme' ),
 		pick_design: __( 'Pick concept and direction' ),
+		present_design_options: __( 'Present design options' ),
 		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
@@ -449,6 +450,17 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 						.filter( Boolean )
 						.join( ', ' );
 				} )
+				.filter( Boolean )
+				.join( ' · ' );
+		case 'present_design_options':
+			return ( Array.isArray( input.options ) ? input.options : [] )
+				.map( ( option ) =>
+					option &&
+					typeof option === 'object' &&
+					typeof ( option as { label?: unknown } ).label === 'string'
+						? ( option as { label: string } ).label
+						: ''
+				)
 				.filter( Boolean )
 				.join( ' · ' );
 		case 'inspect_design':

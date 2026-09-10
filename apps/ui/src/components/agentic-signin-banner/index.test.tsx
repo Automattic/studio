@@ -42,7 +42,7 @@ describe( 'AgenticSigninPrompt', () => {
 		expect(
 			screen.getByRole( 'heading', { name: 'Your personal WordPress expert' } )
 		).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Chat', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Studio Code', selected: true } ) ).toBeVisible();
 		expect( screen.getByText( /Chat to build themes, write plugins/ ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Next feature' } ) );
@@ -85,7 +85,7 @@ describe( 'AgenticSigninPrompt', () => {
 		render( <AgenticSigninPrompt onOpenOverview={ onOpenOverview } /> );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to Overview' } ) );
-		expect( screen.getByRole( 'dialog', { name: 'Turn off agentic features?' } ) ).toBeVisible();
+		expect( screen.getByRole( 'dialog', { name: 'Turn off Studio Code?' } ) ).toBeVisible();
 		expect( onOpenOverview ).not.toHaveBeenCalled();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Turn off and switch' } ) );

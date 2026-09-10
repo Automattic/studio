@@ -39,10 +39,10 @@ export function StudioCodeUpsell( { siteId }: { siteId: string } ) {
 					tone="neutral"
 					size="compact"
 					loading={ savePreferences.isPending }
-					loadingAnnouncement={ __( 'Turning on agentic chat' ) }
+					loadingAnnouncement={ __( 'Turning on Studio Code' ) }
 					onClick={ turnOn }
 				>
-					{ __( 'Turn on agentic chat' ) }
+					{ __( 'Turn on Studio Code' ) }
 				</Button>
 			</div>
 		</div>

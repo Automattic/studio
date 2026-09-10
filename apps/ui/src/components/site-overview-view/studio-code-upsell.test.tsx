@@ -41,7 +41,7 @@ describe( 'StudioCodeUpsell', () => {
 		} );
 		render( <StudioCodeUpsell siteId="site-1" /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Turn on agentic chat' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Turn on Studio Code' } ) );
 
 		expect( savePreferences ).toHaveBeenCalledWith(
 			{ agenticFeaturesEnabled: true },

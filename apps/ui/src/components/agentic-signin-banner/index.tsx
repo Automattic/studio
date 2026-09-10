@@ -182,7 +182,7 @@ const slides: {
 }[] = [
 	{
 		id: 'chat',
-		label: __( 'Chat' ),
+		label: __( 'Studio Code' ),
 		description: __(
 			'Chat to build themes, write plugins, and make changes to your site. Studio Code reads your files, makes the edits, and checks its work.'
 		),
@@ -243,12 +243,12 @@ function SwitchToOverviewDialog( {
 		>
 			<Dialog.Popup size="small" onKeyDown={ handleKeyDown }>
 				<Dialog.Header>
-					<Dialog.Title>{ __( 'Turn off agentic features?' ) }</Dialog.Title>
+					<Dialog.Title>{ __( 'Turn off Studio Code?' ) }</Dialog.Title>
 				</Dialog.Header>
 				<Dialog.Content>
 					<Dialog.Description>
 						{ __(
-							'Switching to Overview turns off agentic features, so Overview becomes the home for all of your sites. You can turn them back on any time in settings.'
+							'Switching to Overview turns off Studio Code, so Overview becomes the home for all of your sites. You can turn it back on any time in settings.'
 						) }
 					</Dialog.Description>
 				</Dialog.Content>
@@ -260,7 +260,7 @@ function SwitchToOverviewDialog( {
 						variant="solid"
 						tone="brand"
 						loading={ savePreferences.isPending }
-						loadingAnnouncement={ __( 'Turning off agentic features' ) }
+						loadingAnnouncement={ __( 'Turning off Studio Code' ) }
 						onClick={ handleConfirm }
 					>
 						{ confirmLabel }

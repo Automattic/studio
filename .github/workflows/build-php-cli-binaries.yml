@@ -107,6 +107,32 @@ jobs:
           ref: ${{ env.SPC_REF }}
           path: .cache/static-php-cli
 
+      - name: Repair CentOS 7 vault URL in static-php-cli
+        # SPC's pinned v2 Docker wrapper uses the vault before its later
+        # http-to-https rewrite. Yum does not follow the vault's redirect.
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: .cache/static-php-cli
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          wrapper = Path('bin/spc-gnu-docker')
+          source = wrapper.read_text()
+          old = """    sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
+          RUN yum clean all && \\
+          """
+          new = """    sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo && \\
+              sed -i 's|http://vault.centos.org|https://vault.centos.org|g' /etc/yum.repos.d/*.repo
+          RUN yum clean all && \\
+          """
+          if old not in source:
+              raise SystemExit('Pinned static-php-cli CentOS vault recipe changed unexpectedly.')
+          wrapper.write_text(source.replace(old, new, 1))
+          PY
+
       - name: Resolve PHP minor version
         shell: bash
         run: |
@@ -278,7 +304,8 @@ jobs:
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
             "binary": "php",
             "extensionDir": "ext",
-            "xdebug": "ext/xdebug.so"
+            "xdebug": "ext/xdebug.so",
+            "capabilities": ["zstd"]
           }
           JSON
 
@@ -288,6 +315,8 @@ jobs:
           # unlikely case where ad-hoc signing breaks the binary or the
           # shared Xdebug load.
           "$staging_dir/php" -n --version
+          "$staging_dir/php" -n --ri zstd
+          "$staging_dir/php" -n -r 'exit(function_exists("zstd_uncompress") ? 0 : 1);'
           "$staging_dir/php" -n \
             -d "extension_dir=$extension_dir" \
             -d "zend_extension=$extension_dir/xdebug.so" \
@@ -345,7 +374,8 @@ jobs:
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
             "binary": "php",
             "extensionDir": "ext",
-            "xdebug": "ext/xdebug.so"
+            "xdebug": "ext/xdebug.so",
+            "capabilities": ["zstd"]
           }
           JSON
 
@@ -355,6 +385,8 @@ jobs:
           # unlikely case where the move breaks the binary or the shared
           # Xdebug load.
           "$staging_dir/php" -n --version
+          "$staging_dir/php" -n --ri zstd
+          "$staging_dir/php" -n -r 'exit(function_exists("zstd_uncompress") ? 0 : 1);'
           "$staging_dir/php" -n \
             -d "extension_dir=$extension_dir" \
             -d "zend_extension=$extension_dir/xdebug.so" \
@@ -525,6 +557,7 @@ jobs:
             binary = 'php.exe'
             extensionDir = 'ext'
             xdebug = 'ext/php_xdebug.dll'
+            capabilities = @( 'zstd' )
             vcRuntimeVersion = $vcRuntimeVersion
           } | ConvertTo-Json -Depth 4
           Set-Content -Path (Join-Path $stagingDir 'runtime.json') -Value $runtimeJson
@@ -555,7 +588,7 @@ jobs:
             -d "extension=ssh2" `
             -d "extension=yaml" `
             -d "extension=zstd" `
-            -r "echo PHP_VERSION, PHP_EOL;"
+            -r "if ( ! function_exists('zstd_uncompress') ) { exit(1); }; echo PHP_VERSION, PHP_EOL;"
           if ( $LASTEXITCODE -ne 0 ) {
             exit $LASTEXITCODE
           }
@@ -673,6 +706,7 @@ jobs:
           node scripts/update-php-binary-cdn-metadata.mjs \
             --version "${PHP_VERSION}" \
             --package-version "${PHP_PACKAGE_VERSION}" \
+            --capability zstd \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
           if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.mjs; then

@@ -15,6 +15,7 @@ vi.mock( '../php-binary-cdn-metadata.mjs', () => ( {
 			'8.4': {
 				version: '8.4.22',
 				packageVersion: 'studio-1',
+				capabilities: [ 'zstd' ],
 				artifacts: {
 					'win32-x64': {
 						url: 'https://example.com/8.4.22-studio-1/full-install',
@@ -63,6 +64,12 @@ describe( 'Native PHP binary metadata', () => {
 				packageVersion: 'studio-1',
 				packageId: '8.4.22-studio-1',
 			} )
+		);
+	} );
+
+	it( 'selects a package that declares its required capability', () => {
+		expect( getPhpBinaryDownloadInfo( '8.4', 'win32', 'x64', [ 'zstd' ] ) ).toEqual(
+			expect.objectContaining( { capabilities: [ 'zstd' ] } )
 		);
 	} );
 } );

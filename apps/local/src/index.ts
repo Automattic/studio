@@ -1220,13 +1220,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Unsupported media path' } );
 				return;
 			}
-			let resolved: string | null;
-			try {
-				resolved = confineToRoot( await realpath( sessionsRoot ), await realpath( requested ) );
-			} catch {
-				resolved = null;
+			const root = path.resolve( sessionsRoot );
+			const candidate = path.resolve( root, requested );
+			if ( ! candidate.startsWith( root + path.sep ) ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
 			}
-			if ( ! resolved || ! confineToRoot( sessionsRoot, requested ) ) {
+			let resolved: string;
+			try {
+				resolved = await realpath( candidate );
+				if ( ! resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
+					throw new Error( 'outside the sessions root' );
+				}
+			} catch {
 				res.status( 404 ).json( { error: 'Media not found' } );
 				return;
 			}

@@ -25,11 +25,11 @@ The business/brand name is the active site's name unless the prompt gives a diff
 
 Load the `visual-design` skill and follow its "Concept and Direction" runbook. Then:
 
-1. Call `pick_design` once. When a pick cannot happen — the user asked to be surprised or to skip the questions, the brief names both the concept and the direction, or `AskUserQuestion` is unavailable — pass `options: 1` and no `chosen` pairs: a single random draw, which you build. Otherwise pass `options: 4`, up to two `chosen` pairs picked as the `visual-design` skill describes (each with its one-line reason), any `avoid` entries, and each side the brief named as `layoutNamedInBrief` or `directionNamedInBrief`; it adds random pairs to make four distinct options and returns their notes. Never call it again to get a different result.
-2. Ask, once, "Which look should I build?" with one option per pair in the order drawn, labelled `<Concept> × <Direction>`. Do not describe the options in prose first — the question does that.
-   - **In the Studio app** (`present_design_options` is available): when `generate_images` is available, load the `imagery` skill first and generate the option images in one call, following its "Images for design options" rules. Then write one sneak peek per option (see "Sneak peeks" in the `visual-design` skill) and pass each option's one-line description of the feel and its HTML to `present_design_options`.
-   - **In the terminal** (`AskUserQuestion` only): pass each option with a one-line description of how its first screen would look. Nothing is rendered.
-3. Build the picked pair. A typed answer ("2 but darker") is a preference to apply to the closest option. Keep the picked option's generated image — it becomes the site's hero, moved to its final home per the `imagery` skill — and delete the other options' files under `wp-content/uploads/studio-generated/`.
+1. Call `pick_design` once with `options: 4`, up to two `chosen` pairs (picked as the `visual-design` skill describes, each with a one-line reason), any `avoid` entries, and any side the brief named (`layoutNamedInBrief`, `directionNamedInBrief`). It fills up with random pairs and returns four options with their notes. When there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names both sides — pass `options: 1` and no `chosen` pairs instead. Never call it again for a different result.
+2. Ask once, "Which look should I build?", one option per pair in the order returned, labelled `<Concept> × <Direction>`. Do not describe the options in prose first.
+   - If `present_design_options` is available: when `generate_images` is available too, load the `imagery` skill and generate the option images in one call first. Write one sneak peek per option (see "Sneak peeks" in the `visual-design` skill) and pass each with a one-line description of the feel.
+   - Otherwise use `AskUserQuestion`, each option with a one-line description of how its first screen would look.
+3. Build the picked pair; a typed answer ("2 but darker") is a preference to apply to the closest option. Delete the other options' files under `wp-content/uploads/studio-generated/`.
 
 ## After Gathering Answers
 

@@ -920,3 +920,70 @@ tests:
             }
             return { pass: true, score: 1, reason: `repeated card treatment uses a registered block style variation (${registeredPhp ? 'register_block_style' : 'styles/*.json'}; applied ${applied.length} times: ${[...new Set(applied)].join(', ')}); no raw font-size repeated ${'>'}= 3 times` };
           });
+
+  # Site pick: with an active site and a prompt that names no other site, the
+  # agent builds into the active site instead of asking whether to create a
+  # separate one. Seeds a real (stopped) site as the active site.
+  - description: active site is reused when the prompt names no other site
+    vars:
+      caseId: active-site-reused
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build me a minimal one-page site for a small neighborhood bakery: a
+        hero and a short about section. Skip the discovery questions. Before
+        writing any files, state the Site Spec and stop — I will confirm the
+        plan first.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
+            const reused = calls.some(t => {
+              if (t.name === 'Skill') return t.input?.name === 'site-spec';
+              const target = t.input?.nameOrPath;
+              return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
+            });
+            return { pass: reused, score: reused ? 1 : 0, reason: reused ? 'agent worked on the active site without asking to create a new one' : `no site_info/skill call on the active site in ${JSON.stringify(calls.map(t => t.name))}` };
+          });
+
+  # Site pick: with an active site and a prompt that names a different site,
+  # the agent asks whether to update the active site or create a new one
+  # before calling site_create.
+  - description: active site with a different site name asks before creating
+    vars:
+      caseId: active-site-different-name
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build a one-page site named "Joe's Bakery".
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
+            const built = calls.find(t => building.includes(t.name));
+            if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
+            const text = (d.textSegments ?? []).join('\n');
+            const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
+            const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
+            const asks = mentionsCurrent && mentionsNew && text.includes('?');
+            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
+          });

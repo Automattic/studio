@@ -52,14 +52,38 @@ function readFromBuffer( buffer: Buffer, start: number, end: number ): string {
 }
 
 /**
- * Reads the header of a .wpress file.
+ * Reads the header located at `position` in a .wpress file.
+ *
+ * Reads always use an explicit position instead of the file handle's implicit
+ * cursor, so skipping an entry is a matter of arithmetic and never requires
+ * reading (or allocating) its content. This is what keeps entries larger than
+ * 2 GiB from crashing the process: `FileHandle.read()` rejects lengths that do
+ * not fit in a signed 32-bit integer.
  *
  * @param {fs.promises.FileHandle} fd - The file handle to read from.
- * @returns {Promise<Header | null>} - A promise that resolves to the header or null if the end of the file is reached.
+ * @param {number} position - The byte offset of the header in the archive.
+ * @returns {Promise<Header | null>} - A promise that resolves to the header, or null when the end of the archive is reached.
  */
-async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null > {
+async function readHeader(
+	fd: fs.promises.FileHandle,
+	position: number
+): Promise< Header | null > {
 	const headerChunk = Buffer.alloc( HEADER_SIZE );
-	await fd.read( headerChunk, 0, HEADER_SIZE );
+	const { bytesRead } = await fd.read( headerChunk, 0, HEADER_SIZE, position );
+
+	// A clean end of file without the EOF marker, or with only part of it, is
+	// treated like the marker itself: every entry before it is complete.
+	if ( bytesRead === 0 || headerChunk.subarray( 0, bytesRead ).every( ( byte ) => byte === 0 ) ) {
+		return null;
+	}
+
+	if ( bytesRead < HEADER_SIZE ) {
+		throw new LoggerError(
+			__( 'The backup archive is truncated: it ends in the middle of a file header.' ),
+			undefined,
+			'wpress_truncated'
+		);
+	}
 
 	if ( Buffer.compare( headerChunk, HEADER_CHUNK_EOF ) === 0 ) {
 		return null;
@@ -69,6 +93,14 @@ async function readHeader( fd: fs.promises.FileHandle ): Promise< Header | null 
 	const size = parseInt( readFromBuffer( headerChunk, 255, 269 ), 10 );
 	const mTime = readFromBuffer( headerChunk, 269, 281 );
 	const prefix = readFromBuffer( headerChunk, 281, HEADER_SIZE );
+
+	if ( ! Number.isSafeInteger( size ) || size < 0 ) {
+		throw new LoggerError(
+			sprintf( __( 'The backup archive is corrupted: invalid size for "%s".' ), name ),
+			undefined,
+			'wpress_corrupted'
+		);
+	}
 
 	return {
 		name,
@@ -85,17 +117,28 @@ function isPathWithinDirectory( filePath: string, directory: string ): boolean {
 }
 
 /**
- * Reads a block of data from a .wpress file and writes it to a file.
+ * Copies the content of one archive entry, starting at `position`, into the
+ * extraction directory.
+ *
+ * Entries that would land outside the extraction directory are not extracted.
+ * Nothing is read for them: the caller advances past them using the size
+ * recorded in the header.
  *
  * @param {fs.promises.FileHandle} fd - The file handle to read from.
- * @param {Header} header - The header of the file to read.
- * @param {string} outputPath - The path to write the file to.
+ * @param {Header} header - The header of the entry to extract.
+ * @param {string} outputPath - The extraction directory.
+ * @param {number} position - The byte offset of the entry content in the archive.
+ * @returns {Promise<void>} - Resolves once the extracted file is fully written and closed.
  */
-async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outputPath: string ) {
+async function readBlockToFile(
+	fd: fs.promises.FileHandle,
+	header: Header,
+	outputPath: string,
+	position: number
+): Promise< void > {
 	const outputFilePath = path.join( outputPath, header.prefix, header.name );
 
 	if ( ! isPathWithinDirectory( outputFilePath, outputPath ) ) {
-		await fd.read( Buffer.alloc( header.size ), 0, header.size, null );
 		return;
 	}
 
@@ -104,22 +147,15 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 
 	// Resolve once the underlying fd is closed — either after end() flushes or
 	// after an error destroys the stream. Awaiting this before returning prevents
-	// the writeStream's lazy open + flush from racing with synchronous existence
-	// checks in the caller (manifested as a Windows-only test flake; libuv's
-	// worker happens to flush fast enough on Linux/macOS to mask it).
+	// the caller from touching the file while it is still open.
 	const closed = new Promise< void >( ( resolve ) => {
 		outputStream.once( 'close', () => resolve() );
 	} );
 
 	let totalBytesToRead = header.size;
-	let errored = false;
+	let readPosition = position;
+	let failure: Error | undefined;
 	let streamEnded = false;
-
-	const errorHandler = () => {
-		if ( ! errored ) {
-			errored = true;
-		}
-	};
 
 	const endStream = () => {
 		if ( ! streamEnded && ! outputStream.destroyed ) {
@@ -128,28 +164,46 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 		}
 	};
 
-	outputStream.once( 'error', errorHandler );
+	outputStream.once( 'error', ( error: Error ) => {
+		failure ??= error;
+	} );
 
 	try {
-		while ( totalBytesToRead > 0 ) {
-			let bytesToRead = CHUNK_SIZE_TO_READ;
-			if ( bytesToRead > totalBytesToRead ) {
-				bytesToRead = totalBytesToRead;
-			}
-			if ( bytesToRead === 0 ) break;
+		while ( totalBytesToRead > 0 && ! failure && ! outputStream.destroyed ) {
+			const bytesToRead = Math.min( CHUNK_SIZE_TO_READ, totalBytesToRead );
 			const buffer = Buffer.alloc( bytesToRead );
-			const data = await fd.read( buffer, 0, bytesToRead );
-			if ( errored || outputStream.destroyed ) {
-				return;
+			const { bytesRead } = await fd.read( buffer, 0, bytesToRead, readPosition );
+			if ( bytesRead === 0 ) {
+				throw new LoggerError(
+					sprintf(
+						__( 'The backup archive is truncated: "%s" is shorter than its header declares.' ),
+						header.name
+					),
+					undefined,
+					'wpress_truncated'
+				);
 			}
-			outputStream.write( buffer );
-			totalBytesToRead -= data.bytesRead;
+			// A read may return fewer bytes than requested; only forward what was read.
+			outputStream.write( buffer.subarray( 0, bytesRead ) );
+			totalBytesToRead -= bytesRead;
+			readPosition += bytesRead;
 		}
-	} catch ( err ) {
-		errorHandler();
+	} catch ( error ) {
+		failure ??= error as Error;
 	} finally {
 		endStream();
 		await closed;
+	}
+
+	if ( failure ) {
+		if ( failure instanceof LoggerError ) {
+			throw failure;
+		}
+		throw new LoggerError(
+			sprintf( __( 'Failed to extract "%s" from the backup archive.' ), header.name ),
+			failure,
+			'wpress_extract_failed'
+		);
 	}
 }
 
@@ -193,19 +247,19 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 
 		const inputFile = await fs.promises.open( file.path, 'r' );
 
-		// Read all of the headers and file data into memory.
+		// Walk the headers only. Entry content is skipped by position, so the
+		// size of an entry (which can exceed 2 GiB) never has to fit in memory.
 		try {
+			let position = 0;
 			let header;
-			do {
-				header = await readHeader( inputFile );
-				if ( header ) {
-					const filePath = path.join( header.prefix, header.name );
-					if ( ! filePath.split( path.sep ).includes( '..' ) ) {
-						fileNames.push( filePath );
-					}
-					await inputFile.read( Buffer.alloc( header.size ), 0, header.size, null );
+			while ( ( header = await readHeader( inputFile, position ) ) !== null ) {
+				position += HEADER_SIZE;
+				const filePath = path.join( header.prefix, header.name );
+				if ( ! filePath.split( path.sep ).includes( '..' ) ) {
+					fileNames.push( filePath );
 				}
-			} while ( header );
+				position += header.size;
+			}
 		} finally {
 			await inputFile.close();
 		}
@@ -242,12 +296,11 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 
 		const inputFile = await fs.promises.open( file.path, 'r' );
 
+		let position = 0;
 		let header;
 		try {
-			while ( ( header = await readHeader( inputFile ) ) !== null ) {
-				if ( ! header ) {
-					break;
-				}
+			while ( ( header = await readHeader( inputFile, position ) ) !== null ) {
+				position += HEADER_SIZE;
 
 				// Emit progress before processing file
 				const currentFile = path.join( header.prefix, header.name );
@@ -259,7 +312,8 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 					currentFile,
 				} );
 
-				await readBlockToFile( inputFile, header, extractionDirectory );
+				await readBlockToFile( inputFile, header, extractionDirectory, position );
+				position += header.size;
 				this.processedFiles++;
 
 				// Emit progress after processing file

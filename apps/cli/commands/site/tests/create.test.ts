@@ -577,17 +577,82 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'rejects sources outside the canonical importer contract', () => {
+		it( 'copies a request-bundled Figma file using an opaque source reference', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-bundle-' ) );
+			const figmaPath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( figmaPath, 'figma' );
+			const blueprint = buildCreateFromSourceBlueprint(
+				figmaPath,
+				'Figma Site',
+				'https://example.com/figma-capable-static-site-importer.zip'
+			);
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+
+			expect( copySpy ).toHaveBeenCalledWith(
+				figmaPath,
+				path.join( mockSitePath, '.studio-import', 'source' ),
+				{ recursive: true, errorOnExist: true, force: false }
+			);
+			expect( JSON.parse( blueprint.staticSiteImport.request ).source ).toEqual( {
+				type: 'figma',
+				ref: 'request-bundle:source',
+			} );
+		} );
+
+		it( 'rejects remote sources outside the canonical importer contract', () => {
 			expect( () =>
 				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site' )
 			).toThrow( 'must be rendered by Data Liberation' );
+		} );
 
+		it( 'requires a verified Figma-capable package when no override is provided', () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
 			const figmaPath = path.join( sourceDir, 'design.fig' );
 			fs.writeFileSync( figmaPath, 'figma' );
 			expect( () => buildCreateFromSourceBlueprint( figmaPath, 'Figma Site' ) ).toThrow(
-				'Figma files are not supported by the canonical Static Site Importer command.'
+				'Figma import requires a full Static Site Importer package with Figma support'
 			);
+		} );
+
+		it( 'routes a Figma file through the canonical staged request with an explicit override', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
+			const figmaPath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( figmaPath, 'figma' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				figmaPath,
+				'Figma Site',
+				'https://example.com/figma-capable-static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+
+			expect( request.source ).toEqual( { type: 'figma', ref: 'request-bundle:source' } );
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( figmaPath );
+			expect( blueprint.contents.steps?.[ 0 ] ).toMatchObject( {
+				pluginData: {
+					resource: 'url',
+					url: 'https://example.com/figma-capable-static-site-importer.zip',
+				},
+			} );
+		} );
+
+		it( 'keeps the slim HTML package as the default for HTML sources', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-html-source-' ) );
+			const htmlPath = path.join( sourceDir, 'index.html' );
+			fs.writeFileSync( htmlPath, '<main>Source</main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint( htmlPath, 'HTML Site' );
+
+			expect( blueprint.contents.steps?.[ 0 ] ).toMatchObject( {
+				pluginData: {
+					resource: 'url',
+					url: expect.stringContaining( 'static-site-importer-html-site-import.zip' ),
+				},
+			} );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {

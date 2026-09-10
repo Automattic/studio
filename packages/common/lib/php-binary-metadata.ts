@@ -47,16 +47,24 @@ const phpBinaryArtifactSchema = z.object( {
 	sha: z.string().min( 1 ),
 } );
 
+const phpBinaryCapabilitySchema = z.enum( [ 'zstd' ] );
+export type PhpBinaryCapability = z.infer< typeof phpBinaryCapabilitySchema >;
+
+const phpBinaryPackageSchema = z.object( {
+	version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
+	packageVersion: z
+		.string()
+		.regex( /^[a-z0-9][a-z0-9._-]{0,63}$/ )
+		.optional(),
+	capabilities: z.array( phpBinaryCapabilitySchema ).default( [] ),
+	artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
+} );
+
 const phpBinaryCdnMetadataSchema = z.object( {
 	versions: z.record(
 		z.string(),
-		z.object( {
-			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
-			packageVersion: z
-				.string()
-				.regex( /^[a-z0-9][a-z0-9._-]{0,63}$/ )
-				.optional(),
-			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
+		phpBinaryPackageSchema.extend( {
+			candidates: z.array( phpBinaryPackageSchema ).default( [] ),
 		} )
 	),
 } );
@@ -67,6 +75,7 @@ export type PhpBinaryDownloadInfo = z.infer< typeof phpBinaryArtifactSchema > & 
 	patchVersion: string;
 	packageVersion?: string;
 	packageId: string;
+	capabilities: PhpBinaryCapability[];
 };
 
 export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: string ): string {
@@ -102,7 +111,8 @@ export function getConfiguredPhpBinaryPackageId(
 export function getPhpBinaryDownloadInfo(
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
-	arch: string
+	arch: string,
+	requiredCapabilities: readonly PhpBinaryCapability[] = []
 ): PhpBinaryDownloadInfo | undefined {
 	const versionMetadata = phpBinaryCdnMetadata.versions[ version ];
 	if ( ! versionMetadata ) {
@@ -110,17 +120,24 @@ export function getPhpBinaryDownloadInfo(
 	}
 
 	const artifactKey = `${ platform }-${ getEffectivePhpBinaryArch( platform, arch ) }`;
-	const artifact = versionMetadata.artifacts[ artifactKey ];
+	const packageMetadata = [ versionMetadata, ...versionMetadata.candidates ].find( ( candidate ) =>
+		requiredCapabilities.every( ( capability ) => candidate.capabilities.includes( capability ) )
+	);
+	if ( ! packageMetadata ) {
+		return undefined;
+	}
+	const artifact = packageMetadata.artifacts[ artifactKey ];
 	if ( ! artifact ) {
 		return undefined;
 	}
 
 	return {
-		patchVersion: versionMetadata.version,
-		packageVersion: versionMetadata.packageVersion,
-		packageId: versionMetadata.packageVersion
-			? `${ versionMetadata.version }-${ versionMetadata.packageVersion }`
-			: versionMetadata.version,
+		patchVersion: packageMetadata.version,
+		packageVersion: packageMetadata.packageVersion,
+		packageId: packageMetadata.packageVersion
+			? `${ packageMetadata.version }-${ packageMetadata.packageVersion }`
+			: packageMetadata.version,
+		capabilities: packageMetadata.capabilities,
 		url: artifact.url,
 		sha: artifact.sha,
 	};

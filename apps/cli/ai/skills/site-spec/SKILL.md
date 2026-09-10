@@ -10,7 +10,7 @@ Before building a WordPress site, gather the user's basic preferences through a 
 
 ## Precondition: an active site
 
-This skill works on the active site — the one announced at the top of the user's message, or the one selected by `site_create`, `site_info`, or `site_start`. It never creates a site. If there is no active site, stop and pick one first following the system prompt's site pick rules, then run this skill again.
+This skill works on the active site — the one announced at the top of the user's message. If there is no active site, stop and let the user know.
 
 ## How to Run
 

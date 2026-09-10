@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 
 export const LAYOUT_GEOMETRY_PROOF_SCHEMA =
-	'blocks-engine/php-transformer/layout-geometry-proof/v1';
+	'data-liberation/layout-geometry-proof/v1';
 
 const MAX_CANDIDATES = 64;
 const MAX_VIEWPORTS = 8;

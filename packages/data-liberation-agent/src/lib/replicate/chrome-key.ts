@@ -1,5 +1,3 @@
-import { canonicalizeInstanceIds } from '@automattic/blocks-engine/theme';
-
 /**
  * Matches a single class TOKEN (the whole token, anchored) when it is volatile
  * — i.e. should be excluded from the structural key because it varies between
@@ -13,6 +11,11 @@ import { canonicalizeInstanceIds } from '@automattic/blocks-engine/theme';
  */
 const VOLATILE_TOKEN =
   /^(active|current|is-active|selected|aria-current|scroll-trigger\S*|animate--\S*)$|--offscreen$|--current$/;
+
+/** Normalize builder instance IDs without assigning meaning to the source platform. */
+function canonicalizeInstanceIds(className: string): string {
+  return className.replace(/\bcomp-[a-z0-9]+(?=_r_comp-[a-z0-9]+)/gi, 'comp');
+}
 
 export interface ChromeKeyParts {
   region: 'header' | 'footer' | 'nav';

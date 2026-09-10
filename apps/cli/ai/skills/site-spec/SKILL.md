@@ -21,17 +21,25 @@ Use AskUserQuestion for:
 
 The business/brand name is the active site's name unless the prompt gives a different one. Do not ask for it. The one exception: when the site name is clearly a placeholder (e.g. "test", "Site 1") and the prompt gives no brand, ask for the brand name in your text output and **stop and wait for the reply** — do NOT call any tools in that turn.
 
-Then the `visual-design` skill draws four concept-and-direction pairs and asks the user to pick one — as rendered sneak peeks in the Studio app, as text options in the terminal (see its "Letting the user pick" section). Skip that pick when the user asked to be surprised or to skip the questions, or named both the concept and the direction.
+### The look
+
+Load the `visual-design` skill once — its concept and direction pools are re-sampled on every load, so do not load it again later in the build — and follow its "Concept and Direction" runbook to shortlist. Then:
+
+1. Call `pick_design` with `options: 4` so it draws four distinct concept-and-direction pairs for the user to pick from. Draw a single pair instead (no `options`) when a pick cannot happen: `AskUserQuestion` is unavailable, the user asked to be surprised or to skip the questions, or the brief names both the concept and the direction.
+2. Ask, once, "Which look should I build?" with one option per pair in the order drawn, labelled `<Concept> × <Direction>`. Do not describe the options in prose first — the question does that.
+   - **In the Studio app** (`present_design_options` is available): when `generate_images` is available, load the `imagery` skill first and generate the option images in one call, following its "Images for design options" rules. Then write one sneak peek per option (see "Sneak peeks" in the `visual-design` skill) and pass each option's one-line description of the feel and its HTML to `present_design_options`.
+   - **In the terminal** (`AskUserQuestion` only): pass each option with a one-line description of how its first screen would look. Nothing is rendered.
+3. Build the picked pair. A typed answer ("2 but darker") is a preference to apply to the closest option. Keep the picked option's generated image — it becomes the site's hero, moved to its final home per the `imagery` skill — and delete the other options' files under `wp-content/uploads/studio-generated/`.
 
 ## After Gathering Answers
 
 Use the layout preference to guide all subsequent design decisions.
 
-State the plan as a short **Site Spec** summary before building, alongside the design direction. The summary MUST include a **Concept** line — the signature layout concept drawn by `pick_design` from your shortlist, or picked by the user from the sneak peeks (see the `visual-design` skill), as `Concept: <name> — <one-line adaptation>` — followed by a **Layout map** (one line per section of the page saying what the concept does to it, as described in the `visual-design` skill), a **Direction** line — the artistic direction drawn by the same call or picked with the concept, as `Direction: <name> — <one-line adaptation>` — and a **Functionality & plugins** line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 4); do not silently hand-build static markup for a feature a plugin should provide.
+State the plan as a short **Site Spec** summary before building, alongside the design direction. The summary MUST include a **Concept** line — the signature layout concept drawn by `pick_design` from your shortlist, or picked by the user (see the `visual-design` skill), as `Concept: <name> — <one-line adaptation>` — followed by a **Layout map** (one line per section of the page saying what the concept does to it, as described in the `visual-design` skill), a **Direction** line — the artistic direction drawn by the same call or picked with the concept, as `Direction: <name> — <one-line adaptation>` — and a **Functionality & plugins** line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 4); do not silently hand-build static markup for a feature a plugin should provide.
 
 ## When to Skip the Questions
 
-Skipping means skipping the interactive questions only — still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
+Skipping means skipping the interactive questions only — the design is then a single `pick_design` draw, and you still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
 - The user already provided the layout preference in the initial prompt.
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.

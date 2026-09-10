@@ -79,7 +79,7 @@ export function createPresentDesignOptionsTool(
 ) {
 	return defineTool(
 		'present_design_options',
-		"Shows the user the design options drawn by pick_design as rendered sneak peeks and waits for their pick. Pass one option per pair (2–4), each with a complete HTML document (inline CSS) showing the first screen of the site — header and hero as the layout concept shapes them, plus the start of the next section — in the artistic direction's palette and type, using the site's real name; under ~120 lines, no scripts, optionally a Google Fonts link with a fallback stack. Images: reference generated files by absolute path (they are inlined), or use solid color shapes; never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer. Use this only for the site design choice; ask everything else with AskUserQuestion.",
+		'Shows the user the design options drawn by pick_design as rendered sneak peeks and waits for their pick. Pass one option per pair (2–4), each with a complete standalone HTML document: inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes — never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer. Use this only for the site design choice; ask everything else with AskUserQuestion.',
 		{
 			question: Type.String( {
 				description: 'The question shown above the options, e.g. "Which look should I build?".',

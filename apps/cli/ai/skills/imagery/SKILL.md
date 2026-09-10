@@ -63,16 +63,15 @@ A full-bleed cover BACKGROUND must be `landscape` or `ultrawide` — never squar
 - `siteContext`: one sentence of subject matter ("A neighborhood bakery selling sourdough and pastries."). **NEVER include the site or business name** — a name in the prompt is what painted-in fake wordmarks stand in for.
 - `imageGrade`: ONE site-wide photographic treatment (e.g. "warm natural window light, soft muted color, gentle film grain"), derived from the visual direction. Use the identical grade in every call for the site so all imagery reads as one photographic series.
 
-## Design options (Studio app)
+## Images for design options
 
-When the user picks between design options with `present_design_options`, give each sneak peek at most one generated image so the choice is made on real photography rather than placeholder shapes. One `generate_images` call for all of them, before writing the sneak-peek HTML:
+When the user is about to pick between design options (see the `site-spec` skill), each option's sneak peek gets at most one generated image, all in one `generate_images` call:
 
 - **Same scene for every option**: one hero subject and composition for the site, written once and repeated per image, so the user compares looks rather than photo content. Vary only the `aspectRatio` (per the option's layout concept: `ultrawide` for a full-bleed cover, `landscape` or `card-landscape` for a contained slot) and the grade.
-- **Per-image `imageGrade`**: this is the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out.
+- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. Once an option is picked, its direction's grade becomes the call-wide grade for the rest of the site, so the hero and the later batches read as one series.
 - **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that sneak peek stays typographic.
-- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>-hero.jpg`, referenced by absolute path in that option's HTML (`present_design_options` inlines it).
-- **After the pick**: move the winning image to its final home (theme assets or media library, per the rules above) and delete the other options' files. The build's later batches use the picked direction's grade as the call-wide `imageGrade`, so the hero and the rest read as one series.
-- **If generation is unavailable or fails**, fall back to solid color shapes in the sneak peeks and continue.
+- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>-hero.jpg`, referenced by absolute path in that option's HTML.
+- **A failed or unavailable image** is not a blocker: that sneak peek uses a solid color shape instead.
 
 ## No decorative or transparent images
 

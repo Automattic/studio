@@ -370,8 +370,6 @@ describe( 'pi runtime', () => {
 		const onAskUser = vi.fn().mockResolvedValue( {} );
 		const env = { OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: 'https://proxy.example.com/v1' };
 		const model = 'gpt-5.6-sol';
-		// The runtime reads "a UI is attached" off the Node IPC channel, which the
-		// test worker itself may have, so each case pins it explicitly.
 		const originalSend = process.send;
 		const withProcessSend = async ( send: typeof process.send, run: () => Promise< unknown > ) => {
 			process.send = send;
@@ -382,7 +380,6 @@ describe( 'pi runtime', () => {
 			}
 		};
 
-		// Terminal: questions are possible, but nothing can show an image grid.
 		await withProcessSend( undefined, () =>
 			runRuntime( { prompt: 'hello', env, model, session: newSession(), onAskUser } )
 		);
@@ -397,13 +394,11 @@ describe( 'pi runtime', () => {
 			 ).find( ( tool ) => tool.name === 'pick_design' )?.description;
 		expect( pickDesign( 0 ) ).toContain( 'options: 4' );
 
-		// Forked by the Desktop app or `studio ui`.
 		await withProcessSend( vi.fn() as unknown as typeof process.send, () =>
 			runRuntime( { prompt: 'hello', env, model, session: newSession(), onAskUser } )
 		);
 		expect( toolNames( 1 ) ).toContain( 'present_design_options' );
 
-		// No way to ask at all (MCP-style runs): neither tool.
 		await withProcessSend( vi.fn() as unknown as typeof process.send, () =>
 			runRuntime( { prompt: 'hello', env, model, session: newSession() } )
 		);

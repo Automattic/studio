@@ -24,10 +24,8 @@ const describeEntry = ( kind: DesignCatalogKind, entry: DesignEntry, named = fal
 const nameList = ( description: string ) =>
 	Type.Optional( Type.Array( Type.String(), { description } ) );
 
-// Four options only make sense when someone can answer: without a question
-// tool (MCP, non-interactive runs) the schema offers a single random draw,
-// and a stray `options: 4` is still coerced rather than left to a question
-// nobody can answer.
+// Without a question tool (MCP, non-interactive runs) there is nobody to pick,
+// so the schema offers a single draw and a stray `options: 4` is coerced.
 export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) {
 	return defineTool(
 		'pick_design',
@@ -88,8 +86,6 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 				directionNamedInBrief: args.directionNamedInBrief,
 			} );
 
-			// A side named in the brief is fixed across every option, so it is
-			// stated once up front; only the open sides vary per option.
 			const sections: string[] = [];
 			if ( draw.fixed.concept ) {
 				sections.push( describeEntry( 'concept', draw.fixed.concept, true ) );
@@ -132,6 +128,4 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 	);
 }
 
-// Registry default (MCP server, tests): no question tool, single draw. The
-// pi runtime swaps in the askable variant when a question callback exists.
 export const pickDesignTool = createPickDesignTool( { canAskUser: false } );

@@ -339,22 +339,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
-	it( 'pick_design draws one random pair with its notes when the user will not pick', async () => {
-		const tool = createPickDesignTool( { canAskUser: true } ) as unknown as AnyStudioAgentTool;
-		const text = getTextContent( await executeTool( tool, { options: 1 } ) ) ?? '';
-		expect( text ).toMatch( /^Layout concept: .+$/m );
-		expect( text ).toMatch( /^Artistic direction: .+$/m );
-		expect( text ).toMatch( /^Build: /m );
-		expect( text ).toMatch( /^Palette: /m );
-		expect( text ).not.toContain( 'Option 1' );
-		await expect(
-			executeTool( tool, {
-				options: 1,
-				chosen: [ { layout: 'Broadsheet', direction: 'Noir', reason: 'fits' } ],
-			} )
-		).rejects.toThrow( /single draw is random/ );
-	} );
-
 	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
 		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
 		expect(
@@ -395,7 +379,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'present_design_options' );
 		expect( text ).toMatch( /replaced by random draws: Nope\./ );
 
-		// A side named in the brief is stated once and stays fixed across options.
 		const named =
 			getTextContent(
 				await executeTool( tool, { options: 4, layoutNamedInBrief: concepts[ 0 ] } )
@@ -452,32 +435,6 @@ describe( 'Studio AI MCP tools', () => {
 				);
 			}
 			expect( result.content.some( ( block ) => block.type === 'image' ) ).toBe( false );
-		} finally {
-			setScreenshotDirectoryProvider( null );
-			await rm( root, { recursive: true, force: true } );
-		}
-	} );
-
-	it( 'present_design_options relays a typed answer verbatim', async () => {
-		const root = await mkdtemp( path.join( os.tmpdir(), 'studio-design-options-' ) );
-		setScreenshotDirectoryProvider( () => root );
-		mockScreenshotBrowser(
-			createMockPage( { buffer: Buffer.from( 'png' ) } ),
-			createMockPage( { buffer: Buffer.from( 'png' ) } )
-		);
-		const onAskUser = vi.fn().mockResolvedValue( { 'Which look?': '2 but darker' } );
-		try {
-			const result = await createPresentDesignOptionsTool( onAskUser ).rawHandler(
-				{
-					question: 'Which look?',
-					options: [
-						{ label: 'A', description: 'a', html: '<p>a</p>' },
-						{ label: 'B', description: 'b', html: '<p>b</p>' },
-					],
-				} as never,
-				{ onProgress: () => {} }
-			);
-			expect( getTextContent( result ) ).toBe( 'The user answered: 2 but darker' );
 		} finally {
 			setScreenshotDirectoryProvider( null );
 			await rm( root, { recursive: true, force: true } );

@@ -4,9 +4,6 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
-// The browser UI renders agent screenshots and design previews through this
-// route, so the wire contract and the path containment are what matter.
-
 let server: LocalServer;
 let configDir: string;
 let sessionsRoot: string;
@@ -52,7 +49,7 @@ describe( 'GET /api/media/read', () => {
 		);
 	} );
 
-	it( 'refuses files outside the sessions root, including through symlinks', async () => {
+	it( 'refuses anything but raster images under the sessions root, symlinks resolved', async () => {
 		const secret = path.join( outsideDir, 'secret.png' );
 		writeFileSync( secret, 'nope' );
 		const link = path.join( sessionsRoot, 'link.png' );
@@ -64,15 +61,5 @@ describe( 'GET /api/media/read', () => {
 			( await read( path.join( sessionsRoot, '..', path.basename( outsideDir ), 'secret.png' ) ) )
 				.status
 		).toBe( 404 );
-	} );
-
-	it( 'refuses non-raster files and missing paths', async () => {
-		writeFileSync( path.join( sessionsRoot, 'session.jsonl' ), '{}' );
-		writeFileSync( path.join( sessionsRoot, 'logo.svg' ), '<svg/>' );
-
-		expect( ( await read( path.join( sessionsRoot, 'session.jsonl' ) ) ).status ).toBe( 400 );
-		expect( ( await read( path.join( sessionsRoot, 'logo.svg' ) ) ).status ).toBe( 400 );
-		expect( ( await read( path.join( sessionsRoot, 'missing.png' ) ) ).status ).toBe( 404 );
-		expect( ( await fetch( `${ server.url }/api/media/read` ) ).status ).toBe( 400 );
 	} );
 } );

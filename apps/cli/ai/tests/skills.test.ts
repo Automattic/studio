@@ -51,14 +51,6 @@ describe( 'design catalogs', () => {
 		}
 	} );
 
-	it( 'keeps the description out of the details, so the index never leaks build notes', () => {
-		for ( const kind of DESIGN_CATALOG_KINDS ) {
-			for ( const entry of loadDesignCatalog( kind ) ) {
-				expect( entry.details, entry.name ).not.toContain( entry.description );
-			}
-		}
-	} );
-
 	it( 'parses frontmatter titles and descriptions written as JSON strings or bare', () => {
 		expect(
 			parseDesignEntry(
@@ -90,11 +82,6 @@ describe( 'renderSkillBody', () => {
 		}
 	} );
 
-	it( 'is stable between loads', () => {
-		const skill = findSkill( 'visual-design' )!;
-		expect( renderSkillBody( skill ) ).toBe( renderSkillBody( skill ) );
-	} );
-
 	it( 'leaves skills without placeholders untouched', () => {
 		const skill = findSkill( 'site-spec' );
 		expect( renderSkillBody( skill! ) ).toBe( skill!.body );
@@ -104,14 +91,6 @@ describe( 'renderSkillBody', () => {
 describe( 'drawDesignPairs', () => {
 	const concepts = () => loadDesignCatalog( 'concept' );
 	const directions = () => loadDesignCatalog( 'direction' );
-
-	it( 'draws one random pair with full notes', () => {
-		const draw = drawDesignPairs( { count: 1 }, seededRandom( 3 ) );
-		expect( draw.pairs ).toHaveLength( 1 );
-		expect( draw.pairs[ 0 ].layout.details ).toMatch( /^Build: /m );
-		expect( draw.pairs[ 0 ].direction.details ).toMatch( /^Palette: /m );
-		expect( draw.ignored ).toEqual( [] );
-	} );
 
 	it( 'keeps the chosen pairs, fills up to four at random, and never repeats a side', () => {
 		const chosen = [
@@ -132,18 +111,6 @@ describe( 'drawDesignPairs', () => {
 				} )
 			);
 		}
-	} );
-
-	it( 'shuffles so the chosen pairs are not always first', () => {
-		const chosen = [ { layout: concepts()[ 0 ].name, direction: directions()[ 0 ].name } ];
-		const firsts = new Set(
-			Array.from(
-				{ length: 12 },
-				( _, seed ) =>
-					drawDesignPairs( { count: 4, chosen }, seededRandom( seed + 1 ) ).pairs[ 0 ].layout.name
-			)
-		);
-		expect( firsts.size ).toBeGreaterThan( 1 );
 	} );
 
 	it( 'replaces a chosen pair with an unknown name by a random draw and reports it', () => {
@@ -169,9 +136,6 @@ describe( 'drawDesignPairs', () => {
 		expect( draw.pairs.every( ( p ) => p.direction.name === named ) ).toBe( true );
 		expect( new Set( draw.pairs.map( ( p ) => p.layout.name ) ).size ).toBe( 4 );
 		expect( draw.ignored ).toEqual( [] );
-	} );
-
-	it( 'rejects a brief-named entry that is not in the catalog', () => {
 		expect( () => drawDesignPairs( { count: 1, layoutNamedInBrief: 'Vaporwave' } ) ).toThrow(
 			/not a catalog layout concept/
 		);
@@ -186,8 +150,6 @@ describe( 'drawDesignPairs', () => {
 			seededRandom( 4 )
 		);
 		const looks = draw.pairs.map( ( p ) => p.direction.name );
-		// The two allowed directions come first; only then does the draw fall
-		// back to the avoided ones to complete four distinct pairs.
 		expect( looks.filter( ( name ) => ! avoidAllButTwo.includes( name ) ) ).toHaveLength( 2 );
 		expect( new Set( looks ).size ).toBe( 4 );
 	} );

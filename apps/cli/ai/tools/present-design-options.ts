@@ -11,10 +11,6 @@ import type { AskUserQuestion } from 'cli/ai/types';
 
 export const MAX_DESIGN_OPTIONS_PRESENTED = 4;
 
-/**
- * Landscape "one screen" viewport for sneak peeks: wide enough for a desktop
- * layout, short enough to read as a card in the question grid.
- */
 export const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
 
 const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
@@ -24,17 +20,11 @@ const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 	'.webp': 'image/webp',
 };
 
-// `src="/abs/path.jpg"`, `src='file:///…'`, `url(/abs/path.jpg)`, `url("…")`.
 const LOCAL_IMAGE_REFERENCE =
 	/(src=|url\()(["']?)((?:file:\/\/|\/)[^"')\s]+\.(?:jpe?g|png|webp))\2/gi;
 
-/**
- * Sneak peeks reference generated images by absolute path; the preview page
- * is rendered from a `file://` temp document, so the images are inlined as
- * data URLs rather than relying on file-to-file loads. Only files inside the
- * sites root qualify, matching where generate_images may write.
- * Exported for tests.
- */
+// The preview page is a `file://` document, so referenced images are inlined
+// rather than relying on file-to-file loads; only the sites root qualifies.
 export async function inlineLocalImages( html: string ): Promise< string > {
 	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
 	const dataUrls = new Map< string, string >();
@@ -68,12 +58,8 @@ export async function inlineLocalImages( html: string ): Promise< string > {
 	);
 }
 
-/**
- * The one place rendered previews reach the user: the Studio UI draws this
- * question as a grid of image cards. Rendering and asking live in a single
- * tool so the model cannot attach preview images to unrelated questions.
- * Factory because it closes over `onAskUser`, like `AskUserQuestion`.
- */
+// Rendering and asking live in one tool so the model cannot attach preview
+// images to unrelated questions.
 export function createPresentDesignOptionsTool(
 	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >
 ) {

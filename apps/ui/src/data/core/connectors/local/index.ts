@@ -478,8 +478,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return uploadFile( file );
 		},
 		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
-			// The server only serves files under the sessions directory (agent
-			// screenshots and design previews), so this is not a general file read.
 			const response = await fetch(
 				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
 			);

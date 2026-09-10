@@ -625,8 +625,6 @@ function AgentQuestion( {
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
-	// Options with rendered previews (design sneak peeks) lay out as a grid of
-	// image cards instead of a row of chips.
 	const hasImages = options.some( ( option ) => option.image );
 	return (
 		<div className={ styles.question }>

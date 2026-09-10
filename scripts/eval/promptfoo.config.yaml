@@ -244,7 +244,9 @@ tests:
 
         Then build a simple WordPress site named "Eval Turn Timing". The
         site only needs a single page — no extra pages, no blog posts, no
-        navigation menu beyond what a one-page site requires.
+        navigation menu beyond what a one-page site requires. Use the site
+        name as the brand and skip the discovery questions: nobody can
+        answer during this run, so make every choice yourself.
     assert:
       # The default new-site flow: no installed theme is mentioned, so the
       # agent must start from a fresh blank scaffold — scaffold_theme called

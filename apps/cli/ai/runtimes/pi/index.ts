@@ -686,8 +686,6 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
-	// Rendered design previews need a Studio UI to draw the image grid; the
-	// terminal asks the same question with text options instead.
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
 			? [ createPresentDesignOptionsTool( config.onAskUser ) as unknown as AgentToolAny ]

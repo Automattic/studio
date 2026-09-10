@@ -355,7 +355,6 @@
 	cursor: default;
 }
 
-/* Image options (design sneak peeks) tile into a grid of cards. */
 .questionOptions[data-layout='grid'] {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));

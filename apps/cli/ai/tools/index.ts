@@ -76,8 +76,7 @@ export interface CreateStudioToolsOptions {
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
-	// True when a question tool can collect an answer from the user, so
-	// pick_design may offer options to pick from. Defaults to false.
+	// Lets pick_design offer options to pick from. Defaults to false.
 	canAskUser?: boolean;
 }
 

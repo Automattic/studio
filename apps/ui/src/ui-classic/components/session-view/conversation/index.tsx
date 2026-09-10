@@ -878,8 +878,6 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
-	// Options with rendered previews (design sneak peeks) lay out as a grid of
-	// image cards instead of a numbered list.
 	const hasImages = options.some( ( option ) => option.image );
 
 	return (
@@ -931,9 +929,6 @@ function AgentQuestion( {
 	);
 }
 
-// Preview images are local files (see `MediaArtifactImage`); a browser
-// connector without local reads still gets a placeholder so the option keeps
-// its slot in the grid.
 function QuestionOptionImage( { path }: { path: string | undefined } ) {
 	const connector = useConnector();
 	const localPath = path && connector.capabilities.readLocalMedia ? path : null;

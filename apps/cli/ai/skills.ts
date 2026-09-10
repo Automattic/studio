@@ -75,18 +75,13 @@ export type DesignCatalogKind = 'concept' | 'direction';
 
 export interface DesignEntry {
 	name: string;
-	// What the agent sees when choosing: the frontmatter description.
 	description: string;
-	// What the agent gets for the drawn entries only: the file body.
 	details: string;
 }
 
-// Two catalogs feed the visual-design skill: layout concepts (the shape of
-// the page) and artistic directions (palette, type, surfaces, motion). Each
-// is a folder of one markdown file per entry: `title` and `description` in
-// the frontmatter, the build notes in the body. The skill shows the agent an
-// index of titles and descriptions; `pick_design` returns the notes for the
-// entries it draws.
+// One markdown file per entry: `title` and `description` in the frontmatter
+// are shown to the agent when choosing; the body is only returned for drawn
+// entries.
 const DESIGN_CATALOGS: Record<
 	DesignCatalogKind,
 	{ folder: string; placeholder: string; label: string }
@@ -104,8 +99,7 @@ export const MAX_CHOSEN_DESIGN_PAIRS = 2;
 
 const cachedCatalogs = new Map< DesignCatalogKind, DesignEntry[] >();
 
-// Frontmatter values are written as JSON strings so titles and descriptions
-// can hold colons and quotes; bare values are accepted too.
+// Values are JSON strings so they can hold colons and quotes.
 function readFrontmatterValue( frontmatter: string, key: string ): string | undefined {
 	const raw = frontmatter.match( new RegExp( `^${ key }:\\s*(.+)$`, 'm' ) )?.[ 1 ]?.trim();
 	if ( ! raw ) return undefined;
@@ -155,9 +149,6 @@ function shuffle< T >( items: T[], random: () => number ): T[] {
 	return result;
 }
 
-// Skill bodies are static except for the catalog index placeholders, which
-// list every entry's name and description so the agent can choose by fit
-// without seeing any build notes.
 export function renderSkillBody( skill: Skill ): string {
 	let body = skill.body;
 	for ( const kind of DESIGN_CATALOG_KINDS ) {
@@ -179,9 +170,7 @@ export function findDesignEntry( kind: DesignCatalogKind, name: string ): Design
 }
 
 export interface DesignPairRequest {
-	// Up to two pairs the agent judged a good fit; the rest are drawn at random.
 	chosen?: Array< { layout: string; direction: string } >;
-	// Entries that contradict a hard constraint in the brief; never drawn.
 	avoid?: { layouts?: string[]; directions?: string[] };
 	layoutNamedInBrief?: string;
 	directionNamedInBrief?: string;
@@ -195,10 +184,7 @@ export interface DesignPair {
 
 export interface DesignDraw {
 	pairs: DesignPair[];
-	// One entry per side the brief named, returned without a draw.
 	fixed: Partial< Record< DesignCatalogKind, DesignEntry > >;
-	// Names the agent passed that are not catalog entries; those pairs were
-	// replaced by random draws rather than failing the call.
 	ignored: string[];
 }
 
@@ -217,10 +203,6 @@ function resolveNamedInBrief( kind: DesignCatalogKind, name: string ): DesignEnt
 	return entry;
 }
 
-// The agent chooses up to two pairs by fit; the code fills the rest at random
-// from the whole catalog so no two options share a layout or a direction,
-// then shuffles so the user cannot tell which were chosen. A side named in
-// the brief is fixed across every pair.
 export function drawDesignPairs(
 	request: DesignPairRequest,
 	random: () => number = Math.random
@@ -268,7 +250,6 @@ export function drawDesignPairs(
 			( entry ) => ! used[ kind ].has( entry.name ) && ! skip.has( entry.name.toLowerCase() )
 		);
 		if ( ! candidates.length ) {
-			// Every unused entry was avoided; the constraint loses to the draw.
 			candidates = loadDesignCatalog( kind ).filter(
 				( entry ) => ! used[ kind ].has( entry.name )
 			);

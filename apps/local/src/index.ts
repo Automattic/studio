@@ -1209,11 +1209,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Local media for the transcript: agent screenshots and design previews,
-	// which the CLI saves in `<session>.screenshots/` sidecars. The API is
-	// reachable cross-origin from the browser, so this is deliberately not a
-	// general file read: only raster images under the sessions root are served,
-	// with symlinks resolved before the containment check.
+	// Reachable cross-origin from the browser, so deliberately not a general
+	// file read: raster images under the sessions root only, symlinks resolved.
 	api.get(
 		'/media/read',
 		asyncHandler( async ( req: Request, res: Response ) => {

@@ -338,79 +338,61 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
-	it( 'pick_design draws a layout concept and an artistic direction from the shortlists', async () => {
-		const { findSkill, getCurrentDesignPool, renderSkillBody } = await import( '../skills' );
-		renderSkillBody( findSkill( 'visual-design' )! );
-		const concepts = getCurrentDesignPool( 'concept' ).slice( 0, 3 );
-		const directions = getCurrentDesignPool( 'direction' ).slice( 0, 3 );
-		const shortlist = ( names: string[] ) => names.map( ( name ) => ( { name, reason: 'fits' } ) );
+	it( 'pick_design draws one random pair with its notes when the user will not pick', async () => {
 		const tool = getTool( 'pick_design' );
-		const text =
-			getTextContent(
-				await executeTool( tool, {
-					layoutCandidates: shortlist( concepts ),
-					directionCandidates: shortlist( directions ),
-				} )
-			) ?? '';
-		expect( concepts ).toContain( text.match( /^Drawn layout concept: (.+)$/m )?.[ 1 ] );
-		expect( directions ).toContain( text.match( /^Drawn artistic direction: (.+)$/m )?.[ 1 ] );
+		const text = getTextContent( await executeTool( tool, { options: 1 } ) ) ?? '';
+		expect( text ).toMatch( /^Layout concept: .+$/m );
+		expect( text ).toMatch( /^Artistic direction: .+$/m );
 		expect( text ).toMatch( /^Build: /m );
 		expect( text ).toMatch( /^Palette: /m );
+		expect( text ).not.toContain( 'Option 1' );
 		await expect(
-			executeTool( tool, { layoutCandidates: shortlist( concepts.slice( 0, 2 ) ) } )
-		).rejects.toThrow( /at least 3/ );
-		await expect( executeTool( tool, {} ) ).rejects.toThrow( /shortlist/ );
-		const named =
-			getTextContent(
-				await executeTool( tool, {
-					directionNamedInBrief: directions[ 0 ],
-				} )
-			) ?? '';
-		expect( named ).toContain( `Artistic direction named in the brief: ${ directions[ 0 ] }` );
-		expect( named ).not.toContain( 'layout concept' );
+			executeTool( tool, {
+				options: 1,
+				chosen: [ { layout: 'Broadsheet', direction: 'Noir', reason: 'fits' } ],
+			} )
+		).rejects.toThrow( /single draw is random/ );
 	} );
 
-	it( 'pick_design draws four distinct pairs when the user will pick one', async () => {
-		const { findSkill, getCurrentDesignPool, renderSkillBody } = await import( '../skills' );
-		renderSkillBody( findSkill( 'visual-design' )! );
-		const concepts = getCurrentDesignPool( 'concept' ).slice( 0, 5 );
-		const directions = getCurrentDesignPool( 'direction' ).slice( 0, 4 );
-		const shortlist = ( names: string[] ) => names.map( ( name ) => ( { name, reason: 'fits' } ) );
+	it( 'pick_design returns four distinct options around the chosen pairs', async () => {
+		const { loadDesignCatalog } = await import( '../skills' );
+		const concepts = loadDesignCatalog( 'concept' ).map( ( c ) => c.name );
+		const directions = loadDesignCatalog( 'direction' ).map( ( d ) => d.name );
 		const tool = getTool( 'pick_design' );
 		const text =
 			getTextContent(
 				await executeTool( tool, {
-					layoutCandidates: shortlist( concepts ),
-					directionCandidates: shortlist( directions ),
 					options: 4,
+					chosen: [
+						{ layout: concepts[ 0 ], direction: directions[ 0 ], reason: 'safe' },
+						{ layout: concepts[ 1 ], direction: 'Nope', reason: 'bold' },
+					],
 				} )
 			) ?? '';
-		expect( text ).toMatch( /^Option 1$/m );
 		expect( text ).toMatch( /^Option 4$/m );
 		expect( text ).not.toMatch( /^Option 5$/m );
-		const drawnConcepts = [ ...text.matchAll( /^Drawn layout concept: (.+)$/gm ) ].map(
-			( m ) => m[ 1 ]
-		);
-		const drawnDirections = [ ...text.matchAll( /^Drawn artistic direction: (.+)$/gm ) ].map(
-			( m ) => m[ 1 ]
-		);
-		expect( new Set( drawnConcepts ).size ).toBe( 4 );
-		expect( new Set( drawnDirections ).size ).toBe( 4 );
-		for ( const name of drawnConcepts ) expect( concepts ).toContain( name );
-		for ( const name of drawnDirections ) expect( directions ).toContain( name );
+		const layouts = [ ...text.matchAll( /^Layout concept: (.+)$/gm ) ].map( ( m ) => m[ 1 ] );
+		const looks = [ ...text.matchAll( /^Artistic direction: (.+)$/gm ) ].map( ( m ) => m[ 1 ] );
+		expect( new Set( layouts ).size ).toBe( 4 );
+		expect( new Set( looks ).size ).toBe( 4 );
+		for ( const name of layouts ) expect( concepts ).toContain( name );
+		for ( const name of looks ) expect( directions ).toContain( name );
+		expect( layouts ).toContain( concepts[ 0 ] );
+		expect( looks ).toContain( directions[ 0 ] );
 		expect( text ).toContain( 'present_design_options' );
+		expect( text ).toMatch( /replaced by random draws: Nope\./ );
 
 		// A side named in the brief is stated once and stays fixed across options.
 		const named =
 			getTextContent(
-				await executeTool( tool, {
-					layoutNamedInBrief: concepts[ 0 ],
-					directionCandidates: shortlist( directions ),
-					options: 4,
-				} )
+				await executeTool( tool, { options: 4, layoutNamedInBrief: concepts[ 0 ] } )
 			) ?? '';
 		expect( named.match( /^Layout concept named in the brief: /gm ) ).toHaveLength( 1 );
-		expect( named.match( /^Drawn artistic direction: /gm ) ).toHaveLength( 4 );
+		expect( named.match( /^Layout concept: /gm ) ).toBeNull();
+		expect( named.match( /^Artistic direction: /gm ) ).toHaveLength( 4 );
+		await expect(
+			executeTool( tool, { options: 1, layoutNamedInBrief: 'Vaporwave' } )
+		).rejects.toThrow( /not a catalog layout concept/ );
 	} );
 
 	it( 'present_design_options renders each sneak peek and asks the user with the images', async () => {

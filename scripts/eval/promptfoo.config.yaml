@@ -397,9 +397,9 @@ tests:
             return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
           });
 
-      # The visual-design skill injects random concept and direction pools;
-      # the agent shortlists, pick_design draws one of each, and the Site
-      # Spec must commit to the drawn pair before building.
+      # The visual-design skill lists the concept and direction catalogs;
+      # pick_design settles the pair(s), and the Site Spec must commit to one
+      # of them before building.
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -421,8 +421,8 @@ tests:
               const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
               if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
               // Each must be what pick_design drew (or returned for a named brief), not a substitute.
-              // With `options: 3` the tool returns several drawn pairs; the stated one must be among them.
-              const drawnNames = [...picks.matchAll(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'gm'))].map(m => m[1]);
+              // With `options: 4` the tool returns several pairs; the stated one must be among them.
+              const drawnNames = [...picks.matchAll(new RegExp(`^${heading[0].toUpperCase()}${heading.slice(1)}(?: named in the brief)?: (.+)$`, 'gm'))].map(m => m[1]);
               if (!drawnNames.length) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
               const drawn = drawnNames.find(name => fromCatalog.toLowerCase().includes(name.toLowerCase()));
               if (!drawn) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match any pick_design result (${drawnNames.join(', ')})` };

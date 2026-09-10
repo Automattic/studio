@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DESIGN_CATALOG_KINDS,
+	drawDesignPairs,
 	findSkill,
-	getCurrentDesignPool,
 	loadDesignCatalog,
-	pickDesignEntries,
+	parseDesignEntry,
 	renderSkillBody,
-	sampleDesignCatalog,
 } from '../skills';
 
 function seededRandom( seed: number ): () => number {
@@ -23,9 +22,10 @@ describe( 'design catalogs', () => {
 		expect( concepts.length ).toBeGreaterThanOrEqual( 5 );
 		expect( new Set( concepts.map( ( c ) => c.name ) ).size ).toBe( concepts.length );
 		for ( const concept of concepts ) {
-			expect( concept.body, concept.name ).toMatch( /^Build: /m );
-			expect( concept.body, concept.name ).toMatch( /^Fallback: /m );
-			expect( concept.body, concept.name ).not.toMatch( /^Fits: /m );
+			expect( concept.description, concept.name ).not.toBe( '' );
+			expect( concept.details, concept.name ).toMatch( /^Build: /m );
+			expect( concept.details, concept.name ).toMatch( /^Fallback: /m );
+			expect( concept.details, concept.name ).not.toMatch( /^Fits: /m );
 		}
 	} );
 
@@ -34,6 +34,7 @@ describe( 'design catalogs', () => {
 		expect( directions.length ).toBeGreaterThanOrEqual( 10 );
 		expect( new Set( directions.map( ( d ) => d.name ) ).size ).toBe( directions.length );
 		for ( const direction of directions ) {
+			expect( direction.description, direction.name ).not.toBe( '' );
 			for ( const cue of [
 				'Palette',
 				'Type',
@@ -43,44 +44,55 @@ describe( 'design catalogs', () => {
 				'Motion',
 				'Avoid',
 			] ) {
-				expect( direction.body, `${ direction.name } ${ cue }` ).toMatch(
+				expect( direction.details, `${ direction.name } ${ cue }` ).toMatch(
 					new RegExp( `^${ cue }: `, 'm' )
 				);
 			}
 		}
 	} );
-} );
 
-describe( 'sampleDesignCatalog', () => {
-	it( 'returns the requested count of distinct entries', () => {
-		const sample = sampleDesignCatalog( 'direction', 4, seededRandom( 1 ) );
-		expect( sample ).toHaveLength( 4 );
-		expect( new Set( sample.map( ( c ) => c.name ) ).size ).toBe( 4 );
+	it( 'keeps the description out of the details, so the index never leaks build notes', () => {
+		for ( const kind of DESIGN_CATALOG_KINDS ) {
+			for ( const entry of loadDesignCatalog( kind ) ) {
+				expect( entry.details, entry.name ).not.toContain( entry.description );
+			}
+		}
 	} );
 
-	it( 'changes between loads', () => {
-		const names = ( seed: number ) =>
-			sampleDesignCatalog( 'concept', 4, seededRandom( seed ) ).map( ( c ) => c.name );
-		expect( names( 1 ) ).not.toEqual( names( 2 ) );
+	it( 'parses frontmatter titles and descriptions written as JSON strings or bare', () => {
+		expect(
+			parseDesignEntry(
+				'---\ntitle: "Broadsheet"\ndescription: "A front page: masthead, \\"lead\\", columns."\n---\nBuild: grid.\nFallback: one column.\n'
+			)
+		).toEqual( {
+			name: 'Broadsheet',
+			description: 'A front page: masthead, "lead", columns.',
+			details: 'Build: grid.\nFallback: one column.',
+		} );
+		expect(
+			parseDesignEntry( '---\ntitle: Noir\ndescription: Dark and cold.\n---\nPalette: black.\n' )
+		).toMatchObject( { name: 'Noir', description: 'Dark and cold.' } );
+		expect( parseDesignEntry( '---\ntitle: "Empty"\ndescription: "x"\n---\n' ) ).toBeNull();
+		expect( parseDesignEntry( 'no frontmatter' ) ).toBeNull();
 	} );
 } );
 
 describe( 'renderSkillBody', () => {
-	it( 'fills both visual-design pools with fresh samples and remembers them', () => {
-		const skill = findSkill( 'visual-design' );
-		expect( skill?.body ).toContain( '{{concept-pool}}' );
-		expect( skill?.body ).toContain( '{{direction-pool}}' );
-		const rendered = renderSkillBody( skill! );
-		expect( rendered ).not.toMatch( /\{\{[a-z-]+\}\}/ );
-		expect( rendered.match( /^### .+$/gm ) ).toHaveLength( 8 + 6 );
-		expect( getCurrentDesignPool( 'concept' ) ).toHaveLength( 8 );
-		expect( getCurrentDesignPool( 'direction' ) ).toHaveLength( 6 );
+	it( 'lists every catalog entry by name and description, without its notes', () => {
+		const rendered = renderSkillBody( findSkill( 'visual-design' )! );
+		expect( rendered ).not.toContain( '{{layout-index}}' );
+		expect( rendered ).not.toContain( '{{direction-index}}' );
 		for ( const kind of DESIGN_CATALOG_KINDS ) {
-			for ( const name of getCurrentDesignPool( kind ) ) {
-				const entry = loadDesignCatalog( kind ).find( ( e ) => e.name === name )!;
-				expect( rendered ).toContain( `### ${ name }\n${ entry.body }` );
+			for ( const entry of loadDesignCatalog( kind ) ) {
+				expect( rendered ).toContain( `- **${ entry.name }** — ${ entry.description }` );
+				expect( rendered ).not.toContain( entry.details.split( '\n' )[ 0 ] );
 			}
 		}
+	} );
+
+	it( 'is stable between loads', () => {
+		const skill = findSkill( 'visual-design' )!;
+		expect( renderSkillBody( skill ) ).toBe( renderSkillBody( skill ) );
 	} );
 
 	it( 'leaves skills without placeholders untouched', () => {
@@ -89,58 +101,94 @@ describe( 'renderSkillBody', () => {
 	} );
 } );
 
-describe.each( DESIGN_CATALOG_KINDS )( 'pickDesignEntries(%s)', ( kind ) => {
-	const pool = () => {
-		renderSkillBody( findSkill( 'visual-design' )! );
-		return getCurrentDesignPool( kind );
-	};
+describe( 'drawDesignPairs', () => {
+	const concepts = () => loadDesignCatalog( 'concept' );
+	const directions = () => loadDesignCatalog( 'direction' );
 
-	it( 'draws one of the candidates and returns its notes', () => {
-		const candidates = pool().slice( 0, 4 );
-		const { entries, drawn } = pickDesignEntries( kind, { candidates }, 1, seededRandom( 3 ) );
-		expect( drawn ).toBe( true );
-		expect( entries ).toHaveLength( 1 );
-		expect( candidates ).toContain( entries[ 0 ].name );
-		expect( entries[ 0 ].body ).toMatch( kind === 'concept' ? /^Build: /m : /^Palette: /m );
+	it( 'draws one random pair with full notes', () => {
+		const draw = drawDesignPairs( { count: 1 }, seededRandom( 3 ) );
+		expect( draw.pairs ).toHaveLength( 1 );
+		expect( draw.pairs[ 0 ].layout.details ).toMatch( /^Build: /m );
+		expect( draw.pairs[ 0 ].direction.details ).toMatch( /^Palette: /m );
+		expect( draw.ignored ).toEqual( [] );
 	} );
 
-	it( 'draws several distinct candidates when the user will pick between them', () => {
-		const candidates = pool().slice( 0, 4 );
-		const { entries } = pickDesignEntries( kind, { candidates }, 3, seededRandom( 7 ) );
-		expect( entries ).toHaveLength( 3 );
-		expect( new Set( entries.map( ( entry ) => entry.name ) ).size ).toBe( 3 );
-		for ( const entry of entries ) {
-			expect( candidates ).toContain( entry.name );
+	it( 'keeps the chosen pairs, fills up to four at random, and never repeats a side', () => {
+		const chosen = [
+			{ layout: concepts()[ 0 ].name, direction: directions()[ 0 ].name },
+			{ layout: concepts()[ 1 ].name, direction: directions()[ 1 ].name },
+		];
+		const draw = drawDesignPairs( { count: 4, chosen }, seededRandom( 5 ) );
+		expect( draw.pairs ).toHaveLength( 4 );
+		const layouts = draw.pairs.map( ( p ) => p.layout.name );
+		const looks = draw.pairs.map( ( p ) => p.direction.name );
+		expect( new Set( layouts ).size ).toBe( 4 );
+		expect( new Set( looks ).size ).toBe( 4 );
+		for ( const pair of chosen ) {
+			expect( draw.pairs ).toContainEqual(
+				expect.objectContaining( {
+					layout: expect.objectContaining( { name: pair.layout } ),
+					direction: expect.objectContaining( { name: pair.direction } ),
+				} )
+			);
 		}
 	} );
 
-	it( 'rejects shortlists of fewer than three distinct entries', () => {
-		const [ a, b ] = pool();
-		expect( () => pickDesignEntries( kind, { candidates: [ a, b, b ] } ) ).toThrow( /at least 3/ );
+	it( 'shuffles so the chosen pairs are not always first', () => {
+		const chosen = [ { layout: concepts()[ 0 ].name, direction: directions()[ 0 ].name } ];
+		const firsts = new Set(
+			Array.from(
+				{ length: 12 },
+				( _, seed ) =>
+					drawDesignPairs( { count: 4, chosen }, seededRandom( seed + 1 ) ).pairs[ 0 ].layout.name
+			)
+		);
+		expect( firsts.size ).toBeGreaterThan( 1 );
 	} );
 
-	it( 'rejects candidates outside the pool the model was shown', () => {
-		const shown = pool();
-		const outside = loadDesignCatalog( kind ).find( ( c ) => ! shown.includes( c.name ) )!.name;
-		expect( () =>
-			pickDesignEntries( kind, { candidates: [ ...shown.slice( 0, 3 ), outside ] } )
-		).toThrow( /Not in this build's .* pool/ );
+	it( 'replaces a chosen pair with an unknown name by a random draw and reports it', () => {
+		const draw = drawDesignPairs(
+			{ count: 4, chosen: [ { layout: 'Nope', direction: directions()[ 0 ].name } ] },
+			seededRandom( 2 )
+		);
+		expect( draw.pairs ).toHaveLength( 4 );
+		expect( draw.ignored ).toEqual( [ 'Nope' ] );
 	} );
 
-	it( 'rejects names that are not catalog entries', () => {
-		expect( () => pickDesignEntries( kind, { candidates: [ 'Nope', 'Nah', 'Never' ] } ) ).toThrow(
-			/Not catalog/
+	it( 'fixes a side named in the brief across every pair', () => {
+		const named = directions()[ 3 ].name;
+		const draw = drawDesignPairs(
+			{
+				count: 4,
+				directionNamedInBrief: named,
+				chosen: [ { layout: concepts()[ 2 ].name, direction: 'ignored' } ],
+			},
+			seededRandom( 9 )
+		);
+		expect( draw.fixed.direction?.name ).toBe( named );
+		expect( draw.pairs.every( ( p ) => p.direction.name === named ) ).toBe( true );
+		expect( new Set( draw.pairs.map( ( p ) => p.layout.name ) ).size ).toBe( 4 );
+		expect( draw.ignored ).toEqual( [] );
+	} );
+
+	it( 'rejects a brief-named entry that is not in the catalog', () => {
+		expect( () => drawDesignPairs( { count: 1, layoutNamedInBrief: 'Vaporwave' } ) ).toThrow(
+			/not a catalog layout concept/
 		);
 	} );
 
-	it( 'returns an entry named in the brief without drawing', () => {
-		const named = loadDesignCatalog( kind )[ 0 ].name;
-		const { entries, drawn } = pickDesignEntries(
-			kind,
-			{ candidates: [], namedInBrief: named },
-			3
+	it( 'never draws avoided entries unless nothing else is left', () => {
+		const avoidAllButTwo = directions()
+			.slice( 2 )
+			.map( ( d ) => d.name );
+		const draw = drawDesignPairs(
+			{ count: 4, avoid: { directions: avoidAllButTwo } },
+			seededRandom( 4 )
 		);
-		expect( drawn ).toBe( false );
-		expect( entries.map( ( entry ) => entry.name ) ).toEqual( [ named ] );
+		const looks = draw.pairs.map( ( p ) => p.direction.name );
+		// The two allowed directions come first; only then does the draw fall
+		// back to the avoided ones to complete four distinct pairs.
+		expect( looks.filter( ( name ) => ! avoidAllButTwo.includes( name ) ) ).toHaveLength( 2 );
+		expect( new Set( looks ).size ).toBe( 4 );
 	} );
 } );

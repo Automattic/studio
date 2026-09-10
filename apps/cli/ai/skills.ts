@@ -75,50 +75,71 @@ export type DesignCatalogKind = 'concept' | 'direction';
 
 export interface DesignEntry {
 	name: string;
-	body: string;
+	// What the agent sees when choosing: the frontmatter description.
+	description: string;
+	// What the agent gets for the drawn entries only: the file body.
+	details: string;
 }
 
 // Two catalogs feed the visual-design skill: layout concepts (the shape of
 // the page) and artistic directions (palette, type, surfaces, motion). Each
-// is a markdown file where every `## ` heading is one entry keeping its own
-// body, and each has a placeholder in SKILL.md that is re-rendered as a
-// fresh random pool on every load.
+// is a folder of one markdown file per entry: `title` and `description` in
+// the frontmatter, the build notes in the body. The skill shows the agent an
+// index of titles and descriptions; `pick_design` returns the notes for the
+// entries it draws.
 const DESIGN_CATALOGS: Record<
 	DesignCatalogKind,
-	{ file: string; placeholder: string; poolSize: number; label: string }
+	{ folder: string; placeholder: string; label: string }
 > = {
-	concept: {
-		file: 'concepts.md',
-		placeholder: '{{concept-pool}}',
-		poolSize: 8,
-		label: 'layout concept',
-	},
+	concept: { folder: 'layouts', placeholder: '{{layout-index}}', label: 'layout concept' },
 	direction: {
-		file: 'directions.md',
-		placeholder: '{{direction-pool}}',
-		poolSize: 6,
+		folder: 'artistic-directions',
+		placeholder: '{{direction-index}}',
 		label: 'artistic direction',
 	},
 };
 
 export const DESIGN_CATALOG_KINDS = Object.keys( DESIGN_CATALOGS ) as DesignCatalogKind[];
-const MIN_DESIGN_CANDIDATES = 3;
+export const MAX_CHOSEN_DESIGN_PAIRS = 2;
 
 const cachedCatalogs = new Map< DesignCatalogKind, DesignEntry[] >();
+
+// Frontmatter values are written as JSON strings so titles and descriptions
+// can hold colons and quotes; bare values are accepted too.
+function readFrontmatterValue( frontmatter: string, key: string ): string | undefined {
+	const raw = frontmatter.match( new RegExp( `^${ key }:\\s*(.+)$`, 'm' ) )?.[ 1 ]?.trim();
+	if ( ! raw ) return undefined;
+	if ( raw.startsWith( '"' ) ) {
+		try {
+			return String( JSON.parse( raw ) );
+		} catch {
+			return undefined;
+		}
+	}
+	return raw;
+}
+
+export function parseDesignEntry( contents: string ): DesignEntry | null {
+	const match = contents.match( /^---\n([\s\S]*?)\n---\n([\s\S]*)$/ );
+	if ( ! match ) return null;
+	const [ , frontmatter, body ] = match;
+	const name = readFrontmatterValue( frontmatter, 'title' );
+	const description = readFrontmatterValue( frontmatter, 'description' );
+	const details = body.trim();
+	if ( ! name || ! description || ! details ) return null;
+	return { name, description, details };
+}
 
 export function loadDesignCatalog( kind: DesignCatalogKind ): DesignEntry[] {
 	const cached = cachedCatalogs.get( kind );
 	if ( cached ) return cached;
-	const catalogPath = getSkillPath( 'visual-design', DESIGN_CATALOGS[ kind ].file );
+	const folder = getSkillPath( 'visual-design', DESIGN_CATALOGS[ kind ].folder );
 	const entries: DesignEntry[] = [];
-	if ( fs.existsSync( catalogPath ) ) {
-		for ( const section of fs.readFileSync( catalogPath, 'utf-8' ).split( /^(?=## )/m ) ) {
-			const heading = section.match( /^## (.+)$/m );
-			if ( ! heading ) continue;
-			entries.push( {
-				name: heading[ 1 ].trim(),
-				body: section.slice( heading[ 0 ].length ).trim(),
-			} );
+	if ( fs.existsSync( folder ) ) {
+		for ( const file of fs.readdirSync( folder ).sort() ) {
+			if ( ! file.endsWith( '.md' ) || file === 'README.md' ) continue;
+			const entry = parseDesignEntry( fs.readFileSync( path.join( folder, file ), 'utf-8' ) );
+			if ( entry ) entries.push( entry );
 		}
 	}
 	cachedCatalogs.set( kind, entries );
@@ -134,105 +155,134 @@ function shuffle< T >( items: T[], random: () => number ): T[] {
 	return result;
 }
 
-// Picks `count` random entries in random order, so neither the pick nor
-// its position in the list is stable between two loads of the skill.
-export function sampleDesignCatalog(
-	kind: DesignCatalogKind,
-	count: number,
-	random: () => number = Math.random
-): DesignEntry[] {
-	return shuffle( loadDesignCatalog( kind ), random ).slice( 0, count );
-}
-
-// Names sampled into each pool on the most recent visual-design load, so
-// pick_design can insist the shortlists came from what the model was shown.
-const currentPools = new Map< DesignCatalogKind, string[] >();
-
-export function getCurrentDesignPool( kind: DesignCatalogKind ): string[] {
-	return currentPools.get( kind ) ?? [];
-}
-
-// Skill bodies are static except for the pool placeholders, which are
-// re-rendered as fresh random samples on every load.
+// Skill bodies are static except for the catalog index placeholders, which
+// list every entry's name and description so the agent can choose by fit
+// without seeing any build notes.
 export function renderSkillBody( skill: Skill ): string {
 	let body = skill.body;
 	for ( const kind of DESIGN_CATALOG_KINDS ) {
-		const { placeholder, poolSize } = DESIGN_CATALOGS[ kind ];
+		const { placeholder } = DESIGN_CATALOGS[ kind ];
 		if ( ! body.includes( placeholder ) ) continue;
-		const pool = sampleDesignCatalog( kind, poolSize );
-		currentPools.set(
-			kind,
-			pool.map( ( entry ) => entry.name )
-		);
-		const names = loadDesignCatalog( kind ).map( ( entry ) => entry.name );
-		const rendered =
-			pool.map( ( entry ) => `### ${ entry.name }\n${ entry.body }` ).join( '\n\n' ) +
-			`\n\nFull catalog (names only, for an entry the brief names by name): ${ names.join(
-				', '
-			) }.`;
-		// A function replacer: entry bodies may contain `$` sequences that a
+		const rendered = loadDesignCatalog( kind )
+			.map( ( entry ) => `- **${ entry.name }** — ${ entry.description }` )
+			.join( '\n' );
+		// A function replacer: descriptions may contain `$` sequences that a
 		// string replacement would expand.
 		body = body.replace( placeholder, () => rendered );
 	}
 	return body;
 }
 
-function findDesignEntry( kind: DesignCatalogKind, name: string ): DesignEntry | undefined {
+export function findDesignEntry( kind: DesignCatalogKind, name: string ): DesignEntry | undefined {
 	const wanted = name.trim().toLowerCase();
 	return loadDesignCatalog( kind ).find( ( entry ) => entry.name.toLowerCase() === wanted );
 }
 
-// The model shortlists; the code draws. An entry the user named in the
-// brief bypasses the draw. Candidates must be distinct catalog entries from
-// the pool the model was shown, and at least three of them, so the draw is
-// real rather than a shortlist of one. `count` distinct entries come back
-// when the user is going to pick between rendered previews.
-export function pickDesignEntries(
-	kind: DesignCatalogKind,
-	input: { candidates: string[]; namedInBrief?: string },
-	count = 1,
+export interface DesignPairRequest {
+	// Up to two pairs the agent judged a good fit; the rest are drawn at random.
+	chosen?: Array< { layout: string; direction: string } >;
+	// Entries that contradict a hard constraint in the brief; never drawn.
+	avoid?: { layouts?: string[]; directions?: string[] };
+	layoutNamedInBrief?: string;
+	directionNamedInBrief?: string;
+	count: number;
+}
+
+export interface DesignPair {
+	layout: DesignEntry;
+	direction: DesignEntry;
+}
+
+export interface DesignDraw {
+	pairs: DesignPair[];
+	// One entry per side the brief named, returned without a draw.
+	fixed: Partial< Record< DesignCatalogKind, DesignEntry > >;
+	// Names the agent passed that are not catalog entries; those pairs were
+	// replaced by random draws rather than failing the call.
+	ignored: string[];
+}
+
+function resolveNamedInBrief( kind: DesignCatalogKind, name: string ): DesignEntry {
+	const entry = findDesignEntry( kind, name );
+	if ( ! entry ) {
+		const { label } = DESIGN_CATALOGS[ kind ];
+		throw new Error(
+			`"${ name }" is not a catalog ${ label }. If the brief asks for it, skip this draw: leave this side out of the call and design it from the brief. Catalog: ${ loadDesignCatalog(
+				kind
+			)
+				.map( ( e ) => e.name )
+				.join( ', ' ) }`
+		);
+	}
+	return entry;
+}
+
+// The agent chooses up to two pairs by fit; the code fills the rest at random
+// from the whole catalog so no two options share a layout or a direction,
+// then shuffles so the user cannot tell which were chosen. A side named in
+// the brief is fixed across every pair.
+export function drawDesignPairs(
+	request: DesignPairRequest,
 	random: () => number = Math.random
-): { entries: DesignEntry[]; drawn: boolean } {
-	const { label } = DESIGN_CATALOGS[ kind ];
-	if ( input.namedInBrief ) {
-		const entry = findDesignEntry( kind, input.namedInBrief );
-		if ( ! entry ) {
-			throw new Error(
-				`"${
-					input.namedInBrief
-				}" is not a catalog ${ label }. If the brief asks for it, skip this draw: leave this side out of the call and design it from the brief. Catalog: ${ loadDesignCatalog(
-					kind
-				)
-					.map( ( e ) => e.name )
-					.join( ', ' ) }`
+): DesignDraw {
+	const fixed: DesignDraw[ 'fixed' ] = {};
+	if ( request.layoutNamedInBrief ) {
+		fixed.concept = resolveNamedInBrief( 'concept', request.layoutNamedInBrief );
+	}
+	if ( request.directionNamedInBrief ) {
+		fixed.direction = resolveNamedInBrief( 'direction', request.directionNamedInBrief );
+	}
+	const count = Math.max( 1, Math.floor( request.count ) );
+	const ignored: string[] = [];
+	const used: Record< DesignCatalogKind, Set< string > > = {
+		concept: new Set(),
+		direction: new Set(),
+	};
+	const pairs: DesignPair[] = [];
+
+	for ( const choice of ( request.chosen ?? [] ).slice( 0, MAX_CHOSEN_DESIGN_PAIRS ) ) {
+		if ( pairs.length >= count ) break;
+		const layout = fixed.concept ?? findDesignEntry( 'concept', choice.layout );
+		const direction = fixed.direction ?? findDesignEntry( 'direction', choice.direction );
+		if ( ! layout ) ignored.push( choice.layout );
+		if ( ! direction ) ignored.push( choice.direction );
+		if ( ! layout || ! direction ) continue;
+		if ( ! fixed.concept && used.concept.has( layout.name ) ) continue;
+		if ( ! fixed.direction && used.direction.has( direction.name ) ) continue;
+		used.concept.add( layout.name );
+		used.direction.add( direction.name );
+		pairs.push( { layout, direction } );
+	}
+
+	const avoided = ( kind: DesignCatalogKind ) =>
+		new Set(
+			( kind === 'concept' ? request.avoid?.layouts : request.avoid?.directions )?.map( ( n ) =>
+				n.trim().toLowerCase()
+			) ?? []
+		);
+	const drawSide = ( kind: DesignCatalogKind ): DesignEntry => {
+		const fixedEntry = fixed[ kind ];
+		if ( fixedEntry ) return fixedEntry;
+		const skip = avoided( kind );
+		let candidates = loadDesignCatalog( kind ).filter(
+			( entry ) => ! used[ kind ].has( entry.name ) && ! skip.has( entry.name.toLowerCase() )
+		);
+		if ( ! candidates.length ) {
+			// Every unused entry was avoided; the constraint loses to the draw.
+			candidates = loadDesignCatalog( kind ).filter(
+				( entry ) => ! used[ kind ].has( entry.name )
 			);
 		}
-		return { entries: [ entry ], drawn: false };
+		if ( ! candidates.length ) {
+			throw new Error( `Not enough ${ DESIGN_CATALOGS[ kind ].label }s to draw from.` );
+		}
+		const entry = candidates[ Math.floor( random() * candidates.length ) ];
+		used[ kind ].add( entry.name );
+		return entry;
+	};
+	while ( pairs.length < count ) {
+		pairs.push( { layout: drawSide( 'concept' ), direction: drawSide( 'direction' ) } );
 	}
-	const candidates = [ ...new Set( input.candidates.map( ( name ) => name.trim() ) ) ];
-	const unknown = candidates.filter( ( name ) => ! findDesignEntry( kind, name ) );
-	if ( unknown.length ) {
-		throw new Error( `Not catalog ${ label }s: ${ unknown.join( ', ' ) }` );
-	}
-	const pool = getCurrentDesignPool( kind );
-	const lowerPool = pool.map( ( name ) => name.toLowerCase() );
-	const outsidePool = pool.length
-		? candidates.filter( ( name ) => ! lowerPool.includes( name.toLowerCase() ) )
-		: [];
-	if ( outsidePool.length ) {
-		throw new Error(
-			`Not in this build's ${ label } pool: ${ outsidePool.join(
-				', '
-			) }. Shortlist from the pool shown in the visual-design skill: ${ pool.join( ', ' ) }`
-		);
-	}
-	if ( candidates.length < MIN_DESIGN_CANDIDATES ) {
-		throw new Error(
-			`Shortlist at least ${ MIN_DESIGN_CANDIDATES } distinct ${ label }s that fit the site.`
-		);
-	}
-	const entries = shuffle( candidates, random )
-		.slice( 0, count )
-		.map( ( name ) => findDesignEntry( kind, name ) as DesignEntry );
-	return { entries, drawn: true };
+
+	return { pairs: count > 1 ? shuffle( pairs, random ) : pairs, fixed, ignored };
 }

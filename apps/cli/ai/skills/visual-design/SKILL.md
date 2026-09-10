@@ -13,8 +13,8 @@ Use this skill before creating or redesigning a site, landing page, homepage, la
 Understand the context and commit to a clear aesthetic direction:
 
 - **Purpose**: What problem does this interface solve? Who uses it?
-- **Artistic direction**: Shortlist directions from the direction pool below and let `pick_design` draw one (see "Concept and Direction") — the feeling of the site: palette, type, surfaces, shapes, imagery, and motion.
-- **Signature concept**: Shortlist layout concepts from the concept pool below and let the same `pick_design` call draw one — the spatial structure that makes the site memorable.
+- **Artistic direction**: the feeling of the site — palette, type, surfaces, shapes, imagery, and motion — settled with `pick_design` from the direction catalog below (see "Concept and Direction").
+- **Signature concept**: the spatial structure that makes the site memorable, settled by the same `pick_design` call from the layout catalog below.
 - **Constraints**: Account for technical requirements, performance, accessibility, responsive behavior, and WordPress editability.
 
 Execute the drawn pair with precision. Bold maximalism and refined minimalism can both work; the important thing is intentionality.
@@ -23,13 +23,13 @@ Execute the drawn pair with precision. Bold maximalism and refined minimalism ca
 
 Every site gets one signature concept and one artistic direction, both chosen before any code is written. The concept is the one structural idea a visitor remembers — a cover made of four tiles, a site laid out sideways, a page read like a newspaper — and it is about layout only: the shape of the page and how sections relate to the viewport. The direction is everything the concept leaves open — color, type, surfaces, shapes, how imagery is treated, how things move — and any direction must be able to dress any concept. A Swiss typographic Checkerboard and a Neo-brutalist Checkerboard share a grid and nothing else.
 
-The two pools at the end of this runbook are random samples from the two catalogs, and they change on every load. You shortlist; the `pick_design` tool draws. The draw exists only for what the brief leaves open: the user's words always win over the catalog, on both sides. Work from the pools like this:
+The two catalogs at the end of this runbook list every layout concept and every artistic direction by name and description; their build notes only come back from `pick_design` for the pairs it returns. You choose some, the code draws the rest, the user picks. The draw exists only for what the brief leaves open: the user's words always win over the catalog, on both sides. Work from the catalogs like this:
 
-1. If the user's brief names a catalog concept or direction, pass that name as `layoutNamedInBrief` or `directionNamedInBrief` — exactly as it appears in the full catalog list under the pool, even if it is not among the pool entries — and skip that draw. Never substitute a similar-sounding pool entry for the name the brief used.
+1. If the user's brief names a catalog concept or direction, pass that name as `layoutNamedInBrief` or `directionNamedInBrief` — exactly as it appears in the catalog — and that side is fixed across every pair. Never substitute a similar-sounding entry for the name the brief used.
 2. If the brief specifies a layout or a look the catalog lacks — a style by name ("vaporwave", "like a 1950s diner"), a mood, a reference site, a full brand system — do not draw that side at all. Leave it out of the `pick_design` call, design it from the brief, and state it as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`; the closest catalog entry's lines are a useful checklist of what to decide, not a substitute for what was asked. `pick_design` rejects an off-catalog name for exactly this reason: the answer to that error is to skip the draw and follow the brief, never to pass a nearby catalog name instead.
-3. If the brief only constrains a side — "dark", "use our navy and gold", "lots of photos", "keep it minimal" — the draw still runs, but shortlist only the entries that can honor the constraint, and adapt the drawn entry to it. A dark brief shortlists the entries that live on a dark ground or have a dark variant and leaves out the cream and paper ones; a brand palette replaces the drawn entry's colors while its type, surfaces, shapes, and motion stay.
-4. Otherwise read every entry in each pool as a candidate and shortlist the ones that can be made to suit this site — at least three per pool, ideally four or five, each with a one-line reason. Do not shortlist only the familiar or the safe ones; a bold entry you can execute well belongs on the list. Shortlist the two pools independently: do not drop a direction because it seems an odd match for a concept you happen to like, since the draw decides both.
-5. Call `pick_design` once with every open side (`layoutCandidates` and `directionCandidates`). The `site-spec` skill says whether to draw one pair or four for the user to pick from. Build what was drawn or picked — do not call the tool again to get a different result, and do not substitute another entry. For a redesign that keeps its layout or its look, pass only the side that is open.
+3. If the brief only constrains a side — "dark", "use our navy and gold", "lots of photos", "keep it minimal" — put the entries that cannot honor the constraint in `avoid` (a dark brief avoids the cream and paper directions) and adapt whatever is drawn to it: a brand palette replaces the drawn entry's colors while its type, surfaces, shapes, and motion stay.
+4. When the user will pick (the `site-spec` skill says when), choose two pairs from the catalogs that you judge suit this site — one safe fit and one bold one you could execute well — each with a one-line reason, and pass them as `chosen`. Do not describe or defend them in prose. `pick_design` adds random pairs until there are four, all with distinct concepts and directions, and shuffles them.
+5. Call `pick_design` once with every open side settled as above and `options` per the `site-spec` skill (4 for a pick, 1 otherwise). Build what was drawn or picked — do not call the tool again to get a different result, and do not substitute another entry. For a redesign that keeps its layout or its look, pass the kept side as named in the brief.
 6. Adapt both to the site: change the subject, the proportions, or the content that fills each slot of the concept so it belongs to this brand rather than to the catalog, and tune the direction's palette and type to the brand while keeping its relationships. Name the twist for each. "Simple" or "small" in a brief means fewer pages and less content, not a tamer concept or direction.
 7. State them in the Site Spec as `Concept: <catalog name> — <one-line adaptation>` and `Direction: <catalog name> — <one-line adaptation>`, using each entry's name verbatim so the user can find it, then the twist.
 8. Follow the Concept line with a **Layout map**: one line per section of the page, in page order, saying what the concept does to that section — which slot of the layout it fills, how it is positioned relative to the viewport and its neighbors, what it must not fall back to. Every section gets a line, including the header, the footer, and any form; a section the concept does not shape must say so explicitly and justify why. The map is the plan the build follows, so write it before any code.
@@ -77,14 +77,14 @@ Interpret the user's brief creatively and make choices that feel specific to the
 
 Maximalist designs need enough layered detail, motion, and visual systems to feel intentional. Minimalist or refined designs need restraint, exact spacing, strong typography, and careful hierarchy. Do not confuse minimal with unfinished.
 
-## Concept Pool
+## Layout catalog
 
-A random sample of layout concepts for this build. Shortlist from these, then let `pick_design` draw.
+Every layout concept, by name and description. Choose from these; `pick_design` returns the build notes for the pairs it settles on.
 
-{{concept-pool}}
+{{layout-index}}
 
-## Direction Pool
+## Direction catalog
 
-A random sample of artistic directions for this build. Shortlist from these, then let `pick_design` draw.
+Every artistic direction, by name and description. Choose from these; `pick_design` returns the notes for the pairs it settles on.
 
-{{direction-pool}}
+{{direction-index}}

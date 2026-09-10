@@ -39,21 +39,48 @@ PHP_BINARY_WITH_ZSTD="$workdir/php/php" \
 npm test -- scripts/generate-figma-fixture.test.mjs
 ```
 
-To exercise Studio's source request and staging path with the SSI #1581 candidate:
+## Temporary native-runtime integration evidence
+
+This is an isolated macOS ARM integration check, not a public runtime selector or
+default. The configured PHP metadata intentionally does not advertise `zstd`, so a
+fresh CLI correctly rejects a Figma import before it downloads a runtime. To exercise
+the normal `ensurePhpBinaryAvailable` path without changing that metadata, the command
+below stages the exact workflow artifact where the configured `8.5.10-studio-1`
+package normally lives. The existing staged binary makes `ensurePhpBinaryAvailable`
+skip the capability-gated download, then it creates or synchronizes `php.ini`; the
+Figma probe runs that binary with the generated INI.
+
+The supplied SSI candidate must be the full development ZIP from [SSI #1581](https://github.com/Automattic/static-site-importer/pull/1581), source commit [`165bf27363a0616c1c2ecb78c687e2bd2f05bc52`](https://github.com/Automattic/static-site-importer/commit/165bf27363a0616c1c2ecb78c687e2bd2f05bc52), named `static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip`, with SHA-256 `7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751`. It is candidate evidence only, not a release asset or configured default.
+
+From the Studio repository root, run:
 
 ```sh
 SSI_CANDIDATE_ZIP=/absolute/path/to/static-site-importer-dev-165bf27363a0-blocks-engine-573e126b7fc1.zip
-cp "$SSI_CANDIDATE_ZIP" "$workdir/static-site-importer.zip"
 npm run cli:build
-node apps/cli/dist/cli/main.mjs create \
+workdir="$( mktemp -d )"
+trap 'rm -rf "$workdir"' EXIT
+test "$( shasum -a 256 "$SSI_CANDIDATE_ZIP" | cut -d " " -f 1 )" = \
+  7beec605fdc79885e84e6e29688c8aa3490c66847220ac7dca333ee8ece2f751
+gh run download 34483685921 --repo Automattic/studio \
+  --name php-8.5.10-cli-macos-aarch64 --dir "$workdir/artifact"
+mkdir -p "$workdir/home/.studio/php-bin/8.5.10-studio-1"
+unzip "$workdir/artifact/php-8.5.10-cli-macos-aarch64.zip" \
+  -d "$workdir/home/.studio/php-bin/8.5.10-studio-1"
+git clone https://github.com/Automattic/blocks-engine.git "$workdir/blocks-engine"
+git -C "$workdir/blocks-engine" checkout 4f56d2dc29bc50d5d03285e5eb0f7e94029e7f1d
+"$workdir/home/.studio/php-bin/8.5.10-studio-1/php" scripts/generate-figma-fixture.php \
+  --blocks-engine-path="$workdir/blocks-engine/figma-transformer" \
+  --output="$workdir/studio-fixture.fig"
+HOME="$workdir/home" node apps/cli/dist/cli/main.mjs create \
   --from="$workdir/studio-fixture.fig" \
-  --static-site-importer-path="$workdir/static-site-importer.zip" \
-  --runtime=native \
+  --static-site-importer-path="$SSI_CANDIDATE_ZIP" \
+  --runtime=native --php=8.5 \
   --name='Studio Fixture' --path="$workdir/studio-figma-fixture" --no-start
+test -f "$workdir/home/.studio/php-bin/8.5.10-studio-1/php.ini"
 ```
 
-Set `$workdir/static-site-importer.zip` to the archive built from SSI #1581 at
-`aa7ee1ba9b36f5f3245c0471ff73d72c8d8c40f1`. The release asset remains unverified,
-so it is deliberately not configured as a default package. The workflow verifies both
-`zstd` loading and `zstd_uncompress`. This fixture exercises only fixture generation
-and the opaque Figma request/staging/import path.
+The PHP artifact is [workflow run 34483685921](https://github.com/Automattic/studio/actions/runs/34483685921), [job 102892497452](https://github.com/Automattic/studio/actions/runs/34483685921/job/102892497452), artifact `10155344620` (`php-8.5.10-cli-macos-aarch64`). The trap removes the isolated `HOME`, staged runtime, fixture, and imported site after the command exits.
+
+The workflow verifies both `zstd` loading and `zstd_uncompress`. This fixture exercises
+only fixture generation and the opaque Figma request/staging/import path. It does not
+establish production fidelity or editability.

@@ -402,7 +402,7 @@ tests:
       # of them before building.
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync }) => {
+          return import('node:fs').then(({ readFileSync, readdirSync }) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -411,13 +411,15 @@ tests:
             const text = (d.textSegments || []).join('\n');
             const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
             if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
-            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readFileSync(`${p}/concepts.md`); return true; } catch { return false; } });
+            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readdirSync(`${p}/layouts`); return true; } catch { return false; } });
             if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
+            // One frontmatter file per entry; the title line is a JSON string.
+            const catalogNames = folder => readdirSync(`${skillsDir}/${folder}`).filter(f => f.endsWith('.md') && f !== 'README.md').map(f => JSON.parse(readFileSync(`${skillsDir}/${folder}/${f}`, 'utf8').match(/^title:\s*(.+)$/m)[1]).toLowerCase());
             const stated = [];
-            for (const [label, file, heading] of [['Concept', 'concepts.md', 'layout concept'], ['Direction', 'directions.md', 'artistic direction']]) {
-              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\s*[:—-]`, 'i').test(l));
+            for (const [label, folder, heading] of [['Concept', 'layouts', 'layout concept'], ['Direction', 'artistic-directions', 'artistic direction']]) {
+              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\**\\s*[:—-]`, 'i').test(l));
               if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
-              const catalog = readFileSync(`${skillsDir}/${file}`, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+              const catalog = catalogNames(folder);
               const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
               if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
               // Each must be what pick_design drew (or returned for a named brief), not a substitute.

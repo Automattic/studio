@@ -240,6 +240,26 @@ describe( 'Composer menu', () => {
 		).toBeInTheDocument();
 	} );
 
+	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		const onAnswer = vi.fn();
+		renderComposer( { busy: true, onSend, onAnswer } );
+
+		const textarea = screen.getByPlaceholderText( 'Or type your own answer…' );
+		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+
+		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
+		expect( textarea ).toHaveValue( '' );
+
+		fireEvent.change( textarea, { target: { value: '/annotate' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledTimes( 1 ) );
+		expect( onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
+		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
 		vi.useFakeTimers();
 		try {

@@ -181,10 +181,8 @@ function usePrefersReducedMotion(): boolean {
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
-	entryIndex: number,
-	options: Array< { label: string } >
+	entryIndex: number
 ): string | undefined {
-	const optionLabels = new Set( options.map( ( option ) => option.label ) );
 	// Older transcripts store batched question answers as following
 	// `ask_user` prompts, in the same order as the question entries.
 	let batchPosition = 0;
@@ -227,11 +225,7 @@ function resolveBatchedAnswerForQuestion(
 	if ( answers.length !== batchSize ) {
 		return undefined;
 	}
-	const answer = answers[ batchPosition ];
-	const isOptionAnswer =
-		optionLabels.has( answer ) ||
-		answer.split( ', ' ).every( ( label ) => optionLabels.has( label ) );
-	return isOptionAnswer ? answer : undefined;
+	return answers[ batchPosition ];
 }
 
 export function entriesToRenderItems(
@@ -339,9 +333,7 @@ export function entriesToRenderItems(
 					question: data.question,
 					options: data.options,
 					multiSelect: data.multiSelect,
-					pickedLabel:
-						data.selectedLabel ??
-						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
+					pickedLabel: data.selectedLabel ?? resolveBatchedAnswerForQuestion( entries, entryIndex ),
 				} );
 			}
 			entryIndex -= 1;
@@ -867,6 +859,26 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 	);
 }
 
+function PickedAnswer( { label, ariaHidden = false }: { label: string; ariaHidden?: boolean } ) {
+	return (
+		<span
+			className={ clsx(
+				styles.questionOption,
+				styles.questionOptionPicked,
+				styles.questionSummaryOption
+			) }
+			aria-hidden={ ariaHidden ? 'true' : undefined }
+		>
+			<span className={ styles.questionOptionNumber }>
+				<QuestionOptionCheckIcon />
+			</span>
+			<span className={ styles.questionOptionCopy }>
+				<span className={ styles.questionOptionLabel }>{ label }</span>
+			</span>
+		</span>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
@@ -887,15 +899,19 @@ function AgentQuestion( {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
 	const hasImages = options.some( ( option ) => option.image );
-	const [ draft, setDraft ] = useState< string[] | null >( null );
-	const pickedLabels =
-		draft ?? ( multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ] );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	const typedAnswer = pickedLabels
+		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.join( ', ' );
 	const toggle = ( label: string ) =>
-		setDraft(
-			options
+		setDraft( {
+			pickedLabel,
+			labels: options
 				.map( ( option ) => option.label )
-				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) )
-		);
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
@@ -949,6 +965,7 @@ function AgentQuestion( {
 					} ) }
 				</ol>
 			) : null }
+			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
 			{ multiSelect && isInteractive ? (
 				<div>
 					<Button
@@ -1117,21 +1134,7 @@ function QuestionSummary( {
 	const content = (
 		<span className={ styles.questionSummaryBody }>
 			<span className={ styles.questionSummaryText }>{ question }</span>
-			<span
-				className={ clsx(
-					styles.questionOption,
-					styles.questionOptionPicked,
-					styles.questionSummaryOption
-				) }
-				aria-hidden={ canEdit ? 'true' : undefined }
-			>
-				<span className={ styles.questionOptionNumber }>
-					<QuestionOptionCheckIcon />
-				</span>
-				<span className={ styles.questionOptionCopy }>
-					<span className={ styles.questionOptionLabel }>{ pickedLabel }</span>
-				</span>
-			</span>
+			<PickedAnswer label={ pickedLabel } ariaHidden={ canEdit } />
 		</span>
 	);
 

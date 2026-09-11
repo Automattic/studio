@@ -355,6 +355,12 @@
 	cursor: default;
 }
 
+.questionTypedAnswer {
+	align-self: flex-start;
+	opacity: 0.6;
+	pointer-events: none;
+}
+
 .questionOptions[data-layout='grid'] {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));

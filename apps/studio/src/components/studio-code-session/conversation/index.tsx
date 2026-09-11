@@ -632,15 +632,19 @@ function AgentQuestion( {
 	onAnswer: ( label: string ) => void;
 } ) {
 	const hasImages = options.some( ( option ) => option.image );
-	const [ draft, setDraft ] = useState< string[] | null >( null );
-	const pickedLabels =
-		draft ?? ( multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ] );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	const typedAnswer = pickedLabels
+		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.join( ', ' );
 	const toggle = ( label: string ) =>
-		setDraft(
-			options
+		setDraft( {
+			pickedLabel,
+			labels: options
 				.map( ( option ) => option.label )
-				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) )
-		);
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
@@ -680,6 +684,17 @@ function AgentQuestion( {
 						);
 					} ) }
 				</ul>
+			) : null }
+			{ typedAnswer ? (
+				<span
+					className={ cx(
+						styles.questionOption,
+						styles.questionOptionPicked,
+						styles.questionTypedAnswer
+					) }
+				>
+					{ typedAnswer }
+				</span>
 			) : null }
 			{ multiSelect && isInteractive ? (
 				<div>

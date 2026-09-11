@@ -634,6 +634,28 @@ describe( 'Conversation Ask User questions', () => {
 			},
 		] );
 	} );
+
+	it( 'shows the typed part of an answer next to the picked options', () => {
+		const entry = agentQuestionEntry( 'Which pages?', [
+			'Blog',
+			'Contact',
+			'Shop',
+		] ) as SessionEntry & {
+			data: object;
+		};
+		renderConversation(
+			loadedSession( [
+				{ ...entry, data: { ...entry.data, multiSelect: true } } as SessionEntry,
+				askUserAnswerEntry( 'a1', 'Contact, Shop, A landing page' ),
+			] )
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Shop' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		expect( screen.getByText( 'A landing page' ) ).toBeInTheDocument();
+	} );
 } );
 
 describe( 'Conversation turn-closed markers', () => {

@@ -5,7 +5,7 @@ import {
 	type DesignCatalogKind,
 	type DesignEntry,
 	type DesignPair,
-} from 'cli/ai/skills';
+} from 'cli/ai/design-catalog';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 

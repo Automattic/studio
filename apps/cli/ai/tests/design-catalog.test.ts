@@ -1,11 +1,10 @@
-import { describe, expect, it } from 'vitest';
 import {
 	DESIGN_CATALOG_KINDS,
 	drawDesignPairs,
-	findSkill,
 	loadDesignCatalog,
-	renderSkillBody,
-} from '../skills';
+	renderDesignCatalogIndex,
+} from '../design-catalog';
+import { findSkill } from '../skills';
 
 function seededRandom( seed: number ): () => number {
 	let state = seed;
@@ -51,9 +50,9 @@ describe( 'design catalogs', () => {
 	} );
 } );
 
-describe( 'renderSkillBody', () => {
+describe( 'renderDesignCatalogIndex', () => {
 	it( 'lists every catalog entry by name and description, without its notes', () => {
-		const rendered = renderSkillBody( findSkill( 'visual-design' )! );
+		const rendered = renderDesignCatalogIndex( findSkill( 'visual-design' )!.body );
 		expect( rendered ).not.toContain( '{{layout-index}}' );
 		expect( rendered ).not.toContain( '{{direction-index}}' );
 		for ( const kind of DESIGN_CATALOG_KINDS ) {
@@ -66,7 +65,7 @@ describe( 'renderSkillBody', () => {
 
 	it( 'leaves skills without placeholders untouched', () => {
 		const skill = findSkill( 'site-spec' );
-		expect( renderSkillBody( skill! ) ).toBe( skill!.body );
+		expect( renderDesignCatalogIndex( skill!.body ) ).toBe( skill!.body );
 	} );
 } );
 

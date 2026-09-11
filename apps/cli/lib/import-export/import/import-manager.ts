@@ -8,6 +8,7 @@ import {
 } from '@studio/common/lib/import-export-events';
 import { __ } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
@@ -21,7 +22,6 @@ import {
 	WpressImporter,
 } from './importers/importer';
 import { WxrImporter } from './importers/wxr-importer';
-import { resetSqliteJournalModeToRollback } from './reset-sqlite-journal-mode';
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator } from './validators/jetpack-validator';
 import { LocalValidator } from './validators/local-validator';
@@ -109,12 +109,10 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 
 			const result = await importer.import( site );
 
-			// Importers write the SQLite database through the AST driver, which
-			// leaves it in WAL journal mode. Playground can't reopen a WAL database
-			// through PHP-WASM on Windows, so a later restart — an import or pull
-			// into a running site — fails to connect. Normalize to rollback mode
-			// here: the single point every importer and both `import` and `pull`
-			// funnel through, before the caller restarts the server.
+			// Normalize the freshly written database before the caller restarts the
+			// server: the single point every importer and both `import` and `pull`
+			// funnel through. Site start does the same conversion, but doing it here
+			// keeps the imported database ready for whoever opens it first.
 			await resetSqliteJournalModeToRollback( site.path );
 
 			return result;

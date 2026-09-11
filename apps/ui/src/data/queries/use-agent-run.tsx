@@ -708,7 +708,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( ! state.runId ) {
 				return;
 			}
-			setCachedSelectedLabel( sessionId, question, answer );
+			// Only a real selection lights up an option. A typed reply renders as a
+			// message instead, so recording it here would show it twice.
+			const isListedOption = state.pendingQuestions
+				.find( ( pending ) => pending.question === question )
+				?.options.some( ( option ) => option.label === answer );
+			if ( isListedOption ) {
+				setCachedSelectedLabel( sessionId, question, answer );
+			}
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'

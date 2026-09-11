@@ -26,6 +26,7 @@ import {
 	getToolDisplayName,
 	getToolResultDiff,
 	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
@@ -175,6 +176,48 @@ function usePrefersReducedMotion(): boolean {
 	}, [] );
 
 	return prefersReducedMotion;
+}
+
+// A reply typed into the composer answers the question without matching any
+// listed option, so the question block has nothing to highlight. Pull those out
+// so they can render as the messages they are. Counts must line up with the
+// batch, otherwise a skipped answer would shift every later pairing.
+function collectTypedAnswers(
+	entries: SessionEntry[],
+	startIndex: number,
+	questions: AgentQuestionRenderItem[]
+): string[] {
+	const answers: string[] = [];
+	for (
+		let index = startIndex;
+		index < entries.length && answers.length < questions.length;
+		index += 1
+	) {
+		const entry = entries[ index ];
+		if (
+			isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ||
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) {
+			break;
+		}
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			continue;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		if ( data?.source !== 'ask_user' ) {
+			break;
+		}
+		answers.push( data.text );
+	}
+	if ( answers.length !== questions.length ) {
+		return [];
+	}
+	return answers.filter(
+		( answer, index ) =>
+			// The stop marker is written by the app, not the user.
+			answer !== STOPPED_WITHOUT_ANSWER &&
+			! questions[ index ].options.some( ( option ) => option.label === answer )
+	);
 }
 
 function resolveBatchedAnswerForQuestion(
@@ -346,6 +389,13 @@ export function entriesToRenderItems(
 				kind: 'agent-question-batch',
 				key: `${ batchStartIndex }:question-batch`,
 				questions,
+			} );
+			collectTypedAnswers( entries, entryIndex + 1, questions ).forEach( ( text, answerIndex ) => {
+				items.push( {
+					kind: 'user-text',
+					key: `${ batchStartIndex }:typed-answer:${ answerIndex }`,
+					text,
+				} );
 			} );
 			continue;
 		}
@@ -1223,16 +1273,20 @@ function AgentQuestionBatch( {
 
 	if ( total === 1 ) {
 		const question = questions[ 0 ];
+		// The scroll-into-view effect needs a target here too, or a lone question
+		// stays half-hidden behind the composer when the agent asks it.
 		return (
-			<AgentQuestion
-				question={ question.question }
-				options={ question.options }
-				isInteractive={ pendingQuestions.has( question.question ) }
-				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
-				freeFormActive={ freeFormQuestion === question.question }
-				onAnswer={ ( label ) => onAnswer( question.question, label ) }
-				onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
-			/>
+			<div ref={ activeIndex === 0 ? activeQuestionRef : undefined }>
+				<AgentQuestion
+					question={ question.question }
+					options={ question.options }
+					isInteractive={ pendingQuestions.has( question.question ) }
+					pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
+					freeFormActive={ freeFormQuestion === question.question }
+					onAnswer={ ( label ) => onAnswer( question.question, label ) }
+					onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+				/>
+			</div>
 		);
 	}
 

@@ -1,3 +1,4 @@
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
@@ -454,6 +455,47 @@ describe( 'Conversation Ask User questions', () => {
 		}
 	} );
 
+	it( 'scrolls a lone question into view when it is asked', async () => {
+		vi.useFakeTimers();
+		const scrollBy = vi.fn();
+		const originalScrollBy = window.scrollBy;
+		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+		window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+		HTMLElement.prototype.getBoundingClientRect = vi.fn(
+			() =>
+				( {
+					x: 0,
+					y: window.innerHeight + 24,
+					width: 100,
+					height: 100,
+					top: window.innerHeight + 24,
+					right: 100,
+					bottom: window.innerHeight + 124,
+					left: 0,
+					toJSON: () => {},
+				} ) as DOMRect
+		);
+		try {
+			const data = loadedSession( [
+				agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			] );
+
+			renderInteractiveConversation( data, [ 'Install Jetpack?' ], vi.fn() );
+
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+
+			// Without a scroll target the options sit under the composer, out of view.
+			expect( scrollBy ).toHaveBeenCalledWith( {
+				top: 220,
+				behavior: 'smooth',
+			} );
+		} finally {
+			window.scrollBy = originalScrollBy;
+			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+			vi.useRealTimers();
+		}
+	} );
+
 	it( 'scrolls the newly active batched question into view', async () => {
 		vi.useFakeTimers();
 		const scrollBy = vi.fn();
@@ -628,6 +670,53 @@ describe( 'Conversation Ask User questions', () => {
 		renderConversation( data, { pendingQuestions: new Set( [ 'Install Jetpack?' ] ) } );
 
 		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'shows a typed answer as a message below the questions it answered', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Favorite color?', [ 'Blue', 'Green' ], 'q1' ),
+			askUserAnswerEntry( 'a1', 'pink' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByText( 'pink' ) ).toBeInTheDocument();
+	} );
+
+	it( 'leaves a picked option to the question block rather than repeating it', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Favorite color?', [ 'Blue', 'Green' ], 'q1' ),
+			askUserAnswerEntry( 'a1', 'Blue' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getAllByText( 'Blue' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'does not pass off the stop marker as something the user wrote', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Favorite color?', [ 'Blue', 'Green' ], 'q1' ),
+			askUserAnswerEntry( 'a1', STOPPED_WITHOUT_ANSWER ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.queryByText( STOPPED_WITHOUT_ANSWER ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'pairs each typed answer with its own question in a batch', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Favorite color?', [ 'Blue', 'Green' ], 'q1' ),
+			agentQuestionEntry( 'Favorite season?', [ 'Spring', 'Autumn' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'Blue' ),
+			askUserAnswerEntry( 'a2', 'monsoon' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByText( 'monsoon' ) ).toBeInTheDocument();
+		expect( screen.getAllByText( 'Blue' ) ).toHaveLength( 1 );
 	} );
 
 	it( 'arms the composer from the escape hatch the model wrote itself', () => {

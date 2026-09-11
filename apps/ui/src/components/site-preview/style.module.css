@@ -19,12 +19,17 @@
 	border-inline-start: none;
 }
 
+.header.browserChromeHidden {
+	display: none;
+}
+
 .header {
 	position: relative;
-	display: flex;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	min-height: 32px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-background-surface-neutral-strong, #fff);
@@ -33,6 +38,53 @@
 	/* Sizes the address segments' narrow-width behavior (the title collapse
 	   in location-omnibox.module.css queries this container). */
 	container: studio-preview-toolbar / inline-size;
+}
+
+/* Annotation mode takes the address field away, so the bar goes solid
+   violet — the feature's color — and says what to do instead. The color
+   also marks the preview's edge from the chat side, where the mode is
+   otherwise invisible. Neutral tokens are remapped so every control on the
+   bar renders white-on-violet. */
+.headerAnnotating {
+	--annotating-hover: color-mix(in srgb, var(--studio-annotate-on-bar) 16%, transparent);
+	--wpds-color-foreground-content-neutral: var(--studio-annotate-on-bar);
+	--wpds-color-foreground-content-neutral-weak: color-mix(
+		in srgb,
+		var(--studio-annotate-on-bar) 75%,
+		transparent
+	);
+	--wpds-color-foreground-interactive-neutral: var(--studio-annotate-on-bar);
+	--wpds-color-foreground-interactive-neutral-active: var(--studio-annotate-on-bar);
+	--wpds-color-foreground-interactive-neutral-disabled: color-mix(
+		in srgb,
+		var(--studio-annotate-on-bar) 45%,
+		transparent
+	);
+	--wpds-color-background-interactive-neutral-weak: transparent;
+	--wpds-color-background-interactive-neutral-weak-active: var(--annotating-hover);
+	--wpds-color-stroke-interactive-neutral: color-mix(
+		in srgb,
+		var(--studio-annotate-on-bar) 50%,
+		transparent
+	);
+	--wpds-color-stroke-interactive-neutral-active: var(--studio-annotate-on-bar);
+
+	background-color: var(--studio-annotate-bar);
+	border-bottom-color: var(--studio-annotate-bar-active);
+}
+
+.annotatingMessage {
+	width: 100%;
+	min-width: 0;
+	margin: 0;
+	padding-inline-start: var(--wpds-dimension-padding-xs);
+	overflow: hidden;
+	color: var(--studio-annotate-on-bar);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* Clears the macOS traffic lights, which always sit at the window's physical
@@ -47,17 +99,19 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Matching flexible side tracks: because both flex from the same 0 basis,
-   the address control between them sits at the toolbar's true center no
-   matter how many controls each side holds. They keep their automatic
-   min-content floor, so a narrow toolbar shrinks the address segments
-   between them rather than letting the (non-shrinking) button groups
-   spill out of their track and over the address bar. */
+/* @wordpress/icons SVGs omit a root fill and otherwise fall back to black.
+   Map them to each control's theme-aware foreground; stroke-based custom
+   browser icons declare fill="none" and remain unchanged. */
+.header svg:not([fill]) {
+	fill: currentColor;
+}
+
+/* The outer tracks size to their controls so the middle selector can use all
+   remaining width instead of being squeezed by artificial equal halves. */
 .headerSide {
 	display: flex;
-	flex: 1 1 0;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .headerSideEnd {
@@ -66,11 +120,32 @@
 
 .browserLocation {
 	display: flex;
-	flex: 0 1 auto;
 	align-items: center;
 	justify-content: center;
-	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
+}
+
+.historyEntry {
+	display: flex;
+	width: min(320px, calc(100vw - 64px));
+	min-width: 0;
+	flex-direction: column;
+}
+
+.historyTitle,
+.historyPath {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.historyTitle {
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.historyPath {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
 }
 
 .annotationControls {
@@ -80,10 +155,107 @@
 	flex-shrink: 0;
 }
 
+.disabledControlTooltipTarget {
+	display: inline-flex;
+}
+
+.annotationToggle {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+}
+
+/* On the violet bar, Cancel stays an outline in white and Send to chat
+   inverts to a white pill so the primary action still stands out. */
+.annotationToggleActive,
+.headerAnnotating .annotationMenuTrigger {
+	--wp-ui-button-foreground-color: var(--studio-annotate-on-bar);
+	--wp-ui-button-foreground-color-active: var(--studio-annotate-on-bar);
+	--wp-ui-button-border-color: color-mix(in srgb, var(--studio-annotate-on-bar) 50%, transparent);
+	--wp-ui-button-border-color-active: var(--studio-annotate-on-bar);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--annotating-hover);
+}
+
+.annotationSubmit {
+	--wp-ui-button-background-color: var(--studio-annotate-color);
+	--wp-ui-button-background-color-active: var(--studio-annotate-color-active);
+	--wp-ui-button-border-color: var(--studio-annotate-color);
+	--wp-ui-button-border-color-active: var(--studio-annotate-color-active);
+	--wp-ui-button-foreground-color: var(--studio-annotate-on-color);
+	--wp-ui-button-foreground-color-active: var(--studio-annotate-on-color);
+}
+
+.headerAnnotating .annotationSubmit {
+	--wp-ui-button-background-color: var(--studio-annotate-on-bar);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--studio-annotate-on-bar) 88%,
+		var(--studio-annotate-bar)
+	);
+	--wp-ui-button-border-color: var(--studio-annotate-on-bar);
+	--wp-ui-button-border-color-active: var(--studio-annotate-on-bar);
+	--wp-ui-button-foreground-color: var(--studio-annotate-bar);
+	--wp-ui-button-foreground-color-active: var(--studio-annotate-bar-active);
+}
+
 .annotationMenu {
 	display: none;
 	align-items: center;
 	flex-shrink: 0;
+}
+
+.annotationMenuTrigger {
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+
+	gap: var(--wpds-dimension-gap-xs);
+	white-space: nowrap;
+}
+
+/* Base UI marks a menu's trigger while it is open; hold the hover fill on
+   the toolbar's dropdown triggers so each reads as the thing its menu
+   belongs to. */
+.responsiveModeTrigger[data-popup-open],
+.annotationMenuTrigger[data-popup-open] {
+	background-color: var(--wp-ui-button-background-color-active);
+	color: var(--wp-ui-button-foreground-color-active);
+}
+
+.responsiveModeIndicator {
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	color: var(--wpds-color-foreground-content-neutral);
+	fill: currentColor;
+	display: grid;
+	place-items: center;
+}
+
+.responsiveModeTrigger {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+
+	gap: var(--wpds-dimension-gap-xs);
+	white-space: nowrap;
+}
+
+.responsiveModeChevron {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
+}
+
+.responsiveModeItem[aria-current='true'] {
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+/* Preserve the URL field before toolbar actions begin colliding. The controls
+   keep their accessible names and tooltips; only the redundant visible labels
+   collapse, leaving the same icons and dropdown indicator. */
+@container studio-preview-toolbar (max-width: 640px) {
+	.toolbarLabel {
+		display: none;
+	}
 }
 
 /* Below this width the inline "Send to chat" button starts eating into the

@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { resetSqliteJournalModeToRollback } from '../reset-sqlite-journal-mode';
+import { resetSqliteJournalModeToRollback } from '../sqlite-journal-mode';
 
 function getJournalMode( dbPath: string ): string {
 	const database = new DatabaseSync( dbPath );

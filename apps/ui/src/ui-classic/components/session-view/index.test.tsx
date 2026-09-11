@@ -26,6 +26,20 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => sitesState,
 } ) );
 
+vi.mock( '@/components/open-in-menu', () => ( {
+	OpenInMenu: ( { site }: { site: { name: string } } ) => (
+		<div data-testid="open-in-menu">{ site.name }</div>
+	),
+} ) );
+
+vi.mock( '@/components/site-dropdown', () => ( {
+	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/preview-toggle-button', () => ( {
+	PreviewToggleButton: () => null,
+} ) );
+
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
 	useStudioAssistantQuota: vi.fn(),
 } ) );
@@ -57,8 +71,11 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
-	// No preview panel hosts these sessions.
-	useOptionalSessionPreviewUI: () => null,
+	useSessionPreviewUI: () => ( {
+		pathsBySiteId: { 'site-1': '/wp-admin/' },
+	} ),
+	pathForSite: ( pathsBySiteId: Record< string, string >, siteId: string ) =>
+		pathsBySiteId[ siteId ] ?? '/',
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -160,6 +177,28 @@ describe( 'SessionView', () => {
 			isFetching: false,
 			refetch: vi.fn(),
 		} );
+	} );
+
+	it( 'shows the Open in control at the top-right of the chat header', () => {
+		sitesState.data = [
+			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
+		];
+		useSessionMock.mockReturnValue( {
+			data: {
+				summary: {
+					id: 'session-1',
+					ownerSiteId: 'site-1',
+					ownerSiteName: 'Example Site',
+				},
+				entries: [],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

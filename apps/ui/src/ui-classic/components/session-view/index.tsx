@@ -18,6 +18,7 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -105,6 +106,11 @@ function SessionHeader( {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? (
+				<div className={ styles.headerActions }>
+					<OpenInMenu key={ site.id } site={ site } />
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -155,13 +161,22 @@ function SessionFrame( {
 				'--app-main-composer-height',
 				`${ composerHeight }px`
 			);
+			// The shelf's start edge lines up with the composer box, wherever
+			// the reading column puts it.
+			const composerBox = composerRef.current?.firstElementChild;
+			if ( composerBox && root ) {
+				const left = composerBox.getBoundingClientRect().left - root.getBoundingClientRect().left;
+				document.documentElement.style.setProperty( '--app-main-composer-left', `${ left }px` );
+			}
 		};
 
 		updateChromeSize();
 
 		// Views without a composer must fall back to the shelf's 0px default.
-		const clearComposerHeight = () =>
+		const clearComposerHeight = () => {
 			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+			document.documentElement.style.removeProperty( '--app-main-composer-left' );
+		};
 
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );

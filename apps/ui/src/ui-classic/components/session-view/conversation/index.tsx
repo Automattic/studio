@@ -445,23 +445,24 @@ export function entriesToRenderItems(
 	return items;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
+export interface ActiveStep {
+	key: string | null;
+	progressMessage: string | null;
+}
+
+export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			return { key: entry.id, progressMessage };
 		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
+		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+		if ( progressMessage === null && data ) {
+			progressMessage = data.message;
 		}
 	}
-	return null;
+	return { key: null, progressMessage };
 }
 
 function UserTurn( {
@@ -1409,10 +1410,7 @@ export function Conversation( {
 		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
 		[ entries, canReadLocalMedia ]
 	);
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
+	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
 	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
@@ -1497,7 +1495,8 @@ export function Conversation( {
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
-				progressMessage={ progressMessage }
+				stepKey={ activeStep.key }
+				progressMessage={ isRunning ? activeStep.progressMessage : null }
 			/>
 		</div>
 	);

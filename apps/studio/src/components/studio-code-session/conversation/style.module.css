@@ -337,6 +337,17 @@
 	cursor: default;
 }
 
+/* Dashed border sets the appended free-form escape hatch apart from the
+   options the agent actually offered. */
+.questionOptionFreeForm {
+	border-style: dashed;
+	color: var(--color-frame-text-secondary);
+}
+
+.questionOptionFreeForm.questionOptionPicked {
+	border-style: solid;
+}
+
 /* Keep the picked option fully legible even when disabled, so the user
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,
@@ -353,6 +364,14 @@
 .questionOptionPicked:disabled {
 	opacity: 0.6;
 	cursor: default;
+}
+
+/* A composer reply answers the question without matching a listed option, so
+   it renders as text rather than a lit-up button. */
+.questionTypedAnswer {
+	margin: 8px 0 0;
+	font-weight: 600;
+	color: var(--color-frame-text);
 }
 
 .interruptedMarker {

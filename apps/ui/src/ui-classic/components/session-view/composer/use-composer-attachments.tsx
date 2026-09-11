@@ -15,7 +15,12 @@ import { useConnector } from '@/data/core';
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
 
-export function useComposerAttachments( initialAttachments: ComposerAttachment[] = [] ) {
+// `disabled` blocks every entry point at once — button, drag-and-drop and
+// paste all funnel through `addFiles`.
+export function useComposerAttachments(
+	initialAttachments: ComposerAttachment[] = [],
+	disabled = false
+) {
 	const connector = useConnector();
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
@@ -51,7 +56,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	const addFiles = useCallback(
 		async ( incoming: FileList | File[] ) => {
 			const list = Array.from( incoming );
-			if ( list.length === 0 ) {
+			if ( disabled || list.length === 0 ) {
 				return;
 			}
 			setError( null );
@@ -93,7 +98,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 				return merged.attachments;
 			} );
 		},
-		[ connector ]
+		[ connector, disabled ]
 	);
 
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {

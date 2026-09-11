@@ -123,6 +123,113 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	} );
 } );
 
+describe( 'AgentQuestion – free-form escape hatch', () => {
+	function renderQuestion(
+		entries: SessionEntry[],
+		props: {
+			pendingQuestions?: Set< string >;
+			pendingAnswers?: Record< string, string >;
+			freeFormQuestion?: string | null;
+			onChooseFreeForm?: ( question: string ) => void;
+			onAnswerQuestion?: ( question: string, label: string ) => void;
+		} = {}
+	) {
+		render(
+			<Conversation
+				data={ { entries } as unknown as LoadedAiSession }
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ props.pendingQuestions ?? new Set( [ 'Q1' ] ) }
+				pendingAnswers={ props.pendingAnswers ?? {} }
+				answeredQuestions={ {} }
+				freeFormQuestion={ props.freeFormQuestion ?? null }
+				onAnswerQuestion={ props.onAnswerQuestion ?? ( () => {} ) }
+				onChooseFreeForm={ props.onChooseFreeForm ?? ( () => {} ) }
+			/>
+		);
+	}
+
+	it( 'offers the free-form option the AskUserQuestion tool promises the model', () => {
+		const onChooseFreeForm = vi.fn();
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { onChooseFreeForm } );
+
+		const button = screen.getByRole( 'button', { name: 'Something else' } );
+		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
+
+		fireEvent.click( button );
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Q1' );
+	} );
+
+	it( 'marks the option as armed once chosen', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { freeFormQuestion: 'Q1' } );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'hides the option once the batch is no longer interactive', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { pendingQuestions: new Set() } );
+
+		expect( screen.queryByRole( 'button', { name: 'Something else' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a composer reply that matches none of the listed options', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], {
+			pendingAnswers: { Q1: 'a mu-plugin' },
+		} );
+
+		expect( screen.getByText( 'a mu-plugin' ) ).toBeInTheDocument();
+	} );
+
+	it( 'leaves a picked option to the button rather than repeating it as text', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'B' ] ) ], { pendingAnswers: { Q1: 'A' } } );
+
+		expect( screen.getAllByText( 'A' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'does not duplicate an option an off-contract model wrote itself', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ] );
+
+		expect( screen.getAllByRole( 'button', { name: 'Something else' } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'arms the composer from the escape hatch the model wrote itself', () => {
+		const onChooseFreeForm = vi.fn();
+		const onAnswerQuestion = vi.fn();
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], {
+			onChooseFreeForm,
+			onAnswerQuestion,
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Something else' } ) );
+
+		expect( onChooseFreeForm ).toHaveBeenCalledWith( 'Q1' );
+		// Answering with the literal label tells the agent nothing, and it has to
+		// ask what the user actually meant.
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+	} );
+
+	it( 'marks the escape hatch the model wrote as armed once chosen', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], { freeFormQuestion: 'Q1' } );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
+	it( 'leaves the escape hatch as a plain answer once the batch is history', () => {
+		renderQuestion( [ question( 'Q1', [ 'A', 'Something else' ] ) ], {
+			pendingQuestions: new Set(),
+			pendingAnswers: { Q1: 'Something else' },
+		} );
+
+		expect( screen.getByRole( 'button', { name: 'Something else' } ) ).toBeDisabled();
+	} );
+} );
+
 describe( 'wasLastTurnInterrupted', () => {
 	it( 'is false for an in-flight or completed turn', () => {
 		expect( wasLastTurnInterrupted( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
@@ -259,7 +366,9 @@ describe( 'Conversation – inline media artifacts', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				freeFormQuestion={ null }
 				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ () => {} }
 			/>
 		);
 	}
@@ -378,7 +487,9 @@ describe( 'Conversation – assistant message copy button', () => {
 				pendingQuestions={ new Set() }
 				pendingAnswers={ {} }
 				answeredQuestions={ {} }
+				freeFormQuestion={ null }
 				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ () => {} }
 			/>
 		);
 	}

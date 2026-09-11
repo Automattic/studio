@@ -20,9 +20,12 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	findOwnFreeFormOptionLabel,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
@@ -618,37 +621,79 @@ function AgentQuestion( {
 	options,
 	isInteractive,
 	pickedLabel,
+	freeFormActive,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
 	options: Array< { label: string; description: string } >;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
+	freeFormActive: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
+	const freeFormLabel = getFreeFormOptionLabel();
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel = isInteractive ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! ownFreeFormLabel;
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
+	const typedAnswer =
+		pickedLabel && ! options.some( ( option ) => option.label === pickedLabel )
+			? pickedLabel
+			: null;
+
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
 				<ul className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : option.label === pickedLabel;
 						return (
 							<li key={ index }>
 								<button
 									type="button"
-									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ cx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									onClick={ isOwnFreeForm ? onChooseFreeForm : () => onAnswer( option.label ) }
+									aria-pressed={ isOwnFreeForm ? freeFormActive : undefined }
+									title={ isOwnFreeForm ? getFreeFormOptionDescription() : option.description }
 								>
 									{ option.label }
 								</button>
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li>
+							<button
+								type="button"
+								className={ cx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-pressed={ freeFormActive }
+								title={ getFreeFormOptionDescription() }
+							>
+								{ freeFormLabel }
+							</button>
+						</li>
+					) : null }
 				</ul>
 			) : null }
+			{ typedAnswer ? <p className={ styles.questionTypedAnswer }>{ typedAnswer }</p> : null }
 		</div>
 	);
 }
@@ -694,7 +739,9 @@ export function Conversation( {
 	pendingQuestions,
 	pendingAnswers,
 	answeredQuestions,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 	canEditLastUserMessage = false,
 	onEditUserMessage,
 }: {
@@ -704,7 +751,11 @@ export function Conversation( {
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 	canEditLastUserMessage?: boolean;
 	onEditUserMessage?: ( entryId: string, text: string ) => void;
 } ) {
@@ -793,7 +844,9 @@ export function Conversation( {
 									answeredQuestions[ item.question ] ??
 									item.answer
 								}
+								freeFormActive={ freeFormQuestion === item.question }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+								onChooseFreeForm={ () => onChooseFreeForm( item.question ) }
 							/>
 						);
 					case 'chat-artifact':

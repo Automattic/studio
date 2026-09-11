@@ -239,6 +239,9 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// The agent is blocked on `ask_user`. Sending answers the question it is
+	// waiting on, so this is a send, not a queue.
+	awaitingAnswer?: boolean;
 	// Blocks sending and queueing while leaving the rest of the composer alone,
 	// so a run already in flight keeps its Stop control.
 	canSubmit?: boolean;
@@ -277,6 +280,16 @@ export interface ComposerHandle {
 	// What replaceDraft would discard — lets callers decide whether the
 	// replacement warrants a confirmation.
 	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
+	focus(): void;
+}
+
+function focusAtEnd( node: HTMLTextAreaElement | null ) {
+	if ( ! node ) {
+		return;
+	}
+	node.focus();
+	const length = node.value.length;
+	node.setSelectionRange( length, length );
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -332,6 +345,7 @@ function resizeComposerTextarea(
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
+		awaitingAnswer = false,
 		canSubmit = true,
 		isInterrupting = false,
 		error,
@@ -404,7 +418,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments( initialDraft.attachments );
+	} = useComposerAttachments( initialDraft.attachments, awaitingAnswer );
 	const hasAttachments = attachments.length > 0;
 
 	useEffect( () => {
@@ -474,28 +488,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				);
 				// Defer focus to the next paint so the textarea reflects the
 				// new value before we move the caret to the end.
-				queueMicrotask( () => {
-					const node = textareaRef.current;
-					if ( ! node ) return;
-					node.focus();
-					const len = node.value.length;
-					node.setSelectionRange( len, len );
-				} );
+				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			replaceDraft( text, options ) {
 				setValue( text );
 				setSuggestionBaseline( options?.suggestionBaseline ?? null );
 				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
-				queueMicrotask( () => {
-					const node = textareaRef.current;
-					if ( ! node ) return;
-					node.focus();
-					const len = node.value.length;
-					node.setSelectionRange( len, len );
-				} );
+				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			getDraft() {
 				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
+			},
+			focus() {
+				focusAtEnd( textareaRef.current );
 			},
 		} ),
 		[ restoreAttachments, value, attachments, suggestionBaseline ]
@@ -783,10 +788,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	let placeholder: string = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	if ( awaitingAnswer ) {
+		placeholder = __( 'Write your own answer to the question…' );
+	}
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = busy && ! awaitingAnswer ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
@@ -1051,7 +1059,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
+									<Menu.Item disabled={ awaitingAnswer } onClick={ openFilePicker }>
+										{ __( 'Upload attachment' ) }
+									</Menu.Item>
 									<Menu.SubmenuRoot>
 										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
 											<span>{ __( 'Skills' ) }</span>

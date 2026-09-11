@@ -375,6 +375,39 @@ function getDataLiberationDetail( input: Record< string, unknown > ): string {
 		: detail;
 }
 
+// `AskUserQuestion` tells the model the system appends a free-form option, so
+// a well-behaved model never writes one itself. Both GUIs append it here.
+export function getFreeFormOptionLabel(): string {
+	return __( 'Something else' );
+}
+
+export function getFreeFormOptionDescription(): string {
+	return __( 'Reply in your own words instead of picking an option.' );
+}
+
+// Answers the questions still open when the user stops the run. Killing the
+// call without one leaves it with no result, which the model reads as a broken
+// tool: it then stops asking through the UI and writes its options out in prose
+// for the rest of the session. Untranslated on purpose — it goes to the model,
+// not the transcript.
+export const STOPPED_WITHOUT_ANSWER = 'The user stopped the run without answering.';
+
+// Off-contract models do write their own escape hatch. Match the English
+// labels they actually use — comparing against the translated label above
+// would never match outside an English locale.
+const MODEL_FREE_FORM_LABELS = new Set( [ 'other', 'something else', 'none of the above' ] );
+
+// Returns the model's own escape hatch so the GUIs can drive the composer from
+// it. Answering it literally sends "Something else" as the answer, which tells
+// the agent nothing and costs a whole extra round of questions.
+export function findOwnFreeFormOptionLabel(
+	options: Array< { label: string } >
+): string | undefined {
+	return options.find( ( option ) =>
+		MODEL_FREE_FORM_LABELS.has( option.label.trim().toLowerCase() )
+	)?.label;
+}
+
 function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
 	const questions = input?.questions;
 	if ( ! Array.isArray( questions ) || questions.length === 0 ) {

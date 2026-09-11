@@ -34,7 +34,9 @@ function renderConversation( { isRunning = false }: { isRunning?: boolean } = {}
 					startedAt={ null }
 					pendingQuestions={ new Set() }
 					pendingAnswers={ {} }
+					freeFormQuestion={ null }
 					onAnswerQuestion={ vi.fn() }
+					onChooseFreeForm={ vi.fn() }
 				/>
 			</Tooltip.Provider>
 		</QueryClientProvider>

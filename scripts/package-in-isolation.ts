@@ -30,7 +30,7 @@ import { z } from 'zod';
 const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
 const COPY_MODE = fs.constants.COPYFILE_FICLONE;
-const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results' ] );
+const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results', 'artifacts' ] );
 const useFreshLocalPackage = process.env.STUDIO_PACKAGE_FRESH === '1';
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {

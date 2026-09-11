@@ -2,8 +2,8 @@
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"workspaces": {
 		".": {
-			"entry": ["scripts/**/*.{ts,mjs,cjs}"],
-			"project": "scripts/**/*.{ts,mjs,cjs}"
+			"entry": ["scripts/**/*.{ts,mjs,cjs}", "tools/marketing-screenshots/**/*.ts"],
+			"project": ["scripts/**/*.{ts,mjs,cjs}", "tools/marketing-screenshots/**/*.ts"]
 		},
 		"apps/studio": {
 			"entry": [
@@ -34,7 +34,7 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.hosted.tsx", "src/main.local.tsx"],
+			"entry": ["src/main.hosted.tsx", "src/main.local.tsx", "src/main.marketing.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/hosted": {

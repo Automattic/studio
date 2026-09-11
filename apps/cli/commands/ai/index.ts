@@ -485,6 +485,7 @@ export async function runCommand( options: {
 						description: option.description,
 						...( option.image ? { image: option.image } : {} ),
 					} ) ),
+					multiSelect: question.multiSelect,
 				} )
 			);
 		}

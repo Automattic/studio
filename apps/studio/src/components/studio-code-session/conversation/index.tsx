@@ -31,6 +31,7 @@ import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -62,6 +63,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string; image?: string } >;
+			multiSelect?: boolean;
 			answer?: string;
 	  }
 	| {
@@ -234,6 +236,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				multiSelect: data.multiSelect,
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
@@ -616,31 +619,49 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	onAnswer,
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
 	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< string[] | null >( null );
+	const pickedLabels =
+		draft ?? ( multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ] );
+	const toggle = ( label: string ) =>
+		setDraft(
+			options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) )
+		);
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
 				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const picked = pickedLabels.includes( option.label );
 						return (
 							<li key={ index }>
 								<button
 									type="button"
 									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ () =>
+										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									}
 									title={ option.description }
 									aria-pressed={ picked }
 									data-has-image={ hasImages ? 'true' : undefined }
@@ -659,6 +680,17 @@ function AgentQuestion( {
 						);
 					} ) }
 				</ul>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						variant="primary"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
 			) : null }
 		</div>
 	);
@@ -838,6 +870,7 @@ export function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
+								multiSelect={ item.multiSelect }
 								isInteractive={ pendingQuestions.has( item.question ) }
 								pickedLabel={
 									pendingAnswers[ item.question ] ??

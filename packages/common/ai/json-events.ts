@@ -21,6 +21,7 @@ export type JsonEvent =
 			questions: Array< {
 				question: string;
 				options: Array< { label: string; description: string; image?: string } >;
+				multiSelect?: boolean;
 			} >;
 	  }
 	| { type: 'turn.started'; timestamp: string }

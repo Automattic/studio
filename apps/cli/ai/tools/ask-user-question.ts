@@ -11,7 +11,7 @@ export function createAskUserQuestionTool(
 ): AgentTool< TSchema > {
 	return defineTool(
 		'AskUserQuestion',
-		'Ask the user 1–4 multiple-choice questions and wait for their answers. Use this whenever you need a clarification, preference, or selection from the user — instead of asking inline in prose. Each question must include 2–4 short option labels with a one-sentence description for each. The system automatically appends a free-form "Other" option, so do NOT add one yourself. Returns a map of question text → selected option label (or the user\'s typed answer if they chose "Other").',
+		'Ask the user 1–4 multiple-choice questions and wait for their answers. Use this whenever you need a clarification, preference, or selection from the user — instead of asking inline in prose. Each question must include 2–4 short option labels with a one-sentence description for each. The system automatically appends a free-form "Other" option, so do NOT add one yourself. Returns a map of question text → selected option label (or the user\'s typed answer if they chose "Other"). Set `multiSelect: true` when several options can apply; the answer is then the picked labels joined with ", ".',
 		{
 			questions: Type.Array(
 				Type.Object( {
@@ -25,6 +25,9 @@ export function createAskUserQuestionTool(
 						} ),
 						{ description: '2-4 predefined options for the user to choose from.' }
 					),
+					multiSelect: Type.Optional(
+						Type.Boolean( { description: 'Let the user pick several options.' } )
+					),
 				} ),
 				{ description: '1-4 questions to ask in a single batch.' }
 			),
@@ -33,6 +36,7 @@ export function createAskUserQuestionTool(
 			const questions: AskUserQuestion[] = args.questions.map( ( q ) => ( {
 				question: q.question,
 				options: q.options,
+				multiSelect: q.multiSelect,
 				allowFreeForm: true,
 			} ) );
 			const answers = await onAskUser( questions );

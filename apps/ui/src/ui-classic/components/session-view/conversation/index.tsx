@@ -69,7 +69,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -96,6 +96,7 @@ interface AgentQuestionRenderItem {
 	key: string;
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	pickedLabel?: string;
 }
 
@@ -227,7 +228,10 @@ function resolveBatchedAnswerForQuestion(
 		return undefined;
 	}
 	const answer = answers[ batchPosition ];
-	return optionLabels.has( answer ) ? answer : undefined;
+	const isOptionAnswer =
+		optionLabels.has( answer ) ||
+		answer.split( ', ' ).every( ( label ) => optionLabels.has( label ) );
+	return isOptionAnswer ? answer : undefined;
 }
 
 export function entriesToRenderItems(
@@ -334,6 +338,7 @@ export function entriesToRenderItems(
 					key: `${ entryIndex }:question`,
 					question: data.question,
 					options: data.options,
+					multiSelect: data.multiSelect,
 					pickedLabel:
 						data.selectedLabel ??
 						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
@@ -865,6 +870,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	isCollapsing = false,
@@ -872,6 +878,7 @@ function AgentQuestion( {
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
@@ -880,14 +887,28 @@ function AgentQuestion( {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
 	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< string[] | null >( null );
+	const pickedLabels =
+		draft ?? ( multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ] );
+	const toggle = ( label: string ) =>
+		setDraft(
+			options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) )
+		);
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
 				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const picked = pickedLabels.includes( option.label );
 						const descriptionId =
 							option.description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
@@ -902,7 +923,9 @@ function AgentQuestion( {
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ () =>
+										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									}
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
@@ -925,6 +948,17 @@ function AgentQuestion( {
 						);
 					} ) }
 				</ol>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						size="compact"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
 			) : null }
 		</div>
 	);
@@ -1201,6 +1235,7 @@ function AgentQuestionBatch( {
 			<AgentQuestion
 				question={ question.question }
 				options={ question.options }
+				multiSelect={ question.multiSelect }
 				isInteractive={ pendingQuestions.has( question.question ) }
 				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
 				onAnswer={ ( label ) => onAnswer( question.question, label ) }
@@ -1254,6 +1289,7 @@ function AgentQuestionBatch( {
 						<AgentQuestion
 							question={ question.question }
 							options={ question.options }
+							multiSelect={ question.multiSelect }
 							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
 							pickedLabel={ pickedLabel }
 							isCollapsing={ settlingIndex === index }

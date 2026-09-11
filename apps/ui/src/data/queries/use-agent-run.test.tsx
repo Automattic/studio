@@ -251,3 +251,153 @@ describe( 'useAgentRun queued handoff', () => {
 		nowSpy.mockRestore();
 	} );
 } );
+
+describe( 'useAgentRun streamed assistant text', () => {
+	let agentListener: ( event: AgentRunEvent ) => void;
+
+	beforeEach( () => {
+		useConnectorMock.mockReturnValue( {
+			continueSession: vi.fn().mockResolvedValue( { runId: 'run-1' } ),
+			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
+			onAgentEvent: vi.fn( ( listener: ( event: AgentRunEvent ) => void ) => {
+				agentListener = listener;
+				return vi.fn();
+			} ),
+		} as unknown as Connector );
+		outOfCreditsState.value = false;
+	} );
+
+	afterEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	function emitPiEvent( message: Record< string, unknown > ) {
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-1',
+				event: {
+					type: 'message',
+					timestamp: '2026-06-24T12:00:00.000Z',
+					message,
+				} as unknown as AgentRunEvent[ 'event' ],
+			} );
+		} );
+	}
+
+	function getAssistantEntries( queryClient: QueryClient ) {
+		const entries =
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
+				?.entries ?? [];
+		return entries
+			.filter(
+				( entry ) =>
+					entry.type === 'message' &&
+					( entry as { message: { role: string } } ).message.role === 'assistant'
+			)
+			.map(
+				( entry ) => entry as { id: string; streaming?: true; message: { content: unknown[] } }
+			);
+	}
+
+	async function startRun( queryClient: QueryClient ) {
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( agentListener ).toBeDefined() );
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-1',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+	}
+
+	it( 'grows one assistant entry from deltas and swaps in the final message in place', async () => {
+		const queryClient = createQueryClient();
+		await startRun( queryClient );
+
+		emitPiEvent( { type: 'message_start', message: { role: 'assistant', content: [] } } );
+		expect( getAssistantEntries( queryClient ) ).toHaveLength( 1 );
+		expect( getAssistantEntries( queryClient )[ 0 ].streaming ).toBe( true );
+		const entryId = getAssistantEntries( queryClient )[ 0 ].id;
+
+		emitPiEvent( {
+			type: 'message_update',
+			assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hel' },
+			message: { role: 'assistant', content: [ { type: 'text', text: 'Hel' } ] },
+		} );
+		emitPiEvent( {
+			type: 'message_update',
+			assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1 },
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'text', text: 'Hello' },
+					{ type: 'toolCall', id: 'call-1', name: 'read_file', arguments: {} },
+				],
+			},
+		} );
+
+		// Deltas coalesce into one write per frame; the half-built tool call is
+		// held back until the message ends.
+		await waitFor( () =>
+			expect( getAssistantEntries( queryClient )[ 0 ].message.content ).toEqual( [
+				{ type: 'text', text: 'Hello' },
+			] )
+		);
+		expect( getAssistantEntries( queryClient ) ).toHaveLength( 1 );
+
+		const finalMessage = {
+			role: 'assistant',
+			content: [
+				{ type: 'text', text: 'Hello world' },
+				{ type: 'toolCall', id: 'call-1', name: 'read_file', arguments: { path: 'a.php' } },
+			],
+		};
+		emitPiEvent( { type: 'message_end', message: finalMessage } );
+
+		const entries = getAssistantEntries( queryClient );
+		expect( entries ).toHaveLength( 1 );
+		expect( entries[ 0 ].id ).toBe( entryId );
+		expect( entries[ 0 ].streaming ).toBeUndefined();
+		expect( entries[ 0 ].message.content ).toEqual( finalMessage.content );
+	} );
+
+	it( 'starts the streamed entry from the first delta when message_start was missed', async () => {
+		const queryClient = createQueryClient();
+		await startRun( queryClient );
+
+		emitPiEvent( {
+			type: 'message_update',
+			assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hi' },
+			message: { role: 'assistant', content: [ { type: 'text', text: 'Hi' } ] },
+		} );
+		expect( getAssistantEntries( queryClient )[ 0 ].message.content ).toEqual( [
+			{ type: 'text', text: 'Hi' },
+		] );
+
+		emitPiEvent( {
+			type: 'message_end',
+			message: { role: 'assistant', content: [ { type: 'text', text: 'Hi there' } ] },
+		} );
+		const entries = getAssistantEntries( queryClient );
+		expect( entries ).toHaveLength( 1 );
+		expect( entries[ 0 ].message.content ).toEqual( [ { type: 'text', text: 'Hi there' } ] );
+	} );
+
+	it( 'ignores streamed user and tool-result messages', async () => {
+		const queryClient = createQueryClient();
+		await startRun( queryClient );
+
+		emitPiEvent( { type: 'message_start', message: { role: 'user', content: 'prompt' } } );
+		emitPiEvent( {
+			type: 'message_start',
+			message: { role: 'toolResult', toolCallId: 'call-1', content: [] },
+		} );
+		expect( getAssistantEntries( queryClient ) ).toHaveLength( 0 );
+	} );
+} );

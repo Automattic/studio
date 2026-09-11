@@ -338,6 +338,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[]
 	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
+	// Whether new content should pull the view to the bottom. A ref rather than
+	// state: while a reply streams the pin runs every frame, so the decision has
+	// to be current the instant the user scrolls, not one render later.
+	const followLatestRef = useRef( true );
+	const lastScrollTopRef = useRef( 0 );
 	const hasSession = !! data;
 
 	const updateIsScrolledAway = useCallback( () => {
@@ -352,9 +357,37 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! hasSession || ! node ) {
 			return;
 		}
+		lastScrollTopRef.current = node.scrollTop;
 		updateIsScrolledAway();
-		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
+		// Any upward wheel is a request to read, even one that hasn't moved past
+		// the "scrolled away" slack yet — a trackpad starts in single pixels.
+		const handleWheel = ( event: WheelEvent ) => {
+			if ( event.deltaY < 0 ) {
+				followLatestRef.current = false;
+			}
+		};
+		const handleScroll = () => {
+			const away = isScrolledAwayFromLatest( node );
+			const movedUp = node.scrollTop < lastScrollTopRef.current - 1;
+			lastScrollTopRef.current = node.scrollTop;
+			if ( movedUp ) {
+				// Scrollbar drags and keyboard jumps have no wheel event, so a
+				// clear move up counts too. A nudge inside the slack doesn't: that
+				// is content reflow, not the user.
+				if ( away ) {
+					followLatestRef.current = false;
+				}
+			} else if ( ! away ) {
+				followLatestRef.current = true;
+			}
+			setIsScrolledAway( away );
+		};
+		node.addEventListener( 'wheel', handleWheel, { passive: true } );
+		node.addEventListener( 'scroll', handleScroll, { passive: true } );
+		return () => {
+			node.removeEventListener( 'wheel', handleWheel );
+			node.removeEventListener( 'scroll', handleScroll );
+		};
 	}, [ hasSession, updateIsScrolledAway ] );
 
 	// Content can grow without emitting scroll events (e.g. while the
@@ -365,6 +398,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
 
 	useLayoutEffect( () => {
+		followLatestRef.current = true;
 		setIsScrolledAway( false );
 	}, [ sessionId ] );
 
@@ -440,14 +474,33 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
+	// Between cache updates the reply's text is revealed at a metered pace, so
+	// the transcript grows without `data` changing. Follow that growth too.
+	useEffect( () => {
+		const node = scrollRef.current;
+		if ( ! node || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( () => {
+			if ( ! followLatestRef.current || pendingQuestions.length > 0 ) {
+				return;
+			}
+			node.scrollTop = node.scrollHeight;
+		} );
+		Array.from( node.children ).forEach( ( child ) => observer.observe( child ) );
+		return () => observer.disconnect();
+	}, [ hasSession, pendingQuestions.length, sessionId ] );
+
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
+		if ( ! node || ! followLatestRef.current || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
 		const id = requestAnimationFrame( () => {
-			node.scrollTop = node.scrollHeight;
+			if ( followLatestRef.current ) {
+				node.scrollTop = node.scrollHeight;
+			}
 		} );
 		return () => cancelAnimationFrame( id );
 	}, [

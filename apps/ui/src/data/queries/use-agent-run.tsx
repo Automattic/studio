@@ -14,6 +14,7 @@ import {
 	type PropsWithChildren,
 } from 'react';
 import { useConnector } from '@/data/core';
+import { markStreamingEntry } from '@/data/queries/streaming-entry';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
@@ -38,6 +39,50 @@ function newId(): string {
 // Optimistic entry id; the next refetch replaces it with the disk-backed one.
 function shortEntryId(): string {
 	return Math.random().toString( 36 ).slice( 2, 10 );
+}
+
+type AgentMessage = Extract< SessionEntry, { type: 'message' } >[ 'message' ];
+
+interface StreamingEntry {
+	entryId: string;
+	timestamp: string;
+}
+
+function isAssistantMessage( message: unknown ): boolean {
+	return ( message as { role?: string } | undefined )?.role === 'assistant';
+}
+
+function buildMessageEntry( entryId: string, timestamp: string, message: unknown ): SessionEntry {
+	return {
+		type: 'message',
+		id: entryId,
+		parentId: null,
+		timestamp,
+		message,
+	} as unknown as SessionEntry;
+}
+
+// Tool-call blocks stream in with their arguments as partial JSON; hold them
+// back until `message_end` so tool rows never render half-built input.
+function toStreamingMessage( message: AgentMessage ): AgentMessage {
+	const content = ( message as { content?: unknown } ).content;
+	if ( ! Array.isArray( content ) ) {
+		return message;
+	}
+	return {
+		...message,
+		content: content.filter( ( block ) => ( block as { type?: string } | null )?.type === 'text' ),
+	} as AgentMessage;
+}
+
+function upsertEntry( entries: SessionEntry[], entry: SessionEntry ): SessionEntry[] {
+	const index = entries.findIndex( ( candidate ) => candidate.id === entry.id );
+	if ( index === -1 ) {
+		return [ ...entries, entry ];
+	}
+	const next = entries.slice();
+	next[ index ] = entry;
+	return next;
 }
 
 export interface PendingQuestion {
@@ -296,6 +341,13 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
+	// The in-flight assistant reply per session: an optimistic entry that
+	// `message_update` rewrites in place until `message_end` swaps in the final.
+	const streamingEntriesBySessionRef = useRef< Map< string, StreamingEntry > >( new Map() );
+	// Deltas arrive per token; coalesce them into one cache write per frame so a
+	// long reply doesn't re-render the transcript hundreds of times a second.
+	const pendingStreamUpdatesBySessionRef = useRef< Map< string, AgentMessage > >( new Map() );
+	const cancelStreamFlushRef = useRef< ( () => void ) | null >( null );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -320,6 +372,44 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		},
 		[ queryClient ]
 	);
+
+	const flushStreamUpdates = useCallback( () => {
+		cancelStreamFlushRef.current = null;
+		const pending = Array.from( pendingStreamUpdatesBySessionRef.current );
+		pendingStreamUpdatesBySessionRef.current.clear();
+		for ( const [ sessionId, message ] of pending ) {
+			const streaming = streamingEntriesBySessionRef.current.get( sessionId );
+			if ( ! streaming ) {
+				continue;
+			}
+			updateCache( sessionId, ( entries ) =>
+				upsertEntry(
+					entries,
+					markStreamingEntry( buildMessageEntry( streaming.entryId, streaming.timestamp, message ) )
+				)
+			);
+		}
+	}, [ updateCache ] );
+
+	const scheduleStreamFlush = useCallback( () => {
+		if ( cancelStreamFlushRef.current ) {
+			return;
+		}
+		if ( typeof requestAnimationFrame === 'function' ) {
+			const handle = requestAnimationFrame( flushStreamUpdates );
+			cancelStreamFlushRef.current = () => cancelAnimationFrame( handle );
+			return;
+		}
+		const handle = setTimeout( flushStreamUpdates, 16 );
+		cancelStreamFlushRef.current = () => clearTimeout( handle );
+	}, [ flushStreamUpdates ] );
+
+	const clearStreamingState = useCallback( ( sessionId: string ) => {
+		streamingEntriesBySessionRef.current.delete( sessionId );
+		pendingStreamUpdatesBySessionRef.current.delete( sessionId );
+	}, [] );
+
+	useEffect( () => () => cancelStreamFlushRef.current?.(), [] );
 
 	useEffect( () => {
 		let cancelled = false;
@@ -405,6 +495,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					clearStreamingState( payload.sessionId );
 					// The finished run consumed AI credits; refresh the balance shown
 					// in the composer and in Settings → Usage.
 					void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
@@ -443,22 +534,58 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						] );
 						return;
 					}
-					// Only message-bearing pi event variants need optimistic entries.
-					if (
-						inner.type === 'message_end' &&
-						( inner.message as { role?: string } ).role === 'assistant'
-					) {
-						updateCache( payload.sessionId, ( entries ) => [
-							...entries,
-							{
-								type: 'message',
-								id: shortEntryId(),
-								parentId: null,
+					if ( inner.type === 'message_start' || inner.type === 'message_update' ) {
+						if ( ! isAssistantMessage( inner.message ) ) {
+							return;
+						}
+						const streaming = streamingEntriesBySessionRef.current.get( payload.sessionId );
+						if ( ! streaming || inner.type === 'message_start' ) {
+							// First sight of this reply — or a reload mid-run that missed
+							// `message_start` — so append the optimistic entry right away.
+							const started: StreamingEntry = {
+								entryId: shortEntryId(),
 								timestamp: event.timestamp,
-								message: inner.message,
-							} as unknown as SessionEntry,
-						] );
-					} else if ( inner.type === 'turn_end' ) {
+							};
+							streamingEntriesBySessionRef.current.set( payload.sessionId, started );
+							pendingStreamUpdatesBySessionRef.current.delete( payload.sessionId );
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								markStreamingEntry(
+									buildMessageEntry(
+										started.entryId,
+										started.timestamp,
+										toStreamingMessage( inner.message )
+									)
+								),
+							] );
+							return;
+						}
+						pendingStreamUpdatesBySessionRef.current.set(
+							payload.sessionId,
+							toStreamingMessage( inner.message )
+						);
+						scheduleStreamFlush();
+						return;
+					}
+					if ( inner.type === 'message_end' ) {
+						if ( ! isAssistantMessage( inner.message ) ) {
+							return;
+						}
+						const streaming = streamingEntriesBySessionRef.current.get( payload.sessionId );
+						clearStreamingState( payload.sessionId );
+						updateCache( payload.sessionId, ( entries ) =>
+							upsertEntry(
+								entries,
+								buildMessageEntry(
+									streaming?.entryId ?? shortEntryId(),
+									streaming?.timestamp ?? event.timestamp,
+									inner.message
+								)
+							)
+						);
+						return;
+					}
+					if ( inner.type === 'turn_end' ) {
 						const toolResults = inner.toolResults;
 						if ( Array.isArray( toolResults ) && toolResults.length > 0 ) {
 							updateCache( payload.sessionId, ( entries ) => [
@@ -529,7 +656,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
+	}, [
+		clearStreamingState,
+		connector,
+		dispatchSession,
+		queryClient,
+		scheduleStreamFlush,
+		stateStore,
+		updateCache,
+	] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -605,6 +740,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				interruptPendingStartSessionIdsRef.current.add( sessionId );
 			}
 			subscribedRunIdsBySessionRef.current.delete( sessionId );
+			clearStreamingState( sessionId );
 			updateCache( sessionId, ( entries ) => [
 				...entries,
 				{
@@ -631,7 +767,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
 			await interruptRequest;
 		},
-		[ connector, dispatchSession, stateStore, updateCache ]
+		[ clearStreamingState, connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const answerQuestion = useCallback(

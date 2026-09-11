@@ -84,8 +84,10 @@ import { AiAccessRequiredNotice, AiBlockedNotice } from '@/components/ai-access-
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
+import { isStreamingEntry } from '@/data/queries/streaming-entry';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { useSmoothStreamingText } from '@/hooks/use-smooth-streaming-text';
 import { MESSAGE_TEXT_ATTRIBUTE, QUOTABLE_TEXT_ATTRIBUTE } from '@/hooks/use-text-context-menu';
 import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -106,7 +108,16 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
+	| {
+			kind: 'assistant-text';
+			key: string;
+			text: string;
+			messageText: string;
+			copyText?: string;
+			// The block still receiving tokens; only ever the last text block of
+			// the reply being streamed.
+			isStreaming?: boolean;
+	  }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -282,6 +293,7 @@ export function entriesToRenderItems(
 				.map( ( block ) => ( block.text as string ).trim() )
 				.join( '\n\n' );
 			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+			const streaming = isStreamingEntry( entry );
 
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
@@ -293,6 +305,7 @@ export function entriesToRenderItems(
 							text,
 							messageText: fullMessageText,
 							copyText: block === lastTextBlock ? fullMessageText : undefined,
+							isStreaming: streaming && block === lastTextBlock,
 						} );
 					}
 				} else if (
@@ -456,15 +469,18 @@ function AssistantText( {
 	text,
 	messageText,
 	copyText,
+	isStreaming = false,
 	showActions,
 	onToggleSelect,
 }: {
 	text: string;
 	messageText: string;
 	copyText?: string;
+	isStreaming?: boolean;
 	showActions: boolean;
 	onToggleSelect: () => void;
 } ) {
+	const visibleText = useSmoothStreamingText( text, isStreaming );
 	const handleClick = ( event: ReactMouseEvent< HTMLDivElement > ) => {
 		// Links and the buttons inside code blocks or the action row own their
 		// clicks; only bare message content toggles the actions.
@@ -493,7 +509,7 @@ function AssistantText( {
 			} }
 			onClick={ copyText ? handleClick : undefined }
 		>
-			<Markdown>{ text }</Markdown>
+			<Markdown>{ visibleText }</Markdown>
 			{ copyText ? (
 				<div className={ styles.messageActions }>
 					<div className={ styles.messageActionsClip }>
@@ -1335,6 +1351,7 @@ export function Conversation( {
 								text={ item.text }
 								messageText={ item.messageText }
 								copyText={ item.copyText }
+								isStreaming={ item.isStreaming }
 								showActions={ selectedKey === item.key || item.key === latestActionableKey }
 								onToggleSelect={ () =>
 									setSelectedKey( ( current ) => ( current === item.key ? null : item.key ) )

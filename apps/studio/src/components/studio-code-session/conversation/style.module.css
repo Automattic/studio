@@ -355,6 +355,83 @@
 	cursor: default;
 }
 
+.questionOptions[data-layout='grid'] {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	width: min(100%, 760px);
+}
+
+.questionOptions[data-layout='grid'] > li {
+	min-width: 0;
+}
+
+.questionOption[data-has-image='true'] {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-sm);
+	width: 100%;
+	height: 100%;
+	padding: var(--wpds-dimension-padding-sm);
+	text-align: left;
+}
+
+.questionOptionCopy {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.questionOptionDescription {
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+}
+
+.questionOptionImage,
+.questionOptionImageLoading,
+.questionOptionImageUnavailable {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	aspect-ratio: 4 / 3;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--color-frame-bg);
+	transition:
+		border-color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.questionOptionImage {
+	object-fit: cover;
+	object-position: top;
+}
+
+.questionOptionImageLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-frame-text) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.questionOptionImageUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.questionOption[data-has-image='true'].questionOptionPicked .questionOptionImage {
+	border-color: var(--color-frame-theme);
+	box-shadow: 0 0 0 2px var(--color-frame-theme);
+}
+
 .interruptedMarker {
 	align-self: center;
 	margin: var(--wpds-dimension-padding-sm) 0;

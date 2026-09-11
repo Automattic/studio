@@ -1,0 +1,6 @@
+---
+title: "Four corners"
+description: "The hero pins one small element to each corner of the viewport — an eyebrow top-left, the navigation top-right, a key figure or date bottom-left, the call to action bottom-right — and puts the headline off-center in the open space between them. Every section repeats the corner-anchored composition with its own four items, so the page is a sequence of framed voids rather than a column."
+---
+Build: each section a `min-height: 100dvh` `alignfull` group with `position: relative`; four corner groups absolutely positioned with `inset` offsets of one spacing unit; the headline as a group positioned with `top`/`left` percentages (never centered) by ONE shared rule for every section (for example `.corner-section .headline { position: absolute; top: 32%; left: 14%; max-width: 60% }`), never per-section coordinates — a section that misses its rule drops the headline to the top-left corner on top of the corner element; short sections such as the footer keep the four corners but use `min-height: 40dvh`, not a full viewport; generous empty space is the point, so no filler between corners.
+Fallback: corners stack in reading order (top-left, top-right, headline, bottom-left, bottom-right) on screens narrower than 782px.

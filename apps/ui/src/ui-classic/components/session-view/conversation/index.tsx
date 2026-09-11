@@ -95,7 +95,7 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 interface AgentQuestionRenderItem {
 	key: string;
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 	pickedLabel?: string;
 }
 
@@ -148,7 +148,11 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+const HIDDEN_TOOL_ROWS = new Set( [
+	'studio_present',
+	'AskUserQuestion',
+	'present_design_options',
+] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
@@ -867,7 +871,7 @@ function AgentQuestion( {
 	onAnswer,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
@@ -875,12 +879,13 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
+	const hasImages = options.some( ( option ) => option.image );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
-				<ol className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
 						const descriptionId =
@@ -901,7 +906,9 @@ function AgentQuestion( {
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
@@ -921,6 +928,24 @@ function AgentQuestion( {
 			) : null }
 		</div>
 	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const connector = useConnector();
+	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
+	const localFileQuery = useLocalMediaDataUrl( localPath );
+
+	if ( ! localPath || localFileQuery.isError ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! localFileQuery.data ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
 }
 
 function QuestionOptionCheckIcon() {

@@ -175,6 +175,7 @@ export interface DesignPairRequest {
 	layoutNamedInBrief?: string;
 	directionNamedInBrief?: string;
 	count: number;
+	onlyChosen?: boolean;
 }
 
 export interface DesignPair {
@@ -261,6 +262,16 @@ export function drawDesignPairs(
 		used[ kind ].add( entry.name );
 		return entry;
 	};
+	if ( request.onlyChosen ) {
+		if ( ! pairs.length ) {
+			throw new Error(
+				`None of the chosen pairs are catalog entries${
+					ignored.length ? ` (${ ignored.join( ', ' ) })` : ''
+				}. Pass catalog names verbatim.`
+			);
+		}
+		return { pairs, fixed, ignored };
+	}
 	while ( pairs.length < count ) {
 		pairs.push( { layout: drawSide( 'concept' ), direction: drawSide( 'direction' ) } );
 	}

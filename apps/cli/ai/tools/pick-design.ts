@@ -30,8 +30,8 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 	return defineTool(
 		'pick_design',
 		canAskUser
-			? `Settles the signature layout concept and the artistic direction for a site build. With \`options: ${ DESIGN_OPTIONS_TO_PRESENT }\` it returns ${ DESIGN_OPTIONS_TO_PRESENT } distinct concept-and-direction pairs for the user to pick from: up to ${ MAX_CHOSEN_DESIGN_PAIRS } pairs you choose from the catalogs in the visual-design skill (each with a one-line reason), plus random draws for the rest, shuffled so the user cannot tell which is which. With \`options: 1\` it draws one random pair and you build it. Every pair comes back with its full build notes. If the user named a catalog entry in their brief, pass it as layoutNamedInBrief or directionNamedInBrief: it is fixed across every pair without a draw. Put entries that contradict a hard constraint of the brief in \`avoid\` so they are never drawn. Call once; build what is returned or picked.`
-			: 'Settles the signature layout concept and the artistic direction for a site build by drawing one random pair from the catalogs in the visual-design skill and returning its full build notes. The user cannot be asked in this session, so there is nothing to pick from: build what is returned. If the user named a catalog entry in their brief, pass it as layoutNamedInBrief or directionNamedInBrief: it is returned without a draw. Put entries that contradict a hard constraint of the brief in `avoid` so they are never drawn. Call once.',
+			? `Settles the signature layout concept and the artistic direction for a site build. With \`options: ${ DESIGN_OPTIONS_TO_PRESENT }\` it returns ${ DESIGN_OPTIONS_TO_PRESENT } distinct concept-and-direction pairs for the user to pick from: up to ${ MAX_CHOSEN_DESIGN_PAIRS } pairs you choose from the catalogs in the visual-design skill (each with a one-line reason), plus random draws for the rest, shuffled so the user cannot tell which is which. With \`options: 1\` it draws one random pair and you build it. Every pair comes back with its full build notes. If the user named a catalog entry in their brief, pass it as layoutNamedInBrief or directionNamedInBrief: it is fixed across every pair without a draw. Put entries that contradict a hard constraint of the brief in \`avoid\` so they are never drawn. When the brief points to a reference site, pass it as \`reference\` with the 1–2 catalog pairs closest to it as \`chosen\`: only those come back, no random pairs are added, and \`options\` is ignored. Call once; build what is returned or picked.`
+			: 'Settles the signature layout concept and the artistic direction for a site build by drawing one random pair from the catalogs in the visual-design skill and returning its full build notes. The user cannot be asked in this session, so there is nothing to pick from: build what is returned. If the user named a catalog entry in their brief, pass it as layoutNamedInBrief or directionNamedInBrief: it is returned without a draw. Put entries that contradict a hard constraint of the brief in `avoid` so they are never drawn. When the brief points to a reference site, pass it as `reference` with the catalog pair closest to it as `chosen`: that pair comes back instead of a draw. Call once.',
 		{
 			options: canAskUser
 				? Type.Union( [ Type.Literal( 1 ), Type.Literal( DESIGN_OPTIONS_TO_PRESENT ) ], {
@@ -70,16 +70,30 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 			directionNamedInBrief: Type.Optional(
 				Type.String( { description: 'A catalog artistic direction the user asked for by name.' } )
 			),
+			reference: Type.Optional(
+				Type.String( {
+					description:
+						'The site the brief points to as a design reference, e.g. "https://example.com".',
+				} )
+			),
 		},
 		async ( args ) => {
-			const count = canAskUser ? args.options : 1;
-			if ( count === 1 && args.chosen?.length && canAskUser ) {
+			const fromReference = Boolean( args.reference );
+			if ( fromReference && ! args.chosen?.length ) {
+				throw new Error( 'With a reference, pass the catalog pairs closest to it as chosen.' );
+			}
+			let count: number = canAskUser ? args.options : 1;
+			if ( fromReference ) {
+				count = canAskUser ? MAX_CHOSEN_DESIGN_PAIRS : 1;
+			}
+			if ( ! fromReference && count === 1 && args.chosen?.length && canAskUser ) {
 				throw new Error(
 					`Pass chosen pairs only with options: ${ DESIGN_OPTIONS_TO_PRESENT }; a single draw is random.`
 				);
 			}
 			const draw = drawDesignPairs( {
 				count,
+				onlyChosen: fromReference,
 				chosen: args.chosen,
 				avoid: args.avoid,
 				layoutNamedInBrief: args.layoutNamedInBrief,
@@ -118,7 +132,7 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 					) }.`
 				);
 			}
-			if ( ! canAskUser && args.options !== 1 ) {
+			if ( ! canAskUser && ! fromReference && args.options !== 1 ) {
 				sections.push(
 					'The user cannot be asked in this session, so one pair was drawn instead of options to pick from. Build it.'
 				);

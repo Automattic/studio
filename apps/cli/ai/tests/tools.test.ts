@@ -389,6 +389,24 @@ describe( 'Studio AI MCP tools', () => {
 		await expect(
 			executeTool( tool, { options: 1, layoutNamedInBrief: 'Vaporwave' } )
 		).rejects.toThrow( /not a catalog layout concept/ );
+
+		const fromReference =
+			getTextContent(
+				await executeTool( tool, {
+					options: 4,
+					reference: 'https://example.com',
+					chosen: [
+						{ layout: concepts[ 0 ], direction: directions[ 0 ], reason: 'closest' },
+						{ layout: concepts[ 1 ], direction: directions[ 1 ], reason: 'next' },
+					],
+				} )
+			) ?? '';
+		expect(
+			[ ...fromReference.matchAll( /^Layout concept: (.+)$/gm ) ].map( ( m ) => m[ 1 ] )
+		).toEqual( [ concepts[ 0 ], concepts[ 1 ] ] );
+		await expect(
+			executeTool( tool, { options: 4, reference: 'https://example.com' } )
+		).rejects.toThrow( /closest to it as chosen/ );
 	} );
 
 	it( 'present_design_options renders each sneak peek and asks the user with the images', async () => {

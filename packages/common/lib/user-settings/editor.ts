@@ -22,15 +22,15 @@ export type SupportedEditorConfig = {
 
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
 	antigravity: {
-		// translators: "Antigravity" is the brand name for an IDE and does not need to be translated
-		label: () => __( 'Antigravity' ),
-		url: ( path: string ) => `antigravity://file/${ path }?windowId=_blank`,
-		macOSBundleId: 'com.google.antigravity',
+		// translators: "Antigravity IDE" is the brand name for an IDE and does not need to be translated
+		label: () => __( 'Antigravity IDE' ),
+		url: ( path: string ) => `antigravity-ide://file/${ path }?windowId=_blank`,
+		macOSBundleId: 'com.google.antigravity-ide',
 		winPaths: [
-			'%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe',
-			'%PROGRAMFILES%\\Google\\Antigravity\\Antigravity.exe',
+			'%LOCALAPPDATA%\\Programs\\Antigravity IDE\\Antigravity IDE.exe',
+			'%PROGRAMFILES%\\Google\\Antigravity IDE\\Antigravity IDE.exe',
 		],
-		linuxCommands: [ 'antigravity' ],
+		linuxCommands: [ 'antigravity-ide' ],
 	},
 	vscode: {
 		// translators: "Visual Studio Code" is the brand name for an IDE and does not need to be translated

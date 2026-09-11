@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { stubRuntime } from './stub-runtime';
 import type { AgentProcess, AgentRuntime } from './runtime';
 import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 /**
  * Headless analog of the desktop `run-manager` (apps/studio/src/modules/
@@ -53,10 +54,11 @@ export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, displayMessage } = options;
+	const { sessionId, prompt, displayMessage, visualAnnotations } = options;
 
 	if ( runsBySessionId.has( sessionId ) ) {
 		throw new Error( `A run is already in progress for session ${ sessionId }` );
@@ -69,6 +71,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		sessionId,
 		prompt,
 		displayMessage,
+		visualAnnotations,
 		onSpawn: () => emit( runId, sessionId, { type: 'run.started', timestamp: nowIso() } ),
 		onEvent: ( event ) => emit( runId, sessionId, event ),
 		onError: ( message ) =>

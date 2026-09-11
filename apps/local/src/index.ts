@@ -35,6 +35,7 @@ import {
 } from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import { createCliRunner } from '@studio/common/lib/cli-process';
@@ -1746,15 +1747,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+		const { prompt, displayMessage, visualAnnotations } = req.body as {
+			prompt?: string;
+			displayMessage?: string;
+			visualAnnotations?: unknown;
+		};
 		if ( ! prompt ) {
 			res.status( 400 ).json( { error: 'prompt is required' } );
+			return;
+		}
+		let validatedVisualAnnotations;
+		try {
+			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+		} catch {
+			res.status( 400 ).json( { error: 'visualAnnotations is invalid' } );
 			return;
 		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
 			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
+			visualAnnotations: validatedVisualAnnotations,
 		} );
 		res.json( { runId } );
 	} );

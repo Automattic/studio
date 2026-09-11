@@ -1,4 +1,5 @@
 import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 /**
  * Where the agent actually runs, behind a seam.
@@ -14,6 +15,7 @@ export interface AgentProcessOptions {
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 	// The process has started.
 	onSpawn: () => void;
 	// A JSON transport event the agent emitted.

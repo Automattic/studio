@@ -44,6 +44,7 @@ import {
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	installSkillToSite,
@@ -415,6 +416,7 @@ export async function continueAiSession(
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
+		visualAnnotations?: unknown;
 	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
@@ -424,12 +426,14 @@ export async function continueAiSession(
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
+	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
 		images,
 		files,
+		visualAnnotations,
 		webContents: event.sender,
 	} );
 }

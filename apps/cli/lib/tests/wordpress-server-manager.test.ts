@@ -13,6 +13,7 @@ import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-bina
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
 	sendWpCliCommand,
@@ -611,15 +612,15 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should wait for the process to exit after falling back to `stopProcess`', async () => {
-			const onlineProcess = {
+			const onlineProcess: ProcessDescription = {
 				name: 'studio-site-test-site-id',
 				pmId: 1,
-				status: 'online' as const,
+				status: 'online',
 				pid: 1234,
 				runtime: SITE_RUNTIME_PLAYGROUND,
 			};
 
-			// Still listed as online for the first two polls after the SIGKILL, then gone.
+			// Still listed as online for the first polls after the SIGKILL, then gone.
 			vi.mocked( daemonClient.isProcessRunning )
 				.mockResolvedValueOnce( onlineProcess )
 				.mockResolvedValueOnce( onlineProcess )

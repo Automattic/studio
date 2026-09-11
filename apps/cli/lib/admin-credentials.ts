@@ -1,4 +1,4 @@
-import { decodePassword } from '@studio/common/lib/passwords';
+import { decodeAdminPassword } from '@studio/common/lib/passwords';
 import { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 type AdminCredentialsConfig = Pick<
@@ -28,9 +28,11 @@ export function shouldSetAdminCredentials( config: AdminCredentialsConfig ): boo
 export function getSetAdminCredentialsRequestBody(
 	config: AdminCredentialsConfig
 ): SetAdminCredentialsRequestBody {
+	// The password is always sent: creating a user requires one, so omitting it fails the
+	// request outright when adminUsername names a user that does not exist yet.
 	return {
 		action: 'set_admin_password',
-		...( config.adminPassword && { password: decodePassword( config.adminPassword ) } ),
+		password: decodeAdminPassword( config.adminPassword ),
 		...( config.adminUsername && { username: config.adminUsername } ),
 		...( config.adminEmail && { email: config.adminEmail } ),
 	};

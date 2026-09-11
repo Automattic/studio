@@ -1,4 +1,8 @@
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+} from '@studio/common/lib/passwords';
 import { __ } from '@wordpress/i18n';
 import { CopyButton } from '@/components/copy-button';
 import styles from './cards.module.css';
@@ -28,9 +32,9 @@ function CredentialRow( {
 }
 
 export function AdminSection( { site }: { site: SiteDetails } ) {
-	const username = site.adminUsername ?? 'admin';
-	const password = site.adminPassword ? decodePassword( site.adminPassword ) : '';
-	const email = site.adminEmail ?? 'admin@localhost.com';
+	const username = site.adminUsername ?? DEFAULT_ADMIN_USERNAME;
+	const password = decodeAdminPassword( site.adminPassword );
+	const email = site.adminEmail ?? DEFAULT_ADMIN_EMAIL;
 
 	return (
 		<CardSection>

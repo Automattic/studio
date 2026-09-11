@@ -1,6 +1,6 @@
 {
   "name": "data-liberation",
-  "description": "Liberate any website (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix, or any other site) into a complete, portable HTML site, then publish it to a live URL.",
+  "description": "Inspect or liberate any website (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix, or any other site) into a complete, portable HTML site, then publish it to a live URL.",
   "version": "0.2.2",
   "author": {
     "name": "Automattic"
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "Data Liberation",
     "shortDescription": "Copy any website into a portable HTML site you can publish",
-    "longDescription": "Liberate a website into a complete, portable HTML site \u2014 every route, its CSS, assets, navigation and responsive behaviour \u2014 verify the copy against its source, then publish it to a live URL.",
+    "longDescription": "Inspect a source, then liberate a website into a complete, portable HTML site \u2014 every route, its CSS, assets, navigation and responsive behaviour \u2014 verify the copy against its source, then publish it to a live URL.",
     "developerName": "Automattic",
     "category": "Developer Tools",
     "capabilities": [
@@ -22,6 +22,7 @@
     ],
     "websiteURL": "https://github.com/Automattic/data-liberation-agent",
     "defaultPrompt": [
+      "Inspect this website before liberation",
       "Liberate this website into a portable HTML site",
       "Verify a liberated copy against its source",
       "Publish a liberated site"

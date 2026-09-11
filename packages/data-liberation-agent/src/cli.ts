@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // src/cli.ts
 //
-// Three verbs: liberate a site, verify the copy, publish it.
+// Four verbs: inspect a source, liberate a site, verify the copy, publish it.
 //
 import { createRequire } from 'node:module';
 import { resolveOutputBase } from './lib/paths.js';
@@ -23,6 +23,7 @@ const HELP = `
 
   Usage:
     data-liberation <url>              Liberate a website into a portable HTML site
+    data-liberation inspect <url>      Assess a source without writing a site
     data-liberation compare <dir>      Verify a liberated copy against its source
     data-liberation publish <dir>      Publish a liberated site (--to spacefast)
     data-liberation mcp                Start MCP server (stdio transport)
@@ -42,6 +43,12 @@ const HELP = `
   Compare options:
     --screenshots        Write source/liberated/diff PNGs as evidence. Pixel score
                          never decides pass/fail.
+
+  Inspect options:
+    --discovery-limit <n>  Maximum routes inventoried (1-100, default: 50)
+    --sample-limit <n>     Maximum routes fetched for observations (1-10, default: 5)
+    --request-timeout <ms> Per-request timeout (1000-30000, default: 10000)
+    --overall-timeout <ms> Total inspection timeout (1000-60000, default: 30000)
 
   Publish options:
     --to <target>        Where to publish. Targets: spacefast (default)
@@ -68,6 +75,32 @@ if (args[0] === 'mcp') {
   const { runCompare } = await import('./ui/compare.js');
   const report = await runCompare(directory, { screenshots: args.includes('--screenshots') });
   process.exit(report.pass ? 0 : 1);
+} else if (args[0] === 'inspect') {
+  const url = args[1];
+  if (!url || url.startsWith('-')) {
+    console.error('Error: URL required. Usage: data-liberation inspect <url>');
+    process.exit(1);
+  }
+  const inspectNumber = (name: string): number | undefined => {
+    if (!args.includes(name)) return undefined;
+    const value = getArg(name);
+    if (value === null) throw new Error(`${name} requires a value`);
+    return Number(value);
+  };
+  try {
+    const { inspectSource } = await import('./lib/inspect.js');
+    const result = await inspectSource(url, {
+      discoveryLimit: inspectNumber('--discovery-limit'),
+      sampleLimit: inspectNumber('--sample-limit'),
+      requestTimeoutMs: inspectNumber('--request-timeout'),
+      overallTimeoutMs: inspectNumber('--overall-timeout'),
+      log: (message) => process.stderr.write(`${message}\n`),
+    });
+    console.log(JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 } else if (args[0] === 'publish') {
   const directory = args[1];
   if (!directory || directory.startsWith('-')) {

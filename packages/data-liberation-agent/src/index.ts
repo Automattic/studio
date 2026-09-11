@@ -28,6 +28,7 @@ export {
 } from './platform/registry.js';
 
 export { detect as detectPlatform, detectFromUrl, detectFromHttp } from './lib/detect-platform/index.js';
+export { inspectSource, InspectError, INSPECTION_SCHEMA_VERSION } from './lib/inspect.js';
 export type {
 	DetectionResult,
 	FullDetectionResult,
@@ -43,3 +44,4 @@ export type {
 	RegisterPlatformOptions,
 } from './platform/types.js';
 export type { LiberationHooks, LiberationContext } from './adapters/page-actions.js';
+export type { InspectOptions, InspectionIssue, SourceInspection } from './lib/inspect.js';

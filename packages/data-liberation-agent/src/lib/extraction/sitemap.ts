@@ -1,12 +1,37 @@
-export function parseSitemapXml(xml: string): string[] {
+function decodeXml(value: string): string {
+  return value.replace(/&(?:amp|lt|gt|quot|apos);|&#(?:x[\da-f]+|\d+);/gi, (entity) => {
+    if (entity === '&amp;') return '&';
+    if (entity === '&lt;') return '<';
+    if (entity === '&gt;') return '>';
+    if (entity === '&quot;') return '"';
+    if (entity === '&apos;') return "'";
+    const numeric = entity.slice(2, -1);
+    const codePoint = Number(numeric.startsWith('x') || numeric.startsWith('X') ? `0${numeric}` : numeric);
+    return Number.isSafeInteger(codePoint) ? String.fromCodePoint(codePoint) : entity;
+  });
+}
+
+export interface SitemapDocument {
+  kind: 'urlset' | 'index' | 'unknown';
+  locs: string[];
+}
+
+export function parseSitemapDocument(xml: string): SitemapDocument {
+  const kind = /<\s*(?:\w+:)?sitemapindex\b/i.test(xml) ? 'index'
+    : /<\s*(?:\w+:)?urlset\b/i.test(xml) ? 'urlset'
+      : 'unknown';
   const urls: string[] = [];
-  const locMatches = xml.match(/<loc>([^<]+)<\/loc>/g);
-  if (!locMatches) return urls;
+  const locMatches = xml.match(/<\s*(?:\w+:)?loc\s*>([^<]+)<\/\s*(?:\w+:)?loc\s*>/gi);
+  if (!locMatches) return { kind, locs: urls };
   for (const match of locMatches) {
-    const url = match.replace(/<\/?loc>/g, '').trim();
+    const url = decodeXml(match.replace(/<\/?(?:\w+:)?loc\s*>/gi, '').trim());
     if (url) urls.push(url);
   }
-  return urls;
+  return { kind, locs: urls };
+}
+
+export function parseSitemapXml(xml: string): string[] {
+  return parseSitemapDocument(xml).locs;
 }
 
 export type UrlType = 'homepage' | 'post' | 'product' | 'gallery' | 'event' | 'page';
@@ -28,6 +53,15 @@ export function classifyUrl(url: string): UrlType {
   if (/\/blogs\/[^/]+\/[^/]+/.test(path)) return 'post'; // Shopify /blogs/<blog>/<article>
   if (/\/blog-\d+\/post\//.test(path)) return 'post'; // Wix /blog-1/post/<slug>
   if (/\/single-post\//.test(path)) return 'post'; // Older Wix Blog URL pattern
+  // A category/listing page under a store path is not a product, the same way a bare
+  // /blog is not a post above. Weebly names these /store/c<N>/... against /store/p<N>/...
+  // for an actual product; other platforms use /category/, /collections/ (Shopify), etc.,
+  // or the bare /store//shop/ index. Check these before the broad product test below, or
+  // e.g. lonestardinners.com's /store/c1/Current_Menu.html imports into WooCommerce as a
+  // junk product named after the category, priced at whatever its cheapest listing costs.
+  if (/\/(?:store|shop)\/c\d+\//.test(path)) return 'page';
+  if (/\/(?:category|categories|collections|product-category|product-tag)(?:\/|$)/.test(path)) return 'page';
+  if (/\/(?:store|shop)\/?$/.test(path)) return 'page';
   if (/\/(products?|product-page|store|shop)\//.test(path)) return 'product';
   if (/\/(gallery|portfolio)/.test(path)) return 'gallery';
   if (/\/(event|events)/.test(path)) return 'event';
@@ -64,7 +98,7 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) return;
       const xml = await response.text();
-      const urls = parseSitemapXml(xml);
+      const urls = parseSitemapDocument(xml).locs;
 
       for (const u of urls) {
         if (allUrls.length >= MAX_URLS) break;

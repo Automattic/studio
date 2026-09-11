@@ -119,7 +119,7 @@ try {
     await withDeadline(client.connect(transport), 'Installed MCP server connection');
     const tools = await withDeadline(client.listTools(), 'Installed MCP server tool listing');
     const offered = tools.tools.map((tool) => tool.name).sort();
-    const expected = ['compare', 'liberate', 'publish'];
+    const expected = ['compare', 'inspect', 'liberate', 'publish'];
     if (offered.join() !== expected.join()) {
       throw new Error(
         `Installed MCP server offers [${offered}]; expected the product verbs [${expected}].`

@@ -1,6 +1,6 @@
 ---
 name: liberate
-description: Liberate a website into a complete, portable HTML site by driving the data-liberation CLI. A URL becomes a directory of HTML, CSS, assets, routes and navigation that runs on its own — that directory is the deliverable and HTML is the contract. Covers the whole job in three commands: liberate the site, verify the copy against its source, and publish it to a live URL.
+description: Inspect or liberate a website into a complete, portable HTML site by driving the data-liberation CLI. A URL becomes a directory of HTML, CSS, assets, routes and navigation that runs on its own — that directory is the deliverable and HTML is the contract. Covers source inspection, liberation, verification, and publication.
 ---
 
 # Liberate a website
@@ -15,6 +15,7 @@ The CLI does the work. Your job is to run it, read what it reports, verify the r
 
 | Command | What it does |
 |---|---|
+| `data-liberation inspect <url>` | Bounded read-only source assessment with explicit coverage and unknowns |
 | `data-liberation <url>` | Detect the platform, discover routes, liberate every one, write the site |
 | `data-liberation compare <run-dir>` | Verify the copy against its live source. **This is the acceptance gate** |
 | `data-liberation publish <run-dir> --to <target>` | Put the copy on a live URL |

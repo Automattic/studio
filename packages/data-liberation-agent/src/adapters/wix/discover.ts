@@ -2,7 +2,7 @@ import { classifyUrl, parseSitemapXml } from '../../lib/extraction/sitemap.js';
 import { ensureUrlScheme } from '../../lib/url/index.js';
 import { launchBrowser } from '../../lib/browser-kit/index.js';
 import { withTimeout } from '../../lib/concurrency.js';
-import { discoverLinkedRoutes } from './discovery-links.js';
+import { discoverLinkedRoutes, resolveCanonicalSiteUrl } from './discovery-links.js';
 import { RENDERER_CALL_TIMEOUT_MS } from './page.js';
 import type { InventoryUrl } from '../shared.js';
 import type { NavLink } from '../../lib/html-extract/index.js';
@@ -121,8 +121,11 @@ export async function discover(url: string, opts: Record<string, unknown>): Prom
 
     // 2. Merge sitemap inventory with a bounded rendered-link crawl. Wix can
     // advertise broken dynamic child sitemaps while linked routes remain public.
+    // resolveCanonicalSiteUrl matters here: blacksheepbikes.com redirects to www.blacksheepbikes.com,
+    // and discoverLinkedRoutes filters every URL to `siteUrl`'s origin - passing the raw (bare) input
+    // rejected all 28 real sitemap pages as "off-origin" and left only the one seed URL.
     const linkedDiscovery = await discoverLinkedRoutes({
-      siteUrl: url,
+      siteUrl: resolveCanonicalSiteUrl(url, sitemapUrls),
       initialUrls: sitemapUrls,
       maxPages: sitemapUrls.length > 0 ? 10 : 100,
       loadLinks: async (routeUrl) => {

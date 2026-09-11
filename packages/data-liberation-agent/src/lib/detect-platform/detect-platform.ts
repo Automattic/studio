@@ -45,6 +45,23 @@ export function detectFromUrl(url: string): string | null {
   return null;
 }
 
+/** Match HTTP headers and source evidence already obtained by a caller. */
+export function detectFromResponse(headers: Headers, html: string): DetectionResult {
+  const platforms = registeredPlatforms();
+  const headerMatch = matchHttpSignals(platforms, headers);
+  if (headerMatch.platform) return { platform: headerMatch.platform, confidence: 'high', signals: headerMatch.signals };
+  const sourceMatch = matchSourceSignals(platforms, html);
+  if (sourceMatch.platform) return { platform: sourceMatch.platform, confidence: 'medium', signals: sourceMatch.signals };
+  return { platform: 'unknown', confidence: 'low', signals: [] };
+}
+
+/** Match URL, HTTP, and source evidence already obtained by a caller. */
+export function detectFromDocument(url: string, headers: Headers, html: string): DetectionResult {
+  const urlResult = detectFromUrl(url);
+  if (urlResult) return { platform: urlResult, confidence: 'high', signals: [`URL contains ${urlResult} domain`] };
+  return detectFromResponse(headers, html);
+}
+
 function matchHttpSignals(
   platforms: Platform[],
   headers: Headers,
@@ -122,28 +139,15 @@ export async function detectFromHttp(url: string): Promise<DetectionResult> {
       redirect: 'follow',
     });
 
-    const headerMatch = matchHttpSignals(platforms, response.headers);
-    if (headerMatch.platform) {
-      platform = headerMatch.platform;
-      confidence = 'high';
-      signals.push(...headerMatch.signals);
-    }
-
-    if (platform === 'unknown') {
+    let documentResult = detectFromResponse(response.headers, '');
+    if (documentResult.platform === 'unknown') {
       let html = '';
-      try {
-        html = await response.text();
-      } catch {
-        // Body read failed (truncation, encoding, mid-stream network error).
-        // Fall through to source-pattern (no matches) and probe tier.
-      }
-      const sourceMatch = matchSourceSignals(platforms, html);
-      if (sourceMatch.platform) {
-        platform = sourceMatch.platform;
-        confidence = 'medium';
-        signals.push(...sourceMatch.signals);
-      }
+      try { html = await response.text(); } catch { /* source matching is best-effort */ }
+      documentResult = detectFromResponse(response.headers, html);
     }
+    platform = documentResult.platform;
+    confidence = documentResult.confidence;
+    signals.push(...documentResult.signals);
 
     if (platform === 'unknown') {
       const probeMatch = await matchPathProbes(platforms, normalized);

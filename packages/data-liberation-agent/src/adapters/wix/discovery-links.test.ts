@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { discoverLinkedRoutes } from './discovery-links.js';
+import { discoverLinkedRoutes, resolveCanonicalSiteUrl } from './discovery-links.js';
 
 describe( 'discoverLinkedRoutes', () => {
 	it( 'merges partial sitemap inventory with recursively linked same-origin routes', async () => {
@@ -71,5 +71,33 @@ describe( 'discoverLinkedRoutes', () => {
 			'https://www.wix.com/demone2/nimbus-commute/privacy-policy',
 			'https://www.wix.com/demone2/nimbus-commute/accessibility-statement',
 		] );
+	} );
+} );
+
+describe( 'resolveCanonicalSiteUrl', () => {
+	it( 'takes the origin from a resolved URL when the input host redirects', () => {
+		// blacksheepbikes.com -> www.blacksheepbikes.com: the sitemap's own URLs are already on the
+		// real host, so passing the bare input straight to discoverLinkedRoutes rejected every one of
+		// them as off-origin.
+		expect(
+			resolveCanonicalSiteUrl( 'https://blacksheepbikes.com', [
+				'https://www.blacksheepbikes.com/about',
+				'https://www.blacksheepbikes.com/pricing',
+			] )
+		).toBe( 'https://www.blacksheepbikes.com/' );
+	} );
+
+	it( 'keeps the operator-supplied path for a path-hosted site', () => {
+		expect(
+			resolveCanonicalSiteUrl( 'https://www.wix.com/demone2/nimbus-commute', [
+				'https://www.wix.com/demone2/nimbus-commute/privacy-policy',
+			] )
+		).toBe( 'https://www.wix.com/demone2/nimbus-commute' );
+	} );
+
+	it( 'falls back to the input URL untouched when there are no resolved URLs yet', () => {
+		expect( resolveCanonicalSiteUrl( 'https://blacksheepbikes.com', [] ) ).toBe(
+			'https://blacksheepbikes.com'
+		);
 	} );
 } );

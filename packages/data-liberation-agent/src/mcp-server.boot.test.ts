@@ -7,7 +7,7 @@ const SERVER = fileURLToPath( new URL( './mcp-server.ts', import.meta.url ) );
 /**
  * Boot the server over stdio and ask what it offers.
  *
- * The surface is the product's three verbs. This asserts the count as well as
+ * The surface is the product's four verbs. This asserts the count as well as
  * the names: the previous server grew to thirty-nine tools by exposing every
  * internal pipeline phase, and nothing failed when it did.
  */
@@ -61,6 +61,6 @@ function listTools(): Promise< Array< { name: string } > > {
 describe( 'mcp server', () => {
 	it( 'boots and offers the product verbs, and only those', async () => {
 		const tools = await listTools();
-		expect( tools.map( ( tool ) => tool.name ).sort() ).toEqual( [ 'compare', 'liberate', 'publish' ] );
+		expect( tools.map( ( tool ) => tool.name ).sort() ).toEqual( [ 'compare', 'inspect', 'liberate', 'publish' ] );
 	}, 90_000 );
 } );

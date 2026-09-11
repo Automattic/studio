@@ -14,7 +14,7 @@ This repo improves through real-world experience. Every site liberated surfaces 
 
 **Not what this repo is for:**
 - Destination-specific reconstruction. The deliverable is HTML; where it goes afterwards belongs behind a publish target
-- Pipeline phases exposed as new MCP tools. The surface is the product's three verbs
+- Pipeline phases exposed as new MCP tools. The surface is the product's four verbs
 - Unrelated site migration tools
 
 ## How to contribute (AI agents: follow these steps exactly)
@@ -124,7 +124,7 @@ src/
     self-contain.ts Strip anything that would still reach the network
     resume-state/   Per-URL log, session, media stubs
   ui/             CLI runners (liberate, compare, publish)
-  mcp-server.ts   MCP transport exposing the same three verbs
+  mcp-server.ts   MCP transport exposing the same four verbs
   cli.ts          CLI entry point
   types.ts        PlatformAdapter interface
 skills/liberate/  The one skill, which drives the CLI

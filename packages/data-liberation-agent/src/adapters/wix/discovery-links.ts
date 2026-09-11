@@ -16,6 +16,22 @@ export interface LinkedRouteDiscoveryResult {
 	failures: Array< { url: string; reason: string } >;
 }
 
+/**
+ * The `siteUrl` origin discoverLinkedRoutes filters every URL against has to be the site's real,
+ * resolved host - not necessarily what the operator typed. A site that redirects the bare host to
+ * www (or the reverse) returns every sitemap URL and every link scraped off the (redirected)
+ * rendered page on that resolved host; passing the raw input as `siteUrl` then rejects all of them
+ * as "off-origin" and the crawl returns only the one seed URL (blacksheepbikes.com: 28 real sitemap
+ * pages fell to 1). `resolvedUrls` - a sitemap's own URLs, already fetched from the real site - carry
+ * the correct host, so take the origin from the first one when there is one; keep the operator's own
+ * path either way, since that part of the input is still what scopes a path-hosted site
+ * (wix.com/user/site-name).
+ */
+export function resolveCanonicalSiteUrl( inputUrl: string, resolvedUrls: string[] ): string {
+	if ( resolvedUrls.length === 0 ) return inputUrl;
+	return new URL( resolvedUrls[ 0 ] ).origin + ( new URL( inputUrl ).pathname || '/' );
+}
+
 function contentUrl(
 	value: string,
 	baseUrl: string,

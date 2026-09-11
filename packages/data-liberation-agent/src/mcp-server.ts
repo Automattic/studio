@@ -2,7 +2,7 @@
 //
 // MCP as a transport, not an architecture.
 //
-// The product is three verbs, so this exposes three tools that call the same
+// The product is four verbs, so this exposes four tools that call the same
 // entry points the CLI calls. It deliberately does not expose pipeline phases:
 // a caller that has to drive discovery, capture, and export in sequence is
 // reimplementing the CLI, and the surface then has to be maintained against
@@ -33,6 +33,21 @@ const errorResult = (message: string): ToolResult => ({
 });
 
 const TOOLS = [
+  {
+    name: 'inspect',
+    description: 'Bounded, read-only source assessment. Returns measured route and document observations, coverage, unknowns, and issues without writing a site.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Site to inspect.' },
+        discoveryLimit: { type: 'integer', description: 'Maximum routes inventoried (1-100; default 50).' },
+        sampleLimit: { type: 'integer', description: 'Maximum routes sampled (1-10; default 5).' },
+        requestTimeoutMs: { type: 'integer', description: 'Per-request timeout in milliseconds (1000-30000).' },
+        overallTimeoutMs: { type: 'integer', description: 'Total inspection timeout in milliseconds (1000-60000).' },
+      },
+      required: ['url'],
+    },
+  },
   {
     name: 'liberate',
     description:
@@ -91,6 +106,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   };
 
   try {
+    if (name === 'inspect') {
+      const { inspectSource } = await import('./lib/inspect.js');
+      return textResult(await inspectSource(String(args.url ?? ''), {
+        discoveryLimit: typeof args.discoveryLimit === 'number' ? args.discoveryLimit : undefined,
+        sampleLimit: typeof args.sampleLimit === 'number' ? args.sampleLimit : undefined,
+        requestTimeoutMs: typeof args.requestTimeoutMs === 'number' ? args.requestTimeoutMs : undefined,
+        overallTimeoutMs: typeof args.overallTimeoutMs === 'number' ? args.overallTimeoutMs : undefined,
+        log,
+      }));
+    }
+
     if (name === 'liberate') {
       const { liberateSite } = await import('./ui/liberate.js');
       const result = await liberateSite({

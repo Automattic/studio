@@ -4,15 +4,16 @@
 
 `data-liberation-agent` copies a website into a complete, portable HTML site. HTML is the contract: the liberated directory is the deliverable, and it runs on its own without this tool, a browser runtime, or any destination platform.
 
-The product is three verbs, and everything else exists to serve them:
+The product is four verbs, and everything else exists to serve them:
 
 ```
 data-liberation <url>                 liberate
+data-liberation inspect <url>         inspect
 data-liberation compare <run-dir>     verify
 data-liberation publish <run-dir>     publish
 ```
 
-Three entry points share the same code: the CLI (`src/cli.ts`), the MCP server (`src/mcp-server.ts`), and the `liberate` skill, which drives the CLI. MCP exposes the same three verbs and calls the same functions — it is a transport, not the architecture. Adding pipeline phases to it recreates a surface that has to be maintained against every refactor and invites callers to reimplement the CLI.
+Three entry points share the same code: the CLI (`src/cli.ts`), the MCP server (`src/mcp-server.ts`), and the `liberate` skill, which drives the CLI. MCP exposes the same four verbs and calls the same functions — it is a transport, not the architecture. Adding pipeline phases to it recreates a surface that has to be maintained against every refactor and invites callers to reimplement the CLI. `inspect` is a bounded, read-only, destination-neutral assessment; it must report sampling coverage and unknowns rather than predict destination compatibility.
 
 The platform registry (`src/platform/`) owns built-in and consumer platform registration plus automatic detection. Add a built-in with one `registerPlatform(...)` call in `src/platform/builtins.ts`; consumers use the public `registerPlatform` API documented in `docs/platform-api.md`.
 

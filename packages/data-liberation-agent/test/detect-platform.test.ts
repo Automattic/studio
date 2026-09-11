@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { findAdapter } from '../src/adapters/index.js';
-import { detectFromUrl, detectFromHttp } from '../src/lib/detect-platform/index.js';
+import { detectFromDocument, detectFromUrl, detectFromHttp } from '../src/lib/detect-platform/index.js';
 
 describe('detectFromUrl (heuristics)', () => {
   // Every URL pattern the table claims, asserted against the one detector that
@@ -45,6 +45,13 @@ describe('detectFromUrl (heuristics)', () => {
 });
 
 describe('detectFromHttp (fingerprinting)', () => {
+  it('shares document evidence precedence with HTTP detection', async () => {
+    const headers = new Headers([['x-wix-request-id', 'abc123']]);
+    const html = '<meta name="generator" content="GoDaddy Website Builder">';
+    global.fetch = vi.fn().mockResolvedValue({ headers, text: () => Promise.resolve(html) });
+    expect(detectFromDocument('https://example.com', headers, html)).toEqual(await detectFromHttp('https://example.com'));
+  });
+
   it('detects Wix from X-Wix-Request-Id header', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

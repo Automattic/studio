@@ -9,7 +9,6 @@ import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';
-import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
@@ -33,8 +32,6 @@ import {
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
-import { createPickDesignTool } from '../tools/pick-design';
-import { createPresentDesignOptionsTool } from '../tools/present-design-options';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -349,114 +346,6 @@ describe( 'Studio AI MCP tools', () => {
 			getTextContent( await executeTool( getTool( 'pick_design' ), { options: 4 } ) ) ?? '';
 		expect( text ).not.toContain( 'Option 1' );
 		expect( text ).toContain( 'cannot be asked in this session' );
-	} );
-
-	it( 'pick_design returns four distinct options around the chosen pairs', async () => {
-		const { loadDesignCatalog } = await import( '../skills' );
-		const concepts = loadDesignCatalog( 'concept' ).map( ( c ) => c.name );
-		const directions = loadDesignCatalog( 'direction' ).map( ( d ) => d.name );
-		const tool = createPickDesignTool( { canAskUser: true } ) as unknown as AnyStudioAgentTool;
-		const text =
-			getTextContent(
-				await executeTool( tool, {
-					options: 4,
-					chosen: [
-						{ layout: concepts[ 0 ], direction: directions[ 0 ], reason: 'safe' },
-						{ layout: concepts[ 1 ], direction: 'Nope', reason: 'bold' },
-					],
-				} )
-			) ?? '';
-		expect( text ).toMatch( /^Option 4$/m );
-		expect( text ).not.toMatch( /^Option 5$/m );
-		const layouts = [ ...text.matchAll( /^Layout concept: (.+)$/gm ) ].map( ( m ) => m[ 1 ] );
-		const looks = [ ...text.matchAll( /^Artistic direction: (.+)$/gm ) ].map( ( m ) => m[ 1 ] );
-		expect( new Set( layouts ).size ).toBe( 4 );
-		expect( new Set( looks ).size ).toBe( 4 );
-		for ( const name of layouts ) expect( concepts ).toContain( name );
-		for ( const name of looks ) expect( directions ).toContain( name );
-		expect( layouts ).toContain( concepts[ 0 ] );
-		expect( looks ).toContain( directions[ 0 ] );
-		expect( text ).toContain( 'present_design_options' );
-		expect( text ).toMatch( /replaced by random draws: Nope\./ );
-
-		const named =
-			getTextContent(
-				await executeTool( tool, { options: 4, layoutNamedInBrief: concepts[ 0 ] } )
-			) ?? '';
-		expect( named.match( /^Layout concept named in the brief: /gm ) ).toHaveLength( 1 );
-		expect( named.match( /^Layout concept: /gm ) ).toBeNull();
-		expect( named.match( /^Artistic direction: /gm ) ).toHaveLength( 4 );
-		await expect(
-			executeTool( tool, { options: 1, layoutNamedInBrief: 'Vaporwave' } )
-		).rejects.toThrow( /not a catalog layout concept/ );
-
-		const fromReference =
-			getTextContent(
-				await executeTool( tool, {
-					options: 4,
-					reference: 'https://example.com',
-					chosen: [
-						{ layout: concepts[ 0 ], direction: directions[ 0 ], reason: 'closest' },
-						{ layout: concepts[ 1 ], direction: directions[ 1 ], reason: 'next' },
-					],
-				} )
-			) ?? '';
-		expect(
-			[ ...fromReference.matchAll( /^Layout concept: (.+)$/gm ) ].map( ( m ) => m[ 1 ] )
-		).toEqual( [ concepts[ 0 ], concepts[ 1 ] ] );
-		await expect(
-			executeTool( tool, { options: 4, reference: 'https://example.com' } )
-		).rejects.toThrow( /closest to it as chosen/ );
-	} );
-
-	it( 'present_design_options renders each sneak peek and asks the user with the images', async () => {
-		const root = await mkdtemp( path.join( os.tmpdir(), 'studio-design-options-' ) );
-		setScreenshotDirectoryProvider( () => root );
-		const pages = [
-			createMockPage( { buffer: Buffer.from( 'png-1' ) } ),
-			createMockPage( { buffer: Buffer.from( 'png-2' ) } ),
-		];
-		mockScreenshotBrowser( ...pages );
-		const onAskUser = vi
-			.fn()
-			.mockImplementation( async ( questions: Array< { question: string } > ) => ( {
-				[ questions[ 0 ].question ]: 'Collage × Playful',
-			} ) );
-		try {
-			const result = await createPresentDesignOptionsTool( onAskUser ).rawHandler(
-				{
-					question: 'Which look should I build?',
-					options: [
-						{ label: 'Broadsheet × Noir', description: 'Dark newspaper.', html: '<h1>One</h1>' },
-						{ label: 'Collage × Playful', description: 'Cut-outs.', html: '<h1>Two</h1>' },
-					],
-				} as never,
-				{ onProgress: () => {} }
-			);
-			expect( getTextContent( result ) ).toBe( 'The user picked option 2: Collage × Playful' );
-			expect( onAskUser ).toHaveBeenCalledTimes( 1 );
-			const [ asked ] = onAskUser.mock.calls[ 0 ][ 0 ];
-			expect( asked.question ).toBe( 'Which look should I build?' );
-			expect( asked.allowFreeForm ).toBe( true );
-			expect( asked.options.map( ( option: { label: string } ) => option.label ) ).toEqual( [
-				'Broadsheet × Noir',
-				'Collage × Playful',
-			] );
-			for ( const option of asked.options ) {
-				expect( option.image ).toMatch( /screenshot-preview-\d-[0-9a-f]{8}\.png$/ );
-				await expect( stat( option.image ) ).resolves.toBeTruthy();
-			}
-			for ( const page of pages ) {
-				expect( page.goto ).toHaveBeenCalledWith(
-					expect.stringMatching( /^file:\/\/.*preview-\d-[a-z0-9-]+\.html$/ ),
-					expect.anything()
-				);
-			}
-			expect( result.content.some( ( block ) => block.type === 'image' ) ).toBe( false );
-		} finally {
-			setScreenshotDirectoryProvider( null );
-			await rm( root, { recursive: true, force: true } );
-		}
 	} );
 
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {

@@ -36,7 +36,7 @@ export function AgenticUiBanner( { onDismiss }: AgenticUiBannerProps ) {
 	return (
 		<div
 			className={ cx(
-				'absolute bottom-2 right-2 z-20 pointer-events-none',
+				'absolute bottom-2 right-2 z-20 pointer-events-none app-no-drag-region',
 				stage === 'entering' && styles.rise,
 				stage === 'exiting' && styles.sink
 			) }

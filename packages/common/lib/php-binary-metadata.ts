@@ -47,18 +47,21 @@ const phpBinaryArtifactSchema = z.object( {
 	sha: z.string().min( 1 ),
 } );
 
+const phpBinaryCapabilitySchema = z.enum( [ 'zstd' ] );
+export type PhpBinaryCapability = z.infer< typeof phpBinaryCapabilitySchema >;
+
+const phpBinaryPackageSchema = z.object( {
+	version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
+	packageVersion: z
+		.string()
+		.regex( /^[a-z0-9][a-z0-9._-]{0,63}$/ )
+		.optional(),
+	capabilities: z.array( phpBinaryCapabilitySchema ).default( [] ),
+	artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
+} );
+
 const phpBinaryCdnMetadataSchema = z.object( {
-	versions: z.record(
-		z.string(),
-		z.object( {
-			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
-			packageVersion: z
-				.string()
-				.regex( /^[a-z0-9][a-z0-9._-]{0,63}$/ )
-				.optional(),
-			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
-		} )
-	),
+	versions: z.record( z.string(), phpBinaryPackageSchema ),
 } );
 
 const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataModule );
@@ -67,6 +70,7 @@ export type PhpBinaryDownloadInfo = z.infer< typeof phpBinaryArtifactSchema > & 
 	patchVersion: string;
 	packageVersion?: string;
 	packageId: string;
+	capabilities: PhpBinaryCapability[];
 };
 
 export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: string ): string {
@@ -102,7 +106,8 @@ export function getConfiguredPhpBinaryPackageId(
 export function getPhpBinaryDownloadInfo(
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
-	arch: string
+	arch: string,
+	requiredCapabilities: readonly PhpBinaryCapability[] = []
 ): PhpBinaryDownloadInfo | undefined {
 	const versionMetadata = phpBinaryCdnMetadata.versions[ version ];
 	if ( ! versionMetadata ) {
@@ -110,6 +115,13 @@ export function getPhpBinaryDownloadInfo(
 	}
 
 	const artifactKey = `${ platform }-${ getEffectivePhpBinaryArch( platform, arch ) }`;
+	if (
+		! requiredCapabilities.every( ( capability ) =>
+			versionMetadata.capabilities.includes( capability )
+		)
+	) {
+		return undefined;
+	}
 	const artifact = versionMetadata.artifacts[ artifactKey ];
 	if ( ! artifact ) {
 		return undefined;
@@ -121,6 +133,7 @@ export function getPhpBinaryDownloadInfo(
 		packageId: versionMetadata.packageVersion
 			? `${ versionMetadata.version }-${ versionMetadata.packageVersion }`
 			: versionMetadata.version,
+		capabilities: versionMetadata.capabilities,
 		url: artifact.url,
 		sha: artifact.sha,
 	};

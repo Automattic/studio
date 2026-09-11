@@ -76,9 +76,11 @@ import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
+import { assertNativePhpZstdAvailable } from 'cli/lib/native-php/capabilities';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import {
 	runWpCliCommandWithMessaging,
@@ -108,7 +110,7 @@ const defaultLogger = new Logger< LoggerAction >();
 // zip with the importer's
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
-const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
+const DEFAULT_HTML_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/download/v1.9.5/static-site-importer-html-site-import.zip';
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
@@ -122,9 +124,34 @@ type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
+	type?: 'figma';
+};
+
+type FigmaTransformOptions = {
+	frame_ids?: string[];
+	entry_frame_id?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
+
+function getStaticSiteImporterPlugin(
+	source: StaticSiteImporterSource,
+	override?: StaticSiteImporterPlugin
+): StaticSiteImporterPlugin {
+	if ( override ) {
+		return override;
+	}
+
+	if ( source.type === 'figma' ) {
+		throw new LoggerError(
+			__(
+				'Figma import requires an explicit Static Site Importer package override because no published default is configured. Provide one with --static-site-importer-path or --static-site-importer-url.'
+			)
+		);
+	}
+
+	return DEFAULT_HTML_STATIC_SITE_IMPORTER_PLUGIN_URL;
+}
 
 export type CreateCommandOptions = {
 	name?: string;
@@ -142,6 +169,7 @@ export type CreateCommandOptions = {
 			request: string;
 			bundlePath?: string;
 			sourcePath?: string;
+			requiresNativePhpZstd?: boolean;
 		};
 	};
 	adminUsername?: string;
@@ -291,9 +319,12 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 	}
 
 	if ( extension === '.fig' ) {
-		throw new LoggerError(
-			__( 'Figma files are not supported by the canonical Static Site Importer command.' )
-		);
+		return {
+			path: sourcePath,
+			payload: {},
+			stagedSourcePath: sourcePath,
+			type: 'figma',
+		};
 	}
 
 	return {
@@ -307,7 +338,8 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 function buildStaticSiteImporterRequest(
 	source: StaticSiteImporterSource,
 	siteName: string,
-	originalSourceUrl?: string
+	originalSourceUrl?: string,
+	figmaTransformOptions?: FigmaTransformOptions
 ): Record< string, unknown > {
 	const payload = source.payload;
 	let requestSource: Record< string, unknown >;
@@ -315,7 +347,10 @@ function buildStaticSiteImporterRequest(
 	const artifact = payload.artifact;
 
 	if ( source.stagedSourcePath ) {
-		requestSource = { type: 'files', ref: 'request-bundle:source' };
+		requestSource =
+			source.type === 'figma'
+				? { type: 'figma', ref: 'request-bundle:source.fig' }
+				: { type: 'files', ref: 'request-bundle:source' };
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
 			schema: _schema,
@@ -366,6 +401,9 @@ function buildStaticSiteImporterRequest(
 	if ( themeMaterialization === 'block' || themeMaterialization === 'classic' ) {
 		request.theme_materialization = themeMaterialization;
 	}
+	if ( source.type === 'figma' && figmaTransformOptions ) {
+		request.transform_options = figmaTransformOptions;
+	}
 	return request;
 }
 
@@ -389,8 +427,9 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
-	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
-	originalSourceUrl?: string
+	staticSiteImporterPlugin?: StaticSiteImporterPlugin,
+	originalSourceUrl?: string,
+	figmaTransformOptions?: FigmaTransformOptions
 ): {
 	contents: BlueprintV1Declaration;
 	uri: string;
@@ -398,15 +437,22 @@ export function buildCreateFromSourceBlueprint(
 		request: string;
 		bundlePath?: string;
 		sourcePath?: string;
+		requiresNativePhpZstd?: boolean;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
-	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
+	const plugin = getStaticSiteImporterPlugin( source, staticSiteImporterPlugin );
+	const request = buildStaticSiteImporterRequest(
+		source,
+		siteName,
+		originalSourceUrl,
+		figmaTransformOptions
+	);
 	const tempDir = createBlueprintTempDirSync();
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const pluginData =
-		typeof staticSiteImporterPlugin === 'string'
-			? { resource: 'url' as const, url: staticSiteImporterPlugin }
+		typeof plugin === 'string'
+			? { resource: 'url' as const, url: plugin }
 			: { resource: 'bundled' as const, path: `${ SSI_PLUGIN_SLUG }.zip` };
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
@@ -426,11 +472,8 @@ export function buildCreateFromSourceBlueprint(
 	};
 
 	try {
-		if ( typeof staticSiteImporterPlugin !== 'string' ) {
-			fs.copyFileSync(
-				staticSiteImporterPlugin.path,
-				path.join( tempDir, `${ SSI_PLUGIN_SLUG }.zip` )
-			);
+		if ( typeof plugin !== 'string' ) {
+			fs.copyFileSync( plugin.path, path.join( tempDir, `${ SSI_PLUGIN_SLUG }.zip` ) );
 		}
 		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
 	} catch ( error ) {
@@ -444,6 +487,7 @@ export function buildCreateFromSourceBlueprint(
 			request: `${ JSON.stringify( request, null, 2 ) }\n`,
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
+			requiresNativePhpZstd: source.type === 'figma',
 		},
 	};
 }
@@ -463,8 +507,8 @@ function staticSiteImportRequestPath( sitePath: string ): string {
 	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE );
 }
 
-function staticSiteImportSourcePath( sitePath: string ): string {
-	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, 'source' );
+function staticSiteImportSourcePath( sitePath: string, isFigma = false ): string {
+	return path.join( sitePath, STATIC_SITE_IMPORT_DIR, isFigma ? 'source.fig' : 'source' );
 }
 
 type WpCliResult = { exitCode: number; stdout: string; stderr: string };
@@ -524,9 +568,14 @@ async function runStaticSiteImport(
 	site: SiteData,
 	request: string,
 	sourcePath?: string,
+	requiresNativePhpZstd = false,
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< boolean > {
+	if ( requiresNativePhpZstd && getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
+		assertNativePhpZstdAvailable( site.phpVersion );
+	}
+
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
 		if ( ! fs.existsSync( requestPath ) || fs.readFileSync( requestPath, 'utf-8' ) !== request ) {
@@ -535,11 +584,15 @@ async function runStaticSiteImport(
 	} else {
 		fs.mkdirSync( path.dirname( requestPath ), { recursive: true } );
 		if ( sourcePath ) {
-			await fs.promises.cp( sourcePath, staticSiteImportSourcePath( site.path ), {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
+			await fs.promises.cp(
+				sourcePath,
+				staticSiteImportSourcePath( site.path, requiresNativePhpZstd ),
+				{
+					recursive: true,
+					errorOnExist: true,
+					force: false,
+				}
+			);
 		}
 		fs.writeFileSync( requestPath, request );
 	}
@@ -641,6 +694,16 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const siteRuntime = options.runtime;
+	if (
+		options.blueprint?.staticSiteImport?.requiresNativePhpZstd &&
+		siteRuntime !== SITE_RUNTIME_NATIVE_PHP
+	) {
+		throw new LoggerError(
+			__(
+				'Figma import requires the native PHP runtime. The sandbox runtime does not support zstd.'
+			)
+		);
+	}
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
@@ -735,7 +798,9 @@ export async function runCommand(
 			staticSiteImport &&
 			fs.existsSync( staticSiteImportRequestPath( sitePath ) ) &&
 			( ! staticSiteImport.sourcePath ||
-				fs.existsSync( staticSiteImportSourcePath( sitePath ) ) ) &&
+				fs.existsSync(
+					staticSiteImportSourcePath( sitePath, staticSiteImport.requiresNativePhpZstd )
+				) ) &&
 			fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' ) ===
 				staticSiteImport.request;
 		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {
@@ -745,6 +810,7 @@ export async function runCommand(
 					existingSite,
 					staticSiteImport.request,
 					staticSiteImport.sourcePath,
+					staticSiteImport.requiresNativePhpZstd,
 					true,
 					logger
 				);
@@ -777,6 +843,10 @@ export async function runCommand(
 		}
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
+
+		if ( staticSiteImport?.requiresNativePhpZstd && siteRuntime === SITE_RUNTIME_NATIVE_PHP ) {
+			await ensurePhpBinaryAvailable( options.phpVersion, undefined, [ 'zstd' ] );
+		}
 
 		if ( ! pathExistsResult ) {
 			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory…' ) );
@@ -944,6 +1014,7 @@ export async function runCommand(
 						siteDetails,
 						staticSiteImport.request,
 						staticSiteImport.sourcePath,
+						staticSiteImport.requiresNativePhpZstd,
 						false,
 						logger
 					);
@@ -996,6 +1067,7 @@ export async function runCommand(
 							siteDetails,
 							staticSiteImport.request,
 							staticSiteImport.sourcePath,
+							staticSiteImport.requiresNativePhpZstd,
 							false,
 							logger
 						);
@@ -1180,10 +1252,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						return path.resolve( untildify( value ) );
 					},
 				} )
+				.option( 'figma-frame', {
+					type: 'string',
+					array: true,
+					describe: __(
+						'Restrict a Figma .fig import to a frame ID; repeat to select multiple frames (e.g., --figma-frame 123:456)'
+					),
+				} )
+				.option( 'figma-entry-frame', {
+					type: 'string',
+					describe: __( 'Set the entry frame ID for a Figma .fig import' ),
+				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
-					defaultDescription: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+					defaultDescription: DEFAULT_HTML_STATIC_SITE_IMPORTER_PLUGIN_URL,
 					conflicts: 'static-site-importer-path',
 				} )
 				.option( 'static-site-importer-path', {
@@ -1256,6 +1339,23 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			const figmaFrameIds = argv.figmaFrame as string[] | undefined;
+			const figmaEntryFrameId = argv.figmaEntryFrame as string | undefined;
+			if (
+				( figmaFrameIds?.length || figmaEntryFrameId ) &&
+				( ! argv.from || path.extname( argv.from ).toLowerCase() !== '.fig' )
+			) {
+				throw new LoggerError(
+					__( '--figma-frame and --figma-entry-frame can only be used with a .fig --from source.' )
+				);
+			}
+			const figmaTransformOptions =
+				figmaFrameIds?.length || figmaEntryFrameId
+					? {
+							...( figmaFrameIds?.length ? { frame_ids: figmaFrameIds } : {} ),
+							...( figmaEntryFrameId ? { entry_frame_id: figmaEntryFrameId } : {} ),
+					  }
+					: undefined;
 			const artifact =
 				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
 					? readSiteArtifact( argv.from )
@@ -1475,8 +1575,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						siteName || __( 'Imported Site' ),
 						argv.staticSiteImporterPath
 							? { path: argv.staticSiteImporterPath }
-							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
-						sourceUrl
+							: argv.staticSiteImporterUrl,
+						sourceUrl,
+						figmaTransformOptions
 					);
 				} else if ( argv.blueprint ) {
 					if ( isUrl( argv.blueprint ) ) {

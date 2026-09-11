@@ -50,6 +50,10 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).toBeUndefined();
 	} );
 
+	it( 'rejects packages that do not declare a required capability', () => {
+		expect( getPhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64', [ 'zstd' ] ) ).toBeUndefined();
+	} );
+
 	it( 'resolves older supported PHP versions to the closest native PHP version', () => {
 		expect( resolveNativePhpVersion( '8.0' ) ).toBe( '8.2' );
 	} );
@@ -59,6 +63,14 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 	it( 'rejects with a user-facing unavailable message', async () => {
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).rejects.toThrow(
 			'PHP 8.4 is not available for this platform yet.'
+		);
+	} );
+
+	it( 'explains when no package declares a required capability', async () => {
+		await expect(
+			resolvePhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64', [ 'zstd' ] )
+		).rejects.toThrow(
+			'PHP 8.4 package 8.4.25-studio-1 does not provide the required capabilities: zstd.'
 		);
 	} );
 } );

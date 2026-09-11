@@ -91,7 +91,7 @@ class PhpWorkerRequestTracker {
 
 let phpProcess: ChildProcess | null = null;
 let phpWorkerProcesses: ChildProcess[] = [];
-let phpProxyServer: http.Server | null = null;
+let phpProxyServers: http.Server[] = [];
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 let startupAbortController: AbortController | null = null;
@@ -189,6 +189,14 @@ async function getAvailablePort(): Promise< number > {
 			const port = address.port;
 			server.close( () => resolve( port ) );
 		} );
+	} );
+}
+
+function canBindLoopback( host: string ): Promise< boolean > {
+	return new Promise( ( resolve ) => {
+		const server = net.createServer();
+		server.once( 'error', () => resolve( false ) );
+		server.listen( 0, host, () => server.close( () => resolve( true ) ) );
 	} );
 }
 
@@ -373,18 +381,22 @@ function getCurrentPhpProcesses(): ChildProcess[] {
 }
 
 async function closePhpProxyServer(): Promise< void > {
-	const proxyServer = phpProxyServer;
-	phpProxyServer = null;
+	const proxyServers = phpProxyServers;
+	phpProxyServers = [];
 	phpWorkerPorts = [];
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 
-	if ( ! proxyServer ) {
+	if ( proxyServers.length === 0 ) {
 		return;
 	}
 
-	await new Promise< void >( ( resolve ) => {
-		proxyServer.close( () => resolve() );
-	} ).catch( () => {} );
+	await Promise.all(
+		proxyServers.map( ( proxyServer ) =>
+			new Promise< void >( ( resolve ) => {
+				proxyServer.close( () => resolve() );
+			} ).catch( () => {} )
+		)
+	);
 }
 
 async function stopCurrentPhpServer(): Promise< void > {
@@ -461,23 +473,37 @@ function proxyRequestToPhpWorker(
 async function startPhpProxyServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
-): Promise< http.Server > {
-	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res )
-	);
+): Promise< http.Server[] > {
+	const hosts = [ '127.0.0.1' ];
+	if ( await canBindLoopback( '::1' ) ) {
+		hosts.push( '::1' );
+	}
+	const proxyServers: http.Server[] = [];
 
-	await new Promise< void >( ( resolve, reject ) => {
-		proxyServer.once( 'error', reject );
-		stopSignal?.addEventListener( 'abort', () => {
-			proxyServer.close();
-			reject( new DOMException( 'Aborted', 'AbortError' ) );
-		} );
-		proxyServer.listen( config.port, 'localhost', () => {
-			resolve();
-		} );
-	} );
-
-	return proxyServer;
+	try {
+		for ( const host of hosts ) {
+			const proxyServer = http.createServer( ( req, res ) =>
+				proxyRequestToPhpWorker( config, req, res )
+			);
+			await new Promise< void >( ( resolve, reject ) => {
+				proxyServer.once( 'error', reject );
+				stopSignal?.addEventListener( 'abort', () => {
+					proxyServer.close();
+					reject( new DOMException( 'Aborted', 'AbortError' ) );
+				} );
+				proxyServer.listen( config.port, host, resolve );
+			} );
+			proxyServers.push( proxyServer );
+		}
+		return proxyServers;
+	} catch ( error ) {
+		await Promise.all(
+			proxyServers.map( ( proxyServer ) =>
+				new Promise< void >( ( resolve ) => proxyServer.close( () => resolve() ) ).catch( () => {} )
+			)
+		);
+		throw error;
+	}
 }
 
 async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -587,7 +613,7 @@ async function doStartServer(
 ): Promise< ChildProcess > {
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
-	let proxyServer: http.Server | null = null;
+	let proxyServers: http.Server[] = [];
 	// Recorded before spawning so a later rescan can diff against what the workers
 	// were actually given, including on the failure paths that tear the pool down.
 	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
@@ -661,12 +687,16 @@ async function doStartServer(
 			)
 		);
 
-		proxyServer = await startPhpProxyServer( config, stopSignal );
-		phpProxyServer = proxyServer;
+		proxyServers = await startPhpProxyServer( config, stopSignal );
+		phpProxyServers = proxyServers;
 		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		await Promise.all(
+			[ `http://127.0.0.1:${ config.port }/`, `http://[::1]:${ config.port }/` ]
+				.slice( 0, proxyServers.length )
+				.map( ( url ) => waitForServerReady( url, stopSignal ) )
+		);
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
@@ -677,12 +707,12 @@ async function doStartServer(
 		}
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {
-		const serverToClose = proxyServer;
-		if ( serverToClose ) {
-			await new Promise< void >( ( resolve ) => serverToClose.close( () => resolve() ) ).catch(
-				() => {}
-			);
-		}
+		await Promise.all(
+			proxyServers.map( ( proxyServer ) =>
+				new Promise< void >( ( resolve ) => proxyServer.close( () => resolve() ) ).catch( () => {} )
+			)
+		);
+		phpProxyServers = [];
 		for ( const child of spawnedChildren ) {
 			child.removeAllListeners( 'exit' );
 			if ( child.exitCode === null && child.signalCode === null ) {
@@ -715,7 +745,7 @@ async function stopServer(): Promise< StopServerResult > {
 	clearOpenBasedirAllowlist();
 
 	const children = getCurrentPhpProcesses();
-	if ( children.length === 0 && ! phpProxyServer ) {
+	if ( children.length === 0 && phpProxyServers.length === 0 ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return StopServerResult.OK;
 	}
@@ -723,7 +753,7 @@ async function stopServer(): Promise< StopServerResult > {
 	if (
 		children.length > 0 &&
 		children.every( ( child ) => child.exitCode !== null || child.signalCode !== null ) &&
-		! phpProxyServer
+		phpProxyServers.length === 0
 	) {
 		logToConsole( 'Server already stopped' );
 		return StopServerResult.OK;
@@ -861,11 +891,11 @@ async function ipcMessageHandler( packet: unknown ) {
 
 function killPhpProcess(): void {
 	try {
-		phpProxyServer?.close();
+		phpProxyServers.forEach( ( proxyServer ) => proxyServer.close() );
 	} catch {
 		// Best effort - nothing useful to do if this fails.
 	}
-	phpProxyServer = null;
+	phpProxyServers = [];
 
 	// Reap every PHP process we've spawned, not just the promoted servers in
 	// `getCurrentPhpProcesses()` — that misses workers still mid-startup and in-flight

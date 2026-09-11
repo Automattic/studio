@@ -20,6 +20,22 @@
 	   falls back to `initial` (auto), which loses to any positioned chrome. */
 	--wp-ui-popover-z-index: 700;
 	--wp-ui-autocomplete-z-index: 700;
+
+	/* Annotate's own color: the mode's toolbar, its controls, and the pins
+	   the inspector draws on the page all share it, so the feature reads as
+	   one thing rather than borrowing the brand blue. The inspector's
+	   injected stylesheet repeats the violet literally — it can't see these. */
+	--studio-annotate-color: #7c3aed;
+	--studio-annotate-color-active: #6d28d9;
+	--studio-annotate-on-color: #fff;
+	--studio-annotate-surface: #f3ecff;
+	--studio-annotate-surface-active: #e6d9ff;
+	--studio-annotate-stroke: #d6c3ff;
+	/* The annotate-mode toolbar is solid violet in both schemes; only the
+	   depth shifts so it doesn't glare on a dark canvas. */
+	--studio-annotate-bar: #7c3aed;
+	--studio-annotate-bar-active: #6d28d9;
+	--studio-annotate-on-bar: #fff;
 	--wp-ui-combobox-z-index: 700;
 	--wp-ui-dialog-z-index: 700;
 	--wp-ui-drawer-z-index: 700;
@@ -71,6 +87,14 @@ body:lang( ckb ) [class*='components-'] {
 	:root {
 		--wp-ui-tooltip-background-color: #fff;
 		--wp-ui-tooltip-color: #000;
+		--studio-annotate-color: #b69cff;
+		--studio-annotate-color-active: #c9b6ff;
+		--studio-annotate-on-color: #1b1230;
+		--studio-annotate-surface: #251b3a;
+		--studio-annotate-surface-active: #33264f;
+		--studio-annotate-stroke: #4a3a70;
+		--studio-annotate-bar: #6d28d9;
+		--studio-annotate-bar-active: #5b21b6;
 	}
 }
 
@@ -181,10 +205,12 @@ textarea,
    would otherwise show without any user intent. Leave `color` alone:
    loading buttons rely on `color: transparent` to hide their label while
    the spinner runs, and overriding that here would make the label visible
-   again. */
-button:focus:not( :focus-visible ),
-a:focus:not( :focus-visible ),
-[role='button']:focus:not( :focus-visible ) {
+   again. Hover, press, and an open menu are user intent, so they keep the
+   active look: a button that regains focus after its menu closes would
+   otherwise ignore the pointer until it blurs. */
+button:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
+a:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ),
+[role='button']:focus:not( :focus-visible ):not( :hover, :active, [data-popup-open] ) {
 	outline: none;
 	background-color: var( --wp-ui-button-background-color );
 	border-color: var( --wp-ui-button-border-color );

@@ -18,6 +18,7 @@ import {
 } from 'react';
 import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -104,6 +105,11 @@ function SessionHeader( {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? (
+				<div className={ styles.headerActions }>
+					<OpenInMenu key={ site.id } site={ site } />
+				</div>
+			) : null }
 		</div>
 	);
 }

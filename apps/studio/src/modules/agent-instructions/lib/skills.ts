@@ -1,21 +1,14 @@
-import nodePath from 'path';
 import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
-import { pathExists } from '@studio/common/lib/fs-utils';
+import { getBundledSkills } from '@studio/common/lib/agent-skills-catalog';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
-import { getBundledSkills, type SkillStatus } from './skills-constants';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
-export { getBundledSkills, type SkillConfig, type SkillStatus } from './skills-constants';
-
-export async function getSkillsStatus( sitePath: string ): Promise< SkillStatus[] > {
-	return Promise.all(
-		getBundledSkills().map( async ( skill ) => {
-			const skillMdPath = nodePath.join( sitePath, '.agents', 'skills', skill.id, 'SKILL.md' );
-			const installed = await pathExists( skillMdPath );
-			return { ...skill, installed };
-		} )
-	);
-}
+export {
+	getBundledSkills,
+	getSkillsStatus,
+	type SkillConfig,
+	type SkillStatus,
+} from '@studio/common/lib/agent-skills-catalog';
 
 export async function installAllSkills(
 	site: { path: string; runtime?: SiteRuntime },

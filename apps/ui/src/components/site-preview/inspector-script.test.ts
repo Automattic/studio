@@ -235,6 +235,40 @@ describe( 'site preview inspector sessions', () => {
 		expect( root.querySelector( '.popup' ) ).toBeNull();
 		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
 	} );
+
+	it( 'offers the elements stacked under the click as layers', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<section id="wrap"><h1 id="title">Title</h1></section>';
+		const wrap = document.querySelector( '#wrap' ) as HTMLElement;
+		const title = document.querySelector( '#title' ) as HTMLElement;
+		vi.spyOn( wrap, 'getBoundingClientRect' ).mockReturnValue( rect( 0, 0, 400, 300 ) );
+		vi.spyOn( title, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		title.dispatchEvent(
+			new MouseEvent( 'click', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 } )
+		);
+
+		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '1/2' );
+		expect( root.querySelector( '.target code' )?.textContent ).toBe( '<h1>' );
+		expect(
+			( root.querySelector( '.highlight' ) as HTMLElement ).style.getPropertyValue( 'width' )
+		).toBe( '100px' );
+
+		( root.querySelector( '.layers button' ) as HTMLButtonElement ).click();
+		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '2/2' );
+		expect( root.querySelector( '.target code' )?.textContent ).toBe( '<section>' );
+		expect(
+			( root.querySelector( '.highlight' ) as HTMLElement ).style.getPropertyValue( 'width' )
+		).toBe( '400px' );
+		// The scrim hole follows the chosen layer too.
+		expect(
+			( root.querySelectorAll( '.scrim' )[ 0 ] as HTMLElement ).style.getPropertyValue( 'height' )
+		).toBe( '0px' );
+	} );
 } );
 
 function seedSavedNote() {
@@ -253,16 +287,16 @@ function command( type: string ) {
 	window.dispatchEvent( new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { type } } ) );
 }
 
-function rect( left: number, top: number ): DOMRect {
+function rect( left: number, top: number, width = 100, height = 40 ): DOMRect {
 	return {
 		x: left,
 		y: top,
 		left,
 		top,
-		right: left + 100,
-		bottom: top + 40,
-		width: 100,
-		height: 40,
+		right: left + width,
+		bottom: top + height,
+		width,
+		height,
 		toJSON: () => ( {} ),
 	} as DOMRect;
 }

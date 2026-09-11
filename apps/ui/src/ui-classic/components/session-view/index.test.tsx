@@ -255,6 +255,50 @@ describe( 'SessionView', () => {
 		);
 	} );
 
+	it( 'stops following new content after an upward wheel and resumes at the bottom', () => {
+		const session = () => ( { data: makeLoadedSession(), isLoading: false as const, error: null } );
+		useSessionMock.mockReturnValue( session() );
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+
+		// Pinned to the bottom of a transcript taller than the viewport.
+		setScrollMetrics( scroller, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 } );
+		fireEvent.scroll( scroller );
+
+		// One upward wheel tick, still inside the "scrolled away" slack.
+		fireEvent.wheel( scroller, { deltaY: -10 } );
+		scroller.scrollTop = 590;
+		fireEvent.scroll( scroller );
+
+		// New content lands; the reading position must hold.
+		useSessionMock.mockReturnValue( session() );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( scroller.scrollTop ).toBe( 590 );
+
+		// Back at the bottom, following resumes.
+		scroller.scrollTop = 600;
+		fireEvent.scroll( scroller );
+		useSessionMock.mockReturnValue( session() );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( scroller.scrollTop ).toBe( 1000 );
+	} );
+
+	it( 'stops following after a scrollbar drag up, which has no wheel event', () => {
+		const session = () => ( { data: makeLoadedSession(), isLoading: false as const, error: null } );
+		useSessionMock.mockReturnValue( session() );
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+
+		setScrollMetrics( scroller, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 } );
+		fireEvent.scroll( scroller );
+		scroller.scrollTop = 100;
+		fireEvent.scroll( scroller );
+
+		useSessionMock.mockReturnValue( session() );
+		rerender( <SessionView sessionId="session-1" /> );
+		expect( scroller.scrollTop ).toBe( 100 );
+	} );
+
 	it( 'gates the chat behind the payment requirement when no payment method is saved', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),

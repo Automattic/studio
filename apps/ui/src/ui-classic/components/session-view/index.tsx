@@ -65,6 +65,12 @@ export function isScrolledAwayFromLatest( node: {
 	);
 }
 
+// Kept outside the component: the React Compiler lint reads a direct
+// `scrollTop` store on a state-held node as a state mutation.
+function scrollToEnd( node: HTMLElement ) {
+	node.scrollTop = node.scrollHeight;
+}
+
 function SessionHeader( {
 	siteName,
 	site,
@@ -328,7 +334,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			),
 		[ data?.entries ]
 	);
-	const scrollRef = useRef< HTMLDivElement >( null );
+	// The scroller only exists in the loaded frame, which can mount well after
+	// the session data arrives (a cold start serves the session from the
+	// persisted cache while the quota check is still pending). Keeping the node
+	// in state lets the scroll effects re-run when it appears; a ref can't.
+	const [ scrollNode, setScrollNode ] = useState< HTMLDivElement | null >( null );
 	const composerRef = useRef< ComposerHandle >( null );
 	useEffect(
 		() =>
@@ -338,24 +348,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[]
 	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-	const hasSession = !! data;
 
 	const updateIsScrolledAway = useCallback( () => {
-		const node = scrollRef.current;
-		if ( node ) {
-			setIsScrolledAway( isScrolledAwayFromLatest( node ) );
+		if ( scrollNode ) {
+			setIsScrolledAway( isScrolledAwayFromLatest( scrollNode ) );
 		}
-	}, [] );
+	}, [ scrollNode ] );
 
 	useEffect( () => {
-		const node = scrollRef.current;
-		if ( ! hasSession || ! node ) {
+		if ( ! scrollNode ) {
 			return;
 		}
 		updateIsScrolledAway();
-		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
-	}, [ hasSession, updateIsScrolledAway ] );
+		scrollNode.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
+		return () => scrollNode.removeEventListener( 'scroll', updateIsScrolledAway );
+	}, [ scrollNode, updateIsScrolledAway ] );
 
 	// Content can grow without emitting scroll events (e.g. while the
 	// auto-scroll below is suspended by pending questions), so re-check
@@ -369,13 +376,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId ] );
 
 	const scrollToLatest = useCallback( () => {
-		const node = scrollRef.current;
-		if ( ! node ) {
+		if ( ! scrollNode ) {
 			return;
 		}
 		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
-	}, [] );
+		scrollNode.scrollTo( {
+			top: scrollNode.scrollHeight,
+			behavior: prefersReducedMotion ? 'auto' : 'smooth',
+		} );
+	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const siteSessionHistory = data
@@ -441,16 +450,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
-		const node = scrollRef.current;
-		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
+		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
 			return;
 		}
-		node.scrollTop = node.scrollHeight;
-		const id = requestAnimationFrame( () => {
-			node.scrollTop = node.scrollHeight;
-		} );
+		scrollToEnd( scrollNode );
+		const id = requestAnimationFrame( () => scrollToEnd( scrollNode ) );
 		return () => cancelAnimationFrame( id );
 	}, [
+		scrollNode,
 		sessionId,
 		data,
 		isRunning,
@@ -550,7 +557,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	return (
 		<SessionFrame
-			scrollRef={ scrollRef }
+			scrollRef={ setScrollNode }
 			header={
 				<SessionHeader
 					siteName={ data.summary.ownerSiteName }

@@ -1,6 +1,10 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { generatePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	generatePassword,
+} from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
@@ -113,9 +117,9 @@ function createDefaultFormData(): FormData {
 		useCustomDomain: false,
 		customDomain: '',
 		enableHttps: false,
-		adminUsername: 'admin',
+		adminUsername: DEFAULT_ADMIN_USERNAME,
 		adminPassword: generatePassword(),
-		adminEmail: 'admin@localhost.com',
+		adminEmail: DEFAULT_ADMIN_EMAIL,
 	};
 }
 

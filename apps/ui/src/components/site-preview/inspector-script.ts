@@ -228,7 +228,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .target {
 			display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 			font-size: 11px; color: rgba(255,255,255,0.5);
+			cursor: grab; user-select: none;
 		}
+		.popup .target.dragging { cursor: grabbing; }
 		.popup .target .element {
 			min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		}
@@ -279,6 +281,28 @@ export const INSPECTOR_PAGE_SCRIPT =
 	let highlightNode = null;
 	let highlightEl = null;
 	let popupNode = null;
+	let scrollLock = null;
+
+	/* Lock page scrolling while a note is open so the highlight and popup
+	 * stay put over the element being described. */
+	function syncScrollLock() {
+		if ( activePopup && ! scrollLock ) {
+			scrollLock = {
+				documentOverflow: document.documentElement.style.overflow,
+				bodyOverflow: document.body.style.overflow,
+			};
+			document.documentElement.style.overflow = 'hidden';
+			document.body.style.overflow = 'hidden';
+		} else if ( ! activePopup && scrollLock ) {
+			document.documentElement.style.overflow = scrollLock.documentOverflow;
+			document.body.style.overflow = scrollLock.bodyOverflow;
+			scrollLock = null;
+		}
+	}
+	teardown.signal.addEventListener( 'abort', () => {
+		activePopup = null;
+		syncScrollLock();
+	} );
 
 	/* Width of the viewport a note was made in vs. now. Beyond this the pin
 	 * is drawn muted so it reads as "from another viewport". */
@@ -379,7 +403,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				placeHighlight( highlightEl );
 			}
 			if ( popupNode && activePopup ) {
-				positionPopup( popupNode, activePopup.target );
+				positionPopup( popupNode, activePopup );
 			}
 		} );
 	}
@@ -426,6 +450,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function render() {
+		syncScrollLock();
 		syncMarkers();
 		showHighlight( hoveredEl );
 		showPopup();
@@ -534,9 +559,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* Position the popup near the element using viewport coords (it's
 	 * \`position: fixed\` so it stays in the viewport). Falls back to
 	 * centre if the element can't be located. Re-run on relayout. */
-	function positionPopup( popup, target ) {
-		const el = resolveAnnotationElement( target );
-		if ( el ) {
+	function positionPopup( popup, state ) {
+		const el = state.popupPosition ? null : resolveAnnotationElement( state.target );
+		if ( state.popupPosition ) {
+			popup.style.left = state.popupPosition.left + 'px';
+			popup.style.top = state.popupPosition.top + 'px';
+			popup.style.transform = '';
+		} else if ( el ) {
 			const r = el.getBoundingClientRect();
 			const popupWidth = Math.min( 320, window.innerWidth - 16 );
 			const gap = 12;
@@ -548,6 +577,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			if ( top + 200 > window.innerHeight ) {
 				top = Math.max( 8, r.top - 200 - gap );
 			}
+			state.popupPosition = { left, top };
 			popup.style.left = left + 'px';
 			popup.style.top = top + 'px';
 			popup.style.transform = '';
@@ -562,10 +592,11 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const popup = document.createElement( 'div' );
 		popup.className = 'popup';
 
-		positionPopup( popup, state.target );
+		positionPopup( popup, state );
 
 		const target = document.createElement( 'div' );
 		target.className = 'target';
+		makeDraggable( popup, target, state );
 		const element = document.createElement( 'span' );
 		element.className = 'element';
 		const tagCode = document.createElement( 'code' );
@@ -679,6 +710,81 @@ export const INSPECTOR_PAGE_SCRIPT =
 		popup.addEventListener( 'mousemove', ( e ) => e.stopPropagation() );
 
 		return popup;
+	}
+
+	/* Drag the popup by its target row. Movement is applied as a transform
+	 * during the drag and folded into the stored position on release, so a
+	 * re-render mid-drag can't snap it back. */
+	function makeDraggable( popup, handle, state ) {
+		handle.addEventListener( 'mousedown', ( event ) => {
+			if ( event.button !== 0 || event.target.closest( 'button' ) ) return;
+			if ( ! state.popupPosition ) {
+				const r = popup.getBoundingClientRect();
+				state.popupPosition = { left: r.left, top: r.top };
+				popup.style.left = r.left + 'px';
+				popup.style.top = r.top + 'px';
+				popup.style.transform = '';
+			}
+			event.preventDefault();
+			const startX = event.clientX;
+			const startY = event.clientY;
+			const startLeft = state.popupPosition.left;
+			const startTop = state.popupPosition.top;
+			let next = { left: startLeft, top: startTop };
+			let frame = null;
+			let didDrag = false;
+			handle.classList.add( 'dragging' );
+			const move = ( e ) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if ( Math.abs( e.clientX - startX ) > 2 || Math.abs( e.clientY - startY ) > 2 ) {
+					didDrag = true;
+				}
+				const width = popup.offsetWidth || 320;
+				const height = popup.offsetHeight || 200;
+				next = {
+					left: Math.min(
+						Math.max( 8, startLeft + e.clientX - startX ),
+						Math.max( 8, window.innerWidth - width - 8 )
+					),
+					top: Math.min(
+						Math.max( 8, startTop + e.clientY - startY ),
+						Math.max( 8, window.innerHeight - height - 8 )
+					),
+				};
+				if ( frame !== null ) return;
+				frame = requestAnimationFrame( () => {
+					frame = null;
+					popup.style.transform =
+						'translate(' + ( next.left - startLeft ) + 'px, ' + ( next.top - startTop ) + 'px)';
+				} );
+			};
+			const stop = () => {
+				if ( frame !== null ) cancelAnimationFrame( frame );
+				frame = null;
+				state.popupPosition = next;
+				popup.style.left = next.left + 'px';
+				popup.style.top = next.top + 'px';
+				popup.style.transform = '';
+				handle.classList.remove( 'dragging' );
+				window.removeEventListener( 'mousemove', move, true );
+				window.removeEventListener( 'mouseup', stop, true );
+				window.removeEventListener( 'blur', stop, true );
+				if ( didDrag ) {
+					/* Swallow the click that ends the drag so the page (and our
+					 * own picker) doesn't treat it as a selection. */
+					const suppress = ( e ) => {
+						e.preventDefault();
+						e.stopPropagation();
+					};
+					window.addEventListener( 'click', suppress, { capture: true, once: true } );
+					setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
+				}
+			};
+			window.addEventListener( 'mousemove', move, true );
+			window.addEventListener( 'mouseup', stop, true );
+			window.addEventListener( 'blur', stop, true );
+		} );
 	}
 
 	/* Editing an existing note leaves picking mode alone: markers stay

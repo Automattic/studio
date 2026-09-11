@@ -12,10 +12,13 @@
 	);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the avatar's
-	   inline edge on the same column as the site icons. Account for the button's
-	   internal border so the visible block-end gap matches the inline-start gap. */
+	   inline edge on the same column as the site icons. Block-end: the avatar
+	   sits 15px from the sidebar's start edge (this offset plus the trigger's
+	   inline padding and border) but only 2px inside the trigger's bottom, so
+	   the bottom padding makes up the difference and the avatar is inset the
+	   same distance from the window's bottom edge as from its side. */
 	padding-block: var(--wpds-dimension-padding-sm)
-		calc(var(--user-menu-leading-offset) + var(--wpds-border-width-xs));
+		calc(var(--wpds-dimension-padding-md) + var(--wpds-border-width-xs));
 	padding-inline: var(--user-menu-leading-offset) var(--user-menu-trailing-offset);
 }
 

@@ -27,7 +27,7 @@ import {
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -246,6 +246,7 @@ interface ComposerProps {
 	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -337,6 +338,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		error,
 		model,
 		onSend,
+		onAnswer,
 		onInterrupt,
 		sessionId,
 		entries,
@@ -501,6 +503,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ restoreAttachments, value, attachments, suggestionBaseline ]
 	);
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+
 	const send = useCallback( async () => {
 		// Guarded here as well as on the button: Enter reaches this directly, and
 		// while busy a send becomes a queued prompt that would dispatch later.
@@ -523,6 +528,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		// A send is the only thing that swaps the suggestion; it is static
 		// otherwise, so the empty composer never changes under the user.
 		setPlaceholderIndex( ( current ) => current + 1 );
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -549,6 +558,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		clearAttachments,
 		restoreAttachments,
 		onSend,
+		answerQuestion,
 		sessionId,
 	] );
 
@@ -783,10 +793,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const placeholder = answerQuestion
+		? __( 'Or type your own answer…' )
+		: placeholderOptions[ placeholderIndex % placeholderOptions.length ];
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting

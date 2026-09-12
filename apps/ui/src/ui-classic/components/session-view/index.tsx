@@ -321,6 +321,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const unansweredQuestion = pendingQuestions.find(
+		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	);
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -590,6 +593,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							error={ runError }
 							model={ currentModel }
 							onSend={ sendMessage }
+							onAnswer={
+								unansweredQuestion
+									? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
+									: undefined
+							}
 							onInterrupt={ interrupt }
 							sessionId={ sessionId }
 							entries={ data.entries }

@@ -295,6 +295,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const unansweredQuestion = pendingQuestions.find(
+		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -433,6 +436,11 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
 								onSend={ sendMessage }
+								onAnswer={
+									unansweredQuestion
+										? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
+										: undefined
+								}
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }

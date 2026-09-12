@@ -6,6 +6,7 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
+import { omitSiteSecretFields } from 'cli/lib/site-secret-fields';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -86,9 +87,10 @@ function displaySiteList(
 
 		console.log( table.toString() );
 	} else {
-		const json = JSON.stringify( data.jsonEntries );
+		const json = JSON.stringify( data.jsonEntries.map( omitSiteSecretFields ) );
 		console.log( json );
-		logger.reportKeyValuePair( 'sites', json );
+		// IPC consumers (desktop/local) still receive the full record, including credentials.
+		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
 	}
 }
 

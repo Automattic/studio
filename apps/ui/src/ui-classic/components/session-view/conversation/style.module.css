@@ -524,8 +524,39 @@
 }
 
 .questionOptionItem {
+	position: relative;
 	margin: 0;
 	padding: 0;
+}
+
+.questionOptionZoom {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral);
+
+	position: absolute;
+	top: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+
+.questionOptionZoomPopup {
+	width: fit-content;
+	min-width: 0;
+	max-width: none;
+}
+
+.questionOptionZoomImage {
+	display: block;
+	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-2xl));
+	max-height: calc(100dvh - 2 * var(--wpds-dimension-padding-2xl));
+}
+
+.questionOptionZoomClose {
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral);
+
+	position: absolute;
+	top: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
 .questionOptions[data-layout='grid'] {

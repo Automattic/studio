@@ -69,7 +69,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -960,6 +960,9 @@ function AgentQuestion( {
 										) : null }
 									</span>
 								</button>
+								{ option.image ? (
+									<QuestionOptionZoom path={ option.image } label={ option.label } />
+								) : null }
 							</li>
 						);
 					} ) }
@@ -997,6 +1000,45 @@ function QuestionOptionImage( { path }: { path: string | undefined } ) {
 		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
 	}
 	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+}
+
+function QuestionOptionZoom( { path, label }: { path: string; label: string } ) {
+	const [ open, setOpen ] = useState( false );
+	const connector = useConnector();
+	const localFileQuery = useLocalMediaDataUrl(
+		open && connector.capabilities.readLocalMedia ? path : null
+	);
+
+	return (
+		<>
+			<IconButton
+				type="button"
+				className={ styles.questionOptionZoom }
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ search }
+				label={ sprintf(
+					// translators: %s: name of a design option.
+					__( 'View %s larger' ),
+					label
+				) }
+				onClick={ () => setOpen( true ) }
+			/>
+			<Dialog.Root open={ open } onOpenChange={ setOpen }>
+				<Dialog.Popup className={ styles.questionOptionZoomPopup } aria-label={ label }>
+					{ localFileQuery.data ? (
+						<img
+							className={ styles.questionOptionZoomImage }
+							src={ localFileQuery.data }
+							alt={ label }
+						/>
+					) : null }
+					<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				</Dialog.Popup>
+			</Dialog.Root>
+		</>
+	);
 }
 
 function QuestionOptionCheckIcon() {

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
+import { parse } from 'yaml';
 import { getSkillPath } from 'cli/ai/skills';
 
-export type DesignCatalogKind = 'concept' | 'direction';
+export type DesignCatalogKind = 'directions' | 'layouts';
 
 export interface DesignEntry {
 	name: string;
@@ -13,46 +14,31 @@ export interface DesignEntry {
 // One markdown file per entry: `title` and `description` in the frontmatter
 // are shown to the agent when choosing; the body is only returned for drawn
 // entries.
-const DESIGN_CATALOGS: Record<
+export const DESIGN_CATALOGS: Record<
 	DesignCatalogKind,
 	{ folder: string; placeholder: string; label: string }
 > = {
-	concept: { folder: 'layouts', placeholder: '{{layout-index}}', label: 'layout concept' },
-	direction: {
+	directions: {
 		folder: 'artistic-directions',
 		placeholder: '{{direction-index}}',
-		label: 'artistic direction',
+		label: 'Artistic direction',
 	},
+	layouts: { folder: 'layouts', placeholder: '{{layout-index}}', label: 'Layout concept' },
 };
 
 export const DESIGN_CATALOG_KINDS = Object.keys( DESIGN_CATALOGS ) as DesignCatalogKind[];
-export const MAX_CHOSEN_DESIGN_PAIRS = 2;
+export const DESIGN_OPTIONS = 4;
+export const MAX_CHOSEN_LAYOUTS = 2;
 
 const cachedCatalogs = new Map< DesignCatalogKind, DesignEntry[] >();
 
-// Values are JSON strings so they can hold colons and quotes.
-function readFrontmatterValue( frontmatter: string, key: string ): string | undefined {
-	const raw = frontmatter.match( new RegExp( `^${ key }:\\s*(.+)$`, 'm' ) )?.[ 1 ]?.trim();
-	if ( ! raw ) return undefined;
-	if ( raw.startsWith( '"' ) ) {
-		try {
-			return String( JSON.parse( raw ) );
-		} catch {
-			return undefined;
-		}
-	}
-	return raw;
-}
-
-export function parseDesignEntry( contents: string ): DesignEntry | null {
+function parseDesignEntry( contents: string ): DesignEntry | null {
 	const match = contents.match( /^---\n([\s\S]*?)\n---\n([\s\S]*)$/ );
 	if ( ! match ) return null;
-	const [ , frontmatter, body ] = match;
-	const name = readFrontmatterValue( frontmatter, 'title' );
-	const description = readFrontmatterValue( frontmatter, 'description' );
-	const details = body.trim();
-	if ( ! name || ! description || ! details ) return null;
-	return { name, description, details };
+	const { title, description } = parse( match[ 1 ] ) ?? {};
+	const details = match[ 2 ].trim();
+	if ( ! title || ! description || ! details ) return null;
+	return { name: String( title ), description: String( description ), details };
 }
 
 export function loadDesignCatalog( kind: DesignCatalogKind ): DesignEntry[] {
@@ -99,32 +85,19 @@ export function findDesignEntry( kind: DesignCatalogKind, name: string ): Design
 	return loadDesignCatalog( kind ).find( ( entry ) => entry.name.toLowerCase() === wanted );
 }
 
-export interface DesignPairRequest {
-	chosen?: Array< { layout: string; direction: string } >;
-	avoid?: { layouts?: string[]; directions?: string[] };
-	layoutNamedInBrief?: string;
-	directionNamedInBrief?: string;
+export interface DesignDrawRequest {
+	kind: DesignCatalogKind;
 	count: number;
-	onlyChosen?: boolean;
+	chosen?: string[];
 }
 
-export interface DesignPair {
-	layout: DesignEntry;
-	direction: DesignEntry;
-}
-
-export interface DesignDraw {
-	pairs: DesignPair[];
-	fixed: Partial< Record< DesignCatalogKind, DesignEntry > >;
-	ignored: string[];
-}
-
-function resolveNamedInBrief( kind: DesignCatalogKind, name: string ): DesignEntry {
+function findChosenEntry( kind: DesignCatalogKind, name: string ): DesignEntry {
 	const entry = findDesignEntry( kind, name );
 	if ( ! entry ) {
-		const { label } = DESIGN_CATALOGS[ kind ];
 		throw new Error(
-			`"${ name }" is not a catalog ${ label }. If the brief asks for it, skip this draw: leave this side out of the call and design it from the brief. Catalog: ${ loadDesignCatalog(
+			`"${ name }" is not a catalog ${ DESIGN_CATALOGS[
+				kind
+			].label.toLowerCase() }. Pass catalog names verbatim; if the brief asks for something the catalog lacks, skip this draw and design it from the brief. Catalog: ${ loadDesignCatalog(
 				kind
 			)
 				.map( ( e ) => e.name )
@@ -134,77 +107,23 @@ function resolveNamedInBrief( kind: DesignCatalogKind, name: string ): DesignEnt
 	return entry;
 }
 
-export function drawDesignPairs(
-	request: DesignPairRequest,
+export function drawDesignEntries(
+	{ kind, count, chosen = [] }: DesignDrawRequest,
 	random: () => number = Math.random
-): DesignDraw {
-	const fixed: DesignDraw[ 'fixed' ] = {};
-	if ( request.layoutNamedInBrief ) {
-		fixed.concept = resolveNamedInBrief( 'concept', request.layoutNamedInBrief );
-	}
-	if ( request.directionNamedInBrief ) {
-		fixed.direction = resolveNamedInBrief( 'direction', request.directionNamedInBrief );
-	}
-	const count = Math.max( 1, Math.floor( request.count ) );
-	const ignored: string[] = [];
-	const used: Record< DesignCatalogKind, Set< string > > = {
-		concept: new Set(),
-		direction: new Set(),
-	};
-	const pairs: DesignPair[] = [];
-
-	for ( const choice of ( request.chosen ?? [] ).slice( 0, MAX_CHOSEN_DESIGN_PAIRS ) ) {
-		if ( pairs.length >= count ) break;
-		const layout = fixed.concept ?? findDesignEntry( 'concept', choice.layout );
-		const direction = fixed.direction ?? findDesignEntry( 'direction', choice.direction );
-		if ( ! layout ) ignored.push( choice.layout );
-		if ( ! direction ) ignored.push( choice.direction );
-		if ( ! layout || ! direction ) continue;
-		if ( ! fixed.concept && used.concept.has( layout.name ) ) continue;
-		if ( ! fixed.direction && used.direction.has( direction.name ) ) continue;
-		used.concept.add( layout.name );
-		used.direction.add( direction.name );
-		pairs.push( { layout, direction } );
-	}
-
-	const avoided = ( kind: DesignCatalogKind ) =>
-		new Set(
-			( kind === 'concept' ? request.avoid?.layouts : request.avoid?.directions )?.map( ( n ) =>
-				n.trim().toLowerCase()
-			) ?? []
-		);
-	const drawSide = ( kind: DesignCatalogKind ): DesignEntry => {
-		const fixedEntry = fixed[ kind ];
-		if ( fixedEntry ) return fixedEntry;
-		const skip = avoided( kind );
-		let candidates = loadDesignCatalog( kind ).filter(
-			( entry ) => ! used[ kind ].has( entry.name ) && ! skip.has( entry.name.toLowerCase() )
-		);
-		if ( ! candidates.length ) {
-			candidates = loadDesignCatalog( kind ).filter(
-				( entry ) => ! used[ kind ].has( entry.name )
-			);
-		}
-		if ( ! candidates.length ) {
-			throw new Error( `Not enough ${ DESIGN_CATALOGS[ kind ].label }s to draw from.` );
-		}
-		const entry = candidates[ Math.floor( random() * candidates.length ) ];
-		used[ kind ].add( entry.name );
-		return entry;
-	};
-	if ( request.onlyChosen ) {
-		if ( ! pairs.length ) {
+): DesignEntry[] {
+	const picked = [ ...new Set( chosen.map( ( name ) => findChosenEntry( kind, name ) ) ) ];
+	if ( kind === 'directions' ) {
+		if ( picked.length < count ) {
 			throw new Error(
-				`None of the chosen pairs are catalog entries${
-					ignored.length ? ` (${ ignored.join( ', ' ) })` : ''
-				}. Pass catalog names verbatim.`
+				`Pass ${ count } in chosen, each with a reason: every artistic direction is yours to pick, none is drawn at random.`
 			);
 		}
-		return { pairs, fixed, ignored };
+		return picked.slice( 0, count );
 	}
-	while ( pairs.length < count ) {
-		pairs.push( { layout: drawSide( 'concept' ), direction: drawSide( 'direction' ) } );
-	}
-
-	return { pairs: count > 1 ? shuffle( pairs, random ) : pairs, fixed, ignored };
+	const kept = picked.slice( 0, Math.min( count, MAX_CHOSEN_LAYOUTS ) );
+	const drawn = shuffle(
+		loadDesignCatalog( kind ).filter( ( entry ) => ! kept.includes( entry ) ),
+		random
+	);
+	return shuffle( [ ...kept, ...drawn.slice( 0, count - kept.length ) ], random );
 }

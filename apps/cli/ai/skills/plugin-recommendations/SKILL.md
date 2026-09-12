@@ -37,6 +37,8 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 
 ## Discovery Workflow
 
+Run this while building the feature, never while writing the Site Spec.
+
 1. List active plugins:
 
 ```text

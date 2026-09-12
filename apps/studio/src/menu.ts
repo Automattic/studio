@@ -17,6 +17,7 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { applyAppZoomCommand } from 'src/lib/app-zoom';
 import {
 	BetaFeatureDefinition,
 	getBetaFeatures,
@@ -127,6 +128,9 @@ export function buildViewMenuItems( {
 	devTools,
 	onToggleSidebar,
 	onToggleSitePreview,
+	onResetZoom,
+	onZoomIn,
+	onZoomOut,
 }: {
 	needsOnboarding: boolean;
 	isDevelopment: boolean;
@@ -134,6 +138,9 @@ export function buildViewMenuItems( {
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
 	onToggleSitePreview: () => void;
+	onResetZoom: () => void;
+	onZoomIn: () => void;
+	onZoomOut: () => void;
 } ): MenuItemConstructorOptions[] {
 	return [
 		{
@@ -155,15 +162,18 @@ export function buildViewMenuItems( {
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
-			role: 'resetZoom',
+			accelerator: 'CommandOrControl+0',
+			click: onResetZoom,
 		},
 		{
 			label: __( 'Zoom In' ),
-			role: 'zoomIn',
+			accelerator: 'CommandOrControl+Plus',
+			click: onZoomIn,
 		},
 		{
 			label: __( 'Zoom Out' ),
-			role: 'zoomOut',
+			accelerator: 'CommandOrControl+-',
+			click: onZoomOut,
 		},
 		{ type: 'separator' },
 		{
@@ -411,6 +421,15 @@ async function getAppMenu(
 				},
 				onToggleSitePreview: () => {
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				},
+				onResetZoom: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );
+				},
+				onZoomIn: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'in' ) );
+				},
+				onZoomOut: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'out' ) );
 				},
 			} ),
 		},

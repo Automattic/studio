@@ -93,6 +93,62 @@ describe( 'captureTriggeredDialogs', () => {
 	);
 
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'captures a listbox opened by an aria-haspopup=listbox trigger',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 1200, height: 800 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
+					<label>Phone</label>
+					<button type="button" aria-label="Phone. Phone. Select a country code" aria-expanded="false" aria-haspopup="listbox">CA</button>
+					<script>
+						document.querySelector('button').addEventListener('click', (event) => {
+							const trigger = event.currentTarget;
+							if (trigger.getAttribute('aria-expanded') === 'true') {
+								document.querySelector('[role="listbox"]')?.remove();
+								trigger.setAttribute('aria-expanded', 'false');
+								return;
+							}
+							const listbox = document.createElement('div');
+							listbox.setAttribute('role', 'listbox');
+							listbox.setAttribute('aria-label', 'Select a country code');
+							listbox.innerHTML = '<div role="option">Canada +1</div><div role="option">United States +1</div><div role="option">United Kingdom +44</div>';
+							document.body.append(listbox);
+							trigger.setAttribute('aria-expanded', 'true');
+						});
+					</script>
+				</body>` );
+
+				const report = await captureTriggeredDialogs( page, 'https://example.test/quote' );
+				expect( report.states ).toHaveLength( 1 );
+				expect( report.states[ 0 ] ).toMatchObject( {
+					status: 'captured',
+					trigger: { tag: 'button', ariaHaspopup: 'listbox', label: 'Phone. Phone. Select a country code' },
+					dialog: { role: 'listbox' },
+				} );
+				expect( report.states[ 0 ].dialog?.html ).toContain( 'Canada +1' );
+				expect( report.states[ 0 ].dialog?.htmlTruncated ).toBe( false );
+
+				const portable = wireCapturedDialogs(
+					'<!doctype html><html><head></head><body><button type="button" aria-label="Phone. Phone. Select a country code" aria-expanded="false" aria-haspopup="listbox">CA</button></body></html>',
+					report.states
+				);
+				await page.setContent( portable );
+				await page.locator( 'details.dla-disclosure summary' ).click();
+				expect(
+					await page
+						.locator( 'details.dla-disclosure[open] [role="dialog"] [role="option"]' )
+						.filter( { hasText: 'Canada +1' } )
+						.isVisible()
+				).toBe( true );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'preserves an event-created navigation dialog without claiming a menu-shaped no-op',
 		async () => {
 			const browser = await chromium.launch( { headless: true } );

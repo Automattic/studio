@@ -82,4 +82,34 @@ describe( 'wireCapturedDialogs', () => {
 		const input = '<html><body><button>Open Menu</button></body></html>';
 		expect( wireCapturedDialogs( input, [] ) ).toBe( input );
 	} );
+
+	it( 'wires a listbox popup onto every matching country-code trigger', () => {
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><button aria-label="Phone. Phone. Select a country code" aria-haspopup="listbox">CA</button><button aria-label="Phone. Phone. Select a country code">CA</button></body></html>',
+			[
+				{
+					status: 'captured',
+					trigger: {
+						selector: 'body > button',
+						tag: 'button',
+						ariaHaspopup: 'listbox',
+						label: 'Phone. Phone. Select a country code',
+						dataBindings: {},
+					},
+					dialog: {
+						selector: '[role="listbox"]',
+						tag: 'div',
+						role: 'listbox',
+						ariaModal: false,
+						html: '<div role="listbox"><div role="option">Canada +1</div></div>',
+						htmlBytes: 64,
+						htmlTruncated: false,
+					},
+				},
+			]
+		);
+		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 2 );
+		expect( html ).toContain( 'role="option"' );
+		expect( html ).toContain( 'Canada +1' );
+	} );
 } );

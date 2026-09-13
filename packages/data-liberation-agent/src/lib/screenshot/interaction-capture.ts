@@ -5,8 +5,13 @@ export const LEGACY_INTERACTION_STATES_SCHEMA = 'data-liberation/interaction-sta
 
 const MAX_TRIGGERS = 8;
 const MAX_INITIAL_DIALOGS = 8;
-const MAX_DIALOG_HTML_BYTES = 64 * 1024;
+const MAX_DIALOG_HTML_BYTES = 512 * 1024;
 const DIALOG_WAIT_MS = 2_000;
+const POPUP_HASPOPUP = [ 'dialog', 'listbox', 'menu', 'tree', 'grid' ];
+const POPUP_SURFACE_SELECTOR =
+	'dialog,[role="dialog"],[aria-modal="true"],[role="listbox"],[role="menu"],[role="tree"],[role="grid"],nav,[class*="header-menu"]';
+const SEMANTIC_POPUP_SELECTOR =
+	'dialog,[role="dialog"],[aria-modal="true"],[role="listbox"],[role="menu"],[role="tree"],[role="grid"]';
 
 export interface CapturedDialogInteraction {
 	status: 'captured' | 'no-dialog' | 'click-failed';
@@ -92,7 +97,7 @@ export async function captureTriggeredDialogs(
 ): Promise< InteractionStatesReport > {
 	const viewport = page.viewportSize() ?? { width: 0, height: 0 };
 	const initialDialogs = await captureInitiallyVisibleDialogs( page );
-	const triggers = ( await page.evaluate( ( limit: number ) => {
+	const triggers = ( await page.evaluate( ( { limit, popupTypes }: { limit: number; popupTypes: string[] } ) => {
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
@@ -146,7 +151,7 @@ export async function captureTriggeredDialogs(
 				''
 			).replace( /\s+/g, ' ' );
 			const popup = ( element.getAttribute( 'aria-haspopup' ) ?? '' ).toLowerCase();
-			if ( popup === 'dialog' ) {
+			if ( popupTypes.includes( popup ) ) {
 				const hasBinding =
 					Boolean( element.getAttribute( 'aria-controls' ) ) ||
 					Array.from( element.attributes ).some(
@@ -193,7 +198,7 @@ export async function captureTriggeredDialogs(
 				dataBindings,
 			};
 		} );
-	}, MAX_TRIGGERS ) ) as TriggerDescriptor[];
+	}, { limit: MAX_TRIGGERS, popupTypes: POPUP_HASPOPUP } ) ) as TriggerDescriptor[];
 
 	const states: CapturedDialogInteraction[] = [];
 	for ( const trigger of triggers ) {
@@ -328,42 +333,38 @@ function triggerRecord( trigger: TriggerDescriptor ): CapturedDialogInteraction[
 }
 
 async function visibleDialogSelectors( page: Page ): Promise< string[] > {
-	return page.evaluate( () => {
-		const visible = ( element: Element ): boolean => {
-			const rect = element.getBoundingClientRect();
-			const style = getComputedStyle( element );
-			return (
-				rect.width > 0 &&
-				rect.height > 0 &&
-				style.display !== 'none' &&
-				style.visibility !== 'hidden' &&
-				Number.parseFloat( style.opacity || '1' ) > 0.1
-			);
-		};
-		const selector = ( element: Element, index: number ): string => {
-			if ( element.id ) {
-				const id = globalThis.CSS?.escape
-					? globalThis.CSS.escape( element.id )
-					: element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
-				return `#${ id }`;
-			}
-			return `dialog-candidate:${ index }`;
-		};
-		return Array.from(
-			document.querySelectorAll(
-				'dialog,[role="dialog"],[aria-modal="true"],nav,[class*="header-menu"]'
-			)
-		)
-			.filter( visible )
-			.filter( ( element ) => {
+	return page.evaluate(
+		( { surfaceSelector, semanticSelector }: { surfaceSelector: string; semanticSelector: string } ) => {
+			const visible = ( element: Element ): boolean => {
 				const rect = element.getBoundingClientRect();
+				const style = getComputedStyle( element );
 				return (
-					element.matches( 'dialog,[role="dialog"],[aria-modal="true"]' ) ||
-					rect.width * rect.height > 40_000
+					rect.width > 0 &&
+					rect.height > 0 &&
+					style.display !== 'none' &&
+					style.visibility !== 'hidden' &&
+					Number.parseFloat( style.opacity || '1' ) > 0.1
 				);
-			} )
-			.map( selector );
-	} );
+			};
+			const selector = ( element: Element, index: number ): string => {
+				if ( element.id ) {
+					const id = globalThis.CSS?.escape
+						? globalThis.CSS.escape( element.id )
+						: element.id.replace( /[^a-zA-Z0-9_-]/g, '\\$&' );
+					return `#${ id }`;
+				}
+				return `dialog-candidate:${ index }`;
+			};
+			return Array.from( document.querySelectorAll( surfaceSelector ) )
+				.filter( visible )
+				.filter( ( element ) => {
+					const rect = element.getBoundingClientRect();
+					return element.matches( semanticSelector ) || rect.width * rect.height > 40_000;
+				} )
+				.map( selector );
+		},
+		{ surfaceSelector: POPUP_SURFACE_SELECTOR, semanticSelector: SEMANTIC_POPUP_SELECTOR }
+	);
 }
 
 async function visibleSemanticDialogs( page: Page ): Promise< DialogDescriptor[] > {
@@ -441,7 +442,7 @@ async function firstNewVisibleDialog(
 	page: Page,
 	before: string[]
 ): Promise< DialogDescriptor | undefined > {
-	return page.evaluate( ( existing: string[] ) => {
+	return page.evaluate( ( { existing, surfaceSelector, semanticSelector }: { existing: string[]; surfaceSelector: string; semanticSelector: string } ) => {
 		const visible = ( element: Element ): boolean => {
 			const rect = element.getBoundingClientRect();
 			const style = getComputedStyle( element );
@@ -462,14 +463,10 @@ async function firstNewVisibleDialog(
 			}
 			return `dialog-candidate:${ index }`;
 		};
-		const candidates = Array.from(
-			document.querySelectorAll(
-				'dialog,[role="dialog"],[aria-modal="true"],nav,[class*="header-menu"]'
-			)
-		);
+		const candidates = Array.from( document.querySelectorAll( surfaceSelector ) );
 		const dialog = candidates.find( ( element, index ) => {
 			if ( ! visible( element ) || existing.includes( selector( element, index ) ) ) return false;
-			if ( element.matches( 'dialog,[role="dialog"],[aria-modal="true"]' ) ) return true;
+			if ( element.matches( semanticSelector ) ) return true;
 			const rect = element.getBoundingClientRect();
 			return rect.width * rect.height > 40_000;
 		} );
@@ -498,7 +495,11 @@ async function firstNewVisibleDialog(
 				: {} ),
 			html: clone.outerHTML,
 		};
-	}, before ) as Promise< DialogDescriptor | undefined >;
+	}, {
+		existing: before,
+		surfaceSelector: POPUP_SURFACE_SELECTOR,
+		semanticSelector: SEMANTIC_POPUP_SELECTOR,
+	} ) as Promise< DialogDescriptor | undefined >;
 }
 
 async function closeCapturedDialog( page: Page, selector: string ): Promise< void > {

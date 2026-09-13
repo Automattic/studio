@@ -3,10 +3,9 @@ import { parse } from 'yaml';
 type Style = Record< string, unknown >;
 
 interface DesignTokens {
-	name?: unknown;
-	description?: unknown;
 	colors?: Record< string, unknown >;
 	typography?: Record< string, unknown >;
+	rounded?: Record< string, unknown >;
 	components?: Record< string, unknown >;
 }
 
@@ -90,15 +89,52 @@ export function renderDesignBoard( design: string, image?: string ): string {
 		);
 	}
 
-	const values = colors.map( ( [ , value ] ) => value );
-	const byLuminance = [ ...values ].sort( ( a, b ) => luminance( a ) - luminance( b ) );
-	const dark = byLuminance[ 0 ];
-	const light = byLuminance[ byLuminance.length - 1 ];
-	const primary = typeof tokens.colors?.primary === 'string' ? tokens.colors.primary : values[ 0 ];
-	const ink = ( background: string ) => ( luminance( background ) > 0.2 ? dark : light );
+	const named = ( key: string ) => colors.find( ( [ name ] ) => name === key )?.[ 1 ];
+	const byLuminance = colors
+		.map( ( [ , value ] ) => value )
+		.sort( ( a, b ) => luminance( a ) - luminance( b ) );
+	const background = named( 'background' ) ?? byLuminance[ byLuminance.length - 1 ];
+	const text =
+		named( 'text' ) ??
+		( luminance( background ) > 0.2 ? byLuminance[ 0 ] : byLuminance[ byLuminance.length - 1 ] );
+	const primary = named( 'primary' ) ?? colors[ 0 ][ 1 ];
+	const hairline = `color-mix(in srgb,${ css( text ) } 18%,transparent)`;
+	const ink = ( surface: string ) =>
+		Math.abs( luminance( text ) - luminance( surface ) ) >=
+		Math.abs( luminance( background ) - luminance( surface ) )
+			? text
+			: background;
+	const seen = new Set< string >();
+	const palette = [
+		[ 'primary', primary ],
+		[ 'background', background ],
+		[ 'text', text ],
+		...colors,
+	].filter(
+		( [ , value ] ) => ! seen.has( value.toLowerCase() ) && seen.add( value.toLowerCase() )
+	);
+	const accents = palette.slice( 3 );
+	const tile = ( [ key, value ]: string[] ) =>
+		`<div class="tile" style="background-color:${ css( value ) };color:${ css( ink( value ) ) }${
+			value === background ? `;box-shadow:inset 0 0 0 1px ${ hairline }` : ''
+		}"><span>${ escapeHtml( value ) }</span><span>${ escapeHtml( key ) }</span></div>`;
+	const strip = palette
+		.filter( ( [ , value ] ) => value !== background )
+		.map(
+			( [ , value ], index ) =>
+				`<i style="background-color:${ css( value ) };flex:${ Math.max( 1, 3 - index ) }"></i>`
+		)
+		.join( '' );
+
 	const styleNamed = ( name: string ) => styles.find( ( [ key ] ) => key.includes( name ) )?.[ 1 ];
 	const display = styleNamed( 'display' ) ?? styles[ 0 ][ 1 ];
+	const headline = styleNamed( 'headline' ) ?? display;
 	const body = styleNamed( 'body' ) ?? styles[ styles.length - 1 ][ 1 ];
+	const label = styleNamed( 'label' ) ?? body;
+	const specimen = ( className: string, style: Style ) =>
+		`<figure><div class="aa ${ className }">Aa</div><figcaption>${ escapeHtml(
+			[ fontFamily( style ), style.fontWeight ].filter( Boolean ).join( ' · ' )
+		) }</figcaption></figure>`;
 
 	const resolve = ( value: unknown ): unknown => {
 		const reference = typeof value === 'string' ? value.match( /^\{([^}]+)\}$/ )?.[ 1 ] : undefined;
@@ -108,55 +144,24 @@ export function renderDesignBoard( design: string, image?: string ): string {
 					.reduce< unknown >( ( node, key ) => ( node as Style | undefined )?.[ key ], tokens )
 			: value;
 	};
+	const rounded = tokens.rounded ?? {};
+	const small = dimension( rounded.sm ?? rounded.md ?? 0 );
+	const shape =
+		Object.values( rounded ).find(
+			( value ) => String( value ).trim().split( /\s+/ ).length > 1
+		) ??
+		rounded.lg ??
+		rounded.md ??
+		0;
 	const button = ( tokens.components?.[ 'button-primary' ] ?? {} ) as Style;
 	const buttonBackground = String( resolve( button.backgroundColor ) ?? primary );
-	const ghost = buttonBackground === 'transparent';
 	const buttonType = resolve( button.typography );
 	const buttonCss = [
-		`background:${ css( buttonBackground ) }`,
-		`color:${ css( resolve( button.textColor ) ?? ink( buttonBackground ) ) }`,
-		ghost && 'border:1px solid currentColor',
 		`border-radius:${ dimension( resolve( button.rounded ) ?? 0 ) }`,
-		`padding:${ dimension( resolve( button.padding ) ?? '12px 24px' ) }`,
-		fontCss(
-			buttonType && typeof buttonType === 'object'
-				? ( buttonType as Style )
-				: styleNamed( 'label' ) ?? body
-		),
-	]
-		.filter( Boolean )
-		.join( ';' );
-	const accent =
-		values.find( ( value ) => ! [ dark, light, primary, buttonBackground ].includes( value ) ) ??
-		dark;
-
-	const name = String( tokens.name ?? 'Untitled' );
-	const longestWord = Math.max( ...name.split( /\s+/ ).map( ( word ) => word.length ) );
-	const tile = ( background: string, content: string, className = '', color = ink( background ) ) =>
-		`<div class="tile ${ className }" style="background-color:${ css( background ) };color:${ css(
-			color
-		) }">${ content }</div>`;
-	const sample = ( background: string ) => {
-		const clash =
-			! ghost && Math.abs( luminance( buttonBackground ) - luminance( background ) ) < 0.1;
-		const inverted = clash
-			? ` style="background:${ css( ink( background ) ) };color:${ css( background ) }"`
-			: '';
-		return `<div class="display heading">${ escapeHtml(
-			tokens.description ?? name
-		) }</div><div class="actions"><span class="button"${ inverted }>Get started</span><span class="link">Learn more</span></div>`;
-	};
-	const swatches = colors
-		.map(
-			( [ key, value ] ) =>
-				`<div class="swatch" style="background-color:${ css( value ) };color:${ css(
-					ink( value )
-				) }"><i></i><span>${ escapeHtml( key ) } ${ escapeHtml( value ) }</span></div>`
-		)
-		.join( '' );
-	const families = [
-		...new Set( [ fontFamily( display ), fontFamily( body ) ].filter( Boolean ) ),
-	];
+		`padding:${ dimension( resolve( button.padding ) ?? '14px 28px' ) }`,
+		fontCss( buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label ),
+	].join( ';' );
+	const accent = accents[ 0 ]?.[ 1 ] ?? text;
 
 	return `<!doctype html>
 <html>
@@ -165,48 +170,85 @@ export function renderDesignBoard( design: string, image?: string ): string {
 ${ fontLinks( styles.map( ( [ , style ] ) => style ) ) }
 <style>
 *{box-sizing:border-box;margin:0}
-body{width:1200px;height:900px;padding:12px;display:grid;grid-template:1fr 1fr/repeat(3,1fr);gap:12px;background:#e6e4df;font-size:15px;line-height:1.5;${ fontCss(
-		body
-	) }}
-.tile{overflow:hidden;padding:36px;display:flex;flex-direction:column;justify-content:flex-end;gap:16px}
-.swatches{padding:0;gap:0;flex-flow:row wrap}
-.swatch{position:relative;display:grid;place-items:center;flex:1 0 ${
-		colors.length > 4 ? 30 : 40
-	}%}
-.swatch i{width:44px;height:44px;border-radius:50%;background:currentColor}
-.swatch span{position:absolute;left:12px;bottom:10px;font-size:12px}
-.display{line-height:1;${ fontCss( display ) }}
-.aa{font-size:200px;line-height:.85}
-.heading{font-size:32px;line-height:1.1}
-.actions{display:flex;gap:20px;align-items:center}
-.button{${ buttonCss }}
-.link{text-decoration:underline;text-underline-offset:4px}
-.wordmark{justify-content:center;text-align:center;overflow-wrap:anywhere}
-.picture{padding:0}
-.picture img{width:100%;height:100%;object-fit:cover}
-.pattern{background-image:radial-gradient(currentColor 20%,transparent 21%);background-size:40px 40px}
+body{position:relative;width:1200px;height:900px;overflow:hidden;padding:36px 36px 48px;display:grid;grid-template:392px 1fr/1fr 440px;gap:28px 36px;background:${ css(
+		background
+	) };color:${ css( text ) };font-size:15px;line-height:1.45;${ fontCss( body ) }}
+section{display:flex;flex-direction:column;min-width:0;min-height:0}
+h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.55;padding-top:8px;margin-bottom:16px;border-top:1px solid ${ hairline }}
+.specimens{display:flex;align-items:flex-end;gap:32px}
+.aa{line-height:.85;white-space:nowrap}
+.display{${ fontCss( display ) };font-size:168px}
+.reading{${ fontCss( body ) };font-size:84px}
+figcaption{margin-top:12px;font-size:13px;opacity:.65}
+.scale{margin-top:auto;padding-top:16px}
+.scale p{padding:10px 0;border-top:1px solid ${ hairline }}
+.headline{${ fontCss( headline ) };font-size:min(${ dimension(
+		headline.fontSize ?? '28px'
+	) },30px);line-height:1.15}
+.sample{font-size:${ dimension( body.fontSize ?? '16px' ) }}
+.label{${ fontCss( label ) };font-size:13px}
+.palette{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;border-radius:min(${ small },10px);overflow:hidden}
+.lead{flex:2;display:flex;gap:4px;min-height:0}
+.lead>.tile{flex:1.15}
+.pair{flex:1;display:flex;flex-direction:column;gap:4px}
+.accents{flex:1;display:flex;gap:4px}
+.pair>.tile,.accents>.tile{flex:1}
+.tile{display:flex;flex-direction:column;justify-content:flex-end;padding:12px 14px;font-size:13px;line-height:1.35;min-width:0}
+.tile span:first-child{text-transform:uppercase}
+.tile span:last-child{text-transform:capitalize;opacity:.8}
+.kit{flex:1;display:flex;align-items:flex-start;gap:32px;min-height:0;zoom:1.1}
+.stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.button{border:1px solid transparent;${ buttonCss };font-size:15px;line-height:1.2}
+.primary{background-color:${ css( buttonBackground ) };color:${ css(
+		resolve( button.textColor ) ?? ink( buttonBackground )
+	) }${ buttonBackground === 'transparent' ? ';border-color:currentColor' : '' }}
+.secondary{border-color:currentColor}
+.link{color:${ css( primary ) };text-decoration:underline;text-underline-offset:4px}
+.input{width:240px;border:1px solid color-mix(in srgb,${ css(
+		text
+	) } 35%,transparent);border-radius:${ small };padding:12px 14px;opacity:.75}
+.tag{${ fontCss( label ) };font-size:12px;padding:6px 12px;border-radius:${
+		rounded.pill !== undefined ? dimension( rounded.pill ) : small
+	};background-color:color-mix(in srgb,${ css( primary ) } 16%,${ css( background ) })}
+.alt{background-color:${ css( accent ) };color:${ css( ink( accent ) ) }}
+.card{min-height:190px;width:220px;flex-shrink:0;background-color:color-mix(in srgb,${ css(
+		text
+	) } 6%,${ css( background ) });border-radius:min(${ dimension(
+		rounded.md ?? rounded.sm ?? 0
+	) },24px);padding:18px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.card strong{${ fontCss( headline ) };font-size:20px}
+.card u{display:block;height:8px;border-radius:4px;background-color:${ hairline }}
+.picture{flex:1;overflow:hidden;border-radius:${ dimension( shape ) };background-color:${ css(
+		primary
+	) };color:${ css( ink( primary ) ) }}
+.picture img{width:100%;height:100%;object-fit:cover;display:block}
+.pattern{background-image:radial-gradient(currentColor 20%,transparent 21%);background-size:32px 32px}
+.strip{position:absolute;left:0;right:0;bottom:0;height:12px;display:flex}
 </style>
 </head>
 <body>
-<div class="tile swatches">${ swatches }</div>
-${ tile(
-	dark,
-	`<div class="display aa">Aa</div><p>${ escapeHtml( families.join( ' · ' ) ) }</p>`
-) }
-${
-	image
-		? tile( primary, `<img src="${ escapeHtml( image ) }" alt="">`, 'picture' )
-		: tile( primary, '', 'picture pattern', accent )
-}
-${ tile( light, sample( light ) ) }
-${ tile(
-	primary,
-	`<div class="display" style="font-size:${ Math.round(
-		Math.min( 84, Math.max( 28, 440 / longestWord ) )
-	) }px">${ escapeHtml( name ) }</div>`,
-	'wordmark'
-) }
-${ tile( accent, sample( accent ) ) }
+<section><h2>Type</h2><div class="specimens">${ specimen( 'display', display ) }${
+		fontFamily( display ) !== fontFamily( body ) || display.fontWeight !== body.fontWeight
+			? specimen( 'reading', body )
+			: ''
+	}</div><div class="scale"><p class="headline">Headline in ${ escapeHtml(
+		fontFamily( headline )
+	) }</p><p class="sample">Body text in ${ escapeHtml(
+		fontFamily( body )
+	) } sets long reads, captions and forms.</p><p class="label">Label in ${ escapeHtml(
+		fontFamily( label )
+	) }</p></div></section>
+<section><h2>Color</h2><div class="palette"><div class="lead">${ tile(
+		palette[ 0 ]
+	) }<div class="pair">${ palette.slice( 1, 3 ).map( tile ).join( '' ) }</div></div>${
+		accents.length ? `<div class="accents">${ accents.map( tile ).join( '' ) }</div>` : ''
+	}</div></section>
+<section><h2>Components</h2><div class="kit"><div class="stack"><div class="row"><span class="button primary">Button</span><span class="button secondary">Button</span><span class="link">Link</span></div><div class="row"><span class="input">Input</span></div><div class="row"><span class="tag">Tag</span><span class="tag alt">Tag</span></div></div><div class="card"><span class="tag">Card</span><strong>Card title</strong><u style="width:90%"></u><u style="width:65%"></u></div></div></section>
+<section><h2>Imagery</h2><div class="picture${ image ? '' : ' pattern' }">${
+		image ? `<img src="${ escapeHtml( image ) }" alt="">` : ''
+	}</div></section>
+<div class="strip">${ strip }</div>
 </body>
 </html>`;
 }

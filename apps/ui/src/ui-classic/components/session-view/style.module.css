@@ -149,6 +149,7 @@
 
 .classicScroll {
 	padding-inline: var(--classic-column-inline-gutter);
+	container-type: inline-size;
 }
 
 /* Classic session screen: keep the conversation + composer aligned to the

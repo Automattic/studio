@@ -27,7 +27,7 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
 	brush,
@@ -35,6 +35,8 @@ import {
 	category,
 	chartBar,
 	check,
+	chevronLeft,
+	chevronRight,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -900,6 +902,7 @@ function AgentQuestion( {
 	const isFolding = isCollapsing && Boolean( pickedLabel );
 	const hasImages = options.some( ( option ) => option.image );
 	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const [ viewing, setViewing ] = useState< number | null >( null );
 	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
 	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
 	const typedAnswer = pickedLabels
@@ -961,12 +964,33 @@ function AgentQuestion( {
 									</span>
 								</button>
 								{ option.image ? (
-									<QuestionOptionZoom path={ option.image } label={ option.label } />
+									<IconButton
+										type="button"
+										className={ styles.questionOptionZoom }
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ search }
+										label={ sprintf(
+											// translators: %s: name of a design option.
+											__( 'View %s larger' ),
+											option.label
+										) }
+										onClick={ () => setViewing( index ) }
+									/>
 								) : null }
 							</li>
 						);
 					} ) }
 				</ol>
+			) : null }
+			{ hasImages ? (
+				<QuestionOptionViewer
+					options={ options }
+					index={ viewing }
+					onIndexChange={ setViewing }
+					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+				/>
 			) : null }
 			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
 			{ multiSelect && isInteractive ? (
@@ -1002,42 +1026,83 @@ function QuestionOptionImage( { path }: { path: string | undefined } ) {
 	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
 }
 
-function QuestionOptionZoom( { path, label }: { path: string; label: string } ) {
-	const [ open, setOpen ] = useState( false );
+function QuestionOptionViewer( {
+	options,
+	index,
+	onIndexChange,
+	onChoose,
+}: {
+	options: Array< { label: string; description: string; image?: string } >;
+	index: number | null;
+	onIndexChange: ( index: number | null ) => void;
+	onChoose?: ( label: string ) => void;
+} ) {
 	const connector = useConnector();
+	const option = index === null ? undefined : options[ index ];
 	const localFileQuery = useLocalMediaDataUrl(
-		open && connector.capabilities.readLocalMedia ? path : null
+		option?.image && connector.capabilities.readLocalMedia ? option.image : null
 	);
+	const step = ( delta: number ) =>
+		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
+	const [ previousIcon, nextIcon ] = isRTL()
+		? [ chevronRight, chevronLeft ]
+		: [ chevronLeft, chevronRight ];
 
 	return (
-		<>
-			<IconButton
-				type="button"
-				className={ styles.questionOptionZoom }
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				icon={ search }
-				label={ sprintf(
-					// translators: %s: name of a design option.
-					__( 'View %s larger' ),
-					label
-				) }
-				onClick={ () => setOpen( true ) }
-			/>
-			<Dialog.Root open={ open } onOpenChange={ setOpen }>
-				<Dialog.Popup className={ styles.questionOptionZoomPopup } aria-label={ label }>
-					{ localFileQuery.data ? (
-						<img
-							className={ styles.questionOptionZoomImage }
-							src={ localFileQuery.data }
-							alt={ label }
-						/>
-					) : null }
-					<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
-				</Dialog.Popup>
-			</Dialog.Root>
-		</>
+		<Dialog.Root
+			open={ option !== undefined }
+			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
+		>
+			<Dialog.Popup
+				className={ styles.questionOptionZoomPopup }
+				aria-label={ option?.label }
+				onKeyDown={ ( event ) => {
+					if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+						event.preventDefault();
+						step( ( event.key === 'ArrowRight' ) !== isRTL() ? 1 : -1 );
+					}
+				} }
+			>
+				{ localFileQuery.data ? (
+					<img
+						className={ styles.questionOptionZoomImage }
+						src={ localFileQuery.data }
+						alt={ option?.label }
+					/>
+				) : null }
+				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ previousIcon }
+					label={ __( 'Previous option' ) }
+					onClick={ () => step( -1 ) }
+				/>
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ nextIcon }
+					label={ __( 'Next option' ) }
+					onClick={ () => step( 1 ) }
+				/>
+				{ option && onChoose ? (
+					<Button
+						className={ styles.questionOptionZoomChoose }
+						size="compact"
+						onClick={ () => {
+							onIndexChange( null );
+							onChoose( option.label );
+						} }
+					>
+						{ __( 'Choose' ) }
+					</Button>
+				) : null }
+			</Dialog.Popup>
+		</Dialog.Root>
 	);
 }
 

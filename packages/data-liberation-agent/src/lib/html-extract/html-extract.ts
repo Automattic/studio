@@ -39,14 +39,17 @@ export function extractNavLinks(html: string, baseUrl: string): NavLink[] {
   navLinks.each((_, el) => {
     const rawHref = $(el).attr('href') || '';
     const text = $(el).text().trim();
-    if (!text || rawHref === '#' || rawHref.startsWith('javascript:')) return;
+    if (!text || rawHref === '#') return;
 
-    let href = rawHref;
+    let url: URL;
     try {
-      href = new URL(rawHref, baseUrl).href;
+      url = new URL(rawHref, baseUrl);
     } catch {
-      // Preserve malformed or non-URL schemes rather than dropping source data.
+      return;
     }
+    if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) return;
+
+    const href = url.href;
     if (seen.has(href)) return;
     seen.add(href);
     links.push({ text, href });

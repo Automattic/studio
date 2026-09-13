@@ -385,7 +385,9 @@ describe( 'AddSite', () => {
 		expect( screen.getByText( '/default_path/my-wordpress-website-mutated' ) ).toBeVisible();
 	} );
 
-	it( 'should name the version a new site will be created with', async () => {
+	// The update-mode radios replace the auto-update dropdown option, and the
+	// site does not exist yet, so the description cannot claim a version is in use.
+	it( 'should describe automatic updates without naming a version', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -402,7 +404,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		expect( screen.getByRole( 'option', { name: 'Auto-update (6.4)' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'radio', { name: 'Automatic updates' } )
+		).toHaveAccessibleDescription( 'WordPress installs updates on its own schedule.' );
 	} );
 
 	it( 'should display WordPress version dropdown', async () => {
@@ -426,13 +430,11 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
 
-		const comboboxes = screen.getAllByRole( 'combobox' );
-		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
+		// New sites auto-update until the user picks a version.
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
 
-		const wpVersionDropdown = comboboxes[ 1 ];
-		expect( wpVersionDropdown ).toBeInTheDocument();
-
-		await user.selectOptions( wpVersionDropdown, '6.3.3' );
+		await user.click( screen.getByRole( 'radio', { name: 'Select a version' } ) );
+		await user.selectOptions( screen.getByLabelText( 'Version' ), '6.3.3' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -539,15 +541,9 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
-
-		const comboboxes = screen.getAllByRole( 'combobox' );
-		expect( comboboxes.length ).toBeGreaterThanOrEqual( 2 );
-
-		const phpVersionDropdown = comboboxes[ 0 ];
-		expect( phpVersionDropdown ).toBeInTheDocument();
-
-		await user.selectOptions( phpVersionDropdown, '8.2' );
+		// By label, not by position: the WordPress version control sits above
+		// PHP version now, so a positional lookup picks the wrong select.
+		await user.selectOptions( screen.getByLabelText( 'PHP version' ), '8.2' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -577,8 +573,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		expect( wpVersionSelect ).toBeDisabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeDisabled();
 	} );
 
 	it( 'should enable WordPress version field when online', async () => {
@@ -593,8 +588,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		expect( wpVersionSelect ).toBeEnabled();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeEnabled();
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
@@ -609,8 +603,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		await user.hover( wpVersionSelect );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.getByText(
@@ -631,8 +624,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		await user.hover( wpVersionSelect );
+		await user.hover( screen.getByRole( 'radio', { name: 'Automatic updates' } ) );
 
 		expect(
 			screen.queryByText(

@@ -207,6 +207,30 @@ describe( 'Composer menu', () => {
 		expect( await screen.findByText( 'Stop' ) ).toBeInTheDocument();
 	} );
 
+	it( 'blocks sending and queueing while submission is unavailable', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onSend } );
+
+		const textarea = screen.getByRole( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'sneak one past the lockout' } } );
+
+		// The Enter path reaches send() directly, bypassing the button's state.
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Queue' } ) ).toBeDisabled() );
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps Stop working while submission is unavailable', () => {
+		const onInterrupt = vi.fn< () => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onInterrupt } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'uses a queue-focused placeholder while busy', () => {
 		renderComposer( { busy: true } );
 
@@ -214,6 +238,26 @@ describe( 'Composer menu', () => {
 		expect(
 			screen.getByPlaceholderText( 'Queue the next message while I work…' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		const onAnswer = vi.fn();
+		renderComposer( { busy: true, onSend, onAnswer } );
+
+		const textarea = screen.getByPlaceholderText( 'Or type your own answer…' );
+		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+
+		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
+		expect( textarea ).toHaveValue( '' );
+
+		fireEvent.change( textarea, { target: { value: '/annotate' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledTimes( 1 ) );
+		expect( onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
+		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {

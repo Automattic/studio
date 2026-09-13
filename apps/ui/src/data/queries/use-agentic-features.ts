@@ -19,6 +19,10 @@ export interface AgenticFeatures {
 	// agentic features off in Settings → AI. Non-chat networked features stay
 	// available when they do, so gate those on `enabled` instead.
 	chatEnabled: boolean;
+	// Whether the chat surface should show the sign-in prompt instead: the
+	// user is signed out and hasn't switched agentic features off. Off means
+	// Overview is the site's home, signed in or not.
+	chatPromptsSignIn: boolean;
 	reason: AgenticFeatureReason;
 }
 
@@ -28,9 +32,12 @@ export function deriveAgenticFeatures(
 	isOffline = false,
 	agenticFeaturesEnabled = true
 ): AgenticFeatures {
-	const withChat = ( features: Omit< AgenticFeatures, 'chatEnabled' > ): AgenticFeatures => ( {
+	const withChat = (
+		features: Omit< AgenticFeatures, 'chatEnabled' | 'chatPromptsSignIn' >
+	): AgenticFeatures => ( {
 		...features,
 		chatEnabled: features.enabled && agenticFeaturesEnabled,
+		chatPromptsSignIn: features.reason === 'signed-out' && agenticFeaturesEnabled,
 	} );
 	// Agentic features need the network regardless of the connector's auth
 	// requirements, so offline wins over any auth state.

@@ -262,6 +262,56 @@ export function getAiCreditsMeterIntent( fraction: number ): AiCreditsMeterInten
 	return 'ok';
 }
 
+export interface AiCreditsThresholdNoticeState {
+	visible: boolean;
+	// The dismissal that survives this intent. Null once the current usage has
+	// left the dismissed threshold behind — without dropping it, a threshold
+	// reached again after a top-up would stay silenced for the whole session.
+	dismissedIntent: AiCreditsMeterIntent | null;
+}
+
+/**
+ * Whether the threshold notice belongs on screen, and which dismissal outlives
+ * this intent.
+ *
+ * `ownedIntents` is the escalation steps the calling surface announces, so one
+ * step is never stated twice on one screen. The agentic UI splits the ladder:
+ * the sidebar notice takes `warning`, the composer strip takes `critical`, and
+ * the composer lockout takes exhaustion. Classic has only the one slot above
+ * its composer, so that slot passes both warning steps.
+ *
+ * A dismissal is recorded against the intent it was made at, so moving between
+ * steps re-arms the notice without a separate expiry rule.
+ */
+export function resolveAiCreditsThresholdNotice(
+	intent: AiCreditsMeterIntent | null,
+	dismissedIntent: AiCreditsMeterIntent | null,
+	ownedIntents: readonly AiCreditsMeterIntent[]
+): AiCreditsThresholdNoticeState {
+	const surviving = dismissedIntent === intent ? dismissedIntent : null;
+	const owned = intent !== null && ownedIntents.includes( intent );
+	return { visible: owned && surviving === null, dismissedIntent: surviving };
+}
+
+/**
+ * Title shared by every AI credit usage warning — the sidebar notice and the
+ * composer strip — so the two can never word the same fact differently.
+ */
+export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): string {
+	return sprintf(
+		/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */
+		__( 'At %s usage' ),
+		// Formatted, not concatenated: the percent sign moves and changes by locale.
+		new Intl.NumberFormat( locale, { style: 'percent', maximumFractionDigits: 0 } ).format(
+			fraction
+		)
+	);
+}
+
+export function formatAiCreditsThresholdDescription(): string {
+	return __( 'Add AI credits to keep chatting without interruption.' );
+}
+
 export function formatAiCreditsUsedLabel(
 	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
 	locale?: string
@@ -414,4 +464,18 @@ export function formatOutOfCreditsTitle(): string {
 /** Body of that card: what happened, and what fixes it. */
 export function formatOutOfCreditsDescription(): string {
 	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
+}
+
+// Crediting can trail the checkout redirect by a second or two, so a single
+// refetch would report "nothing bought" for a purchase about to land.
+export const AI_CREDITS_CONFIRM_ATTEMPTS = 5;
+export const AI_CREDITS_CONFIRM_INTERVAL_MS = 2000;
+
+/** Confirmation shown once a top-up is proven to have reached the balance. */
+export function formatAiCreditsAddedTitle( credits: number, locale?: string ): string {
+	return sprintf(
+		/* translators: %s: number of AI credits the purchase added (e.g. 500,000). */
+		__( '%s AI credits added' ),
+		new Intl.NumberFormat( locale ).format( credits )
+	);
 }

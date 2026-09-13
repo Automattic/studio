@@ -36,6 +36,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -302,6 +303,14 @@ export async function startWordPressServer(
 	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
+
+	// The SQLite driver leaves the database in WAL mode, which PHP-WASM reopens
+	// unreliably on Windows because its emulated file locks back WAL's shared
+	// memory. Convert it back before the server touches the file; native PHP
+	// uses real OS locks and is left alone.
+	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
+		await resetSqliteJournalModeToRollback( site.path );
+	}
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
@@ -698,10 +707,41 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		// exception and telling the process manager to send a SIGKILL signal.
 		await Promise.race( [
 			exitPromise,
-			new Promise( ( resolve, reject ) => setTimeout( reject, 5000 ) ),
+			new Promise( ( resolve, reject ) =>
+				setTimeout(
+					() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
+					GRACEFUL_STOP_TIMEOUT
+				)
+			),
 		] );
 	} catch {
-		return stopProcess( processName );
+		await stopProcess( processName );
+		// SIGKILL is asynchronous: the daemon returns before the OS has torn the
+		// process down. Callers restart the server immediately after this resolves,
+		// and on Windows a lingering handle on the site's SQLite file makes that
+		// restart fail to connect, so wait for the process to actually be gone.
+		await waitForProcessToExit( processName );
+	}
+}
+
+const PROCESS_EXIT_POLL_INTERVAL = 100;
+const PROCESS_EXIT_TIMEOUT = 5000;
+
+/**
+ * Polls the daemon until the named process is no longer running.
+ *
+ * Resolves (rather than throwing) if the process is still listed once the
+ * timeout elapses: it has already been SIGKILLed, so failing the stop here
+ * would only turn a slow teardown into a user-visible error.
+ */
+async function waitForProcessToExit( processName: string ): Promise< void > {
+	const deadline = Date.now() + PROCESS_EXIT_TIMEOUT;
+
+	while ( Date.now() < deadline ) {
+		if ( ! ( await isProcessRunning( processName ) ) ) {
+			return;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, PROCESS_EXIT_POLL_INTERVAL ) );
 	}
 }
 

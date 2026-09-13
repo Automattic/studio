@@ -2,9 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AiCreditsPurchaseDialog } from '@/components/ai-credits-purchase-dialog';
-import { useConnector } from '@/data/core';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
-import { useAddAiCreditsUrlBuilder } from '@/hooks/use-add-ai-credits-url';
+import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
 import type { ComponentProps } from 'react';
 
 /**
@@ -22,8 +21,7 @@ export function AddAiCreditsButton( {
 	variant?: ComponentProps< typeof Button >[ 'variant' ];
 	tone?: ComponentProps< typeof Button >[ 'tone' ];
 } ) {
-	const connector = useConnector();
-	const buildAddAiCreditsUrl = useAddAiCreditsUrlBuilder();
+	const openCheckout = useOpenAiCreditsCheckout();
 	const { data: pricing } = useStudioAssistantTopUpPricing();
 	const [ dialogOpen, setDialogOpen ] = useState( false );
 	const hasOptions = ( pricing?.options.length ?? 0 ) > 0;
@@ -40,7 +38,7 @@ export function AddAiCreditsButton( {
 						setDialogOpen( true );
 						return;
 					}
-					void connector.openExternalUrl( buildAddAiCreditsUrl() );
+					openCheckout();
 				} }
 			>
 				{ __( 'Add AI credits' ) }

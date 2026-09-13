@@ -27,7 +27,7 @@ import {
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -66,6 +66,7 @@ import {
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
+import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -238,10 +239,14 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// Blocks sending and queueing while leaving the rest of the composer alone,
+	// so a run already in flight keeps its Stop control.
+	canSubmit?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -328,10 +333,12 @@ function resizeComposerTextarea(
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
+		canSubmit = true,
 		isInterrupting = false,
 		error,
 		model,
 		onSend,
+		onAnswer,
 		onInterrupt,
 		sessionId,
 		entries,
@@ -496,7 +503,15 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ restoreAttachments, value, attachments, suggestionBaseline ]
 	);
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+
 	const send = useCallback( async () => {
+		// Guarded here as well as on the button: Enter reaches this directly, and
+		// while busy a send becomes a queued prompt that would dispatch later.
+		if ( ! canSubmit ) {
+			return;
+		}
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
@@ -513,6 +528,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		// A send is the only thing that swaps the suggestion; it is static
 		// otherwise, so the empty composer never changes under the user.
 		setPlaceholderIndex( ( current ) => current + 1 );
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -532,12 +551,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			restoreAttachments( sentAttachments );
 		}
 	}, [
+		canSubmit,
 		value,
 		attachments,
 		suggestionBaseline,
 		clearAttachments,
 		restoreAttachments,
 		onSend,
+		answerQuestion,
 		sessionId,
 	] );
 
@@ -758,7 +779,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -772,10 +793,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const placeholder = answerQuestion
+		? __( 'Or type your own answer…' )
+		: placeholderOptions[ placeholderIndex % placeholderOptions.length ];
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
@@ -811,6 +834,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<AiCreditsWarningStrip />
 					<div
 						className={ styles.resizeHandle }
 						role="separator"

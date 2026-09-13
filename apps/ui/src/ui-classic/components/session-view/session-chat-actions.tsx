@@ -54,6 +54,7 @@ interface SessionChatActionsProps {
 	onNewChat: () => void;
 	onSwitchSession: ( sessionId: string ) => void;
 	sessions: AiSessionSummary[];
+	showNewChat?: boolean;
 }
 
 export function SessionChatActions( {
@@ -63,12 +64,22 @@ export function SessionChatActions( {
 	onNewChat,
 	onSwitchSession,
 	sessions,
+	showNewChat = true,
 }: SessionChatActionsProps ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
 	const [ historyMenuOpen, setHistoryMenuOpen ] = useState( false );
 
+	// Archiving the chat you're on rolls straight into a new one, so it is a
+	// second way to start a chat. It has to follow the same availability rule as
+	// the button, or an exhausted account could archive its way past the lockout.
+	const canArchive = ( session: AiSessionSummary ) =>
+		showNewChat || session.id !== currentSessionId;
+
 	const archiveSession = ( session: AiSessionSummary ) => {
+		if ( ! canArchive( session ) ) {
+			return;
+		}
 		updateSessionMetadata.mutate( {
 			sessionId: session.id,
 			patch: { archived: true },
@@ -82,6 +93,7 @@ export function SessionChatActions( {
 	useEffect( () => {
 		const handleKeyDown = ( event: KeyboardEvent ) => {
 			if (
+				! showNewChat ||
 				event.defaultPrevented ||
 				event.repeat ||
 				isCreatingSession ||
@@ -96,7 +108,7 @@ export function SessionChatActions( {
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ isCreatingSession, onNewChat ] );
+	}, [ isCreatingSession, onNewChat, showNewChat ] );
 
 	return (
 		<div className={ styles.classicComposerFooter }>
@@ -154,6 +166,7 @@ export function SessionChatActions( {
 													size="small"
 													icon={ box }
 													label={ __( 'Archive chat' ) }
+													disabled={ ! canArchive( session ) }
 													onClick={ ( event ) => {
 														event.preventDefault();
 														event.stopPropagation();
@@ -226,32 +239,34 @@ export function SessionChatActions( {
 						</Dialog.Footer>
 					</Dialog.Popup>
 				</Dialog.Root>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						render={
-							<Button
-								type="button"
-								className={ styles.classicComposerTextButton }
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								onClick={ onNewChat }
-								disabled={ isCreatingSession }
-								aria-busy={ isCreatingSession || undefined }
-								aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
-							/>
-						}
-					>
-						<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-						{ sprintf(
-							// translators: %s: keyboard shortcut for starting a new chat.
-							__( 'New chat %s' ),
-							displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
-						) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
+				{ showNewChat ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									type="button"
+									className={ styles.classicComposerTextButton }
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									onClick={ onNewChat }
+									disabled={ isCreatingSession }
+									aria-busy={ isCreatingSession || undefined }
+									aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
+								/>
+							}
+						>
+							<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
+						</Tooltip.Trigger>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ sprintf(
+								// translators: %s: keyboard shortcut for starting a new chat.
+								__( 'New chat %s' ),
+								displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
+							) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : null }
 			</div>
 		</div>
 	);

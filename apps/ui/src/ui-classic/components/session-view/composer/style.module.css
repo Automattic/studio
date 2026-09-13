@@ -16,7 +16,9 @@
 		transparent
 	);
 	--composer-focus-ring: var(--wpds-color-foreground-interactive-brand, #2563eb);
-	--composer-border-radius: 8px 8px 20px 8px;
+	--composer-corner-radius: 8px;
+	--composer-border-radius: var(--composer-corner-radius) var(--composer-corner-radius) 20px
+		var(--composer-corner-radius);
 	--composer-block-padding: var(--wpds-dimension-padding-md);
 	--composer-inline-padding: var(--wpds-dimension-padding-lg);
 
@@ -696,4 +698,50 @@
 
 .dialogDescription {
 	text-wrap: pretty;
+}
+
+.aiCreditsWarningStrip {
+	--ai-credits-strip-fill: color-mix(
+		in srgb,
+		var(--wpds-color-background-surface-caution) 38%,
+		var(--wpds-color-background-surface-neutral-strong)
+	);
+
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	gap: var(--wpds-dimension-padding-md);
+	border-block-end: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-start-start-radius: var(--composer-corner-radius);
+	border-start-end-radius: var(--composer-corner-radius);
+	background: var(--ai-credits-strip-fill);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs)
+		var(--wpds-dimension-padding-xs) var(--composer-inline-padding);
+	color: var(--wpds-color-foreground-content-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.25;
+}
+
+/* Dark needs its own mix rather than a stronger share of the same one: every
+   wpds dark warning *surface* sits within ~1.14 contrast of the app background,
+   so the strip reads as plain grey. The vivid amber exists only as a stroke
+   token, so tint with that instead. Light already reads clearly yellow, and
+   raising the shared mix would have overcooked it. */
+:global(html[data-color-scheme='dark']) .aiCreditsWarningStrip {
+	--ai-credits-strip-fill: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-warning-strong) 16%,
+		var(--wpds-color-background-surface-neutral-strong)
+	);
+}
+
+.aiCreditsWarningStripButton {
+	--wp-ui-button-font-size: 11px;
+	--wp-ui-button-padding-inline: 6px;
+
+	flex-shrink: 0;
+	min-block-size: 24px;
+	padding-block: 2px;
+	white-space: nowrap;
 }

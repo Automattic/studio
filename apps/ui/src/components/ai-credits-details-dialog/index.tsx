@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { Dialog } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
+import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
 import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 
@@ -13,7 +14,11 @@ export function AiCreditsDetailsDialog( {
 	onOpenChange: ( open: boolean ) => void;
 } ) {
 	const connector = useConnector();
+	// The href is only for the browser's own affordances (middle click, copy
+	// link); the click itself goes through the shared entry point so the trip
+	// to checkout is recorded.
 	const addAiCreditsUrl = useAddAiCreditsUrl();
+	const openCheckout = useOpenAiCreditsCheckout();
 
 	const handleLearnMoreClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 		event.preventDefault();
@@ -23,7 +28,7 @@ export function AiCreditsDetailsDialog( {
 	};
 	const handleBuyCreditsClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 		event.preventDefault();
-		void connector.openExternalUrl( addAiCreditsUrl );
+		openCheckout();
 	};
 
 	return (

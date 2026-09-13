@@ -1,3 +1,46 @@
+.trigger {
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);
+
+	gap: var(--wpds-dimension-gap-xs);
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+}
+
+/* Base UI marks the trigger while its menu is open; hold the hover fill so
+   the button reads as the thing the menu belongs to. */
+.trigger[data-popup-open] {
+	background-color: var(--wp-ui-button-background-color-active);
+	color: var(--wp-ui-button-foreground-color-active);
+}
+
+.triggerLabel,
+.triggerLabelCompact {
+	white-space: nowrap;
+}
+
+.triggerLabelCompact {
+	display: none;
+}
+
+/* A narrow session pane has the site button and this one fighting for the
+   same row, so drop to the shorter label before the site name has to give. */
+@container studio-session-header (max-width: 400px) {
+	.triggerLabel {
+		display: none;
+	}
+
+	.triggerLabelCompact {
+		display: inline;
+	}
+}
+
+.chevron {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	fill: currentColor;
+}
+
 .popup {
 	min-width: 180px;
 }

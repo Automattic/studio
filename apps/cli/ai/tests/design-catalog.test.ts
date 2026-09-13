@@ -1,0 +1,95 @@
+import {
+	DESIGN_CATALOG_KINDS,
+	drawDesignPairs,
+	loadDesignCatalog,
+	renderDesignCatalogIndex,
+} from '../design-catalog';
+import { findSkill } from '../skills';
+
+function seededRandom( seed: number ): () => number {
+	let state = seed;
+	return () => {
+		state = ( state * 1664525 + 1013904223 ) % 4294967296;
+		return state / 4294967296;
+	};
+}
+
+describe( 'design catalogs', () => {
+	it( 'holds at least five layout concepts with unique names and build and fallback notes, no fit hints', () => {
+		const concepts = loadDesignCatalog( 'concept' );
+		expect( concepts.length ).toBeGreaterThanOrEqual( 5 );
+		expect( new Set( concepts.map( ( c ) => c.name ) ).size ).toBe( concepts.length );
+		for ( const concept of concepts ) {
+			expect( concept.description, concept.name ).not.toBe( '' );
+			expect( concept.details, concept.name ).toMatch( /^Build: /m );
+			expect( concept.details, concept.name ).toMatch( /^Fallback: /m );
+			expect( concept.details, concept.name ).not.toMatch( /^Fits: /m );
+		}
+	} );
+
+	it( 'holds at least ten artistic directions with unique names and every cue line', () => {
+		const directions = loadDesignCatalog( 'direction' );
+		expect( directions.length ).toBeGreaterThanOrEqual( 10 );
+		expect( new Set( directions.map( ( d ) => d.name ) ).size ).toBe( directions.length );
+		for ( const direction of directions ) {
+			expect( direction.description, direction.name ).not.toBe( '' );
+			for ( const cue of [
+				'Palette',
+				'Type',
+				'Surface',
+				'Shapes',
+				'Imagery',
+				'Motion',
+				'Avoid',
+			] ) {
+				expect( direction.details, `${ direction.name } ${ cue }` ).toMatch(
+					new RegExp( `^${ cue }: `, 'm' )
+				);
+			}
+		}
+	} );
+} );
+
+describe( 'renderDesignCatalogIndex', () => {
+	it( 'lists every catalog entry by name and description, without its notes', () => {
+		const rendered = renderDesignCatalogIndex( findSkill( 'visual-design' )!.body );
+		expect( rendered ).not.toContain( '{{layout-index}}' );
+		expect( rendered ).not.toContain( '{{direction-index}}' );
+		for ( const kind of DESIGN_CATALOG_KINDS ) {
+			for ( const entry of loadDesignCatalog( kind ) ) {
+				expect( rendered ).toContain( `- **${ entry.name }** — ${ entry.description }` );
+				expect( rendered ).not.toContain( entry.details.split( '\n' )[ 0 ] );
+			}
+		}
+	} );
+
+	it( 'leaves skills without placeholders untouched', () => {
+		const skill = findSkill( 'site-spec' );
+		expect( renderDesignCatalogIndex( skill!.body ) ).toBe( skill!.body );
+	} );
+} );
+
+describe( 'drawDesignPairs', () => {
+	const concepts = () => loadDesignCatalog( 'concept' );
+	const directions = () => loadDesignCatalog( 'direction' );
+
+	it( 'keeps valid chosen pairs, fills up to four at random, and never repeats a side', () => {
+		const chosen = [
+			{ layout: concepts()[ 0 ].name, direction: directions()[ 0 ].name },
+			{ layout: 'Nope', direction: directions()[ 1 ].name },
+		];
+		const draw = drawDesignPairs( { count: 4, chosen }, seededRandom( 5 ) );
+		expect( draw.ignored ).toEqual( [ 'Nope' ] );
+		expect( draw.pairs ).toHaveLength( 4 );
+		const layouts = draw.pairs.map( ( p ) => p.layout.name );
+		const looks = draw.pairs.map( ( p ) => p.direction.name );
+		expect( new Set( layouts ).size ).toBe( 4 );
+		expect( new Set( looks ).size ).toBe( 4 );
+		expect( draw.pairs ).toContainEqual(
+			expect.objectContaining( {
+				layout: expect.objectContaining( { name: chosen[ 0 ].layout } ),
+				direction: expect.objectContaining( { name: chosen[ 0 ].direction } ),
+			} )
+		);
+	} );
+} );

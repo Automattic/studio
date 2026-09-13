@@ -54,6 +54,12 @@ export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
 			lines.push( `- Selector: \`${ annotation.selector }\`` );
 		}
 
+		if ( annotation.viewport ) {
+			lines.push(
+				`- Viewport when annotated: ${ annotation.viewport.width }×${ annotation.viewport.height } CSS px`
+			);
+		}
+
 		lines.push( '', '```json', stringifyAnnotation( annotation ), '```', '' );
 	} );
 

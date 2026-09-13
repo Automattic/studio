@@ -256,21 +256,30 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
-				'name',
 				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'name', 'wpVersion' ],
 				},
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'phpVersion' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'wordpressAdmin',
+					label: __( 'WordPress admin' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
+				},
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]

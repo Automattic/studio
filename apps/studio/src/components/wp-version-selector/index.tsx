@@ -1,15 +1,19 @@
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
-import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
+import {
+	getAutomaticUpdatesDescription,
+	getAutomaticUpdatesLabel,
+	getSelectAVersionLabel,
+} from '@studio/common/lib/wordpress-version-labels';
 import { isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-utils';
 import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { isWordPressDevVersion } from 'src/lib/version-utils';
+import { getLatestStableWpVersion, isWordPressDevVersion } from 'src/lib/version-utils';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
@@ -40,6 +44,9 @@ export const WPVersionSelector = ( {
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	// Unique per instance, so two selectors on one screen keep their own radio
+	// group and their own label/description associations.
+	const modeControlName = useId();
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -76,11 +83,137 @@ export const WPVersionSelector = ( {
 		}
 	} );
 
+	// Without a fetched version list there is nothing to pin to, so the control
+	// degrades to a plain dropdown over `fallbackOptions`.
+	const usesUpdateMode = wpVersions.length > 0;
+	const automaticUpdates = selectedValue === DEFAULT_WORDPRESS_VERSION;
+	// Leaving auto-update lands on the version the site already runs, or on the
+	// newest stable release for a site that doesn't exist yet.
+	const pinnedFallback =
+		autoUpdateVersion || getLatestStableWpVersion( wpVersions ) || DEFAULT_WORDPRESS_VERSION;
+
+	// A function, not an element: auto-update is the default in both forms, and
+	// there the dropdown is never rendered.
+	const renderVersionSelect = () => (
+		<SelectControl
+			className={ cx( errorMessage && 'error-select-control' ) }
+			// In update mode the "Select a version" radio introduces the dropdown
+			// visually, but it still needs its own accessible name. Outside it, the
+			// wrapping <label> already names the control.
+			label={ usesUpdateMode ? __( 'Version' ) : undefined }
+			hideLabelFromVision={ usesUpdateMode }
+			disabled={ disabled || isOffline }
+			// While "Automatic updates" is chosen the value is the mode, not a
+			// version, so preview the version the radio below would pin to.
+			value={ usesUpdateMode && automaticUpdates ? pinnedFallback : selectedValue }
+			onChange={ onChange }
+			__next40pxDefaultSize
+			__nextHasNoMarginBottom
+		>
+			{ usesUpdateMode ? (
+				<>
+					<optgroup label={ __( 'Beta & Nightly' ) }>
+						{ betaVersions.map( ( { label, value } ) => (
+							<option key={ value } value={ value }>
+								{ label }
+							</option>
+						) ) }
+					</optgroup>
+					<optgroup label={ __( 'Stable Versions' ) }>
+						{ stableVersions.map( ( { label, value } ) => (
+							<option key={ value } value={ value }>
+								{ label }
+							</option>
+						) ) }
+					</optgroup>
+				</>
+			) : (
+				fallbackOptions.map( ( { label, value } ) => (
+					<option key={ value } value={ value }>
+						{ label }
+					</option>
+				) )
+			) }
+		</SelectControl>
+	);
+
+	if ( usesUpdateMode ) {
+		const automaticId = `${ modeControlName }-automatic`;
+		const automaticDescriptionId = `${ automaticId }-description`;
+		const pinnedId = `${ modeControlName }-pinned`;
+		return (
+			<div
+				role="group"
+				aria-label={ __( 'WordPress version' ) }
+				className="flex flex-1 flex-col gap-1.5 leading-4"
+			>
+				<span className="font-semibold">{ __( 'WordPress version' ) }</span>
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ message }
+					placement="top-start"
+					className="flex flex-1 flex-col"
+				>
+					{ /* `.components-radio-control` sets no gap of its own, so the first
+					     option's description would butt against the second radio.
+					     16px matches the agentic UI's --wpds-dimension-padding-lg. */ }
+					<div className="components-radio-control flex flex-col gap-4 pt-1">
+						<div className="components-radio-control__option">
+							<input
+								id={ automaticId }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ automaticUpdates }
+								disabled={ disabled || isOffline }
+								// Forms mode announces only the radio's label and
+								// description, so the description has to be named here.
+								aria-describedby={ automaticDescriptionId }
+								onChange={ () => onChange( DEFAULT_WORDPRESS_VERSION ) }
+							/>
+							<label htmlFor={ automaticId } className="components-radio-control__label">
+								{ getAutomaticUpdatesLabel() }
+							</label>
+							<p
+								id={ automaticDescriptionId }
+								className="components-radio-control__option-description"
+							>
+								{ /* Naming a version on a pinned site would read as if
+								     auto-update were keeping it there. */ }
+								{ getAutomaticUpdatesDescription(
+									automaticUpdates ? autoUpdateVersion : undefined
+								) }
+							</p>
+						</div>
+						<div className="components-radio-control__option">
+							<input
+								id={ pinnedId }
+								className="components-radio-control__input"
+								type="radio"
+								name={ modeControlName }
+								checked={ ! automaticUpdates }
+								disabled={ disabled || isOffline }
+								onChange={ () => onChange( pinnedFallback ) }
+							/>
+							<label htmlFor={ pinnedId } className="components-radio-control__label">
+								{ getSelectAVersionLabel() }
+							</label>
+							<div className="components-radio-control__option-description max-w-[180px]">
+								{ renderVersionSelect() }
+							</div>
+						</div>
+					</div>
+				</Tooltip>
+			</div>
+		);
+	}
+
 	return (
 		<label className="flex flex-1 flex-col gap-1.5 leading-4">
 			<span className="font-semibold flex items-center gap-0.5">
 				{ __( 'WordPress version' ) }
-				{ selectedValue !== DEFAULT_WORDPRESS_VERSION && (
+				{ ! automaticUpdates && (
 					<Tooltip
 						text={ __( 'WordPress Core automatic updates will be disabled for this site.' ) }
 						placement="top-start"
@@ -96,42 +229,7 @@ export const WPVersionSelector = ( {
 				placement="top-start"
 				className="flex flex-1 flex-col"
 			>
-				<SelectControl
-					className={ cx( errorMessage && 'error-select-control' ) }
-					disabled={ disabled || isOffline }
-					value={ selectedValue }
-					onChange={ onChange }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				>
-					{ wpVersions.length > 0 ? (
-						<>
-							<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
-								{ getAutoUpdateVersionLabel( autoUpdateVersion ) }
-							</option>
-							<optgroup label={ __( 'Beta & Nightly' ) }>
-								{ betaVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
-							<optgroup label={ __( 'Stable Versions' ) }>
-								{ stableVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
-						</>
-					) : (
-						fallbackOptions.map( ( { label, value } ) => (
-							<option key={ value } value={ value }>
-								{ label }
-							</option>
-						) )
-					) }
-				</SelectControl>
+				{ renderVersionSelect() }
 			</Tooltip>
 		</label>
 	);

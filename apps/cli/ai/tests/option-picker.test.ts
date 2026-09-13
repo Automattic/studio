@@ -68,6 +68,20 @@ describe( 'buildOptionPickerLines', () => {
 		] );
 	} );
 
+	it( 'renders checkboxes for multi-select, except on the Other row', () => {
+		const checked = new Set( [ 'Blocks + products' ] );
+		const lines = buildOptionPickerLines( ITEMS, 'Theme replication', 100, checked ).map(
+			stripAnsi
+		);
+		expect( lines ).toEqual( [
+			'  [x] 1. Blocks + products (Recommended)',
+			'         Native, fully editable WordPress blocks. Best launchpad for a redesign.',
+			'→ [ ] 2. Theme replication',
+			'         Pixel-accurate replica of the source.',
+			'  Other (type my own)',
+		] );
+	} );
+
 	it( 'keeps the descriptionless last item on the final line for the Other inline input', () => {
 		const lines = buildOptionPickerLines( ITEMS, '__other__', 100 ).map( stripAnsi );
 		expect( lines[ lines.length - 1 ] ).toBe( '→ Other (type my own)' );

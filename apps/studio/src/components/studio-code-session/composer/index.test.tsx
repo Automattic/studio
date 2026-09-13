@@ -17,6 +17,11 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
+// Covered by its own test file; its RTK Query hooks would need a Redux store.
+vi.mock( './ai-credits-control', () => ( {
+	AiCreditsControl: () => null,
+} ) );
+
 const defaultProps = {
 	busy: false,
 	error: null,
@@ -69,6 +74,24 @@ describe( 'Composer', () => {
 		renderComposer( { sessionId: 'session-2' } );
 
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+	} );
+
+	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
+		const onAnswer = vi.fn();
+		renderComposer( { busy: true, onAnswer } );
+
+		const textarea = screen.getByRole( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+
+		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
+
+		fireEvent.change( textarea, { target: { value: '/annotate' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( defaultProps.onSend ).toHaveBeenCalledTimes( 1 ) );
+		expect( defaultProps.onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
+		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'clears the stored draft after sending', async () => {

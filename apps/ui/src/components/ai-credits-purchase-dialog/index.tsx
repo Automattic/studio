@@ -6,10 +6,9 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { useConnector } from '@/data/core';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useAddAiCreditsUrlBuilder } from '@/hooks/use-add-ai-credits-url';
+import { useOpenAiCreditsCheckout } from '@/hooks/use-open-ai-credits-checkout';
 import styles from './style.module.css';
 
 /**
@@ -28,9 +27,8 @@ export function AiCreditsPurchaseDialog( {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 } ) {
-	const connector = useConnector();
 	const locale = useUserLocale();
-	const buildAddAiCreditsUrl = useAddAiCreditsUrlBuilder();
+	const openCheckout = useOpenAiCreditsCheckout();
 	const { data: pricing } = useStudioAssistantTopUpPricing();
 	const options = pricing?.options ?? [];
 	const [ selectedCredits, setSelectedCredits ] = useState< number | null >( null );
@@ -125,7 +123,7 @@ export function AiCreditsPurchaseDialog( {
 							if ( ! selected ) {
 								return;
 							}
-							void connector.openExternalUrl( buildAddAiCreditsUrl( selected.credits ) );
+							openCheckout( selected.credits );
 							onOpenChange( false );
 						} }
 					>

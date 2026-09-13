@@ -8,7 +8,7 @@ type BetaFeaturesState = {
 };
 
 const initialState: BetaFeaturesState = {
-	features: { remoteSession: false, enableAgenticUi: false },
+	features: { enableAgenticUi: false },
 	loading: false,
 };
 

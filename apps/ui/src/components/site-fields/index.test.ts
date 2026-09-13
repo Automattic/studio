@@ -22,18 +22,28 @@ function autoUpdateLabels( field: ReturnType< typeof wpVersionField > ): string[
 }
 
 describe( 'wpVersionField', () => {
+	it( 'keeps the seed for a pinned site out of the auto-update group', () => {
+		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, { latestValue: '' } );
+
+		// The settings form seeds this value when a pinned site's installed
+		// version can't be read. It has to stay selectable and unoffered, and it
+		// must not claim the site auto-updates — the update-mode radios read the
+		// auto-update group to decide what the picker can offer.
+		expect( optionsOf( field ) ).toContainEqual( {
+			value: DEFAULT_WORDPRESS_VERSION,
+			label: 'Unknown version',
+			group: 'stable',
+			hidden: true,
+		} );
+	} );
+
 	it( 'names the installed version in the auto-update option', () => {
 		const field = wpVersionField( DEFAULT_WORDPRESS_VERSION, VERSIONS, {
 			latestValue: '',
 			autoUpdateVersion: '6.9.7',
 		} );
 
-		expect( autoUpdateLabels( field ) ).toEqual( [
-			'Auto-update (6.9.7)',
-			// The hidden `latest` fallback has to match, or a pinned site whose
-			// files can't be read renders a differently worded option.
-			'Auto-update (6.9.7)',
-		] );
+		expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update (6.9.7)' ] );
 	} );
 
 	it( 'falls back to the bare mode name when the version is unknown', () => {
@@ -44,7 +54,7 @@ describe( 'wpVersionField', () => {
 				autoUpdateVersion,
 			} );
 
-			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update', 'Auto-update' ] );
+			expect( autoUpdateLabels( field ) ).toEqual( [ 'Auto-update' ] );
 		}
 	} );
 
@@ -61,7 +71,7 @@ describe( 'wpVersionField', () => {
 		const options = optionsOf( field );
 
 		expect( options.filter( ( option ) => option.group === 'prerelease' ) ).toEqual( [
-			{ value: '7.2-alpha-63347', label: 'nightly', group: 'prerelease' },
+			{ value: '7.2-alpha-63347', label: 'nightly', group: 'prerelease', current: false },
 		] );
 		expect(
 			options.filter( ( option ) => option.group === 'stable' ).map( ( o ) => o.value )

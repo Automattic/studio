@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { useAppMenuNavigation } from './use-app-menu-navigation';
 import type { ReactNode } from 'react';
@@ -11,7 +10,6 @@ const navigate = vi.fn( async () => undefined );
 const showErrorMessageBox = vi.fn();
 let addSiteListener: () => void = () => undefined;
 let blueprintListener: ( payload: { blueprintPath: string } ) => void = () => undefined;
-let aiCreditsPurchasedListener: () => void = () => undefined;
 
 let queryClient: QueryClient;
 
@@ -55,10 +53,6 @@ describe( 'useAppMenuNavigation', () => {
 				return () => undefined;
 			} ),
 			onOpenSettings: vi.fn( () => () => undefined ),
-			onAiCreditsPurchased: vi.fn( ( listener ) => {
-				aiCreditsPurchasedListener = listener;
-				return () => undefined;
-			} ),
 			readBlueprintFile,
 		} );
 	} );
@@ -85,16 +79,6 @@ describe( 'useAppMenuNavigation', () => {
 			title: 'Deep-linked Blueprint',
 			file: { name: 'deep-link.json' },
 		} );
-	} );
-
-	it( 'opens the usage settings and refreshes the balance after a credits purchase', () => {
-		renderAppMenuNavigation();
-		const invalidateQueries = vi.spyOn( queryClient, 'invalidateQueries' );
-
-		act( () => aiCreditsPurchasedListener() );
-
-		expect( invalidateQueries ).toHaveBeenCalledWith( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
-		expect( navigate ).toHaveBeenCalledWith( { to: '/settings', search: { tab: 'usage' } } );
 	} );
 
 	it( 'shows an error when a Blueprint deep link cannot be read', async () => {

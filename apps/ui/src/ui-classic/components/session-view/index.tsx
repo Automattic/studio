@@ -16,13 +16,16 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { AgenticSigninPrompt } from '@/components/agentic-signin-banner';
 import { OutOfCreditsNotice } from '@/components/ai-access-required-notice';
+import { OpenInMenu } from '@/components/open-in-menu';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
@@ -46,7 +49,7 @@ import { QueuedPrompts } from './queued-prompts';
 import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
-import type { AiSessionSummary } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
@@ -62,17 +65,17 @@ export function isScrolledAwayFromLatest( node: {
 	);
 }
 
-interface SessionHeaderProps {
-	summary: AiSessionSummary;
-}
-
-function SessionHeader( { summary }: SessionHeaderProps ) {
-	const siteName = summary.ownerSiteName;
+function SessionHeader( {
+	siteName,
+	site,
+	effectiveEnvironment,
+}: {
+	siteName?: string;
+	site?: SiteDetails;
+	effectiveEnvironment: 'local' | 'live';
+} ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
-	const { data: sites } = useSites();
-	const site = findAiSessionOwnerSite( sites, summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
 	}
@@ -102,6 +105,11 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? (
+				<div className={ styles.headerActions }>
+					<OpenInMenu key={ site.id } site={ site } />
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -152,13 +160,22 @@ function SessionFrame( {
 				'--app-main-composer-height',
 				`${ composerHeight }px`
 			);
+			// The shelf's start edge lines up with the composer box, wherever
+			// the reading column puts it.
+			const composerBox = composerRef.current?.firstElementChild;
+			if ( composerBox && root ) {
+				const left = composerBox.getBoundingClientRect().left - root.getBoundingClientRect().left;
+				document.documentElement.style.setProperty( '--app-main-composer-left', `${ left }px` );
+			}
 		};
 
 		updateChromeSize();
 
 		// Views without a composer must fall back to the shelf's 0px default.
-		const clearComposerHeight = () =>
+		const clearComposerHeight = () => {
 			document.documentElement.style.removeProperty( '--app-main-composer-height' );
+			document.documentElement.style.removeProperty( '--app-main-composer-left' );
+		};
 
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
@@ -229,6 +246,50 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	);
 }
 
+export function SignedOutSessionView( { siteId }: { siteId: string } ) {
+	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const { enabled, isReady, reason, chatPromptsSignIn } = useAgenticFeatures();
+	// `reason` dips through null while auth reloads, so the signed-out state has
+	// to be latched — the preceding value is never 'signed-out' when it matters.
+	const wasSignedOutRef = useRef( false );
+
+	useEffect( () => {
+		if ( reason === 'signed-out' ) {
+			wasSignedOutRef.current = true;
+		}
+		if ( enabled && wasSignedOutRef.current ) {
+			wasSignedOutRef.current = false;
+			void navigate( { to: '/', replace: true } );
+			return;
+		}
+		if ( isReady && ! enabled && ! chatPromptsSignIn ) {
+			void navigate( {
+				to: '/sites/$siteId/overview',
+				params: { siteId },
+				replace: true,
+			} );
+		}
+	}, [ chatPromptsSignIn, enabled, isReady, navigate, reason, siteId ] );
+
+	return (
+		<SessionFrame
+			header={
+				<SessionHeader siteName={ site?.name } site={ site } effectiveEnvironment="local" />
+			}
+			footer={ <div aria-hidden /> }
+			footerEnd={ site ? <PreviewToggleButton /> : null }
+		>
+			<AgenticSigninPrompt
+				onOpenOverview={ () =>
+					void navigate( { to: '/sites/$siteId/overview', params: { siteId } } )
+				}
+			/>
+		</SessionFrame>
+	);
+}
+
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
@@ -260,6 +321,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const unansweredQuestion = pendingQuestions.find(
+		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	);
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -404,8 +468,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		isFetching: isQuotaFetching,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota();
-	// Out of credits replaces the composer: there is nothing to type into
-	// until the account buys more, so the offer takes the input's place.
+	// Out of credits swaps the composer for the purchase offer, unless a run is
+	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
 
 	// Fade the composer and prompts in only right after the entitlement check
@@ -468,7 +532,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	) {
 		return (
 			<SessionFrame
-				header={ <SessionHeader summary={ data.summary } /> }
+				header={
+					<SessionHeader
+						siteName={ data.summary.ownerSiteName }
+						site={ ownerSite }
+						effectiveEnvironment={ effectiveEnvironment }
+					/>
+				}
 				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
@@ -484,7 +554,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={ <SessionHeader summary={ data.summary } /> }
+			header={
+				<SessionHeader
+					siteName={ data.summary.ownerSiteName }
+					site={ ownerSite }
+					effectiveEnvironment={ effectiveEnvironment }
+				/>
+			}
 			composer={
 				<div
 					className={ clsx(
@@ -506,16 +582,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							/>
 						</div>
 					) : null }
-					{ isOutOfCredits ? (
+					{ isOutOfCredits && ! composerBusy ? (
 						<OutOfCreditsNotice />
 					) : (
 						<Composer
 							ref={ composerRef }
 							busy={ composerBusy }
+							canSubmit={ ! isOutOfCredits }
 							isInterrupting={ isInterrupting }
 							error={ runError }
 							model={ currentModel }
 							onSend={ sendMessage }
+							onAnswer={
+								unansweredQuestion
+									? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
+									: undefined
+							}
 							onInterrupt={ interrupt }
 							sessionId={ sessionId }
 							entries={ data.entries }
@@ -534,13 +616,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onNewChat={ startNewChat }
 						onSwitchSession={ switchSession }
 						sessions={ siteSessionHistory }
+						showNewChat={ ! isOutOfCredits }
 					/>
 				) : null
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite ? (
+			{ isEmpty && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

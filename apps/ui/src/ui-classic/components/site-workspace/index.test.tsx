@@ -6,6 +6,9 @@ vi.mock( '@/ui-classic/components/session-view', () => ( {
 	SessionView: ( { sessionId }: { sessionId: string } ) => (
 		<div data-testid="chat">Chat { sessionId }</div>
 	),
+	SignedOutSessionView: ( { siteId }: { siteId: string } ) => (
+		<div data-testid="signed-out-chat">Sign in for { siteId }</div>
+	),
 } ) );
 
 vi.mock( '@/components/site-overview-view', () => ( {
@@ -28,6 +31,20 @@ vi.mock( '@/components/site-overview-view', () => ( {
 } ) );
 
 describe( 'SiteWorkspace', () => {
+	it( 'renders the signed-out chat surface without creating a session', () => {
+		render(
+			<SiteWorkspace
+				siteId="site-1"
+				activeView="chat"
+				overviewTab="overview"
+				onOverviewTabChange={ vi.fn() }
+			/>
+		);
+
+		expect( screen.getByTestId( 'signed-out-chat' ) ).toHaveTextContent( 'Sign in for site-1' );
+		expect( screen.queryByTestId( 'chat' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps chat and overview mounted while switching the active layer', () => {
 		const onOverviewTabChange = vi.fn();
 		const { rerender } = render(

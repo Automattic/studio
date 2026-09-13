@@ -200,14 +200,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 		* { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 		.highlight {
 			position: absolute; pointer-events: none;
-			border: 2px solid #2563eb;
-			background: rgba(37,99,235,0.1);
+			border: 2px solid #7c3aed;
+			background: rgba(124,58,237,0.12);
 			border-radius: 2px;
 		}
 		.marker {
 			position: absolute; pointer-events: auto; cursor: pointer;
 			width: 22px; height: 22px;
-			background: #2563eb; color: #fff;
+			background: #7c3aed; color: #fff;
 			border: 2px solid #fff;
 			border-radius: 50%;
 			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -215,8 +215,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 			display: inline-flex; align-items: center; justify-content: center;
 			transform: translate(-50%, -50%);
 		}
+		.marker.otherViewport { opacity: 0.55; border-style: dashed; }
 		.popup {
-			position: fixed; width: 320px;
+			position: fixed; width: min(320px, calc(100vw - 16px));
 			background: #1a1a1a; color: #fff;
 			border-radius: 12px;
 			box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
@@ -225,16 +226,23 @@ export const INSPECTOR_PAGE_SCRIPT =
 			display: flex; flex-direction: column; gap: 8px;
 		}
 		.popup .target {
+			display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 			font-size: 11px; color: rgba(255,255,255,0.5);
-			overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		}
+		.popup .target .element {
+			min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		}
+		.popup .target .element code {
+			font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgba(255,255,255,0.7);
+		}
+		.popup .target .viewport { flex: 0 0 auto; white-space: nowrap; }
 		.popup textarea {
 			width: 100%; min-height: 72px; resize: vertical;
 			background: rgba(255,255,255,0.05); color: #fff;
 			border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
 			padding: 8px; font: 13px/1.4 inherit; outline: none;
 		}
-		.popup textarea:focus { border-color: #2563eb; }
+		.popup textarea:focus { border-color: #7c3aed; }
 		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
 		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
 		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
@@ -249,7 +257,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
-		.popup .submit { background: rgba(255,255,255,0.12); color: #fff; }
+		.popup .submit { background: #7c3aed; color: #fff; }
+		.popup .submit:hover:not([disabled]) { background: #6d28d9; }
 		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
 	` +
 	'`' +
@@ -268,7 +277,37 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	const markerNodes = new Map(); /* id -> marker element */
 	let highlightNode = null;
+	let highlightEl = null;
 	let popupNode = null;
+
+	/* Width of the viewport a note was made in vs. now. Beyond this the pin
+	 * is drawn muted so it reads as "from another viewport". */
+	const OTHER_VIEWPORT_TOLERANCE = 48;
+
+	function resolveAnnotationElement( ann ) {
+		if ( ! ann || ! ann.selector ) return null;
+		try {
+			return document.querySelector( ann.selector );
+		} catch {
+			return null;
+		}
+	}
+
+	function positionMarker( marker, ann ) {
+		/* Re-measure from the live element when it can be found: the page
+		 * reflows when the viewport changes, and a rect captured at save
+		 * time would leave the pin stranded. Fall back to the saved rect. */
+		const el = resolveAnnotationElement( ann );
+		const box = el
+			? documentRect( el )
+			: ann.documentRect || ann.boundingBox || { left: 0, top: 0, width: 0, height: 0 };
+		marker.style.left = box.left + box.width + 'px';
+		marker.style.top = box.top + 'px';
+		const madeAt = ann.viewport && ann.viewport.width;
+		const other = !! madeAt && Math.abs( madeAt - window.innerWidth ) > OTHER_VIEWPORT_TOLERANCE;
+		marker.classList.toggle( 'otherViewport', other );
+		marker.title = other ? ann.comment + ' (' + madeAt + 'px wide)' : ann.comment;
+	}
 
 	function persistAnnotations() {
 		window.__studioInspectorState = annotations;
@@ -280,6 +319,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			type: 'state',
 			isPicking,
 			annotationCount: annotations.length,
+			hasUnsavedDraft: hasDraft(),
 		} );
 	}
 
@@ -313,33 +353,64 @@ export const INSPECTOR_PAGE_SCRIPT =
 					const current = annotations.find( ( a ) => a.id === ann.id );
 					if ( current ) openPopupForAnnotation( current );
 				} );
-				/* Use the document-coord rect captured at save time so the
-				 * marker's position is fixed in document space and scrolls
-				 * with the page. No per-scroll repositioning needed. */
-				const box = ann.documentRect || ann.boundingBox || { left: 0, top: 0, width: 0, height: 0 };
-				marker.style.left = ( box.left + box.width ) + 'px';
-				marker.style.top = box.top + 'px';
 				root.appendChild( marker );
 				markerNodes.set( ann.id, marker );
 			}
 			marker.textContent = String( idx + 1 );
-			marker.title = ann.comment;
+			positionMarker( marker, ann );
 		} );
+	}
+
+	/* Markers and the highlight live in document coordinates, which follow
+	 * scrolling for free but not reflow. Re-measure everything after the
+	 * viewport changes (responsive presets, pane resizes) so pins stay on
+	 * their elements and a highlight sized for a wide layout can't stretch
+	 * a narrow one. */
+	let relayoutFrame = 0;
+	function relayout() {
+		if ( relayoutFrame ) return;
+		relayoutFrame = requestAnimationFrame( () => {
+			relayoutFrame = 0;
+			annotations.forEach( ( ann ) => {
+				const marker = markerNodes.get( ann.id );
+				if ( marker ) positionMarker( marker, ann );
+			} );
+			if ( highlightNode && highlightEl ) {
+				placeHighlight( highlightEl );
+			}
+			if ( popupNode && activePopup ) {
+				positionPopup( popupNode, activePopup.target );
+			}
+		} );
+	}
+	window.addEventListener( 'resize', relayout, { signal: teardown.signal } );
+	const reflowObserver =
+		typeof ResizeObserver === 'function' ? new ResizeObserver( relayout ) : null;
+	if ( reflowObserver ) reflowObserver.observe( document.documentElement );
+	teardown.signal.addEventListener( 'abort', () => {
+		if ( reflowObserver ) reflowObserver.disconnect();
+		if ( relayoutFrame ) cancelAnimationFrame( relayoutFrame );
+	} );
+
+	function placeHighlight( el ) {
+		const r = documentRect( el );
+		highlightNode.style.left = r.left + 'px';
+		highlightNode.style.top = r.top + 'px';
+		highlightNode.style.width = r.width + 'px';
+		highlightNode.style.height = r.height + 'px';
 	}
 
 	function showHighlight( el ) {
 		if ( highlightNode ) {
 			highlightNode.remove();
 			highlightNode = null;
+			highlightEl = null;
 		}
 		if ( ! el || ! isPicking ) return;
-		const r = documentRect( el );
+		highlightEl = el;
 		highlightNode = document.createElement( 'div' );
 		highlightNode.className = 'highlight';
-		highlightNode.style.left = r.left + 'px';
-		highlightNode.style.top = r.top + 'px';
-		highlightNode.style.width = r.width + 'px';
-		highlightNode.style.height = r.height + 'px';
+		placeHighlight( el );
 		root.appendChild( highlightNode );
 	}
 
@@ -387,10 +458,12 @@ export const INSPECTOR_PAGE_SCRIPT =
 					comment: trimmed,
 					selector: state.target.selector,
 					tag: state.target.tag,
+					classes: state.target.classes,
 					nearbyText: state.target.nearbyText,
 					boundingBox: state.target.boundingBox,
 					documentRect: state.target.documentRect,
 					computedStyles: state.target.computedStyles,
+					viewport: { width: window.innerWidth, height: window.innerHeight },
 					path: window.location.pathname + window.location.search,
 					url: window.location.href,
 					timestamp: Date.now(),
@@ -426,10 +499,23 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function cancelAnnotations() {
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
 	window.addEventListener(
 		COMMAND_EVENT,
 		( event ) => {
 			const command = event.detail || {};
+			if ( command.type === 'cancel' ) {
+				cancelAnnotations();
+				return;
+			}
 			if ( command.type === 'toggle-picking' ) {
 				togglePicking();
 				return;
@@ -445,20 +531,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 		{ signal: teardown.signal }
 	);
 
-	function buildPopup( state ) {
-		const popup = document.createElement( 'div' );
-		popup.className = 'popup';
-
-		/* Position the popup near the element using viewport coords (it's
-		 * \`position: fixed\` so it stays in the viewport). Falls back to
-		 * centre if the element can't be located. */
-		let el = null;
-		try {
-			el = state.target.selector ? document.querySelector( state.target.selector ) : null;
-		} catch {}
+	/* Position the popup near the element using viewport coords (it's
+	 * \`position: fixed\` so it stays in the viewport). Falls back to
+	 * centre if the element can't be located. Re-run on relayout. */
+	function positionPopup( popup, target ) {
+		const el = resolveAnnotationElement( target );
 		if ( el ) {
 			const r = el.getBoundingClientRect();
-			const popupWidth = 320;
+			const popupWidth = Math.min( 320, window.innerWidth - 16 );
 			const gap = 12;
 			const left = Math.min(
 				Math.max( 8, r.left + r.width / 2 - popupWidth / 2 ),
@@ -470,17 +550,46 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 			popup.style.left = left + 'px';
 			popup.style.top = top + 'px';
+			popup.style.transform = '';
 		} else {
 			popup.style.left = '50%';
 			popup.style.top = '50%';
 			popup.style.transform = 'translate(-50%, -50%)';
 		}
+	}
+
+	function buildPopup( state ) {
+		const popup = document.createElement( 'div' );
+		popup.className = 'popup';
+
+		positionPopup( popup, state.target );
 
 		const target = document.createElement( 'div' );
 		target.className = 'target';
-		target.textContent =
-			state.target.tag +
-			( state.target.nearbyText ? ' — ' + state.target.nearbyText : '' );
+		const element = document.createElement( 'span' );
+		element.className = 'element';
+		const tagCode = document.createElement( 'code' );
+		const classes = state.target.classes || [];
+		tagCode.textContent = '<' + state.target.tag + '>';
+		/* Class lists are often long; keep the line for the content and show
+		 * the full opening tag on hover instead. */
+		tagCode.title =
+			'<' + state.target.tag + ( classes.length ? ' class="' + classes.join( ' ' ) + '"' : '' ) + '>';
+		element.appendChild( tagCode );
+		if ( state.target.nearbyText ) {
+			element.appendChild( document.createTextNode( ' ' + state.target.nearbyText ) );
+		}
+		element.title = state.target.nearbyText || '';
+		target.appendChild( element );
+
+		/* A saved note keeps the viewport it was made in; a new one reports
+		 * the current one, which is what gets stamped on save. */
+		const vp = state.viewport || { width: window.innerWidth, height: window.innerHeight };
+		const viewportSpan = document.createElement( 'span' );
+		viewportSpan.className = 'viewport';
+		viewportSpan.textContent = vp.width + '×' + vp.height;
+		viewportSpan.title = 'Viewport when annotated';
+		target.appendChild( viewportSpan );
 		popup.appendChild( target );
 
 		state.comment = state.comment || '';
@@ -545,6 +654,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		ta.addEventListener( 'input', () => {
 			state.comment = ta.value;
 			syncActions();
+			sendState();
 		} );
 		ta.addEventListener( 'keydown', ( event ) => {
 			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
@@ -579,9 +689,11 @@ export const INSPECTOR_PAGE_SCRIPT =
 		activePopup = {
 			id: ann.id,
 			comment: ann.comment,
+			viewport: ann.viewport,
 			target: {
 				selector: ann.selector,
 				tag: ann.tag,
+				classes: ann.classes,
 				nearbyText: ann.nearbyText,
 				boundingBox: ann.boundingBox,
 				documentRect: ann.documentRect,
@@ -600,6 +712,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			target: {
 				selector: buildSelector( el ),
 				tag: el.tagName.toLowerCase(),
+				classes: Array.from( el.classList || [] ).filter( ( c ) => ! c.startsWith( '__studio-' ) ),
 				nearbyText: nearbyText( el ),
 				boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
 				documentRect: documentRect( el ),
@@ -663,14 +776,16 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 			if ( e.key !== 'Escape' ) return;
 			if ( activePopup ) {
+				e.preventDefault();
+				e.stopPropagation();
 				activePopup = null;
 				persistAnnotations();
+				sendState();
 				render();
 			} else if ( isPicking ) {
-				isPicking = false;
-				hoveredEl = null;
-				persistAnnotations();
-				render();
+				e.preventDefault();
+				e.stopPropagation();
+				send( { type: 'cancel-requested' } );
 			}
 		},
 		{ capture: true, signal: teardown.signal }

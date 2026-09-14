@@ -207,6 +207,68 @@ describe( 'site preview inspector sessions', () => {
 		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
 		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
 	} );
+
+	it( 'locks page scrolling while a note is open and restores it after', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		document.body.style.overflow = 'auto';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		expect( document.body.style.getPropertyValue( 'overflow' ) ).toBe( 'hidden' );
+		expect( document.documentElement.style.getPropertyValue( 'overflow' ) ).toBe( 'hidden' );
+
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
+		);
+		expect( document.body.style.getPropertyValue( 'overflow' ) ).toBe( 'auto' );
+		expect( document.documentElement.style.getPropertyValue( 'overflow' ) ).toBe( '' );
+	} );
+
+	it( 'lets the note be dragged by its element row', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 200, 100 ) );
+		vi.stubGlobal( 'requestAnimationFrame', ( cb: FrameRequestCallback ) => {
+			cb( 0 );
+			return 1;
+		} );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		const popup = root.querySelector( '.popup' ) as HTMLElement;
+		const handle = root.querySelector( '.target' ) as HTMLElement;
+		const startLeft = parseFloat( popup.style.left );
+		const startTop = parseFloat( popup.style.top );
+
+		handle.dispatchEvent(
+			new MouseEvent( 'mousedown', { bubbles: true, button: 0, clientX: 300, clientY: 200 } )
+		);
+		window.dispatchEvent( new MouseEvent( 'mousemove', { clientX: 340, clientY: 230 } ) );
+		expect( popup.style.getPropertyValue( 'transform' ) ).toBe( 'translate(40px, 30px)' );
+		window.dispatchEvent( new MouseEvent( 'mouseup', { clientX: 340, clientY: 230 } ) );
+
+		expect( popup.style.getPropertyValue( 'transform' ) ).toBe( '' );
+		expect( parseFloat( popup.style.left ) ).toBe( startLeft + 40 );
+		expect( parseFloat( popup.style.top ) ).toBe( startTop + 30 );
+		// A re-render (e.g. typing) keeps the dragged position.
+		const ta = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		ta.value = 'note';
+		ta.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		window.dispatchEvent( new Event( 'resize' ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe(
+			startLeft + 40
+		);
+		vi.unstubAllGlobals();
+	} );
 } );
 
 function seedSavedNote() {

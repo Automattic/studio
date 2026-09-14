@@ -57,7 +57,11 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	decodePassword,
+} from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -973,12 +977,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
 			}
-			if ( ( updated.adminUsername ?? 'admin' ) !== ( current.adminUsername ?? 'admin' ) ) {
+			if (
+				( updated.adminUsername ?? DEFAULT_ADMIN_USERNAME ) !==
+				( current.adminUsername ?? DEFAULT_ADMIN_USERNAME )
+			) {
 				options.adminUsername = updated.adminUsername;
 			}
-			if ( ( updated.adminPassword ?? '' ) !== ( current.adminPassword ?? '' ) ) {
+			if (
+				decodeAdminPassword( updated.adminPassword ) !==
+				decodeAdminPassword( current.adminPassword )
+			) {
 				// The CLI expects a plaintext password (it encodes before saving).
-				options.adminPassword = decodePassword( updated.adminPassword ?? '' );
+				options.adminPassword = decodeAdminPassword( updated.adminPassword );
 			}
 			if ( ( updated.adminEmail ?? '' ) !== ( current.adminEmail ?? '' ) ) {
 				options.adminEmail = updated.adminEmail;

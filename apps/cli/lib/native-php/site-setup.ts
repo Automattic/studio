@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+} from '@studio/common/lib/passwords';
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
@@ -167,9 +171,9 @@ export async function installWordPress(
 	}
 
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-	const email = config.adminEmail ?? 'admin@localhost.com';
+	const username = config.adminUsername ?? DEFAULT_ADMIN_USERNAME;
+	const password = decodeAdminPassword( config.adminPassword );
+	const email = config.adminEmail ?? DEFAULT_ADMIN_EMAIL;
 	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
 	// WP-CLI defaults to en_US; Studio's DEFAULT_LOCALE of "en" is not a WP locale code.
 	const locale =

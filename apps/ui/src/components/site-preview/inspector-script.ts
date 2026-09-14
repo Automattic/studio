@@ -20,9 +20,10 @@
  *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
- * anchored at *document* coordinates (viewport rect + scroll offset). They
- * scroll with the page automatically — no scroll listener, no rAF loop. The
- * popup uses `position: fixed` so it stays in the viewport.
+ * anchored at *document* coordinates (viewport rect + scroll offset), so they
+ * scroll with the page for free and are only re-measured on reflow. The popup
+ * and the annotation scrim use `position: fixed` to stay in the viewport; the
+ * scrim's hole is a document rect, so it is re-cut on scroll as well.
  */
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -203,6 +204,15 @@ export const INSPECTOR_PAGE_SCRIPT =
 			border: 2px solid #7c3aed;
 			background: rgba(124,58,237,0.12);
 			border-radius: 2px;
+			z-index: 2;
+		}
+		/* Four viewport-fixed panels around the element being annotated,
+		   so the rest of the page dims and the selection reads as isolated.
+		   Sits above the markers, below the highlight and popup. */
+		.scrim {
+			position: fixed; pointer-events: none;
+			background: rgba(0,0,0,0.52);
+			z-index: 1;
 		}
 		.marker {
 			position: absolute; pointer-events: auto; cursor: pointer;
@@ -217,7 +227,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}
 		.marker.otherViewport { opacity: 0.55; border-style: dashed; }
 		.popup {
-			position: fixed; width: min(320px, calc(100vw - 16px));
+			position: fixed; width: min(320px, calc(100vw - 16px)); z-index: 3;
 			background: #1a1a1a; color: #fff;
 			border-radius: 12px;
 			box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
@@ -276,6 +286,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		: [];
 
 	const markerNodes = new Map(); /* id -> marker element */
+	const scrimNodes = [];
 	let highlightNode = null;
 	let highlightEl = null;
 	let popupNode = null;
@@ -381,9 +392,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 			if ( popupNode && activePopup ) {
 				positionPopup( popupNode, activePopup.target );
 			}
+			syncScrim();
 		} );
 	}
 	window.addEventListener( 'resize', relayout, { signal: teardown.signal } );
+	/* The scrim is viewport-fixed while its hole is a document rect, so it
+	 * has to be re-cut on every scroll, not just on reflow. */
+	window.addEventListener( 'scroll', syncScrim, { capture: true, signal: teardown.signal } );
 	const reflowObserver =
 		typeof ResizeObserver === 'function' ? new ResizeObserver( relayout ) : null;
 	if ( reflowObserver ) reflowObserver.observe( document.documentElement );
@@ -414,6 +429,50 @@ export const INSPECTOR_PAGE_SCRIPT =
 		root.appendChild( highlightNode );
 	}
 
+	function resolveTargetRect( target ) {
+		let el = null;
+		try {
+			el = target.selector ? document.querySelector( target.selector ) : null;
+		} catch {}
+		return el ? documentRect( el ) : target.documentRect || target.boundingBox || null;
+	}
+
+	function syncScrim() {
+		const rect = activePopup ? resolveTargetRect( activePopup.target ) : null;
+		/* A saved note whose element is gone falls back to the rect captured at
+		 * save time, which can be empty. Cutting a zero-size hole would dim the
+		 * whole page with nothing left clear, so skip the scrim instead. */
+		if ( ! rect || rect.width <= 0 || rect.height <= 0 ) {
+			scrimNodes.splice( 0 ).forEach( ( node ) => node.remove() );
+			return;
+		}
+		while ( scrimNodes.length < 4 ) {
+			const node = document.createElement( 'div' );
+			node.className = 'scrim';
+			root.appendChild( node );
+			scrimNodes.push( node );
+		}
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const left = Math.min( vw, Math.max( 0, rect.left - window.scrollX ) );
+		const top = Math.min( vh, Math.max( 0, rect.top - window.scrollY ) );
+		const right = Math.min( vw, Math.max( left, rect.left + rect.width - window.scrollX ) );
+		const bottom = Math.min( vh, Math.max( top, rect.top + rect.height - window.scrollY ) );
+		const panels = [
+			{ left: 0, top: 0, width: vw, height: top },
+			{ left: 0, top: bottom, width: vw, height: vh - bottom },
+			{ left: 0, top, width: left, height: bottom - top },
+			{ left: right, top, width: vw - right, height: bottom - top },
+		];
+		scrimNodes.forEach( ( node, index ) => {
+			const panel = panels[ index ];
+			node.style.left = panel.left + 'px';
+			node.style.top = panel.top + 'px';
+			node.style.width = panel.width + 'px';
+			node.style.height = panel.height + 'px';
+		} );
+	}
+
 	function showPopup() {
 		if ( popupNode ) {
 			popupNode.remove();
@@ -427,6 +486,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function render() {
 		syncMarkers();
+		syncScrim();
 		showHighlight( hoveredEl );
 		showPopup();
 		sendState();
@@ -730,8 +790,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * Picking interactions. Only the highlight is updated on mousemove —
 	 * markers are document-anchored and don't move with mouse position.
-	 * No scroll/resize listeners: markers and highlight live in document
-	 * coordinates and follow the page naturally.
 	 * ---------------------------------------------------------------- */
 	document.addEventListener(
 		'mousemove',

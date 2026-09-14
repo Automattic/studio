@@ -13,7 +13,7 @@ export class SameOriginViolation extends Error {
  * tolerate this; capture used to reject it). Protocol and port are preserved
  * verbatim, so a different protocol/port/host still differs.
  */
-export function canonicalizeOrigin(rawUrl: string): string {
+function canonicalizeOrigin(rawUrl: string): string {
   const parsed = new URL(rawUrl);
   const host = parsed.host.replace(/^www\./i, '');
   return `${parsed.protocol}//${host}`;

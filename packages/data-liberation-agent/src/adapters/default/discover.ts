@@ -1,4 +1,4 @@
-import { fetchSitemapWithDiagnostics, classifyUrl } from '../../lib/extraction/sitemap.js';
+import { fetchSitemap, classifyUrl } from '../../lib/extraction/sitemap.js';
 import { extractMeta, extractTitle, extractNavLinks } from '../../lib/html-extract/index.js';
 import { getPlaywright } from '../../lib/browser-kit/browser-kit.js';
 import type { InventoryUrl } from '../shared.js';
@@ -35,8 +35,7 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
   const langMatch = homepageHtml.match(/<html[^>]+lang=["']([^"']+)["']/i);
   const siteLanguage = langMatch?.[1] || 'en-US';
 
-  const sitemap = await fetchSitemapWithDiagnostics(url);
-  const sitemapUrls = sitemap.urls;
+  const sitemapUrls = await fetchSitemap(url);
   let navigation = extractNavLinks(homepageHtml, normalized);
   let renderedHeaderUrls: string[] = [];
 
@@ -96,6 +95,5 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
     navigation,
     counts,
     urls: inventoryUrls,
-    diagnostics: sitemap.diagnostics,
   };
 }

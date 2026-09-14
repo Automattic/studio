@@ -25,5 +25,4 @@ export interface DefaultInventory {
   navigation: NavLink[];
   counts: Record<string, number>;
   urls: InventoryUrl[];
-  diagnostics?: Array<{ code: string; url: string; reason: string }>;
 }

@@ -73,6 +73,12 @@
 	white-space: normal;
 }
 
+/* The toolbar's 28px buttons already carry air around their icons; the full
+   block padding below them reads heavier than the text's top padding. */
+.shellField .toolbar {
+	padding-bottom: var(--wpds-dimension-padding-sm);
+}
+
 .shellDragging {
 	outline: 2px dashed var(--composer-focus-ring);
 }

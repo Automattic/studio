@@ -2602,6 +2602,127 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 	} );
 
+	it( 'resolves relative manifest Open Graph canonical URLs and rewrites their aliases', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'home.html' ),
+			'<h1>Home</h1><a href="https://example.com/docs/company">Company</a>'
+		);
+		writeFileSync( join( outputDir, 'html', 'team.html' ), '<h1>Team</h1>' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/home': {
+						html: 'html/home.html',
+						metadata: { openGraph: { 'og:url': '/' } },
+					},
+					'https://example.com/docs/team': {
+						html: 'html/team.html',
+						metadata: { openGraph: { 'og:url': './company' } },
+					},
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		expect( JSON.parse( readFileSync( receiptPath, 'utf8' ) ).routes ).toEqual( [
+			{ url: 'https://example.com/home', path: 'website/index.html' },
+			{ url: 'https://example.com/docs/team', path: 'website/docs/team/index.html' },
+		] );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'href="/docs/team/index.html"'
+		);
+	} );
+
+	it( 'resolves relative rendered Open Graph canonical URLs and rewrites their aliases', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'home.html' ),
+			'<meta property="og:url" content="/"><h1>Home</h1><a href="https://example.com/docs/company">Company</a>'
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'team.html' ),
+			'<meta property="og:url" content="./company"><h1>Team</h1>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/home': { html: 'html/home.html' },
+					'https://example.com/docs/team': { html: 'html/team.html' },
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		expect( JSON.parse( readFileSync( receiptPath, 'utf8' ) ).routes ).toEqual( [
+			{ url: 'https://example.com/home', path: 'website/index.html' },
+			{ url: 'https://example.com/docs/team', path: 'website/docs/team/index.html' },
+		] );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'href="/docs/team/index.html"'
+		);
+	} );
+
+	it( 'ignores malformed and unsupported canonical metadata without weakening route collision safety', () => {
+		for ( const canonicalUrl of [ '', 'mailto:hello@example.com', 'https://[invalid' ] ) {
+			const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+			dirs.push( outputDir );
+			mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+			mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+			writeFileSync( join( outputDir, 'html', 'homepage.html' ), '<h1>Home</h1>' );
+			writeFileSync( join( outputDir, 'html', 'about.html' ), '<h1>About</h1>' );
+			writeFileSync( join( outputDir, 'html', 'about-slash.html' ), '<h1>About us</h1>' );
+			writeFileSync(
+				join( outputDir, 'screenshots', 'manifest.json' ),
+				JSON.stringify( {
+					version: 1,
+					entries: {
+						'https://example.com/': { html: 'html/homepage.html' },
+						'https://example.com/about': { html: 'html/about.html' },
+						'https://example.com/about/': {
+							html: 'html/about-slash.html',
+							metadata: { openGraph: { 'og:url': canonicalUrl } },
+						},
+					},
+				} )
+			);
+
+			expect( () =>
+				exportWebsiteCapture( {
+					outputDir,
+					sourceUrl: 'https://example.com/',
+					platform: 'fake',
+					summary: {},
+					failures: [],
+				} )
+			).toThrow( 'Captured routes resolve to the same website path: about/index.html' );
+		}
+	} );
+
 	it( 'prefers the exact source route over stale canonical metadata on another route', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

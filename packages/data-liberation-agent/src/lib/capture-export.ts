@@ -518,6 +518,17 @@ function openGraphUrl( html: string ): string | undefined {
 	return cheerio.load( html )( 'meta[property="og:url"]' ).first().attr( 'content' );
 }
 
+function canonicalMetadataUrl( value: unknown, documentUrl: string ): string | undefined {
+	if ( typeof value !== 'string' || value.trim() === '' ) return undefined;
+	try {
+		const resolved = new URL( value, documentUrl );
+		if ( resolved.protocol !== 'http:' && resolved.protocol !== 'https:' ) return undefined;
+		return resolved.href;
+	} catch {
+		return undefined;
+	}
+}
+
 const RESPONSIVE_DOCUMENT_CSS =
 	'html,body{margin:0;padding:0}.data-liberation-mobile-document{display:none!important}';
 
@@ -1773,7 +1784,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			],
 			hasMobileDocument: mobileHtml !== undefined && documentsDiffer( desktopHtml, mobileHtml ),
 			sections: entry.sections,
-			canonicalUrl: entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
+			canonicalUrl: canonicalMetadataUrl(
+				entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
+				url
+			),
 			jsonLd: sanitized.jsonLd,
 			interactions: entry.interactions,
 			styleHoistContext,

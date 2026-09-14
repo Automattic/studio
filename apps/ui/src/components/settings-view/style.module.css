@@ -13,7 +13,7 @@
 
 .state {
 	padding: var( --wpds-dimension-padding-xl );
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-md );
 }
@@ -25,7 +25,7 @@
 	gap: var( --wpds-dimension-padding-sm );
 	min-height: 54px;
 	border-bottom: 1px solid var( --wpds-color-stroke-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	-webkit-app-region: drag;
 }
 
@@ -41,6 +41,14 @@
 	justify-self: start;
 	align-self: stretch;
 	pointer-events: none;
+}
+
+/* Holding the close button rather than the traffic-light spacer, so it has to
+   take clicks back and mirror .headerEnd's inset. */
+.headerStartClose {
+	align-items: center;
+	pointer-events: auto;
+	padding-inline-start: var( --wpds-dimension-padding-lg );
 }
 
 .headerTabs {
@@ -81,7 +89,7 @@
 .headerTabList
 	:global( [role='tab']:not( [aria-disabled='true'] ):is( :focus-visible, [data-focus-visible] ) ) {
 	box-shadow: none !important;
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand ) !important;
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus ) !important;
 	outline-offset: 2px !important;
 }
 
@@ -99,6 +107,14 @@
 	align-items: center;
 	justify-self: end;
 	padding-inline-end: var( --wpds-dimension-padding-lg );
+}
+
+/* Match the onboarding close button: settings portals outside the
+   [data-ui-mode='classic'] container, so the global compact-density rule
+   that shrinks icons to 16px doesn't reach this svg. */
+.headerClose svg {
+	width: 16px;
+	height: 16px;
 }
 
 .scroll {
@@ -134,13 +150,13 @@
 
 .instructionsCounter {
 	font-size: var( --wpds-typography-font-size-sm );
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 }
 
 .instructionsError {
 	margin: 0;
 	font-size: var( --wpds-typography-font-size-sm );
-	color: var( --wpds-color-fg-content-error );
+	color: var( --wpds-color-foreground-content-error );
 }
 
 .preferenceSectionGroup {
@@ -152,12 +168,12 @@
 		var( --wpds-dimension-padding-xl );
 	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 8px;
-	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-weak ) 56%, transparent );
 }
 
 .preferenceSectionHeading {
 	margin: 0 0 var( --wpds-dimension-padding-md );
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-md );
@@ -197,16 +213,15 @@
 
 .preferenceText h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
 	line-height: var( --wpds-typography-line-height-sm );
-	white-space: nowrap;
 }
 
 .preferenceText p {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
@@ -218,6 +233,29 @@
 	inline-size: 100%;
 }
 
+/* Description and toggle share the top line; the key field spans both columns
+   underneath. */
+.apiKeyRow {
+	row-gap: var( --wpds-dimension-padding-md );
+}
+
+.apiKeyControls {
+	grid-column: 1 / -1;
+}
+
+.apiKeyControls :global( .components-base-control ) {
+	max-inline-size: 420px;
+}
+
+/* Match the error message below the field. The accent overrides keep the
+   border and focus ring red while the input is focused. */
+.apiKeyControlsError :global( input.components-text-control__input ) {
+	--wp-admin-theme-color: var( --wpds-color-stroke-surface-error-strong );
+	--wp-components-color-accent: var( --wpds-color-stroke-surface-error-strong );
+
+	border-color: var( --wpds-color-stroke-surface-error-strong );
+}
+
 .appearancePicker {
 	position: relative;
 	display: grid;
@@ -226,8 +264,8 @@
 	gap: 0;
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-interactive-neutral-weak );
-	color: var( --wpds-color-fg-interactive-neutral );
+	background: var( --wpds-color-background-interactive-neutral-weak );
+	color: var( --wpds-color-foreground-interactive-neutral );
 	font-family: var( --wpds-typography-font-family-body );
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: 1;
@@ -242,20 +280,28 @@
 	inline-size: calc( 100% / 3 );
 	border: 1px solid var( --wpds-color-stroke-interactive-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-interactive-neutral-weak );
+	background: var( --wpds-color-background-interactive-neutral-weak );
 	pointer-events: none;
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * 100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * 100% + var( --appearance-edge-shift, 0px ) )
+	);
 }
 
 /* The indicator is positioned with a logical inset but animated with a
    physical translateX, so RTL needs the sign flipped to slide toward the
    selected option instead of away from it. */
 .appearancePicker:dir( rtl )::before {
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * -100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * -100% - var( --appearance-edge-shift, 0px ) )
+	);
 }
 
+/* At the first/last segment, slide the indicator one border-width outward so
+   its border overlays the container's, leaving a single continuous edge
+   instead of a double border. */
 .appearancePicker[data-active-index='0'] {
 	--appearance-active-index: 0;
+	--appearance-edge-shift: calc( var( --wpds-border-width-xs ) * -1 );
 }
 
 .appearancePicker[data-active-index='1'] {
@@ -264,6 +310,7 @@
 
 .appearancePicker[data-active-index='2'] {
 	--appearance-active-index: 2;
+	--appearance-edge-shift: var( --wpds-border-width-xs );
 }
 
 @media not ( prefers-reduced-motion ) {
@@ -280,7 +327,7 @@
 	border: 0;
 	border-radius: var( --wpds-border-radius-sm );
 	background: transparent;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font: inherit;
 	/* Match SelectControl's trigger text so all controls in a card read the
 	   same size. */
@@ -291,12 +338,12 @@
 
 .appearanceButton:hover,
 .appearanceButtonActive {
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 }
 
 .appearanceButton:focus-visible,
 .selectControl:focus-visible {
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 }
 
@@ -343,6 +390,15 @@
 	min-width: 0;
 }
 
+.accountButtons {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var( --wpds-dimension-padding-sm );
+	flex-wrap: wrap;
+	flex-shrink: 0;
+}
+
 .accountIdentity {
 	display: flex;
 	align-items: center;
@@ -367,7 +423,7 @@
 
 .accountDetails h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-sm );
@@ -375,29 +431,28 @@
 
 .accountDetails p {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 	overflow-wrap: anywhere;
 }
 
+/* Mirror the InputLayout recipe SelectControl triggers use (height, surface,
+   border, inline padding) so the picker reads as one of the standard Settings
+   controls. */
 .pathPickerButton {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var( --wpds-dimension-padding-lg );
 	inline-size: 240px;
 	max-inline-size: 100%;
-	min-block-size: 36px;
-	padding: 0 var( --wpds-dimension-padding-lg );
+	block-size: 40px;
+	padding: 0 var( --wpds-dimension-padding-md );
 	border: var( --wpds-border-width-xs ) solid var( --wpds-color-stroke-interactive-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-background-interactive-neutral-weak );
+	color: var( --wpds-color-foreground-interactive-neutral );
 	font-family: var( --wpds-typography-font-family-body );
-	/* Match SelectControl's trigger text so all controls in a card read the
-	   same size. */
 	font-size: var( --wpds-typography-font-size-md );
 	line-height: var( --wpds-typography-line-height-sm );
 	text-align: start;
@@ -409,7 +464,7 @@
 }
 
 .pathPickerButton:focus-visible {
-	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus-brand );
+	outline: var( --wpds-border-width-focus ) solid var( --wpds-color-stroke-focus );
 	outline-offset: 2px;
 }
 
@@ -422,12 +477,7 @@
 }
 
 .pathPickerPlaceholder {
-	color: var( --wpds-color-fg-content-neutral-weak );
-}
-
-.pathPickerIcon {
-	flex-shrink: 0;
-	fill: currentColor;
+	color: var( --wpds-color-foreground-interactive-neutral-disabled );
 }
 
 .cliHeader {
@@ -442,21 +492,21 @@
 }
 
 .cliHeader :global( .components-form-toggle .components-form-toggle__track ) {
-	background-color: var( --wpds-color-bg-track-neutral-weak );
+	background-color: var( --wpds-color-background-track-neutral-weak );
 	border-color: var( --wpds-color-stroke-interactive-neutral );
 }
 
 .cliHeader :global( .components-form-toggle .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-bg-thumb-neutral-weak );
+	background-color: var( --wpds-color-background-thumb-neutral-weak );
 }
 
 .cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	background-color: var( --wpds-color-bg-interactive-brand-strong );
+	background-color: var( --wpds-color-background-interactive-brand-strong );
 	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
 .cliHeader :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-fg-interactive-brand-strong );
+	background-color: var( --wpds-color-foreground-interactive-brand-strong );
 }
 
 .cliHeader
@@ -464,8 +514,8 @@
 		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
 	) {
 	box-shadow:
-		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-bg-surface-neutral ),
-		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus-brand );
+		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-background-surface-neutral ),
+		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus );
 }
 
 .cliToggleTrigger {
@@ -486,7 +536,7 @@
 .cliDescription {
 	max-inline-size: 460px;
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
@@ -512,7 +562,7 @@
 }
 
 .shortcutName {
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 400;
 	line-height: var( --wpds-typography-line-height-sm );
@@ -536,8 +586,8 @@
 	padding: 0 var( --wpds-dimension-padding-xs );
 	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: var( --wpds-border-radius-sm );
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-family: var( --wpds-typography-font-family-body );
 	font-size: var( --wpds-typography-font-size-xs );
 	font-weight: 500;
@@ -547,14 +597,14 @@
 .errorMessage {
 	margin-block-end: var( --wpds-dimension-padding-md );
 	padding: var( --wpds-dimension-padding-sm ) var( --wpds-dimension-padding-md );
-	border: 1px solid color-mix( in srgb, var( --wpds-color-fg-content-error ) 35%, transparent );
+	border: 1px solid color-mix( in srgb, var( --wpds-color-foreground-content-error ) 35%, transparent );
 	border-radius: 6px;
 	background: color-mix(
 		in srgb,
-		var( --wpds-color-fg-content-error ) 8%,
-		var( --wpds-color-bg-surface-neutral-strong )
+		var( --wpds-color-foreground-content-error ) 8%,
+		var( --wpds-color-background-surface-neutral-strong )
 	);
-	color: var( --wpds-color-fg-content-error );
+	color: var( --wpds-color-foreground-content-error );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
@@ -579,7 +629,7 @@
 		var( --wpds-dimension-padding-xl );
 	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 8px;
-	background: color-mix( in srgb, var( --wpds-color-bg-surface-neutral-weak ) 56%, transparent );
+	background: color-mix( in srgb, var( --wpds-color-background-surface-neutral-weak ) 56%, transparent );
 }
 
 .settingsPanelHeader {
@@ -590,7 +640,7 @@
 
 .settingsPanelHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-lg );
 	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-md );
@@ -598,7 +648,7 @@
 
 .settingsPanelHeader p {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-md );
 }
@@ -641,21 +691,21 @@
 }
 
 .skillName {
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-sm );
 	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .skillDescription {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .sectionIntro {
 	margin: 0 0 var( --wpds-dimension-padding-lg );
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-md );
 }
@@ -670,8 +720,8 @@
 	padding-inline-end: calc( var( --wpds-dimension-padding-xl ) + 32px );
 	border: 1px solid var( --wpds-color-stroke-surface-neutral );
 	border-radius: 6px;
-	background: var( --wpds-color-bg-surface-neutral );
-	color: var( --wpds-color-fg-content-neutral );
+	background: var( --wpds-color-background-surface-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-family: var(
 		--wpds-typography-font-family-mono,
 		ui-monospace,
@@ -693,21 +743,21 @@
 }
 
 .toggleControl :global( .components-form-toggle .components-form-toggle__track ) {
-	background-color: var( --wpds-color-bg-track-neutral-weak );
+	background-color: var( --wpds-color-background-track-neutral-weak );
 	border-color: var( --wpds-color-stroke-interactive-neutral );
 }
 
 .toggleControl :global( .components-form-toggle .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-bg-thumb-neutral-weak );
+	background-color: var( --wpds-color-background-thumb-neutral-weak );
 }
 
 .toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__track ) {
-	background-color: var( --wpds-color-bg-interactive-brand-strong );
+	background-color: var( --wpds-color-background-interactive-brand-strong );
 	border-color: var( --wpds-color-stroke-interactive-brand );
 }
 
 .toggleControl :global( .components-form-toggle.is-checked .components-form-toggle__thumb ) {
-	background-color: var( --wpds-color-fg-interactive-brand-strong );
+	background-color: var( --wpds-color-foreground-interactive-brand-strong );
 }
 
 .toggleControl
@@ -715,8 +765,8 @@
 		.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track
 	) {
 	box-shadow:
-		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-bg-surface-neutral ),
-		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus-brand );
+		0 0 0 var( --wpds-border-width-focus ) var( --wpds-color-background-surface-neutral ),
+		0 0 0 calc( 2 * var( --wpds-border-width-focus ) ) var( --wpds-color-stroke-focus );
 }
 
 @media ( max-width: 640px ) {
@@ -730,10 +780,6 @@
 	.accountSummary {
 		align-items: flex-start;
 		flex-direction: column;
-	}
-
-	.preferenceText h2 {
-		white-space: normal;
 	}
 
 	.skillRow {
@@ -767,7 +813,7 @@
 }
 
 .wapuuScoreValue {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
@@ -777,15 +823,15 @@
 .usageDisabled .usageSectionHeader h2,
 .usageDisabled .previewUsageText,
 .usageDisabled .usageSection p {
-	color: var( --wpds-color-fg-interactive-neutral-disabled );
+	color: var( --wpds-color-foreground-interactive-neutral-disabled );
 }
 
 .usageDisabled .progressTrack {
-	background: var( --wpds-color-bg-interactive-neutral-weak-disabled );
+	background: var( --wpds-color-background-interactive-neutral-weak-disabled );
 }
 
 .usageDisabled .progressValue {
-	background: var( --wpds-color-fg-interactive-neutral-disabled );
+	background: var( --wpds-color-foreground-interactive-neutral-disabled );
 }
 
 /* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
@@ -796,11 +842,11 @@
 	border-radius: 999px;
 	background: repeating-linear-gradient(
 			135deg,
-			color-mix( in srgb, var( --wpds-color-fg-interactive-neutral-disabled ) 22%, transparent ) 0
+			color-mix( in srgb, var( --wpds-color-foreground-interactive-neutral-disabled ) 22%, transparent ) 0
 				3px,
 			transparent 3px 8px
 		),
-		var( --wpds-color-bg-interactive-neutral-weak-disabled );
+		var( --wpds-color-background-interactive-neutral-weak-disabled );
 }
 
 .usageSection {
@@ -826,7 +872,7 @@
 
 .usageSectionHeader h2 {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral );
+	color: var( --wpds-color-foreground-content-neutral );
 	font-size: var( --wpds-typography-font-size-md );
 	font-weight: 600;
 	line-height: var( --wpds-typography-line-height-sm );
@@ -834,13 +880,13 @@
 
 .usageSection p {
 	margin: 0;
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .previewUsageText {
-	color: var( --wpds-color-fg-content-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral-weak );
 	font-size: var( --wpds-typography-font-size-sm );
 	line-height: var( --wpds-typography-line-height-sm );
 }
@@ -856,7 +902,71 @@
 .progressValue {
 	block-size: 100%;
 	border-radius: inherit;
-	background: var( --wpds-color-fg-interactive-brand );
+	background: var( --wpds-color-foreground-content-neutral );
+}
+
+/* Escalation colors for the AI credits meter (80% / 90% / exhausted). The
+   filters brighten the wpds caution/warning weak tokens toward the design's
+   yellow and orange — taken as-is from the usage-interfaces exploration. */
+.progressValueWarning {
+	background: var( --wpds-color-foreground-content-caution-weak );
+	filter: saturate( 2 ) brightness( 1.8 );
+}
+
+.progressValueCritical {
+	background: var( --wpds-color-foreground-content-warning-weak );
+	filter: saturate( 1.6 ) brightness( 1.35 );
+}
+
+.progressValueExhausted {
+	background: var( --wpds-color-background-interactive-error-strong );
+}
+
+.creditMeter {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.creditMeterSummary {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditMeterCredits {
+	color: var( --wpds-color-foreground-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditMeterAvailable {
+	flex: none;
+	color: var( --wpds-color-foreground-content-neutral );
+	font-size: var( --wpds-typography-font-size-sm );
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+.creditCallout {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var( --wpds-dimension-padding-md );
+}
+
+.creditCallout > :first-child {
+	flex: none;
+}
+
+.creditCalloutText {
+	min-width: 0;
+	color: var( --wpds-color-foreground-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 .previewActionsButton {
@@ -867,11 +977,33 @@
 	align-self: flex-start;
 }
 
+.aiCreditsHeading {
+	display: flex;
+	align-items: center;
+	gap: var( --wpds-dimension-padding-xs );
+}
+
+.aiCreditsDetailsButton {
+	flex: none;
+}
+
+.aiCreditsDetailsButton svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+.creditBalances {
+	display: flex;
+	flex-direction: column;
+	gap: var( --wpds-dimension-padding-xs );
+	font-variant-numeric: tabular-nums;
+}
+
 .aiCreditsTrack {
 	position: relative;
 	background: color-mix(
 		in srgb,
-		var( --wpds-color-fg-interactive-brand ) 14%,
+		var( --wpds-color-foreground-interactive-brand ) 14%,
 		var( --wpds-color-stroke-surface-neutral )
 	);
 }
@@ -882,12 +1014,12 @@
 	border-radius: inherit;
 	background: linear-gradient(
 			90deg,
-			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 32%, transparent ),
-			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 14%, transparent )
+			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 32%, transparent ),
+			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 14%, transparent )
 		),
 		repeating-linear-gradient(
 			135deg,
-			color-mix( in srgb, var( --wpds-color-fg-interactive-brand ) 18%, transparent ) 0 8px,
+			color-mix( in srgb, var( --wpds-color-foreground-interactive-brand ) 18%, transparent ) 0 8px,
 			transparent 8px 16px
 		);
 }

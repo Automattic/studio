@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -24,22 +23,22 @@ export const auditSeoTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
 			const urlPath = args.path ?? '/';
 
-			emitProgress( `Auditing SEO of ${ siteUrl }${ urlPath }…` );
+			context.onProgress( `Auditing SEO of ${ siteUrl }${ urlPath }…` );
 
 			const result = await auditSeo( siteUrl, urlPath );
 
 			if ( result.error ) {
-				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				context.onProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
 				throw new Error( `SEO audit failed: ${ result.error }` );
 			}
 
-			emitProgress( `SEO audit complete for ${ urlPath }` );
+			context.onProgress( `SEO audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {

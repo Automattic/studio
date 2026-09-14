@@ -1,4 +1,5 @@
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
+import { getTracksOriginEnv } from 'src/modules/cli/lib/execute-command';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -23,6 +24,8 @@ const runManager = createAgentRunManager( {
 	cliBinary: getCliPath(),
 	nodeBinary: getBundledNodeBinaryPath(),
 	surface: 'desktop',
+	// Resolved per run; without it the CLI child attributes desktop chat to `channel: studio-cli`.
+	getTracksOrigin: getTracksOriginEnv,
 	emit: ( output ) => {
 		const webContents = runWebContents.get( output.runId );
 		if ( webContents && ! webContents.isDestroyed() ) {

@@ -100,6 +100,46 @@ describe( 'PreviewSplitFrame', () => {
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
 	} );
 
+	it( 'gives the whole frame to the preview in fullscreen', async () => {
+		const preview = () => <aside aria-label="Site preview" />;
+		const { rerender } = render(
+			<PreviewSplitFrame previewOpen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		const root = getFrameRoot();
+		await waitFor( () => expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' ) );
+
+		rerender(
+			<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+		// Nothing left to drag once the content column is gone.
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument()
+		);
+		// The chat stays mounted but out of reach until the slide finishes.
+		await waitFor( () =>
+			expect( screen.getByTestId( 'content' ).parentElement ).toHaveAttribute(
+				'aria-hidden',
+				'true'
+			)
+		);
+
+		// Leaving fullscreen restores the split the user had before.
+		rerender(
+			<PreviewSplitFrame previewOpen preview={ preview }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+	} );
+
 	it( 'keeps preview space reserved when the first mount measurement is zero', () => {
 		frameWidth = 0;
 
@@ -112,6 +152,60 @@ describe( 'PreviewSplitFrame', () => {
 		const root = getFrameRoot();
 		expect( root ).toHaveStyle( '--preview-frame-content-width: calc(100% - 520px)' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+	} );
+
+	it( 'reports the measured split width', async () => {
+		frameWidth = 639;
+		const onContainerWidthChange = vi.fn();
+
+		render(
+			<PreviewSplitFrame
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+				onContainerWidthChange={ onContainerWidthChange }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () => expect( onContainerWidthChange ).toHaveBeenLastCalledWith( 639 ) );
+	} );
+
+	it( 'reports no split width while the preview is closed', async () => {
+		const onContainerWidthChange = vi.fn();
+		const preview = () => <aside aria-label="Site preview" />;
+		render(
+			<PreviewSplitFrame
+				previewOpen={ false }
+				preview={ preview }
+				onContainerWidthChange={ onContainerWidthChange }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () => expect( onContainerWidthChange ).toHaveBeenLastCalledWith( null ) );
+	} );
+
+	it( 'reports no split width while the preview is fullscreen', async () => {
+		frameWidth = 420;
+		const onContainerWidthChange = vi.fn();
+
+		render(
+			<PreviewSplitFrame
+				previewOpen
+				previewFullscreen
+				preview={ () => <aside aria-label="Site preview" /> }
+				onContainerWidthChange={ onContainerWidthChange }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		await waitFor( () =>
+			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 0px' )
+		);
+		expect( onContainerWidthChange ).toHaveBeenLastCalledWith( null );
 	} );
 
 	describe( 'keyboard and pointer resizing', () => {
@@ -137,8 +231,8 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'expands the preview to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '720' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '280' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '680' );
+			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '320' );
 		} );
 
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {

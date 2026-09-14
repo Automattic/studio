@@ -1,7 +1,7 @@
 import path from 'path';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { getProgressCallback, setProgressCallback } from 'cli/logger';
+import { Logger, type ProgressCallback } from 'cli/logger';
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	const config = await readCliConfig();
@@ -53,7 +53,10 @@ export async function captureConsoleOutput( fn: () => Promise< void > ): Promise
 	return captured.trim();
 }
 
-export async function captureCommandOutput( fn: () => Promise< void > ): Promise< {
+export async function captureCommandOutput(
+	fn: ( logger: Logger< string > ) => Promise< void >,
+	onProgress?: ProgressCallback
+): Promise< {
 	consoleOutput: string;
 	progressOutput: string;
 	exitCode: number | undefined;
@@ -63,7 +66,6 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	let thrownError: unknown;
 	const originalConsoleLog = console.log;
 	const originalConsoleTable = console.table;
-	const previousCallback = getProgressCallback();
 	const previousExitCode = process.exitCode;
 
 	console.log = ( ...args: unknown[] ) => {
@@ -73,25 +75,26 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 		consoleOutput += args.map( String ).join( ' ' ) + '\n';
 	};
 	process.exitCode = undefined;
-	setProgressCallback( ( message, update ) => {
-		// `update: true` is a rolling refresh of the same line (e.g. "(74%)" →
-		// "(75%)"); coalesce so progressOutput only keeps the latest value.
-		if ( update && progressMessages.length > 0 ) {
-			progressMessages[ progressMessages.length - 1 ] = message;
-		} else {
-			progressMessages.push( message );
-		}
-		previousCallback?.( message, update );
+	const logger = new Logger< string >( {
+		onProgress: ( message, update ) => {
+			// `update: true` is a rolling refresh of the same line (e.g. "(74%)" →
+			// "(75%)"); coalesce so progressOutput only keeps the latest value.
+			if ( update && progressMessages.length > 0 ) {
+				progressMessages[ progressMessages.length - 1 ] = message;
+			} else {
+				progressMessages.push( message );
+			}
+			onProgress?.( message, update );
+		},
 	} );
 
 	try {
-		await fn();
+		await fn( logger );
 	} catch ( error ) {
 		thrownError = error;
 	} finally {
 		console.log = originalConsoleLog;
 		console.table = originalConsoleTable;
-		setProgressCallback( previousCallback );
 	}
 
 	const exitCode = process.exitCode;

@@ -29,6 +29,7 @@ export default function UserSettings() {
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
+	const [ openRequestId, setOpenRequestId ] = useState( 0 );
 
 	const [ deleteAllSnapshots, { isLoading: isDeletingAllSnapshots } ] = useDeleteAllSnapshots();
 
@@ -41,7 +42,8 @@ export default function UserSettings() {
 
 	useIpcListener( 'user-settings', ( _event, { tabName } ) => {
 		setSelectedTabName( tabName );
-		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
+		setNeedsToOpenUserSettings( true );
+		setOpenRequestId( ( id ) => id + 1 );
 	} );
 
 	const onRemoveSnapshots = useCallback( async () => {
@@ -114,6 +116,10 @@ export default function UserSettings() {
 					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0', 'app-no-drag-region' ) }
 				>
 					<TabPanel
+						// `initialTabName` is only read on mount, so remount whenever a
+						// new request comes in — otherwise asking for a tab while the
+						// modal is already open leaves the previous one on screen.
+						key={ openRequestId }
 						className="w-full"
 						tabs={ tabs }
 						orientation="horizontal"

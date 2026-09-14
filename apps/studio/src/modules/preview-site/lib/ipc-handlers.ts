@@ -89,7 +89,10 @@ export async function setSnapshot(
 
 export async function deleteAllSnapshots() {
 	return new Promise< void >( ( resolve, reject ) => {
-		const [ cliEventEmitter ] = executeCliCommand( [ 'preview', 'delete', '--all' ] );
+		const [ cliEventEmitter ] = executeCliCommand( [ 'preview', 'delete', '--all' ], {
+			output: 'capture',
+			logPrefix: 'preview',
+		} );
 		cliEventEmitter.on( 'error', ( error ) => reject( error ) );
 		cliEventEmitter.on( 'failure', ( error ) => reject( error ) );
 		cliEventEmitter.on( 'success', () => resolve() );

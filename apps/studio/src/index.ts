@@ -41,15 +41,10 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import {
-	createMainWindow,
-	getCurrentRendererUrl,
-	getMainWindow,
-	getPreferredStudioUiMode,
-	setAgenticUiEnabled,
-} from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -58,7 +53,6 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -116,7 +110,6 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
-let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
 const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
 const YOUTUBE_EMBED_URL_PATTERNS = [
@@ -217,6 +210,34 @@ async function appBoot() {
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
+				event.preventDefault();
+			}
+		} );
+		// Electron never renders Chromium's `beforeunload` dialog — it emits this
+		// event instead, and cancels the unload unless we call `preventDefault()`.
+		// Without it, unsaved-changes guards (the block editor's, most visibly)
+		// block navigation in the preview with no way for the user to respond.
+		contents.on( 'will-prevent-unload', ( event ) => {
+			if ( ! isSitePreviewWebview ) {
+				return;
+			}
+
+			const LEAVE_BUTTON_INDEX = 0;
+			const STAY_BUTTON_INDEX = 1;
+			const options: MessageBoxSyncOptions = {
+				type: 'question',
+				message: __( 'Leave page with unsaved changes?' ),
+				detail: __( 'Changes you made may not be saved.' ),
+				buttons: [ __( 'Leave' ), __( 'Stay' ) ],
+				cancelId: STAY_BUTTON_INDEX,
+				defaultId: STAY_BUTTON_INDEX,
+			};
+			const parentWindow = BrowserWindow.getFocusedWindow();
+			const clickedButtonIndex = parentWindow
+				? dialog.showMessageBoxSync( parentWindow, options )
+				: dialog.showMessageBoxSync( options );
+
+			if ( clickedButtonIndex === LEAVE_BUTTON_INDEX ) {
 				event.preventDefault();
 			}
 		} );
@@ -423,16 +444,12 @@ async function appBoot() {
 		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
 		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
 		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
-			channel: 'studio-ui',
-			ui_version: getPreferredStudioUiMode() === 'agentic' ? 'v2' : 'v1',
 			is_first_launch: ! userData.lastBumpStats,
 		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
 		await autoInstallLinuxCliIfNeeded();
-
-		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
 
 		finishedInitialization = true;
 	} );
@@ -568,7 +585,6 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

@@ -1,6 +1,7 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -11,7 +12,7 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
-export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
+export type { QuitSitesBehavior };
 
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
@@ -57,12 +58,23 @@ export interface UserData {
 	// Whether chat/agent features are offered inside the new UI. Distinct from
 	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
 	agenticFeaturesEnabled?: boolean;
+	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
+	onboardingHints?: OnboardingHintsState;
 }
 
 export interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;
+}
+
+// Mirror of the renderer's OnboardingHintsState (apps/ui/src/data/core/types.ts).
+// Persisted verbatim; the desktop never inspects it, so a structural shape keeps
+// the two sides decoupled.
+export interface OnboardingHintsState {
+	tourCompletedVersion?: number;
+	tourDismissedVersion?: number;
+	migratedFromClassic?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

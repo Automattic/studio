@@ -30,16 +30,6 @@ declare module '*.svg' {
 	export default dataUri;
 }
 
-declare module '*.riv' {
-	const dataUri: string;
-	export default dataUri;
-}
-
-declare module '*.riv?url' {
-	const url: string;
-	export default url;
-}
-
 declare module '*.css';
 
 declare module '*.css?url' {

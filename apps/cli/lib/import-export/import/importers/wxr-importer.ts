@@ -9,6 +9,7 @@ import {
 	getBundledWxrImportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { ensureDir, Importer, ImporterResult } from './importer';
@@ -37,7 +38,11 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 
 		const wxrFile = this.backup.wxrFiles?.[ 0 ];
 		if ( ! wxrFile ) {
-			const error = new Error( __( 'No WordPress export (.xml) file found to import.' ) );
+			const error = new LoggerError(
+				__( 'No WordPress export (.xml) file found to import.' ),
+				undefined,
+				'wxr_import'
+			);
 			this.emit( ImportEvents.IMPORT_ERROR, error.message );
 			throw error;
 		}
@@ -82,7 +87,11 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 				console.error( __( 'Error during WordPress export import:' ), stderr );
 			}
 			if ( exitCode !== 0 ) {
-				throw new Error( sprintf( __( 'WordPress export import failed: %s' ), stderr ) );
+				throw new LoggerError(
+					sprintf( __( 'WordPress export import failed: %s' ), stderr ),
+					undefined,
+					'wxr_import'
+				);
 			}
 
 			this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );

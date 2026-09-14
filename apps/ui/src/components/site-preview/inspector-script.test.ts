@@ -1,0 +1,314 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+} from './inspector-script';
+
+describe( 'site preview inspector sessions', () => {
+	afterEach( () => {
+		// Without this the previous inspector's document listeners stay live and
+		// answer the next test's commands alongside the instance under test.
+		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
+		vi.restoreAllMocks();
+		document.body.replaceChildren();
+		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
+	} );
+
+	it( 'saves several notes without leaving annotation mode', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1><p id="second">Second</p>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		const second = document.querySelector( '#second' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		vi.spyOn( second, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 80 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		const firstTextarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		firstTextarea.value = 'First note';
+		firstTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		firstTextarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Enter', bubbles: true, cancelable: true } )
+		);
+
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 1 );
+		expect( latestState( log ) ).toMatchObject( { isPicking: true, annotationCount: 1 } );
+
+		second.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const secondTextarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		secondTextarea.value = 'First line';
+		secondTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		secondTextarea.setSelectionRange( secondTextarea.value.length, secondTextarea.value.length );
+		secondTextarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', {
+				key: 'Enter',
+				metaKey: true,
+				bubbles: true,
+				cancelable: true,
+			} )
+		);
+		expect( secondTextarea.value ).toBe( 'First line\n' );
+		secondTextarea.value += 'Second line';
+		secondTextarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		command( 'submit' );
+
+		const done = bridgeMessages( log ).find( ( message ) => message.type === 'done' );
+		expect( done?.annotations ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( { comment: 'First note' } ),
+				expect.objectContaining( { comment: 'First line\nSecond line' } ),
+			] )
+		);
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+	} );
+
+	it( 'requests cancellation when Escape is pressed while annotating', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		command( 'toggle-picking' );
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
+		);
+
+		expect( bridgeMessages( log ) ).toContainEqual( { type: 'cancel-requested' } );
+		expect( latestState( log ) ).toMatchObject( { isPicking: true, annotationCount: 1 } );
+		expect(
+			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
+		).toHaveLength( 1 );
+	} );
+
+	it( 'discards saved notes and unfinished drafts when cancelled', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
+		const draft = document.querySelector( '#draft' ) as HTMLElement;
+		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		draft.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = 'Unfinished note';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		expect( latestState( log ) ).toMatchObject( { hasUnsavedDraft: true } );
+
+		command( 'cancel' );
+
+		expect( latestState( log ) ).toMatchObject( {
+			isPicking: false,
+			annotationCount: 0,
+			hasUnsavedDraft: false,
+		} );
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+		expect(
+			( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState
+		).toEqual( [] );
+		expect( bridgeMessages( log ).find( ( message ) => message.type === 'done' ) ).toBeUndefined();
+	} );
+
+	it( 'moves saved pins with their elements when the page reflows', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( window, 'requestAnimationFrame' ).mockImplementation( ( cb ) => {
+			cb( 0 );
+			return 1;
+		} );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		const measure = vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = 'Note';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		textarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Enter', bubbles: true, cancelable: true } )
+		);
+
+		const marker = root.querySelector( '.marker' ) as HTMLElement;
+		expect( marker.style.getPropertyValue( 'top' ) ).toBe( '10px' );
+
+		// A narrower viewport pushes the heading down; the pin must follow.
+		measure.mockReturnValue( rect( 10, 300 ) );
+		window.dispatchEvent( new Event( 'resize' ) );
+
+		expect( marker.style.getPropertyValue( 'top' ) ).toBe( '300px' );
+	} );
+
+	it( 'reopens an existing note without turning picking back on', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		const marker = root.querySelector( '.marker' ) as HTMLElement;
+		marker.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 1 } );
+	} );
+
+	it( 'submits saved notes when an empty draft popup is open', () => {
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="draft">Draft</h1>';
+		const draft = document.querySelector( '#draft' ) as HTMLElement;
+		vi.spyOn( draft, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+		seedSavedNote();
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		command( 'toggle-picking' );
+		draft.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		command( 'submit' );
+
+		const done = bridgeMessages( log ).find( ( message ) => message.type === 'done' );
+		expect( done?.annotations ).toEqual( [ expect.objectContaining( { comment: 'Saved note' } ) ] );
+		expect( latestState( log ) ).toMatchObject( { isPicking: false, annotationCount: 0 } );
+	} );
+
+	it( 'does not save while text input is being composed', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="composing">Composing</h1>';
+		const target = document.querySelector( '#composing' ) as HTMLElement;
+		vi.spyOn( target, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		target.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = '入力中';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		textarea.dispatchEvent(
+			new KeyboardEvent( 'keydown', {
+				key: 'Enter',
+				isComposing: true,
+				bubbles: true,
+				cancelable: true,
+			} )
+		);
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( root.querySelectorAll( '.marker' ) ).toHaveLength( 0 );
+	} );
+
+	it( 'dims the page around the selected element while a note is open', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 20 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const panels = Array.from( root.querySelectorAll( '.scrim' ) ) as HTMLElement[];
+		expect( panels ).toHaveLength( 4 );
+		// Top band ends where the element starts; the left band stops at its edge.
+		expect( panels[ 0 ] ).toHaveStyle( { height: '20px' } );
+		expect( panels[ 1 ] ).toHaveStyle( { top: '60px' } );
+		expect( panels[ 2 ] ).toHaveStyle( { width: '10px' } );
+		expect( panels[ 3 ] ).toHaveStyle( { left: '110px' } );
+
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
+		);
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+	} );
+
+	it( 'skips the dimming when a saved note has no usable element rect', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		// The annotated element is gone, so the empty rect saved with the note is
+		// all that is left — a zero-size hole would black out the whole page.
+		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+			{
+				id: 'saved',
+				comment: 'Saved note',
+				tag: 'h1',
+				selector: '#vanished',
+				path: window.location.pathname + window.location.search,
+				documentRect: { left: 0, top: 0, width: 0, height: 0 },
+			},
+		];
+		document.body.innerHTML = '<p>Unrelated</p>';
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		const marker = root.querySelector( '.marker' ) as HTMLElement;
+		marker.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+	} );
+} );
+
+function seedSavedNote() {
+	( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+		{
+			id: 'saved',
+			comment: 'Saved note',
+			tag: 'h1',
+			path: window.location.pathname + window.location.search,
+			documentRect: { left: 10, top: 10, width: 100, height: 40 },
+		},
+	];
+}
+
+function command( type: string ) {
+	window.dispatchEvent( new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { type } } ) );
+}
+
+function rect( left: number, top: number ): DOMRect {
+	return {
+		x: left,
+		y: top,
+		left,
+		top,
+		right: left + 100,
+		bottom: top + 40,
+		width: 100,
+		height: 40,
+		toJSON: () => ( {} ),
+	} as DOMRect;
+}
+
+interface ConsoleLogSpy {
+	mock: { calls: unknown[][] };
+}
+
+function bridgeMessages( log: ConsoleLogSpy ): Array< Record< string, unknown > > {
+	return log.mock.calls
+		.map( ( call ) => call[ 0 ] )
+		.filter(
+			( message ): message is string =>
+				typeof message === 'string' && message.startsWith( INSPECTOR_BRIDGE_PREFIX )
+		)
+		.map( ( message ) => JSON.parse( message.slice( INSPECTOR_BRIDGE_PREFIX.length ) ) );
+}
+
+function latestState( log: ConsoleLogSpy ) {
+	return bridgeMessages( log )
+		.filter( ( message ) => message.type === 'state' )
+		.at( -1 );
+}

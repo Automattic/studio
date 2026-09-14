@@ -1,18 +1,22 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useRef, useState } from 'react';
+import { BlueprintGallery } from '@/components/blueprint-gallery';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	BuildNewSiteIllustration,
+	ConnectSiteIllustration,
 	DropBackupIllustration,
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useSites } from '@/data/queries/use-sites';
+import { useOffline } from '@/hooks/use-offline';
 import { setPendingBackup } from '@/lib/pending-backup';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -28,10 +32,12 @@ function ImportBackupCard() {
 	const handleFile = useCallback(
 		( file?: File ) => {
 			if ( ! file ) return;
-			if ( ! isSupportedBackupFilename( file.name ) ) {
+			// A .sql dump is a database without the files that go with it, so it can
+			// only be imported over an existing site — not used to create one.
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 				setError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
 					)
 				);
 				return;
@@ -49,7 +55,7 @@ function ImportBackupCard() {
 			<input
 				ref={ inputRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				className={ styles.hiddenInput }
 				onChange={ ( event ) => {
 					handleFile( event.target.files?.[ 0 ] );
@@ -94,6 +100,7 @@ function ImportBackupCard() {
 export function OnboardingHomePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
+	const isOffline = useOffline();
 
 	return (
 		<div className={ styles.page }>
@@ -107,14 +114,33 @@ export function OnboardingHomePage() {
 					<div className={ styles.cardText }>
 						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>
 						<p className={ styles.cardBody }>
-							{ __(
-								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
-							) }
+							{ __( 'Start from scratch. Perfect for theme and plugin development.' ) }
 						</p>
+					</div>
+				</Link>
+				<Link
+					to="/onboarding/connect"
+					className={ `${ cardClass } ${ isOffline ? styles.cardDisabled : '' }` }
+					aria-disabled={ isOffline || undefined }
+					onClick={ ( event ) => isOffline && event.preventDefault() }
+				>
+					<ConnectSiteIllustration />
+					<div className={ styles.cardText }>
+						<h3 className={ styles.cardTitle }>{ __( 'Connect a site' ) }</h3>
+						<p className={ styles.cardBody }>
+							{ __( 'Pull a WordPress.com or Pressable site into a new local Studio site.' ) }
+						</p>
+						{ isOffline && <span className={ styles.cardHint }>{ __( 'Available online' ) }</span> }
 					</div>
 				</Link>
 				<ImportBackupCard />
 			</div>
+			<BlueprintGallery
+				onSelect={ ( blueprint ) => {
+					pendingBlueprintSlot.set( blueprint );
+					void navigate( { to: '/onboarding/create' } );
+				} }
+			/>
 			{ ( sites?.length ?? 0 ) > 0 && (
 				<OnboardingFooter>
 					<Button

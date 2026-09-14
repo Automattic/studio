@@ -1,17 +1,17 @@
-import chalk from '@studio/common/lib/chalk';
+import { initTheme } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 import {
 	DescriptionAwareAutocompleteProvider,
 	dimUnhighlighted,
 	highlightMatch,
 } from 'cli/ai/description-autocomplete';
+import { theme } from 'cli/ai/theme';
 import type { SlashCommandDef } from 'cli/ai/slash-commands';
 
-// Force truecolor so styled output is observable in the non-TTY test env.
-// Vitest isolates env changes per test file.
-process.env.FORCE_COLOR = '3';
+initTheme();
 
-const highlight = ( text: string ) => chalk.hex( '#a4cafa' )( text );
+const highlight = ( text: string ) => theme.fg( 'accent', text );
+const dim = ( text: string ) => theme.fg( 'muted', text );
 
 const COMMANDS: SlashCommandDef[] = [
 	{ name: 'exit', description: 'Exit the chat' },
@@ -92,11 +92,11 @@ describe( 'dimUnhighlighted', () => {
 	it( 'dims text around a highlight but not the highlight itself', () => {
 		const input = `before ${ highlight( 'match' ) } after`;
 		expect( dimUnhighlighted( input ) ).toBe(
-			`${ chalk.dim( 'before ' ) }${ highlight( 'match' ) }${ chalk.dim( ' after' ) }`
+			`${ dim( 'before ' ) }${ highlight( 'match' ) }${ dim( ' after' ) }`
 		);
 	} );
 
 	it( 'dims the whole text when there is no highlight', () => {
-		expect( dimUnhighlighted( 'plain text' ) ).toBe( chalk.dim( 'plain text' ) );
+		expect( dimUnhighlighted( 'plain text' ) ).toBe( dim( 'plain text' ) );
 	} );
 } );

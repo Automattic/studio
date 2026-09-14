@@ -1,6 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { generatePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	generatePassword,
+} from '@studio/common/lib/passwords';
+import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -24,6 +29,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -34,7 +40,7 @@ import type {
 	FormField,
 	FormValidity,
 } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -65,6 +71,8 @@ interface CreateSiteFormProps {
 	submitLabel?: string;
 	cancelLabel?: string;
 	loadingAnnouncement?: string;
+	children?: ReactNode;
+	panelFooter?: ReactNode;
 }
 
 interface FormData {
@@ -110,9 +118,9 @@ function createDefaultFormData(): FormData {
 		useCustomDomain: false,
 		customDomain: '',
 		enableHttps: false,
-		adminUsername: 'admin',
+		adminUsername: DEFAULT_ADMIN_USERNAME,
 		adminPassword: generatePassword(),
-		adminEmail: 'admin@localhost.com',
+		adminEmail: DEFAULT_ADMIN_EMAIL,
 	};
 }
 
@@ -401,6 +409,8 @@ export function CreateSiteForm( {
 	submitLabel,
 	cancelLabel,
 	loadingAnnouncement,
+	children,
+	panelFooter,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
@@ -412,6 +422,7 @@ export function CreateSiteForm( {
 		return applyInitialValues( defaults, initialValues, defaults );
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
+	const isSubmitQueuedRef = useRef( false );
 
 	useEffect( () => {
 		const values = initialValues ?? {};
@@ -433,14 +444,18 @@ export function CreateSiteForm( {
 	}, [ defaults, initialValues ] );
 
 	const { data: wpVersions } = useWordPressVersions();
+	const isOffline = useOffline();
+	// While offline, "latest" is the only version installable without a
+	// download, so it's forced — same as the legacy version selector.
 	useEffect( () => {
-		if ( ! wpVersions?.length ) return;
-		setData( ( prev ) =>
-			wpVersions.some( ( version ) => version.value === prev.wpVersion )
-				? prev
-				: { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION }
-		);
-	}, [ wpVersions, data.wpVersion ] );
+		if ( ! isOffline && ! wpVersions?.length ) return;
+		setData( ( prev ) => {
+			const keep =
+				prev.wpVersion === DEFAULT_WORDPRESS_VERSION ||
+				( ! isOffline && !! wpVersions?.some( ( version ) => version.value === prev.wpVersion ) );
+			return keep ? prev : { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION };
+		} );
+	}, [ wpVersions, isOffline, data.wpVersion ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -461,7 +476,10 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
+				offline: isOffline,
+			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -475,7 +493,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames, wpVersions ]
+		[ existingDomainNames, isOffline, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -490,23 +508,32 @@ export function CreateSiteForm( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
 				{
-					id: 'path',
-					layout: { type: 'regular', labelPosition: 'top' },
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [
+						{ id: 'path', layout: { type: 'regular', labelPosition: 'top' } },
+						'wpVersion',
+					],
 				},
 				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'phpVersion' ],
 				},
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'wordpressAdmin',
+					label: __( 'WordPress admin' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]
@@ -547,6 +574,7 @@ export function CreateSiteForm( {
 	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
+		isSubmitQueuedRef.current = false;
 		for ( const key of Object.keys( update ) ) {
 			if ( key === 'useCustomDomain' ) {
 				dirtyFieldsRef.current.add( 'customDomain' );
@@ -570,14 +598,13 @@ export function CreateSiteForm( {
 		} );
 	}, [] );
 
-	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
-	// toggle doesn't flash), so gate submit on it separately.
-	const canSubmit =
-		isValid && ! isSubmitting && ! isSubmitDisabled && ! data.isPathPending && ! data.pathError;
+	// `isPathPending` is deliberately absent from `canSubmit`: it toggles on
+	// every keystroke of the name field while the path auto-gen resolves, and
+	// disabling the submit button on it makes the button blink. Submits that
+	// land inside that window are queued and fired once the path resolves.
+	const canSubmit = isValid && ! isSubmitting && ! isSubmitDisabled && ! data.pathError;
 
-	const handleSubmit = ( event: FormEvent ) => {
-		event.preventDefault();
-		if ( ! canSubmit ) return;
+	const submitForm = () => {
 		onSubmit( {
 			name: data.name.trim(),
 			path: data.path,
@@ -592,6 +619,22 @@ export function CreateSiteForm( {
 			adminEmail: data.adminEmail,
 		} );
 	};
+
+	const handleSubmit = ( event: FormEvent ) => {
+		event.preventDefault();
+		if ( ! canSubmit ) return;
+		if ( data.isPathPending ) {
+			isSubmitQueuedRef.current = true;
+			return;
+		}
+		submitForm();
+	};
+
+	useEffect( () => {
+		if ( data.isPathPending || ! isSubmitQueuedRef.current ) return;
+		isSubmitQueuedRef.current = false;
+		if ( canSubmit ) submitForm();
+	} );
 
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 	const actions = (
@@ -630,6 +673,8 @@ export function CreateSiteForm( {
 					onChange={ handleChange }
 					validity={ validity }
 				/>
+
+				{ children }
 
 				<Button
 					type="button"
@@ -689,6 +734,8 @@ export function CreateSiteForm( {
 						) }
 					</div>
 				) }
+
+				{ panelFooter && <div className={ styles.panelFooter }>{ panelFooter }</div> }
 			</div>
 
 			<OnboardingFooter>{ actions }</OnboardingFooter>

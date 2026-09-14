@@ -10,9 +10,25 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import {
+	AI_MODELS,
+	getAiModelFamily,
+	getAiModelLabel,
+	getVisibleAiModels,
+} from '@studio/common/ai/models';
+import {
+	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefaultModel,
+	getAiProviderModels,
+	providerServesModel,
+	resolveSessionProvider,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -31,6 +47,7 @@ import {
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 	type ChangeEvent,
@@ -41,11 +58,16 @@ import {
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
-	primeSessionQueryData,
-	reconcilePrimedSessionQueryData,
+	createModelChangeEntry,
+	openNewSession,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
+import { AiCreditsControl } from './ai-credits-control';
+import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
+import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -54,6 +76,7 @@ import {
 	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
+import { useSlashCommands } from './use-slash-commands';
 import type {
 	AiModelId,
 	LoadedAiSession,
@@ -69,10 +92,6 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
-const PLACEHOLDER_SCRAMBLE_DURATION_MS = 420;
-const PLACEHOLDER_SCRAMBLE_STAGGER_MS = 12;
-const PLACEHOLDER_SCRAMBLE_TICK_MS = 32;
-const PLACEHOLDER_SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789!?*+-=';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -169,16 +188,24 @@ function toComposerDraftAttachments( {
 	];
 }
 
-function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+// Optimistic mirror of the `studio.session_context` entry the backend appends
+// for a provider switch, so the pill updates before the write lands.
+function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
 	return {
-		type: 'model_change',
+		type: 'custom',
 		id: Math.random().toString( 36 ).slice( 2, 10 ),
 		parentId: null,
 		timestamp: new Date().toISOString(),
-		provider: '',
-		modelId,
+		customType: 'studio.session_context',
+		data: { provider, model },
 	} as unknown as SessionEntry;
 }
+
+// Brand names, so no translation and no per-render rebuild.
+const AI_PROVIDER_OPTIONS = AI_PROVIDER_IDS.map( ( id ) => ( {
+	id,
+	label: AI_PROVIDER_LABELS[ id ],
+} ) );
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -201,10 +228,14 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// Blocks sending and queueing while leaving the rest of the composer alone,
+	// so a run already in flight keeps its Stop control.
+	canSubmit?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -215,6 +246,11 @@ interface ComposerProps {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
+	// 'field': embedded in a form that submits the draft itself via
+	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
+	variant?: 'chat' | 'field';
+	placeholder?: string;
+	onModelChange?: ( model: AiModelId ) => void;
 }
 
 /**
@@ -227,10 +263,16 @@ export interface ComposerHandle {
 	appendDraft( text: string ): void;
 	replaceDraft(
 		text: string,
-		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
+		options?: {
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+			suggestionBaseline?: string;
+		}
 	): void;
-	// True when the composer holds anything replaceDraft would discard.
-	hasDraft(): boolean;
+	// What replaceDraft would discard — lets callers decide whether the
+	// replacement warrants a confirmation.
+	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
+	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -283,100 +325,31 @@ function resizeComposerTextarea(
 	return nextHeight;
 }
 
-function getScrambleCharacter( index: number, elapsed: number ) {
-	const characterIndex =
-		( index * 7 + Math.floor( elapsed / PLACEHOLDER_SCRAMBLE_TICK_MS ) ) %
-		PLACEHOLDER_SCRAMBLE_CHARS.length;
-	return PLACEHOLDER_SCRAMBLE_CHARS.charAt( characterIndex );
-}
-
-function useScrambledPlaceholder( targetText: string, shouldAnimate: boolean ) {
-	const [ displayText, setDisplayText ] = useState( targetText );
-	const previousTargetRef = useRef( targetText );
-
-	useEffect( () => {
-		const previousText = previousTargetRef.current;
-		previousTargetRef.current = targetText;
-
-		if ( previousText === targetText || ! shouldAnimate ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		if ( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		const maxLength = Math.max( previousText.length, targetText.length );
-		const startTime = performance.now();
-		let animationFrame = 0;
-
-		const renderFrame = ( now: number ) => {
-			const elapsed = now - startTime;
-			let isComplete = true;
-			let nextText = '';
-
-			for ( let index = 0; index < maxLength; index++ ) {
-				const previousCharacter = previousText.charAt( index );
-				const targetCharacter = targetText.charAt( index );
-				const characterElapsed = elapsed - index * PLACEHOLDER_SCRAMBLE_STAGGER_MS;
-
-				if ( characterElapsed <= 0 ) {
-					nextText += previousCharacter;
-					isComplete = false;
-					continue;
-				}
-
-				if ( characterElapsed >= PLACEHOLDER_SCRAMBLE_DURATION_MS ) {
-					nextText += targetCharacter;
-					continue;
-				}
-
-				isComplete = false;
-				nextText +=
-					previousCharacter === ' ' && targetCharacter === ' '
-						? ' '
-						: getScrambleCharacter( index, elapsed );
-			}
-
-			setDisplayText( nextText.trimEnd() );
-
-			if ( isComplete ) {
-				setDisplayText( targetText );
-				return;
-			}
-
-			animationFrame = window.requestAnimationFrame( renderFrame );
-		};
-
-		animationFrame = window.requestAnimationFrame( renderFrame );
-
-		return () => {
-			window.cancelAnimationFrame( animationFrame );
-		};
-	}, [ targetText, shouldAnimate ] );
-
-	return displayText;
-}
-
-export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
+		canSubmit = true,
 		isInterrupting = false,
 		error,
 		model,
 		onSend,
+		onAnswer,
 		onInterrupt,
 		sessionId,
 		entries,
 		ownerSiteId,
 		onSwitchSession,
 		autoFocus = false,
+		variant = 'chat',
+		placeholder: placeholderOverride,
+		onModelChange,
 	},
 	ref
 ) {
-	const [ value, setValue ] = useState( '' );
+	const isField = variant === 'field';
+	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
+	const [ value, setValue ] = useState( initialDraft.text );
+	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
 	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
@@ -386,10 +359,39 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const draftEffectInitializedRef = useRef( false );
 	const manualTextareaHeightRef = useRef< number | null >( null );
 	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+
+	// The conversation's provider: its own pinned choice first, then the saved
+	// global selection. Without a saved Anthropic key the pin is unusable, so
+	// WordPress.com wins regardless — the CLI applies the same rule on resume.
+	const { data: aiSettings } = useAiSettings();
+	const pinnedProvider = useMemo( () => resolveSessionProvider( entries ?? [] ), [ entries ] );
+	const sessionProvider = aiSettings?.hasAnthropicApiKey
+		? pinnedProvider ?? aiSettings.provider
+		: DEFAULT_AI_PROVIDER;
+	const canPickProvider = Boolean( aiSettings?.hasAnthropicApiKey && sessionId );
+
+	// Only offer models the conversation's provider can serve. Hosts without AI
+	// settings (capabilities.aiSettings false) keep the full list.
+	const availableModels = aiSettings ? getAiProviderModels( sessionProvider ) : AI_MODELS;
+	const { data: authUser } = useAuthUser();
+	const visibleModelIds = new Set(
+		getVisibleAiModels( isAutomatticianEmail( authUser?.email ), model ).map(
+			( entry ) => entry.id
+		)
+	);
+	const offeredModels = availableModels.filter( ( entry ) => visibleModelIds.has( entry.id ) );
+
+	const slash = useSlashCommands( {
+		value,
+		setValue,
+		textareaRef,
+		previewPrompt: null,
+	} );
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -403,8 +405,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( initialDraft.attachments );
 	const hasAttachments = attachments.length > 0;
+
+	useEffect( () => {
+		if ( draftEffectInitializedRef.current ) {
+			saveComposerDraft( sessionId, { text: value, attachments, suggestionBaseline } );
+		} else {
+			draftEffectInitializedRef.current = true;
+		}
+	}, [ attachments, sessionId, suggestionBaseline, value ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -455,20 +465,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		};
 	}, [ setComposerManualTextareaHeight ] );
 
-	useEffect( () => {
-		if ( value.length > 0 ) {
-			return;
-		}
-		const interval = window.setInterval( () => {
-			setPlaceholderIndex( ( current ) => current + 1 );
-		}, 5000 );
-		return () => window.clearInterval( interval );
-	}, [ value ] );
-
-	useEffect( () => {
-		setPlaceholderIndex( 0 );
-	}, [ busy ] );
-
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -487,9 +483,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
-			replaceDraft( text, draftAttachments ) {
+			replaceDraft( text, options ) {
 				setValue( text );
-				restoreAttachments( toComposerDraftAttachments( draftAttachments ?? {} ) );
+				setSuggestionBaseline( options?.suggestionBaseline ?? null );
+				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => {
 					const node = textareaRef.current;
 					if ( ! node ) return;
@@ -498,14 +495,27 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
-			hasDraft() {
-				return value.trim().length > 0 || attachments.length > 0;
+			getDraft() {
+				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
+			},
+			getSubmission() {
+				const prompt = value.trim();
+				if ( ! prompt && attachments.length === 0 ) return null;
+				return { prompt, attachments: toComposerSendAttachments( attachments ) };
 			},
 		} ),
-		[ restoreAttachments, value, attachments ]
+		[ restoreAttachments, value, attachments, suggestionBaseline ]
 	);
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+
 	const send = useCallback( async () => {
+		// Guarded here as well as on the button: Enter reaches this directly, and
+		// while busy a send becomes a queued prompt that would dispatch later.
+		if ( ! canSubmit ) {
+			return;
+		}
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
@@ -514,8 +524,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
+		const sentSuggestionBaseline = suggestionBaseline;
+		clearComposerDraft( sessionId );
 		setValue( '' );
+		setSuggestionBaseline( null );
 		clearAttachments();
+		// A send is the only thing that swaps the suggestion; it is static
+		// otherwise, so the empty composer never changes under the user.
+		setPlaceholderIndex( ( current ) => current + 1 );
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -523,10 +543,28 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// surfaces the error message via `error`. Queued sends never throw from
 			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
+			// Saved directly (not left to the state-sync effect) so the retry isn't
+			// lost if the user already switched away from this session.
+			saveComposerDraft( sessionId, {
+				text: trimmed,
+				attachments: sentAttachments,
+				suggestionBaseline: sentSuggestionBaseline,
+			} );
 			setValue( trimmed );
+			setSuggestionBaseline( sentSuggestionBaseline );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [
+		canSubmit,
+		value,
+		attachments,
+		suggestionBaseline,
+		clearAttachments,
+		restoreAttachments,
+		onSend,
+		answerQuestion,
+		sessionId,
+	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -623,34 +661,59 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[ addFiles ]
 	);
 
-	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
-	const applySameFamilyModel = useCallback(
-		( picked: AiModelId ) => {
+	// Show the entry right away, then write it; refetch on write fail so the
+	// transcript falls back to what actually landed.
+	const appendEntryOptimistically = useCallback(
+		( entry: SessionEntry, write: ( id: string ) => Promise< void > ) => {
 			if ( ! sessionId ) {
 				return;
 			}
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) =>
-					prev
-						? {
-								...prev,
-								entries: [ ...( prev.entries ?? [] ), createModelChangeEntry( picked ) ],
-						  }
-						: prev
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
+				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
 			);
-			void connector.setSessionModel( sessionId, picked ).catch( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-				} );
+			void write( sessionId ).catch( () => {
+				void queryClient.invalidateQueries( { queryKey } );
 			} );
 		},
-		[ connector, queryClient, sessionId ]
+		[ queryClient, sessionId ]
+	);
+
+	// Same-family swap: optimistic `model_change` entry.
+	const applySameFamilyModel = useCallback(
+		( picked: AiModelId ) => {
+			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
+				connector.setSessionModel( id, picked )
+			);
+		},
+		[ appendEntryOptimistically, connector ]
+	);
+
+	// Pin this conversation to a provider. If it can't serve the current model,
+	// its default model rides along in the same entry, so the model section
+	// re-filters via `resolveSessionModel`.
+	const handleProviderChange = useCallback(
+		( picked: AiProviderId ) => {
+			if ( picked === sessionProvider ) {
+				return;
+			}
+			const nextModel = providerServesModel( picked, model )
+				? model
+				: getAiProviderDefaultModel( picked );
+			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
+				connector.setSessionProvider( id, picked, nextModel )
+			);
+		},
+		[ appendEntryOptimistically, connector, model, sessionProvider ]
 	);
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
 			if ( picked === model ) {
+				return;
+			}
+			if ( onModelChange ) {
+				onModelChange( picked );
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog
@@ -672,7 +735,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, model, onModelChange, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -689,34 +752,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const pickedModel = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
-			const newSession = await connector.createSession( ownerSiteId );
-			primeSessionQueryData( queryClient, newSession );
-			// Persist the model on the fresh session before navigating so the
-			// composer there opens already on the picked family —
-			// `setSessionModel` writes a `session.model_selected` event the
-			// new view picks up via `resolveSessionModel`. If this fails we
-			// still navigate; the user can re-pick from the new view's
-			// dropdown.
-			const modelPersisted = await connector
-				.setSessionModel( newSession.id, pickedModel )
-				.then( () => true )
-				.catch( () => false );
-			if ( modelPersisted ) {
-				queryClient.setQueryData< LoadedAiSession >(
-					[ ...SESSIONS_QUERY_KEY, newSession.id ],
-					( current ) =>
-						current
-							? {
-									...current,
-									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
-							  }
-							: {
-									summary: newSession,
-									entries: [ createModelChangeEntry( pickedModel ) ],
-							  }
-				);
-			}
-			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
+			const newSession = await openNewSession(
+				{ connector, queryClient },
+				ownerSiteId,
+				pickedModel
+			);
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
@@ -724,7 +764,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -738,12 +778,30 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
-	const showAnimatedPlaceholder = value.length === 0;
-	const animatedPlaceholder = useScrambledPlaceholder( placeholder, showAnimatedPlaceholder );
+	const placeholder =
+		placeholderOverride ??
+		( answerQuestion
+			? __( 'Or type your own answer…' )
+			: placeholderOptions[ placeholderIndex % placeholderOptions.length ] );
+	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
+	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add skill or attachment' );
+	const addButton = (
+		<Tooltip.Trigger
+			render={
+				<button
+					type="button"
+					className={ styles.iconButton }
+					aria-label={ addLabel }
+					onClick={ isField ? openFilePicker : undefined }
+				/>
+			}
+		>
+			<Icon icon={ plus } size={ 16 } />
+		</Tooltip.Trigger>
+	);
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
 		? __( 'Stopping… click again to force stop' )
@@ -767,8 +825,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
+					data-session-composer
 					className={ clsx(
 						styles.shell,
+						isField && styles.shellField,
 						isDraggingOver && styles.shellDragging,
 						isResizingComposer && styles.shellResizing
 					) }
@@ -777,6 +837,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<AiCreditsWarningStrip />
 					<div
 						className={ styles.resizeHandle }
 						role="separator"
@@ -936,9 +997,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
-						{ showAnimatedPlaceholder ? (
+						{ showPlaceholderText ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								{ animatedPlaceholder }
+								{ placeholder }
 							</div>
 						) : null }
 						<textarea
@@ -946,9 +1007,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ styles.input }
 							placeholder={ placeholder }
 							value={ value }
+							{ ...slash.comboboxProps }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
+								if ( slash.handleKeyDown( event ) ) {
+									return;
+								}
 								if ( event.key === 'Escape' && busy ) {
 									event.preventDefault();
 									void onInterrupt();
@@ -968,35 +1033,22 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									} );
 									return;
 								}
-								if ( event.key === 'Enter' && ! event.shiftKey ) {
+								if ( ! isField && event.key === 'Enter' && ! event.shiftKey ) {
 									event.preventDefault();
 									void send();
 								}
 							} }
 							rows={ 2 }
 						/>
+						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
-									<Menu.Trigger
-										render={
-											<Tooltip.Trigger
-												render={
-													<button
-														type="button"
-														className={ styles.iconButton }
-														aria-label={ __( 'Add skill or attachment' ) }
-													/>
-												}
-											>
-												<Icon icon={ plus } size={ 16 } />
-											</Tooltip.Trigger>
-										}
-									/>
+									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
 									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ __( 'Add skill or attachment' ) }
+										{ addLabel }
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
@@ -1012,7 +1064,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 											/>
 										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
-											{ AI_SKILL_COMMANDS.map( ( command ) => (
+											{ getAiSkillCommands().map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
 													className={ styles.skillMenuItem }
@@ -1043,6 +1095,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<AiCreditsControl />
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
 									<Menu.Trigger
@@ -1056,7 +1109,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 													/>
 												}
 											>
-												<span>{ getAiModelLabel( model ) }</span>
+												<span>
+													{ sessionProvider === 'anthropic-api-key' ? (
+														<>
+															<strong className={ styles.pillProviderPrefix }>
+																{ __( 'API' ) }
+															</strong>
+															{ ' · ' }
+														</>
+													) : null }
+													{ getAiModelLabel( model ) }
+												</span>
 												<Icon icon={ chevronDownSmall } size={ 16 } />
 											</Tooltip.Trigger>
 										}
@@ -1066,11 +1129,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="end">
+									{ canPickProvider ? (
+										<>
+											<Menu.RadioGroup
+												value={ sessionProvider }
+												onValueChange={ ( value ) => handleProviderChange( value as AiProviderId ) }
+											>
+												{ AI_PROVIDER_OPTIONS.map( ( { id, label } ) => (
+													<Menu.RadioItem key={ id } value={ id }>
+														{ label }
+													</Menu.RadioItem>
+												) ) }
+											</Menu.RadioGroup>
+											<Menu.Separator />
+										</>
+									) : null }
 									<Menu.RadioGroup
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ AI_MODELS.map( ( { id, label } ) => (
+										{ offeredModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>
@@ -1098,24 +1176,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 							) : null }
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.sendButton }
-											onClick={ () => void send() }
-											disabled={ ! canSend }
-											aria-label={ sendAriaLabel }
-										/>
-									}
-								>
-									<Icon icon={ arrowUp } size={ 18 } />
-								</Tooltip.Trigger>
-								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-									{ sendShortcutLabel }
-								</Tooltip.Popup>
-							</Tooltip.Root>
+							{ isField ? null : (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.sendButton }
+												onClick={ () => void send() }
+												disabled={ ! canSend }
+												aria-label={ sendAriaLabel }
+											/>
+										}
+									>
+										<Icon icon={ arrowUp } size={ 18 } />
+									</Tooltip.Trigger>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ sendShortcutLabel }
+									</Tooltip.Popup>
+								</Tooltip.Root>
+							) }
 						</div>
 					</div>
 				</div>
@@ -1135,3 +1215,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		</>
 	);
 } );
+
+export const Composer = forwardRef< ComposerHandle, ComposerProps >(
+	function Composer( props, ref ) {
+		return <ComposerContent key={ props.sessionId } { ...props } ref={ ref } />;
+	}
+);

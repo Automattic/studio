@@ -10,7 +10,6 @@
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: var(--color-frame-bg);
 	background-color: color-mix(in srgb, var(--color-frame-bg) 82%, transparent);
-	-webkit-backdrop-filter: blur(4px);
 	backdrop-filter: blur(4px);
 	color: var(--color-frame-text-secondary);
 	line-height: 1;

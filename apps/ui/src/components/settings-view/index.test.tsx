@@ -61,6 +61,12 @@ vi.mock( '@wordpress/ui', () => ( {
 			</select>
 		</label>
 	),
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/tabs', () => ( {
@@ -128,7 +134,7 @@ vi.mock( './usage-panel', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => false,
+	useTrafficLightSpace: () => ( { start: false, end: false } ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -274,6 +280,10 @@ describe( 'SettingsView', () => {
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
+		// Keep the listed full-preview chord in step with the one SitePreview
+		// actually handles (Ctrl+Shift+F off Apple platforms).
+		expect( screen.getByText( 'Toggle full preview' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Control + Shift + F' ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves the default site directory as soon as one is picked', async () => {

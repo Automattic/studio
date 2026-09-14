@@ -83,6 +83,7 @@ type UserDataSafeKeys =
 	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
+	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
 	| 'agenticUiBannerDismissed'

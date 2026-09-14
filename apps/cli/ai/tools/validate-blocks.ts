@@ -4,7 +4,6 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -57,7 +56,7 @@ export const validateBlocksTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			let blockContent: string;
 			let fileName = 'inline content';
@@ -76,11 +75,11 @@ export const validateBlocksTool = defineTool(
 			// Stage 1: static core/html policy check. Acts as a gate — if it
 			// fails we stop here instead of paying the live-editor round-trip on
 			// content we already know needs rewriting.
-			emitProgress( `Checking HTML blocks in ${ fileName }…` );
+			context.onProgress( `Checking HTML blocks in ${ fileName }…` );
 			const htmlReport = validateHtmlBlockPolicy( blockContent );
 
 			if ( htmlReport.invalidHtmlBlocks.length > 0 ) {
-				emitProgress(
+				context.onProgress(
 					`${ fileName }: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`
 				);
 				const lines = [
@@ -104,19 +103,21 @@ export const validateBlocksTool = defineTool(
 					: `HTML block policy: all ${ htmlReport.totalHtmlBlocks } core/html blocks within policy.`;
 
 			// Stage 2: validate (and fix) in the site's real block editor.
-			emitProgress( `Validating and fixing blocks in ${ fileName }…` );
+			context.onProgress( `Validating and fixing blocks in ${ fileName }…` );
 
 			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
 			const report = await validateBlocks( blockContent, siteUrl );
 
 			if ( report.error ) {
-				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );
+				context.onProgress(
+					`Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
+				);
 				throw new Error( `Block validation failed: ${ report.error }` );
 			}
 
 			if ( report.invalidBlocks === 0 ) {
-				emitProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
+				context.onProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
 				return textResult(
 					[
 						htmlSummary,
@@ -130,7 +131,7 @@ export const validateBlocksTool = defineTool(
 				.filter( ( result ) => ! result.isValid )
 				.map( ( result ) => result.blockName )
 				.join( ', ' );
-			emitProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
+			context.onProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
 
 			const lines = [
 				htmlSummary,
@@ -149,7 +150,7 @@ export const validateBlocksTool = defineTool(
 					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
 					if ( shouldApplyFixToFile && args.filePath ) {
 						await writeFile( args.filePath, fixedContent, 'utf-8' );
-						emitProgress( `${ fileName }: editor serialization fix applied` );
+						context.onProgress( `${ fileName }: editor serialization fix applied` );
 						lines.push(
 							'',
 							`Auto-fix applied: ${ fixedReport.validBlocks }/${ fixedReport.totalBlocks } blocks valid after live-editor serialization.`,

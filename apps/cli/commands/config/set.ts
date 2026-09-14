@@ -1,4 +1,4 @@
-import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -24,11 +24,7 @@ import {
 	siteRuntimeFromMode,
 	type SiteMode,
 } from '@studio/common/lib/site-runtime';
-import {
-	getWordPressVersionUrl,
-	isValidWordPressVersion,
-	isWordPressVersionAtLeast,
-} from '@studio/common/lib/wordpress-version-utils';
+import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import {
 	getWpEnvironmentType,
 	wpEnvironmentTypeSchema,
@@ -50,13 +46,14 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { setupCustomDomain } from 'cli/lib/site-utils';
-import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -81,6 +78,14 @@ export interface SetCommandOptions {
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const validated = validateSetOptions( options );
+	return withSiteOperation( sitePath, 'settings', () => setSiteConfig( sitePath, validated ) );
+}
+
+// Runs before the operation is recorded, so an invalid edit fails without
+// touching the config file or briefly blocking the site. Returns the
+// options with `adminEmail` normalized (blank means "leave it alone").
+function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	const {
 		name,
 		domain,
@@ -138,6 +143,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
 	}
 
+	// Static check, so it belongs out here with the rest. The runtime-specific
+	// PHP check further down needs the site record and has to stay inside.
+	if ( options.php !== undefined ) {
+		validateSupportedPhpVersion( options.php );
+	}
+
 	if ( adminEmail !== undefined ) {
 		if ( ! adminEmail.trim() ) {
 			adminEmail = undefined;
@@ -148,6 +159,28 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 		}
 	}
+
+	return { ...options, adminEmail };
+}
+
+async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const {
+		name,
+		domain,
+		https,
+		php,
+		wp,
+		runtime,
+		fileAccess,
+		xdebug,
+		adminUsername,
+		adminPassword,
+		adminEmail,
+		debugLog,
+		debugDisplay,
+		scriptDebug,
+		environmentType,
+	} = options;
 
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -413,26 +446,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					description: __( 'WordPress version' ),
-					coerce: ( value: string ) => {
-						if ( ! isValidWordPressVersion( value ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								__(
-									'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-								)
-							);
-						}
-						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
-							);
-						}
-						return value;
-					},
+					description: getWpVersionOptionDescription(),
+					coerce: coerceWpVersionOption,
 				} )
 				.option( 'runtime', {
 					type: 'string',

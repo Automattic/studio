@@ -5,7 +5,7 @@
 
 # The ~> modifier is not currently used, but we check for it just in case
 XCODE_VERSION=$(sed -E -n 's/^(~> )?(.*)/xcode-\2/p' .xcode-version)
-CI_TOOLKIT_VERSION='6.1.1'
+CI_TOOLKIT_VERSION='6.3.0'
 NVM_PLUGIN_VERSION='0.6.0'
 DOCKER_PLUGIN_VERSION='v5.13.0'
 NODE_VERSION=$(sed 's/^v//' .nvmrc)

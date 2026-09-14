@@ -115,11 +115,14 @@ function newestFirst( a: AiSessionSummary, b: AiSessionSummary ): number {
  * orphan sessions. When a `site` is given, the session is bound to it (recorded
  * in the session file) and its placement is persisted so the UI shows it under
  * that site; the reuse match is scoped to that same site.
+ *
+ * `created` reports whether a session was actually made, so hosts can count real
+ * creations without duplicating the reuse rules above.
  */
 export async function createOrReuseAiSession(
 	rootDirectory: string,
 	options: { site?: SessionSite } = {}
-): Promise< AiSessionSummary > {
+): Promise< AiSessionSummary & { created: boolean } > {
 	const { site } = options;
 	const existing = await listHydratedAiSessions( rootDirectory );
 
@@ -134,9 +137,12 @@ export async function createOrReuseAiSession(
 			)
 			.sort( newestFirst )[ 0 ];
 		if ( reusable ) {
-			return reusable;
+			return { ...reusable, created: false };
 		}
-		return hydrateAiSessionSummary( await createAiSession( rootDirectory ) );
+		return {
+			...hydrateAiSessionSummary( await createAiSession( rootDirectory ) ),
+			created: true,
+		};
 	}
 
 	const reusable = existing
@@ -146,7 +152,7 @@ export async function createOrReuseAiSession(
 		)
 		.sort( newestFirst )[ 0 ];
 	if ( reusable ) {
-		return reusable;
+		return { ...reusable, created: false };
 	}
 
 	const created = await createAiSession( rootDirectory, {
@@ -157,5 +163,5 @@ export async function createOrReuseAiSession(
 		siteName: site.name,
 		sitePath: site.path,
 	} );
-	return hydrateAiSessionSummary( created, undefined, placement );
+	return { ...hydrateAiSessionSummary( created, undefined, placement ), created: true };
 }

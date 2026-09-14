@@ -2,13 +2,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+} from '@studio/common/lib/passwords';
+import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
-import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
+	import.meta.dirname,
+	'php',
+	'wp-config-transformer.php'
+);
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
@@ -17,8 +28,7 @@ type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal,
-	wpConfigTransformerPath: string,
+	signal?: AbortSignal,
 	config?: Pick<
 		ServerConfig,
 		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
@@ -54,13 +64,14 @@ $transformer->to_file( $wp_config_path );
 		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
 		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
 	};
+	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {
 		await runPhpCommand(
 			[
 				'-r',
 				ensureWpConfigScript,
-				wpConfigTransformerPath,
+				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
 				JSON.stringify( constants ),
 			],
@@ -168,9 +179,9 @@ export async function installWordPress(
 	}
 
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-	const email = config.adminEmail ?? 'admin@localhost.com';
+	const username = config.adminUsername ?? DEFAULT_ADMIN_USERNAME;
+	const password = decodeAdminPassword( config.adminPassword );
+	const email = config.adminEmail ?? DEFAULT_ADMIN_EMAIL;
 	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
 	// WP-CLI defaults to en_US; Studio's DEFAULT_LOCALE of "en" is not a WP locale code.
 	const locale =
@@ -192,6 +203,26 @@ export async function installWordPress(
 		],
 		{ phpVersion, signal }
 	);
+
+	// WP-CLI's --locale flag may silently fall back to English when it can't
+	// download the language pack (e.g. offline, wordpress.org unreachable).
+	// Force WPLANG so the site respects the configured language even when
+	// translation files aren't available yet.
+	if ( locale ) {
+		try {
+			await runPhpCommand(
+				[ getWpCliPharPath(), 'option', 'update', 'WPLANG', locale, `--path=${ config.sitePath }` ],
+				{ phpVersion, signal }
+			);
+		} catch ( error ) {
+			// Best-effort: site can still function in English if setting WPLANG fails.
+			logToConsole(
+				`Failed to set WPLANG to ${ locale }: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
 
 	await runPhpCommand(
 		[

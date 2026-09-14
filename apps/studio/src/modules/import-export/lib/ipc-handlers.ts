@@ -108,6 +108,7 @@ type ImportOptions = {
 	removeBackupOnComplete?: boolean;
 	showErrorModal?: boolean;
 	showNotification?: boolean;
+	suppressTracksEvent?: boolean;
 };
 
 export async function importSite(
@@ -126,6 +127,7 @@ export async function importSite(
 		removeBackupOnComplete = false,
 		showErrorModal = true,
 		showNotification = true,
+		suppressTracksEvent = false,
 	} = options;
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -133,6 +135,10 @@ export async function importSite(
 
 	if ( alwaysStartServer ) {
 		args.push( '--start-server' );
+	}
+
+	if ( suppressTracksEvent ) {
+		args.push( '--suppress-tracks-event' );
 	}
 
 	const eventEmitter = executeImportCliCommand( site.details.id, args, parentWindow );
@@ -201,6 +207,7 @@ type ExportOptions = {
 	specificSelectionPaths?: string[];
 	applyDeployIgnore?: boolean;
 	abortSignal?: AbortSignal;
+	suppressTracksEvent?: boolean;
 };
 
 export async function exportSite(
@@ -223,6 +230,7 @@ export async function exportSite(
 		specificSelectionPaths = [],
 		applyDeployIgnore = false,
 		abortSignal,
+		suppressTracksEvent = false,
 	} = options;
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -230,6 +238,10 @@ export async function exportSite(
 
 	if ( splitDatabaseDumpByTable ) {
 		args.push( '--split-db-dump-by-table' );
+	}
+
+	if ( suppressTracksEvent ) {
+		args.push( '--suppress-tracks-event' );
 	}
 
 	if ( applyDeployIgnore ) {

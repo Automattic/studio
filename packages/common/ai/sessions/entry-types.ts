@@ -29,11 +29,13 @@ export interface StudioSiteSelectedData {
 
 export interface StudioToolProgressData {
 	message: string;
+	toolCallId?: string;
 }
 
 export interface StudioAgentQuestionData {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	selectedLabel?: string;
 }
 
@@ -46,8 +48,10 @@ export interface StudioTurnClosedData {
 	errorMessage?: string;
 }
 
+// `provider` marks an explicit user pin; the CLI's per-turn records carry
+// only the model so a fallback run never rewrites the pin.
 export interface StudioSessionContextData {
-	provider: string;
+	provider?: string;
 	model: string;
 }
 

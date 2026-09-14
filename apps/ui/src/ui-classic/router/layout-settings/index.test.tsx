@@ -7,11 +7,13 @@ import {
 } from '@tanstack/react-router';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { ConnectorProvider } from '@/data/core';
 import { useSettingsClose } from '@/hooks/use-settings-close';
 import { settingsRoute } from '../route-settings';
 import { createAppRouter } from '../router';
 import { SettingsLayout } from './index';
 import type { RouterContext } from '../layout-root';
+import type { Connector } from '@/data/core';
 
 // jsdom has no window.scrollTo; the router's scroll restoration calls it on
 // every navigation.
@@ -59,7 +61,13 @@ function renderSettings( initialEntries: string[] ) {
 		] ),
 		history: createMemoryHistory( { initialEntries } ),
 	} );
-	render( <RouterProvider router={ router } /> );
+	// FullscreenChrome reports which surface the window controls sit on; the
+	// stub is enough because the browser has no overlay to repaint.
+	render(
+		<ConnectorProvider connector={ {} as Connector }>
+			<RouterProvider router={ router } />
+		</ConnectorProvider>
+	);
 	return router;
 }
 

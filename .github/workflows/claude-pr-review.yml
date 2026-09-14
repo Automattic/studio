@@ -68,7 +68,7 @@ jobs:
 
       - name: Comprehensive PR Review
         if: steps.pr-origin.outputs.is_internal == 'true'
-        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        uses: anthropics/claude-code-action@5ccc3a35a6367cdb8e6fbd0728287467540ecfe2 # v1.0.219
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true

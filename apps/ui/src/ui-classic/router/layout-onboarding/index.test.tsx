@@ -2,7 +2,16 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import onboardingLayoutStyles from '@/components/onboarding-layout/style.module.css';
+import { ConnectorProvider } from '@/data/core';
 import { OnboardingShellView, useOnboardingProgress } from './index';
+import type { Connector } from '@/data/core';
+import type { ReactNode } from 'react';
+
+// FullscreenChrome reports which surface the window controls sit on; the stub
+// is enough because the browser has no overlay to repaint.
+function Providers( { children }: { children: ReactNode } ) {
+	return <ConnectorProvider connector={ {} as Connector }>{ children }</ConnectorProvider>;
+}
 
 vi.mock( '@/components/dot-grid', () => ( {
 	DotGrid: () => <canvas data-testid="dot-grid" />,
@@ -37,7 +46,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
 
@@ -58,7 +68,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<TestRoute />
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Fail' } ) );
@@ -80,7 +91,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<h1>Create</h1>
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 		expect( screen.getByRole( 'heading', { name: 'Create' } ) ).toHaveFocus();
 
@@ -97,6 +109,81 @@ describe( 'OnboardingShellView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Import' } ) ).toHaveFocus();
 	} );
 
+	it( 'closes on Escape', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>,
+			{ wrapper: Providers }
+		);
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape without sites', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites={ false }
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>,
+			{ wrapper: Providers }
+		);
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape while a submit is in flight', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>,
+			{ wrapper: Providers }
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Create' } ) );
+		fireEvent.keyDown( document.body, { key: 'Escape' } );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores Escape when a popup already consumed it', () => {
+		const onClose = vi.fn();
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ onClose }
+			>
+				<TestRoute />
+			</OnboardingShellView>,
+			{ wrapper: Providers }
+		);
+		const event = new KeyboardEvent( 'keydown', { key: 'Escape', cancelable: true } );
+		event.preventDefault();
+		document.body.dispatchEvent( event );
+
+		expect( onClose ).not.toHaveBeenCalled();
+	} );
+
 	it( 'reserves content space when Close is visible', () => {
 		render(
 			<OnboardingShellView
@@ -106,7 +193,8 @@ describe( 'OnboardingShellView', () => {
 				onClose={ vi.fn() }
 			>
 				<h1>Create</h1>
-			</OnboardingShellView>
+			</OnboardingShellView>,
+			{ wrapper: Providers }
 		);
 
 		const content = screen.getByRole( 'heading', { name: 'Create' } ).parentElement?.parentElement;

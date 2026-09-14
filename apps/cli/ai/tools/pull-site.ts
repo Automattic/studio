@@ -21,13 +21,14 @@ export const pullSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const syncOptions = parseSyncOptions( args.options ?? 'all' );
 
-			const result = await captureCommandOutput( () =>
-				runPullCommand( site.path, syncOptions, args.remoteSite )
+			const result = await captureCommandOutput(
+				( logger ) => runPullCommand( site.path, syncOptions, args.remoteSite, undefined, logger ),
+				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';
 

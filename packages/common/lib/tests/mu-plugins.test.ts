@@ -116,6 +116,24 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 
+	it.each( [
+		[ 'enables them when the flag is true', true, '0-enable-auto-updates.php' ],
+		[ 'disables them only on an explicit false', false, '0-disable-auto-updates.php' ],
+		// Sites created before the flag existed have no value. The settings UI reads
+		// that as auto-updating, so the mu-plugins must agree (STU-2348).
+		[ 'enables them when the flag is unset', undefined, '0-enable-auto-updates.php' ],
+	] )( 'auto-updates: %s', async ( _label, flag, expected ) => {
+		const muPluginsDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, flag );
+		const generatedPlugins = await readdir( muPluginsDir );
+
+		const other =
+			expected === '0-enable-auto-updates.php'
+				? '0-disable-auto-updates.php'
+				: '0-enable-auto-updates.php';
+		expect( generatedPlugins ).toContain( expected );
+		expect( generatedPlugins ).not.toContain( other );
+	} );
+
 	it( 'should reuse the existing mu-plugins directory when contents are up to date', async () => {
 		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
 		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
@@ -192,5 +210,16 @@ describe( 'getMuPlugins error capture', () => {
 		} );
 		const sessionContent = await readFile( join( session, '0-error-capture.php' ), 'utf8' );
 		expect( sessionContent ).not.toContain( 'wp_loaded' );
+	} );
+} );
+
+describe( 'getMuPlugins admin API', () => {
+	it( 'should set the admin password only when it differs from the stored one', async () => {
+		const [ muPluginsDir ] = await getMuPlugins();
+		const content = await readFile( join( muPluginsDir, '0-studio-admin-api.php' ), 'utf8' );
+
+		// Rewriting an unchanged password produces a new hash, which invalidates
+		// the wp-admin auth cookie on every site start.
+		expect( content ).toMatch( /!\s*wp_check_password\([^)]*\)[^{]*\{\s*wp_set_password\(/ );
 	} );
 } );

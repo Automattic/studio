@@ -15,6 +15,12 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	};
 } );
 
+const { outOfCreditsState } = vi.hoisted( () => ( { outOfCreditsState: { value: false } } ) );
+
+vi.mock( '@/hooks/use-is-out-of-ai-credits', () => ( {
+	useIsOutOfAiCredits: () => outOfCreditsState.value,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 function createQueryClient() {
@@ -40,6 +46,7 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 		return (
 			<>
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
+				<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
 			</>
 		);
@@ -70,6 +77,7 @@ describe( 'useAgentRun queued handoff', () => {
 			} ),
 		};
 		useConnectorMock.mockReturnValue( connector as Connector );
+		outOfCreditsState.value = false;
 	} );
 
 	afterEach( () => {
@@ -120,7 +128,13 @@ describe( 'useAgentRun queued handoff', () => {
 			)
 		);
 
-		expect( invalidateSpy ).not.toHaveBeenCalled();
+		expect( invalidateSpy ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { queryKey: SESSIONS_QUERY_KEY } ),
+			expect.anything()
+		);
+		// The old run still consumed AI credits, so the balance refreshes even
+		// while the queued prompt takes over.
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: [ 'assistant-quota' ] } );
 		expect(
 			queryClient
 				.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
@@ -132,6 +146,46 @@ describe( 'useAgentRun queued handoff', () => {
 					return data.text === 'Queued follow-up';
 				} )
 		).toBe( true );
+	} );
+
+	it( 'holds a queued prompt instead of dispatching it once the credits are spent', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		// Queued while the run was still paid for; the balance empties mid-run.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		outOfCreditsState.value = true;
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'run.exited',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					status: 'success',
+					code: 0,
+				},
+			} );
+		} );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'still invalidates when a run ends without a queued follow-up', async () => {
@@ -164,5 +218,36 @@ describe( 'useAgentRun queued handoff', () => {
 			{ queryKey: SESSIONS_QUERY_KEY },
 			{ cancelRefetch: false }
 		);
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: [ 'assistant-quota' ] } );
+	} );
+
+	it( 'preserves the optimistic start time when the backend acknowledges the run', async () => {
+		let resolveContinueSession: ( value: { runId: string } ) => void = () => undefined;
+		connector.continueSession = vi.fn(
+			() =>
+				new Promise< { runId: string } >( ( resolve ) => {
+					resolveContinueSession = resolve;
+				} )
+		);
+		const nowSpy = vi.spyOn( Date, 'now' ).mockReturnValue( 1_000 );
+		renderWithAgentRun( createQueryClient() );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' ) );
+
+		nowSpy.mockReturnValue( 2_000 );
+		await act( async () => resolveContinueSession( { runId: 'run-next' } ) );
+		expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-next',
+				event: { type: 'run.started', timestamp: '1970-01-01T00:00:03.000Z' },
+			} );
+		} );
+		expect( screen.getByTestId( 'started-at' ) ).toHaveTextContent( '1000' );
+		nowSpy.mockRestore();
 	} );
 } );

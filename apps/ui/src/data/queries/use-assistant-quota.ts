@@ -4,7 +4,10 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 
 export const ASSISTANT_QUOTA_QUERY_KEY = [ 'assistant-quota' ] as const;
 
-export function useStudioAssistantQuota( { enabled = true }: { enabled?: boolean } = {} ) {
+export function useStudioAssistantQuota( {
+	enabled = true,
+	refetchOnMount,
+}: { enabled?: boolean; refetchOnMount?: 'always' } = {} ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
 	const query = useQuery( {
@@ -14,8 +17,11 @@ export function useStudioAssistantQuota( { enabled = true }: { enabled?: boolean
 		queryFn: () => connector.getStudioAssistantQuota(),
 		enabled: enabled && !! authUser,
 		// Quota moves slowly; avoid refetching on every panel mount and
-		// window focus.
+		// window focus. Spending credits invalidates the query explicitly
+		// (see use-agent-run), and surfaces where the user is actively
+		// checking the balance opt into `refetchOnMount: 'always'`.
 		staleTime: 5 * 60 * 1000,
+		refetchOnMount,
 		meta: { persist: false },
 	} );
 	// The quota belongs to the signed-in WordPress.com account; hide any

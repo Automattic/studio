@@ -66,12 +66,12 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	clearExportState: () => undefined,
 } );
 
-const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
+const getWpContentTypeLabels = (): Record< string, string > => ( {
 	plugins: __( 'Importing plugins…' ),
 	themes: __( 'Importing themes…' ),
 	uploads: __( 'Importing media uploads…' ),
 	other: __( 'Importing other files…' ),
-};
+} );
 
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
@@ -126,6 +126,9 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				await getIpcApi().importSite( selectedSite.id, filePath, {
 					alwaysStartServer: true,
 					showNotification: showImportNotification,
+					// `studio_site_imported` means a user-initiated import into an existing site —
+					// add-site-flow imports are not counted.
+					suppressTracksEvent: isNewSite,
 				} );
 			} catch ( error ) {
 				// The main process handles displaying the error modal, so we don't need any explicit error
@@ -265,7 +268,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					data.totalItems > 0
 				) {
 					const percentage = Math.round( ( data.processedItems / data.totalItems ) * 100 );
-					const baseLabel = WP_CONTENT_TYPE_LABELS[ data.type ] || __( 'Importing files…' );
+					const baseLabel = getWpContentTypeLabels()[ data.type ] || __( 'Importing files…' );
 					statusMessage = sprintf( __( '%1$s (%2$d%%)' ), baseLabel, percentage );
 				}
 

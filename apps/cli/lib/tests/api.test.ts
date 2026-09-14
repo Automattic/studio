@@ -2,6 +2,7 @@ import fs from 'fs';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
 import {
+	enableReprintExporter,
 	getWpComSites,
 	rotateReprintSecret,
 	SnapshotStatus,
@@ -223,7 +224,7 @@ describe( 'API Module', () => {
 	} );
 
 	describe( 'rotateReprintSecret', () => {
-		it( 'should rotate the WordPress.com secret and return it', async () => {
+		it( 'rotates via the v1 wpcomsh route and reads the nested `{ data: { secret } }` shape', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
@@ -236,7 +237,7 @@ describe( 'API Module', () => {
 				} ),
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken ) ).resolves.toBe(
+			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).resolves.toBe(
 				'rotated-secret'
 			);
 			expect( fetch ).toHaveBeenCalledWith(
@@ -246,7 +247,41 @@ describe( 'API Module', () => {
 					headers: expect.objectContaining( {
 						Authorization: `Bearer ${ mockToken }`,
 					} ),
+					body: JSON.stringify( { path: '/wpcomsh/v1/reprint/rotate-export-secret' } ),
 				} )
+			);
+		} );
+
+		it( 'rotates via the v2 jetpack route and reads the flat `{ secret }` shape', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( {
+					code: 200,
+					body: {
+						secret: 'v2-secret',
+					},
+				} ),
+			} as never );
+
+			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).resolves.toBe(
+				'v2-secret'
+			);
+			expect( fetch ).toHaveBeenCalledWith(
+				expect.stringContaining( `jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&` ),
+				expect.objectContaining( {
+					body: JSON.stringify( { path: '/jetpack/v4/reprint/rotate-export-secret' } ),
+				} )
+			);
+		} );
+
+		it( 'throws when the rotate response carries no secret', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( { code: 200, body: {} } ),
+			} as never );
+
+			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).rejects.toThrow(
+				'Invalid API response format'
 			);
 		} );
 
@@ -256,8 +291,88 @@ describe( 'API Module', () => {
 				status: 500,
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken ) ).rejects.toThrow(
+			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).rejects.toThrow(
 				'Failed to rotate the WordPress.com site secret'
+			);
+		} );
+	} );
+
+	describe( 'enableReprintExporter', () => {
+		it( 'returns "v2" when the enable-export probe succeeds and does not touch the settings endpoint', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( { code: 200, body: { enabled: true } } ),
+			} as never );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v2' );
+			expect( fetch ).toHaveBeenCalledWith(
+				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
+				expect.objectContaining( {
+					body: JSON.stringify( { path: '/jetpack/v4/reprint/enable-export' } ),
+				} )
+			);
+			// The v2 path enables the exporter through the probe itself, so it
+			// must never fall through to the legacy settings-based enable.
+			expect( wpcomFactory ).not.toHaveBeenCalled();
+		} );
+
+		it( 'falls back to "v1" when the probe returns an inner `rest_no_route` body', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( {
+					code: 200,
+					body: { code: 'rest_no_route', data: { status: 404 } },
+				} ),
+			} as never );
+			const post = vi.fn().mockResolvedValue( {
+				updated: { reprint_exporter_enabled: 1_700_000_000 },
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
+			expect( post ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					path: `/sites/${ mockSiteId }/settings`,
+					body: expect.objectContaining( { reprint_exporter_enabled: expect.any( Number ) } ),
+				} )
+			);
+		} );
+
+		it( 'falls back to "v1" when the envelope reports a 404 code directly', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
+			} as never );
+			const post = vi.fn().mockResolvedValue( {
+				updated: { reprint_exporter_enabled: 1_700_000_000 },
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
+			expect( post ).toHaveBeenCalled();
+		} );
+
+		it( 'throws on an unexpected probe status', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( { code: 500, body: {} } ),
+			} as never );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Failed to enable the reprint exporter'
+			);
+		} );
+
+		it( 'throws when the v1 settings endpoint does not acknowledge the key', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
+			} as never );
+			const post = vi.fn().mockResolvedValue( { updated: {} } );
+			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'did not acknowledge the reprint exporter activation'
 			);
 		} );
 	} );

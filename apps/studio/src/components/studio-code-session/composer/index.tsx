@@ -10,8 +10,10 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { getAiModelFamily, getAiModelLabel, getVisibleAiModels } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
+import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -25,10 +27,12 @@ import {
 	useState,
 	type SetStateAction,
 } from 'react';
+import { useAuth } from 'src/hooks/use-auth';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
+import { AiCreditsControl } from './ai-credits-control';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -70,6 +74,7 @@ interface ComposerProps {
 	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -230,6 +235,7 @@ export function Composer( {
 	usageCapMessage,
 	model,
 	onSend,
+	onAnswer,
 	onInterrupt,
 	sessionId,
 	entries,
@@ -308,8 +314,15 @@ export function Composer( {
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
+	const { user } = useAuth();
+	const visibleModels = getVisibleAiModels( isAutomatticianEmail( user?.email ), model );
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+
+	const answerQuestion =
+		onAnswer && attachments.length === 0 && ! resolveSkillFromPrompt( value )
+			? onAnswer
+			: undefined;
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -322,6 +335,10 @@ export function Composer( {
 		const sentAttachments = attachments;
 		setDraftValue( '' );
 		clearAttachments();
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -332,7 +349,15 @@ export function Composer( {
 			setDraftValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend, setDraftValue ] );
+	}, [
+		value,
+		attachments,
+		clearAttachments,
+		restoreAttachments,
+		onSend,
+		answerQuestion,
+		setDraftValue,
+	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -445,10 +470,12 @@ export function Composer( {
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
-	const placeholder = busy
+	const placeholder = answerQuestion
+		? __( 'Or type your own answer…' )
+		: busy
 		? __( 'Queue a follow-up instruction…' )
 		: getSessionPlaceholder( sessionId );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
 	const hoveredAttachment = hoverPreview
 		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
@@ -669,6 +696,7 @@ export function Composer( {
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<AiCreditsControl />
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
 									render={
@@ -687,7 +715,7 @@ export function Composer( {
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ AI_MODELS.map( ( { id, label } ) => (
+										{ visibleModels.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }
 											</Menu.RadioItem>

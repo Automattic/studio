@@ -7,34 +7,96 @@
 	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
-.activityError {
+.activityStatus {
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	/* Pin the cancel button to the top: centring drifts it down the block as the
+	   progress message and the "can't cancel" reason wrap. */
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
-		transparent
-	);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.activityErrorTitle {
-	color: color-mix(
+.activityStatusText {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	flex: 1;
+}
+
+.activityStatusNote {
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	/* Matches the smaller font size — inheriting the row's `sm` line height
+	   leaves this sentence too airy once it wraps onto a second line. */
+	line-height: var(--wpds-typography-line-height-xs);
+	text-wrap: pretty;
+}
+
+/* Matches .moreMenuTrigger: the popup is an inverted surface, so the design
+   system's own disabled colour lands on the wrong background and the button
+   reads as enabled. */
+.cancelSyncButton {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	justify-content: center;
+	color: var(--wpds-color-foreground-interactive-neutral);
+}
+
+.cancelSyncButton:is([data-disabled], :disabled) {
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
+}
+
+.cancelSyncButton svg {
+	width: 14px;
+	height: 14px;
+	fill: currentColor;
+}
+
+/* The popup keeps `overflow: visible`, so this — the only row that fills to the
+   popup edge — has to round its own top corners or it squares off the popup's.
+   Inset by the border width so the curve nests inside it instead of cutting it. */
+.activityStatus:first-child {
+	border-top-left-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
+	border-top-right-radius: calc(var(--site-dropdown-radius) - var(--wpds-border-width-xs));
+}
+
+.activityStatusPending {
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+.activityStatusError {
+	background: color-mix(
 		in srgb,
-		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
-		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
+		var(--wpds-color-foreground-content-error, var(--wpds-color-foreground-content-neutral)) 8%,
+		transparent
 	);
+}
+
+.activityStatusTitle {
 	font-weight: 600;
 }
 
-.activityErrorMessage {
-	color: var(--wpds-color-fg-content-neutral-weak);
+.activityStatusError .activityStatusTitle {
+	color: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground, var(--wpds-color-foreground-content-neutral)) 72%,
+		var(--wpds-color-foreground-content-error, var(--wpds-color-foreground-content-neutral))
+	);
+}
+
+.activityStatusMessage {
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	white-space: pre-wrap;
 	word-break: break-word;
+	/* Rewritten in place as the percentage climbs, and this font's digits are
+	   not equal width — without this the text shifts on nearly every update. */
+	font-variant-numeric: tabular-nums;
 }
 
 .xdebugBadge {
@@ -44,7 +106,7 @@
 }
 
 .xdebugBadge_stopped {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .xdebugGlyph {
@@ -64,12 +126,12 @@
 .localServerControl {
 	--local-server-track-bg: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 14%,
+		var(--wpds-color-foreground-content-neutral) 14%,
 		transparent
 	);
 	--local-server-track-bg-hover: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 22%,
+		var(--wpds-color-foreground-content-neutral) 22%,
 		transparent
 	);
 	--local-server-track-border: color-mix(
@@ -80,11 +142,11 @@
 	--local-server-track-border-hover: var(--wpds-color-stroke-surface-neutral);
 	--local-server-track-shadow: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 6%,
+		var(--wpds-color-foreground-content-neutral) 6%,
 		transparent
 	);
-	--local-server-thumb-bg: var(--wpds-color-fg-content-neutral);
-	--local-server-thumb-color: var(--wpds-color-bg-surface-neutral-strong);
+	--local-server-thumb-bg: var(--wpds-color-foreground-content-neutral);
+	--local-server-thumb-color: var(--wpds-color-background-surface-neutral-strong);
 	--local-server-thumb-ring: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 52%,
@@ -92,7 +154,7 @@
 	);
 	--local-server-thumb-shadow: color-mix(
 		in srgb,
-		var(--wpds-color-fg-content-neutral) 14%,
+		var(--wpds-color-foreground-content-neutral) 14%,
 		transparent
 	);
 
@@ -108,7 +170,7 @@
 	border-radius: 999px;
 	appearance: none;
 	background-color: var(--local-server-track-bg);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	cursor: var(--wpds-cursor-control);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border),
@@ -130,7 +192,7 @@
 	--local-server-thumb-shadow: color-mix(in srgb, #0d5f2c 22%, transparent);
 }
 
-.localServerControl:not(:disabled):hover {
+.localServerControl:not([aria-disabled='true']):hover {
 	background-color: var(--local-server-track-bg-hover);
 	box-shadow:
 		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border-hover),
@@ -143,11 +205,11 @@
 
 .localServerControl:focus-visible {
 	background-color: var(--local-server-track-bg);
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
 	outline-offset: 2px;
 }
 
-.localServerControl:disabled {
+.localServerControl[aria-disabled='true'] {
 	cursor: not-allowed;
 	opacity: 0.72;
 }
@@ -232,7 +294,7 @@
 }
 
 .urlLink:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
@@ -269,14 +331,14 @@
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.25;
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .environmentActionCopy {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.4;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
 .environmentActionButton {
@@ -285,21 +347,12 @@
 }
 
 .rowActionButton,
-.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
-.rowActionButton,
-.rowViewButton {
-	height: 28px;
-}
-
-.rowViewButton {
-	color: var(--wpds-color-fg-interactive-neutral);
-}
-
 .rowActionButton {
+	height: 28px;
 	width: 28px;
 	padding: 0;
 }
@@ -308,7 +361,7 @@
    the wp-ui layers and would override the design system's disabled dimming
    and the loading spinner's transparent-text state. */
 .rowActionButton:not([data-disabled]) {
-	color: var(--wpds-color-fg-interactive-neutral);
+	color: var(--wpds-color-foreground-interactive-neutral);
 }
 
 .rowActionButton svg {
@@ -318,8 +371,8 @@
 }
 
 .environmentActionButton_outline {
-	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
-	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
+	--wp-ui-button-background-color-active: var(--wpds-color-background-surface-neutral);
 	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
 	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
 }
@@ -329,11 +382,11 @@
 	height: 28px;
 	padding: 0;
 	justify-content: center;
-	color: var(--wpds-color-fg-interactive-neutral);
+	color: var(--wpds-color-foreground-interactive-neutral);
 }
 
 .moreMenuTrigger:is([data-disabled], :disabled) {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
 }
 
 .moreMenuTrigger svg {

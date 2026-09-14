@@ -1,7 +1,12 @@
 import { mkdirSync, writeFileSync } from 'fs';
+import { createRequire } from 'module';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
-import packageJson from './package.json';
+
+const __dirname = import.meta.dirname;
+const packageJson = createRequire( import.meta.url )( './package.json' ) as {
+	dependencies?: Record< string, string >;
+};
 
 // Node built-ins are always provided by the runtime, never bundled.
 const nodeBuiltinExternals: RegExp[] = [

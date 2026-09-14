@@ -9,6 +9,7 @@ import {
 	deleteSnapshotFromConfig,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -28,6 +29,10 @@ vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/cli-config/snapshots' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -94,6 +99,11 @@ describe( 'Preview Delete Command', () => {
 		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting…' ] );
 		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Deletion successful' ] );
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_DELETE,
+			expect.objectContaining( { channel: 'studio-cli' } )
+		);
 	} );
 
 	it( 'should handle authentication errors', async () => {
@@ -164,6 +174,11 @@ describe( 'Preview Delete Command', () => {
 		expect( emitCliEvent ).toHaveBeenCalledWith( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_DELETE_ALL,
+			expect.objectContaining( { count: 1, channel: 'studio-cli' } )
+		);
 	} );
 
 	it( 'should handle delete all preview sites errors', async () => {

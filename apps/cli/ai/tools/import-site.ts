@@ -11,12 +11,13 @@ export const importSiteTool = defineTool(
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		importFile: Type.String( { description: 'Absolute path to the backup file to import' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 
-			const result = await captureCommandOutput( () =>
-				runImportCommand( site.path, args.importFile )
+			const result = await captureCommandOutput(
+				( logger ) => runImportCommand( site.path, args.importFile, false, false, logger ),
+				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
 

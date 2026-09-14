@@ -3,11 +3,12 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
 	useCallback,
@@ -19,18 +20,23 @@ import {
 	type Ref,
 	type UIEvent,
 } from 'react';
+import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
+import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
+import { AiCreditsThresholdNotice } from 'src/components/ai-credits-threshold-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIsOutOfAiCredits } from 'src/hooks/use-is-out-of-ai-credits';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
-import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
@@ -45,8 +51,6 @@ import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 interface SessionFrameProps {
 	header?: ReactNode;
@@ -82,6 +86,23 @@ function SessionFrame( {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function SessionLoadingFrame() {
+	return (
+		<SessionFrame
+			header={ <div className={ styles.header } /> }
+			composer={
+				<div className={ styles.classicColumn }>
+					<ComposerSkeleton />
+				</div>
+			}
+		>
+			<div className={ styles.loading } role="status" aria-live="polite">
+				<Spinner className={ styles.loadingSpinner } />
+			</div>
+		</SessionFrame>
 	);
 }
 
@@ -140,7 +161,7 @@ function NoAuth() {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								authenticate( 'assistant_tab' );
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }
@@ -165,7 +186,7 @@ function NoAuth() {
 									if ( isOffline ) {
 										return;
 									}
-									getIpcApi().authenticate( true );
+									getIpcApi().authenticate( true, 'assistant_tab' );
 								} }
 							>
 								{ __( 'Create a free account' ) }
@@ -234,6 +255,9 @@ function EmptyConversation( {
 
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
+	// Out of credits replaces the composer: there is nothing to type into
+	// until the account buys more, so the offer takes the input's place.
+	const isOutOfCredits = useIsOutOfAiCredits();
 	const { data, isLoading } = useSession( sessionId );
 	const startNewChat = useCallback( () => void newSession(), [ newSession ] );
 	const {
@@ -271,6 +295,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const unansweredQuestion = pendingQuestions.find(
+		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -355,20 +382,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	// disappearing and reappearing mid-prompt.
 	let body: ReactNode;
 	if ( ! sessionId || isLoading ) {
-		body = (
-			<SessionFrame
-				header={ <div className={ styles.header } /> }
-				composer={
-					<div className={ styles.classicColumn }>
-						<ComposerSkeleton />
-					</div>
-				}
-			>
-				<div className={ styles.loading } role="status" aria-live="polite">
-					<Spinner className={ styles.loadingSpinner } />
-				</div>
-			</SessionFrame>
-		);
+		body = <SessionLoadingFrame />;
 	} else if ( ! data ) {
 		body = (
 			<div className="p-8 flex flex-col max-w-3xl">
@@ -410,21 +424,32 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
-						<Composer
-							busy={ composerBusy }
-							isInterrupting={ isInterrupting }
-							error={ usageCapReached ? null : runError }
-							usageCapMessage={ usageCapReached ? runError : null }
-							model={ currentModel }
-							onSend={ sendMessage }
-							onInterrupt={ interrupt }
-							sessionId={ sessionId }
-							entries={ data.entries }
-							ownerSiteId={ selectedSite.id }
-							onSwitchSession={ setSessionId }
-							draftPrompt={ promptDraft }
-							previewPrompt={ previewPrompt }
-						/>
+						<AiCreditsThresholdNotice />
+						<AiCreditsPurchasedNotice />
+						{ isOutOfCredits ? (
+							<OutOfCreditsNotice />
+						) : (
+							<Composer
+								busy={ composerBusy }
+								isInterrupting={ isInterrupting }
+								error={ usageCapReached ? null : runError }
+								usageCapMessage={ usageCapReached ? runError : null }
+								model={ currentModel }
+								onSend={ sendMessage }
+								onAnswer={
+									unansweredQuestion
+										? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
+										: undefined
+								}
+								onInterrupt={ interrupt }
+								sessionId={ sessionId }
+								entries={ data.entries }
+								ownerSiteId={ selectedSite.id }
+								onSwitchSession={ setSessionId }
+								draftPrompt={ promptDraft }
+								previewPrompt={ previewPrompt }
+							/>
+						) }
 					</div>
 				}
 			>
@@ -467,9 +492,34 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
+	}
+
+	if ( isQuotaLoading ) {
+		return <SessionLoadingFrame />;
+	}
+
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<AccessRequirements
+				quota={ quota }
+				isRechecking={ isQuotaFetching }
+				onRecheck={ refetchQuota }
+			/>
+		);
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;
@@ -478,7 +528,7 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<QueryClientProvider client={ queryClient }>
-			<ThemeProvider density="compact">
+			<ThemeProvider>
 				<AgentRunProvider>
 					<SessionGate selectedSite={ selectedSite } />
 				</AgentRunProvider>

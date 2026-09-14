@@ -57,7 +57,7 @@ function getLocalProgramsPath(): string {
 // intentionally empty here.
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {
-		antigravity: [ 'Antigravity.app' ],
+		antigravity: [ 'Antigravity IDE.app' ],
 		vscode: [ 'Visual Studio Code.app' ],
 		phpstorm: [ 'PhpStorm.app' ],
 		cursor: [ 'Cursor.app' ],
@@ -86,8 +86,8 @@ const installationPaths: Record< string, PlatformPaths > = {
 	},
 	win32: {
 		antigravity: [
-			path.win32.join( getLocalProgramsPath(), 'Antigravity' ),
-			path.win32.join( getProgramFilesPath(), 'Google\\Antigravity' ),
+			path.win32.join( getLocalProgramsPath(), 'Antigravity IDE' ),
+			path.win32.join( getProgramFilesPath(), 'Google\\Antigravity IDE' ),
 		],
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
@@ -193,4 +193,10 @@ export function detectInstalledApps(): InstalledApps {
 		apps[ key ] = key === 'terminal' ? true : isInstalled( key );
 	}
 	return apps;
+}
+
+// What an unset editor preference resolves to, shared so the desktop and the
+// `studio ui` server offer the same fallback.
+export function getFirstInstalledEditor( installedApps: InstalledApps ): SupportedEditor | null {
+	return SUPPORTED_EDITORS.find( ( editor ) => installedApps[ editor ] ) ?? null;
 }

@@ -1,58 +1,169 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { Button, Dialog, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import { getSuggestedPrompts } from './prompts';
 import styles from './style.module.css';
+import type { CSSProperties } from 'react';
 
 interface SuggestedPromptsProps {
+	// Fade in on appearance (entitlement check just resolved).
+	fadeIn?: boolean;
 	siteName: string;
 	// Drops the prompt into the composer (focused) — the user sends it.
 	onPick: ( prompt: string ) => void;
-	// Checked at click time; a truthy draft asks for confirmation before
-	// onPick overwrites it.
-	hasExistingDraft: () => boolean;
+	// Checked at click time; confirmation is only asked when the draft
+	// diverged from the last suggestion we inserted (user edits count,
+	// switching between untouched suggestions does not).
+	getDraft: () => {
+		text: string;
+		hasAttachments: boolean;
+		suggestionBaseline: string | null;
+	};
+}
+
+interface PendingPrompt {
+	prompt: string;
+	label: string;
+	sourceRect: DOMRect;
+}
+
+interface PromptTransfer {
+	id: number;
+	label: string;
+	style: CSSProperties;
 }
 
 // Plain-text starter prompts floating under the empty-state logo. One action:
 // click to load the prompt into the composer, ready to tweak or send. A fresh
 // sample rotates in per mount (memo keeps it stable across re-renders).
-export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: SuggestedPromptsProps ) {
+export function SuggestedPrompts( {
+	fadeIn = false,
+	siteName,
+	onPick,
+	getDraft,
+}: SuggestedPromptsProps ) {
+	const fadeClass = fadeIn ? styles.fadeIn : undefined;
 	const prompts = useMemo( () => getSuggestedPrompts( siteName ), [ siteName ] );
-	const [ pendingPrompt, setPendingPrompt ] = useState< string | null >( null );
+	const tooltipLabels = [
+		__( 'Start with this idea' ),
+		__( 'Try this one' ),
+		__( 'Maybe this one' ),
+		__( 'Give this a go' ),
+		__( 'How about this' ),
+		__( 'Build from here' ),
+		__( 'Take this for a spin' ),
+	];
+	const [ pendingPrompt, setPendingPrompt ] = useState< PendingPrompt | null >( null );
+	const replaceLabel = __( 'Replace draft' );
+	const handleReplaceKeyDown = useConfirmOnEnter( replaceLabel );
+	const [ transfer, setTransfer ] = useState< PromptTransfer | null >( null );
+	const transferIdRef = useRef( 0 );
 
-	const pick = ( prompt: string ) => {
-		if ( hasExistingDraft() ) {
-			setPendingPrompt( prompt );
-			return;
-		}
+	const apply = ( prompt: string ) => {
 		onPick( prompt );
+	};
+
+	const applyWithTransfer = ( prompt: string, label: string, sourceRect: DOMRect ) => {
+		const composer = document.querySelector< HTMLElement >( '[data-session-composer]' );
+		const reduceMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
+
+		if ( composer && ! reduceMotion ) {
+			const destinationRect = composer.getBoundingClientRect();
+			const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+			const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+			const destinationX = destinationRect.left + destinationRect.width / 2;
+			const destinationY = destinationRect.top + Math.min( destinationRect.height / 2, 40 );
+
+			setTransfer( {
+				id: transferIdRef.current++,
+				label,
+				style: {
+					top: sourceRect.top,
+					left: sourceRect.left,
+					width: sourceRect.width,
+					height: sourceRect.height,
+					'--prompt-transfer-x': `${ destinationX - sourceCenterX }px`,
+					'--prompt-transfer-y': `${ destinationY - sourceCenterY }px`,
+				} as CSSProperties,
+			} );
+		}
+
+		apply( prompt );
+	};
+
+	const pick = ( prompt: string, label: string, sourceRect: DOMRect ) => {
+		const draft = getDraft();
+		const isUntouched =
+			! draft.hasAttachments &&
+			( draft.text.trim().length === 0 || draft.text === draft.suggestionBaseline );
+		if ( isUntouched ) {
+			applyWithTransfer( prompt, label, sourceRect );
+		} else {
+			setPendingPrompt( { prompt, label, sourceRect } );
+		}
 	};
 
 	return (
 		<div className={ styles.root }>
-			<div className={ styles.group }>
+			<div className={ styles.frostField }>
 				{ /* Stacked backdrop-blur layers with shrinking radial masks — the
 				     progressive-blur technique (see components/progressive-blur) —
-				     so the frost ramps up smoothly instead of cutting a hard edge. */ }
-				<span className={ clsx( styles.frost, styles.frostSoft ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostMedium ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostStrong ) } aria-hidden="true" />
-				<span className={ clsx( styles.frost, styles.frostIntense ) } aria-hidden="true" />
-				<ul className={ styles.list }>
-					{ prompts.map( ( item ) => (
+				     so the frost ramps up smoothly instead of cutting a hard edge.
+				     The fade class goes on each layer and the list, never on an
+				     ancestor: ancestor opacity forms a backdrop root and disables
+				     the frost's backdrop-filter. */ }
+				{ [ styles.frostSoft, styles.frostMedium, styles.frostStrong, styles.frostIntense ].map(
+					( frost ) => (
+						<span
+							key={ frost }
+							className={ clsx( styles.frost, frost, fadeClass ) }
+							aria-hidden="true"
+						/>
+					)
+				) }
+			</div>
+			<div className={ styles.group }>
+				<ul className={ clsx( styles.list, fadeClass ) }>
+					{ prompts.map( ( item, index ) => (
 						<li key={ item.id }>
-							<button
-								type="button"
-								className={ styles.prompt }
-								onClick={ () => pick( item.prompt ) }
-							>
-								{ item.label }
-							</button>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<Button
+											variant="outline"
+											tone="neutral"
+											size="compact"
+											className={ styles.prompt }
+											onClick={ ( event ) =>
+												pick( item.prompt, item.label, event.currentTarget.getBoundingClientRect() )
+											}
+										/>
+									}
+								>
+									{ item.label }
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+									{ tooltipLabels[ index % tooltipLabels.length ] }
+								</Tooltip.Popup>
+							</Tooltip.Root>
 						</li>
 					) ) }
 				</ul>
 			</div>
+			{ transfer && (
+				<span
+					key={ transfer.id }
+					data-testid="prompt-transfer"
+					className={ styles.transfer }
+					style={ transfer.style }
+					aria-hidden="true"
+					onAnimationEnd={ () => setTransfer( null ) }
+				>
+					{ transfer.label }
+				</span>
+			) }
 			<Dialog.Root
 				open={ pendingPrompt !== null }
 				onOpenChange={ ( next ) => {
@@ -61,15 +172,13 @@ export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: Sugges
 					}
 				} }
 			>
-				<Dialog.Popup size="small">
+				<Dialog.Popup size="small" onKeyDown={ handleReplaceKeyDown }>
 					<Dialog.Header>
 						<Dialog.Title>{ __( 'Replace your draft?' ) }</Dialog.Title>
 					</Dialog.Header>
 					<Dialog.Content>
 						<Dialog.Description>
-							{ __(
-								'Using this suggestion will replace the message and attachments you’ve already added.'
-							) }
+							{ __( 'Your current draft and attachments will be discarded.' ) }
 						</Dialog.Description>
 					</Dialog.Content>
 					<Dialog.Footer>
@@ -81,12 +190,16 @@ export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: Sugges
 							tone="brand"
 							onClick={ () => {
 								if ( pendingPrompt ) {
-									onPick( pendingPrompt );
+									applyWithTransfer(
+										pendingPrompt.prompt,
+										pendingPrompt.label,
+										pendingPrompt.sourceRect
+									);
 								}
 								setPendingPrompt( null );
 							} }
 						>
-							{ __( 'Use suggestion' ) }
+							{ replaceLabel }
 						</Button>
 					</Dialog.Footer>
 				</Dialog.Popup>

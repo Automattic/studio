@@ -1,10 +1,10 @@
 import { CombinedAutocompleteProvider } from '@earendil-works/pi-tui';
-import chalk from '@studio/common/lib/chalk';
 import { escapeRegex } from '@studio/common/lib/escape-regex';
+import { theme } from 'cli/ai/theme';
 import type { AutocompleteSuggestions } from '@earendil-works/pi-tui';
 import type { SlashCommandDef } from 'cli/ai/slash-commands';
 
-const highlightBlue = chalk.hex( '#a4cafa' );
+const highlightBlue = ( text: string ) => theme.fg( 'accent', text );
 
 export function highlightMatch( text: string, query: string ): string {
 	const index = text.toLowerCase().indexOf( query.toLowerCase() );
@@ -39,12 +39,12 @@ function getHighlightSpan(): RegExp | null {
 export function dimUnhighlighted( text: string ): string {
 	const span = getHighlightSpan();
 	if ( ! span ) {
-		return chalk.dim( text );
+		return theme.fg( 'muted', text );
 	}
 	// Captured highlight spans land at odd indices of split().
 	return text
 		.split( span )
-		.map( ( part, i ) => ( i % 2 ? part : part && chalk.dim( part ) ) )
+		.map( ( part, i ) => ( i % 2 ? part : part && theme.fg( 'muted', part ) ) )
 		.join( '' );
 }
 

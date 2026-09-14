@@ -9,5 +9,6 @@ export function useAppGlobals() {
 		queryKey: APP_GLOBALS_QUERY_KEY,
 		queryFn: () => connector.getAppGlobals(),
 		staleTime: Infinity,
+		meta: { persist: false },
 	} );
 }

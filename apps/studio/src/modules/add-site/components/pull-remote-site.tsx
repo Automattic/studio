@@ -72,7 +72,7 @@ function NoAuthPullRemoteSiteView() {
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							authenticate( 'add_site' );
 						} }
 					>
 						<Icon icon={ wordpress } size={ 20 } />
@@ -97,7 +97,7 @@ function NoAuthPullRemoteSiteView() {
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								getIpcApi().authenticate( true, 'add_site' );
 							} }
 						>
 							{ __( 'Create a free account' ) }

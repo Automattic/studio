@@ -162,6 +162,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	);
 	const directives: string[] = [
 		'memory_limit=512M',
+		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
 		'display_errors=1',

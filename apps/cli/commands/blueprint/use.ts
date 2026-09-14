@@ -18,6 +18,11 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
+import {
+	CLI_AUTO_UPDATE_WP_VERSION,
+	coerceWpVersionOption,
+	getWpVersionOptionDescription,
+} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -162,8 +167,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					describe: __( 'WordPress version' ),
-					defaultDescription: DEFAULT_WORDPRESS_VERSION,
+					describe: getWpVersionOptionDescription(),
+					defaultDescription: CLI_AUTO_UPDATE_WP_VERSION,
+					coerce: coerceWpVersionOption,
 				} )
 				.option( 'php', {
 					type: 'string',

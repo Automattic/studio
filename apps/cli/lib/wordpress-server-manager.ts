@@ -28,6 +28,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
+	listProcesses,
 	startProcess,
 	stopProcess,
 	getDaemonBus,
@@ -36,6 +37,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -55,6 +57,20 @@ process.on( 'SIGTERM', () => abortController.abort() );
 
 export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
+}
+
+// Number of Studio site servers currently running, for the `running_site_count` Tracks prop. Queries
+// the daemon for online processes named with the site prefix. Best-effort: returns `undefined` if the
+// daemon can't be reached, so a telemetry read never fails the operation it annotates.
+export async function getRunningSiteCount(): Promise< number | undefined > {
+	try {
+		const processes = await listProcesses();
+		return processes.filter(
+			( proc ) => proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX )
+		).length;
+	} catch {
+		return undefined;
+	}
 }
 
 function getChildScriptPath( runtime: SiteRuntime ): string {
@@ -295,6 +311,14 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
+	// The SQLite driver leaves the database in WAL mode, which PHP-WASM reopens
+	// unreliably on Windows because its emulated file locks back WAL's shared
+	// memory. Convert it back before the server touches the file; native PHP
+	// uses real OS locks and is left alone.
+	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
+		await resetSqliteJournalModeToRollback( site.path );
+	}
+
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
 		site.path,
@@ -304,6 +328,7 @@ export async function startWordPressServer(
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const startedAt = Date.now();
 	try {
 		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		await readyOrExit.waitFor( processDesc.pmId );
@@ -324,7 +349,12 @@ export async function startWordPressServer(
 		// so a short-lived `studio start` process doesn't exit before the event is sent, but wrapped in
 		// try/catch so best-effort telemetry can never block or fail the site start.
 		try {
-			await recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
+				...getTracksOrigin(),
+				success: true,
+				time_ms: Date.now() - startedAt,
+				running_site_count: await getRunningSiteCount(),
+			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
 		}
@@ -335,10 +365,41 @@ export async function startWordPressServer(
 		}
 		return runningProcess;
 	} catch ( error ) {
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
+				...getTracksOrigin(),
+				success: false,
+				failure_reason: classifyStartFailure( error ),
+				time_ms: Date.now() - startedAt,
+			} );
+		} catch {
+			// Best-effort telemetry — never block or fail a site start.
+		}
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
+// Never send the raw error message: it can carry captured PHP output and filesystem paths (PII), and
+// its high cardinality would make the prop unqueryable.
+function classifyStartFailure( error: unknown ): string {
+	const message = error instanceof Error ? error.message : String( error );
+	const normalized = message.toLowerCase();
+	if ( normalized.includes( 'timeout' ) || normalized.includes( 'timed out' ) ) {
+		return 'timeout';
+	}
+	if ( normalized.includes( 'port' ) ) {
+		return 'port_unavailable';
+	}
+	if ( normalized.includes( 'php' ) ) {
+		return 'php_error';
+	}
+	if ( normalized.includes( 'exit' ) ) {
+		return 'process_exited';
+	}
+	return 'unknown';
 }
 
 async function clearStudioErrorLog( site: SiteData ): Promise< void > {
@@ -653,10 +714,41 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		// exception and telling the process manager to send a SIGKILL signal.
 		await Promise.race( [
 			exitPromise,
-			new Promise( ( resolve, reject ) => setTimeout( reject, 5000 ) ),
+			new Promise( ( resolve, reject ) =>
+				setTimeout(
+					() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
+					GRACEFUL_STOP_TIMEOUT
+				)
+			),
 		] );
 	} catch {
-		return stopProcess( processName );
+		await stopProcess( processName );
+		// SIGKILL is asynchronous: the daemon returns before the OS has torn the
+		// process down. Callers restart the server immediately after this resolves,
+		// and on Windows a lingering handle on the site's SQLite file makes that
+		// restart fail to connect, so wait for the process to actually be gone.
+		await waitForProcessToExit( processName );
+	}
+}
+
+const PROCESS_EXIT_POLL_INTERVAL = 100;
+const PROCESS_EXIT_TIMEOUT = 5000;
+
+/**
+ * Polls the daemon until the named process is no longer running.
+ *
+ * Resolves (rather than throwing) if the process is still listed once the
+ * timeout elapses: it has already been SIGKILLed, so failing the stop here
+ * would only turn a slow teardown into a user-visible error.
+ */
+async function waitForProcessToExit( processName: string ): Promise< void > {
+	const deadline = Date.now() + PROCESS_EXIT_TIMEOUT;
+
+	while ( Date.now() < deadline ) {
+		if ( ! ( await isProcessRunning( processName ) ) ) {
+			return;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, PROCESS_EXIT_POLL_INTERVAL ) );
 	}
 }
 

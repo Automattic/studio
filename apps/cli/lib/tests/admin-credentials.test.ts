@@ -1,4 +1,4 @@
-import { encodePassword } from '@studio/common/lib/passwords';
+import { DEFAULT_ADMIN_PASSWORD, encodePassword } from '@studio/common/lib/passwords';
 import {
 	getSetAdminCredentialsRequestBody,
 	requestSetAdminCredentials,
@@ -24,6 +24,16 @@ describe( 'admin credentials', () => {
 			username: 'site-owner',
 			password: 'secret',
 			email: 'owner@example.com',
+		} );
+	} );
+
+	it( 'falls back to the default password when the site has none stored', () => {
+		// A site configured with only a username must still send a password: creating the
+		// user fails without one, which previously left the site unable to start.
+		expect( getSetAdminCredentialsRequestBody( { adminUsername: 'admine' } ) ).toEqual( {
+			action: 'set_admin_password',
+			username: 'admine',
+			password: DEFAULT_ADMIN_PASSWORD,
 		} );
 	} );
 

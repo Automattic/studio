@@ -2,14 +2,15 @@ import { app } from 'electron';
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { getPreferredUiVersion } from 'src/lib/studio-ui-mode';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 // Origin tag passed to every app-spawned CLI process so its Tracks events are attributed to the
 // active desktop renderer (v1 = legacy, v2 = agentic). Read by the CLI in `apps/cli/lib/tracks.ts`.
-function getTracksOriginEnv(): string {
-	return getFeatureFlagFromEnv( 'enableAgenticUi' ) ? 'studio-ui:v2' : 'studio-ui:v1';
+// Also used by agent runs, which fork the CLI through `ai/run-manager.ts` instead.
+export function getTracksOriginEnv(): string {
+	return `studio-ui:${ getPreferredUiVersion() }`;
 }
 
 export type CliCommandResult = {
@@ -101,12 +102,19 @@ type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
 	env?: NodeJS.ProcessEnv;
+	// Set by callers that hand the captured stderr to their own caller, so it isn't logged twice.
+	suppressStderrEcho?: boolean;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
+	options: {
+		output: 'capture';
+		logPrefix?: string;
+		env?: NodeJS.ProcessEnv;
+		suppressStderrEcho?: boolean;
+	}
 ): [ CliCommandEventEmitter< true >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
@@ -172,8 +180,19 @@ export function executeCliCommand(
 				}
 			}
 		} );
+		// Unlike stdout, stderr is echoed by default: it carries diagnostics rather than payloads,
+		// and a command that recovers from a failure still exits 0, so this is otherwise the only
+		// place a non-fatal problem would become visible.
 		child.stderr?.on( 'data', ( data: Buffer ) => {
-			stderr += data.toString();
+			const text = data.toString();
+			stderr += text;
+			if ( options.suppressStderrEcho ) {
+				return;
+			}
+			const trimmed = text.trimEnd();
+			if ( trimmed ) {
+				console.error( `${ logPrefix ?? '[CLI]' } ${ trimmed }` );
+			}
 		} );
 	}
 

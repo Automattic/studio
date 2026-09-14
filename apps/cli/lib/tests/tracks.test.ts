@@ -57,12 +57,38 @@ describe( 'getTracksOrigin', () => {
 		process.env.STUDIO_TRACKS_ORIGIN = 'studio-ui:v2';
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-ui', ui_version: 'v2' } );
 	} );
+
+	it( 'resolves studio-web:v2, the value `studio ui` sets', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v2' } );
+	} );
+
+	it( 'resolves studio-web:v1', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v1';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v1' } );
+	} );
+
+	it( 'defaults the ui_version to v1 when the origin carries no version', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v1' } );
+	} );
+
+	it( 'falls back to studio-cli for an unknown channel', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-desktop:v2';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-cli' } );
+	} );
+
+	it( 'never reports a ui_version for studio-cli', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-cli:v2';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-cli' } );
+	} );
 } );
 
 describe( 'recordTracksEvent', () => {
 	it( 'does not send when the build-time telemetry flag is off', async () => {
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'production';
 
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
@@ -77,6 +103,27 @@ describe( 'recordTracksEvent', () => {
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
 		expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'proceeds in development so CLI events log during npm start', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'development';
+
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
+
+		expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'opt-out still wins in development', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'development';
+		mockOptedOut.mockResolvedValue( true );
+
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
+
+		expect( mockRecord ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not send when opted out', async () => {

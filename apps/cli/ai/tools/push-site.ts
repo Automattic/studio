@@ -21,13 +21,14 @@ export const pushSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const syncOptions = parseSyncOptions( args.options ?? 'all' );
 
-			const result = await captureCommandOutput( () =>
-				runPushCommand( site.path, syncOptions, args.remoteSite )
+			const result = await captureCommandOutput(
+				( logger ) => runPushCommand( site.path, syncOptions, args.remoteSite, logger ),
+				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || 'Push completed.';
 

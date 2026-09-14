@@ -72,14 +72,19 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
-// True when `candidate` resolves to `root` or a descendant. Used to confine
-// untrusted paths to a safe root, guarding against `../` traversal escapes.
-export function isPathWithin( root: string, candidate: string ): boolean {
+// Resolve `candidate` under `root`, returning the normalized path when it is `root`
+// or a descendant, or `null` when it escapes (e.g. via `../`). Callers with
+// untrusted input must use the returned value for filesystem access, not the raw input.
+export function confineToRoot( root: string, candidate: string ): string | null {
 	const resolvedRoot = path.resolve( root );
-	const resolvedCandidate = path.resolve( candidate );
-	return (
-		resolvedCandidate === resolvedRoot || resolvedCandidate.startsWith( resolvedRoot + path.sep )
-	);
+	const resolvedCandidate = path.resolve( resolvedRoot, candidate );
+	if (
+		resolvedCandidate === resolvedRoot ||
+		resolvedCandidate.startsWith( resolvedRoot + path.sep )
+	) {
+		return resolvedCandidate;
+	}
+	return null;
 }
 
 // Compare paths, preferring inode comparison when both paths exist on disk.

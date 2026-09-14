@@ -9,6 +9,7 @@ import {
 	setAiSessionSitePlacement,
 	type AiSessionPlacementUpdatedEvent,
 } from '@studio/common/ai/sessions/placement';
+import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -55,6 +56,9 @@ export interface AgentRunManagerConfig {
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
 	surface: AgentSurface;
+	// `STUDIO_TRACKS_ORIGIN` for the forked CLI, which emits the chat events; without it they fall
+	// back to `channel: studio-cli`. Called per fork, as the renderer can change. Unset by `studio ui`.
+	getTracksOrigin?: () => string;
 }
 
 export interface StartAgentRunOptions {
@@ -92,7 +96,13 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 }
 
 export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRunManager {
-	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], surface } = config;
+	const {
+		cliBinary,
+		nodeBinary,
+		execArgv = [ '--experimental-wasm-jspi' ],
+		surface,
+		getTracksOrigin,
+	} = config;
 
 	// Two subprocesses resuming the same session id would race on the JSONL
 	// recorder, so we reject the second one here.
@@ -176,11 +186,18 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const child = fork( cliBinary, args, {
 			// Agent events arrive over the Node IPC channel (via `process.send`
 			// in the child). stdout/stderr are ignored — the child's `emitEvent`
-			// falls back to stdout only when IPC isn't available.
-			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+			// falls back to stdout only when IPC isn't available. In dev they are
+			// inherited instead, so the child's logging (Tracks events, warnings)
+			// reaches the terminal running the app.
+			stdio: isDevRun()
+				? [ 'ignore', 'inherit', 'inherit', 'ipc' ]
+				: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
 			execArgv,
-			env: { ...process.env },
+			env: {
+				...process.env,
+				...( getTracksOrigin ? { STUDIO_TRACKS_ORIGIN: getTracksOrigin() } : {} ),
+			},
 		} );
 
 		const run: AgentRun = {

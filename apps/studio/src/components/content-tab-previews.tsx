@@ -100,7 +100,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							authenticate( 'previews_tab' );
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
@@ -125,7 +125,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								getIpcApi().authenticate( true, 'previews_tab' );
 							} }
 						>
 							{ __( 'Create a free account' ) }

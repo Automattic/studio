@@ -25,7 +25,7 @@ export const NonAuthenticatedAccountTab = () => {
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							authenticate( 'settings' );
 						} }
 					>
 						{ __( 'Log in' ) }

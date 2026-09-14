@@ -1,11 +1,8 @@
 import { resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { isAiProviderId } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
-
-function isAiProviderId( value: string ): value is AiProviderId {
-	return Object.prototype.hasOwnProperty.call( AI_PROVIDERS, value );
-}
+import type { AiProviderId } from 'cli/ai/providers';
 
 export interface ResumeSessionContext {
 	sessionId?: string;
@@ -37,7 +34,7 @@ export function resolveResumeSessionContext(
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
 			const data = entry.data;
-			if ( data && isAiProviderId( data.provider ) ) {
+			if ( data?.provider && isAiProviderId( data.provider ) ) {
 				context.provider = data.provider;
 				break;
 			}

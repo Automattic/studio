@@ -33,6 +33,20 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( prompt ).toContain( '"comment": "Make the hero heading smaller"' );
 	} );
 
+	it( 'tells the agent which viewport each note was made in', () => {
+		const prompt = formatAnnotationsAsPrompt( [
+			{
+				id: 'a_1',
+				comment: 'This wraps awkwardly on phones',
+				tag: 'h1',
+				path: '/',
+				viewport: { width: 390, height: 844 },
+			},
+		] );
+
+		expect( prompt ).toContain( '- Viewport when annotated: 390×844 CSS px' );
+	} );
+
 	it( 'keeps all annotations in their original order', () => {
 		const prompt = formatAnnotationsAsPrompt( [
 			{
@@ -40,14 +54,14 @@ describe( 'formatAnnotationsAsPrompt', () => {
 				comment: 'Use more contrast',
 				tag: 'button',
 				nearbyText: 'Buy now',
-				pathname: '/pricing',
+				path: '/pricing',
 			},
 			{
 				id: 'a_2',
 				comment: 'Add more spacing',
 				tag: 'section',
 				nearbyText: 'Testimonials',
-				pathname: '/about',
+				path: '/about',
 			},
 		] );
 

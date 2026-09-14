@@ -42,7 +42,7 @@ export function Onboarding() {
 	const handleAnalyticsEnabledChange = useCallback(
 		( enabled: boolean ) => {
 			setAnalyticsEnabled( enabled );
-			void saveAnalyticsEnabled( enabled );
+			void saveAnalyticsEnabled( { enabled, surface: 'onboarding' } );
 		},
 		[ saveAnalyticsEnabled ]
 	);

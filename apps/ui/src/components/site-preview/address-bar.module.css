@@ -1,0 +1,163 @@
+.addressBar {
+	display: flex;
+	box-sizing: border-box;
+	width: 100%;
+	flex: 1 1 auto;
+	min-width: 80px;
+	height: 32px;
+	margin: 0;
+	padding-inline: var(--wpds-dimension-padding-sm);
+	align-items: center;
+	border: 0;
+	border-radius: var(--wpds-border-radius-lg);
+	background: var(--wpds-color-background-surface-neutral-weak);
+	overflow: hidden;
+}
+
+.addressBar:focus-within {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: 1px;
+}
+
+.siteIcon {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+	flex: 0 0 16px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: default;
+}
+
+.openExternal {
+	display: inline-flex;
+	width: 24px;
+	height: 24px;
+	flex: 0 0 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	cursor: var(--wpds-cursor-control);
+}
+
+.openExternal svg {
+	fill: currentColor;
+}
+
+.openExternal:hover,
+.openExternal:focus-visible {
+	background: var(--wpds-color-background-interactive-neutral-weak-active);
+	color: var(--wpds-color-foreground-content-neutral);
+	outline: none;
+}
+
+.siteIcon:focus-visible,
+.openExternal:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus);
+	outline-offset: 2px;
+	border-radius: var(--wpds-border-radius-xs);
+}
+
+.wordpressIcon {
+	color: var(--wpds-color-foreground-content-neutral);
+	fill: currentColor;
+}
+
+.input {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	padding: 0 var(--wpds-dimension-padding-sm) 0 var(--wpds-dimension-padding-xs);
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	outline: 0;
+}
+
+.shortcutsPositioner {
+	z-index: 100;
+}
+
+.shortcutsPopup {
+	box-sizing: border-box;
+	width: var(--anchor-width);
+	max-width: calc(100vw - 16px);
+	padding: var(--wpds-dimension-padding-xs);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	box-shadow:
+		0 2px 3px 0 rgba(0, 0, 0, 0.05),
+		0 4px 5px 0 rgba(0, 0, 0, 0.04),
+		0 12px 12px 0 rgba(0, 0, 0, 0.03),
+		0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.shortcutsList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.shortcutsSection {
+	display: flex;
+	flex-direction: column;
+	margin-block-start: var(--wpds-dimension-padding-xs);
+	padding-block-start: var(--wpds-dimension-padding-xs);
+	border-block-start: var(--wpds-border-width-xs) solid
+		var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.shortcutsLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.shortcut {
+	display: grid;
+	grid-template-columns: 18px minmax(0, 1fr) auto;
+	gap: var(--wpds-dimension-gap-sm);
+	width: 100%;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	align-items: center;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+	cursor: var(--wpds-cursor-control);
+}
+
+.shortcut:hover,
+.shortcut:focus-visible {
+	background: var(--wpds-color-background-surface-neutral);
+	outline: none;
+}
+
+.shortcutSiteIcon {
+	width: 18px;
+	height: 18px;
+}
+
+.shortcutUrl {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

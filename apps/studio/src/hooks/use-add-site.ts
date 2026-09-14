@@ -181,6 +181,9 @@ export function useAddSite() {
 				const shouldSkipStart = ( !! fileForImport && ! isWxrImport ) || !! selectedRemoteSite;
 
 				const enableHttps = formValues.useCustomDomain ? formValues.enableHttps : false;
+				// Blueprint is inferred by the CLI from the blueprint arg; only tag the paths it can't
+				// see. A pull from a remote WordPress.com site rides the same create-then-populate path.
+				const flowType = fileForImport ? 'import' : selectedRemoteSite ? 'sync' : undefined;
 				let updatedBlueprint: Blueprint | undefined;
 				if ( selectedBlueprint?.blueprint ) {
 					const updatedJson = updateBlueprintWithFormValues( selectedBlueprint.blueprint, {
@@ -237,7 +240,8 @@ export function useAddSite() {
 					formValues.adminPassword,
 					formValues.adminEmail,
 					formValues.runtime,
-					formValues.fileAccess
+					formValues.fileAccess,
+					flowType
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );

@@ -1,12 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { OnboardingHomePage } from './index';
+import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 import type { ComponentProps } from 'react';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn(),
 	hasSites: false,
+	isOffline: false,
+	galleryProps: null as Record< string, unknown > | null,
+} ) );
+
+vi.mock( '@/components/blueprint-gallery', () => ( {
+	BlueprintGallery: ( props: Record< string, unknown > ) => {
+		mocks.galleryProps = props;
+		return <div data-testid="blueprint-gallery" />;
+	},
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -26,26 +37,48 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: mocks.hasSites ? [ { id: 'site-1' } ] : [] } ),
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: () => mocks.isOffline,
+} ) );
+
 describe( 'OnboardingHomePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.hasSites = false;
+		mocks.isOffline = false;
+		mocks.galleryProps = null;
 		clearPendingBackup();
 	} );
 
-	it( 'shows the Create and Import jobs', () => {
+	it( 'shows Create, Connect, and Import in that order', () => {
 		render( <OnboardingHomePage /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
 		expect(
 			screen.getByText( 'Start fresh or bring an existing site into your Studio.' )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'link', { name: /Create a new site/ } ) ).toHaveAttribute(
-			'href',
-			'/onboarding/create'
+		const create = screen.getByRole( 'link', { name: /Create a new site/ } );
+		const connect = screen.getByRole( 'link', { name: /Connect a site/ } );
+		const importBackup = screen.getByRole( 'button', { name: /Import from a backup/ } );
+
+		expect( create ).toHaveAttribute( 'href', '/onboarding/create' );
+		expect( connect ).toHaveAttribute( 'href', '/onboarding/connect' );
+		expect( importBackup ).toBeEnabled();
+		expect( create.compareDocumentPosition( connect ) ).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( connect.compareDocumentPosition( importBackup ) ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
 		);
-		expect( screen.getByRole( 'button', { name: /Import from a backup/ } ) ).toBeEnabled();
-		expect( screen.queryByText( 'Connect a site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'marks Connect unavailable while offline', () => {
+		mocks.isOffline = true;
+		render( <OnboardingHomePage /> );
+
+		expect( screen.getByRole( 'link', { name: /Connect a site/ } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByText( 'Available online' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens the file picker from the Import card', () => {
@@ -57,15 +90,30 @@ describe( 'OnboardingHomePage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: /Import from a backup/ } ) );
 
 		expect( click ).toHaveBeenCalledOnce();
-		expect( input.accept ).toContain( '.sql' );
+		expect( input.accept ).toContain( '.zip' );
 		expect( input.accept ).toContain( '.xml' );
+		// A database dump has no files to go with it, so it can only be imported
+		// over an existing site.
+		expect( input.accept ).not.toContain( '.sql' );
+	} );
+
+	it( 'rejects a .sql dump, which can only be imported over an existing site', () => {
+		const { container } = render( <OnboardingHomePage /> );
+		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
+		if ( ! input ) throw new Error( 'Backup input not found' );
+
+		fireEvent.change( input, { target: { files: [ new File( [ 'dump' ], 'client-site.sql' ) ] } } );
+
+		expect( peekPendingBackup() ).toBeNull();
+		expect( mocks.navigate ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 	} );
 
 	it( 'hands a selected backup File to the import form', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
 		if ( ! input ) throw new Error( 'Backup input not found' );
-		const file = new File( [ 'backup' ], 'client-site.sql' );
+		const file = new File( [ 'backup' ], 'client-site.tar.gz' );
 
 		fireEvent.change( input, { target: { files: [ file ] } } );
 
@@ -75,7 +123,7 @@ describe( 'OnboardingHomePage', () => {
 
 	it( 'hands a dropped backup File to the import form', () => {
 		render( <OnboardingHomePage /> );
-		const file = new File( [ 'backup' ], 'client-site.sql' );
+		const file = new File( [ 'backup' ], 'client-site.tar.gz' );
 
 		fireEvent.drop( screen.getByRole( 'button', { name: /Import from a backup/ } ), {
 			dataTransfer: { files: [ file ] },
@@ -119,6 +167,17 @@ describe( 'OnboardingHomePage', () => {
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 		expect( peekPendingBackup() ).toBeNull();
 		expect( mocks.navigate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'carries a Blueprint pick through to the create form', () => {
+		render( <OnboardingHomePage /> );
+		const picked = { title: 'WooCommerce' } as SelectedBlueprint;
+
+		( mocks.galleryProps?.onSelect as ( value: SelectedBlueprint ) => void )( picked );
+
+		expect( pendingBlueprintSlot.getSnapshot() ).toBe( picked );
+		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/create' } );
+		pendingBlueprintSlot.clear( picked );
 	} );
 
 	it( 'shows Back when onboarding was opened from an existing site', () => {

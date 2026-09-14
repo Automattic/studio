@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -23,22 +22,22 @@ export const auditPerformanceTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
 			const urlPath = args.path ?? '/';
 
-			emitProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
+			context.onProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
 
 			const result = await auditPerformance( siteUrl, urlPath );
 
 			if ( result.error ) {
-				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
+				context.onProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
 				throw new Error( `Performance audit failed: ${ result.error }` );
 			}
 
-			emitProgress( `Audit complete for ${ urlPath }` );
+			context.onProgress( `Audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {

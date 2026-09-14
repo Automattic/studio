@@ -1,6 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { CheckboxControl } from '@wordpress/components';
@@ -25,12 +30,21 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useDebugLogExists } from '@/data/queries/use-debug-log';
+import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import {
+	AdminEmailControl,
+	AdminPasswordControl,
+	AdminUsernameControl,
+	SiteNameControl,
+} from './copyable-credential-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
@@ -76,9 +90,9 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
-		adminUsername: site.adminUsername ?? 'admin',
-		adminPassword: decodePassword( site.adminPassword ?? '' ) || 'password',
-		adminEmail: site.adminEmail || 'admin@localhost.com',
+		adminUsername: site.adminUsername ?? DEFAULT_ADMIN_USERNAME,
+		adminPassword: decodeAdminPassword( site.adminPassword ),
+		adminEmail: site.adminEmail || DEFAULT_ADMIN_EMAIL,
 		enableXdebug: site.enableXdebug ?? false,
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,
@@ -107,6 +121,46 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 }
 
 /**
+ * The debug log checkbox, plus a shortcut to the log once one exists. A custom
+ * `Edit` replaces DataForm's rendering, so the description is re-emitted here.
+ */
+function EnableDebugLogControl( {
+	data: item,
+	field,
+	onChange,
+	logExists,
+	onOpenLog,
+}: DataFormControlProps< FormData > & { logExists: boolean; onOpenLog: () => void } ) {
+	return (
+		<CheckboxControl
+			__nextHasNoMarginBottom
+			label={ field.label }
+			checked={ item.enableDebugLog }
+			onChange={ ( checked ) => onChange( { enableDebugLog: checked } ) }
+			help={
+				<>
+					{ field.description }
+					{ /* A span, not a div: `help` renders inside a paragraph. */ }
+					{ logExists && (
+						<span className={ styles.debugLogAction }>
+							<Button
+								type="button"
+								variant="outline"
+								tone="neutral"
+								size="compact"
+								onClick={ onOpenLog }
+							>
+								{ __( 'Open log file' ) }
+							</Button>
+						</span>
+					) }
+				</>
+			}
+		/>
+	);
+}
+
+/**
  * The site settings form (General + Debugging), rendered as tab panels inside
  * a `Tabs.Root` owned by the caller — the site overview view. One instance
  * spans both panels so unsaved edits survive tab switches.
@@ -121,7 +175,15 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
+	const connector = useConnector();
 	const updateSite = useUpdateSite();
+	const { data: logExists } = useDebugLogExists( site.id );
+	const handleOpenLog = useCallback( () => {
+		void connector.openSiteDebugLog( site.id ).catch( ( error ) => {
+			// The file can vanish between the check and the click.
+			console.error( 'Failed to open debug log:', error );
+		} );
+	}, [ connector, site.id ] );
 	const { data: wpVersions } = useWordPressVersions();
 	const { data: installedWpVersion } = useWpVersion( site.id );
 	const isOffline = useOffline();
@@ -154,17 +216,21 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
-			siteNameField< FormData >(),
+			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				// Current selection, not `site.isWpAutoUpdating`: the persisted flag
+				// lags a save by a site-updated event, which would drop the version
+				// from the label right after switching to auto-update.
+				autoUpdateVersion: data.wpVersion === '' ? installedWpVersion : undefined,
 				offline: isOffline,
 			} ),
-			adminUsernameField< FormData >(),
-			adminPasswordField< FormData >(),
-			adminEmailField< FormData >(),
+			{ ...adminUsernameField< FormData >(), Edit: AdminUsernameControl },
+			{ ...adminPasswordField< FormData >(), Edit: AdminPasswordControl },
+			{ ...adminEmailField< FormData >(), Edit: AdminEmailControl },
 			customDomainToggleField< FormData >(),
 			customDomainField< FormData >( existingDomainNames ),
 			{
@@ -175,33 +241,60 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				Edit: EnableHttpsControl,
 			},
 			enableXdebugField< FormData >( { conflictingSiteName: xdebugConflictSiteName } ),
-			enableDebugLogField< FormData >(),
+			{
+				...enableDebugLogField< FormData >(),
+				Edit: ( props: DataFormControlProps< FormData > ) => (
+					<EnableDebugLogControl
+						{ ...props }
+						logExists={ !! logExists }
+						onOpenLog={ handleOpenLog }
+					/>
+				),
+			},
 			enableDebugDisplayField< FormData >(),
 			enableScriptDebugField< FormData >(),
 			environmentTypeField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
+		[
+			data.wpVersion,
+			existingDomainNames,
+			handleOpenLog,
+			installedWpVersion,
+			isOffline,
+			logExists,
+			wpVersions,
+			xdebugConflictSiteName,
+		]
 	);
 
 	const generalForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
 			fields: [
-				'name',
 				{
-					id: 'versions',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					id: 'siteDetails',
+					label: __( 'Site details' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'name', 'wpVersion' ],
 				},
 				{
-					id: 'adminCredentials',
-					layout: { type: 'row', alignment: 'start' },
-					children: [ 'adminUsername', 'adminPassword' ],
+					id: 'phpEnvironment',
+					label: __( 'PHP environment' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'phpVersion' ],
 				},
-				'adminEmail',
-				'useCustomDomain',
-				'customDomain',
-				'enableHttps',
+				{
+					id: 'wordpressAdmin',
+					label: __( 'WordPress admin' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'adminUsername', 'adminPassword', 'adminEmail' ],
+				},
+				{
+					id: 'domain',
+					label: __( 'Domain' ),
+					layout: { type: 'card', withHeader: true, isCollapsible: false },
+					children: [ 'useCustomDomain', 'customDomain', 'enableHttps' ],
+				},
 			],
 		} ),
 		[]
@@ -254,7 +347,11 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	);
 
 	const xdebugBlocked = data.enableXdebug && !! xdebugConflictSiteName && ! site.enableXdebug;
-	const canSubmit = isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked;
+	// Saving restarts the server to apply a PHP/WordPress/domain change, so the
+	// CLI refuses it while anything else holds the site.
+	const isBusy = useIsSiteBusy( site );
+	const canSubmit =
+		isValid && ! isUnchanged && ! updateSite.isPending && ! xdebugBlocked && ! isBusy;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();
@@ -346,3 +443,9 @@ export function isSiteSettingsTab( value: string ): value is TabId {
 }
 
 export type SiteSettingsTabId = TabId;
+
+// The `studio_panel_opened` value for a tab. The General tab reports `settings` so it lines up with
+// Studio Classic's Settings panel; overview and debugging keep their own names.
+export function siteSettingsTabToPanel( tab: TabId ): TracksPanel {
+	return tab === 'general' ? 'settings' : tab;
+}

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
+import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
+
+describe( 'getNativePhpIniContents', () => {
+	it( 'disables the request time limit so the cli-server SAPI 30s default does not apply', () => {
+		const contents = getNativePhpIniContents( '8.4' );
+
+		expect( contents.split( /\r?\n/ ) ).toContain( 'max_execution_time=0' );
+	} );
+} );
 
 describe( 'getDefaultPhpArgs', () => {
 	it( 'omits Xdebug directives by default', () => {

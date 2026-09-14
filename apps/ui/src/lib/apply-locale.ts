@@ -8,7 +8,12 @@ import type { Connector } from '@/data/core';
  * ship with `lang="en"`).
  */
 export async function applyLocale( connector: Connector ): Promise< void > {
-	const { locale } = await connector.getUserPreferences();
+	// Browser connectors fetch preferences over the network, so a hiccup here
+	// must not keep the app from rendering — it just stays in English.
+	const locale = await connector
+		.getUserPreferences()
+		.then( ( preferences ) => preferences.locale )
+		.catch( () => undefined );
 	if ( ! locale || ! isSupportedLocale( locale ) ) {
 		return;
 	}

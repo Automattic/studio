@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getToolDetail, getToolDisplayName, getToolResultPreview } from '../tools';
+import { getToolDetail, getToolDisplayName } from '../tools';
 
 describe( 'tool display helpers', () => {
 	it( 'summarizes common WP-CLI commands from their input', () => {
@@ -102,6 +102,15 @@ describe( 'tool display helpers', () => {
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
 	} );
 
+	it( 'does not reveal which design options the agent chose', () => {
+		expect(
+			getToolDetail( 'pick_design', {
+				options: 4,
+				chosen: [ { layout: 'Stacked bands', direction: 'Art Deco', reason: 'Bold and festive.' } ],
+			} )
+		).toBe( '' );
+	} );
+
 	it( 'summarizes Ask User questions without exposing the raw tool name', () => {
 		expect(
 			getToolDetail( 'AskUserQuestion', {
@@ -113,16 +122,5 @@ describe( 'tool display helpers', () => {
 				],
 			} )
 		).toBe( 'What kind of visual direction should this site use?' );
-	} );
-
-	it( 'fully strips rendered HTML tags that recombine after a single pass', () => {
-		const preview = getToolResultPreview(
-			'wpcom_request',
-			{ method: 'GET', path: '/sites/1/posts/1' },
-			JSON.stringify( { title: { rendered: '<scr<script>ipt>alert(1)</scr</script>ipt>' } } )
-		);
-
-		expect( preview?.summaryLines[ 0 ] ).not.toContain( '<script' );
-		expect( preview?.summaryLines[ 0 ] ).not.toContain( '<' );
 	} );
 } );

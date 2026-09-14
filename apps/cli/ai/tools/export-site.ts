@@ -24,7 +24,7 @@ export const exportSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const mode = args.mode ?? 'full';
@@ -36,8 +36,10 @@ export const exportSiteTool = defineTool(
 				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
 			}
 
-			const result = await captureCommandOutput( () =>
-				runExportCommand( site.path, exportFile, mode )
+			const result = await captureCommandOutput(
+				( logger ) =>
+					runExportCommand( site.path, exportFile, mode, false, undefined, false, false, logger ),
+				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
 

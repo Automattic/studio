@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -29,6 +30,11 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/i18n' );
+vi.mock( 'cli/lib/tracks', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/tracks') >() ),
+	recordTracksEvent: vi.fn(),
+	getTracksOrigin: () => ( { channel: 'studio-cli' } ),
+} ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;
@@ -167,5 +173,76 @@ describe( 'Auth Login Command', () => {
 			'fr',
 			'https://developer.wordpress.com/copy-oauth-token'
 		);
+	} );
+
+	describe( 'Tracks event', () => {
+		const authEvents = () =>
+			vi
+				.mocked( recordTracksEvent )
+				.mock.calls.filter( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH );
+
+		// `account_type` is absent throughout — the CLI has no signup path.
+		it( 'records a successful login', async () => {
+			await runCommand();
+
+			expect( authEvents() ).toEqual( [
+				[ TRACKS_EVENTS.WPCOM_AUTH, { channel: 'studio-cli', source: 'cli', success: true } ],
+			] );
+		} );
+
+		// `is_a11n` is derived from the stored token, so the event must follow the write.
+		it( 'records the success only after the token is stored', async () => {
+			const order: string[] = [];
+			vi.mocked( updateSharedConfig ).mockImplementation( async () => {
+				order.push( 'write' );
+			} );
+			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
+				order.push( 'record' );
+			} );
+
+			await runCommand();
+
+			expect( order ).toEqual( [ 'write', 'record' ] );
+		} );
+
+		it( 'records a failure when the token is rejected', async () => {
+			vi.mocked( getUserInfo ).mockRejectedValue( new LoggerError( 'nope' ) );
+
+			await runCommand();
+
+			expect( authEvents() ).toEqual( [
+				[
+					TRACKS_EVENTS.WPCOM_AUTH,
+					{
+						channel: 'studio-cli',
+						source: 'cli',
+						success: false,
+						failure_reason: 'profile_fetch_failed',
+					},
+				],
+			] );
+		} );
+
+		it( 'records a failure when the token cannot be stored', async () => {
+			vi.mocked( updateSharedConfig ).mockRejectedValue( new LoggerError( 'disk full' ) );
+
+			await runCommand();
+
+			expect( authEvents() ).toEqual( [
+				[
+					TRACKS_EVENTS.WPCOM_AUTH,
+					{ channel: 'studio-cli', source: 'cli', success: false, failure_reason: 'unknown' },
+				],
+			] );
+		} );
+
+		// Nothing was authenticated, so there is no outcome to record.
+		it( 'records nothing when already authenticated', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+
+			await runCommand();
+
+			expect( authEvents() ).toEqual( [] );
+		} );
 	} );
 } );

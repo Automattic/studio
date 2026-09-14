@@ -6,11 +6,12 @@ import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	createMainWindow,
+	getExistingMainWindow,
 	getMainWindow,
 	isToggleSidebarShortcut,
-	setAgenticUiEnabled,
 	__resetMainWindow,
 } from 'src/main-window';
 
@@ -156,6 +157,22 @@ describe( 'getMainWindow', () => {
 		// Should return a BrowserWindow instance (creates a new one internally)
 		expect( window ).toBeInstanceOf( BrowserWindow );
 		expect( window.loadFile ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'getExistingMainWindow', () => {
+	afterEach( () => {
+		__resetMainWindow();
+	} );
+
+	it( 'returns the main window when one exists', async () => {
+		const createdWindow = await createMainWindow();
+		expect( getExistingMainWindow() ).toBe( createdWindow );
+	} );
+
+	it( 'returns null without creating a window when none exist', () => {
+		vi.mocked( BrowserWindow.getAllWindows ).mockReturnValueOnce( [] );
+		expect( getExistingMainWindow() ).toBeNull();
 	} );
 } );
 

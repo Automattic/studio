@@ -5,9 +5,19 @@ import {
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	resolveSessionModel,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
@@ -22,9 +32,13 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import {
+	AI_PROVIDERS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefinition,
+	type AiProviderId,
+} from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -34,16 +48,21 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
-import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import {
+	getTracksOrigin,
+	recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksEventName,
+} from 'cli/lib/tracks';
+import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
@@ -51,6 +70,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
@@ -66,6 +86,21 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 	return sm.appendCustomEntry( customType, data );
 }
 
+// Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
+// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
+// the turn's own error.
+async function recordChatTracksEvent(
+	event: TracksEventName,
+	props: TracksProps
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, props );
+	} catch {
+		// A lost analytics event must never break the chat.
+	}
+}
+
 function isPromptAbortError( error: unknown ): boolean {
 	return (
 		error instanceof Error &&
@@ -79,14 +114,6 @@ function getErrorMessage( error: unknown ): string {
 	}
 
 	return String( error );
-}
-
-async function readAllStdin(): Promise< string > {
-	const chunks: Buffer[] = [];
-	for await ( const chunk of process.stdin ) {
-		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
-	}
-	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
 }
 
 export async function runCommand( options: {
@@ -112,6 +139,15 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	// A pin whose provider can't run (e.g. its key was removed) falls back to
+	// WordPress.com for this run only; the pin stays so a restored key revives it.
+	if (
+		resumeContext.provider &&
+		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
+		! ( await isAiProviderReady( resumeContext.provider ) )
+	) {
+		currentProvider = DEFAULT_AI_PROVIDER;
+	}
 	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
@@ -187,7 +223,18 @@ export async function runCommand( options: {
 		};
 	}
 
+	// Omits `provider` on purpose: an entry carrying one is a user pin
+	// (persistProviderPin), and a per-turn write would overwrite it with the
+	// effective provider.
 	async function persistSessionContext(): Promise< void > {
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', {
+				model: currentModel,
+			} )
+		);
+	}
+
+	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
 				provider: currentProvider,
@@ -195,12 +242,6 @@ export async function runCommand( options: {
 			} )
 		);
 	}
-
-	setProgressCallback( ( message, update ) => {
-		ui.setLoaderMessage( message, update );
-		if ( ! message.trim() ) return;
-		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
-	} );
 
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
@@ -286,7 +327,7 @@ export async function runCommand( options: {
 		}
 
 		await saveSelectedAiProvider( currentProvider );
-		await persistSessionContext();
+		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(
@@ -337,12 +378,14 @@ export async function runCommand( options: {
 		}
 	}
 
-	const config = await readCliConfig();
-	let showCapabilitiesOnConnect = ! config.aiProvider;
+	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
-	// Studio Code Desktop defaults to WordPress.com provider.
+	// Studio Code Desktop defaults to WordPress.com provider — unless the
+	// session is pinned, which must survive the run untouched.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
-		await switchProvider( 'wpcom', false );
+		if ( ! resumeContext.provider ) {
+			await switchProvider( 'wpcom', false );
+		}
 		showCapabilitiesOnConnect = false;
 	}
 
@@ -426,7 +469,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
@@ -440,7 +483,9 @@ export async function runCommand( options: {
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
 						description: option.description,
+						...( option.image ? { image: option.image } : {} ),
 					} ) ),
+					multiSelect: question.multiSelect,
 				} )
 			);
 		}
@@ -505,12 +550,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with
@@ -527,6 +568,24 @@ export async function runCommand( options: {
 		}
 
 		await persistSessionContext();
+
+		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
+		// the provider, model and outcome together. `channel` separates them.
+		const tracksProps = {
+			...getTracksOrigin(),
+			...getAiTracksIdentity( sessionId ),
+			provider: currentProvider,
+			model: currentModel,
+			model_family: getAiModelFamily( currentModel ),
+		};
+		const turnStartedAt = Date.now();
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+			...tracksProps,
+			// Raw prompt, before site context is prepended. Only ever a catalog name.
+			ability_name: resolveSkillFromPrompt( prompt ),
+			has_images: images.length > 0,
+			has_files: files.length > 0,
+		} );
 
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
@@ -596,6 +655,12 @@ export async function runCommand( options: {
 						: {} ),
 				} )
 			);
+			// No `errorMessage`: raw error text can embed paths and site names.
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+				...tracksProps,
+				outcome: turnState.status,
+				duration_ms: Date.now() - turnStartedAt,
+			} );
 			ui.endAgentTurn();
 		}
 
@@ -693,28 +758,16 @@ export async function runCommand( options: {
 		},
 	};
 
-	// Surface remote-session daemon status in the editor's bottom bar. Cheap
-	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL.
-	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
-
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			// Match exact-prompt by default (preserves the legacy behavior where
-			// `/clear foo` falls through to the AI agent). Commands that opt into
-			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/remote-session start` route to the right handler.
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			// Match the exact prompt: `/clear foo` falls through to the AI agent
+			// rather than running `/clear`.
 			const cmd = trimmedPrompt.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) =>
-						c.getArgumentCompletions
-							? `/${ c.name }` === firstToken
-							: `/${ c.name }` === trimmedPrompt
-				  )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === trimmedPrompt )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
@@ -742,7 +795,6 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
-		stopDaemonStatusPolling();
 		ui.stop();
 		process.exit( 0 );
 	}
@@ -753,7 +805,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
-			let chain = yargs
+			const chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -782,18 +834,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point used by the
-			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden so it doesn't clutter `--help` for direct callers.
-			chain = chain.option( 'message-from-stdin', {
-				type: 'boolean',
-				hidden: true,
-				default: false,
-				description: __( 'Read the initial message from stdin (for headless drivers)' ),
-			} );
-
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -807,22 +849,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					messageFromStdin?: boolean;
 				};
 
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
-					initialMessage = await readAllStdin();
-					if ( ! initialMessage ) {
-						process.stderr.write(
-							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
-						);
-						process.exitCode = 1;
-						return;
-					}
-				}
+				const initialMessage = typedArgv.message;
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<

@@ -1,19 +1,37 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+	act,
+	createEvent,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
+import { createRef, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { Composer } from '.';
+import { clearComposerDrafts } from './draft-store';
+import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
-import type { ComponentProps } from 'react';
+
+// The AI credits control inside the composer reads the router; the quota it
+// also needs stays undefined here, so the control itself renders nothing.
+vi.mock( '@tanstack/react-router', () => ( {
+	useNavigate: () => vi.fn(),
+} ) );
 
 const connectorMocks = vi.hoisted( () => ( {
+	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
+	getAiSettings: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
+	setSessionProvider: vi.fn(),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -33,15 +51,21 @@ function renderComposer(
 	props: Partial< ComponentProps< typeof Composer > > = {},
 	queryClient = new QueryClient()
 ) {
+	const composerRef = createRef< ComposerHandle >();
+	const renderTree = ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) => (
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider delay={ 0 }>
+				<Composer ref={ composerRef } { ...defaultProps } sessionId="session-1" { ...nextProps } />
+			</Tooltip.Provider>
+		</QueryClientProvider>
+	);
+	const rendered = render( renderTree( props ) );
 	return {
-		...render(
-			<QueryClientProvider client={ queryClient }>
-				<Tooltip.Provider delay={ 0 }>
-					<Composer { ...defaultProps } sessionId="session-1" { ...props } />
-				</Tooltip.Provider>
-			</QueryClientProvider>
-		),
+		...rendered,
+		composerRef,
 		queryClient,
+		rerenderComposer: ( nextProps: Partial< ComponentProps< typeof Composer > > = {} ) =>
+			rendered.rerender( renderTree( nextProps ) ),
 	};
 }
 
@@ -59,6 +83,138 @@ function firePointerEventWithClientY( element: Element, type: string, clientY: n
 describe( 'Composer menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		clearComposerDrafts();
+		connectorMocks.capabilities.aiSettings = false;
+	} );
+
+	it( 'offers the providers above the models the conversation’s provider serves', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'WordPress.com', 'Anthropic API', 'Sonnet 5', 'Opus 5' ]
+			)
+		);
+		expect( screen.getByRole( 'menuitemradio', { name: 'Anthropic API' } ) ).toBeChecked();
+	} );
+
+	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+
+		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
+		await waitFor( () => expect( trigger ).not.toHaveTextContent( 'API ·' ) );
+
+		fireEvent.click( trigger );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+			)
+		);
+	} );
+
+	it( 'omits the provider section until an Anthropic API key is saved', async () => {
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () =>
+			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
+				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+			)
+		);
+	} );
+
+	it( 'pins the conversation to the picked provider, carrying a model it serves', async () => {
+		const queryClient = new QueryClient();
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], {
+			summary: createSummary(),
+			entries: [],
+		} );
+		renderComposer( { model: 'gpt-5.6-sol' }, queryClient );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
+
+		await waitFor( () =>
+			expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+				'session-1',
+				'anthropic-api-key',
+				'claude-sonnet-5'
+			)
+		);
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )?.entries
+		).toEqual( [
+			expect.objectContaining( {
+				customType: 'studio.session_context',
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+			} ),
+		] );
+	} );
+
+	it( 'acts as a form field: no send control, the draft read back through the ref', async () => {
+		const onModelChange = vi.fn();
+		const { composerRef, container } = renderComposer( {
+			variant: 'field',
+			sessionId: undefined,
+			placeholder: 'Describe the site',
+			onModelChange,
+		} );
+
+		expect( screen.queryByRole( 'button', { name: 'Send' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Add skill or attachment' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Upload attachment' } ) ).toBeInTheDocument();
+		expect( composerRef.current?.getSubmission() ).toBeNull();
+
+		const textarea = screen.getByPlaceholderText( 'Describe the site' );
+		fireEvent.change( textarea, { target: { value: 'A bright ceramics portfolio' } } );
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		expect( defaultProps.onSend ).not.toHaveBeenCalled();
+
+		const image = new File( [ 'image-bytes' ], 'moodboard.png', { type: 'image/png' } );
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
+			target: { files: [ image ] },
+		} );
+		await screen.findByRole( 'button', { name: 'Remove attachment: moodboard.png' } );
+		expect( composerRef.current?.getSubmission() ).toMatchObject( {
+			prompt: 'A bright ceramics portfolio',
+			attachments: { images: [ expect.objectContaining( { name: 'moodboard.png' } ) ], files: [] },
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'gpt-5.6-sol' );
+		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {
@@ -88,6 +244,30 @@ describe( 'Composer menu', () => {
 		expect( await screen.findByText( 'Stop' ) ).toBeInTheDocument();
 	} );
 
+	it( 'blocks sending and queueing while submission is unavailable', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onSend } );
+
+		const textarea = screen.getByRole( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'sneak one past the lockout' } } );
+
+		// The Enter path reaches send() directly, bypassing the button's state.
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Queue' } ) ).toBeDisabled() );
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps Stop working while submission is unavailable', () => {
+		const onInterrupt = vi.fn< () => Promise< void > >();
+		renderComposer( { busy: true, canSubmit: false, onInterrupt } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'uses a queue-focused placeholder while busy', () => {
 		renderComposer( { busy: true } );
 
@@ -95,6 +275,52 @@ describe( 'Composer menu', () => {
 		expect(
 			screen.getByPlaceholderText( 'Queue the next message while I work…' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
+		const onSend = vi.fn< ( prompt: string ) => Promise< void > >();
+		const onAnswer = vi.fn();
+		renderComposer( { busy: true, onSend, onAnswer } );
+
+		const textarea = screen.getByPlaceholderText( 'Or type your own answer…' );
+		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+
+		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
+		expect( textarea ).toHaveValue( '' );
+
+		fireEvent.change( textarea, { target: { value: '/annotate' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledTimes( 1 ) );
+		expect( onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
+		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'keeps the placeholder suggestion steady while the composer sits idle', () => {
+		vi.useFakeTimers();
+		try {
+			renderComposer();
+
+			act( () => {
+				vi.advanceTimersByTime( 30000 );
+			} );
+
+			expect( screen.getByText( 'What should we make better?' ) ).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'advances the placeholder suggestion after each send', async () => {
+		renderComposer();
+
+		fireEvent.change( screen.getByPlaceholderText( 'What should we make better?' ), {
+			target: { value: 'ship it' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		expect( await screen.findByText( 'What’s the next move?' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows a flyout affordance and skill descriptions', async () => {
@@ -111,7 +337,7 @@ describe( 'Composer menu', () => {
 		fireEvent.keyDown( skillsItem, { key: 'ArrowRight' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( AI_SKILL_COMMANDS[ 0 ].description ) ).toBeInTheDocument();
+			expect( screen.getByText( getAiSkillCommands()[ 0 ].description ) ).toBeInTheDocument();
 		} );
 	} );
 
@@ -150,13 +376,127 @@ describe( 'Composer menu', () => {
 		expect( preview.parentElement ).toBe( document.body );
 	} );
 
+	it( 'restores text and attachments independently for each session', async () => {
+		const firstSession = renderComposer();
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Keep this draft for session one' },
+		} );
+		const textFile = new File( [ 'Attachment text' ], 'notes.txt', {
+			type: 'text/plain',
+		} );
+		fireEvent.change(
+			firstSession.container.querySelector( 'input[type="file"]' ) as HTMLInputElement,
+			{ target: { files: [ textFile ] } }
+		);
+		await screen.findByRole( 'button', { name: 'Remove attachment: notes.txt' } );
+		firstSession.rerenderComposer( { sessionId: 'session-2' } );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+		expect(
+			screen.queryByRole( 'button', { name: 'Remove attachment: notes.txt' } )
+		).not.toBeInTheDocument();
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'A different draft for session two' },
+		} );
+
+		firstSession.rerenderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Keep this draft for session one' );
+		expect(
+			screen.getByRole( 'button', { name: 'Remove attachment: notes.txt' } )
+		).toBeInTheDocument();
+	} );
+
+	it( 'restores the suggestion baseline with its session draft', async () => {
+		const firstSession = renderComposer();
+		act( () => {
+			firstSession.composerRef.current?.replaceDraft( 'A suggested prompt', {
+				suggestionBaseline: 'A suggested prompt',
+			} );
+		} );
+		await waitFor( () =>
+			expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
+				text: 'A suggested prompt',
+				hasAttachments: false,
+				suggestionBaseline: 'A suggested prompt',
+			} )
+		);
+
+		firstSession.rerenderComposer( { sessionId: 'session-2' } );
+		firstSession.rerenderComposer();
+
+		expect( firstSession.composerRef.current?.getDraft() ).toEqual( {
+			text: 'A suggested prompt',
+			hasAttachments: false,
+			suggestionBaseline: 'A suggested prompt',
+		} );
+	} );
+
+	it( 'clears the cached draft after sending', async () => {
+		const onSend = vi.fn().mockResolvedValue( undefined );
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Send and clear this draft' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () =>
+			expect( onSend ).toHaveBeenCalledWith( 'Send and clear this draft', {
+				files: [],
+				images: [],
+			} )
+		);
+		firstRender.unmount();
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+	} );
+
+	it( 'restores the cached draft after a failed send', async () => {
+		const onSend = vi.fn().mockRejectedValue( new Error( 'network error' ) );
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Retry this draft' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' )
+		);
+		firstRender.unmount();
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry this draft' );
+	} );
+
+	it( 'caches a failed send for retry even if the session was switched away first', async () => {
+		let rejectSend: ( error: Error ) => void = () => {};
+		const onSend = vi.fn(
+			() =>
+				new Promise< void >( ( _resolve, reject ) => {
+					rejectSend = reject;
+				} )
+		);
+		const firstRender = renderComposer( { onSend } );
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Retry after switching away' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+
+		firstRender.unmount();
+		await act( async () => {
+			rejectSend( new Error( 'network error' ) );
+			await Promise.resolve();
+		} );
+
+		renderComposer();
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Retry after switching away' );
+	} );
+
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {
 		Object.defineProperty( window, 'innerHeight', {
 			configurable: true,
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		let scrollHeight = 72;
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -197,7 +537,7 @@ describe( 'Composer menu', () => {
 
 	it( 'resizes the textarea when attachments change its padding', async () => {
 		const { container } = renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
 			type: 'text/plain',
 		} );
@@ -233,7 +573,7 @@ describe( 'Composer menu', () => {
 			value: 1000,
 		} );
 		renderComposer();
-		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textarea = screen.getByRole( 'combobox' ) as HTMLTextAreaElement;
 		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize composer' } );
 		Object.defineProperty( textarea, 'scrollHeight', {
 			configurable: true,
@@ -283,7 +623,7 @@ describe( 'Composer menu', () => {
 		expect(
 			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
 		).toBeInTheDocument();
-		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
 	} );
 
 	it( 'ignores pastes inside open dialogs', () => {
@@ -306,7 +646,7 @@ describe( 'Composer menu', () => {
 		dialog.remove();
 	} );
 
-	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
+	it( 'opens a fresh session on the picked model after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
@@ -324,24 +664,25 @@ describe( 'Composer menu', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
+		const dialog = await screen.findByRole( 'dialog' );
+		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
+		expect( dialog ).toHaveTextContent(
+			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
+		);
+		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
+		expect( dialog ).not.toHaveTextContent( 'sidebar' );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Yes, new chat' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
 		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
-
-		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
-			...SESSIONS_QUERY_KEY,
-			'fresh-session',
-		] );
-		expect( loadedSession?.summary ).toEqual( freshSummary );
-		expect( loadedSession?.entries ).toEqual( [
-			expect.objectContaining( {
-				type: 'model_change',
-				modelId: 'gpt-5.6-sol',
-			} ),
-		] );
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'fresh-session' ] )
+		).toEqual( {
+			summary: freshSummary,
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'gpt-5.6-sol' } ) ],
+		} );
 	} );
 } );
 
@@ -357,6 +698,17 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		eventCount: 0,
 		...overrides,
 	};
+}
+
+function createSessionContextEntry( provider: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'session-context-1',
+		parentId: null,
+		timestamp: '2026-06-26T12:00:00.000Z',
+		customType: 'studio.session_context',
+		data: { provider, model: 'claude-sonnet-5' },
+	} as SessionEntry;
 }
 
 function createUserPromptEntry(): SessionEntry {

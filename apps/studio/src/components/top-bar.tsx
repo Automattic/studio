@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
-import { RemoteSessionIndicator } from 'src/components/remote-session-indicator';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
@@ -98,7 +97,7 @@ function Authentication() {
 			placement="bottom-end"
 		>
 			<Button
-				onClick={ () => getIpcApi().authenticate( false ) }
+				onClick={ () => getIpcApi().authenticate( false, 'top_bar' ) }
 				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
 				variant="icon"
 				className="flex gap-x-2 justify-between w-full text-white !rounded-lg !px-2 !py-1.5 h-auto active:!text-white hover:!text-white hover:underline items-center"
@@ -158,7 +157,6 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>
-				<RemoteSessionIndicator />
 			</div>
 		</div>
 	);

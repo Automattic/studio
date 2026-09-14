@@ -15,12 +15,14 @@ export const deletePreviewTool = defineTool(
 			description: 'The preview hostname or URL to delete, for example "site.wordpress.com"',
 		} ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
-			() => runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost ),
+			( logger ) =>
+				runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, normalizedHost, logger ),
 			`Preview site "${ normalizedHost }" deleted.`,
-			'Failed to delete preview site'
+			'Failed to delete preview site',
+			context.onProgress
 		);
 	}
 );

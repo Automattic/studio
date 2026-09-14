@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
 import { WapuuWorldMount } from '@/ui-classic/components/wapuu-world';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
@@ -18,6 +19,11 @@ export interface RouterContext {
 
 function AppMenuNavigation() {
 	useAppMenuNavigation();
+	return null;
+}
+
+function AiCreditsPurchaseResult() {
+	useAiCreditsPurchaseResult();
 	return null;
 }
 
@@ -83,6 +89,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 	component: () => (
 		<>
 			<AppMenuNavigation />
+			<AiCreditsPurchaseResult />
 			<DeletedSiteRedirect />
 			<WapuuWorldMount />
 			<Outlet />

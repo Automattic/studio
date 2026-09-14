@@ -1,0 +1,1176 @@
+/*
+ * Styles for the selective-sync components copied from the legacy renderer
+ * (apps/studio). The component markup keeps its original Tailwind class names;
+ * apps/ui has no Tailwind build, so the utilities those classes rely on are
+ * generated statically from the copied sources.
+ *
+ * Regenerate after changing class names in this directory:
+ *   npx tailwindcss -c <config with content=apps/ui/src/components/selective-sync>
+ * using apps/studio/tailwind.config.js as preset (preflight disabled), then
+ * replace everything below the frame-variable blocks.
+ *
+ * The `--color-frame-*` variables mirror apps/studio/src/index.css so the
+ * copied components keep their light/dark palette.
+ */
+
+:root {
+	--color-frame-bg: #fff;
+	--color-frame-text: #1e1e1e;
+	--color-frame-text-secondary: #757575;
+	--color-frame-border: #dcdcde;
+	--color-frame-surface: #f0f0f0;
+	--color-frame-surface-alt: #dcdcde;
+	--color-frame-scrollbar-thumb: #7f7f7f;
+	--color-frame-scrollbar-thumb-hover: #484848;
+	--color-frame-theme: #3858e9;
+	--color-frame-theme-hover: #2145e6;
+	--color-frame-code-text: #1d2327;
+	--color-frame-running: #008a20;
+	--color-frame-error: #d63638;
+	--color-frame-tab-active: #000;
+	--color-frame-diff-add-text: #008a20;
+	--color-frame-diff-add-bg: #edfaef;
+	--color-frame-diff-remove-text: #d63638;
+	--color-frame-diff-remove-bg: #fcf0f1;
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--color-frame-bg: #2f2f2f;
+		--color-frame-text: #e0e0e0;
+		--color-frame-text-secondary: #a0a0a0;
+		--color-frame-border: #474747;
+		--color-frame-surface: #383838;
+		--color-frame-surface-alt: #474747;
+		--color-frame-scrollbar-thumb: #666666;
+		--color-frame-scrollbar-thumb-hover: #888888;
+		--color-frame-theme: #6b8aff;
+		--color-frame-theme-hover: #8da6ff;
+		--color-frame-code-text: #e0e0e0;
+		--color-frame-running: #1ed15a;
+		--color-frame-error: #f87171;
+		--color-frame-tab-active: #fff;
+		--color-frame-diff-add-text: #1ed15a;
+		--color-frame-diff-add-bg: rgba( 30, 209, 90, 0.12 );
+		--color-frame-diff-remove-text: #f87171;
+		--color-frame-diff-remove-bg: rgba( 248, 113, 113, 0.12 );
+	}
+}
+
+*, ::before, ::after {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  
+}
+
+::backdrop {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  
+}
+
+.a8c-body-small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1rem;
+  text-transform: initial;
+  letter-spacing: 0rem
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0
+}
+
+.absolute {
+  position: absolute
+}
+
+.relative {
+  position: relative
+}
+
+.bottom-0 {
+  bottom: 0px
+}
+
+.end-6 {
+  inset-inline-end: 1.5rem
+}
+
+.left-0 {
+  left: 0px
+}
+
+.right-0 {
+  right: 0px
+}
+
+.top-0 {
+  top: 0px
+}
+
+.top-\[6px\] {
+  top: 6px
+}
+
+.z-10 {
+  z-index: 10
+}
+
+.\!m-0 {
+  margin: 0px !important
+}
+
+.m-\[2px\] {
+  margin: 2px
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem
+}
+
+.mb-4 {
+  margin-bottom: 1rem
+}
+
+.me-1 {
+  margin-inline-end: 0.25rem
+}
+
+.me-1\.5 {
+  margin-inline-end: 0.375rem
+}
+
+.mt-2 {
+  margin-top: 0.5rem
+}
+
+.inline-block {
+  display: inline-block
+}
+
+.flex {
+  display: flex
+}
+
+.inline-flex {
+  display: inline-flex
+}
+
+.contents {
+  display: contents
+}
+
+.\!h-\[9px\] {
+  height: 9px !important
+}
+
+.\!h-auto {
+  height: auto !important
+}
+
+.h-4 {
+  height: 1rem
+}
+
+.h-5 {
+  height: 1.25rem
+}
+
+.h-9 {
+  height: 2.25rem
+}
+
+.h-\[1\.5px\] {
+  height: 1.5px
+}
+
+.h-auto {
+  height: auto
+}
+
+.h-fit {
+  height: -moz-fit-content;
+  height: fit-content
+}
+
+.h-full {
+  height: 100%
+}
+
+.max-h-\[84vh\] {
+  max-height: 84vh
+}
+
+.\!w-\[9px\] {
+  width: 9px !important
+}
+
+.\!w-full {
+  width: 100% !important
+}
+
+.w-3\/5 {
+  width: 60%
+}
+
+.w-36 {
+  width: 9rem
+}
+
+.w-5 {
+  width: 1.25rem
+}
+
+.w-\[50px\] {
+  width: 50px
+}
+
+.w-full {
+  width: 100%
+}
+
+.min-w-\[550px\] {
+  min-width: 550px
+}
+
+.max-w-80 {
+  max-width: 20rem
+}
+
+.max-w-\[calc\(50\%-25px\)\] {
+  max-width: calc(50% - 25px)
+}
+
+.max-w-full {
+  max-width: 100%
+}
+
+.shrink-0 {
+  flex-shrink: 0
+}
+
+.rotate-90 {
+  --tw-rotate: 90deg;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))
+}
+
+@keyframes fade {
+  from {
+    opacity: 0
+  }
+
+  to {
+    opacity: 1
+  }
+}
+
+.animate-\[fade_0\.5s_ease-in-out_1\] {
+  animation: fade 0.5s ease-in-out 1
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed
+}
+
+.select-none {
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none
+}
+
+.flex-col {
+  flex-direction: column
+}
+
+.items-center {
+  align-items: center
+}
+
+.justify-end {
+  justify-content: flex-end
+}
+
+.justify-center {
+  justify-content: center
+}
+
+.justify-between {
+  justify-content: space-between
+}
+
+.gap-1 {
+  gap: 0.25rem
+}
+
+.gap-2 {
+  gap: 0.5rem
+}
+
+.gap-3 {
+  gap: 0.75rem
+}
+
+.gap-4 {
+  gap: 1rem
+}
+
+.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1rem * var(--tw-space-y-reverse))
+}
+
+.overflow-hidden {
+  overflow: hidden
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.whitespace-nowrap {
+  white-space: nowrap
+}
+
+.break-words {
+  overflow-wrap: break-word
+}
+
+.rounded {
+  border-radius: 0.25rem
+}
+
+.rounded-full {
+  border-radius: 9999px
+}
+
+.rounded-sm {
+  border-radius: 0.125rem
+}
+
+.border {
+  border-width: 1px
+}
+
+.border-b {
+  border-bottom-width: 1px
+}
+
+.border-t {
+  border-top-width: 1px
+}
+
+.border-frame-border {
+  border-color: var(--color-frame-border)
+}
+
+.border-white\/15 {
+  border-color: rgb(255 255 255 / 0.15)
+}
+
+.bg-\[\#101517\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(16 21 23 / var(--tw-bg-opacity))
+}
+
+.bg-\[\#ceead6\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(206 234 214 / var(--tw-bg-opacity))
+}
+
+.bg-\[\#fef0c7\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 240 199 / var(--tw-bg-opacity))
+}
+
+.bg-a8c-red-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(214 54 56 / var(--tw-bg-opacity))
+}
+
+.bg-development-bg {
+  --tw-bg-opacity: 1;
+  background-color: hsl(200 95% 85% / var(--tw-bg-opacity))
+}
+
+.bg-frame {
+  background-color: var(--color-frame-bg)
+}
+
+.bg-frame-surface {
+  background-color: var(--color-frame-surface)
+}
+
+.bg-frame-text-secondary {
+  background-color: var(--color-frame-text-secondary)
+}
+
+.bg-frame-theme {
+  background-color: var(--color-frame-theme)
+}
+
+.bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity))
+}
+
+.fill-amber-500 {
+  fill: #f59e0b
+}
+
+.fill-frame-text {
+  fill: var(--color-frame-text)
+}
+
+.fill-white {
+  fill: #fff
+}
+
+.\!p-0 {
+  padding: 0px !important
+}
+
+.p-0 {
+  padding: 0px
+}
+
+.px-2 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem
+}
+
+.px-2\.5 {
+  padding-left: 0.625rem;
+  padding-right: 0.625rem
+}
+
+.px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem
+}
+
+.px-8 {
+  padding-left: 2rem;
+  padding-right: 2rem
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem
+}
+
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem
+}
+
+.pb-2 {
+  padding-bottom: 0.5rem
+}
+
+.pb-3 {
+  padding-bottom: 0.75rem
+}
+
+.pb-6 {
+  padding-bottom: 1.5rem
+}
+
+.ps-6 {
+  padding-inline-start: 1.5rem
+}
+
+.pt-1 {
+  padding-top: 0.25rem
+}
+
+.pt-5 {
+  padding-top: 1.25rem
+}
+
+.text-left {
+  text-align: left
+}
+
+.text-\[12px\] {
+  font-size: 12px
+}
+
+.text-\[13px\] {
+  font-size: 13px
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem
+}
+
+.font-medium {
+  font-weight: 500
+}
+
+.uppercase {
+  text-transform: uppercase
+}
+
+.italic {
+  font-style: italic
+}
+
+.leading-\[16px\] {
+  line-height: 16px
+}
+
+.text-\[\#1a6928\] {
+  --tw-text-opacity: 1;
+  color: rgb(26 105 40 / var(--tw-text-opacity))
+}
+
+.text-\[\#93590c\] {
+  --tw-text-opacity: 1;
+  color: rgb(147 89 12 / var(--tw-text-opacity))
+}
+
+.text-amber-500 {
+  --tw-text-opacity: 1;
+  color: rgb(245 158 11 / var(--tw-text-opacity))
+}
+
+.text-development-text {
+  --tw-text-opacity: 1;
+  color: hsl(200 95% 28% / var(--tw-text-opacity))
+}
+
+.text-frame-text {
+  color: var(--color-frame-text)
+}
+
+.text-frame-text-secondary {
+  color: var(--color-frame-text-secondary)
+}
+
+.text-frame-theme {
+  color: var(--color-frame-theme)
+}
+
+.text-white {
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity))
+}
+
+.opacity-60 {
+  opacity: 0.6
+}
+
+.shadow {
+  --tw-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.outline-0 {
+  outline-width: 0px
+}
+
+.filter {
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms
+}
+
+.duration-300 {
+  transition-duration: 300ms
+}
+
+.hover\:bg-white\/10:hover {
+  background-color: rgb(255 255 255 / 0.1)
+}
+
+.disabled\:cursor-not-allowed:disabled {
+  cursor: not-allowed
+}
+
+.aria-disabled\:cursor-not-allowed[aria-disabled="true"] {
+  cursor: not-allowed
+}
+
+.ltr\:ml-1:where([dir="ltr"], [dir="ltr"] *) {
+  margin-left: 0.25rem
+}
+
+.rtl\:mr-1:where([dir="rtl"], [dir="rtl"] *) {
+  margin-right: 0.25rem
+}
+
+.rtl\:scale-x-\[-1\]:where([dir="rtl"], [dir="rtl"] *) {
+  --tw-scale-x: -1;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))
+}
+
+.\[\&\.components-button\.is-destructive\]\:focus-visible\:shadow-a8c-red-50:focus-visible.components-button.is-destructive {
+  --tw-shadow-color: #d63638;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.components-button\.outlined\]\:focus\:shadow-\[inset_0_0_0_1px_white\]:focus.components-button.outlined {
+  --tw-shadow: inset 0 0 0 1px white;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.components-button\.outlined\]\:focus-visible\:shadow-\[inset_0_0_0_1px_var\(--color-frame-theme\)\]:focus-visible.components-button.outlined {
+  --tw-shadow: inset 0 0 0 1px var(--color-frame-theme);
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.components-button\]\:p-0.components-button {
+  padding: 0px
+}
+
+.\[\&\.components-button\]\:shadow-\[inset_0_0_0_1px_white\].components-button {
+  --tw-shadow: inset 0 0 0 1px white;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.components-button\]\:hover\:bg-frame-surface:hover.components-button {
+  background-color: var(--color-frame-surface)
+}
+
+.\[\&\.components-button\]\:hover\:text-frame-text:hover.components-button {
+  color: var(--color-frame-text)
+}
+
+.\[\&\.components-button\]\:focus\:shadow-\[inset_0_0_0_1px_transparent\]:focus.components-button {
+  --tw-shadow: inset 0 0 0 1px transparent;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.components-button\]\:focus-visible\:shadow-\[0_0_0_1px_var\(--color-frame-theme\)\]:focus-visible.components-button {
+  --tw-shadow: 0 0 0 1px var(--color-frame-theme);
+  --tw-shadow-colored: 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.components-button\]\:focus-visible\:shadow-frame-theme:focus-visible.components-button {
+  --tw-shadow-color: var(--color-frame-theme);
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.components-button\]\:focus-visible\:outline-none:focus-visible.components-button {
+  outline: 2px solid transparent;
+  outline-offset: 2px
+}
+
+.\[\&\.components-button\]\:active\:bg-frame-surface:active.components-button {
+  background-color: var(--color-frame-surface)
+}
+
+.\[\&\.components-button\]\:active\:text-frame-text:active.components-button {
+  color: var(--color-frame-text)
+}
+
+.\[\&\.is-destructive\.is-primary\:not\(\:disabled\)\]\:hover\:bg-a8c-red-60:hover.is-destructive.is-primary:not(:disabled) {
+  --tw-bg-opacity: 1;
+  background-color: rgb(179 45 46 / var(--tw-bg-opacity))
+}
+
+.\[\&\.is-destructive\.is-primary\:not\(\:disabled\)\]\:focus-visible\:shadow-\[inset_0_0_0_1px_white\2c 0_0_0_1px_\#d63638\]:focus-visible.is-destructive.is-primary:not(:disabled) {
+  --tw-shadow: inset 0 0 0 1px white,0 0 0 1px #d63638;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color), 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-destructive\.is-primary\]\:bg-a8c-red-50.is-destructive.is-primary {
+  --tw-bg-opacity: 1;
+  background-color: rgb(214 54 56 / var(--tw-bg-opacity))
+}
+
+.\[\&\.is-destructive\.is-primary\]\:text-white.is-destructive.is-primary {
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity))
+}
+
+.\[\&\.is-destructive\:not\(\.is-primary\)\]\:text-a8c-red-50.is-destructive:not(.is-primary) {
+  --tw-text-opacity: 1;
+  color: rgb(214 54 56 / var(--tw-text-opacity))
+}
+
+.\[\&\.is-destructive\:not\(\.is-primary\)\]\:hover\:text-a8c-red-70:hover.is-destructive:not(.is-primary) {
+  --tw-text-opacity: 1;
+  color: rgb(138 36 36 / var(--tw-text-opacity))
+}
+
+.\[\&\.is-link\]\:text-frame-text-secondary.is-link {
+  color: var(--color-frame-text-secondary)
+}
+
+.\[\&\.is-link\]\:no-underline.is-link {
+  text-decoration-line: none
+}
+
+.\[\&\.is-link\]\:hover\:text-frame-theme:hover.is-link {
+  color: var(--color-frame-theme)
+}
+
+.\[\&\.is-link\]\:active\:text-frame-text:active.is-link {
+  color: var(--color-frame-text)
+}
+
+.\[\&\.is-link\]\:disabled\:text-a8c-gray-50:disabled.is-link {
+  --tw-text-opacity: 1;
+  color: rgb(100 105 112 / var(--tw-text-opacity))
+}
+
+.\[\&\.is-primary\:not\(\:disabled\)\]\:focus\:shadow-\[inset_0_0_0_1px_transparent\]:focus.is-primary:not(:disabled) {
+  --tw-shadow: inset 0 0 0 1px transparent;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-primary\:not\(\:disabled\)\]\:focus-visible\:shadow-\[inset_0_0_0_1px_white\2c 0_0_0_1px_var\(--color-frame-theme\)\]:focus-visible.is-primary:not(:disabled) {
+  --tw-shadow: inset 0 0 0 1px white,0 0 0 1px var(--color-frame-theme);
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color), 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-secondary\:disabled\:not\(\:focus\)\]\:shadow-\[inset_0_0_0_1px_black\].is-secondary:disabled:not(:focus) {
+  --tw-shadow: inset 0 0 0 1px black;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-secondary\:disabled\:not\(\:focus\)\]\:shadow-a8c-gray-5.is-secondary:disabled:not(:focus) {
+  --tw-shadow-color: #DCDCDE;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.is-secondary\:not\(\.is-destructive\2c \:disabled\2c \[aria-disabled\=true\]\)\:hover_svg\]\:fill-frame-theme.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true]):hover svg {
+  fill: var(--color-frame-theme)
+}
+
+.\[\&\.is-secondary\:not\(\.is-destructive\2c \:disabled\2c \[aria-disabled\=true\]\)\]\:hover\:text-frame-theme:hover.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true]) {
+  color: var(--color-frame-theme)
+}
+
+.\[\&\.is-secondary\:not\(\.is-destructive\2c \:disabled\2c \[aria-disabled\=true\]\)\]\:active\:text-frame-text:active.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true]) {
+  color: var(--color-frame-text)
+}
+
+.\[\&\.is-secondary\:not\(\:focus\)\]\:aria-disabled\:shadow-\[inset_0_0_0_1px_black\][aria-disabled="true"].is-secondary:not(:focus) {
+  --tw-shadow: inset 0 0 0 1px black;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-secondary\:not\(\:focus\)\]\:aria-disabled\:shadow-a8c-gray-5[aria-disabled="true"].is-secondary:not(:focus) {
+  --tw-shadow-color: #DCDCDE;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.is-secondary\:not\(\:focus\)\]\:aria-disabled\:hover\:shadow-\[inset_0_0_0_1px_black\]:hover[aria-disabled="true"].is-secondary:not(:focus) {
+  --tw-shadow: inset 0 0 0 1px black;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-secondary\:not\(\:focus\)\]\:aria-disabled\:hover\:shadow-a8c-gray-5:hover[aria-disabled="true"].is-secondary:not(:focus) {
+  --tw-shadow-color: #DCDCDE;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.is-secondary\]\:text-frame-text.is-secondary {
+  color: var(--color-frame-text)
+}
+
+.\[\&\.is-secondary\]\:shadow-\[inset_0_0_0_1px_black\].is-secondary {
+  --tw-shadow: inset 0 0 0 1px black;
+  --tw-shadow-colored: inset 0 0 0 1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
+}
+
+.\[\&\.is-secondary\]\:shadow-a8c-gray-5.is-secondary {
+  --tw-shadow-color: #DCDCDE;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.is-secondary\]\:focus\:shadow-a8c-gray-5:focus.is-secondary {
+  --tw-shadow-color: #DCDCDE;
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\.is-secondary\]\:focus-visible\:shadow-frame-theme:focus-visible.is-secondary {
+  --tw-shadow-color: var(--color-frame-theme);
+  --tw-shadow: var(--tw-shadow-colored)
+}
+
+.\[\&\>div\]\:bg-transparent>div {
+  background-color: transparent
+}
+
+.\[\&\>div\]\:\!p-0>div {
+  padding: 0px !important
+}
+
+.\[\&_\[role\=\"document\"\]\>div\:first-child_button\]\:ltr\:left-2:where([dir="ltr"], [dir="ltr"] *) [role="document"]>div:first-child button {
+  left: 0.5rem
+}
+
+.\[\&_\[role\=\"document\"\]\>div\:first-child_button\]\:ltr\:right-0:where([dir="ltr"], [dir="ltr"] *) [role="document"]>div:first-child button {
+  right: 0px
+}
+
+.\[\&_\[role\=\"document\"\]\>div\:first-child_button\]\:rtl\:left-0:where([dir="rtl"], [dir="rtl"] *) [role="document"]>div:first-child button {
+  left: 0px
+}
+
+.\[\&_\[role\=\"document\"\]\>div\:first-child_button\]\:rtl\:right-2:where([dir="rtl"], [dir="rtl"] *) [role="document"]>div:first-child button {
+  right: 0.5rem
+}
+
+.\[\&_div\]\:\!shadow-none div {
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-shadow-colored: 0 0 #0000 !important;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important
+}
+
+.\[\&_h1\]\:flex-1 h1 {
+  flex: 1 1 0%
+}
+
+.\[\&_h1\]\:text-start h1 {
+  text-align: start
+}
+
+.\[\&_h1\]\:\!text-xl h1 {
+  font-size: 1.25rem !important;
+  line-height: 1.75rem !important
+}
+
+.\[\&_h1\]\:\!font-normal h1 {
+  font-weight: 400 !important
+}
+
+.\[\&_svg\]\:shrink-0 svg {
+  flex-shrink: 0
+}
+/*
+ * Scoped equivalents of the app-level CSS the copied components relied on in
+ * apps/studio (Tailwind preflight + index.css modal rules). Everything is
+ * scoped to `.selective-sync-modal` (set by primitives/modal.tsx) so nothing
+ * leaks into the rest of the agentic UI. `:where()` keeps the resets at zero
+ * specificity so `.components-*` styles always win, matching the legacy
+ * preflight cascade.
+ */
+
+/* Preflight border reset: `border-*` utilities only set widths and rely on
+   this for style + default color. */
+:where( .selective-sync-modal *, .selective-sync-modal *::before, .selective-sync-modal *::after ) {
+	border-width: 0;
+	border-style: solid;
+	border-color: var( --color-frame-border );
+}
+
+/* Preflight button reset: strips UA chrome from plain <button> elements
+   (tree expand chevrons, link-style buttons). */
+:where( .selective-sync-modal button ) {
+	background-color: transparent;
+	background-image: none;
+	border: 0;
+	padding: 0;
+	margin: 0;
+	font-family: inherit;
+	font-size: 100%;
+	font-weight: inherit;
+	line-height: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+/* Preflight misc: consistent box-sizing and collapsed default margins inside
+   the dialog. */
+:where( .selective-sync-modal *, .selective-sync-modal *::before, .selective-sync-modal *::after ) {
+	box-sizing: border-box;
+}
+:where( .selective-sync-modal h1, .selective-sync-modal h2, .selective-sync-modal h3, .selective-sync-modal p, .selective-sync-modal ul, .selective-sync-modal ol ) {
+	margin: 0;
+}
+:where( .selective-sync-modal ul, .selective-sync-modal ol ) {
+	list-style: none;
+	padding: 0;
+}
+
+/* From apps/studio/src/index.css — reduce WP's default 128px viewport margin.
+   Width/min-width restate the dialog's `w-3/5 min-w-[550px]` utilities at
+   higher specificity so the frame size matches legacy regardless of stylesheet
+   order. */
+.components-modal__frame.selective-sync-modal {
+	width: 60%;
+	min-width: 550px;
+	/* Cap the 60% width on large windows so line lengths stay readable
+	   (review feedback on #4377). Matches the design system's large surface
+	   width, i.e. Dialog size="large". */
+	max-width: var( --wpds-dimension-surface-width-2xl, 960px );
+	/* Restates the dialog's `max-h-[84vh]` utility at higher specificity:
+	   the components stylesheet caps frames at 70% above 960px and would
+	   otherwise win the order tie against the utility, unlike in the legacy
+	   renderer where Tailwind loads last. */
+	max-height: 84vh;
+	/* The agentic UI's `body` sets a fixed 24px line-height that the modal
+	   portal would inherit and stretch every unstyled line. Restore the
+	   legacy preflight's relative line-height; font-size stays inherited. */
+	line-height: 1.5;
+	/* Legacy maps the WP admin accent onto the frame theme at :root; scoped
+	   here so link/primary buttons pick up the same light/dark accent. */
+	--wp-admin-theme-color: var( --color-frame-theme );
+	--wp-admin-theme-color-darker-20: var( --color-frame-theme-hover );
+	/* Ditto for the Emotion component vars, so inputs/selects/progress bars
+	   don't fall back to their hardcoded light colors inside the portal. */
+	--wp-components-color-foreground: var( --color-frame-text );
+	--wp-components-color-background: var( --color-frame-bg );
+}
+
+@media ( prefers-color-scheme: dark ) {
+	/* Element text cascade — WP Heading/Text set explicit color on elements.
+	   The frame class is doubled in so the selectors beat the components
+	   stylesheet's `.components-modal__frame h1, h2, h3 { color: #1e1e1e }`
+	   (0-1-1) on specificity instead of relying on stylesheet order like the
+	   legacy renderer does. */
+	.components-modal__frame.selective-sync-modal
+		:is( h1, h2, h3, h4, h5, h6, p, label, li, td, th ) {
+		color: var( --color-frame-text );
+	}
+	.components-modal__frame.selective-sync-modal
+		span:not(
+			.components-button span,
+			button span,
+			.text-a8c-red-50,
+			.text-a8c-green-50,
+			.text-frame-error,
+			.text-frame-running
+		) {
+		color: var( --color-frame-text );
+	}
+
+	/* Modal surfaces */
+	[role='dialog'].components-modal__frame.selective-sync-modal {
+		background: var( --color-frame-bg ) !important;
+		box-shadow: 0 2px 12px rgba( 0, 0, 0, 0.4 ) !important;
+		color: var( --color-frame-text );
+	}
+	.selective-sync-modal .components-modal__content {
+		background: var( --color-frame-bg ) !important;
+		color: var( --color-frame-text );
+	}
+
+	/* Modal chrome — only show header border when content scrolls */
+	.selective-sync-modal .components-modal__header {
+		border-bottom-color: transparent;
+	}
+	.selective-sync-modal .components-modal__content.has-scrolled-content .components-modal__header {
+		border-bottom-color: var( --color-frame-border );
+	}
+
+	/* Secondary button border — !important overrides WP CSS loaded after app CSS. */
+	.selective-sync-modal .components-button.is-secondary:not( :focus-visible ) {
+		box-shadow: inset 0 0 0 1px var( --color-frame-border ) !important;
+	}
+
+	/* Checkboxes — dark surface instead of Emotion's white
+	   (copied from apps/studio/src/index.css dark block) */
+	.selective-sync-modal .components-checkbox-control__input[type='checkbox'],
+	.selective-sync-modal input[type='checkbox'] {
+		border-color: var( --color-frame-border );
+		background-color: var( --color-frame-surface );
+	}
+
+	/* Input/select controls — override Emotion's white backgrounds
+	   (copied from apps/studio/src/index.css dark block) */
+	.selective-sync-modal .components-select-control__input,
+	.selective-sync-modal .components-input-control__input {
+		color: var( --color-frame-text ) !important;
+		background-color: var( --color-frame-surface ) !important;
+		border-color: var( --color-frame-border );
+	}
+	.selective-sync-modal [class*='components-input-control__container'][class*='Container'] {
+		background-color: var( --color-frame-surface ) !important;
+	}
+	.selective-sync-modal .components-input-control__backdrop {
+		border-color: var( --color-frame-border ) !important;
+	}
+	/* Minimal (borderless) selects — no bg/border */
+	.selective-sync-modal .select-minimal .components-select-control__input {
+		background-color: transparent !important;
+	}
+	.selective-sync-modal .select-minimal [class*='components-input-control__container'] {
+		background-color: transparent !important;
+	}
+	.selective-sync-modal .select-minimal .components-input-control__backdrop {
+		border-color: transparent !important;
+	}
+
+	/* WP Notice (copied from apps/studio/src/index.css dark block) */
+	.selective-sync-modal .components-notice {
+		background-color: var( --color-frame-surface );
+		color: var( --color-frame-text );
+	}
+	.selective-sync-modal .components-notice .components-notice__content {
+		color: var( --color-frame-text );
+	}
+	.selective-sync-modal .components-notice.is-warning {
+		background-color: #78350f;
+		border-color: #f59e0b;
+		color: #fef3c7;
+	}
+	.selective-sync-modal .components-notice.is-warning .components-notice__content {
+		color: #fef3c7;
+	}
+	.selective-sync-modal .components-notice.is-error {
+		background-color: #7f1d1d;
+		border-color: #f87171;
+		color: #fee2e2;
+	}
+	.selective-sync-modal .components-notice.is-error .components-notice__content {
+		color: #fee2e2;
+	}
+
+	/* Buttons — tertiary/link get secondary text, hover brightens */
+	.selective-sync-modal .components-button.is-tertiary,
+	.selective-sync-modal .components-button.is-link:not( .is-destructive ) {
+		color: var( --color-frame-text-secondary );
+	}
+	.selective-sync-modal .components-button.is-tertiary:hover,
+	.selective-sync-modal .components-button.is-link:not( .is-destructive ):hover {
+		color: var( --color-frame-theme );
+	}
+}
+
+/*
+ * Order-independent restatements. In the legacy renderer the components
+ * stylesheet is injected BEFORE the bundled Tailwind CSS (DynamicStylesheet
+ * inserts it at the top of <head>), so the is-link utility tweaks below win
+ * their specificity ties. The agentic UI bundles CSS in the opposite order,
+ * so the same outcomes are restated here with the modal scope adding +1
+ * specificity over `.components-button.is-link`.
+ */
+.selective-sync-modal .\[\&\.is-link\]\:text-frame-text-secondary.is-link {
+	color: var( --color-frame-text-secondary );
+}
+.selective-sync-modal .\[\&\.is-link\]\:no-underline.is-link {
+	text-decoration-line: none;
+}
+.selective-sync-modal .\[\&\.is-link\]\:hover\:text-frame-theme:hover.is-link {
+	color: var( --color-frame-theme );
+}
+.selective-sync-modal .\[\&\.is-link\]\:active\:text-frame-text:active.is-link {
+	color: var( --color-frame-text );
+}
+.selective-sync-modal .\[\&\.is-link\]\:disabled\:text-a8c-gray-50:disabled.is-link {
+	--tw-text-opacity: 1;
+	color: rgb( 100 105 112 / var( --tw-text-opacity ) );
+}

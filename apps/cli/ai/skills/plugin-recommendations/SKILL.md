@@ -19,7 +19,8 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 | Email newsletter, subscriber list, subscribe form | Jetpack Newsletter | `jetpack` (`subscriptions` module) |
 | Online courses, lessons, quizzes (LMS) | Sensei LMS | `sensei-lms` |
 | Polls, surveys, ratings, NPS, feedback, applause | Crowdsignal | `crowdsignal-forms` |
-| Galleries, slideshows/carousels, tiled images | Jetpack | `jetpack` (`tiled-gallery`, `carousel` modules) |
+| Slideshow / rotating image carousel | Jetpack | `jetpack` — the `jetpack/slideshow` block |
+| Tiled / mosaic image gallery | Jetpack | `jetpack` — the `jetpack/tiled-gallery` block |
 | Auto-share published posts to social networks | Jetpack Social | `jetpack` (`publicize` module) |
 | Related posts, site stats, instant search, SEO meta | Jetpack | `jetpack` (`related-posts`, `stats`, `search`, `seo-tools` modules) |
 | Comment / form spam protection | Akismet | _(production only — ships bundled, activate after deploy)_ |
@@ -107,6 +108,8 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 Use blocks such as `woocommerce/product-collection`, `woocommerce/featured-product`, and `woocommerce/all-products` to surface the catalog.
 
 6. After installing WooCommerce, go back and edit the header template part (`parts/header.html`) to add a mini-cart, unless it already shows one. Add the `woocommerce/mini-cart` block alongside the navigation - it renders a cart icon with a live item count and opens the cart drawer - and add a "Shop" link to the primary navigation.
+
+7. Rely on WooCommerce's default block templates (shop, single product, cart, checkout, my account) whenever possible instead of writing `archive-product.html`, `single-product.html`, or similar into the theme. They already use the theme's header and footer parts and pick up its `theme.json` and `style.css`; the theme's `.wp-site-blocks main` padding (see the `block-content` skill's Root Block Gap section) is what keeps them clear of the header and footer, so style them through the theme rather than per-page body-class rules. Write a template override only when the design genuinely needs a different structure, and keep the header and footer template parts in it.
 
 ## Jetpack Forms
 
@@ -196,7 +199,9 @@ Akismet is a spam-protection plugin — it filters comment and form spam (includ
 
 ## Jetpack For Non-Core Needs
 
-When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block.
+When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block. This is not satisfied by a `core/gallery` (even with Jetpack's `carousel` lightbox module) or by a hand-built slideshow of `core/image` blocks driven by custom CSS/JS — those are the fallbacks this rule exists to prevent. The output must be the Jetpack block itself.
+
+For a **slideshow / rotating image carousel**, the block is `jetpack/slideshow` (a rotating, autoplaying slideshow). For a **tiled / mosaic gallery**, it is `jetpack/tiled-gallery`. Reach for these before core gallery/image blocks whenever the user asks for a slideshow, carousel, or gallery.
 
 The specific Jetpack Forms rule above takes precedence. This rule only applies when it does not cover the request.
 

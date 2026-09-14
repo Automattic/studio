@@ -9,5 +9,10 @@ export function useInstalledApps() {
 		queryKey: INSTALLED_APPS_QUERY_KEY,
 		queryFn: () => connector.getInstalledApps(),
 		staleTime: Infinity,
+		// Which apps are on disk is machine state that changes outside Studio,
+		// so it must not survive in the persisted cache: paired with
+		// `staleTime: Infinity` a stale answer would outlive every restart, and
+		// an editor installed after Studio's first run would stay invisible.
+		meta: { persist: false },
 	} );
 }

@@ -87,7 +87,6 @@ lane :notarize_binary do
 
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio-*.dmg')].each do |path|
     notarize(
-      bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
       api_key: app_store_connect_api_key,
       print_log: true
@@ -106,14 +105,22 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 
   sh('rm', '-rf', pot_dir)
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
-  sh(
+
+  # `wp-babel-makepot` hardcodes its Babel `cwd` to its own package directory, so it never reads a
+  # config from this repo. It also runs every file through `@babel/preset-env` and then discards the
+  # generated code, keeping only the AST. Targeting the current Node turns those pointless downlevel
+  # transforms off — with default targets they choke on modern syntax such as `await using`.
+  output = sh(
+    { 'BROWSERSLIST' => 'current node' },
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,packages/common}/**/*.{js,jsx,ts,tsx}",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
     '--output', POT_FILE_PATH
   )
+  # makepot logs the files it fails to parse and still exits 0, silently dropping their strings.
+  UI.user_error!("wp-babel-makepot failed to parse some files, so #{POT_FILE_PATH} is incomplete:\n#{output}") if output.match?(/BABEL_\w+_ERROR/)
 
   if commit_message && (skip_confirm || UI.confirm('Commit updated strings?'))
     git_add(path: [POT_FILE_PATH])
@@ -164,13 +171,7 @@ lane :distribute_release_build do |version: read_package_json_version|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      # Link only the installers users download: "Full Install" builds plus the Linux .debs
-      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
-      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
-      ':studio-app-icon-mac: Release available for': builds.each_value
-        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
-        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
-        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      ':studio-app-icon-mac: Release available for': slack_release_links(builds)
     },
     default_payloads: []
   )
@@ -330,6 +331,7 @@ end
 # - Creates a `release/<version>` branch from trunk
 # - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
+# - Copies trunk's branch protection settings onto the release branch
 # - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
 #
 # The first beta is triggered separately via {new_beta_release}.
@@ -346,6 +348,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
+    - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -370,6 +373,13 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   )
 
   push_to_git_remote(set_upstream: true)
+
+  # Copy GitHub branch protection settings (CI required checks etc) from `trunk` on the new `release/*` branch.
+  copy_branch_protection(
+    repository: GITHUB_REPO,
+    from_branch: MAIN_BRANCH,
+    to_branch: branch_name
+  )
 
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
@@ -475,6 +485,7 @@ end
 #
 # - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
+# - Unprotects and deletes the release branch
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -490,7 +501,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
-    - Delete the `#{release_branch}` branch after creating the backmerge PR
+    - Remove the branch protection from `#{release_branch}` and delete it
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -508,6 +519,9 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
+  # The release is out, so the release branch is no longer necessary. Remove the branch protection
+  # to delete the release branch.
+  remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
@@ -619,6 +633,36 @@ def linux_deb_path(arch:)
   UI.user_error!("Expected exactly 1 Linux #{arch} .deb in #{dir}, found #{matches.length}: #{matches.join(', ')}") unless matches.length == 1
   File.rename(matches.first, clean_path)
   clean_path
+end
+
+# The builds offered to users as downloads, in display order: the desktop installers, shared
+# by the GitHub release notes and the release Slack message. Excludes the Mac/Windows "Update"
+# payloads (consumed by the in-app updater), the unsigned Appx builds (Buildkite artifacts for
+# the Microsoft Store publish), and the standalone CLI bundles that {distribute_builds} merges
+# in — none of which a person reading a release announcement should be handed.
+RELEASE_ATTACHED_BUILD_KEYS = %i[
+  x64_dmg
+  arm64_dmg
+  windows
+  windows_arm64
+  linux_x64_deb
+  linux_arm64_deb
+].freeze
+
+# Markdown download links for the release installers, in RELEASE_ATTACHED_BUILD_KEYS order.
+# Builds that were never uploaded (no CDN URL) are skipped and reported by the caller.
+def release_download_links(builds)
+  RELEASE_ATTACHED_BUILD_KEYS
+    .filter_map { |key| builds[key] }
+    .select { |build| build[:cdn_url] }
+    .map { |build| "[#{build[:display_name] || build[:name]}](#{build[:cdn_url]})" }
+end
+
+def slack_release_links(builds)
+  missing = RELEASE_ATTACHED_BUILD_KEYS.reject { |key| builds[key]&.dig(:cdn_url) }
+  UI.important("Slack release message is missing builds: #{missing.join(', ')}") unless missing.empty?
+
+  release_download_links(builds).join(', ')
 end
 
 def distribute_builds(
@@ -791,7 +835,7 @@ def distribute_builds(
     buildkite_annotate(
       context: 'cdn-link',
       style: 'info',
-      message: "🔗 Build available for #{builds_to_upload.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
+      message: "🔗 Build available for #{builds_to_upload.each_value.map { |build| "[#{build[:display_name] || build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
     )
   end
 
@@ -1011,7 +1055,7 @@ def studio_cli_cdn_builds
     { key: :cli_windows_arm64, file_name: 'studio-cli-win32-arm64.tgz',  name: 'Windows arm64', platform: 'Windows - ARM64' },
     { key: :cli_linux_x64,     file_name: 'studio-cli-linux-x64.tgz',    name: 'Linux x64',     platform: 'Linux - x64' },
     { key: :cli_linux_arm64,   file_name: 'studio-cli-linux-arm64.tgz',  name: 'Linux arm64',   platform: 'Linux - ARM64' }
-  ]
+  ].map { |build| build.merge(display_name: "CLI #{build[:name]}") }
 end
 
 # Upload (or update) the standalone Studio CLI bundles on the Apps CDN.
@@ -1085,6 +1129,7 @@ def upload_studio_cli_binaries_to_apps_cdn(version:, artifacts_dir:, build_type:
 
     builds[build[:key]] = {
       name: build[:name],
+      display_name: build[:display_name],
       platform: build[:platform],
       cdn_url: media_url,
       post_id: post_id,
@@ -1342,14 +1387,7 @@ end
 def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
-  # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
-  links = download_link_keys.filter_map do |key|
-    build = builds[key]
-    next unless build&.dig(:cdn_url)
-
-    "[#{build[:name]}](#{build[:cdn_url]})"
-  end
+  links = release_download_links(builds)
 
   body = notes
   unless links.empty?
@@ -1364,7 +1402,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
 
   # Every build must have a post ID: builds missing from the embedded list would
   # silently stay Internal after publish_release and never reach users.
-  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:name] }
+  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:display_name] || b[:name] }
   UI.user_error!("Missing CDN post IDs for: #{missing.join(', ')}. publish_release needs every build's post ID to flip its visibility to External.") unless missing.empty?
 
   body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->"

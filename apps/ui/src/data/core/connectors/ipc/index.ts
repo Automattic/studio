@@ -1,8 +1,13 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
+import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
 } from '@studio/common/lib/studio-assistant-quota';
+import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -20,6 +25,7 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
+	PushPhase,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -27,15 +33,19 @@ import type {
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -83,6 +93,16 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
+	// key was rejected) can be shown as-is.
+	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
+		try {
+			return await call;
+		} catch ( error ) {
+			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+		}
+	}
 
 	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
 	// token. Resolves `null` when signed out so callers can degrade gracefully.
@@ -213,6 +233,8 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			aiSettings: true,
+			studioLogs: true,
 			switchToClassicUi: true,
 		},
 
@@ -236,8 +258,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate( signup = false ): Promise< void > {
-			await ipcApi.authenticate( signup );
+		async authenticate( signup = false, source: TracksAuthSource = 'unknown' ): Promise< void > {
+			await ipcApi.authenticate( signup, source );
 		},
 
 		async logout(): Promise< void > {
@@ -272,7 +294,9 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
+				skipStart,
 				blueprint,
+				flowType,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -283,7 +307,16 @@ export function createIpcConnector(): Connector {
 				adminUsername,
 				adminPassword,
 				adminEmail,
-				blueprint,
+				noStart: skipStart,
+				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
+				// the desktop IPC handler expects.
+				blueprint: blueprint
+					? {
+							...blueprint,
+							bundle_url: blueprint.bundleUrl,
+					  }
+					: undefined,
+				flowType,
 			} ) ) as SiteDetails;
 		},
 
@@ -308,6 +341,10 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -387,6 +424,9 @@ export function createIpcConnector(): Connector {
 					alwaysStartServer: true,
 					showErrorModal: false,
 					showNotification: false,
+					// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+					// deliberately does not count.
+					suppressTracksEvent: true,
 				} );
 			} finally {
 				unsubscribe?.();
@@ -411,6 +451,38 @@ export function createIpcConnector(): Connector {
 
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
+		},
+
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+		async getSiteStorageUsage( siteId, signal ) {
+			if ( ! signal ) {
+				return ipcApi.getSiteStorageUsage( siteId );
+			}
+			// `ipcRenderer.invoke` can't be cancelled, so aborting is a second
+			// call telling the main process to stop this measurement. The
+			// `throwIfAborted` calls turn the abort into the rejection React
+			// Query recognizes as a cancellation rather than a failed query.
+			const requestId = crypto.randomUUID();
+			const cancel = () => void ipcApi.cancelSiteStorageUsage( requestId );
+			signal.addEventListener( 'abort', cancel, { once: true } );
+			try {
+				const usage = await ipcApi.getSiteStorageUsage( siteId, requestId );
+				signal.throwIfAborted();
+				return usage;
+			} catch ( error ) {
+				signal.throwIfAborted();
+				throw error;
+			} finally {
+				signal.removeEventListener( 'abort', cancel );
+			}
+		},
+
+		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
+			// `false` skips the loading event consumed by Classic; this UI tracks
+			// the same request through React Query.
+			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -489,6 +561,11 @@ export function createIpcConnector(): Connector {
 			return data === null ? null : studioAssistantQuotaSchema.parse( data );
 		},
 
+		async getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null > {
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchStudioAssistantTopUpPricing( token.accessToken ) : null;
+		},
+
 		async deleteAllSnapshots(): Promise< void > {
 			await ipcApi.deleteAllSnapshots();
 		},
@@ -507,7 +584,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
@@ -533,19 +610,109 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ): Promise< void > {
 			// The agentic UI pushes via the shared `pushSite` (export → TUS
 			// upload → import) in both desktop and `studio ui`; the desktop runs
-			// it behind this single IPC handler. Resolves once the import is
-			// initiated (the remote import may still be running).
-			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			// it behind this single IPC handler. Resolves once the remote import
+			// has finished.
+			const unsubscribe = onPhase
+				? ipcListener.subscribe(
+						'sync-push-phase',
+						(
+							_event: unknown,
+							payload: {
+								selectedSiteId: string;
+								remoteSiteId: number;
+								phase: PushPhase;
+								progress?: number;
+							}
+						) => {
+							if ( payload.selectedSiteId === siteId && payload.remoteSiteId === remoteSiteId ) {
+								onPhase( payload.phase, payload.progress );
+							}
+						}
+				  )
+				: undefined;
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+			} finally {
+				unsubscribe?.();
+			}
+			// The main process reports a cancel instead of rejecting, to keep it out
+			// of the logs as an error; turn it back into one for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+		async cancelSync( siteId, remoteSiteId ): Promise< void > {
+			// Same registry the classic renderer cancels through — the operation id
+			// is `${siteId}-${remoteSiteId}`.
+			ipcApi.cancelSyncOperation( `${ siteId }-${ remoteSiteId }` );
+		},
+
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'sync-pull-progress',
+						(
+							_event: unknown,
+							payload: { siteId: string; message: string; progress?: number; action?: string }
+						) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( {
+									message: payload.message,
+									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
+									// Drives the cancel gate — without it every pull looks cancellable.
+									...( payload.action === undefined ? {} : { action: payload.action } ),
+								} );
+							}
+						}
+				  )
+				: undefined;
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
+			} finally {
+				unsubscribe?.();
+			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
+		},
+
+		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
+			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
+		},
+
+		async listRemoteFileTree( remoteSiteId, rewindId, path ): Promise< Record< string, unknown > > {
+			return ( await ipcApi.listRemoteFileTree( remoteSiteId, rewindId, path ) ) as Record<
+				string,
+				unknown
+			>;
+		},
+
+		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
+			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		},
+
+		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
+			return ( await ipcApi.listLocalFileTree( siteId, path, depth ) ) as RawDirectoryEntry[];
+		},
+
+		async getDirectorySize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getDirectorySize( siteId, path ) ) as number;
+		},
+
+		async getFileSize( siteId, path ): Promise< number > {
+			return ( await ipcApi.getFileSize( siteId, path ) ) as number;
+		},
+
+		async getIsMultisite( siteId ): Promise< boolean | undefined > {
+			return ( await ipcApi.getIsMultisite( siteId ) ) as boolean | undefined;
 		},
 
 		getPublishCheckoutUrl( site ): string {
@@ -585,6 +752,10 @@ export function createIpcConnector(): Connector {
 
 		async setSessionModel( sessionId, model ) {
 			await ipcApi.setAiSessionModel( sessionId, model );
+		},
+
+		async setSessionProvider( sessionId, provider, model ) {
+			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
 		async interruptAgentRun( runId ) {
@@ -677,7 +848,7 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async setUserPreferences( partial ): Promise< void > {
+		async setUserPreferences( partial, source ): Promise< void > {
 			const writes: Array< Promise< unknown > > = [];
 			if ( 'editor' in partial ) {
 				writes.push( ipcApi.saveUserEditor( partial.editor ) );
@@ -695,7 +866,11 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
 			if ( 'analyticsEnabled' in partial ) {
-				writes.push( ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled ) );
+				writes.push(
+					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
+						surface: source?.surface ?? 'settings',
+					} )
+				);
 			}
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
@@ -709,6 +884,11 @@ export function createIpcConnector(): Connector {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
+				// menu has to be rebuilt for the accelerator to change hands.
+				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			}
 		},
 
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
@@ -725,8 +905,21 @@ export function createIpcConnector(): Connector {
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
 		},
-		async saveAgentInstructions( content: string ): Promise< void > {
-			await ipcApi.saveGlobalAgentInstructions( content );
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content, options );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return ( await ipcApi.getAiSettings() ) as AiSettings;
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		},
+		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
@@ -735,6 +928,10 @@ export function createIpcConnector(): Connector {
 
 		async getAppGlobals(): Promise< AppGlobals > {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
+		},
+
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
 		},
 
 		async openSiteFolder( siteId ): Promise< void > {
@@ -748,6 +945,8 @@ export function createIpcConnector(): Connector {
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}
+			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
+			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
 		},
 
@@ -756,13 +955,26 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
-		// Analytics
+		async siteDebugLogExists( siteId ): Promise< boolean > {
+			return Boolean( await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH ) );
+		},
+
+		async openSiteDebugLog( siteId ): Promise< void > {
+			const logPath = await ipcApi.getAbsolutePathFromSite( siteId, DEBUG_LOG_RELATIVE_PATH );
+			if ( ! logPath ) {
+				throw new Error( 'Debug log not found.' );
+			}
+			ipcApi.openLocalPath( logPath );
+		},
+
+		async openStudioLogs(): Promise< void > {
+			ipcApi.openStudioLogs();
+		},
+
+		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
+		// `commonProps()` in Main, so callers pass only event-specific props here.
 		async trackEvent( eventName, props = {} ): Promise< void > {
-			await ipcApi.recordAnalyticsEvent( eventName, {
-				channel: 'studio-ui',
-				ui_version: 'v2',
-				...props,
-			} );
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
 		},
 
 		// External links
@@ -787,6 +999,10 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async showTextContextMenu( context ) {
+			return ipcApi.showTextContextMenu( context );
 		},
 
 		async confirmDeleteAllPreviewSites(): Promise< boolean > {
@@ -824,6 +1040,14 @@ export function createIpcConnector(): Connector {
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
+
+		async ensureWindowWidth( minimumWidth: number ): Promise< number | null > {
+			return ipcApi.ensureMinWindowWidth( minimumWidth );
+		},
+
+		async setWindowControlsSurface( surface ) {
+			await ipcApi.setWindowControlsSurface( surface );
+		},
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
@@ -877,8 +1101,38 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
 
+		onAiCreditsPurchased( listener ) {
+			return ipcListener.subscribe( 'ai-credits-purchased', () => listener() );
+		},
+
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getOnboardingHints() {
+			return ipcApi.getOnboardingHints();
+		},
+
+		async setOnboardingHints( partial ) {
+			await ipcApi.saveOnboardingHints( partial );
+		},
+
+		onShowGettingStarted( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'show-getting-started', () => listener() );
+		},
+
+		onShowWhatsNew( listener ) {
+			return ipcListener.subscribe( 'show-whats-new', () => listener() );
+		},
+
+		async getLastSeenVersion() {
+			return ipcApi.getLastSeenVersion();
+		},
+
+		async saveLastSeenVersion( version ) {
+			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {
@@ -892,6 +1146,13 @@ export function createIpcConnector(): Connector {
 		onAppUpdateStatusChanged( listener ) {
 			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
 				listener( status as AppUpdateStatus )
+			);
+		},
+
+		onAppUpdateNotAvailable( listener ) {
+			return ipcListener.subscribe(
+				'app-update-not-available',
+				( _event: unknown, info: unknown ) => listener( info as { currentVersion: string } )
 			);
 		},
 	};

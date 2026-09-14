@@ -187,7 +187,7 @@ export default function AddSiteOptions( {
 					illustration={ <BuildNewSiteIllustration /> }
 					title={ __( 'Build a new site' ) }
 					description={ __(
-						'Start from scratch or use a blueprint. Perfect for theme and plugin development.'
+						'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
 					) }
 					onClick={ () => onOptionSelect( 'new' ) }
 					testId="create-site-option-button"

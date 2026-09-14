@@ -17,3 +17,11 @@ export function getAuthenticationUrl(
 
 	return url.toString();
 }
+
+export function getSignUpUrl( locale: SupportedLocale, redirectUri?: string ): string {
+	const url = new URL( 'https://wordpress.com/start/wpcc/oauth2-user' );
+	url.searchParams.set( 'oauth2_client_id', CLIENT_ID );
+	url.searchParams.set( 'oauth2_redirect', getAuthenticationUrl( locale, redirectUri ) );
+	url.searchParams.set( 'locale', locale );
+	return url.toString();
+}

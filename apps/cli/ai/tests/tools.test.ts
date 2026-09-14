@@ -18,11 +18,12 @@ import {
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { getProgressCallback, setProgressCallback } from 'cli/logger';
+import { Logger } from 'cli/logger';
 import {
 	captureCommandOutput,
 	resolveStudioToolDefinitions,
@@ -226,7 +227,6 @@ describe( 'Studio AI MCP tools', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
-		setProgressCallback( null );
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite ],
 		} as Awaited< ReturnType< typeof readCliConfig > > );
@@ -234,7 +234,6 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	afterEach( () => {
-		setProgressCallback( null );
 		setLocalSiteSelectedCallback( null );
 	} );
 
@@ -337,6 +336,29 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
+	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
+		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
+		expect(
+			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
+				?.description
+		).toContain( 'options: 4' );
+		const text =
+			getTextContent(
+				await executeTool( getTool( 'pick_design' ), { catalog: 'layouts', options: 4 } )
+			) ?? '';
+		expect( text ).not.toContain( 'Option 1' );
+		expect( text ).toContain( 'cannot be asked in this session' );
+	} );
+
+	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
+		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
+		expect( names ).not.toContain( 'refresh_browser' );
+		const namesWithArtifacts = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).map( ( tool ) => tool.name );
+		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
+	} );
+
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
 		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
 		const emitEventMock = vi.mocked( emitEvent );
@@ -346,6 +368,19 @@ describe( 'Studio AI MCP tools', () => {
 		expect( emitEventMock ).toHaveBeenCalledWith(
 			expect.objectContaining( { type: 'preview.reload' } )
 		);
+	} );
+
+	it( 'deletes a site with progress threaded to the tool logger', async () => {
+		const result = await getTool( 'site_delete' ).rawHandler( {
+			nameOrPath: 'My Site',
+		} as never );
+
+		expect( runDeleteSiteCommand ).toHaveBeenCalledWith(
+			mockSite.path,
+			true,
+			expect.any( Logger )
+		);
+		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 	} );
 
 	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
@@ -369,13 +404,13 @@ describe( 'Studio AI MCP tools', () => {
 		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
 		const progressMessages: string[] = [];
-		setProgressCallback( ( message ) => {
-			progressMessages.push( message );
-		} );
 
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-		} as never );
+		const result = await getTool( 'take_screenshot' ).rawHandler(
+			{
+				url: 'http://localhost:8903/story-time',
+			} as never,
+			{ onProgress: ( message ) => progressMessages.push( message ) }
+		);
 
 		// Terminal users have no artifact rendering; the saved-file progress
 		// line is their only handle on the capture.
@@ -387,6 +422,9 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
+		// The saved path is the agent's only handle for reusing a capture as a
+		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
+		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
 		expect( text ).not.toContain( 'mediaWidgetPayload' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -404,18 +442,38 @@ describe( 'Studio AI MCP tools', () => {
 		await cleanUpScreenshotArtifacts( artifacts );
 	} );
 
+	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
+		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const findTakeScreenshot = (
+			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+		) =>
+			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
+		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
+		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
+		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
+		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
+
+		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
+
+		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
+		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
+		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
+	} );
+
 	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
 		const screenshotBuffer = Buffer.from( 'internal-jpeg' );
 		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
 		const progressMessages: string[] = [];
-		setProgressCallback( ( message ) => {
-			progressMessages.push( message );
-		} );
 
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			display: false,
-		} as never );
+		const result = await getTool( 'take_screenshot' ).rawHandler(
+			{
+				url: 'http://localhost:8903/story-time',
+				display: false,
+			} as never,
+			{ onProgress: ( message ) => progressMessages.push( message ) }
+		);
 
 		// Nothing to emit into the chat, but the model still gets the image
 		// for its own verification.
@@ -860,58 +918,16 @@ describe( 'Studio AI MCP tools', () => {
 		expect( emitEvent ).not.toHaveBeenCalled();
 	} );
 
-	describe( 'share_screenshot gating', () => {
-		it( 'omits share_screenshot when remoteSession is not set', () => {
-			const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-			expect( names ).toContain( 'take_screenshot' );
-		} );
-
-		it( 'omits share_screenshot when remoteSession is false', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: false,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-		} );
-
-		it( 'includes share_screenshot when remoteSession is true', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: true,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).toContain( 'share_screenshot' );
-		} );
-
-		it( 'can force dark mode when sharing a screenshot', async () => {
-			const screenshotBuffer = Buffer.from( 'shared-png' );
-			const page = createMockPage( { buffer: screenshotBuffer } );
-			mockScreenshotBrowser( page );
-
-			const result = await getTool( 'share_screenshot' ).rawHandler( {
-				url: 'http://localhost:8903/',
-				colorScheme: 'dark',
-			} as never );
-
-			expect( page.emulateMedia ).toHaveBeenCalledWith( {
-				reducedMotion: 'reduce',
-				colorScheme: 'dark',
-			} );
-			expect( emitEvent ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					type: 'media.share',
-					mimeType: 'image/png',
-					dataBase64: screenshotBuffer.toString( 'base64' ),
-				} )
-			);
-			expect( getTextContent( result ) ).toContain( 'dark mode' );
-		} );
-	} );
-
 	it( 'creates previews for a resolved local site', async () => {
 		const result = await getTool( 'preview_create' ).rawHandler( {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( runCreatePreviewCommand ).toHaveBeenCalledWith( '/sites/my-site' );
+		expect( runCreatePreviewCommand ).toHaveBeenCalledWith(
+			'/sites/my-site',
+			undefined,
+			expect.any( Logger )
+		);
 		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
 	} );
 
@@ -929,7 +945,8 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'My Site',
 				noStart: false,
 				skipBrowser: true,
-			} )
+			} ),
+			expect.any( Logger )
 		);
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
@@ -1138,7 +1155,8 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runUpdatePreviewCommand ).toHaveBeenCalledWith(
 			'/sites/my-site',
 			'demo.wordpress.com',
-			true
+			true,
+			expect.any( Logger )
 		);
 		expect( getTextContent( result ) ).toContain(
 			'Preview site "demo.wordpress.com" updated from "My Site".'
@@ -1159,50 +1177,39 @@ describe( 'Studio AI MCP tools', () => {
 
 		expect( runDeletePreviewCommand ).toHaveBeenCalledWith(
 			PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
-			'demo.wordpress.com'
+			'demo.wordpress.com',
+			expect.any( Logger )
 		);
 	} );
 
-	it( 'restores the previous progress callback after running a preview tool', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
-
-		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
-
-		expect( getProgressCallback() ).toBe( previousCallback );
-	} );
-
-	it( 'forwards progress messages to the previous callback during command execution', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
-
-		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
-			const currentCallback = getProgressCallback();
-			currentCallback?.( 'Creating preview…' );
-			currentCallback?.( 'Almost done…' );
+	it( 'forwards command progress to the tool context', async () => {
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async ( _path, _name, logger ) => {
+			logger?.reportStart( 'validate' as never, 'Creating preview…' );
+			logger?.reportSuccess( 'Almost done…' );
 		} );
 
-		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
+		const onProgress = vi.fn();
+		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never, {
+			onProgress,
+		} );
 
-		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
+		expect( onProgress ).toHaveBeenCalledWith( 'Creating preview…', undefined );
+		expect( onProgress ).toHaveBeenCalledWith( 'Almost done…', undefined );
 	} );
 
 	it( 'coalesces progress updates in captured command output', async () => {
-		const previousCallback = vi.fn();
-		setProgressCallback( previousCallback );
+		const onProgress = vi.fn();
 
-		const result = await captureCommandOutput( async () => {
-			const currentCallback = getProgressCallback();
-			currentCallback?.( 'Applying changes… (74%)' );
-			currentCallback?.( 'Applying changes… (75%)', true );
-			currentCallback?.( 'Applying changes… (76%)', true );
-			currentCallback?.( 'Push complete' );
-		} );
+		const result = await captureCommandOutput( async ( logger ) => {
+			logger.reportStart( 'apply', 'Applying changes… (74%)' );
+			logger.reportProgress( 'Applying changes… (75%)' );
+			logger.reportProgress( 'Applying changes… (76%)' );
+			logger.reportStart( 'done', 'Push complete' );
+		}, onProgress );
 
 		expect( result.progressOutput ).toBe( 'Applying changes… (76%)\nPush complete' );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
-		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
+		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
+		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
@@ -1474,6 +1481,14 @@ describe( 'Studio AI MCP tools', () => {
 			expect( styleCss ).not.toContain( 'Template:' );
 			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
 			expect( styleCss ).toContain( 'margin-block-start: 0;' );
+			expect( styleCss ).toContain( '.wp-site-blocks main {' );
+			expect( styleCss ).toContain( '.wp-site-blocks main.is-flush {' );
+
+			const pageNoTitle = await readFile(
+				path.join( themeDir, 'templates', 'page-no-title.html' ),
+				'utf8'
+			);
+			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
@@ -1504,6 +1519,28 @@ describe( 'Studio AI MCP tools', () => {
 			await expect(
 				stat( path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' ) )
 			).rejects.toThrow();
+		} );
+
+		it( 'treats an empty parentTheme as no parent and scaffolds a blank theme', async () => {
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				parentTheme: '',
+			} as never );
+
+			expect( getTextContent( result ) ).not.toMatch( /Child theme/ );
+			await expect(
+				stat(
+					path.join(
+						tempSiteRoot,
+						'wp-content',
+						'themes',
+						'acme-studio',
+						'templates',
+						'index.html'
+					)
+				)
+			).resolves.toBeDefined();
 		} );
 
 		it( 'fails when the target theme directory already exists', async () => {

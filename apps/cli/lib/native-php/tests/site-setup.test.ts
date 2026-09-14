@@ -7,19 +7,16 @@ vi.mock( 'cli/lib/native-php/php-process', () => ( { runPhpCommand } ) );
 vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 	getWpCliPharPath: () => '/wp-cli.phar',
 } ) );
+vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
+	ensurePhpBinaryAvailable: vi.fn(),
+} ) );
 
 // The constants are passed to PHP as the third positional arg, JSON-encoded.
 async function getWrittenConstants(
-	config?: Parameters< typeof ensureWpConfig >[ 4 ]
+	config?: Parameters< typeof ensureWpConfig >[ 3 ]
 ): Promise< Record< string, unknown > > {
 	runPhpCommand.mockClear();
-	await ensureWpConfig(
-		'/nonexistent-site',
-		'8.4',
-		new AbortController().signal,
-		'/wp-config-transformer.php',
-		config
-	);
+	await ensureWpConfig( '/nonexistent-site', '8.4', new AbortController().signal, config );
 	const args = runPhpCommand.mock.calls[ 0 ][ 0 ] as string[];
 	return JSON.parse( args[ args.length - 1 ] );
 }

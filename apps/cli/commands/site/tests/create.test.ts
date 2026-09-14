@@ -1509,6 +1509,38 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
+		it( 'accepts a completed SSI receipt with zero fallback blocks', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValueOnce(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									status: 'completed',
+									quality_pass: true,
+									fail_import: false,
+									fallback_count: 0,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).resolves.toBeUndefined();
+			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+		} );
+
 		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );

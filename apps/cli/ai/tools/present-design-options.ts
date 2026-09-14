@@ -3,9 +3,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Type } from 'typebox';
 import { renderDesignBoard } from 'cli/ai/design-board';
-import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
+import { DESIGN_OPTIONS, findDesignCatalogKind } from 'cli/ai/design-catalog';
+import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
@@ -63,7 +65,8 @@ export async function inlineLocalImages( html: string ): Promise< string > {
 // Rendering and asking live in one tool so the model cannot attach preview
 // images to unrelated questions.
 export function createPresentDesignOptionsTool(
-	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >
+	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >,
+	tracks?: DesignTracksContext
 ) {
 	return defineTool(
 		'present_design_options',
@@ -148,10 +151,25 @@ export function createPresentDesignOptionsTool(
 				},
 			] );
 			const answer = answers[ args.question ];
+			const picked = answer ? options.findIndex( ( option ) => option.label === answer ) : -1;
+			const labels = options.map( ( option ) => option.label );
+			await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PICKED, tracks, {
+				catalog: findDesignCatalogKind( labels ) ?? 'unknown',
+				options: labels.join( ',' ),
+				options_count: labels.length,
+				answer_type: ! answer
+					? 'none'
+					: picked !== -1
+					? 'picked'
+					: answer === OTHER_OPTIONS
+					? 'other_options'
+					: 'free_form',
+				picked: picked === -1 ? undefined : labels[ picked ],
+				pick_index: picked === -1 ? undefined : picked + 1,
+			} );
 			if ( ! answer ) {
 				return textResult( 'The user did not answer.' );
 			}
-			const picked = options.findIndex( ( option ) => option.label === answer );
 			return textResult(
 				picked === -1
 					? `The user answered: ${ answer }`

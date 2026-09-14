@@ -30,6 +30,7 @@ import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
+import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
 export { captureCommandOutput } from './utils';
 
@@ -78,6 +79,8 @@ export interface CreateStudioToolsOptions {
 	visionEnabled?: boolean;
 	// Lets pick_design offer options to pick from. Defaults to false.
 	canAskUser?: boolean;
+	// The chat session the design tools record Tracks events for; absent for the MCP server.
+	tracks?: DesignTracksContext;
 }
 
 export function resolveStudioToolDefinitions(
@@ -102,8 +105,11 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
 			tool = createTakeScreenshotTool( { visionEnabled: false } );
 		}
-		if ( candidate.name === pickDesignTool.name && options.canAskUser === true ) {
-			tool = createPickDesignTool( { canAskUser: true } );
+		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
+			tool = createPickDesignTool( {
+				canAskUser: options.canAskUser === true,
+				tracks: options.tracks,
+			} );
 		}
 		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
 	} );

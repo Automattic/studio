@@ -31,12 +31,24 @@ export function parseSitemapDocument(xml: string): SitemapDocument {
 }
 
 import { chromium } from 'playwright';
+import { canonicalizeOrigin } from '../screenshot/same-origin.js';
 
 export function parseSitemapXml(xml: string): string[] {
   return parseSitemapDocument(xml).locs;
 }
 
 export type UrlType = 'homepage' | 'post' | 'product' | 'gallery' | 'event' | 'page';
+
+export interface SitemapDiagnostic {
+  code: string;
+  url: string;
+  reason: string;
+}
+
+export interface SitemapFetchResult {
+  urls: string[];
+  diagnostics: SitemapDiagnostic[];
+}
 
 export function classifyUrl(url: string): UrlType {
   let path: string;
@@ -74,15 +86,28 @@ const MAX_SITEMAP_DEPTH = 3;
 const MAX_URLS = 50000;
 
 export async function fetchSitemap(baseUrl: string): Promise<string[]> {
+  return (await fetchSitemapWithDiagnostics(baseUrl)).urls;
+}
+
+/**
+ * Fetch sitemap routes scoped to the entry URL's origin. `fetchSitemap` keeps
+ * the array-only contract used by existing adapters; callers that surface
+ * discovery diagnostics can opt into this richer result.
+ */
+export async function fetchSitemapWithDiagnostics(baseUrl: string): Promise<SitemapFetchResult> {
   const normalizedBase = baseUrl.includes('://') ? baseUrl : `https://${baseUrl}`;
   const sitemapUrl = `${normalizedBase.replace(/\/$/, '')}/sitemap.xml`;
   let baseOrigin: string;
+  let captureOrigin: string;
   try {
     baseOrigin = new URL(normalizedBase).origin;
+    captureOrigin = canonicalizeOrigin(normalizedBase);
   } catch {
-    return [];
+    return { urls: [], diagnostics: [] };
   }
   const allUrls: string[] = [];
+  const seenUrls = new Set<string>();
+  const diagnostics: SitemapDiagnostic[] = [];
   const visited = new Set<string>();
 
   async function fetchAndParse(url: string, depth: number): Promise<void> {
@@ -109,7 +134,25 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
         if (pathPart.endsWith('.xml')) {
           await fetchAndParse(u, depth + 1);
         } else {
-          allUrls.push(u);
+          let pageUrl: URL;
+          try {
+            pageUrl = new URL(u);
+          } catch {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'invalid URL' });
+            continue;
+          }
+          if (pageUrl.protocol !== 'http:' && pageUrl.protocol !== 'https:') {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'unsupported protocol' });
+            continue;
+          }
+          if (canonicalizeOrigin(pageUrl.href) !== captureOrigin) {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'origin differs from the entry URL' });
+            continue;
+          }
+          if (!seenUrls.has(pageUrl.href)) {
+            allUrls.push(pageUrl.href);
+            seenUrls.add(pageUrl.href);
+          }
         }
       }
     } catch {
@@ -145,7 +188,7 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
     }
   }
 
-  return allUrls;
+  return { urls: allUrls, diagnostics };
 }
 
 // Paths that are platform UI, not user content

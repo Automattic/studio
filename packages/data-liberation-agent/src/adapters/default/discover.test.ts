@@ -10,6 +10,35 @@ afterEach(async () => {
 });
 
 describe('discoverDefault', () => {
+  it('reports rejected sitemap leaves without adding them to the inventory', async () => {
+    server = createServer((request, response) => {
+      const origin = `http://${request.headers.host}`;
+      if (request.url === '/sitemap.xml') {
+        response.setHeader('content-type', 'application/xml');
+        response.end(`<urlset>
+          <url><loc>${origin}/</loc></url>
+          <url><loc>https://${request.headers.host}/wrong-protocol</loc></url>
+        </urlset>`);
+        return;
+      }
+      response.setHeader('content-type', 'text/html');
+      response.end('<!doctype html><title>Example</title><nav><a href="/contact">Contact</a></nav>');
+    });
+    await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Fixture server did not bind to a TCP port');
+    const origin = `http://127.0.0.1:${address.port}`;
+
+    const inventory = await discoverDefault(`${origin}/`, {});
+
+    expect(inventory.urls.map(({ url }) => url)).toEqual([`${origin}/`, `${origin}/contact`]);
+    expect(inventory.diagnostics).toHaveLength(1);
+    expect(inventory.diagnostics?.[0]).toEqual(expect.objectContaining({
+      code: 'sitemap_url_rejected',
+      url: `https://127.0.0.1:${address.port}/wrong-protocol`,
+    }));
+  });
+
   it('discovers rendered SPA navigation when raw sitemap and HTML are shells', async () => {
     server = createServer((_request, response) => {
       response.setHeader('content-type', 'text/html');

@@ -8,6 +8,23 @@ AI agents: when you contribute an improvement, add an entry here. See [CONTRIBUT
 
 ---
 
+## 2026-09-14 — Mixed-protocol sitemap page entries bypassed discovery scope
+
+**Found by:** Codex
+**During:** Clear Lake Medical Foundation first-import baseline
+**Type:** bug fix
+
+### What I found
+Sitemap page locations were added to the capture inventory without the origin validation used for navigation links. HTTP entries from an HTTPS sitemap therefore reached the capture boundary and stopped the run before any page was captured.
+
+### How it works
+`fetchSitemapWithDiagnostics` now keeps only HTTP(S) page entries compatible with capture's origin comparison, including the existing apex/`www` alias rule. It deduplicates accepted page URLs and records rejected entries for inventories that expose discovery diagnostics.
+
+### Why it's better than the previous approach
+Mixed-protocol, foreign, malformed, and wrong-port sitemap entries no longer abort a valid import. Existing `fetchSitemap()` callers retain its array return contract and the capture guard remains in place.
+
+---
+
 ## 2026-06-04 — getsnooz.com (Shopify) carry run: capture 429s, carry-path media-install timeout, carry-tool schema gap
 
 **Found by:** Claude + Matt

@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { describe, it, expect } from 'vitest';
-import { classifyUrl, fetchSitemap } from './sitemap.js';
+import { describe, it, expect, vi } from 'vitest';
+import { classifyUrl, fetchSitemap, fetchSitemapWithDiagnostics } from './sitemap.js';
 
 describe('classifyUrl', () => {
   it('classifies the homepage', () => {
@@ -51,6 +51,84 @@ describe('classifyUrl', () => {
 });
 
 describe('fetchSitemap', () => {
+
+  it('keeps valid sitemap and navigation routes while rejecting out-of-origin sitemap leaves', async () => {
+    const server = createServer((request, response) => {
+      const origin = `http://${request.headers.host}`;
+      if (request.url === '/sitemap.xml') {
+        response.setHeader('content-type', 'application/xml');
+        response.end(`<urlset>
+          <url><loc>${origin}/</loc></url>
+          <url><loc>${origin}/</loc></url>
+          <url><loc>https://${request.headers.host}/wrong-protocol</loc></url>
+          <url><loc>http://127.0.0.1:9/wrong-port</loc></url>
+          <url><loc>https://elsewhere.example.test/foreign</loc></url>
+          <url><loc>not-a-url</loc></url>
+        </urlset>`);
+        return;
+      }
+      if (request.url === '/') {
+        response.setHeader('content-type', 'text/html');
+        response.end('<nav><a href="/contact">Contact</a><a href="/contact">Contact again</a></nav>');
+        return;
+      }
+      response.statusCode = 404;
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Test server did not start');
+    const origin = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const { urls, diagnostics } = await fetchSitemapWithDiagnostics(origin);
+
+      expect(urls).toEqual([
+        `${origin}/`,
+        `${origin}/contact`,
+      ]);
+      expect(diagnostics.map(({ url }) => url)).toEqual([
+        `https://127.0.0.1:${address.port}/wrong-protocol`,
+        'http://127.0.0.1:9/wrong-port',
+        'https://elsewhere.example.test/foreign',
+        'not-a-url',
+      ]);
+      expect(await fetchSitemap(origin)).toEqual(urls);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
+  it('preserves www and apex sitemap page aliases accepted by capture', async () => {
+    const sitemap = (pageOrigin: string) => `<urlset>${[ 'one', 'two', 'three', 'four', 'five' ]
+      .map((path) => `<url><loc>${pageOrigin}/${path}</loc></url>`)
+      .join('')}</urlset>`;
+    const responseByUrl = new Map([
+      ['https://example.test/sitemap.xml', sitemap('https://www.example.test')],
+      ['https://www.example.test/sitemap.xml', sitemap('https://example.test')],
+    ]);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(responseByUrl.get(url), { status: 200 })));
+
+    try {
+      await expect(fetchSitemap('https://example.test')).resolves.toEqual([
+        'https://www.example.test/one',
+        'https://www.example.test/two',
+        'https://www.example.test/three',
+        'https://www.example.test/four',
+        'https://www.example.test/five',
+      ]);
+      await expect(fetchSitemap('https://www.example.test')).resolves.toEqual([
+        'https://example.test/one',
+        'https://example.test/two',
+        'https://example.test/three',
+        'https://example.test/four',
+        'https://example.test/five',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('discovers navigation inserted by client-side JavaScript', async () => {
     const server = createServer((request, response) => {
       if (request.url === '/') {

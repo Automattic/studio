@@ -163,7 +163,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
-- **`studio_code_design_options_proposed`/`studio_code_design_option_picked`** are emitted **only** by
+- **`studio_code_design_option_proposed`/`studio_code_design_option_picked`** are emitted **only** by
   the CLI, from the two design tools every chat surface runs: `pick_design`
   (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
   was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
@@ -261,8 +261,8 @@ not drift.
 | `client` | AI product | `studio-code` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
-| `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure); `unknown` on a pick whose labels match neither |
-| `options` | **Custom (Studio-only):** the catalog entries shown, comma-separated, in display order | e.g. `Noir,Zine,Coastal,Book` — catalog names only, never user text |
+| `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
+| `draw_id` | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call |
 | `answer_type` | **Custom (Studio-only):** how the user answered a design question | `picked`, `other_options` (asked for a fresh draw), `free_form` (typed their own answer — the text is **never** sent), `none` |
 
 `is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
@@ -460,15 +460,16 @@ AI identity props described under "Property vocabulary" above. Filter by `channe
 | `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
 | `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
-| `studio_code_design_options_proposed` | CLI `pick_design` | `catalog`, `options` (entries returned, in order), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `chosen` (the subset the model picked itself — all of them for directions, at most two for layouts), `random_count` (entries drawn by chance), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options). One per `pick_design` call. |
-| `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (resolved by matching the option labels against the catalogs), `options` (labels shown, in order), `options_count`, `answer_type`, `picked` (the label, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |
+| `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
+| `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |
 
-The design pair is a funnel too: join `proposed` to `picked` on `ai_session_id` and `catalog` (and
-`options`, which both carry verbatim) to get, per catalog, which entries were shown, which won, and how
-often the user asked for another draw (`answer_type=other_options`, echoed on the next `proposed` as
-`is_redraw=true`). Entries that were shown but never picked are the proposals-minus-picks set.
-`options_count=1` rows are not proposals: they are the model settling an entry without asking, which
-happens when the brief already names the look or when the session cannot ask.
+The design pair is a funnel too. `option_proposed` is one row per entry shown, so per-entry rates need
+no unpivoting: an entry's pick rate is its `option_picked` rows (`picked=<name>`) over its
+`option_proposed` rows, and `draw_id` regroups a draw when the whole set matters (e.g. what Noir was
+shown against when it lost). Join the two events on `ai_session_id` and `catalog`, ordered by time, to
+pair each draw with its answer; `answer_type=other_options` is echoed on the next draw as
+`is_redraw=true`. `options_count=1` rows are not proposals: they are the model settling an entry
+without asking, which happens when the brief already names the look or when the session cannot ask.
 
 Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
 `studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's

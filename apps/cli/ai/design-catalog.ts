@@ -85,16 +85,6 @@ export function findDesignEntry( kind: DesignCatalogKind, name: string ): Design
 	return loadDesignCatalog( kind ).find( ( entry ) => entry.name.toLowerCase() === wanted );
 }
 
-// The catalog most of the names belong to; undefined when none match any.
-export function findDesignCatalogKind( names: string[] ): DesignCatalogKind | undefined {
-	let best: { kind: DesignCatalogKind; matches: number } | undefined;
-	for ( const kind of DESIGN_CATALOG_KINDS ) {
-		const matches = names.filter( ( name ) => findDesignEntry( kind, name ) ).length;
-		if ( matches > ( best?.matches ?? 0 ) ) best = { kind, matches };
-	}
-	return best?.kind;
-}
-
 export interface DesignDrawRequest {
 	kind: DesignCatalogKind;
 	count: number;

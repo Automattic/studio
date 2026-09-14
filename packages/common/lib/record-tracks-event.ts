@@ -43,7 +43,7 @@ export const TRACKS_EVENTS = {
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
 	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
 	CODE_SESSION_CREATED: 'studio_code_session_created',
-	CODE_DESIGN_OPTIONS_PROPOSED: 'studio_code_design_options_proposed',
+	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',

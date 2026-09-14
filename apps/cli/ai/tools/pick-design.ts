@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Type } from 'typebox';
 import {
 	DESIGN_CATALOGS,
@@ -68,16 +69,18 @@ export function createPickDesignTool( {
 			const chosen = new Set(
 				args.chosen?.map( ( entry ) => findDesignEntry( args.catalog, entry.name )?.name )
 			);
-			const names = entries.map( ( entry ) => entry.name );
-			const chosenNames = names.filter( ( name ) => chosen.has( name ) );
-			await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTIONS_PROPOSED, tracks, {
-				catalog: args.catalog,
-				options: names.join( ',' ),
-				options_count: names.length,
-				chosen: chosenNames.join( ',' ),
-				random_count: names.length - chosenNames.length,
-				is_redraw: isRedraw,
-			} );
+			const drawId = randomUUID();
+			for ( const [ index, entry ] of entries.entries() ) {
+				await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PROPOSED, tracks, {
+					catalog: args.catalog,
+					option: entry.name,
+					position: index + 1,
+					is_chosen: chosen.has( entry.name ),
+					options_count: entries.length,
+					is_redraw: isRedraw,
+					draw_id: drawId,
+				} );
+			}
 			const { label } = DESIGN_CATALOGS[ args.catalog ];
 			const sections = entries.map(
 				( entry, index ) =>

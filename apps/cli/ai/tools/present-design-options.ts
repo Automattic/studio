@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Type } from 'typebox';
 import { renderDesignBoard } from 'cli/ai/design-board';
-import { DESIGN_OPTIONS, findDesignCatalogKind } from 'cli/ai/design-catalog';
+import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
 import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -62,6 +62,15 @@ export async function inlineLocalImages( html: string ): Promise< string > {
 	);
 }
 
+type AnswerType = 'picked' | 'other_options' | 'free_form' | 'none';
+
+function classifyAnswer( answer: string | undefined, picked: number ): AnswerType {
+	if ( ! answer ) return 'none';
+	if ( picked !== -1 ) return 'picked';
+	if ( answer === OTHER_OPTIONS ) return 'other_options';
+	return 'free_form';
+}
+
 // Rendering and asking live in one tool so the model cannot attach preview
 // images to unrelated questions.
 export function createPresentDesignOptionsTool(
@@ -72,6 +81,10 @@ export function createPresentDesignOptionsTool(
 		'present_design_options',
 		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
 		{
+			catalog: Type.Union( [ Type.Literal( 'directions' ), Type.Literal( 'layouts' ) ], {
+				description:
+					'The pick_design catalog the options came from: "directions" for a look, "layouts" for a layout.',
+			} ),
 			question: Type.String( {
 				description: 'The question shown above the options, e.g. "Which look should I build?".',
 			} ),
@@ -152,19 +165,11 @@ export function createPresentDesignOptionsTool(
 			] );
 			const answer = answers[ args.question ];
 			const picked = answer ? options.findIndex( ( option ) => option.label === answer ) : -1;
-			const labels = options.map( ( option ) => option.label );
 			await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PICKED, tracks, {
-				catalog: findDesignCatalogKind( labels ) ?? 'unknown',
-				options: labels.join( ',' ),
-				options_count: labels.length,
-				answer_type: ! answer
-					? 'none'
-					: picked !== -1
-					? 'picked'
-					: answer === OTHER_OPTIONS
-					? 'other_options'
-					: 'free_form',
-				picked: picked === -1 ? undefined : labels[ picked ],
+				catalog: args.catalog,
+				options_count: options.length,
+				answer_type: classifyAnswer( answer, picked ),
+				picked: picked === -1 ? undefined : options[ picked ].label,
 				pick_index: picked === -1 ? undefined : picked + 1,
 			} );
 			if ( ! answer ) {

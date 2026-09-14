@@ -89,7 +89,7 @@ export function createPresentDesignOptionsTool(
 					} ),
 					image: Type.Optional(
 						Type.String( {
-							description: "For a look: absolute path of the option's generated image.",
+							description: 'For a look: absolute path of the look image.',
 						} )
 					),
 				} ),

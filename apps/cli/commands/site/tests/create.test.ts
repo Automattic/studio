@@ -1509,6 +1509,37 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
+		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									fallback_count: 0,
+									core_html_block_count: 1,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 1 core_html_block failure. Review the importer diagnostics and retry.'
+			);
+		} );
+
 		it( 'should handle SQLite setup failure', async () => {
 			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
 				new Error( 'SQLite setup failed' )

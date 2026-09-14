@@ -60,7 +60,7 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
@@ -565,16 +565,41 @@ function staticSiteImportQualityFailure(
 		quality_pass: qualityPass,
 		fail_import: failImport,
 		fallback_count: fallbackCount,
+		failure_reasons: failureReasons,
 	} = quality as Record< string, unknown >;
 	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
 		return undefined;
 	}
+	const failures = Array.isArray( failureReasons )
+		? failureReasons.filter( ( reason ): reason is string => typeof reason === 'string' && reason )
+		: [];
 	const fallbackBlocks =
 		counts && typeof counts === 'object' && ! Array.isArray( counts )
 			? ( counts as Record< string, unknown > ).fallback_blocks
 			: fallbackCount;
-	const detail =
-		typeof fallbackBlocks === 'number'
+	const detail = failures.length
+		? failures
+				.map( ( reason ) => {
+					const count = ( quality as Record< string, unknown > )[ `${ reason }_count` ];
+					return typeof count === 'number'
+						? sprintf(
+								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
+								_n(
+									'SSI reported %1$d %2$s failure.',
+									'SSI reported %1$d %2$s failures.',
+									count
+								),
+								count,
+								reason
+						  )
+						: sprintf(
+								/* translators: %s: Static Site Importer failure reason */
+								__( 'SSI reported a %s failure.' ),
+								reason
+						  );
+				} )
+				.join( ' ' )
+		: typeof fallbackBlocks === 'number'
 			? sprintf(
 					/* translators: %d: number of fallback blocks */
 					__( 'SSI reported %d fallback blocks.' ),

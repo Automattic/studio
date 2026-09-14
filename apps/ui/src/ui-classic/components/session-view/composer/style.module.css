@@ -45,6 +45,40 @@
 	outline: 2px solid var(--composer-focus-ring);
 }
 
+/* WPDS text-input chrome instead of the floating chat pill. */
+.shellField {
+	--composer-corner-radius: 2px;
+	--composer-border-radius: 2px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	background-color: var(--wpds-color-background-interactive-neutral-weak);
+	background-image: none;
+	backdrop-filter: none;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.shellField:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.shellField:focus-within:not(:has(.resizeHandle:focus-visible)) {
+	background-color: var(--wpds-color-background-interactive-neutral-weak);
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-interactive-neutral-active);
+	outline: none;
+}
+
+.shellField .placeholderText {
+	overflow: visible;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+/* The toolbar's 28px buttons already carry air around their icons; the full
+   block padding below them reads heavier than the text's top padding. */
+.shellField .toolbar {
+	padding-bottom: var(--wpds-dimension-padding-sm);
+}
+
 .shellDragging {
 	outline: 2px dashed var(--composer-focus-ring);
 }

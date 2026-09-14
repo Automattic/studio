@@ -180,6 +180,43 @@ describe( 'Composer menu', () => {
 		] );
 	} );
 
+	it( 'acts as a form field: no send control, the draft read back through the ref', async () => {
+		const onModelChange = vi.fn();
+		const { composerRef, container } = renderComposer( {
+			variant: 'field',
+			sessionId: undefined,
+			placeholder: 'Describe the site',
+			onModelChange,
+		} );
+
+		expect( screen.queryByRole( 'button', { name: 'Send' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Add skill or attachment' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Upload attachment' } ) ).toBeInTheDocument();
+		expect( composerRef.current?.getSubmission() ).toBeNull();
+
+		const textarea = screen.getByPlaceholderText( 'Describe the site' );
+		fireEvent.change( textarea, { target: { value: 'A bright ceramics portfolio' } } );
+		fireEvent.keyDown( textarea, { key: 'Enter' } );
+		expect( defaultProps.onSend ).not.toHaveBeenCalled();
+
+		const image = new File( [ 'image-bytes' ], 'moodboard.png', { type: 'image/png' } );
+		fireEvent.change( container.querySelector( 'input[type="file"]' ) as HTMLInputElement, {
+			target: { files: [ image ] },
+		} );
+		await screen.findByRole( 'button', { name: 'Remove attachment: moodboard.png' } );
+		expect( composerRef.current?.getSubmission() ).toMatchObject( {
+			prompt: 'A bright ceramics portfolio',
+			attachments: { images: [ expect.objectContaining( { name: 'moodboard.png' } ) ], files: [] },
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'gpt-5.6-sol' );
+		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
+	} );
+
 	it( 'shows tooltips for the plus button and model picker', async () => {
 		renderComposer();
 
@@ -609,7 +646,7 @@ describe( 'Composer menu', () => {
 		dialog.remove();
 	} );
 
-	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
+	it( 'opens a fresh session on the picked model after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
@@ -640,18 +677,12 @@ describe( 'Composer menu', () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
 		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
-
-		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
-			...SESSIONS_QUERY_KEY,
-			'fresh-session',
-		] );
-		expect( loadedSession?.summary ).toEqual( freshSummary );
-		expect( loadedSession?.entries ).toEqual( [
-			expect.objectContaining( {
-				type: 'model_change',
-				modelId: 'gpt-5.6-sol',
-			} ),
-		] );
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'fresh-session' ] )
+		).toEqual( {
+			summary: freshSummary,
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'gpt-5.6-sol' } ) ],
+		} );
 	} );
 } );
 

@@ -184,6 +184,8 @@ async function crawlNavLinks( baseUrl: string, baseOrigin: string ): Promise< st
 				if (
 					! href ||
 					href.startsWith( 'javascript:' ) ||
+					href.startsWith( 'data:' ) ||
+					href.startsWith( 'vbscript:' ) ||
 					href.startsWith( 'mailto:' ) ||
 					href.startsWith( 'tel:' )
 				)
@@ -231,6 +233,7 @@ async function crawlRenderedNavLinks( baseUrl: string, baseOrigin: string ): Pro
 function resolveAndFilter( href: string, baseUrl: string, baseOrigin: string ): string | null {
 	try {
 		const resolved = new URL( href, baseUrl );
+		if ( ! [ 'http:', 'https:' ].includes( resolved.protocol ) ) return null;
 		if ( resolved.origin !== baseOrigin ) return null;
 		if (
 			/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|pdf|zip|xml|json)$/i.test(

@@ -43,7 +43,7 @@ function shortEntryId(): string {
 
 export interface PendingQuestion {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 }
 
 export interface QueuedPrompt {
@@ -526,7 +526,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 									parentId: null,
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
-									data: { question: q.question, options: q.options },
+									data: q,
 								} ) as SessionEntry
 						),
 					] );

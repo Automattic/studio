@@ -1,13 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
 const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
 	navigateMock: vi.fn(),
-	agentRunState: { hasActiveRun: false },
+	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
 	sitesState: { data: [] as Array< { id: string; path: string; name: string } > },
 } ) );
 
@@ -59,7 +61,7 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 		pendingQuestions: [],
 		pendingAnswers: [],
 		queuedPrompts: [],
-		sendMessage: vi.fn(),
+		sendMessage: agentRunState.sendMessage,
 		interrupt: vi.fn(),
 		answerQuestion: vi.fn(),
 		removeQueuedPrompt: vi.fn(),
@@ -165,11 +167,19 @@ function setScrollMetrics(
 	}
 }
 
+const PENDING_PROMPT = {
+	sessionId: 'session-1',
+	prompt: 'A bakery site',
+	attachments: { images: [], files: [] },
+};
+
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		agentRunState.hasActiveRun = false;
 		sitesState.data = [];
+		const pending = pendingPromptSlot.getSnapshot();
+		if ( pending ) pendingPromptSlot.clear( pending );
 		// Entitled account by default; individual tests override.
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: makeQuota( {} ),
@@ -222,6 +232,40 @@ describe( 'SessionView', () => {
 		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
+	it( 'sends the prompt handed over for this session exactly once when the chat is ready', () => {
+		pendingPromptSlot.set( PENDING_PROMPT );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+
+		render(
+			<StrictMode>
+				<SessionView sessionId="session-1" />
+			</StrictMode>
+		);
+
+		expect( agentRunState.sendMessage ).toHaveBeenCalledTimes( 1 );
+		expect( agentRunState.sendMessage ).toHaveBeenCalledWith(
+			'A bakery site',
+			PENDING_PROMPT.attachments
+		);
+		expect( pendingPromptSlot.getSnapshot() ).toBeNull();
+	} );
+
+	it( 'holds the handed-over prompt while the chat is gated', () => {
+		pendingPromptSlot.set( PENDING_PROMPT );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { hasPaymentMethod: false } ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( agentRunState.sendMessage ).not.toHaveBeenCalled();
+		expect( pendingPromptSlot.getSnapshot() ).toBe( PENDING_PROMPT );
+	} );
+
 	it( 'shows the scroll-to-latest button only while scrolled away and scrolls down on click', async () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),
@@ -253,6 +297,44 @@ describe( 'SessionView', () => {
 				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
 			).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'wires the scroller when the session loads before the quota check resolves', async () => {
+		// Cold start: the session is served from the persisted cache while the
+		// (never persisted) quota query is still loading, so the conversation
+		// scroller mounts in a later commit than the session data.
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+			isFetching: true,
+			refetch: vi.fn(),
+		} );
+
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+		setScrollMetrics( scroller, { scrollTop: 0, scrollHeight: 1000, clientHeight: 400 } );
+
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( {} ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelector( '[class*="classicScroll"]' ) ).toBe( scroller );
+		expect( scroller.scrollTop ).toBe( 1000 );
+
+		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
+		fireEvent.scroll( scroller );
+		expect(
+			await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'gates the chat behind the payment requirement when no payment method is saved', () => {

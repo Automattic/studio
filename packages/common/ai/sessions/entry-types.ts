@@ -34,7 +34,8 @@ export interface StudioToolProgressData {
 
 export interface StudioAgentQuestionData {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	selectedLabel?: string;
 }
 

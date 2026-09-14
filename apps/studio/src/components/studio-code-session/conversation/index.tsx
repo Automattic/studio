@@ -26,6 +26,7 @@ import {
 	getToolDisplayName,
 	getToolResultDiff,
 	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
@@ -34,6 +35,7 @@ import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -64,7 +66,8 @@ type RenderItem =
 			kind: 'agent-question';
 			key: string;
 			question: string;
-			options: Array< { label: string; description: string } >;
+			options: Array< { label: string; description: string; image?: string } >;
+			multiSelect?: boolean;
 			answer?: string;
 	  }
 	| {
@@ -96,7 +99,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'present_design_options' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -237,6 +240,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				multiSelect: data.multiSelect,
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
@@ -619,6 +623,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	freeFormActive,
@@ -626,7 +631,8 @@ function AgentQuestion( {
 	onChooseFreeForm,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	freeFormActive: boolean;
@@ -639,22 +645,42 @@ function AgentQuestion( {
 	// answer instead of sending the label back as one.
 	const ownFreeFormLabel = isInteractive ? findOwnFreeFormOptionLabel( options ) : undefined;
 	const showFreeForm = isInteractive && ! ownFreeFormLabel;
+	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
 	// A reply typed into the composer answers the question without matching any
 	// listed label, so no button lights up. Show it instead, or the answer the
 	// user gave leaves no trace in the transcript.
-	const typedAnswer =
-		pickedLabel && ! options.some( ( option ) => option.label === pickedLabel )
-			? pickedLabel
-			: null;
-
+	const typedAnswer = pickedLabels
+		.filter(
+			( label ) =>
+				label &&
+				// The stop marker is written by the app, not the user.
+				label !== STOPPED_WITHOUT_ANSWER &&
+				! options.some( ( option ) => option.label === label )
+		)
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
 						const isOwnFreeForm = option.label === ownFreeFormLabel;
-						const picked = isOwnFreeForm ? freeFormActive : option.label === pickedLabel;
+						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
 						return (
 							<li key={ index }>
 								<button
@@ -665,11 +691,24 @@ function AgentQuestion( {
 										picked && styles.questionOptionPicked
 									) }
 									disabled={ ! isInteractive }
-									onClick={ isOwnFreeForm ? onChooseFreeForm : () => onAnswer( option.label ) }
-									aria-pressed={ isOwnFreeForm ? freeFormActive : undefined }
+									onClick={
+										isOwnFreeForm
+											? onChooseFreeForm
+											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
+									}
+									aria-pressed={ picked }
 									title={ isOwnFreeForm ? getFreeFormOptionDescription() : option.description }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
-									{ option.label }
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									<span className={ styles.questionOptionCopy }>
+										<span>{ option.label }</span>
+										{ hasImages && option.description ? (
+											<span className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
@@ -693,9 +732,70 @@ function AgentQuestion( {
 					) : null }
 				</ul>
 			) : null }
-			{ typedAnswer ? <p className={ styles.questionTypedAnswer }>{ typedAnswer }</p> : null }
+			{ typedAnswer ? (
+				<span
+					className={ cx(
+						styles.questionOption,
+						styles.questionOptionPicked,
+						styles.questionTypedAnswer
+					) }
+				>
+					{ typedAnswer }
+				</span>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						variant="primary"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
+			) : null }
 		</div>
 	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const [ src, setSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! path ) {
+			return;
+		}
+		let active = true;
+		setSrc( null );
+		setFailed( false );
+		readLocalMediaDataUrl( path )
+			.then( ( dataUrl ) => {
+				if ( active ) {
+					setSrc( dataUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ path ] );
+
+	if ( ! path || failed ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! src ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ src } alt="" />;
 }
 
 // In-flow marker for a turn that ended in an error. The proxy's quota
@@ -838,6 +938,7 @@ export function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
+								multiSelect={ item.multiSelect }
 								isInteractive={ pendingQuestions.has( item.question ) }
 								pickedLabel={
 									pendingAnswers[ item.question ] ??

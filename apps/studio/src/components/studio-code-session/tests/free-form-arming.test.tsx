@@ -99,13 +99,23 @@ vi.mock( '../use-agent-run', async () => {
 } );
 
 vi.mock( '../composer', () => ( {
+	// The real composer routes a reply through `onAnswer` whenever the agent is
+	// waiting on one, and falls back to `onSend` otherwise.
 	Composer: ( {
 		onSend,
+		onAnswer,
 	}: {
 		onSend: ( prompt: string, attachments: Record< string, never > ) => Promise< void >;
+		onAnswer?: ( answer: string ) => void;
 	} ) => (
 		<div data-testid="composer">
-			<button onClick={ () => void onSend( 'a mu-plugin', {} ) }>Send reply</button>
+			<button
+				onClick={ () =>
+					onAnswer ? onAnswer( 'a mu-plugin' ) : void onSend( 'a mu-plugin', {} )
+				}
+			>
+				Send reply
+			</button>
 		</div>
 	),
 	ComposerSkeleton: () => <div data-testid="composer-skeleton" />,

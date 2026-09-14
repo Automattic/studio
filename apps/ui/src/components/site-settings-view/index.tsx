@@ -1,6 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -79,9 +84,9 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
-		adminUsername: site.adminUsername ?? 'admin',
-		adminPassword: decodePassword( site.adminPassword ?? '' ) || 'password',
-		adminEmail: site.adminEmail || 'admin@localhost.com',
+		adminUsername: site.adminUsername ?? DEFAULT_ADMIN_USERNAME,
+		adminPassword: decodeAdminPassword( site.adminPassword ),
+		adminEmail: site.adminEmail || DEFAULT_ADMIN_EMAIL,
 		enableXdebug: site.enableXdebug ?? false,
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,

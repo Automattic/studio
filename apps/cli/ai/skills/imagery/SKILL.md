@@ -19,7 +19,7 @@ Use this skill whenever a design calls for images — hero/cover backgrounds, fe
      wp_cli post list --post_type=attachment --post__in=<id> --field=guid             → URL
      ```
      Use the returned URL as the `src` and the id in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`). Delete the staging file afterwards.
-3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image.
+3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The design-options call below is separate and does not count as the page's batch.
 4. **Write real alt text.** Generated images are content: give every `<img>` a short, descriptive alt in the markup (what the image shows, for a person who cannot see it). Never leave a spec string or an empty alt on a content image; cover backgrounds keep an empty alt (decorative).
 5. **Verify.** After applying markup, use take_screenshot to confirm the images render, fill their slots, and keep overlaid text legible.
 
@@ -62,6 +62,16 @@ A full-bleed cover BACKGROUND must be `landscape` or `ultrawide` — never squar
 
 - `siteContext`: one sentence of subject matter ("A neighborhood bakery selling sourdough and pastries."). **NEVER include the site or business name** — a name in the prompt is what painted-in fake wordmarks stand in for.
 - `imageGrade`: ONE site-wide photographic treatment (e.g. "warm natural window light, soft muted color, gentle film grain"), derived from the visual direction. Use the identical grade in every call for the site so all imagery reads as one photographic series.
+
+## Images for design options
+
+When the user is about to pick a look (see the `site-spec` skill), each look's board gets at most one generated image, all in one `generate_images` call:
+
+- **Same scene for every option**: one subject and composition for the site's first screen, written once and repeated per image in `landscape`, so the user compares looks rather than photo content.
+- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. The picked look's image then serves the layout sneak peeks and a single slot of the build; every other image the site needs still gets the normal batch above, with the picked look's grade as the call-wide `imageGrade` so the series reads as one.
+- **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that board shows a pattern instead.
+- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>.jpg`, passed as that option's `image`.
+- **A failed or unavailable image** is not a blocker: that board shows a pattern instead.
 
 ## No decorative or transparent images
 

@@ -13,6 +13,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 	type ReactNode,
 	type Ref,
 } from 'react';
@@ -40,6 +41,7 @@ import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-ses
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -50,7 +52,6 @@ import { getSiteSessionHistory, SessionChatActions } from './session-chat-action
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { SiteDetails } from '@/data/core';
-import type { ComposerSendAttachments } from '@studio/common/ai/composer-attachments';
 
 // Slack below the bottom edge that still counts as "at the latest message",
 // so sub-pixel rounding or a barely-started scroll doesn't flash the button.
@@ -64,6 +65,12 @@ export function isScrolledAwayFromLatest( node: {
 	return (
 		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
 	);
+}
+
+// Kept outside the component: the React Compiler lint reads a direct
+// `scrollTop` store on a state-held node as a state mutation.
+function scrollToEnd( node: HTMLElement ) {
+	node.scrollTop = node.scrollHeight;
 }
 
 function SessionHeader( {
@@ -337,7 +344,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			),
 		[ data?.entries ]
 	);
-	const scrollRef = useRef< HTMLDivElement >( null );
+	// The scroller only exists in the loaded frame, which can mount well after
+	// the session data arrives (a cold start serves the session from the
+	// persisted cache while the quota check is still pending). Keeping the node
+	// in state lets the scroll effects re-run when it appears; a ref can't.
+	const [ scrollNode, setScrollNode ] = useState< HTMLDivElement | null >( null );
 	const composerRef = useRef< ComposerHandle >( null );
 	useEffect(
 		() =>
@@ -373,38 +384,32 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		freeFormQuestion ??
 		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
 		null;
-	// A reply typed while questions are open answers one; it does not start a
-	// turn. Only Stop cancels the batch.
-	const sendComposerMessage = useCallback(
-		async ( prompt: string, attachments?: ComposerSendAttachments ) => {
-			if ( targetQuestion ) {
-				setArmedFreeFormQuestion( null );
-				answerQuestion( targetQuestion, prompt );
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
 				return;
 			}
-			await sendMessage( prompt, attachments );
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
 		},
-		[ answerQuestion, sendMessage, targetQuestion ]
+		[ answerQuestion, targetQuestion ]
 	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
-	const hasSession = !! data;
 
 	const updateIsScrolledAway = useCallback( () => {
-		const node = scrollRef.current;
-		if ( node ) {
-			setIsScrolledAway( isScrolledAwayFromLatest( node ) );
+		if ( scrollNode ) {
+			setIsScrolledAway( isScrolledAwayFromLatest( scrollNode ) );
 		}
-	}, [] );
+	}, [ scrollNode ] );
 
 	useEffect( () => {
-		const node = scrollRef.current;
-		if ( ! hasSession || ! node ) {
+		if ( ! scrollNode ) {
 			return;
 		}
 		updateIsScrolledAway();
-		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
-		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
-	}, [ hasSession, updateIsScrolledAway ] );
+		scrollNode.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
+		return () => scrollNode.removeEventListener( 'scroll', updateIsScrolledAway );
+	}, [ scrollNode, updateIsScrolledAway ] );
 
 	// Content can grow without emitting scroll events (e.g. while the
 	// auto-scroll below is suspended by pending questions), so re-check
@@ -418,13 +423,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId ] );
 
 	const scrollToLatest = useCallback( () => {
-		const node = scrollRef.current;
-		if ( ! node ) {
+		if ( ! scrollNode ) {
 			return;
 		}
 		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
-		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
-	}, [] );
+		scrollNode.scrollTo( {
+			top: scrollNode.scrollHeight,
+			behavior: prefersReducedMotion ? 'auto' : 'smooth',
+		} );
+	}, [ scrollNode ] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const siteSessionHistory = data
@@ -481,7 +488,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			return;
 		}
 		try {
-			const summary = await createSession( ownerSite.id );
+			const summary = await createSession( { siteId: ownerSite.id } );
 			switchSession( summary.id );
 		} catch {
 			// The mutation owns the error state; avoid an unhandled rejection
@@ -490,16 +497,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
-		const node = scrollRef.current;
-		if ( ! node || isScrolledAway || pendingQuestions.length > 0 ) {
+		if ( ! scrollNode || isScrolledAway || pendingQuestions.length > 0 ) {
 			return;
 		}
-		node.scrollTop = node.scrollHeight;
-		const id = requestAnimationFrame( () => {
-			node.scrollTop = node.scrollHeight;
-		} );
+		scrollToEnd( scrollNode );
+		const id = requestAnimationFrame( () => scrollToEnd( scrollNode ) );
 		return () => cancelAnimationFrame( id );
 	}, [
+		scrollNode,
 		sessionId,
 		data,
 		isRunning,
@@ -517,6 +522,29 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// Out of credits swaps the composer for the purchase offer, unless a run is
 	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	const isAccessBlocked =
+		!! quota && ( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
+
+	// The create-site flow's brief goes out as if typed here, but only once the
+	// chat is usable — it must not be fired into a gated view.
+	const handedOver = useSyncExternalStore(
+		pendingPromptSlot.subscribe,
+		pendingPromptSlot.getSnapshot
+	);
+	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
+	useEffect( () => {
+		// Read the slot live rather than the rendered value: StrictMode runs the
+		// effect twice for one render, and the second pass must find it empty.
+		const prompt = pendingPromptSlot.getSnapshot();
+		if ( ! isChatReady || prompt?.sessionId !== sessionId ) return;
+		pendingPromptSlot.clear( prompt );
+		void sendMessage( prompt.prompt, prompt.attachments ).catch( () => {
+			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
+		} );
+	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
@@ -570,12 +598,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
-	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gate server-side.
-	if (
-		quota &&
-		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
-	) {
+	if ( quota && isAccessBlocked ) {
 		return (
 			<SessionFrame
 				header={
@@ -599,7 +622,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	return (
 		<SessionFrame
-			scrollRef={ scrollRef }
+			scrollRef={ setScrollNode }
 			header={
 				<SessionHeader
 					siteName={ data.summary.ownerSiteName }
@@ -639,7 +662,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							isInterrupting={ isInterrupting }
 							error={ runError }
 							model={ currentModel }
-							onSend={ sendComposerMessage }
+							onSend={ sendMessage }
+							onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 							onInterrupt={ interrupt }
 							sessionId={ sessionId }
 							entries={ data.entries }
@@ -664,8 +688,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
-			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite && ! isOutOfCredits ? (
+			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
+			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

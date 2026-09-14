@@ -50,7 +50,6 @@ import { useSingleSession } from './use-single-session';
 import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { ComposerSendAttachments } from '@studio/common/ai/composer-attachments';
 import '@wordpress/theme/design-tokens.css';
 
 interface SessionFrameProps {
@@ -332,18 +331,15 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		freeFormQuestion ??
 		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
 		null;
-	// A reply typed while questions are open answers one; it does not start a
-	// turn. Only Stop cancels the batch.
-	const sendComposerMessage = useCallback(
-		async ( prompt: string, attachments: ComposerSendAttachments ) => {
-			if ( targetQuestion ) {
-				setArmedFreeFormQuestion( null );
-				answerQuestion( targetQuestion, prompt );
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
 				return;
 			}
-			await sendMessage( prompt, attachments );
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
 		},
-		[ answerQuestion, sendMessage, targetQuestion ]
+		[ answerQuestion, targetQuestion ]
 	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
@@ -484,7 +480,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 								error={ usageCapReached ? null : runError }
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
-								onSend={ sendComposerMessage }
+								onSend={ sendMessage }
+								onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }

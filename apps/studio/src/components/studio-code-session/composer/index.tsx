@@ -12,6 +12,7 @@ import {
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { getAiModelFamily, getAiModelLabel, getVisibleAiModels } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
@@ -78,6 +79,7 @@ interface ComposerProps {
 	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -249,6 +251,7 @@ export function Composer( {
 	usageCapMessage,
 	model,
 	onSend,
+	onAnswer,
 	onInterrupt,
 	sessionId,
 	entries,
@@ -331,6 +334,11 @@ export function Composer( {
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
+	const answerQuestion =
+		onAnswer && attachments.length === 0 && ! resolveSkillFromPrompt( value )
+			? onAnswer
+			: undefined;
+
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
@@ -342,6 +350,10 @@ export function Composer( {
 		const sentAttachments = attachments;
 		setDraftValue( '' );
 		clearAttachments();
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -352,7 +364,15 @@ export function Composer( {
 			setDraftValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend, setDraftValue ] );
+	}, [
+		value,
+		attachments,
+		clearAttachments,
+		restoreAttachments,
+		onSend,
+		answerQuestion,
+		setDraftValue,
+	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -465,13 +485,12 @@ export function Composer( {
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
-	let placeholder = getSessionPlaceholder( sessionId );
-	if ( awaitingAnswer ) {
-		placeholder = __( 'Write your own answer to the question…' );
-	} else if ( busy ) {
-		placeholder = __( 'Queue a follow-up instruction…' );
-	}
-	const sendAriaLabel = busy && ! awaitingAnswer ? __( 'Queue' ) : __( 'Send' );
+	const placeholder = answerQuestion
+		? __( 'Or type your own answer…' )
+		: busy
+		? __( 'Queue a follow-up instruction…' )
+		: getSessionPlaceholder( sessionId );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
 	const hoveredAttachment = hoverPreview
 		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )

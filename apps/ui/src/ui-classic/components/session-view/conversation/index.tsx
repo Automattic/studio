@@ -27,7 +27,7 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
 	brush,
@@ -35,6 +35,8 @@ import {
 	category,
 	chartBar,
 	check,
+	chevronLeft,
+	chevronRight,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -69,7 +71,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -898,8 +900,10 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
-	const hasImages = options.some( ( option ) => option.image );
+	const viewable = options.filter( ( option ) => option.image );
+	const hasImages = viewable.length > 0;
 	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const [ viewing, setViewing ] = useState< number | null >( null );
 	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
 	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
 	const typedAnswer = pickedLabels
@@ -934,6 +938,7 @@ function AgentQuestion( {
 								key={ index }
 								className={ styles.questionOptionItem }
 								data-picked={ picked ? 'true' : undefined }
+								data-wide={ hasImages && ! option.image ? 'true' : undefined }
 							>
 								<button
 									type="button"
@@ -945,9 +950,9 @@ function AgentQuestion( {
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
-									data-has-image={ hasImages ? 'true' : undefined }
+									data-has-image={ option.image ? 'true' : undefined }
 								>
-									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									{ option.image ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
@@ -960,10 +965,34 @@ function AgentQuestion( {
 										) : null }
 									</span>
 								</button>
+								{ option.image ? (
+									<IconButton
+										type="button"
+										className={ styles.questionOptionZoom }
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ search }
+										label={ sprintf(
+											// translators: %s: name of a design option.
+											__( 'View %s larger' ),
+											option.label
+										) }
+										onClick={ () => setViewing( viewable.indexOf( option ) ) }
+									/>
+								) : null }
 							</li>
 						);
 					} ) }
 				</ol>
+			) : null }
+			{ hasImages ? (
+				<QuestionOptionViewer
+					options={ viewable }
+					index={ viewing }
+					onIndexChange={ setViewing }
+					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+				/>
 			) : null }
 			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
 			{ multiSelect && isInteractive ? (
@@ -997,6 +1026,86 @@ function QuestionOptionImage( { path }: { path: string | undefined } ) {
 		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
 	}
 	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+}
+
+function QuestionOptionViewer( {
+	options,
+	index,
+	onIndexChange,
+	onChoose,
+}: {
+	options: Array< { label: string; description: string; image?: string } >;
+	index: number | null;
+	onIndexChange: ( index: number | null ) => void;
+	onChoose?: ( label: string ) => void;
+} ) {
+	const connector = useConnector();
+	const option = index === null ? undefined : options[ index ];
+	const localFileQuery = useLocalMediaDataUrl(
+		option?.image && connector.capabilities.readLocalMedia ? option.image : null
+	);
+	const step = ( delta: number ) =>
+		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
+	const [ previousIcon, nextIcon ] = isRTL()
+		? [ chevronRight, chevronLeft ]
+		: [ chevronLeft, chevronRight ];
+
+	return (
+		<Dialog.Root
+			open={ option !== undefined }
+			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
+		>
+			<Dialog.Popup
+				className={ styles.questionOptionZoomPopup }
+				aria-label={ option?.label }
+				onKeyDown={ ( event ) => {
+					if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+						event.preventDefault();
+						step( ( event.key === 'ArrowRight' ) !== isRTL() ? 1 : -1 );
+					}
+				} }
+			>
+				{ localFileQuery.data ? (
+					<img
+						className={ styles.questionOptionZoomImage }
+						src={ localFileQuery.data }
+						alt={ option?.label }
+					/>
+				) : null }
+				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ previousIcon }
+					label={ __( 'Previous option' ) }
+					onClick={ () => step( -1 ) }
+				/>
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ nextIcon }
+					label={ __( 'Next option' ) }
+					onClick={ () => step( 1 ) }
+				/>
+				{ option && onChoose ? (
+					<Button
+						className={ styles.questionOptionZoomChoose }
+						size="compact"
+						onClick={ () => {
+							onIndexChange( null );
+							onChoose( option.label );
+						} }
+					>
+						{ __( 'Choose' ) }
+					</Button>
+				) : null }
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
 }
 
 function QuestionOptionCheckIcon() {

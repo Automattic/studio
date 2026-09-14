@@ -98,12 +98,10 @@ function copyDataLiberationEngine( outDir: string ) {
 		);
 	}
 
-	if ( ! existsSync( cliPath ) ) {
-		execSync( 'npx tsc -p tsconfig.json && node scripts/copy-runtime-assets.mjs', {
-			cwd: dataLiberationSourcePath,
-			stdio: 'inherit',
-		} );
-	}
+	execSync( 'npx tsc -p tsconfig.json && node scripts/copy-runtime-assets.mjs', {
+		cwd: dataLiberationSourcePath,
+		stdio: 'inherit',
+	} );
 
 	if ( ! existsSync( cliPath ) ) {
 		throw new Error(

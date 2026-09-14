@@ -55,32 +55,36 @@ export class BackupHandlerFactory {
 	private static xmlExtensions = [ '.xml' ];
 
 	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
-		if ( this.isZip( file ) ) {
+		// Matched against for extensions only: the real path stays untouched for
+		// filesystem reads, which are case-sensitive on some volumes.
+		const name = file.path.toLowerCase();
+
+		if ( this.isZip( file, name ) ) {
 			return new BackupHandlerZip();
-		} else if ( this.isTar( file ) ) {
+		} else if ( this.isTar( file, name ) ) {
 			return new BackupHandlerTarGz();
-		} else if ( this.isSql( file ) ) {
+		} else if ( this.isSql( file, name ) ) {
 			return new BackupHandlerSql();
-		} else if ( this.isXml( file ) ) {
+		} else if ( this.isXml( file, name ) ) {
 			return new BackupHandlerXml();
-		} else if ( this.isWpress( file ) ) {
+		} else if ( this.isWpress( name ) ) {
 			return new BackupHandlerWpress();
 		} else if ( this.isUnlabelledGzip( file ) ) {
 			return new BackupHandlerTarGz();
 		}
 	}
 
-	private static isZip( file: BackupArchiveInfo ): boolean {
+	private static isZip( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			this.zipTypes.includes( file.type ) &&
-			this.zipExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.zipExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isTar( file: BackupArchiveInfo ): boolean {
+	private static isTar( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			this.tarTypes.includes( file.type ) &&
-			this.tarExtensions.some( ( ext ) => file.path.toLowerCase().endsWith( ext ) )
+			this.tarExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
@@ -90,21 +94,21 @@ export class BackupHandlerFactory {
 		return isGzipFile( file.path );
 	}
 
-	private static isSql( file: BackupArchiveInfo ): boolean {
+	private static isSql( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			( this.sqlTypes.includes( file.type ) || ! file.type ) &&
-			this.sqlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.sqlExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isXml( file: BackupArchiveInfo ): boolean {
+	private static isXml( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			( this.xmlTypes.includes( file.type ) || ! file.type ) &&
-			this.xmlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.xmlExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isWpress( file: BackupArchiveInfo ): boolean {
-		return file.path.endsWith( '.wpress' );
+	private static isWpress( name: string ): boolean {
+		return name.endsWith( '.wpress' );
 	}
 }

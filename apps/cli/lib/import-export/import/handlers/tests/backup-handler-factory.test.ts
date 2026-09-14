@@ -8,6 +8,7 @@ import { BackupHandlerSql } from '../backup-handler-sql';
 import { BackupHandlerTarGz } from '../backup-handler-tar-gz';
 import { BackupHandlerWpress } from '../backup-handler-wpress';
 import { BackupHandlerXml } from '../backup-handler-xml';
+import { BackupHandlerZip } from '../backup-handler-zip';
 
 describe( 'BackupHandlerFactory', () => {
 	let temporaryDirectory: string;
@@ -71,6 +72,43 @@ describe( 'BackupHandlerFactory', () => {
 		const filePath = writeFixture( 'backup.zip', Buffer.from( [ 0x50, 0x4b, 0x03, 0x04 ] ) );
 		const handler = BackupHandlerFactory.create( { path: filePath, type: 'application/zip' } );
 		expect( handler ).not.toBeInstanceOf( BackupHandlerTarGz );
+	} );
+
+	describe( 'uppercase extensions', () => {
+		it( 'creates a BackupHandlerZip for a .ZIP file', () => {
+			const filePath = writeFixture( 'BACKUP.ZIP', Buffer.from( [ 0x50, 0x4b, 0x03, 0x04 ] ) );
+			expect(
+				BackupHandlerFactory.create( { path: filePath, type: 'application/zip' } )
+			).toBeInstanceOf( BackupHandlerZip );
+		} );
+
+		it( 'creates a BackupHandlerTarGz for a .TAR file', () => {
+			const filePath = writeFixture( 'BACKUP.TAR', Buffer.alloc( 512 ) );
+			expect(
+				BackupHandlerFactory.create( { path: filePath, type: 'application/x-tar' } )
+			).toBeInstanceOf( BackupHandlerTarGz );
+		} );
+
+		it( 'creates a BackupHandlerSql for a .SQL file', () => {
+			const filePath = writeFixture( 'DUMP.SQL', Buffer.from( 'SELECT 1;' ) );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerSql
+			);
+		} );
+
+		it( 'creates a BackupHandlerXml for an .XML file', () => {
+			const filePath = writeFixture( 'EXPORT.XML', Buffer.from( '<rss />' ) );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerXml
+			);
+		} );
+
+		it( 'creates a BackupHandlerWpress for a .WPRESS file', () => {
+			const filePath = writeFixture( 'BACKUP.WPRESS', Buffer.alloc( 16 ) );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerWpress
+			);
+		} );
 	} );
 
 	describe( 'gzipped files that are not tar archives', () => {

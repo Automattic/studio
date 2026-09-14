@@ -1,7 +1,7 @@
 # Native PHP Binaries
 
 Use the manual `Build PHP CLI Binaries` GitHub Actions workflow to build Studio
-PHP CLI artifacts. The two platforms use different build strategies because
+PHP CLI artifacts. The platforms use different build strategies because
 static-php-cli only supports shared extensions on Unix-like targets:
 
 - **macOS** checks out `crazywhalecc/static-php-cli`, pins the requested SPC
@@ -9,9 +9,11 @@ static-php-cli only supports shared extensions on Unix-like targets:
   Every extension lives inside the `php` binary; Xdebug ships as the only
   loadable `.so` under `ext/` because it's a Zend extension that has to dlopen
   at startup.
+- **Linux** runs the pinned SPC GNU Docker wrapper and statically links its
+  extensions into `php`, leaving only Xdebug as a shared extension.
 - **Windows** downloads the matching `windows.php.net` prebuilt PHP, overlays
   the Xdebug DLL from `xdebug.org`, and fetches each missing PECL extension
-  (apcu, igbinary, redis, ssh2, yaml) from `downloads.php.net/~windows/pecl`
+  (apcu, igbinary, redis, ssh2, yaml, zstd) from `downloads.php.net/~windows/pecl`
   with the newest published version that has a build for the requested
   `PHP_MINOR` + VS toolchain. It also copies the matching x64 VC143 runtime
   from the Visual Studio 2022 runner beside `php.exe`, so the package does not
@@ -21,7 +23,7 @@ The artifact shapes diverge as a result: the macOS `ext/` directory contains
 only `xdebug.so`, while the Windows `ext/` directory contains a
 `php_<name>.dll` for every non-built-in extension. Both archives still expose
 a stable `runtime.json` manifest with `phpVersion`, `extensionDir`, and
-`xdebug` paths. The manifest also records `packageVersion`, the required
+`xdebug` paths. The manifest also records verified runtime `capabilities`, `packageVersion`, the required
 engineer-chosen immutable packaging identifier, and `packageId`, its
 PHP-qualified CDN and local-directory identifier. All artifacts ship with
 `.sha256` sidecars.
@@ -38,6 +40,8 @@ The manual workflow currently builds:
 - `php-<patch>-cli-macos-aarch64.zip`
 - `php-<patch>-cli-macos-x86_64.zip`
 - `php-<patch>-cli-windows-x86_64.zip`
+- `php-<patch>-cli-linux-aarch64.zip`
+- `php-<patch>-cli-linux-x86_64.zip`
 
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
 emulation. Native Windows ARM64 PHP binaries are not built.
@@ -103,6 +107,12 @@ URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
 version and may include a separate `packageVersion`. A different package
 identifier changes both the Apps CDN URL and local installation directory
 without pretending that upstream PHP published another patch.
+
+The artifact's `runtime.json` records the capability load-tested on every
+platform. The publish job passes that same capability to the metadata updater,
+which writes it to the checked-in CDN metadata consumed by Studio. The
+`apps_cdn_visibility=none` default skips the entire publish job, so it cannot
+upload, update metadata, or create a metadata PR.
 
 At runtime, Studio uses `packages/common/lib/php-binary-cdn-metadata.mjs` as the
 source of truth for the requested PHP minor version. Packaged Studio builds

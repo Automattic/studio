@@ -8,17 +8,28 @@ let searchPort = DEFAULT_PORT;
 let openPort: number | null = null;
 const unavailablePorts: Array< number > = [];
 
-// Bind the same host the site server uses (localhost, see php-server-child.ts)
-// so a successful probe means the server can bind the port too; probing a fixed
-// 127.0.0.1 could disagree with the server when localhost resolves to ::1. A
-// single bind also avoids the connect/destroy socket churn that crashed Node on
-// Windows.
-function isPortFree( portToCheck: number ): Promise< boolean > {
+function canBind( port: number, host: string ): Promise< boolean > {
 	return new Promise( ( resolve ) => {
 		const server = net.createServer();
 		server.once( 'error', () => resolve( false ) );
-		server.listen( portToCheck, 'localhost', () => server.close( () => resolve( true ) ) );
+		server.listen( port, host, () => server.close( () => resolve( true ) ) );
 	} );
+}
+
+let ipv6LoopbackSupported: Promise< boolean > | undefined;
+
+function supportsIpv6Loopback(): Promise< boolean > {
+	ipv6LoopbackSupported ??= canBind( 0, '::1' );
+	return ipv6LoopbackSupported;
+}
+
+async function isPortFree( portToCheck: number ): Promise< boolean > {
+	// Studio advertises localhost, so every supported loopback family must be free.
+	if ( ! ( await canBind( portToCheck, '127.0.0.1' ) ) ) {
+		return false;
+	}
+
+	return ! ( await supportsIpv6Loopback() ) || canBind( portToCheck, '::1' );
 }
 
 function addUnavailablePort( port?: number ): void {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const { learnAndApplyFluidGeometryMock } = vi.hoisted( () => ( {
@@ -254,6 +254,27 @@ describe('captureScreenshots', () => {
       const result = await captureScreenshots({ urls: ['https://example.com/a'], outputDir: dir, concurrency: 1, settleMs: 0 });
       expect(result.captured).toBe(0);
       expect(result.skipped).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.each([false, true])('recaptures orphaned artifacts with partial manifest=%s', async (partial) => {
+    const dir = mkdtempSync(join(tmpdir(), 'ss-'));
+    const url = 'https://example.com/';
+    try {
+      (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser());
+      await captureScreenshots({ urls: [url], outputDir: dir, settleMs: 0 });
+      writeFileSync(join(dir, 'screenshots', 'manifest.json'), JSON.stringify({
+        version: 1,
+        entries: partial ? { [url]: { slug: 'homepage', capturedAt: new Date().toISOString() } } : {},
+      }));
+      (connectBrowser as ReturnType<typeof vi.fn>).mockResolvedValue(makeMockBrowser());
+      const result = await captureScreenshots({ urls: [url], outputDir: dir, settleMs: 0 });
+      expect(result.captured).toBe(1);
+      const manifest = JSON.parse(readFileSync(join(dir, 'screenshots', 'manifest.json'), 'utf8'));
+      expect(manifest.entries[url].html).toBe('html/homepage.html');
+      expect(readFileSync(join(dir, manifest.entries[url].html), 'utf8')).toContain('hello');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

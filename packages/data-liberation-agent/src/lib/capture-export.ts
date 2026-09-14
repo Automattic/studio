@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 import { escapeHtmlAttr } from './html-escape.js';
 import { appendScrollDrivenAnimations } from './scroll-driven-animations.js';
 import { scopeCss } from './replicate/css-scope.js';
@@ -520,6 +521,10 @@ function openGraphUrl( html: string ): string | undefined {
 const RESPONSIVE_DOCUMENT_CSS =
 	'html,body{margin:0;padding:0}.data-liberation-mobile-document{display:none!important}';
 
+const RESPONSIVE_COUNTERPART_CLASS_PREFIX = 'data-liberation-responsive-counterpart-';
+const RESPONSIVE_COUNTERPART_TAGS = 'p,h1,h2,h3,h4,h5,h6,a,button';
+const RESPONSIVE_SOURCE_ID = /^[A-Za-z][A-Za-z0-9_-]{0,79}$/;
+
 /** Switches which captured document is shown, at the detected width. */
 function documentSwitchCss( switchWidth: number ): string {
 	return `@media(max-width:${ switchWidth }px){.data-liberation-desktop-document{display:none!important}.data-liberation-mobile-document{display:contents!important}}`;
@@ -570,13 +575,73 @@ function responsiveHtml(
 	);
 }
 
+/**
+ * Marks corresponding editable leaves from source identity, without comparing
+ * their content or visual geometry. The nearest unique source id owns a leaf's
+ * tag-relative slot even when the two responsive documents wrap it differently.
+ */
+function markResponsiveCounterparts(
+	desktopBody: string,
+	mobileBody: string
+): { desktopBody: string; mobileBody: string } {
+	if ( ! /\sid\s*=\s*["']/i.test( desktopBody ) || ! /\sid\s*=\s*["']/i.test( mobileBody ) )
+		return { desktopBody, mobileBody };
+	type Candidate = { node: Element; source: string };
+	const collect = ( body: string ) => {
+		const $ = cheerio.load( `<body>${ body }</body>` );
+		const idCounts = new Map< string, number >();
+		$( '[id]' ).each( ( _index, element ) => {
+			const id = $( element ).attr( 'id' ) ?? '';
+			if ( RESPONSIVE_SOURCE_ID.test( id ) ) idCounts.set( id, ( idCounts.get( id ) ?? 0 ) + 1 );
+		} );
+		const slots = new Map< string, number >();
+		const candidates = new Map< string, Candidate >();
+		$( RESPONSIVE_COUNTERPART_TAGS ).each( ( _index, element ) => {
+			const node = $( element );
+			const owner = node.closest( '[id]' );
+			const sourceId = owner.attr( 'id' ) ?? '';
+			if ( idCounts.get( sourceId ) !== 1 ) return;
+			const tag = element.name.toLowerCase();
+			const slotKey = `${ sourceId }\0${ tag }`;
+			const slot = ( slots.get( slotKey ) ?? 0 ) + 1;
+			slots.set( slotKey, slot );
+			const source = `${ sourceId }:${ tag }:${ slot }`;
+			candidates.set( source, { node: element, source } );
+		} );
+		return { $, candidates };
+	};
+
+	const desktop = collect( desktopBody );
+	const mobile = collect( mobileBody );
+	for ( const [ source, desktopCandidate ] of desktop.candidates ) {
+		const mobileCandidate = mobile.candidates.get( source );
+		if ( ! mobileCandidate ) continue;
+		const token = `${ RESPONSIVE_COUNTERPART_CLASS_PREFIX }${ createHash( 'sha256' )
+			.update( `mobile\0${ source }` )
+			.digest( 'hex' )
+			.slice( 0, 12 ) }`;
+		for ( const [ $, candidate ] of [
+			[ desktop.$, desktopCandidate ],
+			[ mobile.$, mobileCandidate ],
+		] as const ) {
+			const node = $( candidate.node );
+			node.addClass( token );
+			node.attr( 'data-dla-responsive-source', candidate.source );
+		}
+	}
+	return {
+		desktopBody: desktop.$( 'body' ).html() ?? desktopBody,
+		mobileBody: mobile.$( 'body' ).html() ?? mobileBody,
+	};
+}
+
 function assembleResponsiveHtml(
 	desktopHtml: string,
 	mobileHtml: string,
 	switchWidth: number = DEFAULT_SWITCH_WIDTH
 ): string {
 	const desktopBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml );
-	const desktopBody = desktopBodyMatch?.[ 2 ];
+	let desktopBody = desktopBodyMatch?.[ 2 ];
 	const mobileBodyMatch = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml );
 	let mobileBody = mobileBodyMatch?.[ 2 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return desktopHtml;
@@ -596,6 +661,7 @@ function assembleResponsiveHtml(
 			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` )
 		).replace( /<\/head\s*>/i, `${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>` );
 	}
+	( { desktopBody, mobileBody } = markResponsiveCounterparts( desktopBody, mobileBody ) );
 
 	// Both documents ship in one file from here on, so their anchor targets would
 	// collide on a shared id. Namespace the mobile copy and repoint its own links.

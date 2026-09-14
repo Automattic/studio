@@ -395,6 +395,53 @@ describe( 'exportWebsiteCapture', () => {
 		] );
 	} );
 
+	it( 'declares responsive editing counterparts from stable source component slots', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-counterparts-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><main><section id="hero"><h1>Desktop title</h1><a href="/quote">Quote</a></section><p>Unproven equal copy</p><div id="duplicate"><p>First</p></div><div id="duplicate"><p>Second</p></div></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><body><main><section id="hero"><div><h1>Mobile title</h1></div><div><a href="/quote">Quote mobile</a></div></section><p>Unproven equal copy</p><div id="duplicate"><p>First</p></div><div id="duplicate"><p>Second</p></div></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		for ( const selector of [ 'h1', 'a' ] ) {
+			const desktop = $( `.data-liberation-desktop-document ${ selector }` );
+			const mobile = $( `.data-liberation-mobile-document ${ selector }` );
+			const desktopToken = ( desktop.attr( 'class' ) ?? '' )
+				.split( /\s+/ )
+				.find( ( name ) => name.startsWith( 'data-liberation-responsive-counterpart-' ) );
+			expect( desktopToken ).toMatch( /^data-liberation-responsive-counterpart-[a-f0-9]{12}$/ );
+			expect( mobile.hasClass( desktopToken! ) ).toBe( true );
+			expect( mobile.attr( 'data-dla-responsive-source' ) ).toBe(
+				desktop.attr( 'data-dla-responsive-source' )
+			);
+		}
+		expect( $( '.data-liberation-desktop-document main > p, .data-liberation-mobile-document main > p' ) ).toHaveLength( 2 );
+		expect( $( 'main > p[class*="responsive-counterpart"]' ) ).toHaveLength( 0 );
+		expect( $( '#duplicate p[class*="responsive-counterpart"]' ) ).toHaveLength( 0 );
+	} );
+
 	it( 'switches documents at the width the source stops adapting at, not a hardcoded one', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-detected-switch-' ) );
 		dirs.push( outputDir );

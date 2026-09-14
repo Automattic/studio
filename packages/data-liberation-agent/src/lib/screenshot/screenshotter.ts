@@ -1288,7 +1288,8 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 		const plan = planArtifacts( {
 			slug,
 			outputDir: opts.outputDir,
-			force,
+			// Interrupted captures can leave files without the manifest needed to export them.
+			force: force || ! existing?.html,
 			captureImages: opts.captureImages,
 		} );
 		const shouldAnalyzeUrl = url === representativeAnalysisUrl && ! aggregateAlreadyFresh;

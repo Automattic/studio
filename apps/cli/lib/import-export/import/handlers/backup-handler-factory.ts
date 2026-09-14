@@ -65,6 +65,8 @@ export class BackupHandlerFactory {
 			return new BackupHandlerXml();
 		} else if ( this.isWpress( file ) ) {
 			return new BackupHandlerWpress();
+		} else if ( this.isUnlabelledGzip( file ) ) {
+			return new BackupHandlerTarGz();
 		}
 	}
 
@@ -76,16 +78,16 @@ export class BackupHandlerFactory {
 	}
 
 	private static isTar( file: BackupArchiveInfo ): boolean {
-		if (
+		return (
 			this.tarTypes.includes( file.type ) &&
 			this.tarExtensions.some( ( ext ) => file.path.toLowerCase().endsWith( ext ) )
-		) {
-			return true;
-		}
+		);
+	}
 
-		// A gzipped archive whose name lost the .gz (or never had it) still
-		// extracts fine, so trust the bytes when the extension is unhelpful.
-		return ! this.isZip( file ) && isGzipFile( file.path );
+	// Last resort, so a gzipped .sql/.xml/.wpress still reaches its own handler:
+	// only files no extension could place fall back to reading the header.
+	private static isUnlabelledGzip( file: BackupArchiveInfo ): boolean {
+		return isGzipFile( file.path );
 	}
 
 	private static isSql( file: BackupArchiveInfo ): boolean {

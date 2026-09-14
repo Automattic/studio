@@ -1,10 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import zlib from 'zlib';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { BackupHandlerFactory } from '../backup-handler-factory';
 import { BackupHandlerSql } from '../backup-handler-sql';
 import { BackupHandlerTarGz } from '../backup-handler-tar-gz';
+import { BackupHandlerWpress } from '../backup-handler-wpress';
 import { BackupHandlerXml } from '../backup-handler-xml';
 
 describe( 'BackupHandlerFactory', () => {
@@ -69,5 +71,30 @@ describe( 'BackupHandlerFactory', () => {
 		const filePath = writeFixture( 'backup.zip', Buffer.from( [ 0x50, 0x4b, 0x03, 0x04 ] ) );
 		const handler = BackupHandlerFactory.create( { path: filePath, type: 'application/zip' } );
 		expect( handler ).not.toBeInstanceOf( BackupHandlerTarGz );
+	} );
+
+	describe( 'gzipped files that are not tar archives', () => {
+		const gzipped = zlib.gzipSync( Buffer.from( 'payload' ) );
+
+		it( 'routes a gzipped .sql file to the sql handler', () => {
+			const filePath = writeFixture( 'dump.sql', gzipped );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerSql
+			);
+		} );
+
+		it( 'routes a gzipped .xml file to the xml handler', () => {
+			const filePath = writeFixture( 'export.xml', gzipped );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerXml
+			);
+		} );
+
+		it( 'routes a gzipped .wpress file to the wpress handler', () => {
+			const filePath = writeFixture( 'backup.wpress', gzipped );
+			expect( BackupHandlerFactory.create( { path: filePath, type: '' } ) ).toBeInstanceOf(
+				BackupHandlerWpress
+			);
+		} );
 	} );
 } );

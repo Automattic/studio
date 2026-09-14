@@ -64,6 +64,8 @@ type SiteRow = {
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync' | 'import';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
+const XDEBUG_CRAWL_DURATION_MS = 800;
+const XDEBUG_CLICK_MOTION_DURATION_MS = 720;
 
 type SeenSessionTimestamps = {
 	initialized: boolean;
@@ -315,6 +317,43 @@ function SiteStatusButton( {
 		operation,
 	} );
 	const xdebug = Boolean( site.enableXdebug );
+	const previousXdebug = useRef( xdebug );
+	const crawlTimeout = useRef< number | undefined >( undefined );
+	const clickMotionTimeout = useRef< number | undefined >( undefined );
+	const [ clickMotion, setClickMotion ] = useState( false );
+	const [ clickMotionKey, setClickMotionKey ] = useState( 0 );
+	const [ xdebugVisual, setXdebugVisual ] = useState< {
+		crawl?: 'in' | 'out';
+		present: boolean;
+		visible: boolean;
+	} >( { present: xdebug, visible: xdebug } );
+
+	useEffect( () => {
+		if ( previousXdebug.current === xdebug ) {
+			return;
+		}
+
+		window.clearTimeout( crawlTimeout.current );
+		previousXdebug.current = xdebug;
+		if ( xdebug ) {
+			setXdebugVisual( { crawl: 'in', present: true, visible: true } );
+			crawlTimeout.current = window.setTimeout( () => {
+				setXdebugVisual( { present: true, visible: true } );
+			}, XDEBUG_CRAWL_DURATION_MS );
+		} else {
+			setXdebugVisual( { crawl: 'out', present: true, visible: false } );
+			crawlTimeout.current = window.setTimeout( () => {
+				setXdebugVisual( { present: false, visible: false } );
+			}, XDEBUG_CRAWL_DURATION_MS );
+		}
+	}, [ xdebug ] );
+
+	useEffect( () => {
+		return () => {
+			window.clearTimeout( crawlTimeout.current );
+			window.clearTimeout( clickMotionTimeout.current );
+		};
+	}, [] );
 	const tooltipLabel = xdebug
 		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
 		: sprintf( __( 'Site status: %s' ), statusName );
@@ -324,6 +363,14 @@ function SiteStatusButton( {
 		event.stopPropagation();
 		if ( busy ) {
 			return;
+		}
+		if ( xdebugVisual.present ) {
+			window.clearTimeout( clickMotionTimeout.current );
+			setClickMotion( true );
+			setClickMotionKey( ( current ) => current + 1 );
+			clickMotionTimeout.current = window.setTimeout( () => {
+				setClickMotion( false );
+			}, XDEBUG_CLICK_MOTION_DURATION_MS );
 		}
 		if ( site.running ) {
 			stopSite.mutate( site.id );
@@ -343,27 +390,30 @@ function SiteStatusButton( {
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
-						data-xdebug={ xdebug || undefined }
+						data-xdebug={ xdebugVisual.visible || undefined }
+						data-xdebug-present={ xdebugVisual.present || undefined }
 						onClick={ handleClick }
 					>
-						{ xdebug ? (
-							<XdebugIcon
-								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
-							/>
-						) : (
-							<svg
-								className={ styles.siteStatusGlyph }
-								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-								aria-hidden="true"
-								focusable="false"
-							>
-								{ status === 'stopped' ? (
-									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-								) : (
-									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-								) }
-							</svg>
-						) }
+						<XdebugIcon
+							key={ clickMotionKey }
+							className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
+							active={ xdebugVisual.visible && site.running }
+							crawl={ xdebugVisual.crawl }
+							interactive={ xdebugVisual.present }
+							motion={ clickMotion ? 'both' : undefined }
+						/>
+						<svg
+							className={ clsx( styles.siteStatusGlyph, styles.siteStatusDefaultGlyph ) }
+							viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+							aria-hidden="true"
+							focusable="false"
+						>
+							{ status === 'stopped' ? (
+								<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+							) : (
+								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+							) }
+						</svg>
 						{ ! busy ? (
 							site.running ? (
 								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">

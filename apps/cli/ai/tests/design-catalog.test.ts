@@ -1,6 +1,6 @@
 import {
 	DESIGN_CATALOG_KINDS,
-	drawDesignPairs,
+	drawDesignEntries,
 	loadDesignCatalog,
 	renderDesignCatalogIndex,
 } from '../design-catalog';
@@ -16,7 +16,7 @@ function seededRandom( seed: number ): () => number {
 
 describe( 'design catalogs', () => {
 	it( 'holds at least five layout concepts with unique names and build and fallback notes, no fit hints', () => {
-		const concepts = loadDesignCatalog( 'concept' );
+		const concepts = loadDesignCatalog( 'layouts' );
 		expect( concepts.length ).toBeGreaterThanOrEqual( 5 );
 		expect( new Set( concepts.map( ( c ) => c.name ) ).size ).toBe( concepts.length );
 		for ( const concept of concepts ) {
@@ -28,7 +28,7 @@ describe( 'design catalogs', () => {
 	} );
 
 	it( 'holds at least ten artistic directions with unique names and every cue line', () => {
-		const directions = loadDesignCatalog( 'direction' );
+		const directions = loadDesignCatalog( 'directions' );
 		expect( directions.length ).toBeGreaterThanOrEqual( 10 );
 		expect( new Set( directions.map( ( d ) => d.name ) ).size ).toBe( directions.length );
 		for ( const direction of directions ) {
@@ -62,34 +62,42 @@ describe( 'renderDesignCatalogIndex', () => {
 			}
 		}
 	} );
-
-	it( 'leaves skills without placeholders untouched', () => {
-		const skill = findSkill( 'site-spec' );
-		expect( renderDesignCatalogIndex( skill!.body ) ).toBe( skill!.body );
-	} );
 } );
 
-describe( 'drawDesignPairs', () => {
-	const concepts = () => loadDesignCatalog( 'concept' );
-	const directions = () => loadDesignCatalog( 'direction' );
-
-	it( 'keeps valid chosen pairs, fills up to four at random, and never repeats a side', () => {
-		const chosen = [
-			{ layout: concepts()[ 0 ].name, direction: directions()[ 0 ].name },
-			{ layout: 'Nope', direction: directions()[ 1 ].name },
-		];
-		const draw = drawDesignPairs( { count: 4, chosen }, seededRandom( 5 ) );
-		expect( draw.ignored ).toEqual( [ 'Nope' ] );
-		expect( draw.pairs ).toHaveLength( 4 );
-		const layouts = draw.pairs.map( ( p ) => p.layout.name );
-		const looks = draw.pairs.map( ( p ) => p.direction.name );
-		expect( new Set( layouts ).size ).toBe( 4 );
-		expect( new Set( looks ).size ).toBe( 4 );
-		expect( draw.pairs ).toContainEqual(
-			expect.objectContaining( {
-				layout: expect.objectContaining( { name: chosen[ 0 ].layout } ),
-				direction: expect.objectContaining( { name: chosen[ 0 ].direction } ),
-			} )
+describe( 'drawDesignEntries', () => {
+	it( 'returns the chosen directions as they are, with nothing drawn at random', () => {
+		const directions = loadDesignCatalog( 'directions' ).slice( 0, 4 );
+		const names = directions.map( ( entry ) => entry.name );
+		expect( drawDesignEntries( { kind: 'directions', count: 4, chosen: names } ) ).toEqual(
+			directions
 		);
+		expect( () =>
+			drawDesignEntries( { kind: 'directions', count: 4, chosen: names.slice( 0, 2 ) } )
+		).toThrow( 'Pass 4 in chosen' );
+		expect( () =>
+			drawDesignEntries( { kind: 'directions', count: 1, chosen: [ 'Vaporwave' ] } )
+		).toThrow( 'design it from the brief' );
+	} );
+
+	it( 'keeps up to two chosen layouts and draws the rest at random from those not shown yet', () => {
+		const [ first, second, third ] = loadDesignCatalog( 'layouts' );
+		const entries = drawDesignEntries(
+			{ kind: 'layouts', count: 4, chosen: [ first.name, second.name, third.name ] },
+			seededRandom( 5 )
+		);
+		expect( new Set( entries ).size ).toBe( 4 );
+		expect( entries ).toEqual( expect.arrayContaining( [ first, second ] ) );
+		expect( drawDesignEntries( { kind: 'layouts', count: 1, chosen: [ third.name ] } ) ).toEqual( [
+			third,
+		] );
+		const shown = loadDesignCatalog( 'layouts' )
+			.slice( 0, -4 )
+			.map( ( entry ) => entry.name );
+		expect( drawDesignEntries( { kind: 'layouts', count: 4, shown } ) ).toEqual(
+			expect.arrayContaining( loadDesignCatalog( 'layouts' ).slice( -4 ) )
+		);
+		expect( () =>
+			drawDesignEntries( { kind: 'layouts', count: 4, chosen: [ first.name ], shown } )
+		).toThrow( 'Already shown' );
 	} );
 } );

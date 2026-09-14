@@ -2,6 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Type } from 'typebox';
+import { renderDesignBoard } from 'cli/ai/design-board';
+import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
@@ -9,9 +11,9 @@ import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helper
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
 
-export const MAX_DESIGN_OPTIONS_PRESENTED = 4;
+const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
 
-export const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
+const OTHER_OPTIONS = 'Show other options';
 
 const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 	'.jpg': 'image/jpeg',
@@ -65,7 +67,7 @@ export function createPresentDesignOptionsTool(
 ) {
 	return defineTool(
 		'present_design_options',
-		'Shows the user the design options drawn by pick_design as rendered sneak peeks and waits for their pick. Pass one option per pair (2–4), each with a complete standalone HTML document: inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes — never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer. Use this only for the site design choice; ask everything else with AskUserQuestion.',
+		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
 		{
 			question: Type.String( {
 				description: 'The question shown above the options, e.g. "Which look should I build?".',
@@ -73,25 +75,33 @@ export function createPresentDesignOptionsTool(
 			options: Type.Array(
 				Type.Object( {
 					label: Type.String( {
-						description: 'Short option label, e.g. "Broadsheet × Noir" (concept × direction).',
+						description: 'Short option label: the entry name, e.g. "Noir" or "Broadsheet".',
 					} ),
 					description: Type.String( {
 						description: 'One sentence on the feel of this option.',
 					} ),
-					html: Type.String( { description: 'Complete HTML document for the sneak peek.' } ),
+					preview: Type.String( {
+						description:
+							'A DESIGN.md draft (front matter and Overview) for a look, or a complete HTML sneak peek for a layout.',
+					} ),
+					image: Type.Optional(
+						Type.String( {
+							description: "For a look: absolute path of the option's generated image.",
+						} )
+					),
 				} ),
 				{
 					minItems: 2,
-					maxItems: MAX_DESIGN_OPTIONS_PRESENTED,
-					description: 'One sneak peek per drawn pair, in the order pick_design returned them.',
+					maxItems: DESIGN_OPTIONS,
+					description: 'One option per drawn entry, in the order pick_design returned them.',
 				}
 			),
 		},
 		async ( args, context ) => {
-			if ( args.options.length < 2 || args.options.length > MAX_DESIGN_OPTIONS_PRESENTED ) {
-				throw new Error( `Present between 2 and ${ MAX_DESIGN_OPTIONS_PRESENTED } options.` );
+			if ( args.options.length < 2 || args.options.length > DESIGN_OPTIONS ) {
+				throw new Error( `Present between 2 and ${ DESIGN_OPTIONS } options.` );
 			}
-			context.onProgress( `Rendering ${ args.options.length } sneak peeks…` );
+			context.onProgress( `Rendering ${ args.options.length } previews…` );
 			const directory = await resolveScreenshotDirectory();
 			const options = await Promise.all(
 				args.options.map( async ( option, index ) => {
@@ -102,19 +112,12 @@ export function createPresentDesignOptionsTool(
 							.replace( /^-+|-+$/g, '' )
 							.slice( 0, 40 ) || `option-${ index + 1 }`;
 					const htmlPath = path.join( directory, `preview-${ index + 1 }-${ slug }.html` );
-					let html: string;
-					try {
-						html = await inlineLocalImages( option.html );
-					} catch ( error ) {
-						throw new Error(
-							`Option ${ index + 1 } ("${ option.label }"): ${
-								error instanceof Error ? error.message : String( error )
-							}`
-						);
-					}
-					await writeFile( htmlPath, html );
 					let capture;
 					try {
+						const html = option.preview.trimStart().startsWith( '---' )
+							? renderDesignBoard( option.preview, option.image )
+							: option.preview;
+						await writeFile( htmlPath, await inlineLocalImages( html ) );
 						capture = await captureScreenshotBuffer(
 							pathToFileURL( htmlPath ).href,
 							PREVIEW_VIEWPORT,
@@ -122,7 +125,7 @@ export function createPresentDesignOptionsTool(
 						);
 					} catch ( error ) {
 						throw new Error(
-							`Option ${ index + 1 } ("${ option.label }") failed to render: ${
+							`Option ${ index + 1 } ("${ option.label }"): ${
 								error instanceof Error ? error.message : String( error )
 							}`
 						);
@@ -135,7 +138,14 @@ export function createPresentDesignOptionsTool(
 				} )
 			);
 			const answers = await onAskUser( [
-				{ question: args.question, options, allowFreeForm: true },
+				{
+					question: args.question,
+					options: [
+						...options,
+						{ label: OTHER_OPTIONS, description: 'New ones, none of these again.' },
+					],
+					allowFreeForm: true,
+				},
 			] );
 			const answer = answers[ args.question ];
 			if ( ! answer ) {

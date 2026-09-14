@@ -65,13 +65,13 @@ A full-bleed cover BACKGROUND must be `landscape` or `ultrawide` — never squar
 
 ## Images for design options
 
-When the user is about to pick between design options (see the `site-spec` skill), each option's sneak peek gets at most one generated image, all in one `generate_images` call:
+When the user is about to pick a look (see the `site-spec` skill), each look's board gets at most one generated image, all in one `generate_images` call:
 
-- **Same scene for every option**: one subject and composition for the site's first screen, written once and repeated per image, so the user compares looks rather than photo content. Vary only the `aspectRatio` (per the option's layout concept: `ultrawide` for a full-bleed cover, `landscape` or `card-landscape` for a contained slot) and the grade.
-- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. Once an option is picked, its image covers only the slot it was drawn for; every other image the page needs still gets the normal batch above, with the picked direction's grade as the call-wide `imageGrade` so the series reads as one.
-- **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that sneak peek stays typographic.
-- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>.jpg`, referenced by absolute path in that option's HTML.
-- **A failed or unavailable image** is not a blocker: that sneak peek uses a solid color shape instead.
+- **Same scene for every option**: one subject and composition for the site's first screen, written once and repeated per image in `landscape`, so the user compares looks rather than photo content.
+- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. The picked look's image then serves the layout sneak peeks and a single slot of the build; every other image the site needs still gets the normal batch above, with the picked look's grade as the call-wide `imageGrade` so the series reads as one.
+- **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that board shows a pattern instead.
+- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>.jpg`, passed as that option's `image`.
+- **A failed or unavailable image** is not a blocker: that board shows a pattern instead.
 
 ## No decorative or transparent images
 

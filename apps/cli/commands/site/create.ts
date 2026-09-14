@@ -584,11 +584,7 @@ function staticSiteImportQualityFailure(
 					return typeof count === 'number'
 						? sprintf(
 								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
-								_n(
-									'SSI reported %1$d %2$s failure.',
-									'SSI reported %1$d %2$s failures.',
-									count
-								),
+								_n( 'SSI reported %1$d %2$s failure.', 'SSI reported %1$d %2$s failures.', count ),
 								count,
 								reason
 						  )
@@ -600,12 +596,12 @@ function staticSiteImportQualityFailure(
 				} )
 				.join( ' ' )
 		: typeof fallbackBlocks === 'number'
-			? sprintf(
-					/* translators: %d: number of fallback blocks */
-					__( 'SSI reported %d fallback blocks.' ),
-					fallbackBlocks
-			  )
-			: __( 'SSI rejected the imported content.' );
+		? sprintf(
+				/* translators: %d: number of fallback blocks */
+				__( 'SSI reported %d fallback blocks.' ),
+				fallbackBlocks
+		  )
+		: __( 'SSI rejected the imported content.' );
 	return sprintf(
 		/* translators: %s: Static Site Importer validation detail */
 		__( '%s Review the importer diagnostics and retry.' ),

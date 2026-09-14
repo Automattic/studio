@@ -260,7 +260,7 @@ describe( 'CLI: studio create', () => {
 				).exitProcess( false );
 
 			expect( () => createParser().parse( [ 'create', '--keep-source' ] ) ).toThrow(
-				'Missing dependent arguments'
+				'keep-source -> from'
 			);
 			expect( () =>
 				createParser().parse( [ 'create', '--from', '/tmp/source', '--keep-source' ] )

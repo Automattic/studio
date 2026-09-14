@@ -13,6 +13,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 	type ReactNode,
 	type Ref,
 } from 'react';
@@ -40,6 +41,7 @@ import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-ses
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { AccessRequirements } from './access-requirements';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
@@ -444,7 +446,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			return;
 		}
 		try {
-			const summary = await createSession( ownerSite.id );
+			const summary = await createSession( { siteId: ownerSite.id } );
 			switchSession( summary.id );
 		} catch {
 			// The mutation owns the error state; avoid an unhandled rejection
@@ -478,6 +480,29 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// Out of credits swaps the composer for the purchase offer, unless a run is
 	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	const isAccessBlocked =
+		!! quota && ( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod );
+
+	// The create-site flow's brief goes out as if typed here, but only once the
+	// chat is usable — it must not be fired into a gated view.
+	const handedOver = useSyncExternalStore(
+		pendingPromptSlot.subscribe,
+		pendingPromptSlot.getSnapshot
+	);
+	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
+	useEffect( () => {
+		// Read the slot live rather than the rendered value: StrictMode runs the
+		// effect twice for one render, and the second pass must find it empty.
+		const prompt = pendingPromptSlot.getSnapshot();
+		if ( ! isChatReady || prompt?.sessionId !== sessionId ) return;
+		pendingPromptSlot.clear( prompt );
+		void sendMessage( prompt.prompt, prompt.attachments ).catch( () => {
+			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
+		} );
+	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The
@@ -531,12 +556,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		);
 	}
 
-	// Fail open when the quota is unavailable (offline, error, older server) —
-	// the WordPress.com proxy enforces the same gate server-side.
-	if (
-		quota &&
-		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
-	) {
+	if ( quota && isAccessBlocked ) {
 		return (
 			<SessionFrame
 				header={
@@ -629,8 +649,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
-			{ isEmpty ? <EmptyBackground /> : null }
-			{ isEmpty && ownerSite && ! isOutOfCredits ? (
+			{ isEmpty && ! pendingPrompt ? <EmptyBackground /> : null }
+			{ isEmpty && ! pendingPrompt && ownerSite && ! isOutOfCredits ? (
 				<SuggestedPrompts
 					fadeIn={ fadeAfterQuotaCheck }
 					siteName={ ownerSite.name }

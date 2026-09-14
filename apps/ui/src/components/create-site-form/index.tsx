@@ -71,6 +71,7 @@ interface CreateSiteFormProps {
 	submitLabel?: string;
 	cancelLabel?: string;
 	loadingAnnouncement?: string;
+	children?: ReactNode;
 	panelFooter?: ReactNode;
 }
 
@@ -408,6 +409,7 @@ export function CreateSiteForm( {
 	submitLabel,
 	cancelLabel,
 	loadingAnnouncement,
+	children,
 	panelFooter,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
@@ -671,6 +673,8 @@ export function CreateSiteForm( {
 					onChange={ handleChange }
 					validity={ validity }
 				/>
+
+				{ children }
 
 				<Button
 					type="button"

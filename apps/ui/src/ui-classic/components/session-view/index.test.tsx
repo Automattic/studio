@@ -255,6 +255,44 @@ describe( 'SessionView', () => {
 		);
 	} );
 
+	it( 'wires the scroller when the session loads before the quota check resolves', async () => {
+		// Cold start: the session is served from the persisted cache while the
+		// (never persisted) quota query is still loading, so the conversation
+		// scroller mounts in a later commit than the session data.
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+			isFetching: true,
+			refetch: vi.fn(),
+		} );
+
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+		setScrollMetrics( scroller, { scrollTop: 0, scrollHeight: 1000, clientHeight: 400 } );
+
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( {} ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelector( '[class*="classicScroll"]' ) ).toBe( scroller );
+		expect( scroller.scrollTop ).toBe( 1000 );
+
+		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
+		fireEvent.scroll( scroller );
+		expect(
+			await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
+		).toBeInTheDocument();
+	} );
+
 	it( 'gates the chat behind the payment requirement when no payment method is saved', () => {
 		useSessionMock.mockReturnValue( {
 			data: makeLoadedSession(),

@@ -244,7 +244,9 @@ tests:
 
         Then build a simple WordPress site named "Eval Turn Timing". The
         site only needs a single page — no extra pages, no blog posts, no
-        navigation menu beyond what a one-page site requires.
+        navigation menu beyond what a one-page site requires. Use the site
+        name as the brand and skip the discovery questions: nobody can
+        answer during this run, so make every choice yourself.
     assert:
       # The default new-site flow: no installed theme is mentioned, so the
       # agent must start from a fresh blank scaffold — scaffold_theme called
@@ -373,6 +375,7 @@ tests:
               return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
             }
             return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
+          });
       # Theme templates and parts are live as soon as they are written, so each
       # Write/Edit on one must be followed by validate_blocks on that file —
       # the serialization fix is what puts comment attributes (padding, align,
@@ -396,12 +399,12 @@ tests:
             return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
           });
 
-      # The visual-design skill injects random concept and direction pools;
-      # the agent shortlists, pick_design draws one of each, and the Site
-      # Spec must commit to the drawn pair before building.
+      # The visual-design skill lists the concept and direction catalogs;
+      # pick_design settles the pair(s), and the Site Spec must commit to one
+      # of them before building.
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync }) => {
+          return import('node:fs').then(({ readFileSync, readdirSync }) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -410,19 +413,23 @@ tests:
             const text = (d.textSegments || []).join('\n');
             const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
             if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
-            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readFileSync(`${p}/concepts.md`); return true; } catch { return false; } });
+            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readdirSync(`${p}/layouts`); return true; } catch { return false; } });
             if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
+            // One frontmatter file per entry; the title line is a JSON string.
+            const catalogNames = folder => readdirSync(`${skillsDir}/${folder}`).filter(f => f.endsWith('.md') && f !== 'README.md').map(f => JSON.parse(readFileSync(`${skillsDir}/${folder}/${f}`, 'utf8').match(/^title:\s*(.+)$/m)[1]).toLowerCase());
             const stated = [];
-            for (const [label, file, heading] of [['Concept', 'concepts.md', 'layout concept'], ['Direction', 'directions.md', 'artistic direction']]) {
-              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\s*[:—-]`, 'i').test(l));
+            for (const [label, folder, heading] of [['Concept', 'layouts', 'layout concept'], ['Direction', 'artistic-directions', 'artistic direction']]) {
+              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\**\\s*[:—-]`, 'i').test(l));
               if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
-              const catalog = readFileSync(`${skillsDir}/${file}`, 'utf8').match(/^## (.+)$/gm).map(h => h.slice(3).trim().toLowerCase());
+              const catalog = catalogNames(folder);
               const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
               if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
               // Each must be what pick_design drew (or returned for a named brief), not a substitute.
-              const drawn = (picks.match(new RegExp(`^(?:Drawn ${heading}|${heading[0].toUpperCase()}${heading.slice(1)} named in the brief): (.+)$`, 'm')) || [])[1];
-              if (!drawn) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
-              if (!fromCatalog.toLowerCase().includes(drawn.toLowerCase())) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match the pick_design result "${drawn}"` };
+              // With `options: 4` the tool returns several pairs; the stated one must be among them.
+              const drawnNames = [...picks.matchAll(new RegExp(`^${heading[0].toUpperCase()}${heading.slice(1)}(?: named in the brief)?: (.+)$`, 'gm'))].map(m => m[1]);
+              if (!drawnNames.length) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
+              const drawn = drawnNames.find(name => fromCatalog.toLowerCase().includes(name.toLowerCase()));
+              if (!drawn) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match any pick_design result (${drawnNames.join(', ')})` };
               stated.push(drawn);
             }
             if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };

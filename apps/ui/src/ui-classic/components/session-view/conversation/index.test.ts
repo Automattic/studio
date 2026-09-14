@@ -21,6 +21,7 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@wordpress/ui', () => ( {
+	Button: ( props: Record< string, unknown > ) => createElement( 'button', props ),
 	Icon: () => null,
 	Tooltip: {
 		Root: ( { children }: { children?: unknown } ) => children,
@@ -368,6 +369,27 @@ describe( 'Conversation Ask User questions', () => {
 		expect( pickedOption ).toBeDisabled();
 	} );
 
+	it( 'submits multi-select picks together on confirm', () => {
+		const onAnswerQuestion = vi.fn();
+		const entry = agentQuestionEntry( 'Which pages?', [
+			'Blog',
+			'Contact',
+			'Shop',
+		] ) as SessionEntry & {
+			data: object;
+		};
+		renderConversation(
+			loadedSession( [ { ...entry, data: { ...entry.data, multiSelect: true } } as SessionEntry ] ),
+			{ pendingQuestions: new Set( [ 'Which pages?' ] ), onAnswerQuestion }
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Shop' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Blog' } ) );
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Confirm' } ) );
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Which pages?', 'Blog, Shop' );
+	} );
+
 	it( 'folds answered live questions into summaries before showing the next question', async () => {
 		vi.useFakeTimers();
 		const originalScrollBy = window.scrollBy;
@@ -611,6 +633,28 @@ describe( 'Conversation Ask User questions', () => {
 				],
 			},
 		] );
+	} );
+
+	it( 'shows the typed part of an answer next to the picked options', () => {
+		const entry = agentQuestionEntry( 'Which pages?', [
+			'Blog',
+			'Contact',
+			'Shop',
+		] ) as SessionEntry & {
+			data: object;
+		};
+		renderConversation(
+			loadedSession( [
+				{ ...entry, data: { ...entry.data, multiSelect: true } } as SessionEntry,
+				askUserAnswerEntry( 'a1', 'Contact, Shop, A landing page' ),
+			] )
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Shop' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		expect( screen.getByText( 'A landing page' ) ).toBeInTheDocument();
 	} );
 } );
 

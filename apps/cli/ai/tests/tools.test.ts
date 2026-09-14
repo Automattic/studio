@@ -336,36 +336,16 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
-	it( 'pick_design draws a layout concept and an artistic direction from the shortlists', async () => {
-		const { findSkill, getCurrentDesignPool, renderSkillBody } = await import( '../skills' );
-		renderSkillBody( findSkill( 'visual-design' )! );
-		const concepts = getCurrentDesignPool( 'concept' ).slice( 0, 3 );
-		const directions = getCurrentDesignPool( 'direction' ).slice( 0, 3 );
-		const shortlist = ( names: string[] ) => names.map( ( name ) => ( { name, reason: 'fits' } ) );
-		const tool = getTool( 'pick_design' );
+	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
+		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
+		expect(
+			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
+				?.description
+		).toContain( 'options: 4' );
 		const text =
-			getTextContent(
-				await executeTool( tool, {
-					layoutCandidates: shortlist( concepts ),
-					directionCandidates: shortlist( directions ),
-				} )
-			) ?? '';
-		expect( concepts ).toContain( text.match( /^Drawn layout concept: (.+)$/m )?.[ 1 ] );
-		expect( directions ).toContain( text.match( /^Drawn artistic direction: (.+)$/m )?.[ 1 ] );
-		expect( text ).toMatch( /^Build: /m );
-		expect( text ).toMatch( /^Palette: /m );
-		await expect(
-			executeTool( tool, { layoutCandidates: shortlist( concepts.slice( 0, 2 ) ) } )
-		).rejects.toThrow( /at least 3/ );
-		await expect( executeTool( tool, {} ) ).rejects.toThrow( /shortlist/ );
-		const named =
-			getTextContent(
-				await executeTool( tool, {
-					directionNamedInBrief: directions[ 0 ],
-				} )
-			) ?? '';
-		expect( named ).toContain( `Artistic direction named in the brief: ${ directions[ 0 ] }` );
-		expect( named ).not.toContain( 'layout concept' );
+			getTextContent( await executeTool( getTool( 'pick_design' ), { options: 4 } ) ) ?? '';
+		expect( text ).not.toContain( 'Option 1' );
+		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {

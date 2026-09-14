@@ -69,7 +69,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -95,7 +95,8 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 interface AgentQuestionRenderItem {
 	key: string;
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	pickedLabel?: string;
 }
 
@@ -148,7 +149,11 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+const HIDDEN_TOOL_ROWS = new Set( [
+	'studio_present',
+	'AskUserQuestion',
+	'present_design_options',
+] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
@@ -176,10 +181,8 @@ function usePrefersReducedMotion(): boolean {
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
-	entryIndex: number,
-	options: Array< { label: string } >
+	entryIndex: number
 ): string | undefined {
-	const optionLabels = new Set( options.map( ( option ) => option.label ) );
 	// Older transcripts store batched question answers as following
 	// `ask_user` prompts, in the same order as the question entries.
 	let batchPosition = 0;
@@ -222,8 +225,7 @@ function resolveBatchedAnswerForQuestion(
 	if ( answers.length !== batchSize ) {
 		return undefined;
 	}
-	const answer = answers[ batchPosition ];
-	return optionLabels.has( answer ) ? answer : undefined;
+	return answers[ batchPosition ];
 }
 
 export function entriesToRenderItems(
@@ -330,9 +332,8 @@ export function entriesToRenderItems(
 					key: `${ entryIndex }:question`,
 					question: data.question,
 					options: data.options,
-					pickedLabel:
-						data.selectedLabel ??
-						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
+					multiSelect: data.multiSelect,
+					pickedLabel: data.selectedLabel ?? resolveBatchedAnswerForQuestion( entries, entryIndex ),
 				} );
 			}
 			entryIndex -= 1;
@@ -858,16 +859,38 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 	);
 }
 
+function PickedAnswer( { label, ariaHidden = false }: { label: string; ariaHidden?: boolean } ) {
+	return (
+		<span
+			className={ clsx(
+				styles.questionOption,
+				styles.questionOptionPicked,
+				styles.questionSummaryOption
+			) }
+			aria-hidden={ ariaHidden ? 'true' : undefined }
+		>
+			<span className={ styles.questionOptionNumber }>
+				<QuestionOptionCheckIcon />
+			</span>
+			<span className={ styles.questionOptionCopy }>
+				<span className={ styles.questionOptionLabel }>{ label }</span>
+			</span>
+		</span>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	isCollapsing = false,
 	onAnswer,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
@@ -875,14 +898,33 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
+	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	const typedAnswer = pickedLabels
+		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
-				<ol className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const picked = pickedLabels.includes( option.label );
 						const descriptionId =
 							option.description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
@@ -897,11 +939,15 @@ function AgentQuestion( {
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ () =>
+										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									}
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
@@ -919,8 +965,38 @@ function AgentQuestion( {
 					} ) }
 				</ol>
 			) : null }
+			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						size="compact"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
+			) : null }
 		</div>
 	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const connector = useConnector();
+	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
+	const localFileQuery = useLocalMediaDataUrl( localPath );
+
+	if ( ! localPath || localFileQuery.isError ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! localFileQuery.data ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
 }
 
 function QuestionOptionCheckIcon() {
@@ -1058,21 +1134,7 @@ function QuestionSummary( {
 	const content = (
 		<span className={ styles.questionSummaryBody }>
 			<span className={ styles.questionSummaryText }>{ question }</span>
-			<span
-				className={ clsx(
-					styles.questionOption,
-					styles.questionOptionPicked,
-					styles.questionSummaryOption
-				) }
-				aria-hidden={ canEdit ? 'true' : undefined }
-			>
-				<span className={ styles.questionOptionNumber }>
-					<QuestionOptionCheckIcon />
-				</span>
-				<span className={ styles.questionOptionCopy }>
-					<span className={ styles.questionOptionLabel }>{ pickedLabel }</span>
-				</span>
-			</span>
+			<PickedAnswer label={ pickedLabel } ariaHidden={ canEdit } />
 		</span>
 	);
 
@@ -1176,6 +1238,7 @@ function AgentQuestionBatch( {
 			<AgentQuestion
 				question={ question.question }
 				options={ question.options }
+				multiSelect={ question.multiSelect }
 				isInteractive={ pendingQuestions.has( question.question ) }
 				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
 				onAnswer={ ( label ) => onAnswer( question.question, label ) }
@@ -1229,6 +1292,7 @@ function AgentQuestionBatch( {
 						<AgentQuestion
 							question={ question.question }
 							options={ question.options }
+							multiSelect={ question.multiSelect }
 							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
 							pickedLabel={ pickedLabel }
 							isCollapsing={ settlingIndex === index }

@@ -48,7 +48,7 @@ The look is written down once, as `DESIGN.md` at the site root, in the DESIGN.md
 
 A sneak peek is a standalone HTML page that lets a layout concept be judged in the picked look, at a glance, before anything is built. It is a taste of the layout, not a page to reuse: never port it into the theme.
 
-- **A full frame**: the header or masthead and the hero as the concept shapes them, then the next section, until the first 1200×900 pixels are filled — nothing ends inside the frame.
+- **A full frame**: the header or masthead and the hero as the concept shapes them, then the next section. The frame is 1200×900 and the page must reach its bottom edge, so make `body` a `min-height: 100vh` flex column and give the last section `flex: 1` and a background — nothing ends inside the frame, whatever the copy length. Grids need enough rows to pass 900px: four square columns of 300px need three rows.
 - **The look, exactly**: `DESIGN.md`'s colors and fonts drive every color and font, and its surfaces and shapes show in the hero, so only the layout differs between options.
 - **Real content**: the site's real name and plausible copy, never lorem ipsum. Where an image belongs, use the picked look's image if there is one, otherwise a solid color shape in a palette color.
 - **Small and self-contained**: inline CSS, under ~120 lines, no scripts; a Google Fonts `<link>` with a fallback stack is fine.

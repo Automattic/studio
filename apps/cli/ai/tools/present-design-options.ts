@@ -15,6 +15,9 @@ const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
 
 const OTHER_OPTIONS = 'Show other options';
 
+const FRAME_FILL_RECIPE =
+	'make `body` a `min-height: 100vh` flex column and give the last section `flex: 1` and a background, so the page reaches the bottom edge whatever its copy length';
+
 const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 	'.jpg': 'image/jpeg',
 	'.jpeg': 'image/jpeg',
@@ -67,7 +70,7 @@ export function createPresentDesignOptionsTool(
 ) {
 	return defineTool(
 		'present_design_options',
-		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
+		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${ PREVIEW_VIEWPORT.width }×${ PREVIEW_VIEWPORT.height } frame that a sneak peek must fill to the bottom: ${ FRAME_FILL_RECIPE }. A sneak peek whose content ends above the bottom of the frame is rejected. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
 		{
 			question: Type.String( {
 				description: 'The question shown above the options, e.g. "Which look should I build?".',
@@ -114,7 +117,8 @@ export function createPresentDesignOptionsTool(
 					const htmlPath = path.join( directory, `preview-${ index + 1 }-${ slug }.html` );
 					let capture;
 					try {
-						const html = option.preview.trimStart().startsWith( '---' )
+						const isDesignBoard = option.preview.trimStart().startsWith( '---' );
+						const html = isDesignBoard
 							? renderDesignBoard( option.preview, option.image )
 							: option.preview;
 						await writeFile( htmlPath, await inlineLocalImages( html ) );
@@ -123,6 +127,11 @@ export function createPresentDesignOptionsTool(
 							PREVIEW_VIEWPORT,
 							{ fullPage: false, format: 'png' }
 						);
+						if ( ! isDesignBoard && capture.contentHeight < PREVIEW_VIEWPORT.height ) {
+							throw new Error(
+								`the sneak peek's content ends at ${ capture.contentHeight }px of the ${ PREVIEW_VIEWPORT.height }px frame, leaving the bottom empty. Fix it and present the options again: ${ FRAME_FILL_RECIPE }, or add the next section.`
+							);
+						}
 					} catch ( error ) {
 						throw new Error(
 							`Option ${ index + 1 } ("${ option.label }"): ${

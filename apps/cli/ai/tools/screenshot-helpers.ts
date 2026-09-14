@@ -68,6 +68,8 @@ export async function applyScreenshotMediaEmulation(
 export interface ScreenshotCapture {
 	buffer: Buffer;
 	documentHeight: number;
+	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
+	contentHeight: number;
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
@@ -170,6 +172,16 @@ export async function captureScreenshotBuffer(
 			`,
 		} );
 
+		const contentHeight = await page.evaluate( () =>
+			Math.ceil(
+				Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
+					const rect = element.getBoundingClientRect();
+					return rect.width > 0 && rect.height > 0
+						? Math.max( bottom, rect.bottom + window.scrollY )
+						: bottom;
+				}, 0 )
+			)
+		);
 		const dpr = options.deviceScaleFactor ?? 1;
 		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
 		const formatOptions =
@@ -182,6 +194,7 @@ export async function captureScreenshotBuffer(
 			return {
 				buffer: Buffer.from( buffer ),
 				documentHeight: viewport.height,
+				contentHeight,
 				capturedHeight: viewport.height,
 				offset: 0,
 				clipped: false,
@@ -212,6 +225,7 @@ export async function captureScreenshotBuffer(
 		return {
 			buffer: Buffer.from( buffer ),
 			documentHeight,
+			contentHeight,
 			capturedHeight,
 			offset,
 			clipped: offset + capturedHeight < documentHeight,

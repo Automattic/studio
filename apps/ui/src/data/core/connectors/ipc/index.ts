@@ -498,7 +498,7 @@ export function createIpcConnector(): Connector {
 				filters: [
 					{
 						name: 'Compressed Backup Files',
-						extensions: [ 'tar.gz', 'tzg', 'zip' ],
+						extensions: [ 'tar.gz', 'tgz', 'zip' ],
 					},
 				],
 			} ) ) as string;

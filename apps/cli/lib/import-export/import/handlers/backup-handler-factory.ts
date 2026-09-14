@@ -1,3 +1,4 @@
+import { isGzipFile } from '@studio/common/lib/archive-format';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
@@ -29,15 +30,17 @@ export class BackupHandlerFactory {
 	];
 	private static zipExtensions = [ '.zip' ];
 
-	private static tarGzTypes = [
+	private static tarTypes = [
 		'application/gzip',
 		'application/x-gzip',
 		'application/x-gtar',
 		'application/x-tgz',
 		'application/x-compressed-tar',
 		'application/tar+gzip',
+		'application/x-tar',
+		'application/tar',
 	];
-	private static tarGzExtensions = [ '.tar.gz', '.tgz' ];
+	private static tarExtensions = [ '.tar.gz', '.tgz', '.tar' ];
 
 	private static sqlTypes = [
 		'application/sql',
@@ -54,7 +57,7 @@ export class BackupHandlerFactory {
 	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
 		if ( this.isZip( file ) ) {
 			return new BackupHandlerZip();
-		} else if ( this.isTarGz( file ) ) {
+		} else if ( this.isTar( file ) ) {
 			return new BackupHandlerTarGz();
 		} else if ( this.isSql( file ) ) {
 			return new BackupHandlerSql();
@@ -72,11 +75,17 @@ export class BackupHandlerFactory {
 		);
 	}
 
-	private static isTarGz( file: BackupArchiveInfo ): boolean {
-		return (
-			this.tarGzTypes.includes( file.type ) &&
-			this.tarGzExtensions.some( ( ext ) => file.path.endsWith( ext ) )
-		);
+	private static isTar( file: BackupArchiveInfo ): boolean {
+		if (
+			this.tarTypes.includes( file.type ) &&
+			this.tarExtensions.some( ( ext ) => file.path.toLowerCase().endsWith( ext ) )
+		) {
+			return true;
+		}
+
+		// A gzipped archive whose name lost the .gz (or never had it) still
+		// extracts fine, so trust the bytes when the extension is unhelpful.
+		return ! this.isZip( file ) && isGzipFile( file.path );
 	}
 
 	private static isSql( file: BackupArchiveInfo ): boolean {

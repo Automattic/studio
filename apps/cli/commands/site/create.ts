@@ -571,7 +571,9 @@ function staticSiteImportQualityFailure(
 		return undefined;
 	}
 	const failures = Array.isArray( failureReasons )
-		? failureReasons.filter( ( reason ): reason is string => typeof reason === 'string' && reason )
+		? failureReasons.filter(
+				( reason ): reason is string => typeof reason === 'string' && Boolean( reason )
+		  )
 		: [];
 	const fallbackBlocks =
 		counts && typeof counts === 'object' && ! Array.isArray( counts )

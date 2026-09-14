@@ -330,10 +330,10 @@ export function CreateSitePage() {
 					: {} ),
 			} );
 			if ( brief ) {
-				const session = await createSession.mutateAsync( site.id );
-				if ( model !== DEFAULT_MODEL ) {
-					await connector.setSessionModel( session.id, model );
-				}
+				const session = await createSession.mutateAsync( {
+					siteId: site.id,
+					model: model !== DEFAULT_MODEL ? model : undefined,
+				} );
 				pendingPromptSlot.set( {
 					sessionId: session.id,
 					prompt: brief.prompt || __( 'Build this site using the attached files as references.' ),

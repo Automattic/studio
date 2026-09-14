@@ -300,7 +300,7 @@ export function SignedOutSessionView( { siteId }: { siteId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
-	const { data, isLoading, isFetching, error } = useSession( sessionId );
+	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
@@ -446,7 +446,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			return;
 		}
 		try {
-			const summary = await createSession( ownerSite.id );
+			const summary = await createSession( { siteId: ownerSite.id } );
 			switchSession( summary.id );
 		} catch {
 			// The mutation owns the error state; avoid an unhandled rejection
@@ -492,8 +492,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		pendingPromptSlot.getSnapshot
 	);
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
-	const isChatReady =
-		!! data && ! isFetching && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
+	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
 	useEffect( () => {
 		if ( ! pendingPrompt || ! isChatReady ) return;
 		pendingPromptSlot.clear( pendingPrompt );

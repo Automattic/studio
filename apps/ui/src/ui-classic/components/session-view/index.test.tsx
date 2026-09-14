@@ -246,19 +246,18 @@ describe( 'SessionView', () => {
 		expect( pendingPromptSlot.getSnapshot() ).toBeNull();
 	} );
 
-	it( 'holds the handed-over prompt, without the empty-state prompts, until the chat is ready', () => {
+	it( 'holds the handed-over prompt while the chat is gated', () => {
 		pendingPromptSlot.set( PENDING_PROMPT );
-		sitesState.data = [ OWNER_SITE ];
-		useSessionMock.mockReturnValue( {
-			data: makeOwnedSession(),
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { hasPaymentMethod: false } ),
 			isLoading: false,
-			isFetching: true,
-			error: null,
+			isFetching: false,
+			refetch: vi.fn(),
 		} );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
 
 		render( <SessionView sessionId="session-1" /> );
 
-		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
 		expect( agentRunState.sendMessage ).not.toHaveBeenCalled();
 		expect( pendingPromptSlot.getSnapshot() ).toBe( PENDING_PROMPT );
 	} );

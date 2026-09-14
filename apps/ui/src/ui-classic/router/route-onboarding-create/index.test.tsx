@@ -12,7 +12,6 @@ const mocks = vi.hoisted( () => ( {
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
 	createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
-	setSessionModel: vi.fn( async () => undefined ),
 	cleanup: vi.fn( async () => undefined ),
 	openExternalUrl: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
@@ -79,7 +78,6 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 		useConnector: () => ( {
 			cleanupBlueprintTempDir: mocks.cleanup,
 			openExternalUrl: mocks.openExternalUrl,
-			setSessionModel: mocks.setSessionModel,
 		} ),
 	};
 } );
@@ -196,8 +194,7 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
 			expect.objectContaining( { flowType: 'ai' } )
 		);
-		expect( mocks.createSession ).toHaveBeenCalledWith( 'site-1' );
-		expect( mocks.setSessionModel ).not.toHaveBeenCalled();
+		expect( mocks.createSession ).toHaveBeenCalledWith( { siteId: 'site-1', model: undefined } );
 		expect( pendingPromptSlot.getSnapshot() ).toEqual( {
 			sessionId: 'session-1',
 			prompt: 'A bakery site',
@@ -216,7 +213,10 @@ describe( 'CreateSitePage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
 		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
-		expect( mocks.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5' );
+		expect( mocks.createSession ).toHaveBeenCalledWith( {
+			siteId: 'site-1',
+			model: 'claude-opus-5',
+		} );
 		expect( pendingPromptSlot.getSnapshot() ).toMatchObject( {
 			prompt: 'Build this site using the attached files as references.',
 			attachments: { images: [ image ] },

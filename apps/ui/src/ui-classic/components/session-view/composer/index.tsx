@@ -61,8 +61,8 @@ import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
-	primeSessionQueryData,
-	reconcilePrimedSessionQueryData,
+	createModelChangeEntry,
+	openNewSession,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
@@ -186,17 +186,6 @@ function toComposerDraftAttachments( {
 			} )
 		),
 	];
-}
-
-function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
-	return {
-		type: 'model_change',
-		id: Math.random().toString( 36 ).slice( 2, 10 ),
-		parentId: null,
-		timestamp: new Date().toISOString(),
-		provider: '',
-		modelId,
-	} as unknown as SessionEntry;
 }
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
@@ -763,34 +752,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const pickedModel = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
-			const newSession = await connector.createSession( ownerSiteId );
-			primeSessionQueryData( queryClient, newSession );
-			// Persist the model on the fresh session before navigating so the
-			// composer there opens already on the picked family —
-			// `setSessionModel` writes a `session.model_selected` event the
-			// new view picks up via `resolveSessionModel`. If this fails we
-			// still navigate; the user can re-pick from the new view's
-			// dropdown.
-			const modelPersisted = await connector
-				.setSessionModel( newSession.id, pickedModel )
-				.then( () => true )
-				.catch( () => false );
-			if ( modelPersisted ) {
-				queryClient.setQueryData< LoadedAiSession >(
-					[ ...SESSIONS_QUERY_KEY, newSession.id ],
-					( current ) =>
-						current
-							? {
-									...current,
-									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
-							  }
-							: {
-									summary: newSession,
-									entries: [ createModelChangeEntry( pickedModel ) ],
-							  }
-				);
-			}
-			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
+			const newSession = await openNewSession(
+				{ connector, queryClient },
+				ownerSiteId,
+				pickedModel
+			);
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {

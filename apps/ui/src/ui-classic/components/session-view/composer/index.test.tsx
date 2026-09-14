@@ -646,7 +646,7 @@ describe( 'Composer menu', () => {
 		dialog.remove();
 	} );
 
-	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
+	it( 'opens a fresh session on the picked model after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
@@ -677,18 +677,12 @@ describe( 'Composer menu', () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
 		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
-
-		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
-			...SESSIONS_QUERY_KEY,
-			'fresh-session',
-		] );
-		expect( loadedSession?.summary ).toEqual( freshSummary );
-		expect( loadedSession?.entries ).toEqual( [
-			expect.objectContaining( {
-				type: 'model_change',
-				modelId: 'gpt-5.6-sol',
-			} ),
-		] );
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'fresh-session' ] )
+		).toEqual( {
+			summary: freshSummary,
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'gpt-5.6-sol' } ) ],
+		} );
 	} );
 } );
 

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
@@ -231,17 +232,20 @@ describe( 'SessionView', () => {
 		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
-	it( 'sends the prompt handed over for this session once the chat is ready', async () => {
+	it( 'sends the prompt handed over for this session exactly once when the chat is ready', () => {
 		pendingPromptSlot.set( PENDING_PROMPT );
 		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
 
-		render( <SessionView sessionId="session-1" /> );
+		render(
+			<StrictMode>
+				<SessionView sessionId="session-1" />
+			</StrictMode>
+		);
 
-		await waitFor( () =>
-			expect( agentRunState.sendMessage ).toHaveBeenCalledWith(
-				'A bakery site',
-				PENDING_PROMPT.attachments
-			)
+		expect( agentRunState.sendMessage ).toHaveBeenCalledTimes( 1 );
+		expect( agentRunState.sendMessage ).toHaveBeenCalledWith(
+			'A bakery site',
+			PENDING_PROMPT.attachments
 		);
 		expect( pendingPromptSlot.getSnapshot() ).toBeNull();
 	} );

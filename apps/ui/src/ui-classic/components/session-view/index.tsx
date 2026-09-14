@@ -494,12 +494,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
 	const isChatReady = !! data && ! isQuotaLoading && ! isAccessBlocked && ! isOutOfCredits;
 	useEffect( () => {
-		if ( ! pendingPrompt || ! isChatReady ) return;
-		pendingPromptSlot.clear( pendingPrompt );
-		void sendMessage( pendingPrompt.prompt, pendingPrompt.attachments ).catch( () => {
-			composerRef.current?.replaceDraft( pendingPrompt.prompt, pendingPrompt.attachments );
+		// Read the slot live rather than the rendered value: StrictMode runs the
+		// effect twice for one render, and the second pass must find it empty.
+		const prompt = pendingPromptSlot.getSnapshot();
+		if ( ! isChatReady || prompt?.sessionId !== sessionId ) return;
+		pendingPromptSlot.clear( prompt );
+		void sendMessage( prompt.prompt, prompt.attachments ).catch( () => {
+			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
 		} );
-	}, [ isChatReady, pendingPrompt, sendMessage ] );
+	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The

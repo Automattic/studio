@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Type } from 'typebox';
@@ -127,6 +127,7 @@ export function createPresentDesignOptionsTool(
 							PREVIEW_VIEWPORT,
 							{ fullPage: false, format: 'png' }
 						);
+						await unlink( htmlPath );
 						if ( ! isDesignBoard && capture.contentHeight < PREVIEW_VIEWPORT.height ) {
 							throw new Error(
 								`the sneak peek's content ends at ${ capture.contentHeight }px of the ${ PREVIEW_VIEWPORT.height }px frame, leaving the bottom empty. Fix it and present the options again: ${ FRAME_FILL_RECIPE }, or add the next section.`

@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { CreateSitePage } from './index';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
@@ -9,11 +11,19 @@ const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
+	createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
+	setSessionModel: vi.fn( async () => undefined ),
 	cleanup: vi.fn( async () => undefined ),
 	openExternalUrl: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
+	chatEnabled: true,
+	submission: null as {
+		prompt: string;
+		attachments: Record< 'images' | 'files', object[] >;
+	} | null,
 	formProps: null as Record< string, unknown > | null,
 	uploadProps: null as Record< string, unknown > | null,
+	composerProps: null as Record< string, unknown > | null,
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -47,10 +57,19 @@ vi.mock( '@/components/create-site-form', () => ( {
 				>
 					Submit
 				</button>
+				{ props.children as ReactNode }
 				{ props.submitError ? <p>{ String( props.submitError ) }</p> : null }
 			</>
 		);
 	},
+} ) );
+
+vi.mock( '@/ui-classic/components/session-view/composer', () => ( {
+	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
+		mocks.composerProps = props;
+		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );
+		return <div data-testid="composer" />;
+	} ),
 } ) );
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
@@ -60,9 +79,18 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 		useConnector: () => ( {
 			cleanupBlueprintTempDir: mocks.cleanup,
 			openExternalUrl: mocks.openExternalUrl,
+			setSessionModel: mocks.setSessionModel,
 		} ),
 	};
 } );
+
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: () => ( { chatEnabled: mocks.chatEnabled } ),
+} ) );
+
+vi.mock( '@/data/queries/use-sessions', () => ( {
+	useCreateSession: () => ( { mutateAsync: mocks.createSession } ),
+} ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: () => [],
@@ -107,13 +135,22 @@ function blueprint( name: string, tempDir?: string ): SelectedBlueprint {
 	};
 }
 
+function selectBlueprint( selected: SelectedBlueprint ) {
+	act( () => ( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected ) );
+}
+
 describe( 'CreateSitePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
 		mocks.uploadProps = null;
+		mocks.composerProps = null;
 		mocks.proposedName = 'My Studio Site';
+		mocks.chatEnabled = true;
+		mocks.submission = null;
 		mocks.mutateAsync.mockResolvedValue( { id: 'site-1' } );
+		const pending = pendingPromptSlot.getSnapshot();
+		if ( pending ) pendingPromptSlot.clear( pending );
 	} );
 
 	it( 'creates a blank site without a Blueprint payload', async () => {
@@ -122,9 +159,67 @@ describe( 'CreateSitePage', () => {
 
 		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( mocks.createSession ).not.toHaveBeenCalled();
 		expect( mocks.navigate ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-1' },
+		} );
+	} );
+
+	it( 'offers the brief only while chat is available and no Blueprint is selected', () => {
+		const { rerender } = render( <CreateSitePage /> );
+		expect( screen.getByText( 'What should we create?' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+
+		selectBlueprint( blueprint( 'Selected' ) );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+		act( () => ( mocks.uploadProps?.onRemove as () => void )() );
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+
+		mocks.chatEnabled = false;
+		rerender( <CreateSitePage /> );
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens a session with the brief as its first prompt after creating the site', async () => {
+		mocks.submission = { prompt: 'A bakery site', attachments: { images: [], files: [] } };
+		render( <CreateSitePage /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+		await waitFor( () =>
+			expect( mocks.navigate ).toHaveBeenCalledWith( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: 'session-1' },
+			} )
+		);
+		expect( mocks.mutateAsync ).toHaveBeenCalledWith(
+			expect.objectContaining( { flowType: 'ai' } )
+		);
+		expect( mocks.createSession ).toHaveBeenCalledWith( 'site-1' );
+		expect( mocks.setSessionModel ).not.toHaveBeenCalled();
+		expect( pendingPromptSlot.getSnapshot() ).toEqual( {
+			sessionId: 'session-1',
+			prompt: 'A bakery site',
+			attachments: { images: [], files: [] },
+		} );
+	} );
+
+	it( 'records a picked model on the session and stands in for an attachments-only brief', async () => {
+		const image = { id: 'image-1', name: 'moodboard.png' };
+		mocks.submission = { prompt: '', attachments: { images: [ image ], files: [] } };
+		render( <CreateSitePage /> );
+
+		act( () =>
+			( mocks.composerProps?.onModelChange as ( model: string ) => void )( 'claude-opus-5' )
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+
+		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
+		expect( mocks.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5' );
+		expect( pendingPromptSlot.getSnapshot() ).toMatchObject( {
+			prompt: 'Build this site using the attached files as references.',
+			attachments: { images: [ image ] },
 		} );
 	} );
 
@@ -153,8 +248,8 @@ describe( 'CreateSitePage', () => {
 		const first = blueprint( 'First', '/tmp/first' );
 		const second = blueprint( 'Second', '/tmp/second' );
 
-		act( () => ( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( first ) );
-		act( () => ( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( second ) );
+		selectBlueprint( first );
+		selectBlueprint( second );
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/first' );
 
 		act( () => ( mocks.uploadProps?.onRemove as () => void )() );
@@ -185,9 +280,7 @@ describe( 'CreateSitePage', () => {
 			file: { name: 'Development', size: 0 },
 		};
 
-		act( () =>
-			( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected )
-		);
+		selectBlueprint( selected );
 
 		expect(
 			screen.getByRole( 'heading', { name: 'Theme & plugin development' } )
@@ -231,9 +324,7 @@ describe( 'CreateSitePage', () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
 		render( <CreateSitePage /> );
 		const selected = blueprint( 'Selected', '/tmp/selected' );
-		act( () =>
-			( mocks.uploadProps?.onSelect as ( value: SelectedBlueprint ) => void )( selected )
-		);
+		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
 		await screen.findByText( 'Creation failed' );

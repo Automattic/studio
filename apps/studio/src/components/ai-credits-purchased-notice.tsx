@@ -1,13 +1,10 @@
 import { formatAiCreditsAddedTitle } from '@studio/common/lib/studio-assistant-quota';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Notice } from '@wordpress/ui';
 import { useFrameBackgroundColor } from 'src/hooks/use-frame-background-color';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import { selectAiCreditsAdded, setAiCreditsAdded } from 'src/stores/ui-slice';
-import { unlock } from './studio-code-session/lock-unlock';
 import buttonDefense from './studio-code-session/wp-ui-button-defense.module.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 /**
  * Confirms a top-up above the Classic composer once the balance has grown.
@@ -31,7 +28,7 @@ export function AiCreditsPurchasedNotice() {
 	}
 
 	return (
-		<ThemeProvider color={ { bg: frameBackgroundColor } }>
+		<ThemeProvider color={ { background: frameBackgroundColor } }>
 			<Notice.Root intent="success" className="mb-2">
 				<Notice.Title>{ formatAiCreditsAddedTitle( creditsAdded, locale ) }</Notice.Title>
 				<Notice.CloseIcon

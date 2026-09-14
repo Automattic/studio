@@ -72,6 +72,7 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn( () => ( {
 		enabled: true,
 		chatEnabled: true,
+		chatPromptsSignIn: false,
 		reason: null,
 		isReady: true,
 	} ) ),
@@ -114,6 +115,7 @@ describe( 'SiteList', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 			isReady: true,
 		} );
@@ -263,10 +265,11 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
+	it( 'opens the Studio Code sign-in screen when clicking a site while signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: true,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -277,11 +280,11 @@ describe( 'SiteList', () => {
 
 		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
 		expect( navigateMock ).toHaveBeenLastCalledWith( {
-			to: '/sites/$siteId/overview',
+			to: '/sites/$siteId/new',
 			params: { siteId: 'stopped-site' },
 		} );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
-			panel: 'overview',
+			panel: 'assistant',
 		} );
 	} );
 
@@ -295,15 +298,16 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
-	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+	it( 'shows the selected chat and overview shortcut when signed out', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: true,
 			reason: 'signed-out',
 			isReady: true,
 		} );
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/overview';
+		pathnameMock = '/sites/stopped-site/new';
 
 		render( <SiteList /> );
 
@@ -314,7 +318,26 @@ describe( 'SiteList', () => {
 		expect( className ).toContain( 'siteActive' );
 		expect( className ).not.toContain( 'siteContextActive' );
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
+		expect( within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } ) ).toBeVisible();
+	} );
+
+	it( 'keeps the site overview as home when Studio Code is switched off', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: true,
+			chatEnabled: false,
+			chatPromptsSignIn: false,
+			reason: null,
+			isReady: true,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByText( 'Stopped Site' ) );
+
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
 	} );
 
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {

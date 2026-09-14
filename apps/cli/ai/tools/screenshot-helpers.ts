@@ -18,25 +18,6 @@ export const VIEWPORTS = {
 } as const;
 
 /**
- * 16:9 viewport used by `share_screenshot` to capture "as it would look on a
- * screen" — an above-the-fold view of the rendered page. The user can ask
- * for the full page explicitly by setting `fullPage: true`.
- */
-export const SHARE_VIEWPORTS = {
-	desktop: { width: 1280, height: 720 },
-	mobile: { width: 390, height: 844 },
-} as const;
-
-/**
- * Render `share_screenshot` at 2x DPR so the captured PNG has retina pixel
- * density (e.g. 2560x1440 raw pixels for the desktop viewport) without
- * changing CSS layout breakpoints. The page still sees a 1280x720 window;
- * only the rasterized output is denser. This survives Telegram's compression
- * pipeline noticeably better than 1x captures.
- */
-export const SHARE_DEVICE_SCALE_FACTOR = 2;
-
-/**
  * Quality used when re-encoding a screenshot as JPEG for vision-model input.
  * Full-page PNG captures can run to multiple megabytes; the wpcom AI proxy
  * rejects oversized request bodies with an empty 400 before they ever reach
@@ -93,9 +74,8 @@ export interface ScreenshotCapture {
 }
 
 /**
- * Capture a screenshot of `url` at the given viewport. Shared by both
- * `take_screenshot` and `share_screenshot`; callers decide whether to expose
- * the image as base64, a temp local file, or an external media event. Use
+ * Capture a screenshot of `url` at the given viewport. Callers decide whether
+ * to expose the image as base64 or a temp local file. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
  * trip the wpcom AI proxy's request-size limit.
  *
@@ -239,25 +219,6 @@ export async function captureScreenshotBuffer(
 	} finally {
 		await page.close();
 	}
-}
-
-/**
- * Capture a PNG screenshot and return it as a base64 string. Used by
- * `share_screenshot`, where retina-quality PNG survives Telegram's
- * compression pipeline noticeably better than JPEG (see
- * {@link SHARE_DEVICE_SCALE_FACTOR}).
- */
-export async function captureScreenshotPng(
-	url: string,
-	viewport: { width: number; height: number },
-	options: {
-		fullPage: boolean;
-		deviceScaleFactor?: number;
-		colorScheme?: ScreenshotColorScheme;
-	}
-): Promise< string > {
-	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
-	return capture.buffer.toString( 'base64' );
 }
 
 export async function saveScreenshotFile(

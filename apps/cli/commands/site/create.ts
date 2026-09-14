@@ -159,6 +159,7 @@ const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
 	'import',
 	'sync',
 	'duplicate',
+	'ai',
 ];
 
 function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | undefined {
@@ -660,7 +661,7 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			const updated = await updateServerFiles();
+			const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
 			if ( updated ) {
 				logger.reportSuccess( __( 'Dependencies updated' ) );
 			}

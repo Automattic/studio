@@ -205,8 +205,9 @@ function DashboardLayoutContent() {
 			setPreviewFullscreen,
 		]
 	);
-	const activeWorkspaceView = sessionId ? 'chat' : overviewSiteId ? 'overview' : undefined;
-	const routeWorkspaceSiteId = overviewSiteId ?? sessionSite?.id;
+	const activeWorkspaceView =
+		sessionId || newSessionSiteId ? 'chat' : overviewSiteId ? 'overview' : undefined;
+	const routeWorkspaceSiteId = overviewSiteId ?? newSessionSiteId ?? sessionSite?.id;
 	const [ retainedWorkspaceSiteId, setRetainedWorkspaceSiteId ] = useState( routeWorkspaceSiteId );
 	if ( routeWorkspaceSiteId && routeWorkspaceSiteId !== retainedWorkspaceSiteId ) {
 		setRetainedWorkspaceSiteId( routeWorkspaceSiteId );

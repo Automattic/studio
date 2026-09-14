@@ -101,7 +101,7 @@ describe( 'AiPanel', () => {
 		mockConnector();
 		render( <AiPanel /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
+		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
 		expect( toggle ).toBeChecked();
 
 		fireEvent.click( toggle );
@@ -115,7 +115,7 @@ describe( 'AiPanel', () => {
 		mockPreferences( false );
 		render( <AiPanel /> );
 
-		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
+		const toggle = screen.getByRole( 'checkbox', { name: 'Studio Code' } );
 		expect( toggle ).not.toBeChecked();
 
 		fireEvent.click( toggle );

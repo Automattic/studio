@@ -1,11 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
 
-const { navigateMock } = vi.hoisted( () => ( { navigateMock: vi.fn() } ) );
+const { navigateMock, agentRunState, sitesState } = vi.hoisted( () => ( {
+	navigateMock: vi.fn(),
+	agentRunState: { hasActiveRun: false, sendMessage: vi.fn( async () => undefined ) },
+	sitesState: { data: [] as Array< { id: string; path: string; name: string } > },
+} ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigateMock,
@@ -19,7 +25,21 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useSites: () => ( { data: [] } ),
+	useSites: () => sitesState,
+} ) );
+
+vi.mock( '@/components/open-in-menu', () => ( {
+	OpenInMenu: ( { site }: { site: { name: string } } ) => (
+		<div data-testid="open-in-menu">{ site.name }</div>
+	),
+} ) );
+
+vi.mock( '@/components/site-dropdown', () => ( {
+	SiteDropdown: ( { site }: { site: { name: string } } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/components/preview-toggle-button', () => ( {
+	PreviewToggleButton: () => null,
 } ) );
 
 vi.mock( '@/data/queries/use-assistant-quota', () => ( {
@@ -34,14 +54,14 @@ vi.mock( '@/data/core', async ( importOriginal ) => ( {
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useAgentRun: () => ( {
 		isRunning: false,
-		hasActiveRun: false,
+		hasActiveRun: agentRunState.hasActiveRun,
 		isInterrupting: false,
 		startedAt: undefined,
 		error: null,
 		pendingQuestions: [],
 		pendingAnswers: [],
 		queuedPrompts: [],
-		sendMessage: vi.fn(),
+		sendMessage: agentRunState.sendMessage,
 		interrupt: vi.fn(),
 		answerQuestion: vi.fn(),
 		removeQueuedPrompt: vi.fn(),
@@ -53,6 +73,11 @@ vi.mock( '@/hooks/use-session-commands', () => ( { useSessionCommands: vi.fn() }
 vi.mock( '@/hooks/use-session-ui', () => ( {
 	SessionUIProvider: ( { children }: { children: React.ReactNode } ) => children,
 	useSessionPreviewAnnotations: vi.fn(),
+	useSessionPreviewUI: () => ( {
+		pathsBySiteId: { 'site-1': '/wp-admin/' },
+	} ),
+	pathForSite: ( pathsBySiteId: Record< string, string >, siteId: string ) =>
+		pathsBySiteId[ siteId ] ?? '/',
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -68,10 +93,34 @@ vi.mock( './conversation', () => ( {
 	Conversation: () => <div />,
 } ) );
 
+vi.mock( './session-chat-actions', () => ( {
+	getSiteSessionHistory: () => [],
+	SessionChatActions: ( { showNewChat = true }: { showNewChat?: boolean } ) => (
+		<div data-testid="chat-actions" data-show-new-chat={ String( showNewChat ) } />
+	),
+} ) );
+
+vi.mock( './suggested-prompts', () => ( {
+	SuggestedPrompts: () => <div data-testid="suggested-prompts" />,
+} ) );
+
+// The real notice reaches TanStack Query, which this suite has no provider for.
+vi.mock( '@/components/ai-access-required-notice', async ( importOriginal ) => ( {
+	...( await importOriginal< object >() ),
+	OutOfCreditsNotice: () => <div data-testid="out-of-credits" />,
+} ) );
+
 const useSessionMock = vi.mocked( useSession, { partial: true } );
 const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota, { partial: true } );
 
-function makeQuota( overrides: Partial< { hasPaymentMethod: boolean; emailVerified: boolean } > ) {
+function makeQuota(
+	overrides: Partial< {
+		hasPaymentMethod: boolean;
+		emailVerified: boolean;
+		allowanceRemaining: number;
+		purchasedRemaining: number;
+	} >
+) {
 	return {
 		costUsage: 0,
 		costCap: 500000,
@@ -96,6 +145,19 @@ function makeLoadedSession(): LoadedAiSession {
 	} as unknown as LoadedAiSession;
 }
 
+const OWNER_SITE = { id: 'demo-site', path: '/Users/example/Studio/demo-site', name: 'Demo' };
+
+function makeOwnedSession(): LoadedAiSession {
+	return {
+		summary: { id: 'session-1', ownerSiteId: OWNER_SITE.id },
+		entries: [],
+	} as unknown as LoadedAiSession;
+}
+
+function makeSpentQuota() {
+	return makeQuota( { allowanceRemaining: 0, purchasedRemaining: 0 } );
+}
+
 function setScrollMetrics(
 	node: HTMLElement,
 	metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }
@@ -105,9 +167,19 @@ function setScrollMetrics(
 	}
 }
 
+const PENDING_PROMPT = {
+	sessionId: 'session-1',
+	prompt: 'A bakery site',
+	attachments: { images: [], files: [] },
+};
+
 describe( 'SessionView', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		agentRunState.hasActiveRun = false;
+		sitesState.data = [];
+		const pending = pendingPromptSlot.getSnapshot();
+		if ( pending ) pendingPromptSlot.clear( pending );
 		// Entitled account by default; individual tests override.
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: makeQuota( {} ),
@@ -115,6 +187,28 @@ describe( 'SessionView', () => {
 			isFetching: false,
 			refetch: vi.fn(),
 		} );
+	} );
+
+	it( 'shows the Open in control at the top-right of the chat header', () => {
+		sitesState.data = [
+			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
+		];
+		useSessionMock.mockReturnValue( {
+			data: {
+				summary: {
+					id: 'session-1',
+					ownerSiteId: 'site-1',
+					ownerSiteName: 'Example Site',
+				},
+				entries: [],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {
@@ -136,6 +230,40 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="loading-session" /> );
 
 		expect( navigateMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'sends the prompt handed over for this session exactly once when the chat is ready', () => {
+		pendingPromptSlot.set( PENDING_PROMPT );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+
+		render(
+			<StrictMode>
+				<SessionView sessionId="session-1" />
+			</StrictMode>
+		);
+
+		expect( agentRunState.sendMessage ).toHaveBeenCalledTimes( 1 );
+		expect( agentRunState.sendMessage ).toHaveBeenCalledWith(
+			'A bakery site',
+			PENDING_PROMPT.attachments
+		);
+		expect( pendingPromptSlot.getSnapshot() ).toBeNull();
+	} );
+
+	it( 'holds the handed-over prompt while the chat is gated', () => {
+		pendingPromptSlot.set( PENDING_PROMPT );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( { hasPaymentMethod: false } ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		useSessionMock.mockReturnValue( { data: makeLoadedSession(), isLoading: false, error: null } );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( agentRunState.sendMessage ).not.toHaveBeenCalled();
+		expect( pendingPromptSlot.getSnapshot() ).toBe( PENDING_PROMPT );
 	} );
 
 	it( 'shows the scroll-to-latest button only while scrolled away and scrolls down on click', async () => {
@@ -169,6 +297,44 @@ describe( 'SessionView', () => {
 				screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
 			).not.toBeInTheDocument()
 		);
+	} );
+
+	it( 'wires the scroller when the session loads before the quota check resolves', async () => {
+		// Cold start: the session is served from the persisted cache while the
+		// (never persisted) quota query is still loading, so the conversation
+		// scroller mounts in a later commit than the session data.
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+			isFetching: true,
+			refetch: vi.fn(),
+		} );
+
+		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
+		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+		setScrollMetrics( scroller, { scrollTop: 0, scrollHeight: 1000, clientHeight: 400 } );
+
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeQuota( {} ),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+		rerender( <SessionView sessionId="session-1" /> );
+
+		expect( container.querySelector( '[class*="classicScroll"]' ) ).toBe( scroller );
+		expect( scroller.scrollTop ).toBe( 1000 );
+
+		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );
+		fireEvent.scroll( scroller );
+		expect(
+			await screen.findByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
+		).toBeInTheDocument();
 	} );
 
 	it( 'gates the chat behind the payment requirement when no payment method is saved', () => {
@@ -293,6 +459,98 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.queryByText( 'Studio Code Beta' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'replaces the composer with the purchase offer when the credits are spent', () => {
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeSpentQuota(),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'out-of-credits' ) ).toBeInTheDocument();
+		expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the composer while a run is still in flight', () => {
+		agentRunState.hasActiveRun = true;
+		useSessionMock.mockReturnValue( {
+			data: makeLoadedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeSpentQuota(),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		// The composer carries the Stop button, so it has to outlive the balance.
+		expect( screen.getByTestId( 'composer' ) ).toBeInTheDocument();
+		expect( screen.queryByTestId( 'out-of-credits' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hides the new chat action while the credits are spent', () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( {
+			data: makeOwnedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeSpentQuota(),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'false' );
+	} );
+
+	it( 'hides the suggested prompts while the credits are spent', () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( {
+			data: makeOwnedSession(),
+			isLoading: false,
+			error: null,
+		} );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: makeSpentQuota(),
+			isLoading: false,
+			isFetching: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.queryByTestId( 'suggested-prompts' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the new chat action and suggested prompts while credits remain', () => {
+		sitesState.data = [ OWNER_SITE ];
+		useSessionMock.mockReturnValue( {
+			data: makeOwnedSession(),
+			isLoading: false,
+			error: null,
+		} );
+
+		render( <SessionView sessionId="session-1" /> );
+
+		expect( screen.getByTestId( 'chat-actions' ) ).toHaveAttribute( 'data-show-new-chat', 'true' );
+		expect( screen.getByTestId( 'suggested-prompts' ) ).toBeInTheDocument();
 	} );
 
 	it( 'publishes the composer height for the collapsed-sidebar toast shelf', () => {

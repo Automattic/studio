@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
+import { NoticeHistoryDialog } from '@/components/notice-history';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SeenSessionTimestampsProvider, SiteList } from '@/components/site-list';
@@ -154,15 +155,20 @@ export function SidebarLayout( {
 								<SidebarHeader />
 								<SiteList />
 								<div className={ styles.sidebarFooter }>
+									{ ! effectiveCollapsed ? (
+										<StudioBetaMenu className={ styles.sidebarBeta } />
+									) : null }
 									{ /* Toasts sit above the persistent cards: the footer is
 								     bottom-anchored, so a transient toast arriving below a card
 								     would shove it up and drop it back on expiry. */ }
-									{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 									{ ! effectiveCollapsed ? (
-										<AppMessageCards className={ styles.sidebarCards } />
-									) : null }
-									{ ! effectiveCollapsed ? (
-										<StudioBetaMenu className={ styles.sidebarBeta } />
+										// Notices inherit the sidebar's chrome theme scope, so they
+										// sit on the dark chrome in both schemes and keep their
+										// intent tints against it.
+										<>
+											<AppToasts className={ styles.sidebarToasts } appearance="intent" />
+											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
+										</>
 									) : null }
 									<UserMenu onToggleSidebar={ toggleSidebar } />
 								</div>
@@ -232,10 +238,12 @@ export function SidebarLayout( {
 									forceCollapsed && styles.floatingToastsOverPreview
 								) }
 								fit="content"
+								appearance="intent"
 							/>
 						) : null }
 					</main>
 					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+					<NoticeHistoryDialog />
 				</div>
 			</SeenSessionTimestampsProvider>
 		</SidebarCollapsedContext.Provider>

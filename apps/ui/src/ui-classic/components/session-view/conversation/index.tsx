@@ -27,7 +27,7 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
 	brush,
@@ -35,6 +35,8 @@ import {
 	category,
 	chartBar,
 	check,
+	chevronLeft,
+	chevronRight,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -60,7 +62,7 @@ import {
 	search,
 	seen,
 	settings,
-	share,
+	shuffle,
 	styles as stylesIcon,
 	tag,
 	tool,
@@ -69,7 +71,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -95,7 +97,8 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 interface AgentQuestionRenderItem {
 	key: string;
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	pickedLabel?: string;
 }
 
@@ -148,7 +151,11 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+const HIDDEN_TOOL_ROWS = new Set( [
+	'studio_present',
+	'AskUserQuestion',
+	'present_design_options',
+] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
@@ -176,10 +183,8 @@ function usePrefersReducedMotion(): boolean {
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
-	entryIndex: number,
-	options: Array< { label: string } >
+	entryIndex: number
 ): string | undefined {
-	const optionLabels = new Set( options.map( ( option ) => option.label ) );
 	// Older transcripts store batched question answers as following
 	// `ask_user` prompts, in the same order as the question entries.
 	let batchPosition = 0;
@@ -222,8 +227,7 @@ function resolveBatchedAnswerForQuestion(
 	if ( answers.length !== batchSize ) {
 		return undefined;
 	}
-	const answer = answers[ batchPosition ];
-	return optionLabels.has( answer ) ? answer : undefined;
+	return answers[ batchPosition ];
 }
 
 export function entriesToRenderItems(
@@ -330,9 +334,8 @@ export function entriesToRenderItems(
 					key: `${ entryIndex }:question`,
 					question: data.question,
 					options: data.options,
-					pickedLabel:
-						data.selectedLabel ??
-						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
+					multiSelect: data.multiSelect,
+					pickedLabel: data.selectedLabel ?? resolveBatchedAnswerForQuestion( entries, entryIndex ),
 				} );
 			}
 			entryIndex -= 1;
@@ -392,23 +395,24 @@ export function entriesToRenderItems(
 	return items;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
+export interface ActiveStep {
+	key: string | null;
+	progressMessage: string | null;
+}
+
+export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			return { key: entry.id, progressMessage };
 		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
+		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+		if ( progressMessage === null && data ) {
+			progressMessage = data.message;
 		}
 	}
-	return null;
+	return { key: null, progressMessage };
 }
 
 function UserTurn( {
@@ -658,12 +662,12 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return search;
 		case 'refresh_browser':
 			return refreshIcon;
-		case 'share_screenshot':
-			return share;
 		case 'validate_blocks':
 			return check;
 		case 'scaffold_theme':
 			return brush;
+		case 'pick_design':
+			return shuffle;
 		case 'install_taxonomy_scripts':
 			return category;
 		case 'need_for_speed':
@@ -857,16 +861,38 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 	);
 }
 
+function PickedAnswer( { label, ariaHidden = false }: { label: string; ariaHidden?: boolean } ) {
+	return (
+		<span
+			className={ clsx(
+				styles.questionOption,
+				styles.questionOptionPicked,
+				styles.questionSummaryOption
+			) }
+			aria-hidden={ ariaHidden ? 'true' : undefined }
+		>
+			<span className={ styles.questionOptionNumber }>
+				<QuestionOptionCheckIcon />
+			</span>
+			<span className={ styles.questionOptionCopy }>
+				<span className={ styles.questionOptionLabel }>{ label }</span>
+			</span>
+		</span>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	isCollapsing = false,
 	onAnswer,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
@@ -874,14 +900,35 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
+	const viewable = options.filter( ( option ) => option.image );
+	const hasImages = viewable.length > 0;
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const [ viewing, setViewing ] = useState< number | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	const typedAnswer = pickedLabels
+		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
-				<ol className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const picked = pickedLabels.includes( option.label );
 						const descriptionId =
 							option.description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
@@ -891,16 +938,21 @@ function AgentQuestion( {
 								key={ index }
 								className={ styles.questionOptionItem }
 								data-picked={ picked ? 'true' : undefined }
+								data-wide={ hasImages && ! option.image ? 'true' : undefined }
 							>
 								<button
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ () =>
+										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									}
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
+									data-has-image={ option.image ? 'true' : undefined }
 								>
+									{ option.image ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
@@ -913,12 +965,146 @@ function AgentQuestion( {
 										) : null }
 									</span>
 								</button>
+								{ option.image ? (
+									<IconButton
+										type="button"
+										className={ styles.questionOptionZoom }
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ search }
+										label={ sprintf(
+											// translators: %s: name of a design option.
+											__( 'View %s larger' ),
+											option.label
+										) }
+										onClick={ () => setViewing( viewable.indexOf( option ) ) }
+									/>
+								) : null }
 							</li>
 						);
 					} ) }
 				</ol>
 			) : null }
+			{ hasImages ? (
+				<QuestionOptionViewer
+					options={ viewable }
+					index={ viewing }
+					onIndexChange={ setViewing }
+					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+				/>
+			) : null }
+			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						size="compact"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
+			) : null }
 		</div>
+	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const connector = useConnector();
+	const localPath = path && connector.capabilities.readLocalMedia ? path : null;
+	const localFileQuery = useLocalMediaDataUrl( localPath );
+
+	if ( ! localPath || localFileQuery.isError ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! localFileQuery.data ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+}
+
+function QuestionOptionViewer( {
+	options,
+	index,
+	onIndexChange,
+	onChoose,
+}: {
+	options: Array< { label: string; description: string; image?: string } >;
+	index: number | null;
+	onIndexChange: ( index: number | null ) => void;
+	onChoose?: ( label: string ) => void;
+} ) {
+	const connector = useConnector();
+	const option = index === null ? undefined : options[ index ];
+	const localFileQuery = useLocalMediaDataUrl(
+		option?.image && connector.capabilities.readLocalMedia ? option.image : null
+	);
+	const step = ( delta: number ) =>
+		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
+	const [ previousIcon, nextIcon ] = isRTL()
+		? [ chevronRight, chevronLeft ]
+		: [ chevronLeft, chevronRight ];
+
+	return (
+		<Dialog.Root
+			open={ option !== undefined }
+			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
+		>
+			<Dialog.Popup
+				className={ styles.questionOptionZoomPopup }
+				aria-label={ option?.label }
+				onKeyDown={ ( event ) => {
+					if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+						event.preventDefault();
+						step( ( event.key === 'ArrowRight' ) !== isRTL() ? 1 : -1 );
+					}
+				} }
+			>
+				{ localFileQuery.data ? (
+					<img
+						className={ styles.questionOptionZoomImage }
+						src={ localFileQuery.data }
+						alt={ option?.label }
+					/>
+				) : null }
+				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ previousIcon }
+					label={ __( 'Previous option' ) }
+					onClick={ () => step( -1 ) }
+				/>
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ nextIcon }
+					label={ __( 'Next option' ) }
+					onClick={ () => step( 1 ) }
+				/>
+				{ option && onChoose ? (
+					<Button
+						className={ styles.questionOptionZoomChoose }
+						size="compact"
+						onClick={ () => {
+							onIndexChange( null );
+							onChoose( option.label );
+						} }
+					>
+						{ __( 'Choose' ) }
+					</Button>
+				) : null }
+			</Dialog.Popup>
+		</Dialog.Root>
 	);
 }
 
@@ -1057,21 +1243,7 @@ function QuestionSummary( {
 	const content = (
 		<span className={ styles.questionSummaryBody }>
 			<span className={ styles.questionSummaryText }>{ question }</span>
-			<span
-				className={ clsx(
-					styles.questionOption,
-					styles.questionOptionPicked,
-					styles.questionSummaryOption
-				) }
-				aria-hidden={ canEdit ? 'true' : undefined }
-			>
-				<span className={ styles.questionOptionNumber }>
-					<QuestionOptionCheckIcon />
-				</span>
-				<span className={ styles.questionOptionCopy }>
-					<span className={ styles.questionOptionLabel }>{ pickedLabel }</span>
-				</span>
-			</span>
+			<PickedAnswer label={ pickedLabel } ariaHidden={ canEdit } />
 		</span>
 	);
 
@@ -1175,6 +1347,7 @@ function AgentQuestionBatch( {
 			<AgentQuestion
 				question={ question.question }
 				options={ question.options }
+				multiSelect={ question.multiSelect }
 				isInteractive={ pendingQuestions.has( question.question ) }
 				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
 				onAnswer={ ( label ) => onAnswer( question.question, label ) }
@@ -1228,6 +1401,7 @@ function AgentQuestionBatch( {
 						<AgentQuestion
 							question={ question.question }
 							options={ question.options }
+							multiSelect={ question.multiSelect }
 							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
 							pickedLabel={ pickedLabel }
 							isCollapsing={ settlingIndex === index }
@@ -1293,10 +1467,7 @@ export function Conversation( {
 		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
 		[ entries, canReadLocalMedia ]
 	);
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
+	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 
 	// One selected message at a time, so picking a new one closes the last.
 	const [ selectedKey, setSelectedKey ] = useState< string | null >( null );
@@ -1379,7 +1550,8 @@ export function Conversation( {
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
-				progressMessage={ progressMessage }
+				stepKey={ activeStep.key }
+				progressMessage={ isRunning ? activeStep.progressMessage : null }
 			/>
 		</div>
 	);

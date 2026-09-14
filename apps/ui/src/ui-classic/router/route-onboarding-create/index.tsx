@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
@@ -8,17 +9,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	useExistingCustomDomains,
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
+import { useCreateSession } from '@/data/queries/use-sessions';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
+import { pendingPromptSlot } from '@/lib/pending-prompt';
+import { Composer, type ComposerHandle } from '@/ui-classic/components/session-view/composer';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 import localStyles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { AiModelId } from '@/data/core';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
@@ -224,6 +230,10 @@ export function CreateSitePage() {
 	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
+	const createSession = useCreateSession();
+	const { chatEnabled } = useAgenticFeatures();
+	const composerRef = useRef< ComposerHandle >( null );
+	const [ model, setModel ] = useState< AiModelId >( DEFAULT_MODEL );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
@@ -235,6 +245,7 @@ export function CreateSitePage() {
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
+	const showBrief = chatEnabled && ! selectedBlueprint;
 
 	const cleanupBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
@@ -279,6 +290,7 @@ export function CreateSitePage() {
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		const blueprint = selectedBlueprintRef.current;
+		const brief = showBrief ? composerRef.current?.getSubmission() : null;
 		setSubmittedInitialValues( initialValues );
 		setSubmitError( '' );
 		setProgress( __( 'Creating site…' ) );
@@ -306,6 +318,7 @@ export function CreateSitePage() {
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+				...( brief ? { flowType: 'ai' as const } : {} ),
 				...( mergedBlueprint && blueprint
 					? {
 							blueprint: {
@@ -316,7 +329,20 @@ export function CreateSitePage() {
 					  }
 					: {} ),
 			} );
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			if ( brief ) {
+				const session = await createSession.mutateAsync( {
+					siteId: site.id,
+					model: model !== DEFAULT_MODEL ? model : undefined,
+				} );
+				pendingPromptSlot.set( {
+					sessionId: session.id,
+					prompt: brief.prompt || __( 'Build this site using the attached files as references.' ),
+					attachments: brief.attachments,
+				} );
+				await navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+			} else {
+				await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			}
 		} catch ( error ) {
 			setSubmittedInitialValues( null );
 			setProgress( null );
@@ -338,7 +364,9 @@ export function CreateSitePage() {
 		<div className={ styles.page }>
 			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
 			<p className={ styles.subtitle }>
-				{ __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
+				{ chatEnabled
+					? __( 'Describe it with AI, start from a Blueprint, or build it from scratch.' )
+					: __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ submittedInitialValues ?? initialValues }
@@ -360,7 +388,31 @@ export function CreateSitePage() {
 						/>
 					) : undefined
 				}
-			/>
+			>
+				{ showBrief && (
+					<div className={ localStyles.brief }>
+						<span className={ localStyles.briefLabel }>{ __( 'What should we create?' ) }</span>
+						<Composer
+							ref={ composerRef }
+							variant="field"
+							busy={ false }
+							error={ null }
+							model={ model }
+							onModelChange={ setModel }
+							onSend={ async () => undefined }
+							onInterrupt={ async () => undefined }
+							placeholder={ __(
+								'A warm, modern website for my neighborhood bakery. Include a menu and our story…'
+							) }
+						/>
+						<p className={ localStyles.briefHelp }>
+							{ __(
+								'Optional. Add the audience, goals, style, or pages, plus reference images or files.'
+							) }
+						</p>
+					</div>
+				) }
+			</CreateSiteForm>
 			{ ! selectedBlueprint && (
 				<div className={ localStyles.blueprint }>
 					<BlueprintUpload

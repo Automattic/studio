@@ -110,7 +110,6 @@ type IpcApi = {
 interface FeatureFlags {}
 
 interface BetaFeatures {
-	remoteSession: boolean;
 	enableAgenticUi: boolean;
 }
 

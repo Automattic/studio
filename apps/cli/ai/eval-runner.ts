@@ -17,11 +17,14 @@ import {
 } from '@studio/common/ai/global-instructions';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
@@ -32,6 +35,9 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { formatActiveSitePrefix } from 'cli/ai/site-selection';
+import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -40,6 +46,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { deleteSnapshotFromConfig } from 'cli/lib/cli-config/snapshots';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
@@ -60,6 +67,10 @@ const evalSeedSchema = z.object( {
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
+	// Creates a real (stopped) site under STUDIO_SITES_ROOT and makes it the
+	// active site for the turn, the way the app and the CLI picker do. Deleted
+	// after the turn.
+	activeSite: z.object( { name: z.string() } ).optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
@@ -70,6 +81,11 @@ interface EvalRunnerInput {
 	seed?: EvalSeed;
 }
 
+interface SeededFixtures {
+	cleanup: () => Promise< void >;
+	promptPrefix?: string;
+}
+
 /**
  * Writes the requested fixtures into cli.json (local site + snapshots) and
  * shared.json (connected WordPress.com sites). Returns a cleanup function that
@@ -77,8 +93,14 @@ interface EvalRunnerInput {
  * `globalInstructions` is the exception: it overwrites the user's real
  * instructions file, so cleanup restores the prior content instead.
  */
-async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > {
-	const { localSite, connectedWpcomSites = [], snapshots = [], globalInstructions } = seed;
+async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
+	const {
+		localSite,
+		connectedWpcomSites = [],
+		snapshots = [],
+		globalInstructions,
+		activeSite,
+	} = seed;
 
 	let restoreInstructions: ( () => Promise< void > ) | null = null;
 	if ( typeof globalInstructions === 'string' ) {
@@ -128,7 +150,40 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 		seededConnections.push( site );
 	}
 
-	return async () => {
+	let promptPrefix: string | undefined;
+	let activeSitePath: string | undefined;
+	if ( activeSite ) {
+		const slug = activeSite.name
+			.toLowerCase()
+			.replace( /[^a-z0-9]+/g, '-' )
+			.replace( /^-|-$/g, '' );
+		activeSitePath = path.join( STUDIO_SITES_ROOT, slug );
+		await runCreateSiteCommand(
+			activeSitePath,
+			{
+				name: activeSite.name,
+				wpVersion: 'latest',
+				phpVersion: DEFAULT_PHP_VERSION,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+				enableHttps: false,
+				noStart: true,
+				skipBrowser: true,
+				skipLogDetails: true,
+			},
+			new Logger()
+		);
+		promptPrefix = formatActiveSitePrefix( {
+			name: activeSite.name,
+			path: activeSitePath,
+			running: false,
+		} );
+	}
+
+	const cleanup = async () => {
+		if ( activeSitePath ) {
+			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
+		}
 		await restoreInstructions?.().catch( () => undefined );
 		for ( const site of seededConnections ) {
 			await removeConnectedWpcomSite( site.localSiteId, site.id ).catch( () => undefined );
@@ -149,6 +204,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 			}
 		}
 	};
+	return { cleanup, promptPrefix };
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -326,8 +382,13 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 
 	let cleanupSeed: ( () => Promise< void > ) | null = null;
+	let prompt = input.prompt.trim();
 	if ( input.seed ) {
-		cleanupSeed = await seedFixtures( input.seed );
+		const seeded = await seedFixtures( input.seed );
+		cleanupSeed = seeded.cleanup;
+		if ( seeded.promptPrefix ) {
+			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
+		}
 	}
 
 	phaseStartedAt = Date.now();
@@ -411,7 +472,7 @@ async function runEval( input: EvalRunnerInput ) {
 	};
 
 	const query = runStudioAgentTurn( {
-		prompt: input.prompt.trim(),
+		prompt,
 		env,
 		session,
 		onEvent: handleEvent,

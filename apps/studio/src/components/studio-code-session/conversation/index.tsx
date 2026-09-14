@@ -31,6 +31,7 @@ import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -61,7 +62,8 @@ type RenderItem =
 			kind: 'agent-question';
 			key: string;
 			question: string;
-			options: Array< { label: string; description: string } >;
+			options: Array< { label: string; description: string; image?: string } >;
+			multiSelect?: boolean;
 			answer?: string;
 	  }
 	| {
@@ -93,7 +95,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'present_design_options' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -234,6 +236,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				multiSelect: data.multiSelect,
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
@@ -293,23 +296,24 @@ export function wasLastTurnInterrupted( entries: SessionEntry[] ): boolean {
 	return false;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
+export interface ActiveStep {
+	key: string | null;
+	progressMessage: string | null;
+}
+
+export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			return { key: entry.id, progressMessage };
 		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
+		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+		if ( progressMessage === null && data ) {
+			progressMessage = data.message;
 		}
 	}
-	return null;
+	return { key: null, progressMessage };
 }
 
 function UserTurn( {
@@ -615,41 +619,136 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	onAnswer,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
+	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	const typedAnswer = pickedLabels
+		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const picked = pickedLabels.includes( option.label );
 						return (
 							<li key={ index }>
 								<button
 									type="button"
 									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={ () =>
+										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									}
 									title={ option.description }
+									aria-pressed={ picked }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
-									{ option.label }
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									<span className={ styles.questionOptionCopy }>
+										<span>{ option.label }</span>
+										{ hasImages && option.description ? (
+											<span className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
 					} ) }
 				</ul>
 			) : null }
+			{ typedAnswer ? (
+				<span
+					className={ cx(
+						styles.questionOption,
+						styles.questionOptionPicked,
+						styles.questionTypedAnswer
+					) }
+				>
+					{ typedAnswer }
+				</span>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						variant="primary"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
+			) : null }
 		</div>
 	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const [ src, setSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! path ) {
+			return;
+		}
+		let active = true;
+		setSrc( null );
+		setFailed( false );
+		readLocalMediaDataUrl( path )
+			.then( ( dataUrl ) => {
+				if ( active ) {
+					setSrc( dataUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ path ] );
+
+	if ( ! path || failed ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! src ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ src } alt="" />;
 }
 
 // In-flow marker for a turn that ended in an error. The proxy's quota
@@ -709,10 +808,7 @@ export function Conversation( {
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
+	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 	// Only the most recent user prompt is offered for editing, and only once
 	// the run behind it has been stopped.
 	const lastUserTextKey = useMemo( () => {
@@ -789,6 +885,7 @@ export function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
+								multiSelect={ item.multiSelect }
 								isInteractive={ pendingQuestions.has( item.question ) }
 								pickedLabel={
 									pendingAnswers[ item.question ] ??
@@ -815,7 +912,8 @@ export function Conversation( {
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
-				progressMessage={ progressMessage }
+				stepKey={ activeStep.key }
+				progressMessage={ isRunning ? activeStep.progressMessage : null }
 			/>
 		</div>
 	);

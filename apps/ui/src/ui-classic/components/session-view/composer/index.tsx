@@ -27,7 +27,7 @@ import {
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -61,11 +61,12 @@ import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
-	primeSessionQueryData,
-	reconcilePrimedSessionQueryData,
+	createModelChangeEntry,
+	openNewSession,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
 import { AiCreditsControl } from './ai-credits-control';
+import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -187,17 +188,6 @@ function toComposerDraftAttachments( {
 	];
 }
 
-function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
-	return {
-		type: 'model_change',
-		id: Math.random().toString( 36 ).slice( 2, 10 ),
-		parentId: null,
-		timestamp: new Date().toISOString(),
-		provider: '',
-		modelId,
-	} as unknown as SessionEntry;
-}
-
 // Optimistic mirror of the `studio.session_context` entry the backend appends
 // for a provider switch, so the pill updates before the write lands.
 function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
@@ -238,10 +228,14 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// Blocks sending and queueing while leaving the rest of the composer alone,
+	// so a run already in flight keeps its Stop control.
+	canSubmit?: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -252,6 +246,11 @@ interface ComposerProps {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
+	// 'field': embedded in a form that submits the draft itself via
+	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
+	variant?: 'chat' | 'field';
+	placeholder?: string;
+	onModelChange?: ( model: AiModelId ) => void;
 }
 
 /**
@@ -273,6 +272,7 @@ export interface ComposerHandle {
 	// What replaceDraft would discard — lets callers decide whether the
 	// replacement warrants a confirmation.
 	getDraft(): { text: string; hasAttachments: boolean; suggestionBaseline: string | null };
+	getSubmission(): { prompt: string; attachments: ComposerSendAttachments } | null;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -328,19 +328,25 @@ function resizeComposerTextarea(
 const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function ComposerContent(
 	{
 		busy,
+		canSubmit = true,
 		isInterrupting = false,
 		error,
 		model,
 		onSend,
+		onAnswer,
 		onInterrupt,
 		sessionId,
 		entries,
 		ownerSiteId,
 		onSwitchSession,
 		autoFocus = false,
+		variant = 'chat',
+		placeholder: placeholderOverride,
+		onModelChange,
 	},
 	ref
 ) {
+	const isField = variant === 'field';
 	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ suggestionBaseline, setSuggestionBaseline ] = useState( initialDraft.suggestionBaseline );
@@ -492,11 +498,24 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			getDraft() {
 				return { text: value, hasAttachments: attachments.length > 0, suggestionBaseline };
 			},
+			getSubmission() {
+				const prompt = value.trim();
+				if ( ! prompt && attachments.length === 0 ) return null;
+				return { prompt, attachments: toComposerSendAttachments( attachments ) };
+			},
 		} ),
 		[ restoreAttachments, value, attachments, suggestionBaseline ]
 	);
 
+	const answerQuestion =
+		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+
 	const send = useCallback( async () => {
+		// Guarded here as well as on the button: Enter reaches this directly, and
+		// while busy a send becomes a queued prompt that would dispatch later.
+		if ( ! canSubmit ) {
+			return;
+		}
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
@@ -513,6 +532,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		// A send is the only thing that swaps the suggestion; it is static
 		// otherwise, so the empty composer never changes under the user.
 		setPlaceholderIndex( ( current ) => current + 1 );
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -532,12 +555,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			restoreAttachments( sentAttachments );
 		}
 	}, [
+		canSubmit,
 		value,
 		attachments,
 		suggestionBaseline,
 		clearAttachments,
 		restoreAttachments,
 		onSend,
+		answerQuestion,
 		sessionId,
 	] );
 
@@ -687,6 +712,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			if ( picked === model ) {
 				return;
 			}
+			if ( onModelChange ) {
+				onModelChange( picked );
+				return;
+			}
 			// Cross-family switch: defer until the user confirms in the dialog
 			// — the runtimes don't share a transcript, so continuing the same
 			// JSONL across families would make the on-screen history disagree
@@ -706,7 +735,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, model, onModelChange, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -723,34 +752,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const pickedModel = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
-			const newSession = await connector.createSession( ownerSiteId );
-			primeSessionQueryData( queryClient, newSession );
-			// Persist the model on the fresh session before navigating so the
-			// composer there opens already on the picked family —
-			// `setSessionModel` writes a `session.model_selected` event the
-			// new view picks up via `resolveSessionModel`. If this fails we
-			// still navigate; the user can re-pick from the new view's
-			// dropdown.
-			const modelPersisted = await connector
-				.setSessionModel( newSession.id, pickedModel )
-				.then( () => true )
-				.catch( () => false );
-			if ( modelPersisted ) {
-				queryClient.setQueryData< LoadedAiSession >(
-					[ ...SESSIONS_QUERY_KEY, newSession.id ],
-					( current ) =>
-						current
-							? {
-									...current,
-									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
-							  }
-							: {
-									summary: newSession,
-									entries: [ createModelChangeEntry( pickedModel ) ],
-							  }
-				);
-			}
-			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
+			const newSession = await openNewSession(
+				{ connector, queryClient },
+				ownerSiteId,
+				pickedModel
+			);
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
@@ -758,7 +764,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = canSubmit && ( value.trim().length > 0 || attachments.length > 0 );
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -772,11 +778,30 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'Drop the next idea here…' ),
 				__( 'What are we tuning now?' ),
 		  ];
-	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const placeholder =
+		placeholderOverride ??
+		( answerQuestion
+			? __( 'Or type your own answer…' )
+			: placeholderOptions[ placeholderIndex % placeholderOptions.length ] );
 	const showPlaceholderText = value.length === 0;
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
+	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add skill or attachment' );
+	const addButton = (
+		<Tooltip.Trigger
+			render={
+				<button
+					type="button"
+					className={ styles.iconButton }
+					aria-label={ addLabel }
+					onClick={ isField ? openFilePicker : undefined }
+				/>
+			}
+		>
+			<Icon icon={ plus } size={ 16 } />
+		</Tooltip.Trigger>
+	);
 	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
 		? __( 'Stopping… click again to force stop' )
@@ -803,6 +828,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					data-session-composer
 					className={ clsx(
 						styles.shell,
+						isField && styles.shellField,
 						isDraggingOver && styles.shellDragging,
 						isResizingComposer && styles.shellResizing
 					) }
@@ -811,6 +837,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<AiCreditsWarningStrip />
 					<div
 						className={ styles.resizeHandle }
 						role="separator"
@@ -1006,7 +1033,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									} );
 									return;
 								}
-								if ( event.key === 'Enter' && ! event.shiftKey ) {
+								if ( ! isField && event.key === 'Enter' && ! event.shiftKey ) {
 									event.preventDefault();
 									void send();
 								}
@@ -1019,23 +1046,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
 								<Tooltip.Root>
-									<Menu.Trigger
-										render={
-											<Tooltip.Trigger
-												render={
-													<button
-														type="button"
-														className={ styles.iconButton }
-														aria-label={ __( 'Add skill or attachment' ) }
-													/>
-												}
-											>
-												<Icon icon={ plus } size={ 16 } />
-											</Tooltip.Trigger>
-										}
-									/>
+									{ isField ? addButton : <Menu.Trigger render={ addButton } /> }
 									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ __( 'Add skill or attachment' ) }
+										{ addLabel }
 									</Tooltip.Popup>
 								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
@@ -1163,24 +1176,26 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Tooltip.Popup>
 								</Tooltip.Root>
 							) : null }
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.sendButton }
-											onClick={ () => void send() }
-											disabled={ ! canSend }
-											aria-label={ sendAriaLabel }
-										/>
-									}
-								>
-									<Icon icon={ arrowUp } size={ 18 } />
-								</Tooltip.Trigger>
-								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-									{ sendShortcutLabel }
-								</Tooltip.Popup>
-							</Tooltip.Root>
+							{ isField ? null : (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.sendButton }
+												onClick={ () => void send() }
+												disabled={ ! canSend }
+												aria-label={ sendAriaLabel }
+											/>
+										}
+									>
+										<Icon icon={ arrowUp } size={ 18 } />
+									</Tooltip.Trigger>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ sendShortcutLabel }
+									</Tooltip.Popup>
+								</Tooltip.Root>
+							) }
 						</div>
 					</div>
 				</div>

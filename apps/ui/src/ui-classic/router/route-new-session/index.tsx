@@ -1,9 +1,6 @@
 import { createRoute, redirect } from '@tanstack/react-router';
 import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
-import {
-	primeSessionQueryData,
-	reconcilePrimedSessionQueryData,
-} from '@/data/queries/use-sessions';
+import { openNewSession } from '@/data/queries/use-sessions';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 /**
@@ -17,17 +14,18 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		const { chatEnabled } = await resolveAgenticFeatures( context );
+		const { chatEnabled, chatPromptsSignIn } = await resolveAgenticFeatures( context );
 		if ( ! chatEnabled ) {
+			if ( chatPromptsSignIn ) {
+				return;
+			}
 			throw redirect( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: params.siteId },
 			} );
 		}
 
-		const summary = await context.connector.createSession( params.siteId );
-		primeSessionQueryData( context.queryClient, summary );
-		void reconcilePrimedSessionQueryData( context.queryClient, summary.id );
+		const summary = await openNewSession( context, params.siteId );
 		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
 	},
 } );

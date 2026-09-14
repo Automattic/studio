@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
 import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
+import { AiCreditsThresholdNotice } from 'src/components/ai-credits-threshold-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
@@ -294,6 +295,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const unansweredQuestion = pendingQuestions.find(
+		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -420,6 +424,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+						<AiCreditsThresholdNotice />
 						<AiCreditsPurchasedNotice />
 						{ isOutOfCredits ? (
 							<OutOfCreditsNotice />
@@ -431,6 +436,11 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
 								onSend={ sendMessage }
+								onAnswer={
+									unansweredQuestion
+										? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
+										: undefined
+								}
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }

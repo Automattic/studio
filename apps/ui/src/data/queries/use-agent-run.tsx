@@ -16,6 +16,7 @@ import {
 import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import type {
 	AgentEvent,
 	AgentRunEvent,
@@ -41,7 +42,7 @@ function shortEntryId(): string {
 
 export interface PendingQuestion {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 }
 
 export interface QueuedPrompt {
@@ -517,7 +518,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 									parentId: null,
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
-									data: { question: q.question, options: q.options },
+									data: q,
 								} ) as SessionEntry
 						),
 					] );
@@ -725,6 +726,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		queuedPrompts,
 	} = state;
 
+	const isOutOfCredits = useIsOutOfAiCredits();
+
 	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
 	// re-fire on every queue/phase change; without this guard a second render
 	// between the async start-call and `send_start` could kick off a duplicate
@@ -735,7 +738,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	// success, shift; on failure, drop the whole queue so a broken backend
 	// doesn't cascade errors.
 	useEffect( () => {
-		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 ) {
+		// Holding rather than clearing: a balance spent mid-run leaves the queued
+		// prompt visible and it dispatches on its own once a top-up refreshes the
+		// quota, instead of being silently dropped or sent to a certain rejection.
+		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 || isOutOfCredits ) {
 			return;
 		}
 		if ( dispatchingQueuedRef.current ) {
@@ -757,7 +763,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				dispatchingQueuedRef.current = false;
 			}
 		} )();
-	}, [ dispatchSession, phase, queuedPrompts, sessionId, startRun ] );
+	}, [ dispatchSession, isOutOfCredits, phase, queuedPrompts, sessionId, startRun ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string, options: SendMessageOptions = {} ) => {

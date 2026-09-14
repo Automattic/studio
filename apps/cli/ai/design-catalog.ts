@@ -89,6 +89,7 @@ export interface DesignDrawRequest {
 	kind: DesignCatalogKind;
 	count: number;
 	chosen?: string[];
+	shown?: string[];
 }
 
 function findChosenEntry( kind: DesignCatalogKind, name: string ): DesignEntry {
@@ -108,10 +109,19 @@ function findChosenEntry( kind: DesignCatalogKind, name: string ): DesignEntry {
 }
 
 export function drawDesignEntries(
-	{ kind, count, chosen = [] }: DesignDrawRequest,
+	{ kind, count, chosen = [], shown = [] }: DesignDrawRequest,
 	random: () => number = Math.random
 ): DesignEntry[] {
 	const picked = [ ...new Set( chosen.map( ( name ) => findChosenEntry( kind, name ) ) ) ];
+	const unseen = loadDesignCatalog( kind ).filter( ( entry ) => ! shown.includes( entry.name ) );
+	const seen = picked.filter( ( entry ) => ! unseen.includes( entry ) );
+	if ( seen.length ) {
+		throw new Error(
+			`Already shown to the user: ${ seen
+				.map( ( entry ) => entry.name )
+				.join( ', ' ) }. Choose others.`
+		);
+	}
 	if ( kind === 'directions' ) {
 		if ( picked.length < count ) {
 			throw new Error(
@@ -122,7 +132,7 @@ export function drawDesignEntries(
 	}
 	const kept = picked.slice( 0, Math.min( count, MAX_CHOSEN_LAYOUTS ) );
 	const drawn = shuffle(
-		loadDesignCatalog( kind ).filter( ( entry ) => ! kept.includes( entry ) ),
+		unseen.filter( ( entry ) => ! kept.includes( entry ) ),
 		random
 	);
 	return shuffle( [ ...kept, ...drawn.slice( 0, count - kept.length ) ], random );

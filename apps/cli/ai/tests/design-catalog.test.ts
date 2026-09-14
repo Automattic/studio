@@ -79,7 +79,7 @@ describe( 'drawDesignEntries', () => {
 		).toThrow( 'design it from the brief' );
 	} );
 
-	it( 'keeps up to two chosen layouts and draws the rest at random', () => {
+	it( 'keeps up to two chosen layouts and draws the rest at random from those not shown yet', () => {
 		const [ first, second, third ] = loadDesignCatalog( 'layouts' );
 		const entries = drawDesignEntries(
 			{ kind: 'layouts', count: 4, chosen: [ first.name, second.name, third.name ] },
@@ -90,5 +90,14 @@ describe( 'drawDesignEntries', () => {
 		expect( drawDesignEntries( { kind: 'layouts', count: 1, chosen: [ third.name ] } ) ).toEqual( [
 			third,
 		] );
+		const shown = loadDesignCatalog( 'layouts' )
+			.slice( 0, -4 )
+			.map( ( entry ) => entry.name );
+		expect( drawDesignEntries( { kind: 'layouts', count: 4, shown } ) ).toEqual(
+			expect.arrayContaining( loadDesignCatalog( 'layouts' ).slice( -4 ) )
+		);
+		expect( () =>
+			drawDesignEntries( { kind: 'layouts', count: 4, chosen: [ first.name ], shown } )
+		).toThrow( 'Already shown' );
 	} );
 } );

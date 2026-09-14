@@ -3,6 +3,7 @@ import {
 	DESIGN_CATALOGS,
 	DESIGN_OPTIONS,
 	drawDesignEntries,
+	loadDesignCatalog,
 	MAX_CHOSEN_LAYOUTS,
 } from 'cli/ai/design-catalog';
 import { defineTool } from './define-tool';
@@ -11,10 +12,11 @@ import { textResult } from './utils';
 // Without a question tool (MCP, non-interactive runs) there is nobody to pick,
 // so the schema offers a single entry and a stray `options: 4` is coerced.
 export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) {
+	const shown = { directions: [] as string[], layouts: [] as string[] };
 	return defineTool(
 		'pick_design',
 		canAskUser
-			? `Returns entries from one catalog of the visual-design skill (load it first: names must match its catalogs exactly), each with its full notes: "directions" for the look, "layouts" for the page structure. \`options\` is how many come back: \`options: ${ DESIGN_OPTIONS }\` for the user to pick from, \`options: 1\` to build directly. Directions are all yours: pass exactly that many in \`chosen\`, each with a one-line reason; none is drawn at random. Layouts mix yours with chance: up to ${ MAX_CHOSEN_LAYOUTS } in \`chosen\`, and the rest are drawn at random and shuffled in so the user cannot tell which is which. Call once per catalog; build what is returned or picked.`
+			? `Returns entries from one catalog of the visual-design skill (load it first: names must match its catalogs exactly), each with its full notes: "directions" for the look, "layouts" for the page structure. \`options\` is how many come back: \`options: ${ DESIGN_OPTIONS }\` for the user to pick from, \`options: 1\` to build directly. Directions are all yours: pass exactly that many in \`chosen\`, each with a one-line reason; none is drawn at random. Layouts mix yours with chance: up to ${ MAX_CHOSEN_LAYOUTS } in \`chosen\`, and the rest are drawn at random and shuffled in so the user cannot tell which is which. Call once per catalog, and again only when the user asks for other options: what they have seen is left out until the catalog runs low. Build what is returned or picked.`
 			: 'Returns one entry from one catalog of the visual-design skill (load it first: names must match its catalogs exactly), with its full notes: "directions" for the look, "layouts" for the page structure. The user cannot be asked in this session, so there is nothing to pick from: build what is returned. For directions, pass the one you will build in `chosen`, with a reason. For layouts, pass one in `chosen` only when the brief names it or a reference site points to it; otherwise one is drawn at random. Call once per catalog.',
 		{
 			catalog: Type.Union( [ Type.Literal( 'directions' ), Type.Literal( 'layouts' ) ], {
@@ -41,11 +43,18 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 			),
 		},
 		async ( args ) => {
+			const count = canAskUser ? args.options : 1;
+			const seen = canAskUser ? shown[ args.catalog ] : [];
+			if ( loadDesignCatalog( args.catalog ).length - seen.length < count ) {
+				seen.length = 0;
+			}
 			const entries = drawDesignEntries( {
 				kind: args.catalog,
-				count: canAskUser ? args.options : 1,
+				count,
 				chosen: args.chosen?.map( ( entry ) => entry.name ),
+				shown: seen,
 			} );
+			seen.push( ...entries.map( ( entry ) => entry.name ) );
 			const { label } = DESIGN_CATALOGS[ args.catalog ];
 			const sections = entries.map(
 				( entry, index ) =>

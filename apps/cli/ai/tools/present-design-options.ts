@@ -13,6 +13,8 @@ import type { AskUserQuestion } from 'cli/ai/types';
 
 const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
 
+const OTHER_OPTIONS = 'Show other options';
+
 const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 	'.jpg': 'image/jpeg',
 	'.jpeg': 'image/jpeg',
@@ -65,7 +67,7 @@ export function createPresentDesignOptionsTool(
 ) {
 	return defineTool(
 		'present_design_options',
-		"Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a `preview`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated `image` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer. Use this only for the site design choices; ask everything else with AskUserQuestion.",
+		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. The first 1200×900 CSS pixels of each are rendered. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
 		{
 			question: Type.String( {
 				description: 'The question shown above the options, e.g. "Which look should I build?".',
@@ -136,7 +138,14 @@ export function createPresentDesignOptionsTool(
 				} )
 			);
 			const answers = await onAskUser( [
-				{ question: args.question, options, allowFreeForm: true },
+				{
+					question: args.question,
+					options: [
+						...options,
+						{ label: OTHER_OPTIONS, description: 'New ones, none of these again.' },
+					],
+					allowFreeForm: true,
+				},
 			] );
 			const answer = answers[ args.question ];
 			if ( ! answer ) {

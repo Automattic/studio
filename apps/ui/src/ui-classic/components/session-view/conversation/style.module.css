@@ -603,6 +603,10 @@
 	min-width: 0;
 }
 
+.questionOptions[data-layout='grid'] .questionOptionItem[data-wide='true'] {
+	grid-column: 1 / -1;
+}
+
 .questionOption[data-has-image='true'] {
 	display: grid;
 	grid-template-columns: auto 1fr;

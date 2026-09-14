@@ -900,7 +900,8 @@ function AgentQuestion( {
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
-	const hasImages = options.some( ( option ) => option.image );
+	const viewable = options.filter( ( option ) => option.image );
+	const hasImages = viewable.length > 0;
 	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
 	const [ viewing, setViewing ] = useState< number | null >( null );
 	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
@@ -937,6 +938,7 @@ function AgentQuestion( {
 								key={ index }
 								className={ styles.questionOptionItem }
 								data-picked={ picked ? 'true' : undefined }
+								data-wide={ hasImages && ! option.image ? 'true' : undefined }
 							>
 								<button
 									type="button"
@@ -948,9 +950,9 @@ function AgentQuestion( {
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
-									data-has-image={ hasImages ? 'true' : undefined }
+									data-has-image={ option.image ? 'true' : undefined }
 								>
-									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									{ option.image ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
@@ -976,7 +978,7 @@ function AgentQuestion( {
 											__( 'View %s larger' ),
 											option.label
 										) }
-										onClick={ () => setViewing( index ) }
+										onClick={ () => setViewing( viewable.indexOf( option ) ) }
 									/>
 								) : null }
 							</li>
@@ -986,7 +988,7 @@ function AgentQuestion( {
 			) : null }
 			{ hasImages ? (
 				<QuestionOptionViewer
-					options={ options }
+					options={ viewable }
 					index={ viewing }
 					onIndexChange={ setViewing }
 					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }

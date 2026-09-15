@@ -1,5 +1,6 @@
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
 import {
 	isAiProviderReady,
@@ -122,6 +123,31 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 		expect( runStudioAgentTurn ).toHaveBeenCalled();
 		expect( saveSelectedAiProvider ).toHaveBeenCalledTimes( 1 );
 		expect( saveSelectedAiProvider ).toHaveBeenCalledWith( 'wpcom' );
+	} );
+
+	it( 'waits for the quota-based default before pinning wpcom on first run', async () => {
+		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		( readAuthToken as Mock ).mockResolvedValue( { accessToken: 'wpcom-token' } );
+		( fetchStudioAssistantQuota as Mock ).mockImplementation(
+			() =>
+				new Promise( ( resolve ) =>
+					setTimeout( () => resolve( { purchasedRemaining: 100_000 } ), 10 )
+				)
+		);
+		const appendCustomEntry = vi.fn( ( _type: string, _data: { provider?: string } ) => 'id' );
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry,
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const pin = appendCustomEntry.mock.calls.find(
+			( [ type, data ] ) => type === 'studio.session_context' && data.provider !== undefined
+		);
+		expect( pin?.[ 1 ] ).toMatchObject( { provider: 'wpcom', model: 'balanced' } );
 	} );
 
 	it( 'does not override an already-configured provider', async () => {

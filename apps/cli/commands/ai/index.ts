@@ -369,6 +369,10 @@ export async function runCommand( options: {
 	}
 
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+		// The pin written below carries the model, so the quota-based default
+		// must be final first — otherwise an early switch durably records the
+		// static fallback for a paid account.
+		await wpcomDefaultModelResolution;
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 

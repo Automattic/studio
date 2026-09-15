@@ -8,6 +8,7 @@ import {
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
@@ -28,7 +29,10 @@ export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
 	signal?: AbortSignal,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
+	config?: Pick<
+		ServerConfig,
+		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+	>
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -55,6 +59,10 @@ $transformer->to_file( $wp_config_path );
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
+		// feed the WP_DEBUG expression above.
+		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
+		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
 	};
 	await ensurePhpBinaryAvailable( phpVersion );
 

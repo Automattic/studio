@@ -1,17 +1,27 @@
+import { randomUUID } from 'node:crypto';
 import { Type } from 'typebox';
 import {
 	DESIGN_CATALOGS,
 	DESIGN_OPTIONS,
 	drawDesignEntries,
+	findDesignEntry,
 	loadDesignCatalog,
 	MAX_CHOSEN_LAYOUTS,
 } from 'cli/ai/design-catalog';
+import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
+import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
 // Without a question tool (MCP, non-interactive runs) there is nobody to pick,
 // so the schema offers a single entry and a stray `options: 4` is coerced.
-export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) {
+export function createPickDesignTool( {
+	canAskUser,
+	tracks,
+}: {
+	canAskUser: boolean;
+	tracks?: DesignTracksContext;
+} ) {
 	const shown = { directions: [] as string[], layouts: [] as string[] };
 	return defineTool(
 		'pick_design',
@@ -45,6 +55,7 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 		async ( args ) => {
 			const count = canAskUser ? args.options : 1;
 			const seen = canAskUser ? shown[ args.catalog ] : [];
+			const isRedraw = seen.length > 0;
 			if ( loadDesignCatalog( args.catalog ).length - seen.length < count ) {
 				seen.length = 0;
 			}
@@ -55,6 +66,21 @@ export function createPickDesignTool( { canAskUser }: { canAskUser: boolean } ) 
 				shown: seen,
 			} );
 			seen.push( ...entries.map( ( entry ) => entry.name ) );
+			const chosen = new Set(
+				args.chosen?.map( ( entry ) => findDesignEntry( args.catalog, entry.name )?.name )
+			);
+			const drawId = randomUUID();
+			for ( const [ index, entry ] of entries.entries() ) {
+				await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PROPOSED, tracks, {
+					catalog: args.catalog,
+					option: entry.name,
+					position: index + 1,
+					is_chosen: chosen.has( entry.name ),
+					options_count: entries.length,
+					is_redraw: isRedraw,
+					draw_id: drawId,
+				} );
+			}
 			const { label } = DESIGN_CATALOGS[ args.catalog ];
 			const sections = entries.map(
 				( entry, index ) =>

@@ -686,9 +686,10 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
+	const tracks = { sessionId: config.session.getSessionId() };
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
-			? [ createPresentDesignOptionsTool( config.onAskUser ) as unknown as AgentToolAny ]
+			? [ createPresentDesignOptionsTool( config.onAskUser, tracks ) as unknown as AgentToolAny ]
 			: [];
 
 	const skillToolDef = createSkillTool();
@@ -739,6 +740,7 @@ function buildAgentTools(
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),
+		tracks,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
 }

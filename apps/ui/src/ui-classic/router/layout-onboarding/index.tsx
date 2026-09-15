@@ -87,7 +87,7 @@ export function OnboardingShellView( {
 	);
 }
 
-export function OnboardingShell() {
+function OnboardingShell() {
 	const navigate = useNavigate();
 	const pathname = useLocation( { select: ( location ) => location.pathname } );
 	const { data: sites } = useSites();

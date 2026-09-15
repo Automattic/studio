@@ -97,7 +97,7 @@ const sounds = {
 	},
 };
 
-export type SoundName = keyof typeof sounds;
+type SoundName = keyof typeof sounds;
 
 export function playSound( name: SoundName ) {
 	try {

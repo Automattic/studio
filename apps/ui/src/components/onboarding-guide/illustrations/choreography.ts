@@ -21,7 +21,7 @@ function prefersReducedMotion(): boolean {
 	);
 }
 
-export interface Timeline {
+interface Timeline {
 	/** Elapsed milliseconds: wraps at `duration` when looping, clamps otherwise. */
 	t: number;
 	/** Restart from zero (used by one-shot scenes' Replay control). */

@@ -3,18 +3,17 @@ import styles from './style.module.css';
 
 interface DotGridProps {
 	opacity?: number;
-	repulsion?: number;
-	rippleStrength?: number;
 	spacing?: number;
 	crossSize?: number;
 	crossThickness?: number;
 	className?: string;
-	active?: boolean;
 	// Set false to skip the corner reveal sweep and render the grid fully
 	// visible from the first frame.
 	intro?: boolean;
 }
 
+const REPULSION = 0.25;
+const RIPPLE_STRENGTH = 1;
 const SPRING_K = 0.07;
 const DAMPING = 0.8;
 const SLEEP_EPS = 0.08;
@@ -47,24 +46,19 @@ interface Ripple {
 
 export function DotGrid( {
 	opacity = 0.25,
-	repulsion = 0.25,
-	rippleStrength = 1,
 	spacing = 24,
 	crossSize = 4,
 	crossThickness = 0.75,
 	className,
-	active = true,
 	intro = true,
 }: DotGridProps ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
-	const setActiveRef = useRef< ( value: boolean ) => void >( () => {} );
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
 		if ( ! canvas ) return;
 
 		let ctx: CanvasRenderingContext2D | null = null;
-		let isActive = true;
 		let color = '';
 		let mouseX = -9999;
 		let mouseY = -9999;
@@ -129,8 +123,7 @@ export function DotGrid( {
 			}
 
 			const dampFactor = Math.pow( DAMPING, dt );
-			const cursorActive =
-				isActive && mouseX > -9998 && timestamp - lastPointerMove < CURSOR_IDLE_MS;
+			const cursorActive = mouseX > -9998 && timestamp - lastPointerMove < CURSOR_IDLE_MS;
 			let anyActive = false;
 
 			for ( let r = 0; r < rows; r++ ) {
@@ -151,7 +144,7 @@ export function DotGrid( {
 						const ddy = cy2 - mouseY;
 						const dist = Math.sqrt( ddx * ddx + ddy * ddy );
 						if ( dist < currentRadius && dist > 0.5 ) {
-							const force = ( repulsion * ( 1 - dist / currentRadius ) ) / dist;
+							const force = ( REPULSION * ( 1 - dist / currentRadius ) ) / dist;
 							dvx += force * ddx * dt;
 							dvy += force * ddy * dt;
 						}
@@ -166,7 +159,7 @@ export function DotGrid( {
 						if ( dist > 0.5 ) {
 							const delta = dist - ripple.radius;
 							const falloff = Math.exp( -0.5 * ( delta / RIPPLE_HALF_WIDTH ) ** 2 );
-							const force = ( rippleStrength * falloff ) / dist;
+							const force = ( RIPPLE_STRENGTH * falloff ) / dist;
 							dvx += force * ddx * dt;
 							dvy += force * ddy * dt;
 						}
@@ -328,7 +321,7 @@ export function DotGrid( {
 		}
 
 		function onMouseMove( e: MouseEvent ) {
-			if ( ! canvas || ! isActive ) return;
+			if ( ! canvas ) return;
 			const rect = canvas.getBoundingClientRect();
 			const x = e.clientX - rect.left;
 			const y = e.clientY - rect.top;
@@ -348,7 +341,7 @@ export function DotGrid( {
 		}
 
 		function onMouseDown( e: MouseEvent ) {
-			if ( ! canvas || ! isActive ) return;
+			if ( ! canvas ) return;
 			const rect = canvas.getBoundingClientRect();
 			const x = e.clientX - rect.left;
 			const y = e.clientY - rect.top;
@@ -360,7 +353,7 @@ export function DotGrid( {
 		}
 
 		function onMouseUp( e: MouseEvent ) {
-			if ( ! canvas || ! isActive ) return;
+			if ( ! canvas ) return;
 			targetRadius = RADIUS_BASE;
 			lastPointerMove = performance.now();
 			if ( mouseX > -9998 ) {
@@ -377,19 +370,6 @@ export function DotGrid( {
 			}
 			ensureLoop();
 		}
-
-		setActiveRef.current = ( value: boolean ) => {
-			if ( isActive === value ) return;
-			isActive = value;
-			if ( ! value ) {
-				// Forget the cursor and any pressed state so the springs settle
-				// to rest in a few frames and the loop goes to sleep.
-				mouseX = -9999;
-				mouseY = -9999;
-				targetRadius = RADIUS_BASE;
-			}
-			ensureLoop();
-		};
 
 		resize();
 
@@ -414,7 +394,6 @@ export function DotGrid( {
 
 		return () => {
 			if ( rafId !== null ) cancelAnimationFrame( rafId );
-			setActiveRef.current = () => {};
 			document.removeEventListener( 'mousemove', onMouseMove );
 			document.removeEventListener( 'mousedown', onMouseDown );
 			document.removeEventListener( 'mouseup', onMouseUp );
@@ -423,11 +402,7 @@ export function DotGrid( {
 			resizeObserver.disconnect();
 			mediaQuery.removeEventListener( 'change', onColorChange );
 		};
-	}, [ spacing, repulsion, rippleStrength, crossSize, crossThickness, intro ] );
-
-	useEffect( () => {
-		setActiveRef.current( active );
-	}, [ active ] );
+	}, [ spacing, crossSize, crossThickness, intro ] );
 
 	return (
 		<canvas

@@ -20,7 +20,7 @@ import { EmptyBackground } from '../../components/session-view/empty-background'
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 
-export function WelcomePage() {
+function WelcomePage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const logout = useLogout();

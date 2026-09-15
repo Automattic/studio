@@ -76,7 +76,7 @@ function initState(): GameState {
 	};
 }
 
-export interface GameOptions {
+interface GameOptions {
 	// Called once when the player reaches the flag, with the final score.
 	onWin?: ( score: number ) => void;
 }

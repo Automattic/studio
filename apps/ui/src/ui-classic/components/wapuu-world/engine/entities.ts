@@ -2,7 +2,7 @@ import { TILE_SIZE, getTile, isSolid, LEVEL_MAP } from './level';
 
 export const INITIAL_LIVES = 3;
 
-export interface Rect {
+interface Rect {
 	x: number;
 	y: number;
 	w: number;
@@ -80,7 +80,7 @@ export function createPlayer( x: number, y: number ): Player {
 	};
 }
 
-export function createEnemy( x: number, y: number ): Enemy {
+function createEnemy( x: number, y: number ): Enemy {
 	return {
 		x,
 		y,
@@ -98,7 +98,7 @@ export function createEnemy( x: number, y: number ): Enemy {
 	};
 }
 
-export function createMguy( x: number, y: number ): Enemy {
+function createMguy( x: number, y: number ): Enemy {
 	return {
 		x,
 		y,
@@ -116,7 +116,7 @@ export function createMguy( x: number, y: number ): Enemy {
 	};
 }
 
-export function createCollectible( x: number, y: number ): Collectible {
+function createCollectible( x: number, y: number ): Collectible {
 	return { x, y, w: 20, h: 20, collected: false, animFrame: 0, animTimer: 0 };
 }
 

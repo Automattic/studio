@@ -14,10 +14,6 @@ function getPlatform(): string {
 	return 'linux';
 }
 
-export function isMac() {
-	return getPlatform() === 'darwin';
-}
-
 export function isWindows() {
 	return getPlatform() === 'win32';
 }

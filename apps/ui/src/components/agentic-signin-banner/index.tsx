@@ -114,7 +114,7 @@ function Stage( {
 	return (
 		<div
 			ref={ ref }
-			className={ clsx( styles.stage, paused && styles.stagePaused ) }
+			className={ styles.stage }
 			style={ { '--stage-scale': scale } as CSSProperties }
 		>
 			{ /* The playback is a picture, not a UI: the slides take no pointer events. */ }

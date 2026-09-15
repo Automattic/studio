@@ -63,7 +63,7 @@ export function getRealmNavigationPath( path: string, siteUrl: string ): string 
 	}
 }
 
-export type OmniboxIntent = { type: 'path'; path: string } | { type: 'search'; term: string };
+type OmniboxIntent = { type: 'path'; path: string } | { type: 'search'; term: string };
 
 export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent | null {
 	const value = raw.trim();

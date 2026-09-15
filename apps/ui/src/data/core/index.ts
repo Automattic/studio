@@ -40,6 +40,7 @@ export type {
 	StudioToolProgressData,
 	StudioTurnClosedData,
 	StudioUserPromptData,
+	StudioVisualAnnotationSummary,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,

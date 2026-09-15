@@ -26,6 +26,7 @@ import type {
 	StudioChatFileAttachment,
 	StudioChatImage,
 	StudioCustomEntry,
+	StudioVisualAnnotationSummary,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -52,12 +53,14 @@ export interface QueuedPrompt {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface LiveAgentEvents {
@@ -544,6 +547,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const displayMessage = options.displayMessage ?? prompt;
 			const images = options.images ?? [];
 			const files = options.files ?? [];
+			const visualAnnotations = options.visualAnnotations;
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
@@ -557,6 +561,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					text: displayMessage,
 					source: 'prompt',
 					attachments: buildChatAttachmentSummaries( images, files ),
+					visualAnnotations,
 				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
@@ -568,6 +573,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					displayMessage,
 					images,
 					files,
+					visualAnnotations,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -804,6 +810,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					displayMessage: next.displayMessage,
 					images: next.images,
 					files: next.files,
+					visualAnnotations: next.visualAnnotations,
 				} );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -830,6 +837,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						displayMessage: options.displayMessage,
 						images: options.images,
 						files: options.files,
+						visualAnnotations: options.visualAnnotations,
 					},
 				} );
 				return;

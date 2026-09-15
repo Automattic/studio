@@ -97,6 +97,7 @@ import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -112,6 +113,7 @@ type RenderItem =
 			key: string;
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
+			annotation?: StudioVisualAnnotationSummary;
 	  }
 	| { kind: 'assistant-text'; key: string; text: string; messageText: string; copyText?: string }
 	| {
@@ -264,6 +266,17 @@ export function entriesToRenderItems(
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
+			if ( data.visualAnnotations?.length ) {
+				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
+					items.push( {
+						kind: 'user-text',
+						key: `${ entryIndex }:annotation:${ annotationIndex }`,
+						text: annotation.comment,
+						annotation,
+					} );
+				} );
+				continue;
+			}
 			items.push( {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,
@@ -422,13 +435,26 @@ export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
 function UserTurn( {
 	text,
 	attachments,
+	annotation,
 }: {
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
+	annotation?: StudioVisualAnnotationSummary;
 } ) {
 	return (
 		<div className={ styles.userTurn } { ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text } }>
 			<div className={ styles.userText }>{ text }</div>
+			{ annotation ? (
+				<div className={ styles.annotationAttachment }>
+					<span className={ styles.annotationElementTag }>
+						{ annotation.elementLabel ??
+							( annotation.tag ? `<${ annotation.tag }>` : __( 'Element' ) ) }
+					</span>
+					{ annotation.nearbyText ? (
+						<span className={ styles.annotationElementText }>{ annotation.nearbyText }</span>
+					) : null }
+				</div>
+			) : null }
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
 					{ attachments.map( ( attachment, index ) =>
@@ -1577,7 +1603,12 @@ export function Conversation( {
 				switch ( item.kind ) {
 					case 'user-text':
 						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+							<UserTurn
+								key={ item.key }
+								text={ item.text }
+								attachments={ item.attachments }
+								annotation={ item.annotation }
+							/>
 						);
 					case 'assistant-text':
 						return (

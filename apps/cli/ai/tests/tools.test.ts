@@ -1506,6 +1506,37 @@ describe( 'Studio AI MCP tools', () => {
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
 		} );
 
+		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
+			await writeFile(
+				path.join( tempSiteRoot, 'DESIGN.md' ),
+				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n---\n'
+			);
+
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				activate: false,
+			} as never );
+
+			const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' );
+			const themeJson = JSON.parse( await readFile( path.join( themeDir, 'theme.json' ), 'utf8' ) );
+			expect( themeJson.settings.color.palette ).toEqual( [
+				{ slug: 'primary', color: '#e2231a', name: 'Primary' },
+			] );
+			expect( themeJson.settings.layout ).toEqual( { contentSize: '1000px', wideSize: '1280px' } );
+			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+			expect( functionsPhp ).toContain(
+				"wp_enqueue_style( 'acme-studio-fonts', 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap', array(), null );"
+			);
+			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
+			expect( functionsPhp ).toContain(
+				"add_editor_style( 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap' );"
+			);
+			expect( getTextContent( result ) ).toContain(
+				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 1 text style, 0 spacing steps)'
+			);
+		} );
+
 		it( 'honors an explicit slug argument over the derived one', async () => {
 			await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,

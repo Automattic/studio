@@ -399,7 +399,7 @@ export function SigninAnnotateIllustration( { playback }: { playback?: Playback 
 													styles.annoPopupPressed
 											) }
 										>
-											{ __( 'Save' ) }
+											{ __( 'Add note' ) }
 										</span>
 										<span
 											className={ clsx(
@@ -409,7 +409,7 @@ export function SigninAnnotateIllustration( { playback }: { playback?: Playback 
 													styles.annoPopupPressed
 											) }
 										>
-											{ __( 'Send to chat' ) }
+											{ __( 'Send 3 notes' ) }
 										</span>
 									</span>
 								</div>

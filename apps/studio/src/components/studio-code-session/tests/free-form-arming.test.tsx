@@ -16,6 +16,11 @@ const { mockIpc } = vi.hoisted( () => ( {
 		markAiMessageEdited: vi.fn(),
 		readLocalMediaFile: vi.fn(),
 		copyText: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	},
 } ) );
 

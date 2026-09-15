@@ -113,3 +113,45 @@ describe( 'runPhpCommand', () => {
 		expect( result.stdout ).toBe( 'wordpress installed' );
 	} );
 } );
+
+describe( 'spawnPhpProcess environment', () => {
+	beforeEach( () => {
+		vi.resetModules();
+		spawnMock.mockReset();
+	} );
+
+	// Windows kills the child with 0xC0000409 when the environment block overflows 32767
+	// characters, so an oversized inherited variable has to be dropped before spawning.
+	it( 'drops oversized inherited variables but keeps the rest', async () => {
+		const { spawnPhpProcess } = await import( 'cli/lib/native-php/php-process' );
+		const { withoutOversizedEnvValues } = await import( 'cli/lib/child-env' );
+		vi.stubEnv( 'BUILDKITE_MESSAGE', 'x'.repeat( 9_000 ) );
+		vi.stubEnv( 'PATH', '/usr/bin' );
+		spawnMock.mockReturnValue( createFakeChild() );
+
+		spawnPhpProcess( [ '-r', 'echo 1;' ], { phpVersion: '8.4' } );
+
+		const spawnedEnv = spawnMock.mock.calls[ 0 ][ 2 ].env;
+		expect( spawnedEnv ).not.toHaveProperty( 'BUILDKITE_MESSAGE' );
+		expect( spawnedEnv.PATH ).toBe( '/usr/bin' );
+		expect( withoutOversizedEnvValues( { small: 'ok' } ) ).toEqual( { small: 'ok' } );
+		vi.unstubAllEnvs();
+	} );
+
+	// The Blueprint runner injects a PATH so blueprints.phar can shell out to the bundled PHP.
+	it( 'keeps an explicit env override from the caller', async () => {
+		const { spawnPhpProcess } = await import( 'cli/lib/native-php/php-process' );
+		vi.stubEnv( 'BUILDKITE_MESSAGE', 'x'.repeat( 9_000 ) );
+		spawnMock.mockReturnValue( createFakeChild() );
+
+		spawnPhpProcess( [ 'blueprints.phar' ], {
+			phpVersion: '8.4',
+			env: { PATH: '/bundled/php' },
+		} );
+
+		const spawnedEnv = spawnMock.mock.calls[ 0 ][ 2 ].env;
+		expect( spawnedEnv.PATH ).toBe( '/bundled/php' );
+		expect( spawnedEnv ).not.toHaveProperty( 'BUILDKITE_MESSAGE' );
+		vi.unstubAllEnvs();
+	} );
+} );

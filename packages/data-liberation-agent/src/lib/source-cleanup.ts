@@ -1,0 +1,238 @@
+import type { Page } from 'playwright';
+
+export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v1';
+export interface CleanupRule {
+  id: string;
+  category: 'advertisement' | 'source-attribution';
+  selector: string;
+  /** Credit links remove their attribution phrase, retaining owner footer text. */
+  credit?: boolean;
+  /** Generic acquisition bars require explicit promotion language. */
+  promotion?: boolean;
+  /** Adapter-owned brand spelling for plain-text footer credit removal. */
+  creditText?: string;
+  hosts?: string[];
+}
+export interface CleanupPolicy {
+  schema: typeof CLEANUP_SCHEMA;
+  rules: CleanupRule[];
+  promotion: { text: string; signup: string };
+}
+
+const PROMOTION_PATTERNS = {
+  text: '\\bpowered by\\b|\\bcreate your own (?:unique )?website\\b',
+  signup: '\\b(?:sign[ -]?up|get started|start (?:your|a) (?:site|website))\\b',
+};
+
+/** Shared recognition for live cleanup, overlay classification and old exports. */
+export function isSourcePromotion(text: string): boolean {
+  return new RegExp(PROMOTION_PATTERNS.text, 'i').test(text) && new RegExp(PROMOTION_PATTERNS.signup, 'i').test(text);
+}
+export interface CleanupRecord {
+  rule: string;
+  category: CleanupRule['category'];
+  selector: string;
+  text: string;
+  action: 'remove' | 'remove-credit-text';
+  reclaimedBodyPadding: boolean;
+}
+export interface CleanupReport {
+  url: string;
+  viewport: number;
+  removed: number;
+  records: CleanupRecord[];
+  truncated: boolean;
+  failures: string[];
+  residual: number;
+  unknowns?: string[];
+}
+
+const AD_RULES: CleanupRule[] = [
+  { id: 'ad-slots', category: 'advertisement', selector: '.adsbygoogle,[data-ad-slot],[data-ad-unit],[data-ad-client],[data-google-query-id],[id^="div-gpt-ad"],.ad-slot,.ad-container,.advertisement,.OUTBRAIN,.trc_rbox_container,[aria-label="Advertisement" i],[aria-label="Advertisements" i]' },
+  { id: 'ad-frames', category: 'advertisement', selector: 'iframe[id^="google_ads_iframe"],iframe[id^="aswift_"]' },
+  { id: 'ad-network', category: 'advertisement', selector: 'iframe[src],script[src]', hosts: ['googlesyndication.com', 'doubleclick.net', 'ads.yahoo.com', 'adnxs.com'] },
+  { id: 'provider-acquisition', category: 'source-attribution', selector: 'body > div,body > aside,footer > div', promotion: true },
+];
+
+export function cleanupPolicy(rules: CleanupRule[] = []): CleanupPolicy {
+  return { schema: CLEANUP_SCHEMA, rules: [...AD_RULES, ...rules], promotion: { ...PROMOTION_PATTERNS } };
+}
+
+/** Source adapters supply identity; the matching/removal mechanism is shared. */
+export function providerCreditRules(id: string, hosts: string[], brand: string): CleanupRule[] {
+  return [
+    { id: `${id}-credit`, category: 'source-attribution', selector: 'a[href]', hosts, credit: true },
+    { id: `${id}-credit-text`, category: 'source-attribution', selector: 'footer,[role="contentinfo"]', creditText: brand },
+  ];
+}
+
+export function validateCleanupPolicy(value: unknown): asserts value is CleanupPolicy {
+  const policy = value as CleanupPolicy;
+  if (!policy || policy.schema !== CLEANUP_SCHEMA || policy.promotion?.text !== PROMOTION_PATTERNS.text ||
+    policy.promotion?.signup !== PROMOTION_PATTERNS.signup || !Array.isArray(policy.rules) || policy.rules.length > 100 ||
+    policy.rules.some((rule) => !rule || typeof rule.id !== 'string' || typeof rule.selector !== 'string' ||
+      rule.selector.length > 2000 || !['advertisement', 'source-attribution'].includes(rule.category) ||
+      (rule.creditText !== undefined && (typeof rule.creditText !== 'string' || rule.creditText.length > 100)) ||
+      (rule.hosts !== undefined && (!Array.isArray(rule.hosts) || rule.hosts.some((host) => typeof host !== 'string'))))) {
+    throw new Error('Unsupported or invalid source cleanup policy; recapture with a supported policy');
+  }
+}
+
+/** This function is serialized into the page. All policy and mechanics live
+ * here so live capture and comparison use identical removal/reflow behavior. */
+export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
+  type State = { report: CleanupReport; observer: MutationObserver; sweep: () => void };
+  const host = window as unknown as { __dlaCleanup?: State };
+  host.__dlaCleanup?.observer.disconnect();
+  const report: CleanupReport = { url: location.href, viewport: innerWidth, removed: 0, records: [], truncated: false, failures: [], residual: 0 };
+  const creditPhrase = /(?:powered by|built (?:with|on|by)|created (?:with|using)|website (?:by|built with)|proudly created with)\s*/i;
+  const ownerContent = /©|copyright|all rights reserved/i;
+  const promotionText = new RegExp(policy.promotion.text, 'i');
+  const promotionSignup = new RegExp(policy.promotion.signup, 'i');
+  const selectorFor = (node: Element) => {
+    const parts: string[] = [];
+    let current: Element | null = node;
+    while (current && parts.length < 6) {
+      if (current.id) { parts.unshift(`#${CSS.escape(current.id.slice(0, 120))}`); break; }
+      const siblings: Element[] = current.parentElement ? [...current.parentElement.children] : [];
+      parts.unshift(`${current.tagName.toLowerCase()}:nth-child(${siblings.indexOf(current) + 1})`);
+      current = current.parentElement;
+    }
+    return parts.join(' > ');
+  };
+  const eligible = (node: Element, rule: CleanupRule) => {
+    if (rule.hosts) {
+      let host: string;
+      try { host = new URL(node.getAttribute('href') ?? node.getAttribute('src') ?? '', location.href).hostname; }
+      catch { return false; }
+      if (!rule.hosts.some((domain) => host === domain || host.endsWith(`.${domain}`))) return false;
+    }
+    if (rule.promotion) {
+      const text = node.textContent ?? '';
+      return getComputedStyle(node).position === 'fixed' && text.length < 600 &&
+        promotionText.test(text) && promotionSignup.test(text);
+    }
+    if (rule.credit) {
+      const text = node.parentElement?.textContent ?? node.textContent ?? '';
+      if (node.closest('article,main') && !node.closest('footer,[role="contentinfo"]')) return false;
+      return creditPhrase.test(text) && text.length < 1000;
+    }
+    return true;
+  };
+  const sweep = () => {
+    for (const rule of policy.rules) {
+      let matches: NodeListOf<Element>;
+      try { matches = document.querySelectorAll(rule.selector); }
+      catch { if (!report.failures.includes(rule.id)) report.failures.push(rule.id); continue; }
+      for (const match of matches) {
+        if (!match.isConnected || !eligible(match, rule)) continue;
+        if (report.removed >= 1000) { report.truncated = true; report.residual++; return; }
+        if (rule.creditText) {
+          const brand = rule.creditText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const expression = new RegExp(`(?:proudly\\s+)?(?:powered by|built (?:with|on|by)|created (?:with|using)|website by)\\s+${brand}(?:\\.com)?\\b[.!]?`, 'gi');
+          const walker = document.createTreeWalker(match, NodeFilter.SHOW_TEXT);
+          const nodes: Array<{ node: Node; start: number; text: string }> = [];
+          let content = '';
+          let text: Node | null;
+          while ((text = walker.nextNode())) {
+            if (text.parentElement?.closest('script,style,noscript')) continue;
+            const value = text.textContent ?? '';
+            nodes.push({ node: text, start: content.length, text: value });
+            content += value;
+          }
+          // Credit phrases often span styled spans and an anchor. Remove only
+          // their text ranges, preserving surrounding copyright and markup.
+          for (const found of [...content.matchAll(expression)].reverse()) {
+            if (report.removed >= 1000) { report.truncated = true; report.residual++; return; }
+            const start = found.index;
+            const end = start + found[0].length;
+            for (const item of nodes) {
+              const from = Math.max(0, start - item.start);
+              const to = Math.min(item.text.length, end - item.start);
+              if (from >= to) continue;
+              const value = item.node.textContent ?? '';
+              item.node.textContent = value.slice(0, from) + value.slice(to);
+              const anchor = item.node.parentElement?.closest('a');
+              if (anchor && !anchor.textContent?.trim() && !anchor.querySelector('img,svg')) anchor.remove();
+            }
+            report.removed++;
+            if (report.records.length < 200) report.records.push({ rule: rule.id, category: rule.category, selector: selectorFor(match), text: found[0].slice(0, 160), action: 'remove-credit-text', reclaimedBodyPadding: false });
+            else report.truncated = true;
+          }
+          continue;
+        }
+        let node = match;
+        if (rule.credit) {
+          // Remove a dedicated credit line, but never the owner's whole footer.
+          const parent = node.parentElement;
+          if (parent && /^(P|SPAN|DIV)$/.test(parent.tagName) &&
+            (parent.textContent?.length ?? 0) < 240 && creditPhrase.test(parent.textContent ?? '') &&
+            !ownerContent.test(parent.textContent ?? '') && parent.querySelectorAll('a').length === 1 &&
+            !parent.querySelector('img,video,form,input,button')) node = parent;
+          else {
+            const previous = node.previousSibling;
+            if (previous?.nodeType === Node.TEXT_NODE) previous.textContent = (previous.textContent ?? '').replace(/(?:powered by|built (?:with|on|by)|created (?:with|using)|proudly created with)\s*$/i, '');
+          }
+        }
+        const rect = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        let reclaimedBodyPadding = false;
+        if (style.position === 'fixed') {
+          for (const side of ['top', 'bottom'] as const) {
+            const property = side === 'top' ? 'padding-top' : 'padding-bottom';
+            if (parseFloat(style[side]) === 0 && rect.height > 0 &&
+              Math.abs(parseFloat(getComputedStyle(document.body).getPropertyValue(property)) - rect.height) < 1) {
+              document.body.style.setProperty(property, '0px', 'important');
+              reclaimedBodyPadding = true;
+            }
+          }
+        }
+        if (report.records.length < 200) report.records.push({ rule: rule.id, category: rule.category,
+          selector: selectorFor(node), text: (node.textContent ?? '').trim().slice(0, 160), action: 'remove', reclaimedBodyPadding });
+        else report.truncated = true;
+        let parent = node.parentElement;
+        node.remove();
+        report.removed++;
+        // Reclaim an ad-only wrapper, never a content landmark or mixed container.
+        if (rule.category === 'advertisement') for (let depth = 0; depth < 4 && parent; depth++) {
+          if (!/^(DIV|SPAN|ASIDE)$/.test(parent.tagName) || parent.children.length ||
+            !/^(?:advertisement|advertising|sponsored)?$/i.test((parent.textContent ?? '').trim())) break;
+          const ancestor = parent.parentElement;
+          parent.remove();
+          parent = ancestor;
+        }
+      }
+    }
+  };
+  sweep();
+  let scheduled = false;
+  let rounds = 0;
+  const observer = new MutationObserver(() => {
+    if (scheduled) return;
+    if (++rounds > 100) { report.truncated = true; report.failures.push('mutation-budget'); observer.disconnect(); return; }
+    scheduled = true;
+    queueMicrotask(() => { scheduled = false; sweep(); });
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'src', 'href', 'data-ad-slot'] });
+  host.__dlaCleanup = { report, observer, sweep };
+  return report;
+}
+
+export async function applySourceCleanup(page: Page, policy: CleanupPolicy): Promise<CleanupReport> {
+  validateCleanupPolicy(policy);
+  return page.evaluate(installCleanupInPage, policy);
+}
+
+export async function readSourceCleanup(page: Page): Promise<CleanupReport> {
+  return page.evaluate(() => {
+    const state = (window as unknown as { __dlaCleanup?: { report: CleanupReport; sweep: () => void } }).__dlaCleanup;
+    if (!state) throw new Error('Source cleanup evidence is missing');
+    state.sweep();
+    state.report.unknowns = [];
+    const frames = document.querySelectorAll('iframe,object,embed').length;
+    if (frames) state.report.unknowns.push(`${frames} retained embedded surface(s) were not inspected internally for advertising`);
+    const shadows = [...document.querySelectorAll('*')].filter((node) => node.shadowRoot).length;
+    if (shadows) state.report.unknowns.push(`${shadows} shadow root(s) were not inspected internally`);
+    return state.report;
+  });
+}

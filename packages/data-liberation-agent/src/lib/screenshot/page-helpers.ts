@@ -1,5 +1,6 @@
 import type { Page, Request } from 'playwright';
 import { expandCollapsedContent, waitForAppWidgets } from './dynamic-content.js';
+import { isSourcePromotion } from '../source-cleanup.js';
 
 /**
  * Wait for a page to reach a stable state after load.
@@ -354,8 +355,6 @@ export function scoreOverlay(
 
 const CONSENT_TEXT_RE = /\bcookies?\b|\bconsent\b|\bgdpr\b|\bccpa\b|\baccept all\b|privacy (policy|preferences)/i;
 const CONSENT_VENDOR_RE = /onetrust|cookiebot|usercentrics|termly|osano|trustarc|cookieyes/i;
-const PROVIDER_PROMOTION_TEXT_RE = /\bpowered by\b|\bcreate your own (?:unique )?website\b/i;
-const PROVIDER_SIGNUP_RE = /\b(?:sign[ -]?up|get started|start (?:your|a) (?:site|website))\b/i;
 
 /**
  * A looser, separate classifier for cookie/consent banners. They frequently do
@@ -370,7 +369,7 @@ export function isConsentBanner(c: OverlayCandidate): boolean {
 /** Hosting-platform acquisition chrome is not authored site content. */
 export function isProviderPromotion(c: OverlayCandidate): boolean {
   const hay = `${c.text} ${c.ariaLabel ?? ''} ${c.selector}`;
-  return c.coverageRatio < 0.25 && PROVIDER_PROMOTION_TEXT_RE.test(hay) && PROVIDER_SIGNUP_RE.test(hay);
+  return c.coverageRatio < 0.25 && isSourcePromotion(hay);
 }
 
 /**

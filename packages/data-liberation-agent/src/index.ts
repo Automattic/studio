@@ -44,4 +44,10 @@ export type {
 	RegisterPlatformOptions,
 } from './platform/types.js';
 export type { LiberationHooks, LiberationContext } from './adapters/page-actions.js';
+export { cleanupPolicy, providerCreditRules, CLEANUP_SCHEMA } from './lib/source-cleanup.js';
+export type { CleanupRule, CleanupPolicy, CleanupReport, CleanupRecord } from './lib/source-cleanup.js';
+export { registerPublishTarget, unregisterPublishTarget, findPublishTarget, publishTargetNames, PublishError } from './lib/publish/index.js';
+export type { PublishTarget, PublishOptions, PublishResult } from './lib/publish/types.js';
+export { publishSite } from './ui/publish.js';
 export type { InspectOptions, InspectionIssue, SourceInspection } from './lib/inspect.js';
+export type { CapabilityRule, SourceCapability, RenderedInspection, SourceComplexity } from './lib/inspect-rendered.js';

@@ -4,6 +4,7 @@ import type { DismissedOverlay } from './page-helpers.js';
 import type { InteractionStatesReport } from './interaction-capture.js';
 
 export interface ManifestEntry {
+  cleanup?: { policy: import('../source-cleanup.js').CleanupPolicy; reports: import('../source-cleanup.js').CleanupReport[] };
   slug: string;
   desktop?: string;          // path to screenshots/desktop/<slug>.png
   desktopScrolled?: string;  // path to scrolled variant

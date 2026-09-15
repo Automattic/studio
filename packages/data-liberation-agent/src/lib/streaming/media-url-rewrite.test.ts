@@ -50,11 +50,33 @@ describe('rewriteMediaUrls', () => {
     expect(out).toContain('https://cdn/unknown.jpg');
   });
 
+  it('rewrites HTML-escaped media queries while preserving replacement query encoding', () => {
+    const source = 'https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&width=600';
+    const map = new Map([[source, '/media/photo.jpg?version=1&format=webp']]);
+    const input = '<style>.hero{background:url("https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&width=600")}</style><div style="background:url(&quot;https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600&quot;)"></div><img src="https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600">';
+    const onMissing = vi.fn();
+
+    expect(rewriteMediaUrls(input, map, { onMissing })).toBe(
+      '<style>.hero{background:url("/media/photo.jpg?version=1&format=webp")}</style><div style="background:url(&quot;/media/photo.jpg?version=1&amp;format=webp&quot;)"></div><img src="/media/photo.jpg?version=1&amp;format=webp">',
+    );
+    expect(onMissing).not.toHaveBeenCalled();
+  });
+
   it('ignores a root-path mapping that would rewrite every slash', () => {
     const html = '<link rel="icon" href="https://cdn.example/favicon.ico" type="image/x-icon"><img src="/"><a href="/about/">About</a>';
     const map = new Map([['/', 'https://example.com/']]);
 
     expect(rewriteMediaUrls(html, map)).toBe(html);
+  });
+
+  it('does not rewrite an emitted local path through a relative source alias', () => {
+    const map = new Map([
+      ['https://example.com/hero.png', '/media/hero.png'],
+      ['/hero.png', '/media/hero.png'],
+    ]);
+    expect(rewriteMediaUrls('<img src="https://example.com/hero.png">', map)).toBe(
+      '<img src="/media/hero.png">',
+    );
   });
 
   it('reports unmapped URLs via onMissing callback', () => {

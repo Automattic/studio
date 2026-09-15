@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { inspectSource } from './inspect.js';
+import { inspectSource as inspect, type InspectOptions } from './inspect.js';
+const inspectSource = (url: string, options: InspectOptions = {}) => inspect(url, { rendered: false, ...options });
 
 const CLI = fileURLToPath(new URL('../cli.ts', import.meta.url));
 let server: Server | undefined;
@@ -29,7 +30,7 @@ afterEach(async () => {
 
 function runCli(url: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['tsx', CLI, 'inspect', url, '--discovery-limit', '3', '--sample-limit', '2'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn('npx', ['tsx', CLI, 'inspect', url, '--http-only', '--discovery-limit', '3', '--sample-limit', '2'], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => { stdout += String(chunk); });
@@ -44,7 +45,7 @@ describe('inspectSource', () => {
     const url = await fixture();
     const result = await inspectSource(url, { discoveryLimit: 3, sampleLimit: 2 });
 
-    expect(result.schemaVersion).toBe('1.0');
+    expect(result.schemaVersion).toBe('2.0');
     expect(result.coverage.discovery).toEqual({ routes: 3, limit: 3, truncated: true });
     expect(result.coverage.sampling).toEqual({ routes: 2, attempted: 2, succeeded: 2, failed: 0, limit: 2, truncated: true, complete: false });
     expect(result.routes.types).toEqual({ homepage: 1, post: 1, product: 1 });
@@ -62,7 +63,7 @@ describe('inspectSource', () => {
     const result = await runCli(url);
     expect(result.code).toBe(0);
     expect(result.stderr).toContain('Inspecting entry route');
-    expect(JSON.parse(result.stdout)).toMatchObject({ schemaVersion: '1.0', coverage: { discovery: { limit: 3 }, sampling: { limit: 2 } } });
+    expect(JSON.parse(result.stdout)).toMatchObject({ schemaVersion: '2.0', complexity: { band: 'unknown' }, coverage: { discovery: { limit: 3 }, sampling: { limit: 2 } } });
   }, 30_000);
 
   it('does not sample nested sitemap documents and preserves distinct route URLs', async () => {

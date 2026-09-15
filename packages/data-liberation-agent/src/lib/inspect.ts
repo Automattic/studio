@@ -4,8 +4,10 @@ import { parseSitemapDocument } from './extraction/sitemap.js';
 import { extractNavLinks } from './html-extract/index.js';
 import { safeFetch } from './media-fetch/safe-fetch.js';
 import { detectFromDocument } from './detect-platform/index.js';
+import { resolvePlatform } from '../platform/registry.js';
+import { createRenderedInspector, sourceComplexity, type RenderedInspection, type SourceComplexity } from './inspect-rendered.js';
 
-export const INSPECTION_SCHEMA_VERSION = '1.0';
+export const INSPECTION_SCHEMA_VERSION = '2.0';
 
 const DEFAULT_DISCOVERY_LIMIT = 50;
 const DEFAULT_SAMPLE_LIMIT = 5;
@@ -13,6 +15,8 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_OVERALL_TIMEOUT_MS = 30_000;
 
 export interface InspectOptions {
+  /** Render sampled routes by default; false retains the lightweight HTTP lane. */
+  rendered?: boolean;
   discoveryLimit?: number;
   sampleLimit?: number;
   requestTimeoutMs?: number;
@@ -28,6 +32,8 @@ export interface InspectionIssue {
 
 export interface SourceInspection {
   schemaVersion: typeof INSPECTION_SCHEMA_VERSION;
+  complexity: SourceComplexity;
+  rendered: { enabled: boolean; attempted: number; succeeded: number; samples: RenderedInspection[] };
   source: {
     requestedUrl: string;
     finalUrl: string;
@@ -185,6 +191,15 @@ export async function inspectSource(url: string, options: InspectOptions = {}): 
 
   const samples: SourceInspection['samples'] = [];
   let failedSamples = 0;
+  const detection = detectFromDocument(finalUrl, entry.headers, isHtml(entry.headers.get('content-type')) ? entryHtml : '');
+  const renderedSamples: RenderedInspection[] = [];
+  let renderedAttempts = 0;
+  let inspector: Awaited<ReturnType<typeof createRenderedInspector>> | undefined;
+  if (options.rendered !== false) {
+    try { inspector = await createRenderedInspector(deadline, requestTimeoutMs); }
+    catch (error) { issues.push({ code: 'browser-unavailable', message: error instanceof Error ? error.message : String(error) }); }
+  }
+  try {
   for (const route of selected) {
     try {
       const response = route.url === finalUrl ? entry : await fetchBounded(route.url);
@@ -202,17 +217,34 @@ export async function inspectSource(url: string, options: InspectOptions = {}): 
       });
       if (!successful) issues.push({ code: 'sample-http-status', message: `Sample returned HTTP ${response.status}`, url: response.finalUrl });
       if (outcome === 'non-html') issues.push({ code: 'sample-non-html', message: `Sample content type ${contentType ?? 'unknown'} was not HTML`, url: response.finalUrl });
+      if (html && inspector) {
+        renderedAttempts++;
+        try {
+          const rendered = await inspector.inspect(response.finalUrl, resolvePlatform(detection.platform)?.inspection);
+          renderedSamples.push(rendered);
+          for (const link of rendered.navigation) addRoute(link);
+          for (const discovered of routes) {
+            if (selected.length >= sampleLimit) break;
+            if (!selected.some((sample) => sample.url === discovered.url)) selected.push(discovered);
+          }
+        } catch (error) {
+          issues.push({ code: 'rendered-sample-failed', url: response.finalUrl, message: error instanceof Error ? error.message : String(error) });
+        }
+      }
     } catch (error) {
       failedSamples++;
       issues.push({ code: 'sample-failed', message: error instanceof Error ? error.message : String(error), url: route.url });
     }
   }
+  } finally { await inspector?.close(); }
   const types: Record<string, number> = {};
   for (const route of routes) types[route.type] = (types[route.type] ?? 0) + 1;
   const samplingTruncated = routes.length > selected.length;
-  const detection = detectFromDocument(finalUrl, entry.headers, isHtml(entry.headers.get('content-type')) ? entryHtml : '');
   return {
     schemaVersion: INSPECTION_SCHEMA_VERSION,
+    complexity: sourceComplexity(renderedSamples, options.rendered === false || discoveryTruncated || samplingTruncated ||
+      renderedSamples.length !== selected.length || samples.some((sample) => sample.outcome !== 'html')),
+    rendered: { enabled: options.rendered !== false, attempted: renderedAttempts, succeeded: renderedSamples.length, samples: renderedSamples },
     source: { requestedUrl: url, finalUrl, platform: { id: detection.platform, confidence: detection.confidence, evidence: detection.signals } },
     coverage: {
       discovery: { routes: routes.length, limit: discoveryLimit, truncated: discoveryTruncated },
@@ -221,9 +253,9 @@ export async function inspectSource(url: string, options: InspectOptions = {}): 
     routes: { types },
     samples,
     unknowns: [
-      'Rendered layout and responsive reflow were not measured; inspection does not run the full browser capture pipeline.',
-      'Interactive behavior was not activated; forms and links are counted from source HTML only.',
-      'Discovery is limited to the entry navigation and one sitemap document; platform-specific and nested discovery were not run.',
+      options.rendered === false ? 'Rendered layout and responsive reflow were not measured; inspection does not run the full browser capture pipeline.' : 'Rendered observations cover one desktop viewport after a bounded settle; responsive reflow and later runtime states remain unknown.',
+      'Interactive behavior and backend operations were not activated; capability findings identify surfaces, not working functionality.',
+      'Discovery is limited to sampled navigation and one sitemap document; platform-specific and nested discovery were not run.',
     ],
     issues,
     timing: { durationMs: Date.now() - started },

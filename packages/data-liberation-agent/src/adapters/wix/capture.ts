@@ -4,6 +4,7 @@
 // path: recognising a platform's CDN is exactly what an adapter is for.
 //
 import type { LiberationHooks } from '../page-actions.js';
+import { providerCreditRules } from '../../lib/source-cleanup.js';
 import type { Page } from 'playwright';
 
 /** Wix media ids look like `8e80e7_a1b2…`, stable across crops of one asset. */
@@ -228,6 +229,10 @@ export async function settleWixNavigation( viewport: 'desktop' | 'mobile' ): Pro
 }
 
 export const capture: LiberationHooks = {
+  cleanupRules: [
+    { id: 'wix-free-banner', category: 'source-attribution', selector: '#WIX_ADS' },
+    ...providerCreditRules('wix', ['wix.com'], 'Wix'),
+  ],
 	removeSelectors: [ '[id="WIX_ADS"]', '[id$="-hiddenA11ySubMenuIndication"]' ],
 	/**
 	 * Wix resolves same-page anchors in its click runtime rather than with

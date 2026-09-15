@@ -51,6 +51,12 @@ export function rewriteMediaUrls(
 
   const aliasIndex = buildMediaAliasIndex(mapping);
   const replacements = new Map(mapping);
+  // Inline CSS and other HTML attributes serialize query separators as &amp;.
+  for (const [source, local] of mapping) {
+    if (source.includes('&')) {
+      replacements.set(source.replace(/&/g, '&amp;'), local.replace(/&/g, '&amp;'));
+    }
+  }
 
   // Scan-and-replace strategy:
   //   - For each known source URL in the mapping, do a substring substitution.
@@ -71,15 +77,15 @@ export function rewriteMediaUrls(
     if (seen.has(candidate)) continue;
     seen.add(candidate);
 
-    const local = resolveLocalUrl(candidate, mapping, aliasIndex);
+    const decoded = candidate.replace(/&amp;/g, '&');
+    const local = resolveLocalUrl(decoded, mapping, aliasIndex);
     if (local) {
-      replacements.set(candidate, local);
+      replacements.set(candidate, decoded === candidate ? local : local.replace(/&/g, '&amp;'));
     } else if (opts.onMissing) {
       opts.onMissing(candidate);
     }
   }
 
-  let out = input;
   // Apply LONGEST source URLs first. A mapped BASE url (e.g. `…/<id>~mv2.jpg`)
   // is a substring-prefix of a carried transform url (`…/<id>~mv2.jpg/v1/fill/
   // …/img.jpg`). The alias index resolves that transform url to the same local
@@ -92,7 +98,8 @@ export function rewriteMediaUrls(
     // substring would corrupt every path, closing tag, and MIME type in the document.
     .filter(([source]) => source && source !== '/')
     .sort((a, b) => b[0].length - a[0].length);
-  for (const [source, local] of ordered) {
+  if (ordered.length === 0) return input;
+  const patterns = ordered.map(([source]) => {
     // Escape the source URL for safe inclusion in a RegExp. This handles
     // querystring `?`, `&`, `+` and other regex metacharacters that often
     // appear in CDN URLs.
@@ -104,10 +111,11 @@ export function rewriteMediaUrls(
     // `<local>/v1/fill/.../img.jpg` behind. A mapped url followed by `/` is a
     // longer path, so it names a different resource: keeping the remote url is
     // correct there, while a mangled local path is a 404.
-    out = out.replace(new RegExp(`${safe}(?!/)`, 'g'), () => local);
-  }
-
-  return out;
+    return `${safe}(?!/)`;
+  });
+  // Match the original input once: a relative source alias must not match
+  // the suffix of a local path emitted by an earlier replacement.
+  return input.replace(new RegExp(patterns.join('|'), 'g'), (source) => replacements.get(source)!);
 }
 
 /**

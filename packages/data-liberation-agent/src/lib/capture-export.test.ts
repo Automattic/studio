@@ -2459,6 +2459,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
 		expect( html ).not.toContain( '/_json/missing.json' );
+		expect( cheerio.load( html )( 'img' ).first().attr( 'src' ) ).toBe( '/media/hero.png' );
 		expect( html ).not.toContain( '/assets/images/missing-background.webp' );
 		expect( html ).toContain( '<source src="/_videos/hero.mp4">' );
 		expect( readFileSync( join( outputDir, 'website', '_videos', 'hero.mp4' ), 'utf8' ) ).toBe(
@@ -2922,6 +2923,84 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( css ).not.toContain( 'https://cdn.example' );
 		expect( diagnostics.unresolvedDependencies ).toContainEqual(
 			expect.objectContaining( { url: 'https://cdn.example/missing.jpg' } )
+		);
+	} );
+
+	it( 'preserves downloaded backgrounds with HTML-escaped CDN queries in the portable page', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-css-media-export-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots', 'media' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const sourceUrl = 'https://images.builderservices.io/s/cdn/v1.0/i/m?url=https%3A%2F%2Fstorage.googleapis.com%2Fproduction-ipower-v1-0-7%2F477%2F530477%2F36o4dN0U%2F7476a6728a1b4e788fcaf0dd3f1610a8&methods=resize%2C2000%2C5000';
+		const mobileUrl = 'https://cdn.example/image?url=https%3A%2F%2Fimages.example%2Fphoto%2520one.jpg%3Fa%3D1%26b%3D2&width=600&format=webp';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			readFileSync( fileURLToPath( new URL( '../../test/fixtures/clearlake-css-background.html', import.meta.url ) ), 'utf8' )
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<main><div class="mobile-background" style="background-image:url(&quot;https://cdn.example/image?url=https%3A%2F%2Fimages.example%2Fphoto%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600&amp;format=webp&quot;)">Mobile</div><div class="missing-background" style="background:url(https://cdn.example/missing.jpg?width=600&amp;format=webp)">Missing</div></main>'
+		);
+		writeFileSync( join( outputDir, 'media', 'background.jpg' ), 'desktop-image' );
+		writeFileSync( join( outputDir, 'media', 'background-mobile.webp' ), 'mobile-image' );
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( sourceUrl, join( outputDir, 'media', 'background.jpg' ) );
+		media.markSuccess( mobileUrl, join( outputDir, 'media', 'background-mobile.webp' ) );
+		media.save();
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } } } )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir, sourceUrl: 'https://example.com/', platform: 'generic', summary: {}, failures: [],
+		} );
+
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		expect( $( '.kv-background-inner' ).attr( 'style' ) ).toContain( "background-image: url('/media/background.jpg')" );
+		expect( $( '.kv-background-inner' ).attr( 'style' ) ).not.toContain( 'data:' );
+		expect( $( '.mobile-background' ).attr( 'style' ) ).toBe( 'background-image:url("/media/background-mobile.webp")' );
+		expect( $( '.missing-background' ).attr( 'style' ) ).toBe( 'background:url(data:application/octet-stream;base64,)' );
+		expect( readFileSync( join( outputDir, 'website', 'media', 'background.jpg' ), 'utf8' ) ).toBe( 'desktop-image' );
+		expect( readFileSync( join( outputDir, 'website', 'media', 'background-mobile.webp' ), 'utf8' ) ).toBe( 'mobile-image' );
+		expect( JSON.parse( readFileSync( receiptPath, 'utf8' ) ).assets ).toEqual( expect.arrayContaining( [
+			{ sourceUrl, path: 'website/media/background.jpg' },
+			{ sourceUrl: mobileUrl, path: 'website/media/background-mobile.webp' },
+		] ) );
+	} );
+
+	it( 'localizes downloaded media and browser resources before hoisting shared CSS', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-shared-css-media-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media', 'resources/cdn' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const style = '<style>.hero{background:url("https://cdn.example/photo.jpg?width=600&format=webp")}.icon{background:url("https://cdn.example/icon.svg")}</style>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), `<html><head>${ style }</head><body><main class="hero">Home</main></body></html>` );
+		writeFileSync( join( outputDir, 'html', 'about.html' ), `<html><head>${ style }</head><body><main class="hero">About</main></body></html>` );
+		writeFileSync( join( outputDir, 'media', 'photo.webp' ), 'photo' );
+		writeFileSync( join( outputDir, 'resources', 'cdn', 'icon.svg' ), '<svg></svg>' );
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess( 'https://cdn.example/photo.jpg?width=600&format=webp', join( outputDir, 'media', 'photo.webp' ) );
+		media.save();
+		writeFileSync( join( outputDir, 'resources', 'manifest.json' ), JSON.stringify( {
+			version: 1, resources: { 'https://cdn.example/icon.svg': { path: 'resources/cdn/icon.svg', contentType: 'image/svg+xml' } }, failures: [],
+		} ) );
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( {
+			version: 1, entries: {
+				'https://example.com/': { html: 'html/homepage.html' },
+				'https://example.com/about': { html: 'html/about.html' },
+			},
+		} ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'generic', summary: {}, failures: [] } );
+
+		const homepage = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		const about = cheerio.load( readFileSync( join( outputDir, 'website', 'about', 'index.html' ), 'utf8' ) );
+		const stylesheet = homepage( 'link[rel="stylesheet"]' ).attr( 'href' )!;
+		expect( stylesheet ).toMatch( /^\/assets\/css\/capture-.*\.css$/ );
+		expect( about( 'link[rel="stylesheet"]' ).attr( 'href' ) ).toBe( stylesheet );
+		expect( readFileSync( join( outputDir, 'website', stylesheet ), 'utf8' ) ).toBe(
+			'.hero{background:url("/media/photo.webp")}.icon{background:url("/cdn/icon.svg")}'
 		);
 	} );
 

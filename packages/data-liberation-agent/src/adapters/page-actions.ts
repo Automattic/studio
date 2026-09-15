@@ -3,6 +3,8 @@ import type { Page } from 'playwright';
 
 /** Platform-specific preparation applied while liberating a live page. */
 export interface LiberationHooks {
+  /** Source branding rules shared by capture and comparison. */
+  cleanupRules?: import('../lib/source-cleanup.js').CleanupRule[];
   /** CSS selectors removed from the DOM before portable artifacts are produced. */
   removeSelectors?: string[];
   /** Imperative escape hatch (wait-for-app, conditional removal). Runs AFTER

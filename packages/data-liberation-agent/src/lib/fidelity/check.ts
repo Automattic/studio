@@ -4,11 +4,12 @@
 // sweep never sampled. Measuring only at the capture width would certify the
 // freeze we already shipped once.
 //
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { startStaticServer } from '../replicate/local-site/static-server.js';
 import { DEFAULT_SWEEP_WIDTHS } from '../screenshot/fluid-capture.js';
+import { applySourceCleanup, readSourceCleanup, validateCleanupPolicy, type CleanupPolicy, type CleanupReport } from '../source-cleanup.js';
 import { runFidelityChecks } from './checks.js';
 import { writePixelEvidence } from './evidence.js';
 import { checkSelfConsistency, type SelfConsistencyReport } from './self-consistency.js';
@@ -65,6 +66,7 @@ export interface FidelityCheckOptions {
 export type RouteScore = ViewportScore & { route: string };
 
 export interface FidelityReport {
+	cleanup?: { policy: CleanupPolicy; source: CleanupReport[] };
 	sourceUrl: string;
 	websiteDir: string;
 	widths: number[];
@@ -81,6 +83,7 @@ export interface FidelityReport {
 }
 
 interface CaptureReceipt {
+	cleanup?: { policy: CleanupPolicy; complete: boolean };
 	source?: { url?: string };
 	websiteRoot?: string;
 	routes?: Array< { url?: string; path?: string } >;
@@ -199,7 +202,8 @@ async function observePage(
 	url: string,
 	viewport: number,
 	settleMs: number,
-	localOrigin: string | null
+	localOrigin: string | null,
+	cleanup?: CleanupPolicy
 ): Promise< LayoutObservation > {
 	const external = new Set< string >();
 	const onRequest = ( request: { url: () => string } ): void => {
@@ -216,6 +220,10 @@ async function observePage(
 	try {
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 60_000 } ).catch( () => {} );
 		await page.waitForTimeout( settleMs );
+		if (cleanup) {
+			const report = await applySourceCleanup(page, cleanup);
+			if (localOrigin && report.removed) throw new Error('Liberated artifact retains advertising or source attribution');
+		}
 		const measured = await page.evaluate( async ( clickUnresolved: boolean ) => {
 			// Images that occupy real layout space at this viewport: wider and
 			// taller than 50px (the same floor as widestImage) and not
@@ -513,6 +521,11 @@ export async function checkFidelity( options: FidelityCheckOptions ): Promise< F
 	const log = options.log ?? ( () => {} );
 	const { websiteDir, receiptPath } = resolveCheckDirectory( options.directory );
 	const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) ) as CaptureReceipt;
+	if (receipt.cleanup) {
+		validateCleanupPolicy(receipt.cleanup.policy);
+		if (!receipt.cleanup.complete) throw new Error('Capture cleanup was incomplete; recapture before comparison');
+	}
+	const cleanupReports: CleanupReport[] = [];
 	const sourceUrl = receipt.source?.url;
 	if ( ! sourceUrl ) throw new Error( `capture-receipt.json has no source.url: ${ receiptPath }` );
 
@@ -558,21 +571,34 @@ export async function checkFidelity( options: FidelityCheckOptions ): Promise< F
 		observe = async ( sourceHref, localHref, viewport ) => {
 			if ( ! page ) throw new Error( 'browser page missing' );
 			await page.setViewportSize( { width: viewport, height: 900 } );
-			const source = await observePage( page, sourceHref, viewport, settleMs, null );
+			const source = await observePage( page, sourceHref, viewport, settleMs, null, receipt.cleanup?.policy );
+			if (receipt.cleanup) {
+				const report = await readSourceCleanup(page);
+				cleanupReports.push(report);
+				if (report.failures.length || report.residual) throw new Error('Comparison source cleanup incomplete');
+			}
 			const sourcePng = options.screenshots ? await page.screenshot() : undefined;
 			const liberated = await observePage(
 				page,
 				localHref,
 				viewport,
 				settleMs,
-				new URL( localHref ).origin
+				new URL( localHref ).origin,
+				receipt.cleanup?.policy
 			);
+			if (receipt.cleanup) {
+				const candidateCleanup = await readSourceCleanup(page);
+				if (candidateCleanup.removed || candidateCleanup.failures.length || candidateCleanup.residual) {
+					throw new Error('Liberated artifact retains advertising/source attribution or its cleanup audit failed');
+				}
+			}
 			const liberatedPng = options.screenshots ? await page.screenshot() : undefined;
 			return { source, liberated, sourcePng, liberatedPng };
 		};
 	}
 
 	const scores: RouteScore[] = [];
+	let comparisonCompleted = false;
 	try {
 		for ( const route of routes ) {
 			const sourceHref = sources.get( route )!;
@@ -646,15 +672,26 @@ export async function checkFidelity( options: FidelityCheckOptions ): Promise< F
 				scores.push( score );
 			}
 		}
+		comparisonCompleted = true;
 	} finally {
 		await browser?.close();
 		await server?.close();
+		if (receipt.cleanup) {
+			const evidenceDir = join(dirname(receiptPath), 'compare');
+			mkdirSync(evidenceDir, { recursive: true });
+			writeFileSync(join(evidenceDir, 'cleanup-evidence.json'), JSON.stringify({ completed: comparisonCompleted, policy: receipt.cleanup.policy, source: cleanupReports }, null, 2));
+		}
 	}
 
 	const summary = scoreReport( scores );
+	if (receipt.cleanup) {
+		const evidenceDir = join(dirname(receiptPath), 'compare');
+		log(`[compare] cleanup: ${cleanupReports.reduce((total, report) => total + report.removed, 0)} source removals; evidence: ${join(evidenceDir, 'cleanup-evidence.json')}`);
+	} else log('[compare] legacy capture: no cleanup policy was recorded; comparing the unnormalized source');
 	summary.pass = summary.pass && selfConsistency.pass;
 	return {
 		sourceUrl,
+		...(receipt.cleanup ? { cleanup: { policy: receipt.cleanup.policy, source: cleanupReports } } : {}),
 		websiteDir,
 		widths,
 		routes,

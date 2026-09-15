@@ -34,6 +34,9 @@ export interface PublishResult {
 
 export interface PublishTarget {
 	name: string;
+	/** Optional destination attribution. Receives an isolated staging copy;
+	 * the canonical liberated artifact remains attribution-free and unchanged. */
+	attribution?(options: { directory: string }): Promise<void>;
 	publish( options: PublishOptions ): Promise< PublishResult >;
 }
 

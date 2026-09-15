@@ -56,6 +56,7 @@ function makeGoodPage(gotoStatus = 200) {
     waitForLoadState: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn().mockImplementation(async (fn: unknown) => {
       const s = String(fn);
+      if (s.includes('__dlaCleanup')) return { url: currentUrl, viewport: 1440, removed: 0, records: [], truncated: false, failures: [], residual: 0 };
       // extractFull's section-spec closure — return an empty raw-section array so
       // the desktop pass writes sections/<slug>.json (no real DOM in the mock).
       // Checked FIRST: this closure also references `scrollHeight`, so it would be
@@ -336,6 +337,7 @@ describe('captureScreenshots', () => {
         const p = makeGoodPage();
         p.evaluate = vi.fn().mockImplementation(async (fn: unknown) => {
           const s = String(fn);
+          if (s.includes('__dlaCleanup')) return { url: 'https://example.com/short', viewport: 1440, removed: 0, records: [], truncated: false, failures: [], residual: 0 };
           if (s.includes('scrollHeight')) return 500;
           // site-analysis evaluate
           return { palette: [], typography: {}, metadata: { title: '', metaDescription: '', openGraph: {}, jsonLdTypes: [], htmlBytes: 0 }, breakpoints: { minWidth: [], maxWidth: [] } };

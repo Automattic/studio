@@ -21,4 +21,7 @@ export const shopifyAdapter: PlatformAdapter = {
   detection,
   liberation: capture,
   discover,
+  inspection: [
+    { capability: 'commerce', selector: 'shopify-payment-terms,shopify-buy-it-now-button,form[action*="/cart/add"]', evidence: 'Shopify purchasing surface; checkout backend requires migration' },
+  ],
 };

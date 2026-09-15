@@ -4,7 +4,8 @@
 // Operates on what is already on disk, so a target can change, or a repaired
 // copy can ship, without touching the source site again.
 //
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
 	findPublishTarget,
@@ -47,9 +48,17 @@ export async function publishSite( options: PublishCliOptions ): Promise< Publis
 			) }.`,
 		} );
 	}
-	return target.publish( {
-		directory: resolvePublishDirectory( options.directory ),
-		token: options.token,
-		log: options.log,
-	} );
+	const directory = resolvePublishDirectory(options.directory);
+	const staging = target.attribution ? mkdtempSync(join(tmpdir(), 'dla-publish-')) : undefined;
+	try {
+		if (staging) {
+			cpSync(directory, staging, { recursive: true, dereference: true });
+			await target.attribution!({ directory: staging });
+		}
+		return await target.publish( {
+			directory: staging ?? directory,
+			token: options.token,
+			log: options.log,
+		} );
+	} finally { if (staging) rmSync(staging, { recursive: true, force: true }); }
 }

@@ -45,6 +45,7 @@ const HELP = `
                          never decides pass/fail.
 
   Inspect options:
+    --http-only           Skip rendered observations; complexity remains unknown
     --discovery-limit <n>  Maximum routes inventoried (1-100, default: 50)
     --sample-limit <n>     Maximum routes fetched for observations (1-10, default: 5)
     --request-timeout <ms> Per-request timeout (1000-30000, default: 10000)
@@ -90,6 +91,7 @@ if (args[0] === 'mcp') {
   try {
     const { inspectSource } = await import('./lib/inspect.js');
     const result = await inspectSource(url, {
+      rendered: !args.includes('--http-only'),
       discoveryLimit: inspectNumber('--discovery-limit'),
       sampleLimit: inspectNumber('--sample-limit'),
       requestTimeoutMs: inspectNumber('--request-timeout'),

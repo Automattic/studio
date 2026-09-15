@@ -94,6 +94,7 @@ export interface ScreenshotOpts {
 	) => Promise< Record< string, string > >;
 	/** Adapter-declared selectors removed from each page before capture (seam 1). */
 	removeSelectors?: string[];
+	cleanupPolicy?: import('../source-cleanup.js').CleanupPolicy;
 	/** Adapter imperative capture hook, run after removeSelectors. Best-effort. */
 	prepareCapture?: (
 		page: import('playwright').Page,

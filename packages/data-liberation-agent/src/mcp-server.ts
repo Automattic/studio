@@ -44,6 +44,7 @@ const TOOLS = [
         sampleLimit: { type: 'integer', description: 'Maximum routes sampled (1-10; default 5).' },
         requestTimeoutMs: { type: 'integer', description: 'Per-request timeout in milliseconds (1000-30000).' },
         overallTimeoutMs: { type: 'integer', description: 'Total inspection timeout in milliseconds (1000-60000).' },
+        rendered: { type: 'boolean', description: 'Render bounded samples (default true). False returns HTTP facts with unknown complexity.' },
       },
       required: ['url'],
     },
@@ -109,6 +110,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === 'inspect') {
       const { inspectSource } = await import('./lib/inspect.js');
       return textResult(await inspectSource(String(args.url ?? ''), {
+        rendered: typeof args.rendered === 'boolean' ? args.rendered : undefined,
         discoveryLimit: typeof args.discoveryLimit === 'number' ? args.discoveryLimit : undefined,
         sampleLimit: typeof args.sampleLimit === 'number' ? args.sampleLimit : undefined,
         requestTimeoutMs: typeof args.requestTimeoutMs === 'number' ? args.requestTimeoutMs : undefined,

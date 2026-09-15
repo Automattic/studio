@@ -13,8 +13,19 @@ interface RemoteSiteContext {
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
+// What a registered tool contributes to the prompt: the one-line entry of the
+// tool list and its usage guidelines. Only tools with a snippet are listed.
+export interface ToolPromptContribution {
+	name: string;
+	promptSnippet?: string;
+	promptGuidelines?: string[];
+}
+
 export interface BuildSystemPromptOptions {
 	remoteSite?: RemoteSiteContext;
+	// The tools registered for this session; the local prompt lists them and
+	// their guidelines instead of hand-writing the list.
+	tools?: ToolPromptContribution[];
 	// True when a Studio UI is attached and can receive chat artifact events.
 	chatArtifactsEnabled?: boolean;
 	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
@@ -51,6 +62,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
 		runtime: options?.runtime,
 		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
 		visionEnabled,
+		tools: options?.tools ?? [],
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ userInstructionsSection }
@@ -129,26 +141,47 @@ function getPostContentGuidance( runtime?: SiteRuntime ): string {
 	return `${ shared } For large post content, write the validated markup to a scratch file inside the site directory and pass its path to \`wp post create <file>\` (or \`wp post update <id> <file>\`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with \`--post_content=...\` as the final argument.`;
 }
 
+function renderToolSections( tools: ToolPromptContribution[] ): string {
+	const list = tools
+		.filter( ( tool ) => tool.promptSnippet )
+		.map( ( tool ) => `- ${ tool.name }: ${ tool.promptSnippet }` )
+		.join( '\n' );
+	const guidelines = [
+		...new Set(
+			tools
+				.flatMap( ( tool ) => tool.promptGuidelines ?? [] )
+				.map( ( guideline ) => guideline.trim() )
+				.filter( Boolean )
+		),
+	]
+		.map( ( guideline ) => `- ${ guideline }` )
+		.join( '\n' );
+	return `## Available tools
+
+${ list || '(none)' }${
+		guidelines
+			? `
+
+## Tool guidelines
+
+${ guidelines }`
+			: ''
+	}`;
+}
+
 function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	runtime?: SiteRuntime;
 	imageGenerationEnabled: boolean;
 	visionEnabled: boolean;
+	tools: ToolPromptContribution[];
 } ): string {
+	const toolSections = renderToolSections( options.tools );
 	const postContentGuidance = getPostContentGuidance( options.runtime );
-	const takeScreenshotToolBullet = options.visionEnabled
-		? `- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.`
-		: `- take_screenshot: Save a full-page screenshot of a URL to a file (supports desktop, mobile, or \`viewport: "all"\` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.
-- inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector. This is your verification tool: read widths, positions, and padding from it instead of looking at a capture.`;
 	const imageryWorkflowSection = options.imageGenerationEnabled
 		? `
 
 Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the \`imagery\` skill and generate the images with \`generate_images\` BEFORE writing the markup that references them: theme imagery goes into the active theme's assets directory, site-specific content imagery is imported into the media library via wp_cli. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.`
-		: '';
-	const generateImagesToolBullet = options.imageGenerationEnabled
-		? `
-- generate_images: Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the \`imagery\` skill first for spec-writing rules and file placement.`
 		: '';
 	const terminalScreenshotSection = `
 
@@ -170,14 +203,6 @@ ${ getStudioPresentationRulesPrompt() }
 Available desks widget types:
 ${ getStudioWidgetPromptManifest() }`
 		: terminalScreenshotSection;
-	const studioPresentToolBullet = options.chatArtifactsEnabled
-		? `
-- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
-		: '';
-	const refreshBrowserToolBullet = options.chatArtifactsEnabled
-		? `
-- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.`
-		: '';
 	const refreshBrowserRule = options.chatArtifactsEnabled
 		? `
 - After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
@@ -217,38 +242,13 @@ Then continue with:
 
 ## Working cadence
 
-One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). An \`Edit\` call takes several entries in \`edits[]\`, so put every change you have ready for that file into one call — all the anchors of a skeleton you can fill, or a whole batch of fixes — instead of one call per anchor: every extra call costs a full round trip. Keep a call's new text under ~8KB and split a longer fill across two or three calls. Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
-
-Generated file payloads over 14KB are rejected by \`Write\` and \`Edit\` (for \`Edit\`, the total across its \`edits[]\` entries); generated \`Bash\` commands over 8KB are rejected. For larger files, write a small skeleton and fill its anchors with \`Edit\` calls that each carry several entries. Never use Bash heredocs, \`cat > file <<EOF\`, or Python scripts as a workaround for large generated files — they carry the same payload-truncation risk and are intentionally blocked when too large.
+One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
 
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one file per turn.
 
 For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
-## Available Studio Tools
-
-- site_create: Create a new WordPress site (name only — handles everything automatically)
-- site_list: List all local WordPress sites with their status
-- site_info: Get details about a specific site (path, URL, credentials, running status)
-- site_start: Start a stopped site
-- site_stop: Stop a running site
-- site_delete: Delete a site from Studio and optionally move its files to trash
-- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
-- preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
-- preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
-- preview_delete: Delete a preview site by hostname
-- wp_cli: Run WP-CLI commands on a running site${ refreshBrowserToolBullet }
-- scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.
-- validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
-${ takeScreenshotToolBullet }${ generateImagesToolBullet }
-- need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
-- rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
-- site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
-- site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
-- site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
-- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.
-- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
-${ studioPresentToolBullet }${ automaticArtifactSection }
+${ toolSections }${ automaticArtifactSection }
 
 ## General rules
 

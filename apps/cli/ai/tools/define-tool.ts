@@ -42,11 +42,23 @@ export type ToolHandler< TProps extends TProperties > = (
 	context: ToolContext
 ) => Promise< ToolResult >;
 
+// One-line snippet for the prompt's tool list and short usage guidelines,
+// the way pi's own tools declare them: the system prompt is assembled from
+// the registered tools, so a tool is documented where it is defined.
+export interface ToolPromptOptions {
+	promptSnippet?: string;
+	promptGuidelines?: string[];
+}
+
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
 	TObject< TProps >
-> & {
-	rawHandler: ( args: Static< TObject< TProps > >, context?: ToolContext ) => Promise< ToolResult >;
-};
+> &
+	ToolPromptOptions & {
+		rawHandler: (
+			args: Static< TObject< TProps > >,
+			context?: ToolContext
+		) => Promise< ToolResult >;
+	};
 
 // Tool registries are heterogeneous: each entry has a different TypeBox
 // argument schema, but callers operate on them uniformly by name.
@@ -64,13 +76,16 @@ export interface AnyStudioAgentTool {
 	) => Promise< { content: ToolContent[]; details?: unknown; terminate?: boolean } >;
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
+	promptSnippet?: string;
+	promptGuidelines?: string[];
 }
 
 export function defineTool< TProps extends TProperties >(
 	name: string,
 	description: string,
 	properties: TProps,
-	handler: ToolHandler< TProps >
+	handler: ToolHandler< TProps >,
+	prompt: ToolPromptOptions = {}
 ): StudioAgentTool< TProps > {
 	const parameters = Type.Object( properties );
 
@@ -79,6 +94,8 @@ export function defineTool< TProps extends TProperties >(
 		description,
 		parameters,
 		label: name,
+		...( prompt.promptSnippet ? { promptSnippet: prompt.promptSnippet } : {} ),
+		...( prompt.promptGuidelines ? { promptGuidelines: prompt.promptGuidelines } : {} ),
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {

@@ -6,6 +6,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
+import { resolveStudioToolDefinitions } from '../tools';
 
 const remoteSite = {
 	name: 'Remote Studio Test',
@@ -18,6 +19,13 @@ function extractReferencedSkillNames( prompt: string ): string[] {
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
 	].sort();
 }
+
+const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+	resolveStudioToolDefinitions( options ).map( ( tool ) => ( {
+		name: tool.name,
+		promptSnippet: tool.promptSnippet,
+		promptGuidelines: tool.promptGuidelines,
+	} ) );
 
 describe( 'buildSystemPrompt', () => {
 	const previousScratchpadWidgetType = 'sd-' + 'artefact';
@@ -150,6 +158,22 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'studio_present' );
 	} );
 
+	it( 'lists the registered tools and their guidelines', () => {
+		const prompt = buildSystemPrompt( {
+			tools: [
+				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
+				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
+				{ name: 'hidden' },
+			],
+		} );
+		expect( prompt ).toContain(
+			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
+		);
+		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
+		expect( prompt ).not.toContain( '- hidden' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
+	} );
+
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
 		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 		expect( attachedPrompt ).toContain( 'refresh_browser' );
@@ -167,12 +191,15 @@ describe( 'buildSystemPrompt', () => {
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {
 		const polishStep = 'You MUST load the `visual-polish` skill and follow its instructions';
-		const withVision = buildSystemPrompt( {} );
+		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
 		expect( withVision ).toContain( polishStep );
 		expect( withVision ).toContain( 'Pair with take_screenshot' );
 		expect( withVision ).not.toContain( 'You cannot view' );
 
-		const textOnly = buildSystemPrompt( { visionEnabled: false } );
+		const textOnly = buildSystemPrompt( {
+			visionEnabled: false,
+			tools: toolsFor( { visionEnabled: false } ),
+		} );
 		expect( textOnly ).toContain( polishStep );
 		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
 		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );

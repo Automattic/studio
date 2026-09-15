@@ -14,6 +14,12 @@ import {
 	createAgentSession,
 	createBashTool,
 	createEditTool,
+	createEditToolDefinition,
+	createFindToolDefinition,
+	createGrepToolDefinition,
+	createLsToolDefinition,
+	createReadToolDefinition,
+	createWriteToolDefinition,
 	createFindTool,
 	createGrepTool,
 	createLsTool,
@@ -43,7 +49,7 @@ import {
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
@@ -305,6 +311,12 @@ async function createStudioAgentSession(
 		isImageGenerationAvailable(),
 	] );
 
+	const tools = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		imageGenerationEnabled,
+		visionEnabled
+	);
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
 			? {
@@ -322,15 +334,10 @@ async function createStudioAgentSession(
 					userInstructions,
 					imageGenerationEnabled,
 					visionEnabled,
+					tools: tools.map( toolPromptContribution ),
 			  }
 	);
 
-	const tools = buildAgentTools(
-		config,
-		chatArtifactsEnabled,
-		imageGenerationEnabled,
-		visionEnabled
-	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -562,6 +569,25 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
+// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
+// define-tool.ts); the AgentTool type does not carry them, hence the cast.
+type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+
+function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
+	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
+	return { name: tool.name, promptSnippet, promptGuidelines };
+}
+
+// The limits tool-safety.ts enforces and the edit cadence, stated where the
+// tools are documented rather than in a prompt paragraph.
+const WRITE_GUIDELINES = [ 'Write rejects payloads over 14KB; split a larger file across calls.' ];
+const EDIT_GUIDELINES = [
+	"Keep an Edit call's new text under ~8KB and split a longer fill across two or three calls; more than 14KB across all edits[] entries is rejected.",
+];
+const BASH_GUIDELINES = [
+	'Bash rejects commands over 8KB; never use heredocs, `cat > file <<EOF`, or Python scripts to write large generated files — they carry the same payload-truncation risk.',
+];
+
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState
@@ -573,6 +599,8 @@ function toToolDefinition(
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
+		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
+		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -609,13 +637,45 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
+	// pi's snippets and guidelines name the tool in lowercase; the model sees
+	// the renamed tool. The PI_* environment note does not apply here.
 	const renameTool = < S extends TSchema >(
 		tool: AgentTool< S >,
 		name: string
+	): AgentTool< S > => {
+		const rename = ( text: string ) =>
+			text.replace( new RegExp( `\\b${ tool.name }\\b`, 'g' ), name );
+		const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
+		return {
+			...tool,
+			name,
+			label: name,
+			...( promptSnippet ? { promptSnippet: rename( promptSnippet ) } : {} ),
+			...( promptGuidelines
+				? {
+						promptGuidelines: promptGuidelines
+							.filter( ( guideline ) => ! guideline.includes( 'PI_' ) )
+							.map( rename ),
+				  }
+				: {} ),
+		};
+	};
+	// pi attaches the prompt snippet and guidelines to a tool's definition, but
+	// its createXTool wrappers drop them; take them from the definition.
+	const withPiPrompt = < S extends TSchema >(
+		tool: AgentTool< S >,
+		definition: ToolPromptFields
 	): AgentTool< S > => ( {
 		...tool,
-		name,
-		label: name,
+		...( definition.promptSnippet ? { promptSnippet: definition.promptSnippet } : {} ),
+		...( definition.promptGuidelines ? { promptGuidelines: definition.promptGuidelines } : {} ),
+	} );
+	const withGuidelines = < S extends TSchema >(
+		tool: AgentTool< S >,
+		extra: string[]
+	): AgentTool< S > & ToolPromptFields => ( {
+		...tool,
+		promptGuidelines: [ ...( ( tool as ToolPromptFields ).promptGuidelines ?? [] ), ...extra ],
 	} );
 
 	const remoteScratchTools: AgentToolAny[] = [
@@ -640,14 +700,27 @@ function buildAgentTools(
 		];
 	}
 
+	const root = STUDIO_SITES_ROOT;
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
-		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
-		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
-		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
+		renameTool( withPiPrompt( createReadTool( root ), createReadToolDefinition( root ) ), 'Read' ),
+		withGuidelines(
+			renameTool(
+				withPiPrompt( createWriteTool( root ), createWriteToolDefinition( root ) ),
+				'Write'
+			),
+			WRITE_GUIDELINES
+		),
+		withGuidelines(
+			renameTool(
+				withPiPrompt( createEditTool( root ), createEditToolDefinition( root ) ),
+				'Edit'
+			),
+			EDIT_GUIDELINES
+		),
+		withGuidelines( renameTool( createBashTool( root ), 'Bash' ), BASH_GUIDELINES ),
+		renameTool( withPiPrompt( createGrepTool( root ), createGrepToolDefinition( root ) ), 'Grep' ),
+		renameTool( withPiPrompt( createFindTool( root ), createFindToolDefinition( root ) ), 'Glob' ),
+		renameTool( withPiPrompt( createLsTool( root ), createLsToolDefinition( root ) ), 'Ls' ),
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,

@@ -22,6 +22,8 @@ import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	formatPaidTiersNudge,
 	getAddAiCreditsUrl,
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
 	hasPaidAiCredits,
 	persistPaidTiersNudgeDismissed,
 	readPaidTiersNudgeDismissed,
@@ -362,7 +364,8 @@ export function Composer( {
 
 	// Nudge free-allowance accounts toward the paid tiers: a footer in the
 	// model picker plus a dismissible line above the prompt. Never shown while
-	// the quota is still loading, nor on top of the usage-cap banner.
+	// the quota is still loading, on top of the usage-cap banner, or from 80%
+	// usage — the warning ladder carries the same CTA with more urgency.
 	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
 		readPaidTiersNudgeDismissed
 	);
@@ -370,8 +373,15 @@ export function Composer( {
 		setPaidTiersNudgeDismissed( true );
 		persistPaidTiersNudgeDismissed();
 	};
+	const creditsMeter = quota ? getAiCreditsMeter( quota ) : null;
+	const usageWarningActive =
+		!! creditsMeter && getAiCreditsMeterIntent( creditsMeter.fraction ) !== 'ok';
 	const showPaidTiersNudge =
-		Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed && ! usageCapMessage;
+		Boolean( quota ) &&
+		hasLockedModels &&
+		! paidTiersNudgeDismissed &&
+		! usageCapMessage &&
+		! usageWarningActive;
 
 	// Mirrors AddAiCreditsButton: the chooser when priced options exist, else
 	// straight to checkout for the single fixed top-up.

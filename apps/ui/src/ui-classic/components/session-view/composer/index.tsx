@@ -29,6 +29,7 @@ import { getAiSkillCommands, resolveSkillFromPrompt } from '@studio/common/ai/sl
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
 import {
 	formatPaidTiersNudge,
+	getAiCreditsMeterIntent,
 	hasPaidAiCredits,
 	persistPaidTiersNudgeDismissed,
 	readPaidTiersNudgeDismissed,
@@ -74,6 +75,7 @@ import {
 } from '@/data/queries/use-sessions';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
+import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
 import { AiCreditsControl } from './ai-credits-control';
 import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
@@ -410,7 +412,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	// Nudge free-allowance accounts toward the paid tiers: a footer in the
 	// model picker plus a dismissible line above the prompt. Never shown while
-	// the quota is still loading.
+	// the quota is still loading, nor from 80% usage — the warning ladder
+	// carries the same CTA with more urgency.
 	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
 		readPaidTiersNudgeDismissed
 	);
@@ -418,7 +421,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		setPaidTiersNudgeDismissed( true );
 		persistPaidTiersNudgeDismissed();
 	};
-	const showPaidTiersNudge = Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed;
+	const creditsMeter = useAiCreditsMeter();
+	const usageWarningActive =
+		!! creditsMeter && getAiCreditsMeterIntent( creditsMeter.fraction ) !== 'ok';
+	const showPaidTiersNudge =
+		Boolean( quota ) && hasLockedModels && ! paidTiersNudgeDismissed && ! usageWarningActive;
 
 	// Mirrors AiCreditsControl: the chooser when priced options exist, else
 	// straight to checkout for the single fixed top-up.

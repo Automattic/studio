@@ -317,6 +317,37 @@ describe( 'Composer menu', () => {
 		).not.toBeInTheDocument();
 	} );
 
+	it( 'yields the nudge to the usage warning from 80% spend', async () => {
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 100,
+			allowanceRemaining: 15,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 0,
+		} );
+		renderComposer();
+
+		// The tiers stay locked and the picker keeps its contextual footer,
+		// but the banner stays out of the warning's way.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+		} );
+		expect(
+			screen.getByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
+		).toBeInTheDocument();
+		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
+		await waitFor( () => {
+			expect(
+				screen.queryByText( 'Add AI credits to unlock stronger models.' )
+			).not.toBeInTheDocument();
+		} );
+	} );
+
 	it( 'shows tooltips for the plus button and model picker', async () => {
 		renderComposer();
 

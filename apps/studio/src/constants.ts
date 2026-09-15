@@ -1,3 +1,5 @@
+// PROBE BRANCH: this touch exists only so should-skip-job.sh treats the branch
+// as a code change and actually runs the E2E job. Revert before merging.
 export const DEFAULT_WIDTH = 1100;
 export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;

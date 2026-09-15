@@ -23,11 +23,12 @@ e2e_config: &e2e_config
   matrix:
     setup: { platform: [], arch: [] }
     adjustments:
-      - with: { platform: mac, arch: arm64 }
+      # PROBE BRANCH: mac/arm64 removed so only the Windows job runs.
       - with: { platform: windows, arch: x64 }
 
 steps:
   - label: Lint
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     agents:
       queue: mac
     key: lint
@@ -38,6 +39,7 @@ steps:
           context: Lint
 
   - label: Data Liberation
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     agents:
       queue: mac
     key: data-liberation
@@ -48,6 +50,7 @@ steps:
           context: Data Liberation
 
   - label: ":fastlane: fastlane Helper Tests"
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     agents:
       queue: default
     key: fastlane_tests
@@ -62,6 +65,7 @@ steps:
           context: fastlane Helper Tests
 
   - group: Unit Tests
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     key: unit-tests
     steps:
       - label: Unit Tests on {{matrix}}
@@ -114,6 +118,7 @@ steps:
       # a separate step (rather than another matrix entry on *e2e_config) because
       # Mac and Windows share queue/plugin defaults that Linux doesn't.
       - label: E2E Tests on linux-x64
+        skip: "PROBE BRANCH: only Windows E2E runs on this branch"
         key: e2e_tests_linux
         command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         agents:
@@ -135,6 +140,7 @@ steps:
   # No `if:` guard: a required status check must report on every build, or PRs
   # that skip it hang waiting for it. Doc-only PRs exit early but still report.
   - group: CLI E2E Tests
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     key: cli-e2e-tests
     notify:
       - github_commit_status:
@@ -166,6 +172,7 @@ steps:
               mount-buildkite-agent: true
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
+    skip: "PROBE BRANCH: only Windows E2E runs on this branch"
     key: metrics
     agents:
       queue: mac

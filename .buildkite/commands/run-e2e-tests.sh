@@ -193,6 +193,12 @@ else
   echo 'Installing Playwright browsers...'
   npx playwright install
 
+  echo '--- :microscope: Environment block size probe'
+  echo "BUILDKITE_MESSAGE bytes: ${#BUILDKITE_MESSAGE}"
+  echo "total env block bytes:   $(env | wc -c)"
+  echo "env var count:           $(env | wc -l)"
+  echo "windows CreateProcess cap: 32767"
+
   echo 'Running Playwright tests...'
   # Capture the exit code so a failure doesn't trip `set -e` before we collect
   # the daemon logs (~/.studio/daemon/logs) for artifact upload.

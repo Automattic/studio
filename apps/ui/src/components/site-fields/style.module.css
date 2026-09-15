@@ -26,11 +26,11 @@
 	display: flex;
 	flex-direction: column;
 	/* See .choiceControl below — same nesting, same missing gap. */
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-sm);
 }
 
 .updateModeControl :global(.components-radio-control__option-description) {
-	padding-block-start: var(--wpds-dimension-padding-sm);
+	padding-block-start: var(--wpds-dimension-padding-xs);
 	line-height: 1.5;
 }
 
@@ -52,13 +52,13 @@
 	/* The fieldset's own gap never reaches the options — they are nested one
 	   level down — so without this each option's description runs flush into
 	   the next radio and reads as belonging to it. */
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-sm);
 }
 
-/* Upstream leaves only 4px here, which crowds the label once the description
-   wraps to two lines. */
+/* Keeps upstream's 4px, but relaxes the line-height so a wrapped description
+   stays readable. */
 .choiceControl :global(.components-radio-control__option-description) {
-	padding-block-start: var(--wpds-dimension-padding-sm);
+	padding-block-start: var(--wpds-dimension-padding-xs);
 	line-height: 1.5;
 }
 

@@ -63,7 +63,6 @@ import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
 import type { CSSProperties } from 'react';
 
-export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
@@ -237,7 +236,7 @@ const PREVIEW_PANE_PADDING = 16;
 // and its rendering is scaled by `scale` to fit the preview pane. `mobile`
 // makes the emulation report a mobile device, so meta-viewport handling and
 // responsive behavior match a real phone.
-export interface PreviewViewport {
+interface PreviewViewport {
 	width: number;
 	height: number;
 	scale: number;

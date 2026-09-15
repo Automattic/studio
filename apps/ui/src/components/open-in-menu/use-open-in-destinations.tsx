@@ -20,9 +20,9 @@ import {
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
 
-export interface OpenInDestinationEntry {
+interface OpenInDestinationEntry {
 	id: OpenInDestination;
 	label: string;
 	logo: ReactElement;
@@ -30,7 +30,7 @@ export interface OpenInDestinationEntry {
 	open: () => void;
 }
 
-export function getFileManager(): { label: string; logo: ReactElement } {
+function getFileManager(): { label: string; logo: ReactElement } {
 	const platform = navigator.platform.toLowerCase();
 	if ( platform.includes( 'win' ) ) {
 		return { label: __( 'File Explorer' ), logo: folderLogo };

@@ -444,7 +444,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		value,
 		setValue,
 		textareaRef,
-		previewPrompt: null,
 	} );
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as

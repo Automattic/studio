@@ -1,6 +1,6 @@
 import type { SiteDetails } from '@/data/core';
 
-export type ConnectSiteStage = 'create' | 'connect' | 'pull' | 'open';
+type ConnectSiteStage = 'create' | 'connect' | 'pull' | 'open';
 
 interface ConnectSiteLifecycle {
 	createLocalSite: () => Promise< SiteDetails >;

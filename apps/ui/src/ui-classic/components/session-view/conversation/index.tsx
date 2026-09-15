@@ -399,12 +399,12 @@ export function entriesToRenderItems(
 	return items;
 }
 
-export interface ActiveStep {
+interface ActiveStep {
 	key: string | null;
 	progressMessage: string | null;
 }
 
-export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+function getActiveStep( entries: SessionEntry[] ): ActiveStep {
 	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];

@@ -11,7 +11,7 @@ export type ToastAction = {
 	onClick: () => void;
 };
 
-export type ToastInput = {
+type ToastInput = {
 	// Optional stable id. Re-showing an id that is still visible or queued
 	// replaces it in place and restarts its timer — useful for actions the
 	// user can spam, like "Copied".

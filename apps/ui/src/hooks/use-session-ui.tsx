@@ -45,11 +45,11 @@ export function pathForSite(
 	return siteId ? pathsBySiteId[ siteId ] ?? '/' : '/';
 }
 
-export interface SessionUIState {
+interface SessionUIState {
 	preview: PreviewUIState;
 }
 
-export type SessionUIAction =
+type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/set-fullscreen'; value: boolean }
@@ -186,7 +186,7 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 	return value;
 }
 
-export interface SessionPreviewUI {
+interface SessionPreviewUI {
 	readonly open: boolean;
 	readonly fullscreen: boolean;
 	readonly path: string;

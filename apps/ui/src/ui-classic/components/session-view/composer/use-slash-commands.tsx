@@ -6,8 +6,8 @@ import menuStyles from '@/components/menu/style.module.css';
 import styles from './style.module.css';
 import type { Dispatch, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
-// The trailing `/token` that drives the autocomplete. Shared by the insert,
-// close-on-Escape, and toggle paths so they stay in sync.
+// The trailing `/token` that drives the autocomplete. Shared by the insert and
+// close-on-Escape paths so they stay in sync.
 const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
 
 type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
@@ -55,8 +55,6 @@ interface UseSlashCommandsParams {
 	value: string;
 	setValue: Dispatch< SetStateAction< string > >;
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
-	/** When a preview prompt is showing, the autocomplete stays closed. */
-	previewPrompt: string | null | undefined;
 }
 
 interface SlashCommands {
@@ -71,8 +69,6 @@ interface SlashCommands {
 	};
 	/** Returns `true` when the autocomplete consumed the keydown. */
 	handleKeyDown: ( event: KeyboardEvent< HTMLTextAreaElement > ) => boolean;
-	/** Toolbar "/" button handler: opens the popup, or closes it if already open. */
-	toggle: () => void;
 	/** The listbox popup, anchored above the textarea (or `null` when hidden). */
 	popup: ReactNode;
 }
@@ -86,11 +82,10 @@ export function useSlashCommands( {
 	value,
 	setValue,
 	textareaRef,
-	previewPrompt,
 }: UseSlashCommandsParams ): SlashCommands {
 	const { open: slashOpen, matches: slashMatches } = useMemo(
-		() => getSlashCommandMatches( value, previewPrompt ),
-		[ value, previewPrompt ]
+		() => getSlashCommandMatches( value, null ),
+		[ value ]
 	);
 	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
 
@@ -124,29 +119,6 @@ export function useSlashCommands( {
 		},
 		[ setValue, textareaRef ]
 	);
-
-	// Toolbar toggle: appends a "/" to open (keeping any typed text), strips
-	// the trailing token to close, and refocuses with the caret at the end.
-	const toggle = useCallback( () => {
-		setValue( ( prev ) => {
-			if ( slashOpen ) {
-				return prev.replace( TRAILING_SLASH_TOKEN, '' );
-			}
-			if ( prev.length === 0 ) {
-				return '/';
-			}
-			return /\s$/.test( prev ) ? `${ prev }/` : `${ prev } /`;
-		} );
-		const node = textareaRef.current;
-		queueMicrotask( () => {
-			if ( ! node ) {
-				return;
-			}
-			node.focus();
-			const end = node.value.length;
-			node.setSelectionRange( end, end );
-		} );
-	}, [ slashOpen, setValue, textareaRef ] );
 
 	const handleKeyDown = useCallback(
 		( event: KeyboardEvent< HTMLTextAreaElement > ): boolean => {
@@ -231,7 +203,6 @@ export function useSlashCommands( {
 			'aria-activedescendant': activeOptionId,
 		},
 		handleKeyDown,
-		toggle,
 		popup,
 	};
 }

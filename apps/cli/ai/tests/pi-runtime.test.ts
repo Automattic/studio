@@ -393,8 +393,7 @@ describe( 'pi runtime', () => {
 		await expect(
 			edit.execute( 'edit-call', {
 				path: '/tmp/studio/site/tmp/large.txt',
-				old_string: '<!-- anchor -->',
-				new_string: 'x'.repeat( 14 * 1024 + 1 ),
+				edits: [ { oldText: '<!-- anchor -->', newText: 'x'.repeat( 14 * 1024 + 1 ) } ],
 			} )
 		).rejects.toThrow( /single-call safety limit/ );
 		await expect(

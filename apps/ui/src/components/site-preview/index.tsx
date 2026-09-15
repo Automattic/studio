@@ -757,7 +757,14 @@ function PreviewAnnotationControls( {
 } ) {
 	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
 	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
-	const submitLabel = __( 'Send annotations to chat' );
+	const submitLabel =
+		annotationCount === 1
+			? __( 'Send 1 note' )
+			: sprintf(
+					/* translators: %d is the number of annotation notes waiting to be sent. */
+					__( 'Send %d notes' ),
+					annotationCount
+			  );
 	const hasPending = annotationCount > 0;
 	const handledCancelRequestId = useRef( cancelRequestId );
 	const requestCancel = useCallback( () => {
@@ -824,7 +831,7 @@ function PreviewAnnotationControls( {
 						aria-label={ submitLabel }
 						onClick={ () => onCommand( 'submit' ) }
 					>
-						{ __( 'Send to chat' ) }
+						{ submitLabel }
 					</Button>
 				) : null }
 			</div>

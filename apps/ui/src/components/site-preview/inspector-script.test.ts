@@ -11,8 +11,47 @@ describe( 'site preview inspector sessions', () => {
 		// answer the next test's commands alongside the instance under test.
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
 		vi.restoreAllMocks();
+		vi.useRealTimers();
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
+	} );
+
+	it( 'explains the annotation actions with button tooltips', () => {
+		vi.useFakeTimers();
+		document.body.innerHTML = '<h1 id="target">Target</h1>';
+		const target = document.querySelector( '#target' ) as HTMLElement;
+		vi.spyOn( target, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		target.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		expect( root.querySelector( '.save' ) ).toHaveAttribute(
+			'data-tooltip',
+			'Add this note and keep annotating.'
+		);
+		expect( root.querySelector( '.save' ) ).toHaveTextContent( 'Add note' );
+		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send 1 note' );
+		expect( root.querySelector( '.submit' ) ).toHaveAttribute(
+			'data-tooltip',
+			'Send all notes to chat and finish annotating.'
+		);
+		const textarea = root.querySelector( 'textarea' ) as HTMLTextAreaElement;
+		textarea.value = 'Change this heading';
+		textarea.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		const add = root.querySelector( '.save' ) as HTMLButtonElement;
+		const submit = root.querySelector( '.submit' ) as HTMLButtonElement;
+		add.dispatchEvent( new MouseEvent( 'mouseenter' ) );
+		vi.advanceTimersByTime( 599 );
+		expect( add ).not.toHaveClass( 'tooltip-open' );
+		vi.advanceTimersByTime( 1 );
+		expect( add ).toHaveClass( 'tooltip-open' );
+		add.dispatchEvent( new MouseEvent( 'mouseleave' ) );
+		expect( add ).not.toHaveClass( 'tooltip-open' );
+		submit.dispatchEvent( new MouseEvent( 'mouseenter' ) );
+		expect( submit ).toHaveClass( 'tooltip-open' );
 	} );
 
 	it( 'saves several notes without leaving annotation mode', () => {

@@ -7,6 +7,7 @@ interface DesignTokens {
 	typography?: Record< string, unknown >;
 	rounded?: Record< string, unknown >;
 	components?: Record< string, unknown >;
+	imagery?: { filter?: unknown; overlay?: unknown };
 }
 
 const escapeHtml = ( value: unknown ) =>
@@ -162,6 +163,8 @@ export function renderDesignBoard( design: string, image?: string ): string {
 		fontCss( buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label ),
 	].join( ';' );
 	const accent = accents[ 0 ]?.[ 1 ] ?? text;
+	const treatment = tokens.imagery ?? {};
+	const overlay = [ 'multiply', 'screen' ].find( ( mode ) => mode === treatment.overlay );
 
 	return `<!doctype html>
 <html>
@@ -219,10 +222,19 @@ figcaption{margin-top:12px;font-size:13px;opacity:.65}
 	) },24px);padding:18px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
 .card strong{${ fontCss( headline ) };font-size:20px}
 .card u{display:block;height:8px;border-radius:4px;background-color:${ hairline }}
-.picture{flex:1;overflow:hidden;border-radius:${ dimension( shape ) };background-color:${ css(
-		primary
-	) };color:${ css( ink( primary ) ) }}
-.picture img{width:100%;height:100%;object-fit:cover;display:block}
+.picture{position:relative;flex:1;overflow:hidden;border-radius:${ dimension(
+		shape
+	) };background-color:${ css( primary ) };color:${ css( ink( primary ) ) }}
+.picture img{width:100%;height:100%;object-fit:cover;display:block;filter:${ css(
+		treatment.filter ?? 'none'
+	) }}
+${
+	overlay
+		? `.picture img+i{position:absolute;inset:0;background-color:${ css(
+				primary
+		  ) };mix-blend-mode:${ overlay }}`
+		: ''
+}
 .pattern{background-image:radial-gradient(currentColor 20%,transparent 21%);background-size:32px 32px}
 .strip{position:absolute;left:0;right:0;bottom:0;height:12px;display:flex}
 </style>
@@ -246,7 +258,7 @@ figcaption{margin-top:12px;font-size:13px;opacity:.65}
 	}</div></section>
 <section><h2>Components</h2><div class="kit"><div class="stack"><div class="row"><span class="button primary">Button</span><span class="button secondary">Button</span><span class="link">Link</span></div><div class="row"><span class="input">Input</span></div><div class="row"><span class="tag">Tag</span><span class="tag alt">Tag</span></div></div><div class="card"><span class="tag">Card</span><strong>Card title</strong><u style="width:90%"></u><u style="width:65%"></u></div></div></section>
 <section><h2>Imagery</h2><div class="picture${ image ? '' : ' pattern' }">${
-		image ? `<img src="${ escapeHtml( image ) }" alt="">` : ''
+		image ? `<img src="${ escapeHtml( image ) }" alt="">${ overlay ? '<i></i>' : '' }` : ''
 	}</div></section>
 <div class="strip">${ strip }</div>
 </body>

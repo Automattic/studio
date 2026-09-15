@@ -41,7 +41,7 @@ Do not make a single edit until you have diagnosed every section and listed ever
 
 ### Phase 2 — Fix the whole batch
 
-Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
+Work through the plan with targeted `Edit` calls: one file per turn, with all of that file's fixes as separate entries of one `Edit` call, per the system prompt cadence — never batch files into one turn. Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
 ### Phase 3 — Verify and loop
 

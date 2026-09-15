@@ -25,11 +25,33 @@ function getStringParam( params: unknown, key: string ): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
+function getEditEntries( params: unknown ): Array< { oldText: string; newText: string } > {
+	if ( ! params || typeof params !== 'object' ) {
+		return [];
+	}
+	let edits = ( params as Record< string, unknown > ).edits;
+	// Some models send the array as a JSON string; pi parses it the same way.
+	if ( typeof edits === 'string' ) {
+		try {
+			edits = JSON.parse( edits );
+		} catch {
+			return [];
+		}
+	}
+	if ( ! Array.isArray( edits ) ) {
+		return [];
+	}
+	return edits.map( ( edit ) => ( {
+		oldText: getStringParam( edit, 'oldText' ) ?? '',
+		newText: getStringParam( edit, 'newText' ) ?? '',
+	} ) );
+}
+
 function getPayloadRecoveryAdvice( toolName: string ): string {
 	if ( toolName === 'Bash' ) {
 		return 'Split the work into smaller Write/Edit calls. Do not retry with Bash heredocs or Python scripts; they carry the same large payload risk.';
 	}
-	return 'Write a small skeleton and fill it with smaller Edit calls. Do not split the content across multiple files to concatenate later; that hits the same limit on the concatenation step.';
+	return 'Write a small skeleton and fill it with Edit calls that stay under the limit, several edits[] entries per call. Do not split the content across multiple files to concatenate later; that hits the same limit on the concatenation step.';
 }
 
 function createPayloadLimitMessage(
@@ -55,12 +77,15 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	}
 
 	if ( toolName === 'Edit' ) {
-		for ( const fieldName of [ 'old_string', 'new_string' ] ) {
-			const value = getStringParam( params, fieldName );
-			const bytes = value ? getByteLength( value ) : 0;
-			if ( bytes > STUDIO_FILE_TOOL_MAX_BYTES ) {
-				return createPayloadLimitMessage( toolName, fieldName, bytes, STUDIO_FILE_TOOL_MAX_BYTES );
-			}
+		// pi's edit tool takes `{ path, edits: [ { oldText, newText } ] }`; the
+		// limit applies to the whole call, so sum every entry.
+		const edits = getEditEntries( params );
+		const bytes = edits.reduce(
+			( total, edit ) => total + getByteLength( edit.oldText ) + getByteLength( edit.newText ),
+			0
+		);
+		if ( bytes > STUDIO_FILE_TOOL_MAX_BYTES ) {
+			return createPayloadLimitMessage( toolName, 'edits', bytes, STUDIO_FILE_TOOL_MAX_BYTES );
 		}
 	}
 
@@ -135,7 +160,7 @@ export function getPayloadLimitDescription( toolName: string, description: strin
 	if ( toolName === 'Write' || toolName === 'Edit' ) {
 		return `${ description }\n\nStudio safety: keep generated file payloads at or below ${ formatBytes(
 			STUDIO_FILE_TOOL_MAX_BYTES
-		) } per call. For larger files, write a small skeleton and fill it with smaller Edit calls. Do not use Bash heredocs or Python scripts as a workaround.`;
+		) } per call (for Edit, the total of every edits[] entry). For larger files, write a small skeleton and fill it with Edit calls that each carry several edits[] entries under the limit. Do not use Bash heredocs or Python scripts as a workaround.`;
 	}
 
 	if ( toolName === 'Bash' ) {

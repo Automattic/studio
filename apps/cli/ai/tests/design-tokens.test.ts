@@ -1,0 +1,139 @@
+import { describe, expect, it } from 'vitest';
+import { applyDesignTokens } from 'cli/ai/design-tokens';
+
+const DESIGN_MD = `---
+name: Sunny Bakery
+colors:
+  primary: "#e2231a"
+  background: "#fffdf7"
+  text: "#111111"
+  accent-warm: "#f6c344"
+typography:
+  display:
+    fontFamily: "'Fredoka', system-ui, sans-serif"
+    fontSize: "clamp(3rem, 9vw, 8rem)"
+    fontWeight: 800
+    lineHeight: 0.95
+  headline:
+    fontFamily: "'Fredoka', system-ui, sans-serif"
+    fontSize: "2rem"
+    fontWeight: 700
+    lineHeight: 1.05
+    letterSpacing: "-0.02em"
+  body:
+    fontFamily: "Nunito, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  label:
+    fontFamily: "Nunito, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 700
+    textTransform: "uppercase"
+rounded:
+  none: 0
+  pill: 999px
+spacing:
+  sm: 16px
+  md: 32px
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "#ffffff"
+    rounded: "{rounded.pill}"
+    padding: "{spacing.sm} {spacing.md}"
+---
+
+# Sunny Bakery
+`;
+
+const BASE = { version: 3, styles: { spacing: { padding: { top: '0px' } } } };
+
+describe( 'applyDesignTokens', () => {
+	it( 'maps DESIGN.md front matter onto theme.json and a Google Fonts URL', () => {
+		const result = applyDesignTokens( BASE, DESIGN_MD );
+		expect( result ).toBeDefined();
+		const { themeJson, fontsUrl, summary } = result!;
+
+		expect( themeJson ).toEqual( {
+			version: 3,
+			settings: {
+				color: {
+					palette: [
+						{ slug: 'primary', color: '#e2231a', name: 'Primary' },
+						{ slug: 'background', color: '#fffdf7', name: 'Background' },
+						{ slug: 'text', color: '#111111', name: 'Text' },
+						{ slug: 'accent-warm', color: '#f6c344', name: 'Accent Warm' },
+					],
+				},
+				typography: {
+					fontFamilies: [
+						{ slug: 'fredoka', name: 'Fredoka', fontFamily: '"Fredoka", system-ui, sans-serif' },
+						{ slug: 'nunito', name: 'Nunito', fontFamily: '"Nunito", sans-serif' },
+					],
+					fontSizes: [
+						{ slug: 'display', size: 'clamp(3rem, 9vw, 8rem)', name: 'Display' },
+						{ slug: 'headline', size: '2rem', name: 'Headline' },
+						{ slug: 'body', size: '1rem', name: 'Body' },
+						{ slug: 'label', size: '0.75rem', name: 'Label' },
+					],
+				},
+				spacing: {
+					spacingSizes: [
+						{ slug: 'sm', size: '16px', name: 'Small' },
+						{ slug: 'md', size: '32px', name: 'Medium' },
+					],
+				},
+				custom: { rounded: { none: '0px', pill: '999px' } },
+			},
+			styles: {
+				spacing: { padding: { top: '0px' } },
+				color: { background: 'var:preset|color|background', text: 'var:preset|color|text' },
+				typography: {
+					fontFamily: 'var:preset|font-family|nunito',
+					fontSize: 'var:preset|font-size|body',
+					fontWeight: '400',
+					lineHeight: '1.5',
+				},
+				elements: {
+					heading: {
+						typography: {
+							fontFamily: 'var:preset|font-family|fredoka',
+							fontWeight: '700',
+							lineHeight: '1.05',
+							letterSpacing: '-0.02em',
+						},
+					},
+					link: { color: { text: 'var:preset|color|primary' } },
+					button: {
+						color: { background: 'var:preset|color|primary', text: '#ffffff' },
+						border: { radius: '999px' },
+						spacing: {
+							padding: {
+								top: 'var:preset|spacing|sm',
+								right: 'var:preset|spacing|md',
+								bottom: 'var:preset|spacing|sm',
+								left: 'var:preset|spacing|md',
+							},
+						},
+						typography: {
+							fontFamily: 'var:preset|font-family|nunito',
+							fontSize: 'var:preset|font-size|label',
+							fontWeight: '700',
+							textTransform: 'uppercase',
+						},
+					},
+				},
+			},
+		} );
+		expect( fontsUrl ).toBe(
+			'https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800&family=Nunito:wght@400;700&display=swap'
+		);
+		expect( summary ).toBe( '4 colors, 2 font families, 4 text styles, 2 spacing steps' );
+	} );
+
+	it( 'returns undefined when the front matter has no colors', () => {
+		expect( applyDesignTokens( BASE, '---\nname: Empty\n---\n# Empty\n' ) ).toBeUndefined();
+		expect( applyDesignTokens( BASE, '# No front matter\n' ) ).toBeUndefined();
+	} );
+} );

@@ -5,6 +5,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { applyDesignTokens, ThemeJson } from '../design-tokens';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -119,8 +120,8 @@ Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibilit
 `;
 }
 
-function renderThemeJson(): string {
-	const data = {
+function baseThemeJson(): ThemeJson {
+	return {
 		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
 		version: 3,
 		settings: {
@@ -158,10 +159,30 @@ function renderThemeJson(): string {
 			},
 		],
 	};
+}
+
+function childThemeJson(): ThemeJson {
+	return {
+		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
+		version: 3,
+	};
+}
+
+function renderThemeJson( data: ThemeJson ): string {
 	return JSON.stringify( data, null, '\t' ) + '\n';
 }
 
-function renderFunctionsPhp( name: string, slug: string ): string {
+function renderFontsEnqueue( slug: string, fontsUrl: string | undefined ): string {
+	return fontsUrl
+		? `\twp_enqueue_style( '${ slug }-fonts', '${ fontsUrl }', array(), null );\n`
+		: '';
+}
+
+function renderFontsEditorStyle( fontsUrl: string | undefined ): string {
+	return fontsUrl ? `\tadd_editor_style( '${ fontsUrl }' );\n` : '';
+}
+
+function renderFunctionsPhp( name: string, slug: string, fontsUrl?: string ): string {
 	return `<?php
 /**
  * ${ name } theme functions.
@@ -170,29 +191,26 @@ function renderFunctionsPhp( name: string, slug: string ): string {
  */
 
 add_action( 'wp_enqueue_scripts', function () {
-	wp_enqueue_style(
+${ renderFontsEnqueue( slug, fontsUrl ) }	wp_enqueue_style(
 		'${ slug }-style',
 		get_parent_theme_file_uri( 'style.css' ),
-		array(),
+		array(${ fontsUrl ? ` '${ slug }-fonts' ` : '' }),
 		wp_get_theme()->get( 'Version' )
 	);
 } );
 
 add_action( 'after_setup_theme', function () {
-	add_editor_style( 'style.css' );
+${ renderFontsEditorStyle( fontsUrl ) }	add_editor_style( 'style.css' );
 } );
 `;
 }
 
-function renderChildThemeJson(): string {
-	const data = {
-		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
-		version: 3,
-	};
-	return JSON.stringify( data, null, '\t' ) + '\n';
-}
-
-function renderChildFunctionsPhp( name: string, slug: string, parentSlug: string ): string {
+function renderChildFunctionsPhp(
+	name: string,
+	slug: string,
+	parentSlug: string,
+	fontsUrl?: string
+): string {
 	return `<?php
 /**
  * ${ name } child theme functions.
@@ -209,16 +227,16 @@ add_action( 'wp_enqueue_scripts', function () {
 		array(),
 		wp_get_theme( get_template() )->get( 'Version' )
 	);
-	wp_enqueue_style(
+${ renderFontsEnqueue( slug, fontsUrl ) }	wp_enqueue_style(
 		'${ slug }-style',
 		get_stylesheet_directory_uri() . '/style.css',
-		array( '${ parentSlug }-parent-style' ),
+		array( '${ parentSlug }-parent-style'${ fontsUrl ? `, '${ slug }-fonts'` : '' } ),
 		wp_get_theme()->get( 'Version' )
 	);
 } );
 
 add_action( 'after_setup_theme', function () {
-	add_editor_style( 'style.css' );
+${ renderFontsEditorStyle( fontsUrl ) }	add_editor_style( 'style.css' );
 } );
 `;
 }
@@ -400,6 +418,7 @@ export const scaffoldThemeTool = defineTool(
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
+		'When the site has a DESIGN.md, theme.json is filled from its tokens — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under the same names — and functions.php enqueues its Google Fonts. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
 		'Block themes only; does not support classic (PHP template) themes. ' +
@@ -491,6 +510,13 @@ export const scaffoldThemeTool = defineTool(
 				);
 			}
 
+			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
+			const designPath = path.join( site.path, 'DESIGN.md' );
+			const design = ( await pathExists( designPath ) )
+				? applyDesignTokens( baseJson, await readFile( designPath, 'utf8' ) )
+				: undefined;
+			const themeJson = design?.themeJson ?? baseJson;
+
 			let files: Array< [ string, string ] >;
 			if ( parentSlug !== undefined ) {
 				// A block child theme inherits templates, parts, patterns, theme.json
@@ -499,8 +525,11 @@ export const scaffoldThemeTool = defineTool(
 				await mkdir( themeDir, { recursive: true } );
 				files = [
 					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
-					[ 'theme.json', renderChildThemeJson() ],
-					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug ) ],
+					[ 'theme.json', renderThemeJson( themeJson ) ],
+					[
+						'functions.php',
+						renderChildFunctionsPhp( trimmedName, slug, parentSlug, design?.fontsUrl ),
+					],
 				];
 			} else {
 				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
@@ -510,8 +539,8 @@ export const scaffoldThemeTool = defineTool(
 
 				files = [
 					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
-					[ 'theme.json', renderThemeJson() ],
-					[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
+					[ 'theme.json', renderThemeJson( themeJson ) ],
+					[ 'functions.php', renderFunctionsPhp( trimmedName, slug, design?.fontsUrl ) ],
 					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
 					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
@@ -563,6 +592,15 @@ export const scaffoldThemeTool = defineTool(
 					'Read a file before editing it — do not assume its contents.',
 					'',
 				];
+			}
+
+			if ( design ) {
+				summaryLines.push(
+					`theme.json carries the DESIGN.md tokens under the same names (${ design.summary })${
+						design.fontsUrl ? ' and functions.php enqueues its Google Fonts' : ''
+					}. Edit it only for what DESIGN.md does not cover.`,
+					''
+				);
 			}
 
 			if ( ! activation ) {

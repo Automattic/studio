@@ -33,6 +33,10 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 - **inline-block-constrained-alignment** — Agent builds a hero with a shrink-wrapped eyebrow/pill label. Asserts no CSS rule sets an inline-level `display` on a bare class used as a block `className` — that detaches the block from constrained-layout alignment (auto margins do nothing on inline-level boxes) so the label escapes the content column. The sanctioned pattern is a flex row group wrapper.
 - **repeated-treatment-uses-block-style** — Agent builds a homepage with three cards sharing one visual treatment. Asserts the treatment is a registered block style variation (`register_block_style()` in PHP or a `styles/*.json` block-style file) applied via an `is-style-*` class (core built-in slugs excluded) at least twice — guarding against the agent styling the repeated treatment with a bare custom class and CSS only. Also asserts no raw `fontSize` value repeats 3+ times across blocks (a recurring size belongs in `theme.json`'s size scale as a preset).
 
+## Running the runner directly
+
+`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), `STUDIO_EVAL_SESSION_DIR` persists the session JSONL in that directory instead of memory, and `STUDIO_EVAL_AUTO_CONTINUE=<n>` resumes a turn that ended with an empty assistant message (some hosted tiers stop that way when their reasoning budget runs out) with `continue`, up to `n` times; the result reports the count as `autoContinues`.
+
 ## Adding tests
 
 Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions`, `turnDurationsMs`) — write assertions in the YAML, not in the runner. Each `toolResults` entry carries the result's text block plus any image content blocks (`images`, base64) and structured `details` (e.g. `studioArtifacts`).

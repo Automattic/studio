@@ -29,6 +29,8 @@ const connectorMocks = vi.hoisted( () => ( {
 	capabilities: { aiSettings: false },
 	createSession: vi.fn(),
 	getAiSettings: vi.fn(),
+	getAuthUser: vi.fn(),
+	getStudioAssistantQuota: vi.fn(),
 	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
 	setSessionModel: vi.fn(),
 	setSessionProvider: vi.fn(),
@@ -94,7 +96,10 @@ describe( 'Composer menu', () => {
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
 		} );
-		renderComposer( { entries: [ createSessionContextEntry( 'anthropic-api-key' ) ] } );
+		renderComposer( {
+			entries: [ createSessionContextEntry( 'anthropic-api-key' ) ],
+			model: 'claude-sonnet-5',
+		} );
 
 		const trigger = screen.getByRole( 'button', { name: 'Select model' } );
 		await waitFor( () => expect( trigger ).toHaveTextContent( 'API · Sonnet 5' ) );
@@ -123,7 +128,7 @@ describe( 'Composer menu', () => {
 		fireEvent.click( trigger );
 		await waitFor( () =>
 			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+				[ 'Fast', 'Balanced', 'Strong' ]
 			)
 		);
 	} );
@@ -140,7 +145,7 @@ describe( 'Composer menu', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		await waitFor( () =>
 			expect( screen.getAllByRole( 'menuitemradio' ).map( ( item ) => item.textContent ) ).toEqual(
-				[ 'Sonnet 5', 'Opus 5', 'GPT 5.6 Sol' ]
+				[ 'Fast', 'Balanced', 'Strong' ]
 			)
 		);
 	} );
@@ -158,7 +163,7 @@ describe( 'Composer menu', () => {
 			summary: createSummary(),
 			entries: [],
 		} );
-		renderComposer( { model: 'gpt-5.6-sol' }, queryClient );
+		renderComposer( { model: 'balanced' }, queryClient );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
@@ -184,6 +189,7 @@ describe( 'Composer menu', () => {
 		const onModelChange = vi.fn();
 		const { composerRef, container } = renderComposer( {
 			variant: 'field',
+			model: 'balanced',
 			sessionId: undefined,
 			placeholder: 'Describe the site',
 			onModelChange,
@@ -212,9 +218,134 @@ describe( 'Composer menu', () => {
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'GPT 5.6 Sol' } ) );
-		expect( onModelChange ).toHaveBeenCalledWith( 'gpt-5.6-sol' );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Fast' } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'fast' );
 		expect( connectorMocks.setSessionModel ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables the paid tiers unless purchased credits remain', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		const { unmount } = renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+		} );
+		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'menuitemradio', { name: 'Fast' } ) ).not.toHaveAttribute(
+			'aria-disabled'
+		);
+		unmount();
+
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
+	} );
+
+	it( 'unlocks the paid tiers for Automatticians without purchased credits', async () => {
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'person@automattic.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		renderComposer();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
+		expect( screen.getByRole( 'menuitemradio', { name: 'Strong' } ) ).not.toHaveAttribute(
+			'aria-disabled'
+		);
+		expect(
+			screen.queryByText( 'Add AI credits to unlock stronger models.' )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'nudges free-allowance accounts toward paid tiers, dismissibly', async () => {
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 0 } );
+		const { unmount } = renderComposer();
+
+		// Banner above the prompt, with the shared nudge copy.
+		expect(
+			await screen.findByText( 'Add AI credits to unlock stronger models.' )
+		).toBeInTheDocument();
+
+		// The model picker carries the same nudge as a footer item.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		expect(
+			await screen.findByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
+		).toBeInTheDocument();
+		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
+
+		// Dismissing hides the banner and persists.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss' } ) );
+		await waitFor( () => {
+			expect(
+				screen.queryByText( 'Add AI credits to unlock stronger models.' )
+			).not.toBeInTheDocument();
+		} );
+		expect( localStorage.getItem( 'studio_code_paid_tiers_nudge_dismissed' ) ).toBe( '1' );
+		unmount();
+
+		// Paid accounts never see it.
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( { purchasedRemaining: 50_000 } );
+		renderComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).not.toHaveAttribute(
+				'aria-disabled'
+			);
+		} );
+		expect(
+			screen.queryByText( 'Add AI credits to unlock stronger models.' )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'yields the nudge to the usage warning from 80% spend', async () => {
+		localStorage.removeItem( 'studio_code_paid_tiers_nudge_dismissed' );
+		connectorMocks.getAuthUser.mockResolvedValue( { id: 1, email: 'user@example.com' } );
+		connectorMocks.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 100,
+			allowanceRemaining: 15,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 0,
+		} );
+		renderComposer();
+
+		// The tiers stay locked and the picker keeps its contextual footer,
+		// but the banner stays out of the warning's way.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		await waitFor( () => {
+			expect( screen.getByRole( 'menuitemradio', { name: 'Balanced' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+		} );
+		expect(
+			screen.getByRole( 'menuitem', { name: 'Add AI credits to unlock stronger models.' } )
+		).toBeInTheDocument();
+		fireEvent.keyDown( document.activeElement ?? document.body, { key: 'Escape' } );
+		await waitFor( () => {
+			expect(
+				screen.queryByText( 'Add AI credits to unlock stronger models.' )
+			).not.toBeInTheDocument();
+		} );
 	} );
 
 	it( 'shows tooltips for the plus button and model picker', async () => {
@@ -646,15 +777,22 @@ describe( 'Composer menu', () => {
 		dialog.remove();
 	} );
 
-	it( 'opens a fresh session on the picked model after a family switch', async () => {
+	it( 'keeps the picked provider pin in the fresh session cache after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
 		const freshSummary = createSummary( { id: 'fresh-session' } );
+		connectorMocks.capabilities.aiSettings = true;
+		connectorMocks.getAiSettings.mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+		} );
 		connectorMocks.createSession.mockResolvedValue( freshSummary );
-		connectorMocks.setSessionModel.mockResolvedValue( undefined );
+		connectorMocks.setSessionProvider.mockResolvedValue( undefined );
 
 		renderComposer(
 			{
+				model: 'balanced',
 				entries: [ createUserPromptEntry() ],
 				ownerSiteId: 'site-1',
 				onSwitchSession,
@@ -663,11 +801,11 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Anthropic API' } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( dialog ).toHaveTextContent(
-			'Switching from Sonnet 5 to GPT 5.6 Sol starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
+			'Switching from Balanced to Sonnet 5 starts a fresh chat because the models don\u2019t share memory. You can find previous chats using Chat history below the chat box.'
 		);
 		expect( within( dialog ).getByText( 'Chat history' ).tagName ).toBe( 'STRONG' );
 		expect( dialog ).not.toHaveTextContent( 'sidebar' );
@@ -676,13 +814,23 @@ describe( 'Composer menu', () => {
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
-		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
-		expect(
-			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'fresh-session' ] )
-		).toEqual( {
-			summary: freshSummary,
-			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'gpt-5.6-sol' } ) ],
-		} );
+		expect( connectorMocks.setSessionProvider ).toHaveBeenCalledWith(
+			'fresh-session',
+			'anthropic-api-key',
+			'claude-sonnet-5'
+		);
+
+		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'fresh-session',
+		] );
+		expect( loadedSession?.summary ).toEqual( freshSummary );
+		expect( loadedSession?.entries ).toEqual( [
+			expect.objectContaining( {
+				customType: 'studio.session_context',
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+			} ),
+		] );
 	} );
 } );
 

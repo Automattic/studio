@@ -1,15 +1,54 @@
-export function parseSitemapXml(xml: string): string[] {
+function decodeXml(value: string): string {
+  return value.replace(/&(?:amp|lt|gt|quot|apos);|&#(?:x[\da-f]+|\d+);/gi, (entity) => {
+    if (entity === '&amp;') return '&';
+    if (entity === '&lt;') return '<';
+    if (entity === '&gt;') return '>';
+    if (entity === '&quot;') return '"';
+    if (entity === '&apos;') return "'";
+    const numeric = entity.slice(2, -1);
+    const codePoint = Number(numeric.startsWith('x') || numeric.startsWith('X') ? `0${numeric}` : numeric);
+    return Number.isSafeInteger(codePoint) ? String.fromCodePoint(codePoint) : entity;
+  });
+}
+
+export interface SitemapDocument {
+  kind: 'urlset' | 'index' | 'unknown';
+  locs: string[];
+}
+
+export function parseSitemapDocument(xml: string): SitemapDocument {
+  const kind = /<\s*(?:\w+:)?sitemapindex\b/i.test(xml) ? 'index'
+    : /<\s*(?:\w+:)?urlset\b/i.test(xml) ? 'urlset'
+      : 'unknown';
   const urls: string[] = [];
-  const locMatches = xml.match(/<loc>([^<]+)<\/loc>/g);
-  if (!locMatches) return urls;
+  const locMatches = xml.match(/<\s*(?:\w+:)?loc\s*>([^<]+)<\/\s*(?:\w+:)?loc\s*>/gi);
+  if (!locMatches) return { kind, locs: urls };
   for (const match of locMatches) {
-    const url = match.replace(/<\/?loc>/g, '').trim();
+    const url = decodeXml(match.replace(/<\/?(?:\w+:)?loc\s*>/gi, '').trim());
     if (url) urls.push(url);
   }
-  return urls;
+  return { kind, locs: urls };
+}
+
+import { chromium } from 'playwright';
+import { canonicalizeOrigin } from '../screenshot/same-origin.js';
+
+export function parseSitemapXml(xml: string): string[] {
+  return parseSitemapDocument(xml).locs;
 }
 
 export type UrlType = 'homepage' | 'post' | 'product' | 'gallery' | 'event' | 'page';
+
+export interface SitemapDiagnostic {
+  code: string;
+  url: string;
+  reason: string;
+}
+
+export interface SitemapFetchResult {
+  urls: string[];
+  diagnostics: SitemapDiagnostic[];
+}
 
 export function classifyUrl(url: string): UrlType {
   let path: string;
@@ -28,6 +67,15 @@ export function classifyUrl(url: string): UrlType {
   if (/\/blogs\/[^/]+\/[^/]+/.test(path)) return 'post'; // Shopify /blogs/<blog>/<article>
   if (/\/blog-\d+\/post\//.test(path)) return 'post'; // Wix /blog-1/post/<slug>
   if (/\/single-post\//.test(path)) return 'post'; // Older Wix Blog URL pattern
+  // A category/listing page under a store path is not a product, the same way a bare
+  // /blog is not a post above. Weebly names these /store/c<N>/... against /store/p<N>/...
+  // for an actual product; other platforms use /category/, /collections/ (Shopify), etc.,
+  // or the bare /store//shop/ index. Check these before the broad product test below, or
+  // e.g. lonestardinners.com's /store/c1/Current_Menu.html imports into WooCommerce as a
+  // junk product named after the category, priced at whatever its cheapest listing costs.
+  if (/\/(?:store|shop)\/c\d+\//.test(path)) return 'page';
+  if (/\/(?:category|categories|collections|product-category|product-tag)(?:\/|$)/.test(path)) return 'page';
+  if (/\/(?:store|shop)\/?$/.test(path)) return 'page';
   if (/\/(products?|product-page|store|shop)\//.test(path)) return 'product';
   if (/\/(gallery|portfolio)/.test(path)) return 'gallery';
   if (/\/(event|events)/.test(path)) return 'event';
@@ -38,15 +86,28 @@ const MAX_SITEMAP_DEPTH = 3;
 const MAX_URLS = 50000;
 
 export async function fetchSitemap(baseUrl: string): Promise<string[]> {
+  return (await fetchSitemapWithDiagnostics(baseUrl)).urls;
+}
+
+/**
+ * Fetch sitemap routes scoped to the entry URL's origin. `fetchSitemap` keeps
+ * the array-only contract used by existing adapters; callers that surface
+ * discovery diagnostics can opt into this richer result.
+ */
+export async function fetchSitemapWithDiagnostics(baseUrl: string): Promise<SitemapFetchResult> {
   const normalizedBase = baseUrl.includes('://') ? baseUrl : `https://${baseUrl}`;
   const sitemapUrl = `${normalizedBase.replace(/\/$/, '')}/sitemap.xml`;
   let baseOrigin: string;
+  let captureOrigin: string;
   try {
     baseOrigin = new URL(normalizedBase).origin;
+    captureOrigin = canonicalizeOrigin(normalizedBase);
   } catch {
-    return [];
+    return { urls: [], diagnostics: [] };
   }
   const allUrls: string[] = [];
+  const seenUrls = new Set<string>();
+  const diagnostics: SitemapDiagnostic[] = [];
   const visited = new Set<string>();
 
   async function fetchAndParse(url: string, depth: number): Promise<void> {
@@ -64,7 +125,7 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) return;
       const xml = await response.text();
-      const urls = parseSitemapXml(xml);
+      const urls = parseSitemapDocument(xml).locs;
 
       for (const u of urls) {
         if (allUrls.length >= MAX_URLS) break;
@@ -73,7 +134,25 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
         if (pathPart.endsWith('.xml')) {
           await fetchAndParse(u, depth + 1);
         } else {
-          allUrls.push(u);
+          let pageUrl: URL;
+          try {
+            pageUrl = new URL(u);
+          } catch {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'invalid URL' });
+            continue;
+          }
+          if (pageUrl.protocol !== 'http:' && pageUrl.protocol !== 'https:') {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'unsupported protocol' });
+            continue;
+          }
+          if (canonicalizeOrigin(pageUrl.href) !== captureOrigin) {
+            diagnostics.push({ code: 'sitemap_url_rejected', url: u, reason: 'origin differs from the entry URL' });
+            continue;
+          }
+          if (!seenUrls.has(pageUrl.href)) {
+            allUrls.push(pageUrl.href);
+            seenUrls.add(pageUrl.href);
+          }
         }
       }
     } catch {
@@ -93,9 +172,23 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
         seen.add(u);
       }
     }
+
+    // Client-rendered sites can ship an empty application root, so raw HTML
+    // cannot expose their navigation. Render only when the raw crawl found no
+    // routes to retain the inexpensive fetch path for ordinary sites.
+    if (navUrls.length === 0) {
+      const renderedNavUrls = await crawlRenderedNavLinks(normalizedBase, baseOrigin);
+      const seen = new Set(allUrls);
+      for (const u of renderedNavUrls) {
+        if (!seen.has(u) && allUrls.length < MAX_URLS) {
+          allUrls.push(u);
+          seen.add(u);
+        }
+      }
+    }
   }
 
-  return allUrls;
+  return { urls: allUrls, diagnostics };
 }
 
 // Paths that are platform UI, not user content
@@ -141,9 +234,36 @@ async function crawlNavLinks(baseUrl: string, baseOrigin: string): Promise<strin
   return urls;
 }
 
+async function crawlRenderedNavLinks(baseUrl: string, baseOrigin: string): Promise<string[]> {
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+
+    const hrefs = await page.locator('a[href]').evaluateAll((links) =>
+      links.map((link) => (link as HTMLAnchorElement).href),
+    );
+    const seen = new Set<string>();
+    return hrefs.flatMap((href) => {
+      const resolved = resolveAndFilter(href, baseUrl, baseOrigin);
+      if (!resolved || seen.has(resolved)) return [];
+      seen.add(resolved);
+      return [resolved];
+    });
+  } catch {
+    // Rendering is a best-effort fallback; sitemap and raw navigation remain usable.
+    return [];
+  } finally {
+    await browser?.close();
+  }
+}
+
 function resolveAndFilter(href: string, baseUrl: string, baseOrigin: string): string | null {
   try {
     const resolved = new URL(href, baseUrl);
+    if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return null;
     if (resolved.origin !== baseOrigin) return null;
     if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|pdf|zip|xml|json)$/i.test(resolved.pathname)) return null;
     if (SKIP_PATHS.test(resolved.pathname)) return null;

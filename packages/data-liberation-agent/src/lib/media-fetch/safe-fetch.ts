@@ -157,6 +157,8 @@ export interface SafeFetchOpts {
   fetchImpl?: typeof fetch;
   /** Extra request headers. */
   headers?: Record<string, string>;
+  /** Shared cancellation signal, checked for every redirect hop and body read. */
+  signal?: AbortSignal;
 }
 
 export interface SafeFetchResult {
@@ -182,12 +184,15 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOpts = {}): Promi
   const maxBytes = opts.maxBytes ?? MAX_DOWNLOAD_BYTES;
   const maxRedirects = opts.maxRedirects ?? MAX_REDIRECTS;
   const doFetch = opts.fetchImpl ?? fetch;
+  const requestSignal = opts.signal
+    ? AbortSignal.any([opts.signal, AbortSignal.timeout(timeoutMs)])
+    : AbortSignal.timeout(timeoutMs);
 
   let currentUrl = assertPublicHttpUrl(rawUrl).toString();
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
     const res = await doFetch(currentUrl, {
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestSignal,
       redirect: 'manual',
       headers: opts.headers,
     });
@@ -231,7 +236,7 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOpts = {}): Promi
       }
     }
 
-    const body = await readCapped(res, maxBytes);
+    const body = await readCapped(res, maxBytes, requestSignal);
     return { finalUrl: currentUrl, status: res.status, headers: res.headers, body };
   }
 
@@ -245,12 +250,19 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOpts = {}): Promi
  * a streaming body (web ReadableStream); falls back to arrayBuffer + post-check
  * for environments / mocks without a stream.
  */
-async function readCapped(res: { body?: unknown; arrayBuffer: () => Promise<ArrayBuffer> }, maxBytes: number): Promise<Buffer> {
+async function readCapped(
+  res: { body?: unknown; arrayBuffer: () => Promise<ArrayBuffer> },
+  maxBytes: number,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  signal?.throwIfAborted();
   const stream = res.body as ReadableStream<Uint8Array> | null | undefined;
   if (stream && typeof stream.getReader === 'function') {
     const reader = stream.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
+    const cancel = () => { void reader.cancel(signal?.reason).catch(() => undefined); };
+    signal?.addEventListener('abort', cancel, { once: true });
     try {
       for (;;) {
         const { done, value } = await reader.read();
@@ -265,6 +277,7 @@ async function readCapped(res: { body?: unknown; arrayBuffer: () => Promise<Arra
         }
       }
     } finally {
+      signal?.removeEventListener('abort', cancel);
       try { reader.releaseLock(); } catch { /* ignore */ }
     }
     return Buffer.concat(chunks.map((c) => Buffer.from(c)));
@@ -272,6 +285,7 @@ async function readCapped(res: { body?: unknown; arrayBuffer: () => Promise<Arra
 
   // No stream available (test mock): read fully then post-check.
   const buf = Buffer.from(await res.arrayBuffer());
+  signal?.throwIfAborted();
   if (buf.length > maxBytes) {
     throw new BodyTooLargeError(`response body ${buf.length} bytes exceeds max ${maxBytes}`);
   }

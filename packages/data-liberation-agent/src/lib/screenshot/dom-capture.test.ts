@@ -187,7 +187,7 @@ describe('collectMobileChromeLayout', () => {
     // Use a mobile-sized browser context to simulate the mobile viewport.
     const { chromium } = await import('playwright');
     const mobileBrowser = await chromium.launch();
-    const ctx = await mobileBrowser.newContext({ viewport: { width: 390, height: 844 } });
+    const ctx = await mobileBrowser.newContext({ viewport: { width: 402, height: 681 } });
     const page = await ctx.newPage();
     try {
       await page.setContent(CHROME_FIXTURE);
@@ -221,7 +221,7 @@ describe('collectMobileChromeLayout', () => {
       await desktopCtx.close();
 
       // Mobile pass (separate context)
-      const mobileCtx = await testBrowser.newContext({ viewport: { width: 390, height: 844 } });
+      const mobileCtx = await testBrowser.newContext({ viewport: { width: 402, height: 681 } });
       const mobilePage = await mobileCtx.newPage();
       await mobilePage.setContent(CHROME_FIXTURE);
       const mobileMap = await collectMobileChromeLayout(mobilePage);
@@ -244,7 +244,7 @@ describe('collectMobileChromeLayout', () => {
   it('returns null when no header/footer chrome is found', async () => {
     const { chromium } = await import('playwright');
     const mobileBrowser = await chromium.launch();
-    const ctx = await mobileBrowser.newContext({ viewport: { width: 390, height: 844 } });
+    const ctx = await mobileBrowser.newContext({ viewport: { width: 402, height: 681 } });
     const page = await ctx.newPage();
     try {
       // Page with no chrome elements (no header, footer, or nav with sufficient score)

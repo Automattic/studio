@@ -10,6 +10,7 @@ node_modules/
 # must live in git.
 dist/*
 !dist/mcp-server.bundle.mjs
+!dist/capture-engine.bundle.mjs
 !dist/scripts/
 docs/plans/
 docs/superpowers/

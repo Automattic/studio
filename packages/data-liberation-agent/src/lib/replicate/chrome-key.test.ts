@@ -28,8 +28,7 @@ describe('chromeKey', () => {
   });
 
   it('produces the same key for elements differing only by Wix instance id', () => {
-    // canonicalizeInstanceIds normalises comp-<inst> (not _r_ prefixed) to positional
-    // tokens, so two placements of the same component component produce equal keys.
+    // Builder instance prefixes are volatile while the shared component identity is stable.
     const a = chromeKey({ region: 'header', pathIndex: [0, 1], tag: 'div', className: 'comp-abc123_r_comp-sharedXYZ widget' });
     const b = chromeKey({ region: 'header', pathIndex: [0, 1], tag: 'div', className: 'comp-def456_r_comp-sharedXYZ widget' });
     expect(a).toBe(b);

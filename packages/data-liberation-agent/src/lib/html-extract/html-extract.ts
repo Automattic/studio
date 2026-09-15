@@ -30,21 +30,29 @@ export function extractNavLinks(html: string, baseUrl: string): NavLink[] {
   const links: NavLink[] = [];
   const seen = new Set<string>();
 
-  $('nav a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().trim();
-    if (!text || seen.has(href)) return;
-    seen.add(href);
+  // Header navigation is the page's primary navigation. Some sites also use
+  // <nav> in their footer, so only fall back to every nav landmark when no
+  // header navigation is present.
+  const primaryLinks = $('header nav a[href], [role="banner"] nav a[href]');
+  const navLinks = primaryLinks.length > 0 ? primaryLinks : $('nav a[href]');
 
-    let fullHref = href;
-    if (href.startsWith('/')) {
-      try {
-        fullHref = new URL(href, baseUrl).href;
-      } catch {
-        fullHref = href;
-      }
+  navLinks.each((_, el) => {
+    const rawHref = $(el).attr('href') || '';
+    const text = $(el).text().trim();
+    if (!text || rawHref === '#') return;
+
+    let url: URL;
+    try {
+      url = new URL(rawHref, baseUrl);
+    } catch {
+      return;
     }
-    links.push({ text, href: fullHref });
+    if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) return;
+
+    const href = url.href;
+    if (seen.has(href)) return;
+    seen.add(href);
+    links.push({ text, href });
   });
 
   return links;

@@ -60,7 +60,7 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
@@ -72,6 +72,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -88,7 +89,10 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
@@ -518,7 +522,94 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 	}
 	const code = ( error as Record< string, unknown > ).code;
 	const message = ( error as Record< string, unknown > ).message;
-	return [ code, message ].filter( ( value ) => typeof value === 'string' && value ).join( ': ' );
+	const detail = [ code, message ]
+		.filter( ( value ) => typeof value === 'string' && value )
+		.join( ': ' );
+	if ( code === 'static_site_importer_quality_failed' ) {
+		return sprintf(
+			/* translators: %s: Static Site Importer quality validation detail */
+			__(
+				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
+			),
+			detail || __( 'Quality validation failed.' )
+		);
+	}
+	return detail;
+}
+
+function staticSiteImportQualityFailure(
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const response = receipt?.response;
+	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
+		return undefined;
+	}
+	const result = ( response as Record< string, unknown > ).result;
+	const importResult =
+		result && typeof result === 'object' && ! Array.isArray( result )
+			? ( result as Record< string, unknown > )
+			: ( response as Record< string, unknown > );
+	const validation = importResult.import_validation_result;
+	const summary = importResult.import_report_summary;
+	const quality =
+		validation && typeof validation === 'object' && ! Array.isArray( validation )
+			? validation
+			: summary && typeof summary === 'object' && ! Array.isArray( summary )
+			? summary
+			: undefined;
+	if ( ! quality ) {
+		return undefined;
+	}
+	const counts = ( quality as Record< string, unknown > ).counts;
+	const {
+		status,
+		quality_pass: qualityPass,
+		fail_import: failImport,
+		fallback_count: fallbackCount,
+		failure_reasons: failureReasons,
+	} = quality as Record< string, unknown >;
+	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
+		return undefined;
+	}
+	const failures = Array.isArray( failureReasons )
+		? failureReasons.filter(
+				( reason ): reason is string => typeof reason === 'string' && Boolean( reason )
+		  )
+		: [];
+	const fallbackBlocks =
+		counts && typeof counts === 'object' && ! Array.isArray( counts )
+			? ( counts as Record< string, unknown > ).fallback_blocks
+			: fallbackCount;
+	const detail = failures.length
+		? failures
+				.map( ( reason ) => {
+					const count = ( quality as Record< string, unknown > )[ `${ reason }_count` ];
+					return typeof count === 'number'
+						? sprintf(
+								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
+								_n( 'SSI reported %1$d %2$s failure.', 'SSI reported %1$d %2$s failures.', count ),
+								count,
+								reason
+						  )
+						: sprintf(
+								/* translators: %s: Static Site Importer failure reason */
+								__( 'SSI reported a %s failure.' ),
+								reason
+						  );
+				} )
+				.join( ' ' )
+		: typeof fallbackBlocks === 'number'
+		? sprintf(
+				/* translators: %d: number of fallback blocks */
+				__( 'SSI reported %d fallback blocks.' ),
+				fallbackBlocks
+		  )
+		: __( 'SSI rejected the imported content.' );
+	return sprintf(
+		/* translators: %s: Static Site Importer validation detail */
+		__( '%s Review the importer diagnostics and retry.' ),
+		detail
+	);
 }
 
 async function runStaticSiteImport(
@@ -582,6 +673,13 @@ async function runStaticSiteImport(
 		throw new LoggerError(
 			__( 'Static site import returned an invalid terminal receipt.' ),
 			new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
+		);
+	}
+	const qualityFailure = staticSiteImportQualityFailure( receipt );
+	if ( qualityFailure ) {
+		throw new LoggerError(
+			__( 'Static site import failed quality validation' ),
+			new Error( qualityFailure )
 		);
 	}
 
@@ -1112,7 +1210,10 @@ function coerceSiteId( value: string ) {
 	return value;
 }
 
-export const registerCommand = ( yargs: StudioArgv ) => {
+export const registerCommand = (
+	yargs: StudioArgv,
+	dependencies: { liberate?: typeof liberateWebsite } = {}
+) => {
 	return yargs.command( {
 		command: 'create',
 		describe: __( 'Create a new site' ),
@@ -1180,6 +1281,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 						return path.resolve( untildify( value ) );
 					},
+				} )
+				.option( 'keep-source', {
+					type: 'boolean',
+					describe: __(
+						'Keep the Data Liberation source capture at the sibling <site>-source directory when importing from a URL'
+					),
+					implies: 'from',
 				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
@@ -1254,6 +1362,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					// desktop app when it spawns the CLI. Hidden from `--help`.
 					type: 'string',
 					hidden: true,
+				} )
+				.check( ( argv ) => {
+					if ( argv.keepSource && ( ! argv.from || ! isUrl( argv.from ) ) ) {
+						throw new Error( __( '--keep-source requires --from with an HTTP(S) URL' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
@@ -1464,11 +1578,41 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			};
 
 			try {
-				const importSource = argv.from;
-				// Remote URLs are rendered into a local source by Data Liberation before they
-				// reach SSI; until that path exists here, `resolveStaticSiteImporterSource`
-				// rejects them. `sourceUrl` still carries provenance for local captures.
+				let importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
+				let liberationOutputDir: string | undefined;
+				if ( sourceUrl ) {
+					if ( ! ( await isSqliteIntegrationAvailable() ) ) {
+						throw new LoggerError(
+							__(
+								'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
+							)
+						);
+					}
+					let lastProgressAt = 0;
+					liberationOutputDir = path.join(
+						path.dirname( sitePath ),
+						`${ path.basename( sitePath ) }-source`
+					);
+					defaultLogger.reportStart(
+						LoggerAction.IMPORT_SITE,
+						__( 'Preparing source website with Data Liberation…' )
+					);
+					importSource = await ( dependencies.liberate ?? liberateWebsite )(
+						sourceUrl,
+						liberationOutputDir,
+						{
+							onProgress: ( message ) => {
+								const now = Date.now();
+								if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+									lastProgressAt = now;
+									defaultLogger.reportProgress( message );
+								}
+							},
+						}
+					);
+					defaultLogger.reportSuccess( __( 'Source website prepared' ) );
+				}
 
 				if ( importSource ) {
 					config.blueprint = buildCreateFromSourceBlueprint(
@@ -1507,6 +1651,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 				try {
 					await runCommand( sitePath, config );
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
+						await fs.promises
+							.rm( liberationOutputDir, { recursive: true, force: true } )
+							.catch( () => {} );
+					}
 				} finally {
 					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;
 					if ( bundlePath ) {

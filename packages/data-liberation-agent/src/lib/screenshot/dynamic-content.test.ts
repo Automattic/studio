@@ -3,7 +3,8 @@ import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { chromium, type Browser } from 'playwright';
-import { assessBody, expandCollapsedContent, waitForAppWidgets, readPngHeight, classifyEmptyBodies, KNOWN_WIDGETS, type PageStat } from './dynamic-content.js';
+import { assessBody, expandCollapsedContent, hydrateDisclosureContent, waitForAppWidgets, readPngHeight, classifyEmptyBodies, KNOWN_WIDGETS, type PageStat } from './dynamic-content.js';
+import { extractFaqsFromHtml } from '../replicate/faq-extract.js';
 
 // Fictional content only (no source-site data).
 const wrap = (bodyInner: string) =>
@@ -152,6 +153,102 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
     await page.setContent('<details><summary>Q</summary><p>A</p></details>');
     await expandCollapsedContent(page);
     expect(await page.evaluate(() => document.querySelector('details')?.open)).toBe(true);
+    await page.close();
+  });
+
+  it('hydrates every lazy single-open disclosure while restoring closed state', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <style>[role="region"][aria-hidden="true"]{display:none}</style>
+      <button aria-expanded="false" aria-controls="answer-1">Question one?</button>
+      <div id="answer-1" role="region" aria-hidden="true"></div>
+      <button aria-expanded="false" aria-controls="answer-2">Question two?</button>
+      <div id="answer-2" role="region" aria-hidden="true"></div>
+      <script>
+        const answers = { 'answer-1': '<p>First lazy answer.</p>', 'answer-2': '<p>Second lazy answer.</p>' };
+        document.querySelectorAll('button[aria-controls]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const opening = button.getAttribute('aria-expanded') === 'false';
+            document.querySelectorAll('button[aria-controls]').forEach((other) => {
+              other.setAttribute('aria-expanded', 'false');
+              const panel = document.getElementById(other.getAttribute('aria-controls'));
+              panel.setAttribute('aria-hidden', 'true');
+              panel.innerHTML = '';
+            });
+            if (!opening) return;
+            const panel = document.getElementById(button.getAttribute('aria-controls'));
+            button.setAttribute('aria-expanded', 'true');
+            panel.setAttribute('aria-hidden', 'false');
+            setTimeout(() => { panel.innerHTML = answers[panel.id]; }, 50);
+          });
+        });
+      </script>
+    `);
+
+    expect(await hydrateDisclosureContent(page)).toBe(2);
+    const state = await page.evaluate(() => ({
+      expanded: Array.from(document.querySelectorAll('button')).map((button) => button.getAttribute('aria-expanded')),
+      answers: Array.from(document.querySelectorAll<HTMLElement>('[role="region"]')).map((panel) => ({
+        text: panel.textContent?.trim(),
+        hidden: panel.getAttribute('aria-hidden'),
+        display: getComputedStyle(panel).display,
+        hydrated: panel.dataset.dlaHydratedDisclosure,
+      })),
+    }));
+    expect(state.expanded).toEqual(['false', 'false']);
+    expect(state.answers).toEqual([
+      { text: 'First lazy answer.', hidden: 'true', display: 'none', hydrated: 'true' },
+      { text: 'Second lazy answer.', hidden: 'true', display: 'none', hydrated: 'true' },
+    ]);
+    expect(extractFaqsFromHtml(await page.content())).toEqual([
+      { question: 'Question one?', answer: 'First lazy answer.' },
+      { question: 'Question two?', answer: 'Second lazy answer.' },
+    ]);
+    await page.close();
+  });
+
+  it('leaves popup controls and already populated regions untouched', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <button aria-expanded="false" aria-controls="menu" aria-haspopup="menu">Menu</button>
+      <div id="menu" role="region">Navigation</div>
+      <button aria-expanded="false" aria-controls="answer">Question?</button>
+      <div id="answer" role="region">Existing answer.</div>
+    `);
+    expect(await hydrateDisclosureContent(page)).toBe(0);
+    expect(await page.locator('[data-dla-hydrated-disclosure]').count()).toBe(0);
+    await page.close();
+  });
+
+  it('rescans for disclosures that become eligible during hydration', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <button aria-expanded="false" aria-controls="answer-1">Question one?</button>
+      <div id="answer-1" role="region"></div>
+      <button aria-expanded="pending" aria-controls="answer-2">Question two?</button>
+      <div id="answer-2" role="region"></div>
+      <script>
+        const answers = { 'answer-1': 'First answer.', 'answer-2': 'Late answer.' };
+        document.querySelectorAll('button').forEach((button) => {
+          button.addEventListener('click', () => {
+            const opening = button.getAttribute('aria-expanded') === 'false';
+            button.setAttribute('aria-expanded', opening ? 'true' : 'false');
+            const panel = document.getElementById(button.getAttribute('aria-controls'));
+            panel.textContent = opening ? answers[panel.id] : '';
+            if (button.getAttribute('aria-controls') === 'answer-1') {
+              setTimeout(() => document.querySelector('[aria-controls="answer-2"]')
+                .setAttribute('aria-expanded', 'false'), 150);
+            }
+          });
+        });
+      </script>
+    `);
+
+    expect(await hydrateDisclosureContent(page)).toBe(2);
+    expect(await page.locator('[data-dla-hydrated-disclosure]').allTextContents()).toEqual([
+      'First answer.',
+      'Late answer.',
+    ]);
     await page.close();
   });
 

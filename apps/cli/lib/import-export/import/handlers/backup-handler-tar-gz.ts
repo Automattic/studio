@@ -1,5 +1,6 @@
 import fs from 'fs';
 import zlib from 'zlib';
+import { isGzipFile } from '@studio/common/lib/archive-format';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import * as tar from 'tar';
 import { ImportExportEventEmitter } from '../../events';
@@ -43,7 +44,8 @@ export class BackupHandlerTarGz extends ImportExportEventEmitter implements Back
 
 		return new Promise< void >( ( resolve, reject ) => {
 			this.emit( ImportEvents.BACKUP_EXTRACT_START );
-			fs.createReadStream( file.path )
+			const readStream = fs
+				.createReadStream( file.path )
 				.on( 'data', ( chunk ) => {
 					processedSize += chunk.length;
 					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
@@ -58,8 +60,18 @@ export class BackupHandlerTarGz extends ImportExportEventEmitter implements Back
 				.on( 'error', ( error ) => {
 					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
 					reject( error );
-				} )
-				.pipe( zlib.createGunzip() )
+				} );
+
+			const onGunzipError = ( error: Error ) => {
+				this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
+				reject( error );
+			};
+
+			const tarStream = isGzipFile( file.path )
+				? readStream.pipe( zlib.createGunzip().on( 'error', onGunzipError ) )
+				: readStream;
+
+			tarStream
 				.pipe(
 					tar.extract( {
 						cwd: extractionDirectory,

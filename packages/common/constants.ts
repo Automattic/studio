@@ -50,6 +50,7 @@ export const ACCEPTED_ADD_SITE_FILE_TYPES = [
 	'.gzip',
 	'.tar',
 	'.tar.gz',
+	'.tgz',
 	'.wpress',
 	'.xml',
 ];

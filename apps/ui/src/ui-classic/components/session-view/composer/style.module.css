@@ -724,7 +724,7 @@
 	gap: var(--wpds-dimension-gap-xs);
 	margin-bottom: var(--wpds-dimension-padding-sm);
 	padding: 0 var(--wpds-dimension-padding-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 }
 
@@ -732,14 +732,14 @@
 	border: 0;
 	padding: 0;
 	background: none;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	text-decoration: underline;
 	font-size: inherit;
-	cursor: var(--wpds-cursor-interactive, pointer);
+	cursor: pointer;
 }
 
 .paidTiersNudgeAction:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .paidTiersNudgeDismiss {
@@ -749,12 +749,12 @@
 	border: 0;
 	padding: 0;
 	background: none;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	cursor: var(--wpds-cursor-interactive, pointer);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	cursor: pointer;
 }
 
 .paidTiersNudgeDismiss:hover {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .meta {

@@ -69,6 +69,11 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// The agent is blocked on `ask_user`. Sending answers the question it is
+	// waiting on, so this is a send, not a queue.
+	awaitingAnswer?: boolean;
+	// Bump to move focus into the textarea without touching its content.
+	focusRequestId?: number;
 	isInterrupting?: boolean;
 	error: string | null;
 	usageCapMessage?: string | null;
@@ -92,6 +97,15 @@ interface ComposerProps {
 	// it to the draft, e.g. while hovering an example prompt. Clearing it
 	// restores whatever the user had typed.
 	previewPrompt?: string | null;
+}
+
+function focusAtEnd( node: HTMLTextAreaElement | null ) {
+	if ( ! node ) {
+		return;
+	}
+	node.focus();
+	const length = node.value.length;
+	node.setSelectionRange( length, length );
 }
 
 const isMacPlatform =
@@ -230,6 +244,8 @@ function getSessionPlaceholder( sessionId: string | undefined ): string {
 
 export function Composer( {
 	busy,
+	awaitingAnswer = false,
+	focusRequestId = 0,
 	isInterrupting = false,
 	error,
 	usageCapMessage,
@@ -277,7 +293,7 @@ export function Composer( {
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( awaitingAnswer );
 
 	useEffect( () => {
 		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {
@@ -285,16 +301,15 @@ export function Composer( {
 		}
 		appliedDraftPromptIdRef.current = draftPrompt.id;
 		setDraftValue( draftPrompt.prompt );
-		queueMicrotask( () => {
-			const node = textareaRef.current;
-			if ( ! node ) {
-				return;
-			}
-			node.focus();
-			const length = node.value.length;
-			node.setSelectionRange( length, length );
-		} );
+		queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 	}, [ draftPrompt, setDraftValue ] );
+
+	useEffect( () => {
+		if ( focusRequestId === 0 ) {
+			return;
+		}
+		focusAtEnd( textareaRef.current );
+	}, [ focusRequestId ] );
 
 	useEffect( () => {
 		setValue( loadDraft( draftStorageKey ) );
@@ -683,6 +698,7 @@ export function Composer( {
 								className={ styles.iconButton }
 								aria-label={ __( 'Attach files' ) }
 								title={ __( 'Attach files' ) }
+								disabled={ awaitingAnswer }
 								onClick={ openFilePicker }
 							>
 								<Icon icon={ paperclipIcon } size={ 16 } />

@@ -283,6 +283,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
@@ -295,8 +296,50 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
-	const unansweredQuestion = pendingQuestions.find(
-		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
+	const [ composerFocusRequestId, setComposerFocusRequestId ] = useState( 0 );
+	const chooseFreeFormAnswer = useCallback(
+		( question: string ) => {
+			// Retract any option already picked for this question: the typed reply
+			// replaces it, and leaving it in place would dispatch the stale pick.
+			clearQuestionAnswer( question );
+			setArmedFreeFormQuestion( question );
+			setComposerFocusRequestId( ( id ) => id + 1 );
+		},
+		[ clearQuestionAnswer ]
+	);
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
+				return;
+			}
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
+		},
+		[ answerQuestion, targetQuestion ]
 	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
@@ -431,16 +474,14 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						) : (
 							<Composer
 								busy={ composerBusy }
+								awaitingAnswer={ pendingQuestions.length > 0 }
+								focusRequestId={ composerFocusRequestId }
 								isInterrupting={ isInterrupting }
 								error={ usageCapReached ? null : runError }
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
 								onSend={ sendMessage }
-								onAnswer={
-									unansweredQuestion
-										? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
-										: undefined
-								}
+								onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }
@@ -468,7 +509,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
-							onAnswerQuestion={ answerQuestion }
+							freeFormQuestion={ freeFormQuestion }
+							onAnswerQuestion={ answerQuestionFromOption }
+							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>

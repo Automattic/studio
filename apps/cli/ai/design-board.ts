@@ -75,7 +75,14 @@ function fontLinks( styles: Style[] ): string {
 export function renderDesignBoard( design: string, image?: string ): string {
 	const frontMatter = design.trimStart().match( /^---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
 	if ( ! frontMatter ) {
-		throw new Error( 'The DESIGN.md draft must start with YAML front matter between --- lines.' );
+		if ( design.trimStart().startsWith( '---' ) ) {
+			throw new Error(
+				"The DESIGN.md draft's front matter is never closed — end the YAML block with a second --- line before the prose."
+			);
+		}
+		throw new Error(
+			'The DESIGN.md draft must start with YAML front matter, opening with a --- line.'
+		);
 	}
 	const tokens: DesignTokens = parse( frontMatter ) ?? {};
 	const colors = Object.entries( tokens.colors ?? {} ).filter(

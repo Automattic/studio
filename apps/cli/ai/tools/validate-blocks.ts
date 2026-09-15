@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'fs/promises';
+import path from 'path';
 import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
@@ -47,7 +48,8 @@ export const validateBlocksTool = defineTool(
 		} ),
 		filePath: Type.Optional(
 			Type.String( {
-				description: 'Path to a file containing WordPress block content to validate and fix',
+				description:
+					'Path to a file containing WordPress block content to validate and fix — absolute, or relative to the site root',
 			} )
 		),
 		content: Type.Optional(
@@ -58,14 +60,15 @@ export const validateBlocksTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
+			const site = await resolveSite( args.nameOrPath );
 			let blockContent: string;
 			let fileName = 'inline content';
-			let shouldApplyFixToFile = false;
+			let filePath: string | undefined;
 
 			if ( args.filePath ) {
-				blockContent = await readFile( args.filePath, 'utf-8' );
-				fileName = args.filePath.split( '/' ).slice( -2 ).join( '/' );
-				shouldApplyFixToFile = true;
+				filePath = path.resolve( site.path, args.filePath );
+				blockContent = await readFile( filePath, 'utf-8' );
+				fileName = filePath.split( '/' ).slice( -2 ).join( '/' );
 			} else if ( args.content !== undefined ) {
 				blockContent = args.content;
 			} else {
@@ -105,7 +108,6 @@ export const validateBlocksTool = defineTool(
 			// Stage 2: validate (and fix) in the site's real block editor.
 			context.onProgress( `Validating and fixing blocks in ${ fileName }…` );
 
-			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
 			const report = await validateBlocks( blockContent, siteUrl );
 
@@ -148,8 +150,8 @@ export const validateBlocksTool = defineTool(
 				} else if ( fixedReport.invalidBlocks === 0 ) {
 					const fixedContent = report.proposedFix.fixedContent;
 					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
-					if ( shouldApplyFixToFile && args.filePath ) {
-						await writeFile( args.filePath, fixedContent, 'utf-8' );
+					if ( filePath ) {
+						await writeFile( filePath, fixedContent, 'utf-8' );
 						context.onProgress( `${ fileName }: editor serialization fix applied` );
 						lines.push(
 							'',

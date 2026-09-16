@@ -3408,6 +3408,94 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 	} );
 
+	it.each( [
+		{
+			name: 'preserves a localized media URL inside a captured stylesheet',
+			mediaStatus: 'success' as const,
+			browserResource: true,
+			expectedUrl: '/media/background.jpg',
+		},
+		{
+			name: 'uses a captured browser image in CSS when the media download failed',
+			mediaStatus: 'failure' as const,
+			browserResource: true,
+			expectedUrl: '/images/background.jpg',
+		},
+		{
+			name: 'blanks CSS media when both download and browser capture failed',
+			mediaStatus: 'failure' as const,
+			browserResource: false,
+			expectedUrl: 'data:application/octet-stream;base64,',
+		},
+	] )( '$name', ( { mediaStatus, browserResource, expectedUrl } ) => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-stylesheet-media-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'media', 'resources/css', 'resources/images' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const imageUrl = 'https://example.com/images/background.jpg';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><head><link rel="stylesheet" href="https://example.com/css/site.css"></head><body><img src="${ imageUrl }"><main class="hero">Home</main></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'resources', 'css', 'site.css' ),
+			`.hero{background-image:url("${ imageUrl }")}`
+		);
+		if ( browserResource )
+			writeFileSync( join( outputDir, 'resources', 'images', 'background.jpg' ), 'captured-image' );
+		writeFileSync( join( outputDir, 'media', 'background.jpg' ), 'downloaded-image' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					'https://example.com/css/site.css': {
+						path: 'resources/css/site.css',
+						contentType: 'text/css',
+					},
+					...( browserResource
+						? {
+								[ imageUrl ]: {
+									path: 'resources/images/background.jpg',
+									contentType: 'image/jpeg',
+								},
+						  }
+						: {} ),
+				},
+				failures: [],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+		const media = MediaStubStore.load( outputDir );
+		if ( mediaStatus === 'success' )
+			media.markSuccess( imageUrl, join( outputDir, 'media', 'background.jpg' ) );
+		else media.markFailure( imageUrl, 'HTTP 403' );
+		media.flush();
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		expect( readFileSync( join( outputDir, 'website', 'css', 'site.css' ), 'utf8' ) ).toBe(
+			`.hero{background-image:url("${ expectedUrl }")}`
+		);
+		if ( mediaStatus === 'success' ) {
+			expect( readFileSync( join( outputDir, 'website', 'media', 'background.jpg' ), 'utf8' ) ).toBe(
+				'downloaded-image'
+			);
+		}
+	} );
+
 	it( 'drops leftover remote asset requests while keeping editorial links', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-self-contain-export-' ) );
 		dirs.push( outputDir );

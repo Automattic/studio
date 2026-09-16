@@ -1,3 +1,18 @@
+## 2026-09-16 — Localized media in captured stylesheets must stay local
+
+**Found by:** OpenAI Codex
+**During:** Re-exporting a WordPress/Elementor capture whose background images were downloaded successfully
+**Type:** bug fix
+
+### What I found
+Export rewrote downloaded image URLs in captured stylesheets before walking their nested dependencies. The walker then resolved the new portable `/media/...` path against the source origin, treated it as an uncaptured remote dependency, and replaced it with an empty data URL.
+
+### How it works
+Captured CSS now resolves dependencies from the original stylesheet text. A dependency that already has a local media replacement bypasses resource fallback, while a failed media download can still use a captured browser response.
+
+### Why it's better than the previous approach
+Valid captured background images remain in the portable stylesheet instead of becoming empty placeholders, without retaining source requests or weakening media bounds.
+
 ## 2026-09-16 — Disclosure expansion must not activate navigation controls
 
 **Found by:** OpenAI Codex

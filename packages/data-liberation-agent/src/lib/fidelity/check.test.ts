@@ -7,6 +7,7 @@ import {
 	canonicalRoutePath,
 	checkFidelity,
 	checkWidthsFor,
+	evidenceSlug,
 	resolveCheckDirectory,
 	routeSourceMap,
 } from './check.js';
@@ -74,6 +75,18 @@ describe( 'canonicalRoutePath', () => {
 	it( 'leaves a real file alone', () => {
 		expect( canonicalRoutePath( '/feed.xml' ) ).toBe( '/feed.xml' );
 		expect( canonicalRoutePath( 'blog/post.html' ) ).toBe( '/blog/post.html' );
+	} );
+} );
+
+describe( 'evidenceSlug', () => {
+	it.each( [
+		[ '/', 'index' ],
+		[ '---', 'index' ],
+		[ '/about/', 'about' ],
+		[ '///About---Us///', 'About-Us' ],
+		[ '/café & menu/', 'caf-menu' ],
+	] )( 'normalizes %s to %s', ( route, expected ) => {
+		expect( evidenceSlug( route ) ).toBe( expected );
 	} );
 } );
 

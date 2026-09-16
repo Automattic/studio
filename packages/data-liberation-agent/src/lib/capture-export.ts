@@ -2237,6 +2237,19 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const copiedResources = new Set< string >();
 	const copyingResources = new Set< string >();
 	const resourceReplacements = new Map< string, string >();
+	const promoteCapturedMediaReplacement = ( dependencyUrl: string, documentUrl: string ) => {
+		const portablePath = resourceReplacements.get( dependencyUrl );
+		if ( ! portablePath ) return;
+		for ( const [ reference, replacement ] of mediaReplacements ) {
+			if ( replacement !== TRANSPARENT_IMAGE_DATA_URL ) continue;
+			try {
+				if ( new URL( reference.replace( /&amp;/g, '&' ), documentUrl ).href === dependencyUrl )
+					mediaReplacements.set( reference, portablePath );
+			} catch {
+				// Malformed references cannot alias a captured resource URL.
+			}
+		}
+	};
 	const copyResource = ( dependency: PortableDependency, sourceUrl: string ): boolean => {
 		const resource = resourceManifest.resources[ dependency.url ];
 		if ( ! resource ) {
@@ -2294,18 +2307,27 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		mkdirSync( dirname( destination ), { recursive: true } );
 		copyingResources.add( resource.path );
 		if ( isText ) {
-			let content = replaceAll(
-				readFileSync( source, 'utf8' ),
-				mediaReplacements,
-				rejectedReplacementKeys
-			);
+			let content = readFileSync( source, 'utf8' );
 			if ( /text\/css/i.test( resource.contentType ) ) {
 				for ( const nested of dependencyReferences( content, dependency.url, true ) ) {
-					if ( ! copyResource( nested, dependency.url ) ) {
+					const mediaReplacement =
+						mediaReplacements.get( nested.reference ) ?? mediaReplacements.get( nested.url );
+					if (
+						mediaReplacement &&
+						mediaReplacement !== TRANSPARENT_IMAGE_DATA_URL &&
+						! /^(?:https?:)?\/\//i.test( mediaReplacement )
+					)
+						continue;
+					if ( copyResource( nested, dependency.url ) ) {
+						if ( mediaReplacement === TRANSPARENT_IMAGE_DATA_URL ) {
+							promoteCapturedMediaReplacement( nested.url, dependency.url );
+						}
+					} else {
 						content = replaceDanglingCssUrl( content, nested.reference, rejectedReplacementKeys );
 					}
 				}
 			}
+			content = replaceAll( content, mediaReplacements, rejectedReplacementKeys );
 			writeFileSync(
 				destination,
 				replaceAll( content, resourceReplacements, rejectedReplacementKeys )
@@ -2338,8 +2360,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				// A browser-captured response is a faithful bounded fallback when the
 				// independent media fetch failed. Let its local replacement win.
 				if ( mediaReplacement === TRANSPARENT_IMAGE_DATA_URL ) {
-					mediaReplacements.delete( dependency.reference );
-					mediaReplacements.delete( dependency.url );
+					promoteCapturedMediaReplacement( dependency.url, entry.url );
 				}
 			} else {
 				html =

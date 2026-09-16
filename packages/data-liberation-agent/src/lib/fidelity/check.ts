@@ -135,7 +135,7 @@ export function spreadSample( routes: string[], limit: number ): string[] {
 
 /** Filesystem-safe stem for a route, so per-route evidence cannot collide. */
 export function evidenceSlug( route: string ): string {
-	const slug = route.replace( /[^a-z0-9]+/gi, '-' ).replace( /^-+|-+$/g, '' );
+	const slug = route.replace( /[^a-z0-9]+/gi, '-' ).replace( /^-|-$/g, '' );
 	return slug || 'index';
 }
 

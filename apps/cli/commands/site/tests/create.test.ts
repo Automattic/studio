@@ -684,6 +684,7 @@ describe( 'CLI: studio create', () => {
 			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
 			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'scroll-states.json' ), '{"pages":[]}' );
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
@@ -702,8 +703,21 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).toEqual( {
 				type: 'files',
 				ref: 'request-bundle:source',
+				metadata: {
+					reports: [ 'capture-receipt.json', 'scroll-states.json' ],
+				},
 			} );
 			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
+				{
+					name: 'capture-receipt.json',
+					from: path.join( captureDir, 'capture-receipt.json' ),
+				},
+				{
+					name: 'scroll-states.json',
+					from: path.join( captureDir, 'scroll-states.json' ),
+				},
+			] );
 			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
 		} );
 

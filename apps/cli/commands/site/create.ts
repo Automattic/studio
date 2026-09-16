@@ -119,6 +119,11 @@ const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+const ARTIFACT_ROOT_REPORT_FILES = [
+	'capture-receipt.json',
+	'scroll-states.json',
+	'interaction-states.json',
+] as const;
 const STATIC_SITE_IMPORT_RECEIPT_SCHEMA = 'static-site-importer/import-cli-receipt/v1';
 type StaticSiteImportProgressPhase = 'import' | 'finalization';
 
@@ -126,6 +131,7 @@ type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
+	stagedReportFiles?: Array< { name: string; from: string } >;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -232,6 +238,24 @@ function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
+function collectArtifactRootReports(
+	captureDir: string,
+	websiteRoot: string
+): Array< { name: string; from: string } > {
+	if ( path.resolve( captureDir ) === path.resolve( websiteRoot ) ) {
+		return [];
+	}
+
+	const files: Array< { name: string; from: string } > = [];
+	for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
+		const filePath = path.join( captureDir, name );
+		if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
+			files.push( { name, from: filePath } );
+		}
+	}
+	return files;
+}
+
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
 		throw new LoggerError(
@@ -264,6 +288,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			path: sourcePath,
 			payload: {},
 			stagedSourcePath,
+			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
 		};
 	}
 
@@ -319,7 +344,12 @@ function buildStaticSiteImporterRequest(
 	const artifact = payload.artifact;
 
 	if ( source.stagedSourcePath ) {
-		requestSource = { type: 'files', ref: 'request-bundle:source' };
+		const reports = ( source.stagedReportFiles ?? [] ).map( ( file ) => file.name );
+		requestSource = {
+			type: 'files',
+			ref: 'request-bundle:source',
+			...( reports.length > 0 ? { metadata: { reports } } : {} ),
+		};
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
 			schema: _schema,
@@ -402,6 +432,7 @@ export function buildCreateFromSourceBlueprint(
 		request: string;
 		bundlePath?: string;
 		sourcePath?: string;
+		reportFiles?: Array< { name: string; from: string } >;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -448,6 +479,7 @@ export function buildCreateFromSourceBlueprint(
 			request: `${ JSON.stringify( request, null, 2 ) }\n`,
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
+			reportFiles: source.stagedReportFiles,
 		},
 	};
 }
@@ -616,7 +648,8 @@ async function runStaticSiteImport(
 	request: string,
 	sourcePath?: string,
 	resume = false,
-	logger: Logger< LoggerAction > = defaultLogger
+	logger: Logger< LoggerAction > = defaultLogger,
+	reportFiles: Array< { name: string; from: string } > = []
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -631,6 +664,12 @@ async function runStaticSiteImport(
 				errorOnExist: true,
 				force: false,
 			} );
+			for ( const report of reportFiles ) {
+				await fs.promises.copyFile(
+					report.from,
+					path.join( staticSiteImportSourcePath( site.path ), report.name )
+				);
+			}
 		}
 		fs.writeFileSync( requestPath, request );
 	}
@@ -844,7 +883,8 @@ export async function runCommand(
 					staticSiteImport.request,
 					staticSiteImport.sourcePath,
 					true,
-					logger
+					logger,
+					staticSiteImport.reportFiles
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
@@ -1043,7 +1083,8 @@ export async function runCommand(
 						staticSiteImport.request,
 						staticSiteImport.sourcePath,
 						false,
-						logger
+						logger,
+						staticSiteImport.reportFiles
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -1095,7 +1136,8 @@ export async function runCommand(
 							staticSiteImport.request,
 							staticSiteImport.sourcePath,
 							false,
-							logger
+							logger,
+							staticSiteImport.reportFiles
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}

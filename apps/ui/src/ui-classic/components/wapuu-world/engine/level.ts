@@ -18,14 +18,9 @@ export const LEVEL_MAP: number[][] = [
 ];
 
 export const LEVEL_WIDTH = LEVEL_MAP[ 0 ].length * TILE_SIZE;
-export const LEVEL_HEIGHT = LEVEL_MAP.length * TILE_SIZE;
 
 export function isSolid( tileType: number ) {
 	return tileType === 1 || tileType === 2 || tileType === 8;
-}
-
-export function isPitEdge( tileType: number ) {
-	return tileType === 6;
 }
 
 export function getTile( col: number, row: number ): number {

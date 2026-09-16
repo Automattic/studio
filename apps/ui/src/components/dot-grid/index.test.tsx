@@ -70,10 +70,4 @@ describe( 'DotGrid', () => {
 
 		expect( container.querySelector( 'canvas' ) ).toHaveStyle( { opacity: '0.5' } );
 	} );
-
-	it( 'renders while inactive', () => {
-		const { container } = render( <DotGrid active={ false } /> );
-
-		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
-	} );
 } );

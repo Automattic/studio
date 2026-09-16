@@ -99,15 +99,6 @@ export function useSession( sessionId: string | undefined ) {
 	} );
 }
 
-export function useDeleteSession() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useMutation( {
-		mutationFn: ( sessionId: string ) => connector.deleteSession( sessionId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
-	} );
-}
-
 export function useCreateSession() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -201,62 +192,6 @@ export function useUpdateSessionMetadata() {
 			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 		},
 	} );
-}
-
-export function useSetSessionEnvironment(
-	sessionId: string | undefined,
-	// When available, the wpcom blog id of the live site the pill is about to
-	// flip to. Used in the optimistic update so the derived-effective env can
-	// resolve to 'live' immediately, without waiting for the IPC round-trip to
-	// refresh `summary.lastSelectedWpcomSiteId`.
-	liveWpcomSiteId: number | undefined
-) {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	const sessionKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
-	return useMutation< unknown, Error, 'local' | 'live', { previous: LoadedAiSession | undefined } >(
-		{
-			mutationFn: ( environment ) => {
-				if ( ! sessionId ) {
-					throw new Error( 'No session selected' );
-				}
-				return connector.setSessionEnvironment( sessionId, environment );
-			},
-			// Optimistically flip `activeEnvironment` + `lastSelectedWpcomSiteId`
-			// so the derived-effective env resolves correctly on the next render,
-			// rather than looking "stuck" on 'local' while the IPC round-trip
-			// writes the real `site.selected` event.
-			onMutate: async ( environment ) => {
-				if ( ! sessionId ) {
-					return { previous: undefined };
-				}
-				await queryClient.cancelQueries( { queryKey: sessionKey } );
-				const previous = queryClient.getQueryData< LoadedAiSession >( sessionKey );
-				if ( previous ) {
-					queryClient.setQueryData< LoadedAiSession >( sessionKey, {
-						...previous,
-						summary: {
-							...previous.summary,
-							activeEnvironment: environment,
-							lastSelectedWpcomSiteId: environment === 'live' ? liveWpcomSiteId : undefined,
-						},
-					} );
-				}
-				return { previous };
-			},
-			onError: ( _error, _variables, context ) => {
-				if ( context?.previous ) {
-					queryClient.setQueryData( sessionKey, context.previous );
-				}
-			},
-			onSettled: () => {
-				// Reconcile against the server-side event log so the cache matches the
-				// JSONL truth, and refresh the sidebar list which shows env indicators.
-				void queryClient.invalidateQueries( { queryKey: sessionKey } );
-				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
-			},
-		}
-	);
 }
 
 /**

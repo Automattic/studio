@@ -4,7 +4,7 @@ import { useAppGlobals } from '@/data/queries/use-app-globals';
 
 // App version the announcements were last dismissed on — the same value the
 // classic renderer reads and writes, so dismissing in one UI settles both.
-export const LAST_SEEN_VERSION_QUERY_KEY = [ 'whats-new-last-seen-version' ] as const;
+const LAST_SEEN_VERSION_QUERY_KEY = [ 'whats-new-last-seen-version' ] as const;
 
 // Browser targets (`studio ui`, hosted) have no app version to record, so they
 // record a fixed stand-in. Known trade-off: because a later release stores the

@@ -85,7 +85,7 @@ function prefersReducedMotion() {
 	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
 }
 
-export type ReorderableListProps< T > = {
+type ReorderableListProps< T > = {
 	/** Full ordered list, dragged item included. */
 	items: T[];
 	getItemId: ( item: T ) => string;

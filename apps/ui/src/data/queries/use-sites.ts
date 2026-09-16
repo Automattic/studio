@@ -48,7 +48,7 @@ export function useCreateSite() {
 	} );
 }
 
-export interface DeleteSiteInput {
+interface DeleteSiteInput {
 	id: string;
 	// Defaults to true so the delete confirmation can omit the flag and the
 	// caller still removes the site folder from disk.
@@ -160,7 +160,7 @@ export function useStopSite() {
 	} );
 }
 
-export interface UpdateSiteInput {
+interface UpdateSiteInput {
 	site: SiteDetails;
 	// Provided only when the user switched WP version; undefined means the
 	// site stays on its current auto-updating track.

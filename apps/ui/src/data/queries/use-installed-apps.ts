@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const INSTALLED_APPS_QUERY_KEY = [ 'installed-apps' ] as const;
+const INSTALLED_APPS_QUERY_KEY = [ 'installed-apps' ] as const;
 
 export function useInstalledApps() {
 	const connector = useConnector();

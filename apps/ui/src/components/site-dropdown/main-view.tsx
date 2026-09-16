@@ -289,7 +289,6 @@ export function MainView( {
 							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
 							: undefined
 					}
-					canCancel={ canCancelSyncActivity( activity ) }
 				/>
 			) : null }
 
@@ -488,11 +487,9 @@ function XdebugBadge( { running }: { running: boolean } ) {
 function SyncActivityDetails( {
 	activity,
 	onCancel,
-	canCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
 	onCancel?: () => void;
-	canCancel: boolean;
 } ) {
 	// Same wording as the classic renderer, and the same source the trigger's
 	// always-visible cancel uses, so the two never disagree.

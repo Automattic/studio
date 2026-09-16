@@ -3,7 +3,7 @@ import { OnboardingGuide } from './index';
 import type { GuideDefinition } from '@/data/onboarding/guide';
 import type { ReactNode } from 'react';
 
-export type GuideEndReason = 'completed' | 'dismissed';
+type GuideEndReason = 'completed' | 'dismissed';
 
 interface OpenGuideOptions {
 	onEnd?: ( reason: GuideEndReason ) => void;
@@ -14,8 +14,6 @@ interface OnboardingGuideApi {
 	openGuide( guide: GuideDefinition, options?: OpenGuideOptions ): void;
 	close( reason: GuideEndReason ): void;
 }
-
-export type OpenGuide = OnboardingGuideApi[ 'openGuide' ];
 
 const OnboardingGuideContext = createContext< OnboardingGuideApi | null >( null );
 

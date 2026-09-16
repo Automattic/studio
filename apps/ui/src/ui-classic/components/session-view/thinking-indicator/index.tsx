@@ -10,7 +10,7 @@ type ElapsedTimePart = {
 	value: number;
 };
 
-export function getElapsedTimeParts( elapsedSeconds: number ): ElapsedTimePart[] {
+function getElapsedTimeParts( elapsedSeconds: number ): ElapsedTimePart[] {
 	const totalSeconds = Math.max( 0, Math.floor( elapsedSeconds ) );
 	const hours = Math.floor( totalSeconds / 3600 );
 	const minutes = Math.floor( ( totalSeconds % 3600 ) / 60 );

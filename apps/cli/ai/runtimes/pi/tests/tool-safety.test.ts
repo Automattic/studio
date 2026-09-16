@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	getStudioToolGuidelines,
-	getPayloadLimitViolation,
-	STUDIO_FILE_TOOL_MAX_BYTES,
-} from '../tool-safety';
+import { getPayloadLimitViolation, STUDIO_FILE_TOOL_MAX_BYTES } from '../tool-safety';
 
 const big = 'x'.repeat( STUDIO_FILE_TOOL_MAX_BYTES + 1 );
 const half = 'x'.repeat( Math.ceil( STUDIO_FILE_TOOL_MAX_BYTES / 2 ) );
@@ -47,16 +43,5 @@ describe( 'getPayloadLimitViolation', () => {
 	it( 'ignores Edit calls without a usable edits array', () => {
 		expect( getPayloadLimitViolation( 'Edit', { path: 'a.css' } ) ).toBeUndefined();
 		expect( getPayloadLimitViolation( 'Edit', { path: 'a.css', edits: '{' } ) ).toBeUndefined();
-	} );
-} );
-
-describe( 'getStudioToolGuidelines', () => {
-	it( 'states the enforced limits for the file and shell tools', () => {
-		expect( getStudioToolGuidelines( 'Edit' )?.join( ' ' ) ).toContain(
-			'14KB across all edits[] entries'
-		);
-		expect( getStudioToolGuidelines( 'Write' )?.[ 0 ] ).toContain( '14KB' );
-		expect( getStudioToolGuidelines( 'Bash' )?.[ 0 ] ).toContain( '8KB' );
-		expect( getStudioToolGuidelines( 'wp_cli' ) ).toBeUndefined();
 	} );
 } );

@@ -158,32 +158,3 @@ export function getIncompleteToolCallReason(
 ): string | undefined {
 	return state.incompleteToolCallReasons?.[ toolCallId ];
 }
-
-function formatKilobytes( bytes: number ): string {
-	return `${ bytes / 1024 }KB`;
-}
-
-// What the prompt tells the model about the file and shell tools, next to the
-// limits the guard enforces so the two cannot disagree.
-export function getStudioToolGuidelines( toolName: string ): string[] | undefined {
-	const fileLimit = formatKilobytes( STUDIO_FILE_TOOL_MAX_BYTES );
-	if ( toolName === 'Write' ) {
-		return [ `Write rejects payloads over ${ fileLimit }; split a larger file across calls.` ];
-	}
-	if ( toolName === 'Edit' ) {
-		return [
-			'Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.',
-			`Keep an Edit call's new text under ~${ formatKilobytes(
-				STUDIO_EDIT_CALL_TARGET_BYTES
-			) } and split a longer fill across two or three calls; more than ${ fileLimit } across all edits[] entries is rejected.`,
-		];
-	}
-	if ( toolName === 'Bash' ) {
-		return [
-			`Bash rejects commands over ${ formatKilobytes(
-				STUDIO_BASH_COMMAND_MAX_BYTES
-			) }; never use heredocs, \`cat > file <<EOF\`, or Python scripts to write large generated files — they carry the same payload-truncation risk.`,
-		];
-	}
-	return undefined;
-}

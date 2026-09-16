@@ -47,13 +47,6 @@
 	--studio-color-status-transitioning: #a16207;
 	--studio-color-status-attention: #facc15;
 	--studio-color-status-sync: #a855f7;
-
-	/* Categorical colors for the storage-usage segments; wpds has no
-	   categorical ramp. */
-	--studio-color-storage-uploads: light-dark( #3858e9, #6d8bf0 );
-	--studio-color-storage-plugins: light-dark( #c7367f, #d75c90 );
-	--studio-color-storage-themes: light-dark( #b26b00, #d39a38 );
-	--studio-color-storage-database: light-dark( #00918e, #22a79f );
 }
 
 body {

@@ -126,10 +126,10 @@
 }
 
 .storageInteractive {
-	--storage-uploads: var(--studio-color-storage-uploads);
-	--storage-plugins: var(--studio-color-storage-plugins);
-	--storage-themes: var(--studio-color-storage-themes);
-	--storage-database: var(--studio-color-storage-database);
+	--storage-uploads: light-dark(#3858e9, #6d8bf0);
+	--storage-plugins: light-dark(#c7367f, #d75c90);
+	--storage-themes: light-dark(#b26b00, #d39a38);
+	--storage-database: light-dark(#00918e, #22a79f);
 	--storage-other: var(--wpds-color-foreground-content-neutral-weak);
 
 	position: relative;

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
@@ -24,17 +24,17 @@ it(
 		const marker = `incremental-build-${ Date.now() }`;
 
 		try {
-			execFileSync( 'npm', [ 'run', 'cli:build' ], { cwd: studioRoot, stdio: 'inherit' } );
+			execSync( 'npm run cli:build', { cwd: studioRoot, stdio: 'inherit' } );
 			writeFileSync(
 				captureExportSourcePath,
 				`${ source }\nexport const ${ marker.replace( /-/g, '_' ) } = '${ marker }';\n`
 			);
-			execFileSync( 'npm', [ 'run', 'cli:build' ], { cwd: studioRoot, stdio: 'inherit' } );
+			execSync( 'npm run cli:build', { cwd: studioRoot, stdio: 'inherit' } );
 
 			expect( readFileSync( packagedCaptureExportPath, 'utf8' ) ).toContain( marker );
 		} finally {
 			writeFileSync( captureExportSourcePath, source );
-			execFileSync( 'npm', [ 'run', 'cli:build' ], { cwd: studioRoot, stdio: 'inherit' } );
+			execSync( 'npm run cli:build', { cwd: studioRoot, stdio: 'inherit' } );
 		}
 	}
 );

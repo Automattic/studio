@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { bell } from '@wordpress/icons';
 import { Button, Dialog, EmptyState, IconButton, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { AppThemeScope } from '@/components/app-theme-scope';
 import {
 	clearNoticeHistory,
@@ -10,6 +10,7 @@ import {
 	useNoticeHistory,
 	type NoticeRecord,
 } from '@/data/app-messages';
+import { useCopyText } from '@/hooks/use-copy-text';
 import styles from './style.module.css';
 
 // The dialog mounts once at the layout level; the bell and a toast's "More"
@@ -75,17 +76,7 @@ export function CopyNoticeButton( {
 	className?: string;
 	variant?: 'solid' | 'outline';
 } ) {
-	const [ copied, setCopied ] = useState( false );
-	const timer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
-
-	useEffect( () => () => clearTimeout( timer.current ), [] );
-
-	const copy = async () => {
-		await navigator.clipboard.writeText( noticeToText( notice ) );
-		setCopied( true );
-		clearTimeout( timer.current );
-		timer.current = setTimeout( () => setCopied( false ), 1500 );
-	};
+	const { copied, copy } = useCopyText( noticeToText( notice ) );
 
 	return (
 		<Button
@@ -93,7 +84,7 @@ export function CopyNoticeButton( {
 			variant={ variant }
 			tone="neutral"
 			className={ className }
-			onClick={ () => void copy() }
+			onClick={ copy }
 		>
 			{ copied ? __( 'Copied' ) : __( 'Copy' ) }
 		</Button>

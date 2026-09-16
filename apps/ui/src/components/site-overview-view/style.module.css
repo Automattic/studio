@@ -37,7 +37,7 @@
 }
 
 /* Keep in sync with .headerSidebarCollapsed in
-   ui-classic/components/session-view/style.module.css so the site menu sits
+   components/session-view/style.module.css so the site menu sits
    in the same spot when switching between chat and overview. */
 .headerSidebarCollapsed {
 	padding-top: calc(

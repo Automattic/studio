@@ -59,8 +59,10 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const constants: Record< string, boolean | string > = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
+	const constants = {
+		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
@@ -69,11 +71,6 @@ $transformer->to_file( $wp_config_path );
 		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
 		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
 	};
-	const shouldSetDefaultDatabaseName =
-		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
-	if ( ! shouldSetDefaultDatabaseName ) {
-		delete constants.DB_NAME;
-	}
 	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {

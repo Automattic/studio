@@ -12,7 +12,6 @@ export type GuideIllustrationId =
 	| 'overview'
 	// What's New.
 	| 'design-picker'
-	| 'design-system'
 	| 'model-tiers'
 	| 'building-blocks';
 

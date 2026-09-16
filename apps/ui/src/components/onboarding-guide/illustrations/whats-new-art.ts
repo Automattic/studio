@@ -1,6 +1,5 @@
 import buildingBlocksIllustration from '@studio/common/assets/whats-new/building-blocks.svg';
 import designPickerIllustration from '@studio/common/assets/whats-new/design-picker.svg';
-import designSystemIllustration from '@studio/common/assets/whats-new/design-system.svg';
 import modelTiersIllustration from '@studio/common/assets/whats-new/model-tiers.svg';
 import type { GuideIllustrationId } from '@/data/onboarding/guide';
 
@@ -9,7 +8,6 @@ import type { GuideIllustrationId } from '@/data/onboarding/guide';
 // built animations, so they're registered separately.
 export const WHATS_NEW_ART: Partial< Record< GuideIllustrationId, string > > = {
 	'design-picker': designPickerIllustration,
-	'design-system': designSystemIllustration,
 	'model-tiers': modelTiersIllustration,
 	'building-blocks': buildingBlocksIllustration,
 };

@@ -13,7 +13,7 @@ export function getWhatsNewGuide(): GuideDefinition {
 				title: () => __( 'Fast, Balanced, or Strong' ),
 				description: () =>
 					__(
-						'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
+						'Model names are gone. Pick the speed and depth the job needs instead — and get more done with your AI credits, because Fast handles everyday changes at a fraction of the cost.'
 					),
 				action: () => __( 'Next' ),
 			},
@@ -22,17 +22,7 @@ export function getWhatsNewGuide(): GuideDefinition {
 				title: () => __( 'Pick your design before a line of code' ),
 				description: () =>
 					__(
-						'Start a site with a short brief, then choose from four looks and four layouts drawn as real previews. Studio Code builds the one you pick.'
-					),
-				action: () => __( 'Next' ),
-				learnMore: 'docsStudioCode',
-			},
-			{
-				illustration: 'design-system',
-				title: () => __( 'Your design sticks around' ),
-				description: () =>
-					__(
-						"The look you choose is saved as your site's design system, so every later change — colors, type, even the writing voice — stays in keeping with it."
+						'Start a site with a short brief, then choose from four looks and four layouts drawn as real previews. The one you pick becomes your design system, so everything built later stays in keeping with it.'
 					),
 				action: () => __( 'Next' ),
 				learnMore: 'docsStudioCode',

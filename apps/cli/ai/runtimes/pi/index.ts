@@ -7,6 +7,7 @@ import {
 	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
+import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
@@ -500,6 +501,17 @@ async function createModelRuntime(
 	}
 
 	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	// pi's stock Anthropic provider, with its stream wrapped so the image
+	// history is bounded the same way as on the wpcom lane.
+	modelRuntime.registerProvider( family, {
+		api: 'anthropic-messages',
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
+			streamAnthropicMessages(
+				m as Model< 'anthropic-messages' >,
+				stripStaleImagesFromContext( ctx ),
+				options
+			),
+	} );
 	return modelRuntime;
 }
 
@@ -517,7 +529,7 @@ function escapePiConfigValue( value: string ): string {
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
 // custom provider exists to wrap the stream with the usage-cap 429 rewrite
-// and to strip stale screenshots, which would otherwise bloat requests past
+// and to bound the image history, which would otherwise bloat requests past
 // the proxy's body limit.
 function createWpcomProviderConfig(
 	model: StudioWpcomModel,
@@ -558,6 +570,10 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 		{
 			defaultThinkingLevel: 'high',
 			compaction: STUDIO_COMPACTION_SETTINGS,
+			// take_screenshot already fits its captures to the model's native
+			// resolution; pi's tool-result normalizer would otherwise re-encode
+			// anything taller than 2000 px as a PNG several times the size.
+			images: { autoResize: false },
 		},
 		{ projectTrusted: false }
 	);

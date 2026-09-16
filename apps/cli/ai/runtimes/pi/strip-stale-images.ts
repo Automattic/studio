@@ -1,29 +1,38 @@
-import type { Context, Message } from '@earendil-works/pi-ai';
+import type { Context, ImageContent, Message } from '@earendil-works/pi-ai';
 
 /**
  * Placeholder text inserted where an image block used to live. Kept short so
  * it doesn't itself bloat the context.
  */
-export const STALE_IMAGE_PLACEHOLDER_TEXT = '[image removed from older turn to save context]';
+export const STALE_IMAGE_PLACEHOLDER_TEXT =
+	'[image removed from older turn to save context; take a new screenshot if you need to see it again]';
 
-function messageContainsImage( message: Message ): boolean {
-	if ( message.role !== 'user' && message.role !== 'toolResult' ) {
-		return false;
-	}
-	const content = message.content;
-	if ( typeof content === 'string' ) {
-		return false;
-	}
-	return content.some( ( block ) => block.type === 'image' );
+/**
+ * How much image history a request carries: the newest image-bearing messages
+ * whose images fit both limits, counted back from the end of the history.
+ * Anthropic applies a stricter per-image size limit to requests carrying more
+ * than 20 images, and the wpcom AI proxy rejects oversized bodies with an
+ * empty 400 (probed at ~9 MB of images accepted, ~13 MB rejected). `maxBytes`
+ * counts base64 characters, the size the images take in the request body.
+ */
+export interface ImageHistoryLimits {
+	maxImages: number;
+	maxBytes: number;
 }
 
-function findLastImageMessageIndex( messages: Message[] ): number {
-	for ( let i = messages.length - 1; i >= 0; i-- ) {
-		if ( messageContainsImage( messages[ i ] ) ) {
-			return i;
-		}
+export const IMAGE_HISTORY_LIMITS: ImageHistoryLimits = {
+	maxImages: 20,
+	maxBytes: 6 * 1024 * 1024,
+};
+
+function imageBlocksOf( message: Message ): ImageContent[] {
+	if ( message.role !== 'user' && message.role !== 'toolResult' ) {
+		return [];
 	}
-	return -1;
+	if ( typeof message.content === 'string' ) {
+		return [];
+	}
+	return message.content.filter( ( block ): block is ImageContent => block.type === 'image' );
 }
 
 function stripImagesFromMessage( message: Message ): Message {
@@ -41,39 +50,50 @@ function stripImagesFromMessage( message: Message ): Message {
 }
 
 /**
- * Return a new {@link Context} where every message except the most recent
- * image-bearing one has its `image` content blocks replaced with a short
- * placeholder. Compaction in pi-coding-agent keeps a window of recent turns
- * verbatim, so without this pass every accumulated screenshot stays in
- * history and bloats the request body until the wpcom AI proxy rejects it
- * with HTTP 400 (no body).
+ * Return a {@link Context} whose image history fits `limits`: walking back
+ * from the newest message, image-bearing messages keep their images while
+ * they fit the budget, and every older one has its image blocks replaced with
+ * a short placeholder. The newest image-bearing message is always kept.
  *
- * The most recent image-bearing message is left untouched so the model can
- * still "see" what it just captured. Earlier images are assumed to have
- * already been analyzed and don't need to be re-sent.
+ * Images otherwise stay in history so the model can refer back to earlier
+ * captures, and so requests keep a stable prefix for prompt caching: because
+ * the rule keeps a suffix of the history, a message that lost its images stays
+ * that way on later requests, and the cached prefix is only rewritten when the
+ * budget line moves. With captures fitted to the model's resolution up front,
+ * a build rarely reaches either limit. Returns the same object when nothing
+ * changes.
  */
-export function stripStaleImagesFromContext( ctx: Context ): Context {
+export function stripStaleImagesFromContext(
+	ctx: Context,
+	limits: ImageHistoryLimits = IMAGE_HISTORY_LIMITS
+): Context {
 	const messages = ctx.messages;
-	const lastImageIdx = findLastImageMessageIndex( messages );
-	if ( lastImageIdx <= 0 ) {
-		return ctx;
+	let keptImages = 0;
+	let keptBytes = 0;
+	let keepFrom = messages.length;
+	for ( let index = messages.length - 1; index >= 0; index-- ) {
+		const images = imageBlocksOf( messages[ index ] );
+		if ( images.length === 0 ) {
+			continue;
+		}
+		const bytes = images.reduce( ( total, image ) => total + image.data.length, 0 );
+		const fits =
+			keptImages + images.length <= limits.maxImages && keptBytes + bytes <= limits.maxBytes;
+		if ( ! fits && keepFrom < messages.length ) {
+			break;
+		}
+		keptImages += images.length;
+		keptBytes += bytes;
+		keepFrom = index;
 	}
 
 	let mutated = false;
 	const transformed = messages.map( ( message, index ) => {
-		if ( index >= lastImageIdx ) {
-			return message;
-		}
-		if ( ! messageContainsImage( message ) ) {
+		if ( index >= keepFrom || imageBlocksOf( message ).length === 0 ) {
 			return message;
 		}
 		mutated = true;
 		return stripImagesFromMessage( message );
 	} );
-
-	if ( ! mutated ) {
-		return ctx;
-	}
-
-	return { ...ctx, messages: transformed };
+	return mutated ? { ...ctx, messages: transformed } : ctx;
 }

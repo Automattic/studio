@@ -3,6 +3,8 @@ import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
+import { STALE_IMAGE_PLACEHOLDER_TEXT } from 'cli/ai/runtimes/pi/strip-stale-images';
+import type { AssistantMessage, Context, Model } from '@earendil-works/pi-ai';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
@@ -12,6 +14,17 @@ const mocks = vi.hoisted( () => ( {
 	nextEvents: null as AgentSessionEvent[] | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
+	streamAnthropicMessages: vi.fn(),
+	streamOpenAiCompletions: vi.fn(),
+} ) );
+
+// The provider streams are replaced so a request can be driven through the
+// registered providers and inspected without a network.
+vi.mock( '@earendil-works/pi-ai/api/anthropic-messages', () => ( {
+	streamSimple: mocks.streamAnthropicMessages,
+} ) );
+vi.mock( '@earendil-works/pi-ai/api/openai-completions', () => ( {
+	streamSimple: mocks.streamOpenAiCompletions,
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -215,10 +228,73 @@ const WPCOM_ENV = {
 	STUDIO_WPCOM_BASE_URL: 'https://proxy.example.com/v1',
 };
 
+// A finished provider stream: nothing to forward, a bare assistant result.
+const finishedStream = ( model: Model< 'anthropic-messages' | 'openai-completions' > ) => {
+	const result: AssistantMessage = {
+		role: 'assistant',
+		content: [],
+		api: model.api,
+		provider: model.provider,
+		model: model.id,
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		stopReason: 'stop',
+		timestamp: 0,
+	};
+	return {
+		async *[ Symbol.asyncIterator ]() {
+			yield { type: 'done' as const, reason: 'stop' as const, message: result };
+		},
+		result: async () => result,
+	};
+};
+
+// Eleven screenshot results of two images each: one over the 20-image history
+// limit, so the oldest result loses its images and the rest stay verbatim.
+const screenshotHistory = (): Context => ( {
+	messages: Array.from( { length: 11 }, ( _, index ) => ( {
+		role: 'toolResult' as const,
+		toolCallId: `shot-${ index }`,
+		toolName: 'take_screenshot',
+		content: [
+			{ type: 'text' as const, text: `Screenshot ${ index }` },
+			{ type: 'image' as const, data: 'ZGVza3RvcA==', mimeType: 'image/jpeg' },
+			{ type: 'image' as const, data: 'bW9iaWxl', mimeType: 'image/jpeg' },
+		],
+		isError: false,
+		timestamp: index,
+	} ) ),
+} );
+
+async function streamThroughRuntime( ctx: Context ): Promise< void > {
+	const { modelRuntime, model } = mocks.createdSessions[ 0 ].options;
+	await modelRuntime!.streamSimple( model!, ctx ).result();
+}
+
+const expectBoundedHistory = ( streamed: Context, original: Context ) => {
+	expect( streamed ).not.toBe( original );
+	expect( ( streamed.messages[ 0 ] as { content: unknown[] } ).content ).toEqual( [
+		{ type: 'text', text: 'Screenshot 0' },
+		{ type: 'text', text: STALE_IMAGE_PLACEHOLDER_TEXT },
+		{ type: 'text', text: STALE_IMAGE_PLACEHOLDER_TEXT },
+	] );
+	expect( streamed.messages.slice( 1 ) ).toEqual( original.messages.slice( 1 ) );
+};
+
 describe( 'pi runtime', () => {
 	beforeEach( () => {
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
+		mocks.streamAnthropicMessages.mockReset();
+		mocks.streamOpenAiCompletions.mockReset();
+		mocks.streamAnthropicMessages.mockImplementation( finishedStream );
+		mocks.streamOpenAiCompletions.mockImplementation( finishedStream );
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -451,6 +527,56 @@ describe( 'pi runtime', () => {
 				body: { content: '<!-- wp:paragraph --><p>partial' },
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
+	} );
+
+	it( 'bounds the image history of wpcom requests', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			model: 'balanced',
+			session: newSession(),
+		} );
+		const ctx = screenshotHistory();
+
+		await streamThroughRuntime( ctx );
+
+		expect( mocks.streamOpenAiCompletions ).toHaveBeenCalledTimes( 1 );
+		const [ model, streamed ] = mocks.streamOpenAiCompletions.mock.calls[ 0 ];
+		expect( model.id ).toBe( 'balanced' );
+		expectBoundedHistory( streamed, ctx );
+	} );
+
+	it( 'bounds the image history of direct Anthropic requests', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+			model: 'claude-sonnet-5',
+			session: newSession(),
+		} );
+		const ctx = screenshotHistory();
+
+		await streamThroughRuntime( ctx );
+
+		expect( mocks.streamAnthropicMessages ).toHaveBeenCalledTimes( 1 );
+		const [ model, streamed, options ] = mocks.streamAnthropicMessages.mock.calls[ 0 ];
+		expect( model.id ).toBe( 'claude-sonnet-5' );
+		expect( options?.apiKey ).toBe( 'sk-ant-test' );
+		expectBoundedHistory( streamed, ctx );
+	} );
+
+	// take_screenshot fits its captures itself; pi's normalizer would re-encode
+	// anything taller than 2000 px as a much larger PNG.
+	it( "turns off pi's tool-result image resizing", async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			model: 'balanced',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.settingsManager?.getImageAutoResize() ).toBe(
+			false
+		);
 	} );
 
 	it( 'leaves retry policy to pi settings defaults', async () => {

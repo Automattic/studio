@@ -145,14 +145,23 @@ describe( 'Studio AI MCP tools', () => {
 	const createMockPage = ( {
 		buffer,
 		documentHeight,
+		modelBuffer,
 	}: {
 		buffer: Buffer;
 		documentHeight?: number;
+		/** What the in-page canvas pass hands back for every requested region. */
+		modelBuffer?: Buffer;
 	} ) => ( {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-		evaluate: vi.fn().mockResolvedValue( documentHeight ),
+		evaluate: vi.fn( async ( _script: unknown, args?: { regions?: unknown[] } ) =>
+			args?.regions
+				? args.regions.map(
+						() => `data:image/jpeg;base64,${ ( modelBuffer ?? buffer ).toString( 'base64' ) }`
+				  )
+				: documentHeight
+		),
 		addStyleTag: vi.fn(),
 		screenshot: vi.fn().mockResolvedValue( buffer ),
 		close: vi.fn(),
@@ -442,9 +451,90 @@ describe( 'Studio AI MCP tools', () => {
 		await cleanUpScreenshotArtifacts( artifacts );
 	} );
 
+	it( 'sends tall captures to the model at its native resolution and saves the full capture', async () => {
+		const fullBuffer = Buffer.from( 'full-resolution-jpeg' );
+		const modelBuffer = Buffer.from( 'downscaled-jpeg' );
+		const page = createMockPage( { buffer: fullBuffer, documentHeight: 5662, modelBuffer } );
+		mockScreenshotBrowser( page );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler(
+			{ url: 'http://localhost:8903/' } as never,
+			{ onProgress: () => {} }
+		);
+
+		expect( getTextContent( result ) ).toContain(
+			'desktop: captured full page (5662px tall, shown downscaled to 473x2576)'
+		);
+		expect( result.content[ 1 ] ).toEqual( {
+			type: 'image',
+			data: modelBuffer.toString( 'base64' ),
+			mimeType: 'image/jpeg',
+		} );
+		expect( page.evaluate ).toHaveBeenCalledWith(
+			expect.any( Function ),
+			expect.objectContaining( {
+				mimeType: 'image/jpeg',
+				quality: 0.8,
+				regions: [ { sx: 0, sy: 0, sw: 1040, sh: 5662, width: 473, height: 2576 } ],
+			} )
+		);
+		// The saved file (theme screenshot, chat artifact) keeps every pixel.
+		const artifacts = getScreenshotArtifacts( result );
+		await expect( readFile( artifacts[ 0 ].widgetProps.source.path ) ).resolves.toEqual(
+			fullBuffer
+		);
+		await cleanUpScreenshotArtifacts( artifacts );
+	} );
+
+	it( 'sends tall captures as full-scale slices when STUDIO_SCREENSHOT_TILES is set', async () => {
+		const fullBuffer = Buffer.from( 'full-resolution-jpeg' );
+		const modelBuffer = Buffer.from( 'slice-jpeg' );
+		const page = createMockPage( { buffer: fullBuffer, documentHeight: 5662, modelBuffer } );
+		mockScreenshotBrowser( page );
+		process.env.STUDIO_SCREENSHOT_TILES = '1';
+
+		try {
+			const result = await getTool( 'take_screenshot' ).rawHandler(
+				{ url: 'http://localhost:8903/', offset: 0 } as never,
+				{ onProgress: () => {} }
+			);
+
+			expect( getTextContent( result ) ).toContain(
+				'desktop: captured full page (5662px tall, shown as 3 full-scale slices)'
+			);
+			expect( page.evaluate ).toHaveBeenCalledWith(
+				expect.any( Function ),
+				expect.objectContaining( {
+					regions: [
+						{ sx: 0, sy: 0, sw: 1040, sh: 2576, width: 1040, height: 2576 },
+						{ sx: 0, sy: 2576, sw: 1040, sh: 2576, width: 1040, height: 2576 },
+						{ sx: 0, sy: 5152, sw: 1040, sh: 510, width: 1040, height: 510 },
+					],
+				} )
+			);
+			const sliceImage = {
+				type: 'image',
+				data: modelBuffer.toString( 'base64' ),
+				mimeType: 'image/jpeg',
+			};
+			expect( result.content.slice( 1 ) ).toEqual( [
+				{ type: 'text', text: 'desktop rows 0-2576' },
+				sliceImage,
+				{ type: 'text', text: 'desktop rows 2576-5152' },
+				sliceImage,
+				{ type: 'text', text: 'desktop rows 5152-5662' },
+				sliceImage,
+			] );
+			await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result ) );
+		} finally {
+			delete process.env.STUDIO_SCREENSHOT_TILES;
+		}
+	} );
+
 	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
 		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const page = createMockPage( { buffer: screenshotBuffer, documentHeight: 9000 } );
+		mockScreenshotBrowser( page );
 		const findTakeScreenshot = (
 			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
 		) =>
@@ -455,6 +545,11 @@ describe( 'Studio AI MCP tools', () => {
 		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
 
 		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
+		// No image goes to the model, so the capture is not fitted to its resolution.
+		expect( page.evaluate ).not.toHaveBeenCalledWith(
+			expect.any( Function ),
+			expect.objectContaining( { regions: expect.anything() } )
+		);
 
 		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );

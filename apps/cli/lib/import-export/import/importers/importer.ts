@@ -457,6 +457,53 @@ export class SQLImporter extends BaseImporter {
 	}
 }
 
+// A bare `0x` outside identifiers: MySQL's hex prefix is lowercase only.
+const BARE_HEX_PREFIX = /(?<![A-Za-z0-9_$])0x(?![A-Za-z0-9_$])/g;
+
+// One SQL segment at a time: an unquoted run, a quoted string or identifier
+// (with `\` and doubled-quote escapes), a comment, or a single leftover char.
+const SQL_SEGMENT =
+	/[^'"`#/-]+|'(?:[^'\\]|\\[\s\S]|'')*'|"(?:[^"\\]|\\[\s\S]|"")*"|`(?:[^`]|``)*`|--[ \t][\s\S]*|#[\s\S]*|\/\*[\s\S]*?\*\/|\/\*[\s\S]*|[\s\S]/y;
+
+/**
+ * Rewrites the bare `0x` literals of an All-in-One WP Migration dump to `X''`.
+ *
+ * The plugin writes every BINARY and BLOB value as `'0x' . bin2hex( $value )`,
+ * which leaves a bare `0x` when the value is empty. MySQL, MariaDB and the
+ * SQLite integration all reject that token, so an import stops at the first
+ * empty blob; Wordfence stores several in `wp_wfconfig`. `X''` is the empty
+ * binary string they all accept.
+ *
+ * Only tokens outside quoted strings, identifiers and comments are rewritten,
+ * and a `0x` followed by hex digits is a valid literal that is left alone.
+ * Dumps escape newlines inside strings, so one line holds whole strings.
+ */
+export function rewriteEmptyHexLiterals( line: string ): string {
+	if ( ! line.includes( '0x' ) ) {
+		return line;
+	}
+
+	let result = '';
+	SQL_SEGMENT.lastIndex = 0;
+	let match: RegExpExecArray | null;
+	while ( ( match = SQL_SEGMENT.exec( line ) ) ) {
+		const segment = match[ 0 ];
+		const first = segment[ 0 ];
+		if ( first === "'" || first === '"' || first === '`' ) {
+			if ( segment.length === 1 ) {
+				// An unterminated string: leave the rest of the line as it is.
+				return result + line.slice( match.index );
+			}
+			result += segment;
+		} else if ( first === '#' || first === '-' || first === '/' ) {
+			result += segment;
+		} else {
+			result += segment.replace( BARE_HEX_PREFIX, "X''" );
+		}
+	}
+	return result;
+}
+
 export class WpressImporter extends BaseBackupImporter {
 	protected async parseMetaFile(): Promise< MetaFileData > {
 		const packageJsonPath = path.join( this.backup.extractionDirectory, 'package.json' );
@@ -485,7 +532,9 @@ export class WpressImporter extends BaseBackupImporter {
 		} );
 
 		rl.on( 'line', ( line: string ) => {
-			writeStream.write( line.replace( /SERVMASK_PREFIX/g, 'wp' ) + '\n' );
+			writeStream.write(
+				rewriteEmptyHexLiterals( line.replace( /SERVMASK_PREFIX/g, 'wp' ) ) + '\n'
+			);
 		} );
 
 		await new Promise( ( resolve, reject ) => {

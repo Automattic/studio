@@ -36,6 +36,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
@@ -492,6 +493,53 @@ describe( 'CLI: studio create', () => {
 				expect( fs.readFileSync( path.join( capturePath, 'index.html' ), 'utf8' ) ).toBe(
 					'<main>Liberated</main>'
 				);
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'retains failed captures without creating a WordPress site', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-failed-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Partial</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							runCli: async () => ( {
+								exitCode: 0,
+								signal: null,
+								stdout: `Site: ${ websiteDir }\n`,
+								stderr: '',
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( saveCliConfig ).not.toHaveBeenCalled();
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
 			} finally {
 				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
 			}

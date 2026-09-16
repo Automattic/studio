@@ -65,6 +65,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],

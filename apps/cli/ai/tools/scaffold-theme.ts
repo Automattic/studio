@@ -1,11 +1,11 @@
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md';
 import { Type } from 'typebox';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { applyDesignTokens, ThemeJson } from '../design-tokens';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -513,7 +513,7 @@ export const scaffoldThemeTool = defineTool(
 			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
 			const designPath = path.join( site.path, 'DESIGN.md' );
 			const design = ( await pathExists( designPath ) )
-				? applyDesignTokens( baseJson, await readFile( designPath, 'utf8' ) )
+				? themeJsonFromDesign( parseDesignMd( await readFile( designPath, 'utf8' ) ), baseJson )
 				: undefined;
 			const themeJson = design?.themeJson ?? baseJson;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDesignTokens } from 'cli/ai/design-tokens';
+import { googleFontsUrl, parseDesignMd, themeJsonFromDesign, typographyStyles } from './index';
 
 const DESIGN_MD = `---
 name: Sunny Bakery
@@ -49,9 +49,19 @@ components:
 
 const BASE = { version: 3, styles: { spacing: { padding: { top: '0px' } } } };
 
-describe( 'applyDesignTokens', () => {
-	it( 'maps DESIGN.md front matter onto theme.json and a Google Fonts URL', () => {
-		const result = applyDesignTokens( BASE, DESIGN_MD );
+describe( 'parseDesignMd', () => {
+	it( 'rejects a document without front matter and one that never closes it', () => {
+		expect( () => parseDesignMd( '# No front matter\n' ) ).toThrow(
+			/must start with YAML front matter/
+		);
+		expect( () => parseDesignMd( '---\nname: Open\n# prose' ) ).toThrow( /never closed/ );
+	} );
+} );
+
+describe( 'themeJsonFromDesign', () => {
+	it( 'maps the tokens onto theme.json and a Google Fonts URL', () => {
+		const tokens = parseDesignMd( DESIGN_MD );
+		const result = themeJsonFromDesign( tokens, BASE );
 		expect( result ).toBeDefined();
 		const { themeJson, fontsUrl, summary } = result!;
 
@@ -132,8 +142,17 @@ describe( 'applyDesignTokens', () => {
 		expect( summary ).toBe( '4 colors, 2 font families, 4 text styles, 2 spacing steps' );
 	} );
 
-	it( 'returns undefined when the front matter has no colors', () => {
-		expect( applyDesignTokens( BASE, '---\nname: Empty\n---\n# Empty\n' ) ).toBeUndefined();
-		expect( applyDesignTokens( BASE, '# No front matter\n' ) ).toBeUndefined();
+	it( 'returns undefined when the tokens have no colors', () => {
+		expect(
+			themeJsonFromDesign( parseDesignMd( '---\nname: Empty\n---\n# Empty\n' ), BASE )
+		).toBeUndefined();
+	} );
+} );
+
+describe( 'googleFontsUrl', () => {
+	it( 'honors the display strategy and returns undefined without families', () => {
+		const styles = typographyStyles( parseDesignMd( DESIGN_MD ) ).map( ( [ , style ] ) => style );
+		expect( googleFontsUrl( styles, 'block' ) ).toMatch( /&display=block$/ );
+		expect( googleFontsUrl( [] ) ).toBeUndefined();
 	} );
 } );

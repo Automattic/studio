@@ -1,20 +1,29 @@
 import { parse } from 'yaml';
 
-type Style = Record< string, unknown >;
+export type Style = Record< string, unknown >;
 type Tokens = Record< string, unknown >;
 
-interface DesignTokens {
+export interface DesignTokens {
+	name?: unknown;
+	description?: unknown;
 	colors?: Tokens;
 	typography?: Record< string, Style >;
 	rounded?: Tokens;
 	spacing?: Tokens;
 	components?: Record< string, Style >;
+	imagery?: { filter?: unknown; overlay?: unknown };
 }
 
 export interface ThemeJson {
 	settings?: Record< string, unknown >;
 	styles?: Record< string, unknown >;
 	[ key: string ]: unknown;
+}
+
+export interface ThemeJsonFromDesign {
+	themeJson: ThemeJson;
+	fontsUrl?: string;
+	summary: string;
 }
 
 const SPACING_NAMES: Record< string, string > = {
@@ -40,18 +49,81 @@ const dimension = ( value: unknown ) =>
 const plural = ( count: number, one: string, many: string ) =>
 	`${ count } ${ count === 1 ? one : many }`;
 
-function splitFamily( value: unknown ): { family: string; fallback: string } {
-	const [ first = '', ...rest ] = String( value ?? '' ).split( ',' );
-	const family = first.trim().replace( /^["']|["']$/g, '' );
-	return { family, fallback: rest.join( ',' ).trim() || 'sans-serif' };
+/**
+ * Splits the YAML front matter off a DESIGN.md document and parses it.
+ * Throws when the document does not open with front matter or never closes it.
+ */
+export function parseDesignMd( design: string ): DesignTokens {
+	const frontMatter = design.trimStart().match( /^---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
+	if ( ! frontMatter ) {
+		if ( design.trimStart().startsWith( '---' ) ) {
+			throw new Error(
+				"The DESIGN.md draft's front matter is never closed — end the YAML block with a second --- line before the prose."
+			);
+		}
+		throw new Error(
+			'The DESIGN.md draft must start with YAML front matter, opening with a --- line.'
+		);
+	}
+	return parse( frontMatter ) ?? {};
 }
 
-export function applyDesignTokens(
-	themeJson: ThemeJson,
-	designMd: string
-): { themeJson: ThemeJson; fontsUrl?: string; summary: string } | undefined {
-	const frontMatter = designMd.trimStart().match( /^---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
-	const tokens: DesignTokens = frontMatter ? parse( frontMatter ) ?? {} : {};
+/** The first family of a CSS font-family list, unquoted. */
+export function fontFamilyName( value: unknown ): string {
+	return String( value ?? '' )
+		.split( ',' )[ 0 ]
+		.trim()
+		.replace( /^["']|["']$/g, '' );
+}
+
+export function typographyStyles( tokens: DesignTokens ): Array< [ string, Style ] > {
+	return Object.entries( tokens.typography ?? {} ).filter(
+		( entry ): entry is [ string, Style ] => typeof entry[ 1 ] === 'object' && entry[ 1 ] !== null
+	);
+}
+
+function fontFamilies( styles: Style[] ) {
+	const families = new Map< string, { fallback: string; weights: Set< string > } >();
+	for ( const style of styles ) {
+		const [ first = '', ...rest ] = String( style.fontFamily ?? '' ).split( ',' );
+		const family = fontFamilyName( first );
+		if ( family ) {
+			const entry = families.get( family ) ?? {
+				fallback: rest.join( ',' ).trim() || 'sans-serif',
+				weights: new Set< string >(),
+			};
+			entry.weights.add( String( style.fontWeight ?? 400 ) );
+			families.set( family, entry );
+		}
+	}
+	return families;
+}
+
+/** A Google Fonts stylesheet URL covering every family and weight the styles use. */
+export function googleFontsUrl(
+	styles: Style[],
+	display: 'swap' | 'block' = 'swap'
+): string | undefined {
+	const query = [ ...fontFamilies( styles ) ]
+		.map(
+			( [ family, { weights } ] ) =>
+				`family=${ family.replace( / /g, '+' ) }:wght@${ [ ...weights ]
+					.sort( ( a, b ) => Number( a ) - Number( b ) )
+					.join( ';' ) }`
+		)
+		.join( '&' );
+	return query ? `https://fonts.googleapis.com/css2?${ query }&display=${ display }` : undefined;
+}
+
+/**
+ * Lays the DESIGN.md tokens over a base theme.json: palette, font families and sizes,
+ * spacing, radii, and root, heading, link and button styles, each under the DESIGN.md name.
+ * Returns undefined when the tokens carry no colors.
+ */
+export function themeJsonFromDesign(
+	tokens: DesignTokens,
+	themeJson: ThemeJson
+): ThemeJsonFromDesign | undefined {
 	const colors = Object.entries( tokens.colors ?? {} ).filter(
 		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
 	);
@@ -59,21 +131,10 @@ export function applyDesignTokens(
 		return undefined;
 	}
 
-	const styles = Object.entries( tokens.typography ?? {} ).filter(
-		( entry ): entry is [ string, Style ] => typeof entry[ 1 ] === 'object' && entry[ 1 ] !== null
-	);
+	const styles = typographyStyles( tokens );
 	const spacing = Object.entries( tokens.spacing ?? {} );
 	const rounded = tokens.rounded ?? {};
-
-	const families = new Map< string, { fallback: string; weights: Set< string > } >();
-	for ( const [ , style ] of styles ) {
-		const { family, fallback } = splitFamily( style.fontFamily );
-		if ( family ) {
-			const entry = families.get( family ) ?? { fallback, weights: new Set() };
-			entry.weights.add( String( style.fontWeight ?? 400 ) );
-			families.set( family, entry );
-		}
-	}
+	const families = fontFamilies( styles.map( ( [ , style ] ) => style ) );
 
 	const resolve = ( value: unknown ): string =>
 		dimension( value ).replace(
@@ -90,7 +151,7 @@ export function applyDesignTokens(
 		if ( ! style ) {
 			return undefined;
 		}
-		const { family } = splitFamily( style.fontFamily );
+		const family = fontFamilyName( style.fontFamily );
 		const sizeSlug = styles.find( ( [ , candidate ] ) => candidate === style )?.[ 0 ];
 		return compact( {
 			fontFamily: family && `var:preset|font-family|${ slugify( family ) }`,
@@ -183,20 +244,9 @@ export function applyDesignTokens(
 		},
 	};
 
-	const fontsQuery = [ ...families ]
-		.map(
-			( [ family, { weights } ] ) =>
-				`family=${ family.replace( / /g, '+' ) }:wght@${ [ ...weights ]
-					.sort( ( a, b ) => Number( a ) - Number( b ) )
-					.join( ';' ) }`
-		)
-		.join( '&' );
-
 	return {
 		themeJson: result,
-		fontsUrl: fontsQuery
-			? `https://fonts.googleapis.com/css2?${ fontsQuery }&display=swap`
-			: undefined,
+		fontsUrl: googleFontsUrl( styles.map( ( [ , style ] ) => style ) ),
 		summary: [
 			plural( colors.length, 'color', 'colors' ),
 			plural( families.size, 'font family', 'font families' ),

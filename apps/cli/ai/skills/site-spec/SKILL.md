@@ -25,17 +25,17 @@ A new site's spec needs nothing from the site itself: do not search its files or
 
 ### The design
 
-Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and the sneak-peek rules live there — and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
+Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and the sneak-peek rules live there — with the `imagery` skill in the same turn when `generate_images` is available, and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
 
 - Pass `options: 4` so the user picks, or `options: 1` when there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names the entry. For a reference site, look at it once with `take_screenshot` (`display: false`) and choose its closest entries, with `options` set to their number: two when `present_design_options` is available, otherwise one.
 - With one entry, use it without asking. With more, ask once, one option per entry in the order returned, labelled with the entry's name, without describing the options in prose first. A typed answer ("2 but darker") is a preference to apply to the closest option; asking for other options, as a choice or in their own words, means drawing that step again and asking the same way.
 
 1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the active-site line names a design system and the user did not ask for a new look.
-   - If `present_design_options` is available: when `generate_images` is available too, load the `imagery` skill and generate the look image first. Pass each option's `DESIGN.md` draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel.
+   - If `present_design_options` is available: when `generate_images` is available too, start the look image in the background in the same turn as `pick_design` (see the `imagery` skill). Pass each option's `DESIGN.md` draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel; `present_design_options` waits for the image.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of the look.
-   - Write the picked look to `DESIGN.md` at the site root: the draft's front matter exactly as the user saw it, then every section. Then, when `generate_images` is available, generate the site's image set in that look (see the `imagery` skill) so the layout previews and the build have it.
+   - Write the picked look to `DESIGN.md` at the site root: the draft's front matter exactly as the user saw it, then every section. When `generate_images` is available, also generate the site's image set in that look (see the `imagery` skill) so the layout previews and the build have it: with `present_design_options`, start it in the background right after the pick, in the same turn as the layout's `pick_design` and before the `DESIGN.md` write, so it generates while you write `DESIGN.md` and the sneak peeks.
 2. **The layout**: `catalog: "layouts"`, asking "Which layout should I build?".
-   - If `present_design_options` is available: pass one sneak peek per option, in the picked look and with the site's image set (see the `visual-design` skill), as its `preview`, with a one-line description of the layout.
+   - If `present_design_options` is available: pass one sneak peek per option, in the picked look and with the site's image set (see the `visual-design` skill), as its `preview`, with a one-line description of the layout. It waits for the set and reports each image; a failed one shows as a solid color shape, and needs a rewrite or a fallback before the build.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of how its first screen would look.
    - Add the picked layout to the Layout section of `DESIGN.md`, then build it.
 

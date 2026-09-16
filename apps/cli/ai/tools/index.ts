@@ -5,7 +5,7 @@ import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
-import { generateImagesTool } from './generate-images';
+import { createGenerateImagesTool, generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -98,10 +98,17 @@ export function resolveStudioToolDefinitions(
 		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
 			return [];
 		}
-		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
-			return [];
-		}
 		let tool = candidate;
+		if ( candidate.name === generateImagesTool.name ) {
+			if ( ! options.imageGeneration ) {
+				return [];
+			}
+			// Background generation is for design previews, which need
+			// present_design_options: a UI attached and a user to ask.
+			if ( options.emitChatArtifacts === true && options.canAskUser === true ) {
+				tool = createGenerateImagesTool( { background: true } );
+			}
+		}
 		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
 			tool = createTakeScreenshotTool( { visionEnabled: false } );
 		}

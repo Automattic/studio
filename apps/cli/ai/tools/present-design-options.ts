@@ -9,6 +9,7 @@ import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool } from './define-tool';
+import { forgetBackgroundImages, settleBackgroundImages } from './generate-images';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
@@ -30,22 +31,45 @@ const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 const LOCAL_IMAGE_REFERENCE =
 	/(src=|url\()(["']?)((?:file:\/\/|\/)[^"')\s]+\.(?:jpe?g|png|webp))\2/gi;
 
+// Stands in for an image that failed to generate: the slot shows the solid
+// color behind it instead of a broken image.
+const TRANSPARENT_PIXEL =
+	'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+function localImagePath( reference: string ): string {
+	try {
+		return path.resolve(
+			reference.startsWith( 'file://' ) ? fileURLToPath( reference ) : reference
+		);
+	} catch {
+		return reference;
+	}
+}
+
+function localImageReferences( html: string ): string[] {
+	return [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ].map( ( match ) => match[ 3 ] );
+}
+
 // The preview page is a `file://` document, so referenced images are inlined
 // rather than relying on file-to-file loads; only the sites root qualifies.
-export async function inlineLocalImages( html: string ): Promise< string > {
-	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
+export async function inlineLocalImages(
+	html: string,
+	failed: ReadonlySet< string > = new Set()
+): Promise< string > {
 	const dataUrls = new Map< string, string >();
-	for ( const [ , , , reference ] of references ) {
+	for ( const reference of localImageReferences( html ) ) {
 		if ( dataUrls.has( reference ) ) {
 			continue;
 		}
-		const filePath = path.resolve(
-			reference.startsWith( 'file://' ) ? fileURLToPath( reference ) : reference
-		);
+		const filePath = localImagePath( reference );
 		if ( ! filePath.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
 			throw new Error(
 				`Preview image must be inside the Studio sites directory (${ STUDIO_SITES_ROOT }): ${ reference }`
 			);
+		}
+		if ( failed.has( filePath ) ) {
+			dataUrls.set( reference, TRANSPARENT_PIXEL );
+			continue;
 		}
 		let bytes: Buffer;
 		try {
@@ -65,6 +89,8 @@ export async function inlineLocalImages( html: string ): Promise< string > {
 	);
 }
 
+type Option = { label: string; description: string; image: string };
+
 type AnswerType = 'picked' | 'other_options' | 'free_form' | 'none';
 
 function classifyAnswer( answer: string | undefined, picked: number ): AnswerType {
@@ -82,7 +108,7 @@ export function createPresentDesignOptionsTool(
 ) {
 	return defineTool(
 		'present_design_options',
-		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${ PREVIEW_VIEWPORT.width }×${ PREVIEW_VIEWPORT.height } frame that a sneak peek must fill to the bottom: ${ FRAME_FILL_RECIPE }. A sneak peek whose content ends above the bottom of the frame is rejected. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
+		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, waiting for any still generating in the background, otherwise use solid color shapes, never web URLs. Each is rendered in a ${ PREVIEW_VIEWPORT.width }×${ PREVIEW_VIEWPORT.height } frame that a sneak peek must fill to the bottom: ${ FRAME_FILL_RECIPE }. A sneak peek whose content ends above the bottom of the frame is rejected. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
 		{
 			catalog: Type.Union( [ Type.Literal( 'directions' ), Type.Literal( 'layouts' ) ], {
 				description:
@@ -120,9 +146,20 @@ export function createPresentDesignOptionsTool(
 			if ( args.options.length < 2 || args.options.length > DESIGN_OPTIONS ) {
 				throw new Error( `Present between 2 and ${ DESIGN_OPTIONS } options.` );
 			}
+			const referencedImages = args.options
+				.flatMap( ( option ) => [
+					...( option.image ? [ option.image ] : [] ),
+					...localImageReferences( option.preview ),
+				] )
+				.map( localImagePath );
+			const images = await settleBackgroundImages( referencedImages, () =>
+				context.onProgress( 'Waiting for the images to generate…' )
+			);
 			context.onProgress( `Rendering ${ args.options.length } previews…` );
 			const directory = await resolveScreenshotDirectory();
-			const options = await Promise.all(
+			// Every option renders before a rejection is reported, so the
+			// agent fixes all the rejected ones in one retry.
+			const rendered = await Promise.allSettled(
 				args.options.map( async ( option, index ) => {
 					const slug =
 						option.label
@@ -134,10 +171,14 @@ export function createPresentDesignOptionsTool(
 					let capture;
 					try {
 						const isDesignBoard = option.preview.trimStart().startsWith( '---' );
+						const image =
+							option.image && ! images.failed.has( localImagePath( option.image ) )
+								? option.image
+								: undefined;
 						const html = isDesignBoard
-							? renderDesignBoard( option.preview, option.image )
+							? renderDesignBoard( option.preview, image )
 							: option.preview;
-						await writeFile( htmlPath, await inlineLocalImages( html ) );
+						await writeFile( htmlPath, await inlineLocalImages( html, images.failed ) );
 						capture = await captureScreenshotBuffer(
 							pathToFileURL( htmlPath ).href,
 							PREVIEW_VIEWPORT,
@@ -163,6 +204,18 @@ export function createPresentDesignOptionsTool(
 					return { label: option.label, description: option.description, image: file.path };
 				} )
 			);
+			const rejected = rendered.filter( ( result ) => result.status === 'rejected' );
+			if ( rejected.length ) {
+				throw new Error(
+					rejected
+						.map( ( result ) => String( result.reason?.message ?? result.reason ) )
+						.join( '\n' )
+				);
+			}
+			const options = rendered.map(
+				( result ) => ( result as PromiseFulfilledResult< Option > ).value
+			);
+			forgetBackgroundImages( referencedImages );
 			const answers = await onAskUser( [
 				{
 					question: args.question,
@@ -182,13 +235,20 @@ export function createPresentDesignOptionsTool(
 				picked: picked === -1 ? undefined : options[ picked ].label,
 				pick_index: picked === -1 ? undefined : picked + 1,
 			} );
+			const report = images.lines.length
+				? `\n\nImages generated in the background:\n${ images.lines.join( '\n' ) }${
+						images.failed.size
+							? '\nA failed image was shown as a solid color shape; generate it again or adapt the layout before the build.'
+							: ''
+				  }`
+				: '';
 			if ( ! answer ) {
-				return textResult( 'The user did not answer.' );
+				return textResult( `The user did not answer.${ report }` );
 			}
 			return textResult(
-				picked === -1
+				( picked === -1
 					? `The user answered: ${ answer }`
-					: `The user picked option ${ picked + 1 }: ${ answer }`
+					: `The user picked option ${ picked + 1 }: ${ answer }` ) + report
 			);
 		}
 	);

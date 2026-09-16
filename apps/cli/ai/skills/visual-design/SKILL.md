@@ -50,7 +50,7 @@ A sneak peek is a standalone HTML page that lets a layout concept be judged in t
 
 - **A full frame**: the header or masthead and the hero as the concept shapes them, then the next section. The frame is 1200×900 and the page must reach its bottom edge, so make `body` a `min-height: 100vh` flex column and give the last section `flex: 1` and a background — nothing ends inside the frame, whatever the copy length. Grids need enough rows to pass 900px: four square columns of 300px need three rows.
 - **The look, exactly**: `DESIGN.md`'s colors and fonts drive every color and font, and its surfaces and shapes show in the hero, so only the layout differs between options.
-- **Real content**: the site's real name and plausible copy, never lorem ipsum. Image slots take the site's image set (see the `imagery` skill), a different image per slot with the first-screen scene in the dominant one, never the same image twice in a frame, each under `DESIGN.md`'s `imagery` treatment; a slot the set cannot fill takes a solid color shape in a palette color.
+- **Real content**: the site's real name and plausible copy, never lorem ipsum. Image slots take the site's image set (see the `imagery` skill), a different image per slot with the first-screen scene in the dominant one, never the same image twice in a frame, each under `DESIGN.md`'s `imagery` treatment, over a palette background color that shows if the image fails; a slot the set cannot fill takes a solid color shape in a palette color.
 - **Small and self-contained**: inline CSS, under ~120 lines, no scripts; a Google Fonts `<link>` with a fallback stack is fine.
 
 ## Implementation Priorities

@@ -4,6 +4,9 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 // strings have been observed to arrive incomplete.
 export const STUDIO_FILE_TOOL_MAX_BYTES = 14 * 1024;
 export const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
+// Guidance, not a limit: an Edit call this size streams in well under the
+// per-turn budget on every tier.
+export const STUDIO_EDIT_CALL_TARGET_BYTES = 8 * 1024;
 
 export interface StudioToolPayloadGuardState {
 	incompleteToolCallReasons?: Record< string, string >;
@@ -156,18 +159,31 @@ export function getIncompleteToolCallReason(
 	return state.incompleteToolCallReasons?.[ toolCallId ];
 }
 
-export function getPayloadLimitDescription( toolName: string, description: string ): string {
-	if ( toolName === 'Write' || toolName === 'Edit' ) {
-		return `${ description }\n\nStudio safety: keep generated file payloads at or below ${ formatBytes(
-			STUDIO_FILE_TOOL_MAX_BYTES
-		) } per call (for Edit, the total of every edits[] entry). For larger files, write a small skeleton and fill it with Edit calls that each carry several edits[] entries under the limit. Do not use Bash heredocs or Python scripts as a workaround.`;
-	}
+function formatKilobytes( bytes: number ): string {
+	return `${ bytes / 1024 }KB`;
+}
 
+// What the prompt tells the model about the file and shell tools, next to the
+// limits the guard enforces so the two cannot disagree.
+export function getStudioToolGuidelines( toolName: string ): string[] | undefined {
+	const fileLimit = formatKilobytes( STUDIO_FILE_TOOL_MAX_BYTES );
+	if ( toolName === 'Write' ) {
+		return [ `Write rejects payloads over ${ fileLimit }; split a larger file across calls.` ];
+	}
+	if ( toolName === 'Edit' ) {
+		return [
+			'Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.',
+			`Keep an Edit call's new text under ~${ formatKilobytes(
+				STUDIO_EDIT_CALL_TARGET_BYTES
+			) } and split a longer fill across two or three calls; more than ${ fileLimit } across all edits[] entries is rejected.`,
+		];
+	}
 	if ( toolName === 'Bash' ) {
-		return `${ description }\n\nStudio safety: commands longer than ${ formatBytes(
-			STUDIO_BASH_COMMAND_MAX_BYTES
-		) } are rejected. Do not use Bash heredocs or Python scripts to write large generated files; use smaller Write/Edit calls instead.`;
+		return [
+			`Bash rejects commands over ${ formatKilobytes(
+				STUDIO_BASH_COMMAND_MAX_BYTES
+			) }; never use heredocs, \`cat > file <<EOF\`, or Python scripts to write large generated files — they carry the same payload-truncation risk.`,
+		];
 	}
-
-	return description;
+	return undefined;
 }

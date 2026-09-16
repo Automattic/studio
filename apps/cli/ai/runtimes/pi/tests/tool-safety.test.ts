@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	getPayloadLimitDescription,
+	getStudioToolGuidelines,
 	getPayloadLimitViolation,
 	STUDIO_FILE_TOOL_MAX_BYTES,
 } from '../tool-safety';
@@ -50,11 +50,13 @@ describe( 'getPayloadLimitViolation', () => {
 	} );
 } );
 
-describe( 'getPayloadLimitDescription', () => {
-	it( 'tells the model the Edit limit covers the whole call', () => {
-		expect( getPayloadLimitDescription( 'Edit', 'Edit files.' ) ).toContain(
-			'every edits[] entry'
+describe( 'getStudioToolGuidelines', () => {
+	it( 'states the enforced limits for the file and shell tools', () => {
+		expect( getStudioToolGuidelines( 'Edit' )?.join( ' ' ) ).toContain(
+			'14KB across all edits[] entries'
 		);
-		expect( getPayloadLimitDescription( 'wp_cli', 'Run WP-CLI.' ) ).toBe( 'Run WP-CLI.' );
+		expect( getStudioToolGuidelines( 'Write' )?.[ 0 ] ).toContain( '14KB' );
+		expect( getStudioToolGuidelines( 'Bash' )?.[ 0 ] ).toContain( '8KB' );
+		expect( getStudioToolGuidelines( 'wp_cli' ) ).toBeUndefined();
 	} );
 } );

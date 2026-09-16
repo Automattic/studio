@@ -63,8 +63,8 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
-	getPayloadLimitDescription,
 	getPayloadLimitViolation,
+	getStudioToolGuidelines,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
@@ -578,17 +578,6 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 	return { name: tool.name, promptSnippet, promptGuidelines };
 }
 
-// The limits tool-safety.ts enforces and the edit cadence, stated where the
-// tools are documented rather than in a prompt paragraph.
-const WRITE_GUIDELINES = [ 'Write rejects payloads over 14KB; split a larger file across calls.' ];
-const EDIT_GUIDELINES = [
-	'Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.',
-	"Keep an Edit call's new text under ~8KB and split a longer fill across two or three calls; more than 14KB across all edits[] entries is rejected.",
-];
-const BASH_GUIDELINES = [
-	'Bash rejects commands over 8KB; never use heredocs, `cat > file <<EOF`, or Python scripts to write large generated files — they carry the same payload-truncation risk.',
-];
-
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState
@@ -596,7 +585,7 @@ function toToolDefinition(
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: getPayloadLimitDescription( tool.name, tool.description ),
+		description: tool.description,
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
@@ -671,13 +660,17 @@ function buildAgentTools(
 		...( definition.promptSnippet ? { promptSnippet: definition.promptSnippet } : {} ),
 		...( definition.promptGuidelines ? { promptGuidelines: definition.promptGuidelines } : {} ),
 	} );
-	const withGuidelines = < S extends TSchema >(
-		tool: AgentTool< S >,
-		extra: string[]
-	): AgentTool< S > & ToolPromptFields => ( {
-		...tool,
-		promptGuidelines: [ ...( ( tool as ToolPromptFields ).promptGuidelines ?? [] ), ...extra ],
-	} );
+	const withStudioGuidelines = ( tool: AgentToolAny ): AgentToolAny => {
+		const extra = getStudioToolGuidelines( tool.name );
+		if ( ! extra ) {
+			return tool;
+		}
+		const { promptGuidelines } = tool as ToolPromptFields;
+		return {
+			...tool,
+			promptGuidelines: [ ...( promptGuidelines ?? [] ), ...extra ],
+		} as AgentToolAny;
+	};
 
 	const remoteScratchTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
@@ -704,25 +697,16 @@ function buildAgentTools(
 	const root = STUDIO_SITES_ROOT;
 	const piTools: AgentToolAny[] = [
 		renameTool( withPiPrompt( createReadTool( root ), createReadToolDefinition( root ) ), 'Read' ),
-		withGuidelines(
-			renameTool(
-				withPiPrompt( createWriteTool( root ), createWriteToolDefinition( root ) ),
-				'Write'
-			),
-			WRITE_GUIDELINES
+		renameTool(
+			withPiPrompt( createWriteTool( root ), createWriteToolDefinition( root ) ),
+			'Write'
 		),
-		withGuidelines(
-			renameTool(
-				withPiPrompt( createEditTool( root ), createEditToolDefinition( root ) ),
-				'Edit'
-			),
-			EDIT_GUIDELINES
-		),
-		withGuidelines( renameTool( createBashTool( root ), 'Bash' ), BASH_GUIDELINES ),
+		renameTool( withPiPrompt( createEditTool( root ), createEditToolDefinition( root ) ), 'Edit' ),
+		renameTool( createBashTool( root ), 'Bash' ),
 		renameTool( withPiPrompt( createGrepTool( root ), createGrepToolDefinition( root ) ), 'Grep' ),
 		renameTool( withPiPrompt( createFindTool( root ), createFindToolDefinition( root ) ), 'Glob' ),
 		renameTool( withPiPrompt( createLsTool( root ), createLsToolDefinition( root ) ), 'Ls' ),
-	];
+	].map( withStudioGuidelines );
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		imageGeneration: imageGenerationEnabled,

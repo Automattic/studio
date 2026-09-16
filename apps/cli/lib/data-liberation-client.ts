@@ -1,7 +1,13 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { z } from 'zod';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
+
+const captureReceiptSchema = z.object( {
+	schema: z.literal( 'data-liberation/capture-receipt/v1' ),
+	summary: z.object( { routesFailed: z.number().int().nonnegative() } ),
+} );
 
 type DataLiberationCliResult = {
 	exitCode: number | null;
@@ -121,6 +127,26 @@ export async function liberateWebsite(
 		! fs.statSync( websiteDir ).isDirectory()
 	) {
 		throw new Error( 'Data Liberation reported an invalid website directory.' );
+	}
+
+	const receiptPath = path.join( websiteDir, '..', 'capture-receipt.json' );
+	let routesFailed: number;
+	try {
+		const receipt = captureReceiptSchema.parse(
+			JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) )
+		);
+		routesFailed = receipt.summary.routesFailed;
+	} catch {
+		throw new Error( `Data Liberation did not provide a valid capture receipt: ${ receiptPath }` );
+	}
+	if ( routesFailed > 0 ) {
+		throw new Error(
+			`Data Liberation reported ${ routesFailed } capture failures. Review ${ path.join(
+				websiteDir,
+				'..',
+				'diagnostics.json'
+			) } before importing.`
+		);
 	}
 
 	return websiteDir;

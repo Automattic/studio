@@ -12,6 +12,13 @@ function createOutput(): { outputBase: string; websiteDir: string } {
 	const websiteDir = path.join( outputBase, 'example.com', 'website' );
 	fs.mkdirSync( websiteDir, { recursive: true } );
 	fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Liberated</main>' );
+	fs.writeFileSync(
+		path.join( websiteDir, '..', 'capture-receipt.json' ),
+		JSON.stringify( {
+			schema: 'data-liberation/capture-receipt/v1',
+			summary: { routesDiscovered: 1, routesCaptured: 1, routesSkipped: 0, routesFailed: 0 },
+		} )
+	);
 	return { outputBase, websiteDir };
 }
 
@@ -64,6 +71,53 @@ describe( 'Data Liberation CLI', () => {
 			} )
 		).rejects.toThrow( 'Capture failed' );
 	} );
+
+	it( 'rejects failed capture attempts even when the CLI exits successfully', async () => {
+		const { outputBase, websiteDir } = createOutput();
+		fs.writeFileSync(
+			path.join( websiteDir, '..', 'capture-receipt.json' ),
+			JSON.stringify( {
+				schema: 'data-liberation/capture-receipt/v1',
+				summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
+			} )
+		);
+
+		await expect(
+			liberateWebsite( 'https://example.com', outputBase, {
+				runCli: async () => ( {
+					exitCode: 0,
+					signal: null,
+					stdout: `Liberated 10/13 routes (6 failed)\nSite: ${ websiteDir }\n`,
+					stderr: '',
+				} ),
+			} )
+		).rejects.toThrow( /6 capture failures/ );
+		expect( fs.existsSync( path.join( websiteDir, 'index.html' ) ) ).toBe( true );
+	} );
+
+	it.each( [ null, '{', JSON.stringify( { summary: { routesFailed: 0 } } ) ] )(
+		'rejects a missing or invalid capture receipt: %s',
+		async ( receipt ) => {
+			const { outputBase, websiteDir } = createOutput();
+			const receiptPath = path.join( websiteDir, '..', 'capture-receipt.json' );
+			if ( receipt === null ) {
+				fs.rmSync( receiptPath );
+			} else {
+				fs.writeFileSync( receiptPath, receipt );
+			}
+
+			await expect(
+				liberateWebsite( 'https://example.com', outputBase, {
+					runCli: async () => ( {
+						exitCode: 0,
+						signal: null,
+						stdout: `Site: ${ websiteDir }\n`,
+						stderr: '',
+					} ),
+				} )
+			).rejects.toThrow( /capture receipt/ );
+		}
+	);
 
 	it( 'reports the signal that terminated the CLI instead of progress output', async () => {
 		const { outputBase } = createOutput();

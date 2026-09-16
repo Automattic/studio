@@ -27,9 +27,7 @@ vi.mock( '@/components/site-list', () => ( {
 } ) );
 
 vi.mock( '@/components/user-menu', () => ( {
-	UserMenu: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
-		<button onClick={ onToggleSidebar }>Hide sidebar</button>
-	),
+	UserMenu: () => <div data-testid="user-menu" />,
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -89,6 +87,34 @@ describe( 'SidebarLayout', () => {
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'keeps the toggle in the panel whether or not the sidebar is collapsed', async () => {
+		render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Hide sidebar' } ) ).toBeInTheDocument();
+
+		await act( async () => toggleSidebarListener?.() );
+
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'collapses the sidebar from the panel toggle', () => {
+		const onCollapsedChange = vi.fn();
+		render(
+			<SidebarLayout collapsed={ false } onCollapsedChange={ onCollapsedChange }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
+
+		expect( onCollapsedChange ).toHaveBeenCalledWith( true );
+	} );
+
 	it( 'hands the sidebar shortcut to the forcing feature while force-collapsed', () => {
 		const onForceCollapsedToggle = vi.fn();
 		const onExpand = vi.fn();
@@ -106,6 +132,7 @@ describe( 'SidebarLayout', () => {
 		// the forcing feature (full preview) owns the exit affordance.
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
 
 		act( () => toggleSidebarListener?.() );
 

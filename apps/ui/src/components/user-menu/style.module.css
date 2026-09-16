@@ -4,7 +4,7 @@
 	--user-menu-leading-offset: calc(
 		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
 	);
-	/* The sidebar toggle pulls back by `sm`, so this lands its trailing edge on
+	/* The notice bell pulls back by `sm`, so this lands its trailing edge on
 	   `lg` — the same column the site rows' status buttons and the header's
 	   add button end on. Keep in sync with sidebar-header. */
 	--user-menu-trailing-offset: calc(
@@ -34,17 +34,6 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
-}
-
-.sidebarToggle {
-	color: var(--wpds-color-foreground-content-neutral-weak);
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
-}
-
-/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
-   on the right. */
-.sidebarToggle:dir(rtl) svg {
-	transform: scaleX(-1);
 }
 
 .userTrigger {

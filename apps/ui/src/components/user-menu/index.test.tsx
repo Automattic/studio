@@ -25,8 +25,6 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 const useAuthUserMock = vi.mocked( useAuthUser );
 
 describe( 'UserMenu', () => {
-	const onToggleSidebar = vi.fn();
-
 	beforeEach( () => {
 		vi.clearAllMocks();
 
@@ -36,7 +34,7 @@ describe( 'UserMenu', () => {
 	} );
 
 	it( 'opens Settings directly and shows the gravatar when signed in', () => {
-		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
+		render( <UserMenu /> );
 
 		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
 
@@ -48,7 +46,7 @@ describe( 'UserMenu', () => {
 	it( 'opens Settings directly with a placeholder icon when signed out', () => {
 		useAuthUserMock.mockReturnValue( { data: null } as never );
 
-		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
+		render( <UserMenu /> );
 
 		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
 
@@ -57,12 +55,9 @@ describe( 'UserMenu', () => {
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 	} );
 
-	it( 'toggles the sidebar from the hide control', () => {
-		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
+	it( 'leaves the sidebar toggle to the panel', () => {
+		render( <UserMenu /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
-
-		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
 	} );
 } );

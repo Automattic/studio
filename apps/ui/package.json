@@ -7,14 +7,17 @@
 		"dev": "vite",
 		"dev:hosted": "STUDIO_TARGET=hosted vite",
 		"dev:local": "STUDIO_TARGET=local vite",
+		"dev:marketing": "STUDIO_TARGET=marketing vite",
 		"build": "vite build",
 		"build:hosted": "STUDIO_TARGET=hosted vite build",
 		"build:local": "STUDIO_TARGET=local vite build",
+		"build:marketing": "STUDIO_TARGET=marketing vite build",
 		"lint": "eslint src",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"preview": "vite preview",
 		"preview:hosted": "STUDIO_TARGET=hosted vite preview",
-		"preview:local": "STUDIO_TARGET=local vite preview"
+		"preview:local": "STUDIO_TARGET=local vite preview",
+		"preview:marketing": "STUDIO_TARGET=marketing vite preview"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.3.0",

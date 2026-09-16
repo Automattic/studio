@@ -15,5 +15,6 @@ export const listSitesTool = defineTool(
 				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'List all local WordPress sites with their status' }
 );

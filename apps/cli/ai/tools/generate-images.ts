@@ -67,12 +67,6 @@ export const generateImagesTool = defineTool(
 						}
 					)
 				),
-				imageGrade: Type.Optional(
-					Type.String( {
-						description:
-							'Per-image photographic treatment overriding the call-wide imageGrade. Only for design-option previews, where each image belongs to a different artistic direction; images shown together on a site share the call-wide grade.',
-					} )
-				),
 			} ),
 			{ minItems: 1, maxItems: MAX_IMAGES_PER_CALL }
 		),
@@ -108,7 +102,7 @@ export const generateImagesTool = defineTool(
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
-				imageGrade: image.imageGrade ?? args.imageGrade,
+				imageGrade: args.imageGrade,
 			} ),
 			aspectRatio: image.aspectRatio,
 		} ) );
@@ -152,5 +146,9 @@ export const generateImagesTool = defineTool(
 						targets.length
 				  } images (${ failures } failed):`;
 		return { content: [ { type: 'text', text: [ summary, ...lines ].join( '\n' ) } ] };
+	},
+	{
+		promptSnippet:
+			'Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 	}
 );

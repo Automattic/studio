@@ -109,9 +109,8 @@
 	padding-inline-end: var( --wpds-dimension-padding-lg );
 }
 
-/* Match the onboarding close button: settings portals outside the
-   [data-ui-mode='classic'] container, so the global compact-density rule
-   that shrinks icons to 16px doesn't reach this svg. */
+/* Match the onboarding close button: keep this svg at the compact 16px
+   size the global rule in index.css uses. */
 .headerClose svg {
 	width: 16px;
 	height: 16px;
@@ -971,10 +970,6 @@
 
 .previewActionsButton {
 	flex-shrink: 0;
-}
-
-.usageSectionAction {
-	align-self: flex-start;
 }
 
 .aiCreditsHeading {

@@ -5,7 +5,7 @@
  * (deleted site) just falls through.
  */
 
-export interface LastVisited {
+interface LastVisited {
 	siteId?: string;
 }
 

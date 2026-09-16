@@ -1,6 +1,7 @@
 export interface AskUserQuestion {
 	question: string;
 	options: { label: string; description: string; image?: string }[];
+	multiSelect?: boolean;
 	allowFreeForm?: boolean;
 }
 

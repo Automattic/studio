@@ -20,9 +20,10 @@
  *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
- * anchored at *document* coordinates (viewport rect + scroll offset). They
- * scroll with the page automatically — no scroll listener, no rAF loop. The
- * popup uses `position: fixed` so it stays in the viewport.
+ * anchored at *document* coordinates (viewport rect + scroll offset), so they
+ * scroll with the page for free and are only re-measured on reflow. The popup
+ * and the annotation scrim use `position: fixed` to stay in the viewport; the
+ * scrim's hole is a document rect, so it is re-cut on scroll as well.
  */
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -464,7 +465,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 	function syncScrim() {
 		const rect = activePopup ? resolveTargetRect( activePopup.target ) : null;
-		if ( ! rect ) {
+		/* A saved note whose element is gone falls back to the rect captured at
+		 * save time, which can be empty. Cutting a zero-size hole would dim the
+		 * whole page with nothing left clear, so skip the scrim instead. */
+		if ( ! rect || rect.width <= 0 || rect.height <= 0 ) {
 			scrimNodes.splice( 0 ).forEach( ( node ) => node.remove() );
 			return;
 		}
@@ -907,8 +911,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * Picking interactions. Only the highlight is updated on mousemove —
 	 * markers are document-anchored and don't move with mouse position.
-	 * No scroll/resize listeners: markers and highlight live in document
-	 * coordinates and follow the page naturally.
 	 * ---------------------------------------------------------------- */
 	document.addEventListener(
 		'mousemove',

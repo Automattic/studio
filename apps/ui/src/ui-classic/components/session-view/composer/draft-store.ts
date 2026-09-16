@@ -1,6 +1,6 @@
 import type { ComposerAttachment } from '@studio/common/ai/composer-attachments';
 
-export interface ComposerDraft {
+interface ComposerDraft {
 	text: string;
 	attachments: ComposerAttachment[];
 	suggestionBaseline: string | null;

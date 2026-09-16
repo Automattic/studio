@@ -21,7 +21,7 @@ interface AutostartInputs {
 	alreadyStarted: boolean;
 }
 
-export type WhatsNewAutostart = 'show' | 'mark-seen' | null;
+type WhatsNewAutostart = 'show' | 'mark-seen' | null;
 
 /**
  * Pure decision: whether to auto-open the announcements. Returns null unless the

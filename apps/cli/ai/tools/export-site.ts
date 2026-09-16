@@ -53,5 +53,9 @@ export const exportSiteTool = defineTool(
 				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.',
 	}
 );

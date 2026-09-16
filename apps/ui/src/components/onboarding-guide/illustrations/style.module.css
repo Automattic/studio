@@ -17,13 +17,6 @@
 	border-bottom: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 }
 
-/* Fallback for ids without a built scene yet. */
-.placeholder {
-	position: absolute;
-	inset: 0;
-	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand) 8%, transparent);
-}
-
 /* ---- Overview scene ---- */
 
 .overviewScene {

@@ -343,7 +343,9 @@ describe( 'Studio AI MCP tools', () => {
 				?.description
 		).toContain( 'options: 4' );
 		const text =
-			getTextContent( await executeTool( getTool( 'pick_design' ), { options: 4 } ) ) ?? '';
+			getTextContent(
+				await executeTool( getTool( 'pick_design' ), { catalog: 'layouts', options: 4 } )
+			) ?? '';
 		expect( text ).not.toContain( 'Option 1' );
 		expect( text ).toContain( 'cannot be asked in this session' );
 	} );

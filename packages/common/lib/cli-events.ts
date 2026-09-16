@@ -9,6 +9,7 @@ import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
+import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
 /**
@@ -32,6 +33,8 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	enableScriptDebug: z.boolean().optional(),
+	environmentType: wpEnvironmentTypeSchema.optional(),
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),

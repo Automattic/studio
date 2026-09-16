@@ -162,6 +162,13 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* The shelf root stays mounted as the aria-live region even with nothing to
+   show, so an empty shelf must add no space between the beta bubble and the
+   Settings row. */
+.sidebarToasts:empty {
+	padding: 0;
+}
+
 /* --app-main-composer-height is published on the document by the session
    view's chrome observer, so the shelf rides above the composer as it grows.
    Views without a composer leave it unset and the shelf sits on the panel's

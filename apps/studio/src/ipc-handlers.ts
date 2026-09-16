@@ -76,7 +76,11 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_PASSWORD,
+	decodePassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -92,6 +96,7 @@ import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
@@ -717,7 +722,7 @@ export async function removeWordPressSkillFromAllSites(
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
-const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( DEFAULT_ADMIN_PASSWORD );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
@@ -1006,6 +1011,14 @@ export async function updateSite(
 
 	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
 		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
+	}
+
+	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
+		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
+	}
+
+	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
+		options.environmentType = getWpEnvironmentType( updatedSite );
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;

@@ -2,7 +2,7 @@ import type { SyncSite } from '@/data/core';
 
 export type ConnectSiteGroup = 'available' | 'needs-transfer' | 'needs-upgrade' | 'unavailable';
 
-export interface PresentedRemoteSite {
+interface PresentedRemoteSite {
 	site: SyncSite;
 	group: ConnectSiteGroup;
 }

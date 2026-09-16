@@ -1,6 +1,12 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -16,7 +22,9 @@ import {
 	customDomainToggleField,
 	enableDebugDisplayField,
 	enableDebugLogField,
+	enableScriptDebugField,
 	enableXdebugField,
+	environmentTypeField,
 	phpVersionField,
 	siteNameField,
 	wpVersionField,
@@ -37,6 +45,7 @@ import {
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
@@ -58,6 +67,8 @@ interface FormData {
 	enableXdebug: boolean;
 	enableDebugLog: boolean;
 	enableDebugDisplay: boolean;
+	enableScriptDebug: boolean;
+	environmentType: WpEnvironmentType;
 }
 
 function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
@@ -79,12 +90,14 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
-		adminUsername: site.adminUsername ?? 'admin',
-		adminPassword: decodePassword( site.adminPassword ?? '' ) || 'password',
-		adminEmail: site.adminEmail || 'admin@localhost.com',
+		adminUsername: site.adminUsername ?? DEFAULT_ADMIN_USERNAME,
+		adminPassword: decodeAdminPassword( site.adminPassword ),
+		adminEmail: site.adminEmail || DEFAULT_ADMIN_EMAIL,
 		enableXdebug: site.enableXdebug ?? false,
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,
+		enableScriptDebug: site.enableScriptDebug ?? false,
+		environmentType: getWpEnvironmentType( site ),
 	};
 }
 
@@ -239,6 +252,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				),
 			},
 			enableDebugDisplayField< FormData >(),
+			enableScriptDebugField< FormData >(),
+			environmentTypeField< FormData >(),
 		],
 		[
 			data.wpVersion,
@@ -287,7 +302,13 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const debuggingForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ 'enableXdebug', 'enableDebugLog', 'enableDebugDisplay' ],
+			fields: [
+				'enableXdebug',
+				'enableDebugLog',
+				'enableDebugDisplay',
+				'enableScriptDebug',
+				'environmentType',
+			],
 		} ),
 		[]
 	);
@@ -353,6 +374,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableXdebug: data.enableXdebug,
 			enableDebugLog: data.enableDebugLog,
 			enableDebugDisplay: data.enableDebugDisplay,
+			enableScriptDebug: data.enableScriptDebug,
+			environmentType: data.environmentType,
 		};
 		// Only forward the version when the user actually changed it — same as
 		// the legacy settings modal — so unrelated saves of a pinned site don't

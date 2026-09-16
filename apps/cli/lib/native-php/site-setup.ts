@@ -2,8 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+} from '@studio/common/lib/passwords';
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
@@ -24,7 +29,10 @@ export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
 	signal?: AbortSignal,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
+	config?: Pick<
+		ServerConfig,
+		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+	>
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -51,6 +59,10 @@ $transformer->to_file( $wp_config_path );
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
+		// feed the WP_DEBUG expression above.
+		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
+		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
 	};
 	await ensurePhpBinaryAvailable( phpVersion );
 
@@ -167,9 +179,9 @@ export async function installWordPress(
 	}
 
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-	const email = config.adminEmail ?? 'admin@localhost.com';
+	const username = config.adminUsername ?? DEFAULT_ADMIN_USERNAME;
+	const password = decodeAdminPassword( config.adminPassword );
+	const email = config.adminEmail ?? DEFAULT_ADMIN_EMAIL;
 	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
 	// WP-CLI defaults to en_US; Studio's DEFAULT_LOCALE of "en" is not a WP locale code.
 	const locale =

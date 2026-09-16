@@ -1,11 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
-import {
-	primeSessionQueryData,
-	reconcilePrimedSessionQueryData,
-	SESSIONS_QUERY_KEY,
-} from './use-sessions';
-import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
+import { openNewSession, primeSessionQueryData, SESSIONS_QUERY_KEY } from './use-sessions';
+import type { AiSessionSummary, Connector, LoadedAiSession } from '@/data/core';
 
 describe( 'primeSessionQueryData', () => {
 	it( 'upserts the summary into the sessions list newest-first', () => {
@@ -54,20 +50,37 @@ describe( 'primeSessionQueryData', () => {
 	it( 'does not seed a loaded session shell when the summary already has entries', () => {
 		const queryClient = new QueryClient();
 		const summary = createSummary( { eventCount: 1 } );
-		const sessionKey = [ ...SESSIONS_QUERY_KEY, summary.id ];
 
 		primeSessionQueryData( queryClient, summary );
 
-		expect( queryClient.getQueryData< LoadedAiSession >( sessionKey ) ).toBeUndefined();
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, summary.id ] )
+		).toBeUndefined();
 	} );
+} );
 
-	it( 'reconciles only the sessions list and the primed session', async () => {
+describe( 'openNewSession', () => {
+	it( 'creates the session on the picked model and primes its cache while the transcript reconciles', async () => {
 		const queryClient = new QueryClient();
 		const invalidateQueries = vi.spyOn( queryClient, 'invalidateQueries' );
+		const summary = createSummary( { eventCount: 0 } );
+		const connector = {
+			createSession: vi.fn( async () => summary ),
+			setSessionModel: vi.fn( async () => undefined ),
+		} as unknown as Connector;
 
-		await reconcilePrimedSessionQueryData( queryClient, 'session-1' );
+		await expect(
+			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5' )
+		).resolves.toBe( summary );
 
-		expect( invalidateQueries ).toHaveBeenCalledTimes( 2 );
+		expect( connector.createSession ).toHaveBeenCalledWith( 'site-1' );
+		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5' );
+		expect(
+			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
+		).toEqual( {
+			summary,
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'claude-opus-5' } ) ],
+		} );
 		expect( invalidateQueries ).toHaveBeenCalledWith( {
 			queryKey: SESSIONS_QUERY_KEY,
 			exact: true,

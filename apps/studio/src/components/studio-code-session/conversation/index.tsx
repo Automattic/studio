@@ -20,9 +20,13 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
@@ -31,6 +35,7 @@ import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
@@ -62,6 +67,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string; image?: string } >;
+			multiSelect?: boolean;
 			answer?: string;
 	  }
 	| {
@@ -234,6 +240,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				multiSelect: data.multiSelect,
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
@@ -616,33 +623,81 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
+	freeFormActive,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
+	freeFormActive: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
+	const freeFormLabel = getFreeFormOptionLabel();
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel = isInteractive ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! ownFreeFormLabel;
 	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
+	const typedAnswer = pickedLabels
+		.filter(
+			( label ) =>
+				label &&
+				// The stop marker is written by the app, not the user.
+				label !== STOPPED_WITHOUT_ANSWER &&
+				! options.some( ( option ) => option.label === label )
+		)
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
 				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
 						return (
 							<li key={ index }>
 								<button
 									type="button"
-									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ cx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									onClick={
+										isOwnFreeForm
+											? onChooseFreeForm
+											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
+									}
 									aria-pressed={ picked }
+									title={ isOwnFreeForm ? getFreeFormOptionDescription() : option.description }
 									data-has-image={ hasImages ? 'true' : undefined }
 								>
 									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
@@ -658,7 +713,46 @@ function AgentQuestion( {
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li>
+							<button
+								type="button"
+								className={ cx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-pressed={ freeFormActive }
+								title={ getFreeFormOptionDescription() }
+							>
+								{ freeFormLabel }
+							</button>
+						</li>
+					) : null }
 				</ul>
+			) : null }
+			{ typedAnswer ? (
+				<span
+					className={ cx(
+						styles.questionOption,
+						styles.questionOptionPicked,
+						styles.questionTypedAnswer
+					) }
+				>
+					{ typedAnswer }
+				</span>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						variant="primary"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
 			) : null }
 		</div>
 	);
@@ -745,7 +839,9 @@ export function Conversation( {
 	pendingQuestions,
 	pendingAnswers,
 	answeredQuestions,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 	canEditLastUserMessage = false,
 	onEditUserMessage,
 }: {
@@ -755,7 +851,11 @@ export function Conversation( {
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 	canEditLastUserMessage?: boolean;
 	onEditUserMessage?: ( entryId: string, text: string ) => void;
 } ) {
@@ -838,13 +938,16 @@ export function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
+								multiSelect={ item.multiSelect }
 								isInteractive={ pendingQuestions.has( item.question ) }
 								pickedLabel={
 									pendingAnswers[ item.question ] ??
 									answeredQuestions[ item.question ] ??
 									item.answer
 								}
+								freeFormActive={ freeFormQuestion === item.question }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+								onChooseFreeForm={ () => onChooseFreeForm( item.question ) }
 							/>
 						);
 					case 'chat-artifact':

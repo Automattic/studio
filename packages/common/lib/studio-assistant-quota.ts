@@ -124,6 +124,41 @@ export function getTotalRemainingAiCredits(
 	return ( quota.allowanceRemaining ?? 0 ) + ( quota.purchasedRemaining ?? 0 );
 }
 
+/**
+ * Whether the account still has purchased (paid) AI credits. Unknown quota
+ * (unreachable, feature off) reads as false — the free tier is the safe floor.
+ */
+export function hasPaidAiCredits(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
+): boolean {
+	return ( quota?.purchasedRemaining ?? 0 ) > 0;
+}
+
+/** Nudge shown where the paid tiers sit disabled, one string everywhere. */
+export function formatPaidTiersNudge(): string {
+	return __( 'Add AI credits to unlock stronger models.' );
+}
+
+// Dismissal is remembered per renderer via localStorage — a nudge doesn't
+// warrant synced, server-side state.
+export const PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY = 'studio_code_paid_tiers_nudge_dismissed';
+
+export function readPaidTiersNudgeDismissed(): boolean {
+	try {
+		return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
+	} catch {
+		return false;
+	}
+}
+
+export function persistPaidTiersNudgeDismissed(): void {
+	try {
+		localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
+	} catch {
+		// Ignore storage errors.
+	}
+}
+
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
 
 /**

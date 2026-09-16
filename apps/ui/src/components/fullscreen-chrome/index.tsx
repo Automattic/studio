@@ -12,8 +12,6 @@ interface FullscreenChromeProps {
 	 * can leave the fullscreen view. Omit to render just the window drag edges.
 	 */
 	onClose?: () => void;
-	/** Accessible label for the close button. Defaults to "Close". */
-	closeLabel?: string;
 	/** Disables the close button, e.g. while a submit is in flight. */
 	closeDisabled?: boolean;
 }
@@ -26,7 +24,7 @@ interface FullscreenChromeProps {
  * and the close button stays clickable over the drag strips via the global
  * no-drag rule in index.css.
  */
-export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: FullscreenChromeProps ) {
+export function FullscreenChrome( { onClose, closeDisabled }: FullscreenChromeProps ) {
 	const closeAtStart = useWindowControlsOverlay() !== null;
 	// This view covers the window chrome the controls normally sit on.
 	useWindowControlsSurface( 'content' );
@@ -44,7 +42,7 @@ export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: Fullsc
 					tone="neutral"
 					size="default"
 					icon={ close }
-					label={ closeLabel ?? __( 'Close' ) }
+					label={ __( 'Close' ) }
 					onClick={ onClose }
 					disabled={ closeDisabled }
 				/>

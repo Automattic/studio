@@ -12,6 +12,11 @@ const { mockIpc } = vi.hoisted( () => ( {
 		loadAiSession: vi.fn(),
 		createAiSession: vi.fn(),
 		markAiMessageEdited: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	},
 } ) );
 

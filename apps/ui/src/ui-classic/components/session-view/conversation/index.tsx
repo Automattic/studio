@@ -19,15 +19,19 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
 	brush,
@@ -35,6 +39,8 @@ import {
 	category,
 	chartBar,
 	check,
+	chevronLeft,
+	chevronRight,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -69,7 +75,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -96,6 +102,7 @@ interface AgentQuestionRenderItem {
 	key: string;
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	pickedLabel?: string;
 }
 
@@ -180,10 +187,8 @@ function usePrefersReducedMotion(): boolean {
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
-	entryIndex: number,
-	options: Array< { label: string } >
+	entryIndex: number
 ): string | undefined {
-	const optionLabels = new Set( options.map( ( option ) => option.label ) );
 	// Older transcripts store batched question answers as following
 	// `ask_user` prompts, in the same order as the question entries.
 	let batchPosition = 0;
@@ -226,8 +231,7 @@ function resolveBatchedAnswerForQuestion(
 	if ( answers.length !== batchSize ) {
 		return undefined;
 	}
-	const answer = answers[ batchPosition ];
-	return optionLabels.has( answer ) ? answer : undefined;
+	return answers[ batchPosition ];
 }
 
 export function entriesToRenderItems(
@@ -334,9 +338,8 @@ export function entriesToRenderItems(
 					key: `${ entryIndex }:question`,
 					question: data.question,
 					options: data.options,
-					pickedLabel:
-						data.selectedLabel ??
-						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
+					multiSelect: data.multiSelect,
+					pickedLabel: data.selectedLabel ?? resolveBatchedAnswerForQuestion( entries, entryIndex ),
 				} );
 			}
 			entryIndex -= 1;
@@ -396,12 +399,12 @@ export function entriesToRenderItems(
 	return items;
 }
 
-export interface ActiveStep {
+interface ActiveStep {
 	key: string | null;
 	progressMessage: string | null;
 }
 
-export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+function getActiveStep( entries: SessionEntry[] ): ActiveStep {
 	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
@@ -862,34 +865,98 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 	);
 }
 
+function PickedAnswer( { label, ariaHidden = false }: { label: string; ariaHidden?: boolean } ) {
+	return (
+		<span
+			className={ clsx(
+				styles.questionOption,
+				styles.questionOptionPicked,
+				styles.questionSummaryOption
+			) }
+			aria-hidden={ ariaHidden ? 'true' : undefined }
+		>
+			<span className={ styles.questionOptionNumber }>
+				<QuestionOptionCheckIcon />
+			</span>
+			<span className={ styles.questionOptionCopy }>
+				<span className={ styles.questionOptionLabel }>{ label }</span>
+			</span>
+		</span>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
 	isCollapsing = false,
+	freeFormActive = false,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
+	freeFormActive?: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
-	const hasImages = options.some( ( option ) => option.image );
+	const freeFormLabel = getFreeFormOptionLabel();
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel =
+		isInteractive && ! isFolding ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! isFolding && ! ownFreeFormLabel;
+	const viewable = options.filter( ( option ) => option.image );
+	const hasImages = viewable.length > 0;
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const [ viewing, setViewing ] = useState< number | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
+	const typedAnswer = pickedLabels
+		.filter(
+			( label ) =>
+				label &&
+				// The stop marker is written by the app, not the user.
+				label !== STOPPED_WITHOUT_ANSWER &&
+				! options.some( ( option ) => option.label === label )
+		)
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 
 	return (
 		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
 				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
+						const description = isOwnFreeForm ? getFreeFormOptionDescription() : option.description;
 						const descriptionId =
-							option.description && ! isFolding
+							description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
 								: undefined;
 						return (
@@ -897,34 +964,107 @@ function AgentQuestion( {
 								key={ index }
 								className={ styles.questionOptionItem }
 								data-picked={ picked ? 'true' : undefined }
+								data-wide={ hasImages && ! option.image ? 'true' : undefined }
 							>
 								<button
 									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ clsx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
+									onClick={
+										isOwnFreeForm
+											? onChooseFreeForm
+											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
+									}
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
 									aria-pressed={ picked }
-									data-has-image={ hasImages ? 'true' : undefined }
+									data-has-image={ option.image ? 'true' : undefined }
 								>
-									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									{ option.image ? <QuestionOptionImage path={ option.image } /> : null }
 									<span className={ styles.questionOptionNumber } aria-hidden="true">
 										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
 									</span>
 									<span className={ styles.questionOptionCopy }>
 										<span className={ styles.questionOptionLabel }>{ option.label }</span>
-										{ option.description ? (
+										{ description ? (
 											<span id={ descriptionId } className={ styles.questionOptionDescription }>
-												{ option.description }
+												{ description }
 											</span>
 										) : null }
 									</span>
 								</button>
+								{ option.image ? (
+									<IconButton
+										type="button"
+										className={ styles.questionOptionZoom }
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ search }
+										label={ sprintf(
+											// translators: %s: name of a design option.
+											__( 'View %s larger' ),
+											option.label
+										) }
+										onClick={ () => setViewing( viewable.indexOf( option ) ) }
+									/>
+								) : null }
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li
+							className={ styles.questionOptionItem }
+							data-picked={ freeFormActive ? 'true' : undefined }
+						>
+							<button
+								type="button"
+								className={ clsx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-label={ freeFormLabel }
+								aria-pressed={ freeFormActive }
+							>
+								<span className={ styles.questionOptionNumber } aria-hidden="true">
+									{ freeFormActive ? <QuestionOptionCheckIcon /> : options.length + 1 }
+								</span>
+								<span className={ styles.questionOptionCopy }>
+									<span className={ styles.questionOptionLabel }>{ freeFormLabel }</span>
+									<span className={ styles.questionOptionDescription }>
+										{ getFreeFormOptionDescription() }
+									</span>
+								</span>
+							</button>
+						</li>
+					) : null }
 				</ol>
+			) : null }
+			{ hasImages ? (
+				<QuestionOptionViewer
+					options={ viewable }
+					index={ viewing }
+					onIndexChange={ setViewing }
+					onChoose={ isInteractive && ! multiSelect ? onAnswer : undefined }
+				/>
+			) : null }
+			{ typedAnswer ? <PickedAnswer label={ typedAnswer } /> : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						size="compact"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
 			) : null }
 		</div>
 	);
@@ -946,6 +1086,86 @@ function QuestionOptionImage( { path }: { path: string | undefined } ) {
 		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
 	}
 	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+}
+
+function QuestionOptionViewer( {
+	options,
+	index,
+	onIndexChange,
+	onChoose,
+}: {
+	options: Array< { label: string; description: string; image?: string } >;
+	index: number | null;
+	onIndexChange: ( index: number | null ) => void;
+	onChoose?: ( label: string ) => void;
+} ) {
+	const connector = useConnector();
+	const option = index === null ? undefined : options[ index ];
+	const localFileQuery = useLocalMediaDataUrl(
+		option?.image && connector.capabilities.readLocalMedia ? option.image : null
+	);
+	const step = ( delta: number ) =>
+		index !== null && onIndexChange( ( index + delta + options.length ) % options.length );
+	const [ previousIcon, nextIcon ] = isRTL()
+		? [ chevronRight, chevronLeft ]
+		: [ chevronLeft, chevronRight ];
+
+	return (
+		<Dialog.Root
+			open={ option !== undefined }
+			onOpenChange={ ( open ) => ! open && onIndexChange( null ) }
+		>
+			<Dialog.Popup
+				className={ styles.questionOptionZoomPopup }
+				aria-label={ option?.label }
+				onKeyDown={ ( event ) => {
+					if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+						event.preventDefault();
+						step( ( event.key === 'ArrowRight' ) !== isRTL() ? 1 : -1 );
+					}
+				} }
+			>
+				{ localFileQuery.data ? (
+					<img
+						className={ styles.questionOptionZoomImage }
+						src={ localFileQuery.data }
+						alt={ option?.label }
+					/>
+				) : null }
+				<Dialog.CloseIcon className={ styles.questionOptionZoomClose } />
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ previousIcon }
+					label={ __( 'Previous option' ) }
+					onClick={ () => step( -1 ) }
+				/>
+				<IconButton
+					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomNext ) }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ nextIcon }
+					label={ __( 'Next option' ) }
+					onClick={ () => step( 1 ) }
+				/>
+				{ option && onChoose ? (
+					<Button
+						className={ styles.questionOptionZoomChoose }
+						size="compact"
+						onClick={ () => {
+							onIndexChange( null );
+							onChoose( option.label );
+						} }
+					>
+						{ __( 'Choose' ) }
+					</Button>
+				) : null }
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
 }
 
 function QuestionOptionCheckIcon() {
@@ -1083,21 +1303,7 @@ function QuestionSummary( {
 	const content = (
 		<span className={ styles.questionSummaryBody }>
 			<span className={ styles.questionSummaryText }>{ question }</span>
-			<span
-				className={ clsx(
-					styles.questionOption,
-					styles.questionOptionPicked,
-					styles.questionSummaryOption
-				) }
-				aria-hidden={ canEdit ? 'true' : undefined }
-			>
-				<span className={ styles.questionOptionNumber }>
-					<QuestionOptionCheckIcon />
-				</span>
-				<span className={ styles.questionOptionCopy }>
-					<span className={ styles.questionOptionLabel }>{ pickedLabel }</span>
-				</span>
-			</span>
+			<PickedAnswer label={ pickedLabel } ariaHidden={ canEdit } />
 		</span>
 	);
 
@@ -1126,12 +1332,16 @@ function AgentQuestionBatch( {
 	questions,
 	pendingQuestions,
 	pendingAnswers,
+	freeFormQuestion,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	questions: AgentQuestionRenderItem[];
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	freeFormQuestion: string | null;
 	onAnswer: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
@@ -1197,14 +1407,21 @@ function AgentQuestionBatch( {
 
 	if ( total === 1 ) {
 		const question = questions[ 0 ];
+		// The scroll-into-view effect needs a target here too, or a lone question
+		// stays half-hidden behind the composer when the agent asks it.
 		return (
-			<AgentQuestion
-				question={ question.question }
-				options={ question.options }
-				isInteractive={ pendingQuestions.has( question.question ) }
-				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
-				onAnswer={ ( label ) => onAnswer( question.question, label ) }
-			/>
+			<div ref={ activeIndex === 0 ? activeQuestionRef : undefined }>
+				<AgentQuestion
+					question={ question.question }
+					options={ question.options }
+					multiSelect={ question.multiSelect }
+					isInteractive={ pendingQuestions.has( question.question ) }
+					pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
+					freeFormActive={ freeFormQuestion === question.question }
+					onAnswer={ ( label ) => onAnswer( question.question, label ) }
+					onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+				/>
+			</div>
 		);
 	}
 
@@ -1254,10 +1471,13 @@ function AgentQuestionBatch( {
 						<AgentQuestion
 							question={ question.question }
 							options={ question.options }
+							multiSelect={ question.multiSelect }
 							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
 							pickedLabel={ pickedLabel }
 							isCollapsing={ settlingIndex === index }
+							freeFormActive={ freeFormQuestion === question.question }
 							onAnswer={ ( label ) => handleAnswer( question, index, label ) }
+							onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
 						/>
 					</div>
 				);
@@ -1304,14 +1524,20 @@ export function Conversation( {
 	startedAt,
 	pendingQuestions,
 	pendingAnswers,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
 	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
@@ -1382,7 +1608,9 @@ export function Conversation( {
 								questions={ item.questions }
 								pendingQuestions={ pendingQuestions }
 								pendingAnswers={ pendingAnswers }
+								freeFormQuestion={ freeFormQuestion }
 								onAnswer={ onAnswerQuestion }
+								onChooseFreeForm={ onChooseFreeForm }
 							/>
 						);
 					case 'chat-artifact':

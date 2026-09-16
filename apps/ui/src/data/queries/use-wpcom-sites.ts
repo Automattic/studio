@@ -24,7 +24,7 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 // Mirrors `useConnectedWpcomSites` but returns connections for every local
 // site — used to filter out WordPress.com sites that are already attached to
 // another Studio site when picking a publish target.
-export function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} ) {
+function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
 	return useQuery( {

@@ -269,6 +269,60 @@ describe( 'site preview inspector sessions', () => {
 		);
 		vi.unstubAllGlobals();
 	} );
+
+	it( 'dims the page around the selected element while a note is open', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 20 ) );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		const panels = Array.from( root.querySelectorAll( '.scrim' ) ) as HTMLElement[];
+		expect( panels ).toHaveLength( 4 );
+		// Top band ends where the element starts; the left band stops at its edge.
+		expect( panels[ 0 ] ).toHaveStyle( { height: '20px' } );
+		expect( panels[ 1 ] ).toHaveStyle( { top: '60px' } );
+		expect( panels[ 2 ] ).toHaveStyle( { width: '10px' } );
+		expect( panels[ 3 ] ).toHaveStyle( { left: '110px' } );
+
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true, cancelable: true } )
+		);
+		expect( root.querySelector( '.popup' ) ).toBeNull();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+	} );
+
+	it( 'skips the dimming when a saved note has no usable element rect', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		// The annotated element is gone, so the empty rect saved with the note is
+		// all that is left — a zero-size hole would black out the whole page.
+		( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [
+			{
+				id: 'saved',
+				comment: 'Saved note',
+				tag: 'h1',
+				selector: '#vanished',
+				path: window.location.pathname + window.location.search,
+				documentRect: { left: 0, top: 0, width: 0, height: 0 },
+			},
+		];
+		document.body.innerHTML = '<p>Unrelated</p>';
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		const marker = root.querySelector( '.marker' ) as HTMLElement;
+		marker.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		expect( root.querySelector( '.popup' ) ).toBeInTheDocument();
+		expect( root.querySelectorAll( '.scrim' ) ).toHaveLength( 0 );
+	} );
 } );
 
 function seedSavedNote() {

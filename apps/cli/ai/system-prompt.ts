@@ -187,9 +187,10 @@ ${ getStudioWidgetPromptManifest() }`
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
-IMPORTANT: For any generated content for the site, these three principles are mandatory:
+IMPORTANT: For any generated content for the site, these principles are mandatory:
 
 - Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, or motion work. To verify and polish the rendered result, load the \`visual-polish\` skill.
+- Consistent design: When the active-site line names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
 - Editable block content: Load the \`block-content\` skill before writing page, post, template, template-part, or other block markup.
 - Valid blocks: Use validate_blocks. It first runs a static core/html policy check and, only once that passes, validates in the live editor. When called with filePath, it applies safe editor-serialization fixes directly to that file and returns a CSS-review diff.
 
@@ -252,7 +253,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 ## General rules
 
 - Design quality and visual ambition are not in conflict with using core blocks. Style through the most structured channel that fits: theme.json (palette, presets, element and block styles) first; a registered block style variation for a treatment repeated across instances of a block type; custom CSS targeting block classNames last, for what those cannot express (descendant selectors, keyframe animations — hover/focus/active on buttons and links belong in theme.json \`styles.elements\`, and responsive styles are supported in theme.json and block styles, so neither justifies CSS). CSS can achieve any visual design, but the block structure is for editability — styling expressed structurally stays visible and editable in the Site Editor, while custom CSS does not.
-- Do NOT modify WordPress core files. Only work within wp-content/.
+- Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
 - Before running wp_cli, ensure the site is running (site_start if needed).${ refreshBrowserRule }
 - When building themes, always build block themes (NO CLASSIC THEMES).

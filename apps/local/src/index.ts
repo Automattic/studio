@@ -57,7 +57,11 @@ import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	decodePassword,
+} from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -76,6 +80,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -198,6 +203,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		enableScriptDebug: site.enableScriptDebug,
+		environmentType: site.environmentType,
 		operation: site.operation,
 		sortOrder,
 		siteIcon: null,
@@ -973,12 +980,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
 			}
-			if ( ( updated.adminUsername ?? 'admin' ) !== ( current.adminUsername ?? 'admin' ) ) {
+			if (
+				( updated.adminUsername ?? DEFAULT_ADMIN_USERNAME ) !==
+				( current.adminUsername ?? DEFAULT_ADMIN_USERNAME )
+			) {
 				options.adminUsername = updated.adminUsername;
 			}
-			if ( ( updated.adminPassword ?? '' ) !== ( current.adminPassword ?? '' ) ) {
+			if (
+				decodeAdminPassword( updated.adminPassword ) !==
+				decodeAdminPassword( current.adminPassword )
+			) {
 				// The CLI expects a plaintext password (it encodes before saving).
-				options.adminPassword = decodePassword( updated.adminPassword ?? '' );
+				options.adminPassword = decodeAdminPassword( updated.adminPassword );
 			}
 			if ( ( updated.adminEmail ?? '' ) !== ( current.adminEmail ?? '' ) ) {
 				options.adminEmail = updated.adminEmail;
@@ -988,6 +1001,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( ( updated.enableDebugDisplay ?? false ) !== ( current.enableDebugDisplay ?? false ) ) {
 				options.debugDisplay = updated.enableDebugDisplay ?? false;
+			}
+			if ( ( updated.enableScriptDebug ?? false ) !== ( current.enableScriptDebug ?? false ) ) {
+				options.scriptDebug = updated.enableScriptDebug ?? false;
+			}
+			if ( getWpEnvironmentType( updated ) !== getWpEnvironmentType( current ) ) {
+				options.environmentType = getWpEnvironmentType( updated );
 			}
 
 			// More than path + siteId means a real change to apply.

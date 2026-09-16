@@ -11,7 +11,6 @@ import type { ChangeEvent } from 'react';
 export type { SelectedBlueprint } from '@/lib/blueprint-selection';
 
 interface BlueprintUploadProps {
-	selected: SelectedBlueprint | null;
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
 	onValidityChange: ( isValid: boolean ) => void;
@@ -21,12 +20,7 @@ function hasFiles( event: DragEvent ): boolean {
 	return Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
 }
 
-export function BlueprintUpload( {
-	selected,
-	onSelect,
-	onRemove,
-	onValidityChange,
-}: BlueprintUploadProps ) {
+export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: BlueprintUploadProps ) {
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
@@ -125,37 +119,18 @@ export function BlueprintUpload( {
 					className={ styles.fileInput }
 				/>
 				<p className={ styles.prompt }>
-					{ selected
-						? createInterpolateElement(
-								__(
-									'Using <filename></filename>. <replace>Replace</replace> or <remove>remove</remove>.'
-								),
-								{
-									filename: <span title={ selected.file.name }>{ selected.file.name }</span>,
-									replace: (
-										<button
-											type="button"
-											className={ styles.action }
-											onClick={ () => fileInputRef.current?.click() }
-										/>
-									),
-									remove: (
-										<button type="button" className={ styles.action } onClick={ handleRemove } />
-									),
-								}
-						  )
-						: createInterpolateElement(
-								__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
-								{
-									upload: (
-										<button
-											type="button"
-											className={ styles.action }
-											onClick={ () => fileInputRef.current?.click() }
-										/>
-									),
-								}
-						  ) }
+					{ createInterpolateElement(
+						__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
+						{
+							upload: (
+								<button
+									type="button"
+									className={ styles.action }
+									onClick={ () => fileInputRef.current?.click() }
+								/>
+							),
+						}
+					) }
 				</p>
 				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
 			</div>

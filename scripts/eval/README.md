@@ -35,7 +35,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 
 ## Running the runner directly
 
-`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), `STUDIO_EVAL_SESSION_DIR` persists the session JSONL in that directory instead of memory, and `STUDIO_EVAL_AUTO_CONTINUE=<n>` resumes a turn that ended with an empty assistant message (some hosted tiers stop that way when their reasoning budget runs out) with `continue`, up to `n` times; the result reports the count as `autoContinues`.
+`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), `STUDIO_EVAL_SESSION_DIR` persists the session JSONL in that directory instead of memory, `STUDIO_EVAL_AUTO_CONTINUE=<n>` resumes a turn that ended with an empty assistant message (some hosted tiers stop that way when their reasoning budget runs out) with `continue`, up to `n` times; the result reports the count as `autoContinues`. `STUDIO_EVAL_AUTO_ANSWER=1` answers every question (`AskUserQuestion`, `present_design_options`) with its first option and registers the tools that need a Studio UI, as if the app had forked the runner, so the look-and-layout design steps run end to end; the result lists each pick under `questions` with the time it was asked.
 
 ## Adding tests
 

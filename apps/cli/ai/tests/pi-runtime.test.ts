@@ -262,6 +262,24 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
+	it( 'registers the tools that need a Studio UI as chatArtifactsEnabled says', async () => {
+		const registered = () =>
+			( mocks.createdSessions[ 0 ].options.customTools ?? [] ).map( ( tool ) => tool.name );
+		const config = {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			model: 'balanced' as const,
+			onAskUser: async () => ( {} ),
+		};
+		await runRuntime( { ...config, session: newSession(), chatArtifactsEnabled: false } );
+		expect( registered() ).not.toContain( 'present_design_options' );
+
+		mocks.createdSessions.length = 0;
+		await runRuntime( { ...config, session: newSession(), chatArtifactsEnabled: true } );
+		expect( registered() ).toContain( 'present_design_options' );
+		expect( registered() ).toContain( 'refresh_browser' );
+	} );
+
 	it( 'routes the capability tiers to the wpcom Chat Completions path', async () => {
 		await runRuntime( {
 			prompt: 'hello',

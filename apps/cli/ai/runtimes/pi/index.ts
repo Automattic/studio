@@ -91,6 +91,9 @@ export interface StudioAgentTurnConfig {
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
+	// Registers the tools that need a Studio UI (present_design_options,
+	// refresh_browser, …). Defaults to whether one forked this process.
+	chatArtifactsEnabled?: boolean;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -297,7 +300,7 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const chatArtifactsEnabled = typeof process.send === 'function';
+	const chatArtifactsEnabled = config.chatArtifactsEnabled ?? typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),

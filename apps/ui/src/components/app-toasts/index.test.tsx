@@ -1,15 +1,26 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoticeHistoryDialog } from '@/components/notice-history';
 import { showToast, resetAppMessagesForTests } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { AppToasts } from './index';
 
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 describe( 'AppToasts', () => {
+	beforeEach( () => {
+		vi.mocked( useConnector ).mockReturnValue( {
+			copyText: vi.fn( () => Promise.resolve() ),
+		} as never );
+	} );
+
 	afterEach( () => {
 		resetAppMessagesForTests();
 	} );

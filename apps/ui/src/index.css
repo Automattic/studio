@@ -29,8 +29,6 @@
 	--studio-annotate-color-active: #6d28d9;
 	--studio-annotate-on-color: #fff;
 	--studio-annotate-surface: #f3ecff;
-	--studio-annotate-surface-active: #e6d9ff;
-	--studio-annotate-stroke: #d6c3ff;
 	/* The annotate-mode toolbar is solid violet in both schemes; only the
 	   depth shifts so it doesn't glare on a dark canvas. */
 	--studio-annotate-bar: #7c3aed;
@@ -91,8 +89,6 @@ body:lang( ckb ) [class*='components-'] {
 		--studio-annotate-color-active: #c9b6ff;
 		--studio-annotate-on-color: #1b1230;
 		--studio-annotate-surface: #251b3a;
-		--studio-annotate-surface-active: #33264f;
-		--studio-annotate-stroke: #4a3a70;
 		--studio-annotate-bar: #6d28d9;
 		--studio-annotate-bar-active: #5b21b6;
 	}
@@ -288,12 +284,12 @@ input[type='checkbox']:focus:not( :focus-visible ) {
    SVGs at 24x24 by default, and nothing scales them down for us. Override the
    svg width/height attributes with CSS until the design system exposes an
    icon size token. */
-[data-ui-mode='classic'] svg {
+:root svg {
 	width: 16px;
 	height: 16px;
 }
 
-[data-ui-mode='classic'] svg[data-keep-size] {
+:root svg[data-keep-size] {
 	width: auto;
 	height: auto;
 }

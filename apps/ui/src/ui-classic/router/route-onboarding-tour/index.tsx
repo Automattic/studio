@@ -74,7 +74,7 @@ function useSteps() {
 	];
 }
 
-export function OnboardingTourPage() {
+function OnboardingTourPage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	// Users who skipped login on the welcome screen arrive at the Studio Code

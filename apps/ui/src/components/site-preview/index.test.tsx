@@ -49,7 +49,6 @@ const useConnectorMock = vi.mocked( useConnector );
 // component reads `connector.capabilities` to decide which toolbar controls show.
 const CAPABILITIES = {
 	nativeFolderPicker: false,
-	nativeSaveDialog: false,
 	openInOS: false,
 	annotatePreview: false,
 	readLocalMedia: false,

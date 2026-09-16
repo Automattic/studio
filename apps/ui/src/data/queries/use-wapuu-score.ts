@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const WAPUU_SCORE_QUERY_KEY = [ 'wapuu-score' ] as const;
+const WAPUU_SCORE_QUERY_KEY = [ 'wapuu-score' ] as const;
 
 export function useWapuuScore() {
 	const connector = useConnector();

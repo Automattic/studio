@@ -41,7 +41,7 @@ function shortEntryId(): string {
 	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
-export interface PendingQuestion {
+interface PendingQuestion {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
 }
@@ -54,13 +54,13 @@ export interface QueuedPrompt {
 	files?: StudioChatFileAttachment[];
 }
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
 }
 
-export interface LiveAgentEvents {
+interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;

@@ -416,7 +416,6 @@ export function CreateSitePage() {
 			{ ! selectedBlueprint && (
 				<div className={ localStyles.blueprint }>
 					<BlueprintUpload
-						selected={ null }
 						onSelect={ replaceBlueprint }
 						onRemove={ () => replaceBlueprint( null ) }
 						onValidityChange={ setIsBlueprintValid }

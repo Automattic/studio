@@ -10,7 +10,7 @@ import type { QueryClient } from '@tanstack/react-query';
 
 export type AgenticFeatureReason = 'signed-out' | 'offline' | null;
 
-export interface AgenticFeatures {
+interface AgenticFeatures {
 	// Whether the host can reach the agentic backend at all (online + signed
 	// in). Gates everything that needs it, chat included, plus previews,
 	// sync and publishing.

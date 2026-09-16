@@ -6,21 +6,21 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type ThemeDetails = NonNullable< SiteDetails[ 'themeDetails' ] >;
+type ThemeDetails = NonNullable< SiteDetails[ 'themeDetails' ] >;
 
 /**
  * Whether a site's theme is known yet. "Unknown" is a real outcome, not an
  * error: a host without theme inspection, or a stopped site without persisted
  * details, resolves to that state rather than loading forever.
  */
-export type ThemeDetailsStatus =
+type ThemeDetailsStatus =
 	| { state: 'loading' }
 	| { state: 'ready'; details: ThemeDetails }
 	| { state: 'unknown' };
 
 export const themeDetailsQueryKey = ( siteId: string ) => [ 'theme-details', siteId ] as const;
 
-export async function fetchThemeDetails( connector: Connector, siteId: string ) {
+async function fetchThemeDetails( connector: Connector, siteId: string ) {
 	return ( await connector.getThemeDetails?.( siteId ) ) ?? null;
 }
 

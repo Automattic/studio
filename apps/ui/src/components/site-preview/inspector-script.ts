@@ -238,7 +238,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .target {
 			display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 			font-size: 11px; color: rgba(255,255,255,0.5);
+			cursor: grab; user-select: none;
 		}
+		.popup .target.dragging { cursor: grabbing; }
 		.popup .target .element {
 			min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		}
@@ -290,6 +292,28 @@ export const INSPECTOR_PAGE_SCRIPT =
 	let highlightNode = null;
 	let highlightEl = null;
 	let popupNode = null;
+	let scrollLock = null;
+
+	/* Lock page scrolling while a note is open so the highlight and popup
+	 * stay put over the element being described. */
+	function syncScrollLock() {
+		if ( activePopup && ! scrollLock ) {
+			scrollLock = {
+				documentOverflow: document.documentElement.style.overflow,
+				bodyOverflow: document.body.style.overflow,
+			};
+			document.documentElement.style.overflow = 'hidden';
+			document.body.style.overflow = 'hidden';
+		} else if ( ! activePopup && scrollLock ) {
+			document.documentElement.style.overflow = scrollLock.documentOverflow;
+			document.body.style.overflow = scrollLock.bodyOverflow;
+			scrollLock = null;
+		}
+	}
+	teardown.signal.addEventListener( 'abort', () => {
+		activePopup = null;
+		syncScrollLock();
+	} );
 
 	/* Width of the viewport a note was made in vs. now. Beyond this the pin
 	 * is drawn muted so it reads as "from another viewport". */
@@ -390,7 +414,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				placeHighlight( highlightEl );
 			}
 			if ( popupNode && activePopup ) {
-				positionPopup( popupNode, activePopup.target );
+				positionPopup( popupNode, activePopup );
 			}
 			syncScrim();
 		} );
@@ -485,6 +509,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function render() {
+		syncScrollLock();
 		syncMarkers();
 		syncScrim();
 		showHighlight( hoveredEl );
@@ -591,41 +616,66 @@ export const INSPECTOR_PAGE_SCRIPT =
 		{ signal: teardown.signal }
 	);
 
-	/* Position the popup near the element using viewport coords (it's
-	 * \`position: fixed\` so it stays in the viewport). Falls back to
-	 * centre if the element can't be located. Re-run on relayout. */
-	function positionPopup( popup, target ) {
-		const el = resolveAnnotationElement( target );
-		if ( el ) {
-			const r = el.getBoundingClientRect();
-			const popupWidth = Math.min( 320, window.innerWidth - 16 );
-			const gap = 12;
-			const left = Math.min(
-				Math.max( 8, r.left + r.width / 2 - popupWidth / 2 ),
-				window.innerWidth - popupWidth - 8
-			);
-			let top = r.bottom + gap;
-			if ( top + 200 > window.innerHeight ) {
-				top = Math.max( 8, r.top - 200 - gap );
-			}
-			popup.style.left = left + 'px';
-			popup.style.top = top + 'px';
-			popup.style.transform = '';
-		} else {
+	function popupWidth( popup ) {
+		return popup.offsetWidth || Math.min( 320, window.innerWidth - 16 );
+	}
+
+	function clampToViewport( popup, pos ) {
+		const height = popup.offsetHeight || 200;
+		return {
+			left: Math.min(
+				Math.max( 8, pos.left ),
+				Math.max( 8, window.innerWidth - popupWidth( popup ) - 8 )
+			),
+			top: Math.min( Math.max( 8, pos.top ), Math.max( 8, window.innerHeight - height - 8 ) ),
+		};
+	}
+
+	function applyPosition( popup, pos ) {
+		popup.style.left = pos.left + 'px';
+		popup.style.top = pos.top + 'px';
+		popup.style.transform = '';
+	}
+
+	/* Position the popup in viewport coords (it's \`position: fixed\`). Re-run
+	 * on relayout. \`popupPosition\` is set only by a drag and holds the spot
+	 * the user chose: it is clamped for display, so a pane that shrinks can't
+	 * strand the note out of reach, but kept unclamped so widening the pane
+	 * gives the note back. Any other note anchors under its element, or
+	 * centers if the element can't be located. */
+	function positionPopup( popup, state ) {
+		if ( state.popupPosition ) {
+			applyPosition( popup, clampToViewport( popup, state.popupPosition ) );
+			return;
+		}
+		const el = resolveAnnotationElement( state.target );
+		if ( ! el ) {
 			popup.style.left = '50%';
 			popup.style.top = '50%';
 			popup.style.transform = 'translate(-50%, -50%)';
+			return;
 		}
+		const r = el.getBoundingClientRect();
+		const gap = 12;
+		let top = r.bottom + gap;
+		if ( top + 200 > window.innerHeight ) {
+			top = r.top - 200 - gap;
+		}
+		applyPosition(
+			popup,
+			clampToViewport( popup, { left: r.left + r.width / 2 - popupWidth( popup ) / 2, top } )
+		);
 	}
 
 	function buildPopup( state ) {
 		const popup = document.createElement( 'div' );
 		popup.className = 'popup';
 
-		positionPopup( popup, state.target );
+		positionPopup( popup, state );
 
 		const target = document.createElement( 'div' );
 		target.className = 'target';
+		makeDraggable( popup, target, state );
 		const element = document.createElement( 'span' );
 		element.className = 'element';
 		const tagCode = document.createElement( 'code' );
@@ -739,6 +789,74 @@ export const INSPECTOR_PAGE_SCRIPT =
 		popup.addEventListener( 'mousemove', ( e ) => e.stopPropagation() );
 
 		return popup;
+	}
+
+	/* Drag the popup by its target row. Movement is applied as a transform
+	 * during the drag and folded into the stored position on release, so a
+	 * re-render mid-drag can't snap it back. */
+	function makeDraggable( popup, handle, state ) {
+		handle.addEventListener( 'mousedown', ( event ) => {
+			if ( event.button !== 0 || event.target.closest( 'button' ) ) return;
+			event.preventDefault();
+			/* Start from where the popup actually sits: an anchored note has no
+			 * stored position, and a dragged one may be rendered clamped. */
+			const origin = popup.getBoundingClientRect();
+			const startX = event.clientX;
+			const startY = event.clientY;
+			const startLeft = origin.left;
+			const startTop = origin.top;
+			let next = { left: startLeft, top: startTop };
+			let frame = null;
+			let didDrag = false;
+			handle.classList.add( 'dragging' );
+			const move = ( e ) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if ( Math.abs( e.clientX - startX ) > 2 || Math.abs( e.clientY - startY ) > 2 ) {
+					didDrag = true;
+				}
+				next = clampToViewport( popup, {
+					left: startLeft + e.clientX - startX,
+					top: startTop + e.clientY - startY,
+				} );
+				if ( frame !== null ) return;
+				frame = requestAnimationFrame( () => {
+					frame = null;
+					popup.style.transform =
+						'translate(' + ( next.left - startLeft ) + 'px, ' + ( next.top - startTop ) + 'px)';
+				} );
+			};
+			const stop = () => {
+				if ( frame !== null ) cancelAnimationFrame( frame );
+				frame = null;
+				handle.classList.remove( 'dragging' );
+				window.removeEventListener( 'mousemove', move, true );
+				window.removeEventListener( 'mouseup', stop, true );
+				window.removeEventListener( 'blur', stop, true );
+				/* A click on the header is not a move: leave the note anchored. */
+				if ( ! didDrag ) {
+					popup.style.transform = '';
+					return;
+				}
+				state.popupPosition = next;
+				applyPosition( popup, next );
+				/* Swallow the click that ends the drag so the page (and our
+				 * own picker) doesn't treat it as a selection. */
+				const suppress = ( e ) => {
+					e.preventDefault();
+					e.stopPropagation();
+				};
+				window.addEventListener( 'click', suppress, {
+					capture: true,
+					once: true,
+					signal: teardown.signal,
+				} );
+				setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
+			};
+			window.addEventListener( 'mousemove', move, true );
+			window.addEventListener( 'mouseup', stop, true );
+			window.addEventListener( 'blur', stop, true );
+		} );
 	}
 
 	/* Editing an existing note leaves picking mode alone: markers stay

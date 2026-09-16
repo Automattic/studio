@@ -38,7 +38,7 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: { remoteSession: false, enableAgenticUi: false },
+			features: { enableAgenticUi: false },
 			loading: false,
 		},
 	},
@@ -49,7 +49,7 @@ function createCustomTestStore() {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, enableAgenticUi: false },
+				features: { enableAgenticUi: false },
 				loading: false,
 			},
 		},
@@ -159,8 +159,8 @@ describe( 'ContentTabSettings', () => {
 		).toHaveTextContent( 'localhost:8881' );
 		expect( screen.getByText( 'HTTPS' ) ).toBeVisible();
 		expect( screen.getByText( 'Xdebug' ) ).toBeVisible();
-		// HTTPS, Xdebug, Debug log, and Debug display show "Disabled"
-		expect( screen.getAllByText( 'Disabled' ) ).toHaveLength( 4 );
+		// HTTPS, Xdebug, Debug log, Debug display, and Script debug show "Disabled"
+		expect( screen.getAllByText( 'Disabled' ) ).toHaveLength( 5 );
 		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(

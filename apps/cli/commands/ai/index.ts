@@ -6,11 +6,11 @@ import {
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
-	DEFAULT_MODEL,
 	getAiModelFamily,
-	resolveSessionModel,
+	readRecordedSessionModel,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import {
@@ -19,6 +19,10 @@ import {
 } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -32,7 +36,6 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -49,7 +52,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -117,12 +120,23 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-async function readAllStdin(): Promise< string > {
-	const chunks: Buffer[] = [];
-	for await ( const chunk of process.stdin ) {
-		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
-	}
-	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
+// Caps the quota lookup behind the wpcom default model, so a hung endpoint
+// can't block the first turn — the free-tier default is the safe floor.
+const QUOTA_FETCH_TIMEOUT_MS = 3_000;
+
+async function resolveWpcomDefaultModel(): Promise< AiModelId > {
+	const token = await readAuthToken();
+	const quota = token
+		? await Promise.race( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				new Promise< null >( ( resolve ) => {
+					setTimeout( () => resolve( null ), QUOTA_FETCH_TIMEOUT_MS ).unref();
+				} ),
+		  ] )
+		: null;
+	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
+		hasPaidAiCredits: hasPaidAiCredits( quota ),
+	} );
 }
 
 export async function runCommand( options: {
@@ -157,9 +171,32 @@ export async function runCommand( options: {
 	) {
 		currentProvider = DEFAULT_AI_PROVIDER;
 	}
-	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	// The recorded model only sticks when the provider still serves it — old
+	// wpcom sessions snap to the provider default instead.
+	const initialDefinition = getAiProviderDefinition( currentProvider );
+	const recordedModel =
+		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
+			? resumeContext.model
+			: undefined;
+	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
+
+	// The wpcom default is quota-dependent; resolved in the background so
+	// startup never waits on the network. Turns await the resolution, and it
+	// only applies while nothing else picked a model.
+	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
+	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
+		.then( ( model ) => {
+			wpcomDefaultModel = model;
+			if ( quotaDefaultApplicable && currentProvider === DEFAULT_AI_PROVIDER ) {
+				currentModel = model;
+				ui.currentModel = model;
+			}
+		} )
+		// Awaited by every turn — a failed lookup must not poison them.
+		.catch( () => {} );
 	if ( options.activeSite ) {
 		ui.activeSite = {
 			id: options.activeSite.id,
@@ -197,8 +234,17 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						currentModel = resolveSessionModel( sm.getEntries() );
-						ui.currentModel = currentModel;
+						// Adopt the recorded model only when the provider still
+						// serves it; otherwise keep the (quota-based) default.
+						const sessionModel = readRecordedSessionModel( sm.getEntries() );
+						if (
+							sessionModel &&
+							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
+						) {
+							quotaDefaultApplicable = false;
+							currentModel = sessionModel;
+							ui.currentModel = currentModel;
+						}
 						break;
 					}
 				} catch {
@@ -323,15 +369,21 @@ export async function runCommand( options: {
 	}
 
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+		// The pin written below carries the model, so the quota-based default
+		// must be final first — otherwise an early switch durably records the
+		// static fallback for a paid account.
+		await wpcomDefaultModelResolution;
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 
 		// Auto-correct model when the provider change leaves it unsupported
-		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
-		// selected). Fall back to the provider's default.
+		// (e.g. switching from wpcom → anthropic-api-key while a tier is
+		// selected). Fall back to the provider's default — the quota-based one
+		// for WordPress.com.
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
-			currentModel = definition.defaultModel;
+			currentModel =
+				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
 			ui.currentModel = currentModel;
 		}
 
@@ -492,7 +544,9 @@ export async function runCommand( options: {
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
 						description: option.description,
+						...( option.image ? { image: option.image } : {} ),
 					} ) ),
+					multiSelect: question.multiSelect,
 				} )
 			);
 		}
@@ -521,6 +575,8 @@ export async function runCommand( options: {
 		images: StudioChatImage[] = [],
 		files: StudioChatFileAttachment[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
+		// The quota-based default must land before the turn captures its model.
+		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
@@ -557,12 +613,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with
@@ -733,6 +785,8 @@ export async function runCommand( options: {
 		},
 		set currentModel( value ) {
 			currentModel = value;
+			// An explicit pick wins over the pending quota-based default.
+			quotaDefaultApplicable = false;
 		},
 		get currentProvider() {
 			return currentProvider;
@@ -769,28 +823,16 @@ export async function runCommand( options: {
 		},
 	};
 
-	// Surface remote-session daemon status in the editor's bottom bar. Cheap
-	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL.
-	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
-
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			// Match exact-prompt by default (preserves the legacy behavior where
-			// `/clear foo` falls through to the AI agent). Commands that opt into
-			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/remote-session start` route to the right handler.
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			// Match the exact prompt: `/clear foo` falls through to the AI agent
+			// rather than running `/clear`.
 			const cmd = trimmedPrompt.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) =>
-						c.getArgumentCompletions
-							? `/${ c.name }` === firstToken
-							: `/${ c.name }` === trimmedPrompt
-				  )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === trimmedPrompt )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
@@ -818,7 +860,6 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
-		stopDaemonStatusPolling();
 		ui.stop();
 		process.exit( 0 );
 	}
@@ -829,7 +870,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
-			let chain = yargs
+			const chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -858,18 +899,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point used by the
-			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden so it doesn't clutter `--help` for direct callers.
-			chain = chain.option( 'message-from-stdin', {
-				type: 'boolean',
-				hidden: true,
-				default: false,
-				description: __( 'Read the initial message from stdin (for headless drivers)' ),
-			} );
-
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -883,22 +914,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					messageFromStdin?: boolean;
 				};
 
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
-					initialMessage = await readAllStdin();
-					if ( ! initialMessage ) {
-						process.stderr.write(
-							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
-						);
-						process.exitCode = 1;
-						return;
-					}
-				}
+				const initialMessage = typedArgv.message;
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<

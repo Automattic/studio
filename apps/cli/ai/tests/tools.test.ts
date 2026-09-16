@@ -308,6 +308,30 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'resolves a relative filePath against the site root', async () => {
+		const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( siteDir, 'tmp', 'page-home.html' );
+		const fixedContent = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+		await mkdir( path.dirname( filePath ), { recursive: true } );
+		await writeFile( filePath, '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ { ...mockSite, path: siteDir } ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		mockValidatedFix( fixedContent );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath: 'tmp/page-home.html',
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
+		} finally {
+			await rm( siteDir, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );
@@ -334,6 +358,20 @@ describe( 'Studio AI MCP tools', () => {
 			'For generated SVGs, write a complete .svg file'
 		);
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
+	} );
+
+	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
+		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
+		expect(
+			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
+				?.description
+		).toContain( 'options: 4' );
+		const text =
+			getTextContent(
+				await executeTool( getTool( 'pick_design' ), { catalog: 'layouts', options: 4 } )
+			) ?? '';
+		expect( text ).not.toContain( 'Option 1' );
+		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
 	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
@@ -408,6 +446,9 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
+		// The saved path is the agent's only handle for reusing a capture as a
+		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
+		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
 		expect( text ).not.toContain( 'mediaWidgetPayload' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -423,6 +464,26 @@ describe( 'Studio AI MCP tools', () => {
 			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
 		);
 		await cleanUpScreenshotArtifacts( artifacts );
+	} );
+
+	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
+		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const findTakeScreenshot = (
+			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
+		) =>
+			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
+		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
+		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
+		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
+		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
+
+		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
+
+		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
+		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
+		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
 	} );
 
 	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
@@ -879,52 +940,6 @@ describe( 'Studio AI MCP tools', () => {
 			} )
 		).rejects.toThrow( 'shapeProps may only include numeric w and h between 80 and 3000' );
 		expect( emitEvent ).not.toHaveBeenCalled();
-	} );
-
-	describe( 'share_screenshot gating', () => {
-		it( 'omits share_screenshot when remoteSession is not set', () => {
-			const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-			expect( names ).toContain( 'take_screenshot' );
-		} );
-
-		it( 'omits share_screenshot when remoteSession is false', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: false,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).not.toContain( 'share_screenshot' );
-		} );
-
-		it( 'includes share_screenshot when remoteSession is true', () => {
-			const names = resolveStudioToolDefinitions( {
-				remoteSession: true,
-			} ).map( ( tool ) => tool.name );
-			expect( names ).toContain( 'share_screenshot' );
-		} );
-
-		it( 'can force dark mode when sharing a screenshot', async () => {
-			const screenshotBuffer = Buffer.from( 'shared-png' );
-			const page = createMockPage( { buffer: screenshotBuffer } );
-			mockScreenshotBrowser( page );
-
-			const result = await getTool( 'share_screenshot' ).rawHandler( {
-				url: 'http://localhost:8903/',
-				colorScheme: 'dark',
-			} as never );
-
-			expect( page.emulateMedia ).toHaveBeenCalledWith( {
-				reducedMotion: 'reduce',
-				colorScheme: 'dark',
-			} );
-			expect( emitEvent ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					type: 'media.share',
-					mimeType: 'image/png',
-					dataBase64: screenshotBuffer.toString( 'base64' ),
-				} )
-			);
-			expect( getTextContent( result ) ).toContain( 'dark mode' );
-		} );
 	} );
 
 	it( 'creates previews for a resolved local site', async () => {

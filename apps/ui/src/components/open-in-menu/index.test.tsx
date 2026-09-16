@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { captureException } from '@studio/common/lib/error-reporting';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -94,8 +94,6 @@ const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
-const BROWSER_PATH = '/about/';
-
 describe( 'OpenInMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
 	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
@@ -107,7 +105,6 @@ describe( 'OpenInMenu', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
 			openExternalUrl,
@@ -149,9 +146,10 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
 
-		// The browser goes through the host's openSiteUrl, which wraps the path
-		// in /studio-auto-login — opening it raw would hit the login form.
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
+		// The browser opens the site's front page through the host's openSiteUrl,
+		// which wraps it in /studio-auto-login — opening it raw would hit the
+		// login form. The preview's address bar owns "open the current page".
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
 		expect( openExternalUrl ).not.toHaveBeenCalled();
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
@@ -188,37 +186,34 @@ describe( 'OpenInMenu', () => {
 		expect( trackedEvents ).not.toContain( 'studio_site_open_in_terminal' );
 	} );
 
-	it( 'records the browser event matching the active preview realm', () => {
-		renderMenu( { running: true }, '/wp-admin/plugins.php' );
+	it( 'offers phpMyAdmin like the Overview, opening it in the OS browser like the rest', () => {
+		renderMenu( { running: true } );
 
-		fireEvent.click( destination( 'Browser' ) );
+		fireEvent.click( destination( 'phpMyAdmin' ) );
 
-		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
 		} );
 	} );
 
-	it( 'offers no phpMyAdmin destination', () => {
-		// The preview's address bar owns the database realm; navigating there
-		// from here strands it with no segment to represent it.
+	it( 'shows a single "Open in…" trigger rather than repeating a destination', () => {
 		renderMenu( { running: true } );
 
-		expect( screen.queryByText( 'phpMyAdmin' ) ).not.toBeInTheDocument();
+		const trigger = screen.getByRole( 'button', { name: 'Open in…' } );
+		expect( trigger ).toHaveTextContent( 'Open in…' );
+		expect( screen.queryByRole( 'button', { name: 'Open in Browser' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'defaults the split action to the browser', () => {
-		renderMenu( { running: true } );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Browser' } ) );
-
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', BROWSER_PATH );
-	} );
-
-	it( 'stays available while the site is stopped, minus the browser', () => {
+	it( 'stays available while the site is stopped, minus the browser and phpMyAdmin', () => {
 		renderMenu( { running: false } );
 
 		expect( destination( 'Browser' ) ).toBeDisabled();
-		expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeDisabled();
+		expect( destination( 'phpMyAdmin' ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeEnabled();
 
 		fireEvent.click( destination( /^(Finder|File Explorer|File manager)$/ ) );
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
@@ -233,54 +228,15 @@ describe( 'OpenInMenu', () => {
 
 		expect( navigateMock ).toHaveBeenCalledWith( { to: '/settings' } );
 		expect( openSiteInEditor ).not.toHaveBeenCalled();
-		// Nothing was opened, so the trigger's last-used destination stays put.
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBeNull();
-	} );
-
-	it( 'repeats the last used destination from the split action', () => {
-		renderMenu( { running: true } );
-
-		fireEvent.click( destination( 'Terminal' ) );
-		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used:site-1' ) ).toBe(
-			'terminal'
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open in Terminal' } ) );
-		expect( openSiteInTerminal ).toHaveBeenCalledTimes( 2 );
-	} );
-
-	it( 'remembers the destination per site', () => {
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-2', 'files' );
-
-		const { unmount } = renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
-		unmount();
-
-		renderMenu( { id: 'site-2', running: true } );
-		expect(
-			screen.getByRole( 'button', { name: /^Open in (Finder|File Explorer|File manager)$/ } )
-		).toBeInTheDocument();
-	} );
-
-	it( 'restores the persisted destination and ignores a corrupt one', () => {
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'terminal' );
-		const { unmount } = renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Terminal' } ) ).toBeInTheDocument();
-		unmount();
-
-		window.localStorage.setItem( 'studio:open-in-menu:last-used:site-1', 'nonsense' );
-		renderMenu( { running: true } );
-		expect( screen.getByRole( 'button', { name: 'Open in Browser' } ) ).toBeInTheDocument();
 	} );
 } );
 
-function renderMenu( overrides: Partial< SiteDetails > = {}, browserPath: string = BROWSER_PATH ) {
-	return render( <OpenInMenu site={ createSite( overrides ) } browserPath={ browserPath } /> );
+function renderMenu( overrides: Partial< SiteDetails > = {} ) {
+	return render( <OpenInMenu site={ createSite( overrides ) } /> );
 }
 
 function destination( label: string | RegExp ): HTMLElement {
-	return screen.getByText( label ).closest( 'button' )!;
+	return within( screen.getByRole( 'menu' ) ).getByRole( 'button', { name: label } );
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {

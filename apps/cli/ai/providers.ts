@@ -24,13 +24,11 @@ export { DEFAULT_AI_PROVIDER };
 export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
-// The wpcom AI proxy maps feature slugs to upstream providers. Historically
-// `studio-assistant` was wired for OpenAI (OPENAI_TOKEN); when Claude support
-// landed a parallel `studio-assistant-anthropic` slug was added. Keep using
-// the existing slugs so no server-side allowlist change is required.
-const WPCOM_AI_FEATURE_HEADER_ANTHROPIC = 'studio-assistant-anthropic';
-const WPCOM_AI_FEATURE_HEADER_OPENAI = 'studio-assistant';
-const WPCOM_AI_FEATURE_HEADER_HOSTED = 'studio-assistant-hosted';
+// The wpcom AI proxy maps feature slugs to upstream providers. The
+// `studio-agent` lane accepts the capability-tier aliases (fast / balanced /
+// strong) on the Chat Completions path and resolves each to an upstream
+// model server-side.
+const WPCOM_AI_FEATURE_HEADER = 'studio-agent';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
@@ -103,12 +101,6 @@ export function getStudioUserAgent(): string {
 	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }
 
-function buildAnthropicCustomHeaders( headers: Record< string, string > ): string {
-	return Object.entries( headers )
-		.map( ( [ name, value ] ) => `${ name }: ${ value }` )
-		.join( '\n' );
-}
-
 export function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
@@ -136,10 +128,9 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
 	delete env.OPENAI_API_KEY;
 	delete env.OPENAI_BASE_URL;
-	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
-	delete env.STUDIO_HOSTED_API_KEY;
-	delete env.STUDIO_HOSTED_BASE_URL;
-	delete env.STUDIO_HOSTED_DEFAULT_HEADERS;
+	delete env.STUDIO_WPCOM_API_KEY;
+	delete env.STUDIO_WPCOM_BASE_URL;
+	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
 
 	return env;
 }
@@ -166,50 +157,21 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
 
-			// Anthropic messages path through the WP.com AI gateway.
-			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
-			env.ANTHROPIC_AUTH_TOKEN = accessToken;
-			const anthropicHeaders: Record< string, string > = {
+			// The studio capability tiers speak the OpenAI Chat Completions
+			// dialect, so the base URL carries the /v1 prefix (the request path
+			// becomes /v1/chat/completions). The vars are Studio-namespaced
+			// because this family has no direct-API provider — nothing but this
+			// function should be able to satisfy it.
+			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
+			env.STUDIO_WPCOM_API_KEY = accessToken;
+			const headers: Record< string, string > = {
 				'User-Agent': getStudioUserAgent(),
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			};
 			if ( options?.sessionId ) {
-				anthropicHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+				headers[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}
-			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
-
-			// OpenAI Responses path. The wpcom proxy accepts the same bearer token and
-			// dispatches to the right upstream based on the request path.
-			// The OpenAI SDK expects baseURL to include /v1 (like the real
-			// OpenAI API), so the request path becomes /v1/responses —
-			// mirroring the Anthropic path's /v1/messages.
-			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
-			env.OPENAI_API_KEY = accessToken;
-			const openaiHeaders: Record< string, string > = {
-				'User-Agent': getStudioUserAgent(),
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
-			};
-			if ( options?.sessionId ) {
-				openaiHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
-			}
-			env.STUDIO_OPENAI_DEFAULT_HEADERS = JSON.stringify( openaiHeaders );
-
-			// Hosted third-party models (Kimi, GLM, DeepSeek) speak the OpenAI
-			// Chat Completions dialect, so they share the /v1 prefix with the
-			// OpenAI path and are told apart by the feature header. The vars are
-			// Studio-namespaced because, unlike Anthropic and OpenAI, this family
-			// has no direct-API provider — nothing but this function should be
-			// able to satisfy it.
-			env.STUDIO_HOSTED_BASE_URL = env.OPENAI_BASE_URL;
-			env.STUDIO_HOSTED_API_KEY = accessToken;
-			const hostedHeaders: Record< string, string > = {
-				'User-Agent': getStudioUserAgent(),
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_HOSTED,
-			};
-			if ( options?.sessionId ) {
-				hostedHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
-			}
-			env.STUDIO_HOSTED_DEFAULT_HEADERS = JSON.stringify( hostedHeaders );
+			env.STUDIO_WPCOM_DEFAULT_HEADERS = JSON.stringify( headers );
 
 			return env;
 		},

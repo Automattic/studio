@@ -7,8 +7,7 @@ import type { OnboardingHintsState } from '@/data/core';
 // localStorage. Read once and kept forever — writes are rare and go through the
 // optimistic mutation below.
 
-export const ONBOARDING_HINTS_QUERY_KEY = [ 'onboarding-hints' ] as const;
-export const ONBOARDING_COMPLETED_QUERY_KEY = [ 'onboarding-completed' ] as const;
+const ONBOARDING_HINTS_QUERY_KEY = [ 'onboarding-hints' ] as const;
 
 export function useOnboardingHints() {
 	const connector = useConnector();
@@ -17,17 +16,6 @@ export function useOnboardingHints() {
 		queryFn: () => connector.getOnboardingHints(),
 		staleTime: Infinity,
 		meta: { persist: false },
-	} );
-}
-
-// Whether the user has finished (or skipped) the pre-workbench welcome. Gates
-// tour auto-start so it never appears mid-NUX.
-export function useOnboardingCompleted() {
-	const connector = useConnector();
-	return useQuery( {
-		queryKey: ONBOARDING_COMPLETED_QUERY_KEY,
-		queryFn: () => connector.getOnboardingCompleted(),
-		staleTime: Infinity,
 	} );
 }
 

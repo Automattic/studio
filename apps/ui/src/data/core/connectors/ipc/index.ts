@@ -40,7 +40,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -228,7 +228,6 @@ export function createIpcConnector(): Connector {
 		// Native desktop app: every affordance is available.
 		capabilities: {
 			nativeFolderPicker: true,
-			nativeSaveDialog: true,
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
@@ -239,12 +238,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Auth — optional in Electron, delegated to main process
-		requiresAuth: false,
 		agenticRequiresAuth: true,
-
-		async isAuthenticated(): Promise< boolean > {
-			return ipcApi.isAuthenticated();
-		},
 
 		async getAuthUser(): Promise< AuthUser | null > {
 			const token = await ipcApi.getAuthenticationToken();
@@ -449,10 +443,6 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSitesSortOrder( updates );
 		},
 
-		async refreshSiteIcon( siteId ) {
-			await ipcApi.loadSiteIcon( siteId );
-		},
-
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
@@ -498,7 +488,7 @@ export function createIpcConnector(): Connector {
 				filters: [
 					{
 						name: 'Compressed Backup Files',
-						extensions: [ 'tar.gz', 'tzg', 'zip' ],
+						extensions: [ 'tar.gz', 'tgz', 'zip' ],
 					},
 				],
 			} ) ) as string;
@@ -728,10 +718,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.loadAiSession( sessionId ) ) as LoadedAiSession;
 		},
 
-		async deleteSession( sessionId ) {
-			await ipcApi.deleteAiSession( sessionId );
-		},
-
 		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
 			return ( await ipcApi.updateAiSessionMetadata( sessionId, patch ) ) as AiSessionSummary;
 		},
@@ -764,19 +750,6 @@ export function createIpcConnector(): Connector {
 
 		async answerAgentQuestion( runId, answers ) {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
-		},
-
-		async setSessionEnvironment( sessionId, environment ) {
-			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
-				environment: 'local' | 'live';
-				url?: string;
-				wpcomSiteId?: number;
-			};
-			return {
-				environment: result.environment,
-				url: result.url,
-				wpcomSiteId: result.wpcomSiteId,
-			};
 		},
 
 		onAgentEvent( listener ) {
@@ -895,10 +868,7 @@ export function createIpcConnector(): Connector {
 			const response = ( await ipcApi.showOpenFolderDialog(
 				__( 'Select default site directory' ),
 				defaultPath
-			) ) as { path?: string } | string | null;
-			if ( typeof response === 'string' ) {
-				return response || null;
-			}
+			) ) as { path?: string } | null;
 			return response?.path ?? null;
 		},
 
@@ -917,9 +887,6 @@ export function createIpcConnector(): Connector {
 		},
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
-		},
-		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

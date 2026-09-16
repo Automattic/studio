@@ -1,9 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
+import wapuuIdleUrl from '@/components/wapuu-world/assets/wapuu-player-idle-sprite.png';
+import { MAX_SCORE } from '@/components/wapuu-world/engine/game-loop';
 import { useConnector } from '@/data/core';
 import { useWapuuScore } from '@/data/queries/use-wapuu-score';
-import wapuuIdleUrl from '@/ui-classic/components/wapuu-world/assets/wapuu-player-idle-sprite.png';
-import { MAX_SCORE } from '@/ui-classic/components/wapuu-world/engine/game-loop';
 import styles from './style.module.css';
 
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';

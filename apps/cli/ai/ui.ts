@@ -44,7 +44,7 @@ import {
 	DescriptionAwareAutocompleteProvider,
 	dimUnhighlighted,
 } from 'cli/ai/description-autocomplete';
-import { buildOptionPickerLines } from 'cli/ai/option-picker';
+import { buildOptionPickerLines, OTHER_VALUE } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
@@ -94,7 +94,6 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
-	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -211,9 +210,6 @@ class PromptEditor implements Component, Focusable {
 				  activeHints.map( ( h ) => theme.fg( 'muted', h ) ).join( theme.fg( 'muted', ' · ' ) )
 				: '';
 		const rightSegments: string[] = [];
-		if ( this.daemonStatusMessage ) {
-			rightSegments.push( theme.fg( 'success', this.daemonStatusMessage ) );
-		}
 		if ( this.statusMessage ) {
 			rightSegments.push( theme.fg( 'muted', this.statusMessage ) );
 		}
@@ -286,7 +282,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerInput: Input | null = null;
 	private optionPickerItems: SelectItem[] = [];
 	private optionPickerQuestion = '';
-	private static readonly OTHER_VALUE = '__other__';
+	private optionPickerChecked: Set< string > | null = null;
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => theme.fg( 'accent', text ),
 		selectedText: ( text: string ) => theme.fg( 'accent', text ),
@@ -486,6 +482,17 @@ export class AiChatUI implements AiOutputAdapter {
 					return { consume: true };
 				}
 
+				if ( this.optionPickerChecked && data === ' ' ) {
+					const value = this.optionPickerSelectList.getSelectedItem()?.value;
+					if ( value && value !== OTHER_VALUE ) {
+						if ( ! this.optionPickerChecked.delete( value ) ) {
+							this.optionPickerChecked.add( value );
+						}
+						this.renderOptionPicker();
+					}
+					return { consume: true };
+				}
+
 				// If user starts typing while on a regular option, jump to "Other" (only if free-form is enabled)
 				if (
 					this.optionPickerHasFreeForm &&
@@ -512,7 +519,7 @@ export class AiChatUI implements AiOutputAdapter {
 				// Check if we landed on "Other" after navigation
 				if ( this.optionPickerHasFreeForm ) {
 					const selected = this.optionPickerSelectList.getSelectedItem();
-					if ( selected?.value === AiChatUI.OTHER_VALUE ) {
+					if ( selected?.value === OTHER_VALUE ) {
 						this.activateOptionPickerOther();
 					}
 				}
@@ -1013,7 +1020,8 @@ export class AiChatUI implements AiOutputAdapter {
 		const lines = buildOptionPickerLines(
 			this.optionPickerItems,
 			this.optionPickerSelectList.getSelectedItem()?.value,
-			width
+			width,
+			this.optionPickerChecked ?? undefined
 		);
 
 		// When "Other" is active, replace the last line with the inline input
@@ -1027,6 +1035,9 @@ export class AiChatUI implements AiOutputAdapter {
 			lines[ lines.length - 1 ] = `${ theme.fg( 'accent', '→' ) } ${ display }`;
 		}
 
+		if ( this.optionPickerChecked ) {
+			lines.push( '', theme.fg( 'muted', __( 'space to toggle · enter to confirm' ) ) );
+		}
 		const question = this.optionPickerQuestion
 			? '\n' + theme.bold( this.optionPickerQuestion ) + '\n'
 			: '';
@@ -1055,11 +1066,19 @@ export class AiChatUI implements AiOutputAdapter {
 			const trimmed = value.trim();
 			if ( trimmed && this.optionPickerResolve ) {
 				const resolve = this.optionPickerResolve;
+				const answer = this.checkedAnswer( trimmed );
 				this.optionPickerResolve = null;
 				this.closeOptionPicker();
-				resolve( trimmed );
+				resolve( answer );
 			}
 		};
+	}
+
+	private checkedAnswer( ...extra: string[] ): string {
+		const checked = this.optionPickerItems
+			.map( ( item ) => item.value )
+			.filter( ( value ) => this.optionPickerChecked?.has( value ) );
+		return [ ...checked, ...extra ].join( ', ' );
 	}
 
 	private deactivateOptionPickerOther(): void {
@@ -1078,6 +1097,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerItemCount = 0;
 		this.optionPickerItems = [];
 		this.optionPickerQuestion = '';
+		this.optionPickerChecked = null;
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1096,9 +1116,9 @@ export class AiChatUI implements AiOutputAdapter {
 				this.tui.requestRender( true );
 			}
 		} );
-		// Logger progress and daemon-status updates can request renders while
-		// the TUI is stopped for an external prompt. pi-tui leaves that request
-		// pending, so force a fresh render when resuming.
+		// Logger progress can request renders while the TUI is stopped for an
+		// external prompt. pi-tui leaves that request pending, so force a fresh
+		// render when resuming.
 		this.tui.requestRender( true );
 	}
 
@@ -1612,11 +1632,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
-		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
-		this.tui.requestRender();
-	}
-
 	private busyTimer: ReturnType< typeof setInterval > | null = null;
 	private busyFrameIndex = 0;
 	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
@@ -1731,9 +1746,10 @@ export class AiChatUI implements AiOutputAdapter {
 					description: opt.description,
 				} ) );
 				this.optionPickerHasFreeForm = q.allowFreeForm === true;
+				this.optionPickerChecked = q.multiSelect ? new Set() : null;
 				if ( this.optionPickerHasFreeForm ) {
 					selectItems.push( {
-						value: AiChatUI.OTHER_VALUE,
+						value: OTHER_VALUE,
 						label: __( 'Other (type my own)' ),
 					} );
 				}
@@ -1755,15 +1771,16 @@ export class AiChatUI implements AiOutputAdapter {
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
 					selectList.onSelect = ( item: SelectItem ) => {
-						if ( item.value === AiChatUI.OTHER_VALUE ) {
+						if ( item.value === OTHER_VALUE ) {
 							// "Other" selected via enter without typing — activate input
 							this.activateOptionPickerOther();
 							this.renderOptionPicker();
 							return;
 						}
+						const answer = this.checkedAnswer() || item.value;
 						this.optionPickerResolve = null;
 						this.closeOptionPicker();
-						resolve( item.value );
+						resolve( answer );
 					};
 					selectList.onCancel = () => {
 						this.cancelOptionPicker();

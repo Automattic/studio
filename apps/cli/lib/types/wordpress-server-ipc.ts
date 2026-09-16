@@ -1,4 +1,5 @@
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { z } from 'zod';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
@@ -32,6 +33,8 @@ export const serverConfigSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	enableScriptDebug: z.boolean().optional(),
+	environmentType: wpEnvironmentTypeSchema.optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

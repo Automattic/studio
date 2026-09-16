@@ -19,5 +19,6 @@ export const getSiteInfoTool = defineTool(
 				`Failed to get site info: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Get details about a specific site (path, URL, credentials, running status)' }
 );

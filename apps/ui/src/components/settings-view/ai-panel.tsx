@@ -20,7 +20,7 @@ function AgenticFeaturesSection() {
 		<section className={ styles.preferenceSectionGroup }>
 			<section className={ styles.preferenceRow }>
 				<div className={ styles.preferenceText }>
-					<h2>{ __( 'Agentic features' ) }</h2>
+					<h2>{ __( 'Studio Code' ) }</h2>
 					<p>
 						{ __(
 							'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
@@ -31,7 +31,7 @@ function AgenticFeaturesSection() {
 					<FormToggle
 						checked={ enabled }
 						disabled={ isLoading }
-						aria-label={ __( 'Agentic features' ) }
+						aria-label={ __( 'Studio Code' ) }
 						onChange={ () => savePreferences.mutate( { agenticFeaturesEnabled: ! enabled } ) }
 					/>
 				</div>

@@ -5,20 +5,42 @@ export const playIcon = (
 );
 
 export const refreshIcon = (
-	<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 28 28" fill="none">
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<path
-			fill="none"
-			d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8"
+			d="M18.5 8.5A7 7 0 1 0 19 14"
 			stroke="currentColor"
 			strokeWidth="1.5"
 			strokeLinecap="round"
 			strokeLinejoin="round"
 		/>
 		<path
-			fill="none"
-			d="M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"
+			d="M18.5 5v3.5H15"
 			stroke="currentColor"
 			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const browserBackIcon = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+		<path
+			d="M13 5.5 6.5 12l6.5 6.5M7 12h12"
+			stroke="currentColor"
+			strokeWidth="1.75"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const browserForwardIcon = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+		<path
+			d="m11 5.5 6.5 6.5-6.5 6.5M17 12H5"
+			stroke="currentColor"
+			strokeWidth="1.75"
 			strokeLinecap="round"
 			strokeLinejoin="round"
 		/>

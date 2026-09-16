@@ -87,5 +87,6 @@ export const createSiteTool = defineTool(
 				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Create a new WordPress site (name only — handles everything automatically)' }
 );

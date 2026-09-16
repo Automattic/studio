@@ -81,17 +81,18 @@ body:lang( ckb ) [class*='components-'] {
 	font-family: var( --wpds-typography-font-family-body );
 }
 
-@media ( prefers-color-scheme: dark ) {
-	:root {
-		--wp-ui-tooltip-background-color: #fff;
-		--wp-ui-tooltip-color: #000;
-		--studio-annotate-color: #b69cff;
-		--studio-annotate-color-active: #c9b6ff;
-		--studio-annotate-on-color: #1b1230;
-		--studio-annotate-surface: #251b3a;
-		--studio-annotate-bar: #6d28d9;
-		--studio-annotate-bar-active: #5b21b6;
-	}
+/* Keyed on the scheme app-providers.tsx resolves from the saved Appearance
+   preference (falling back to the OS) and stamps on <html>, so these follow
+   the in-app toggle like the rest of the theme. */
+html[data-color-scheme='dark'] {
+	--wp-ui-tooltip-background-color: #fff;
+	--wp-ui-tooltip-color: #000;
+	--studio-annotate-color: #b69cff;
+	--studio-annotate-color-active: #c9b6ff;
+	--studio-annotate-on-color: #1b1230;
+	--studio-annotate-surface: #251b3a;
+	--studio-annotate-bar: #6d28d9;
+	--studio-annotate-bar-active: #5b21b6;
 }
 
 /* @wordpress/components and @wordpress/dataviews render help text and field

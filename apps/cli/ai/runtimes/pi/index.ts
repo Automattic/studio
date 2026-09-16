@@ -582,6 +582,7 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 // tools are documented rather than in a prompt paragraph.
 const WRITE_GUIDELINES = [ 'Write rejects payloads over 14KB; split a larger file across calls.' ];
 const EDIT_GUIDELINES = [
+	'Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.',
 	"Keep an Edit call's new text under ~8KB and split a longer fill across two or three calls; more than 14KB across all edits[] entries is rejected.",
 ];
 const BASH_GUIDELINES = [

@@ -1,6 +1,6 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, expect, it, vi } from 'vitest';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { generateImagesTool, withBackgroundGeneration } from 'cli/ai/tools/generate-images';
@@ -13,7 +13,8 @@ const rendered = vi.hoisted( () => [] as string[] );
 vi.mock( 'cli/lib/site-paths', async () => {
 	const { mkdtempSync } = await import( 'node:fs' );
 	const { tmpdir } = await import( 'node:os' );
-	return { STUDIO_SITES_ROOT: mkdtempSync( `${ tmpdir() }/studio-sites-` ) };
+	const { join } = await import( 'node:path' );
+	return { STUDIO_SITES_ROOT: mkdtempSync( join( tmpdir(), 'studio-sites-' ) ) };
 } );
 
 vi.mock( 'cli/ai/tools/screenshot-helpers', () => ( {
@@ -60,7 +61,7 @@ it( 'generates images in the background while present_design_options waits for t
 			options: [ 'Noir', 'Paper' ].map( ( label ) => ( {
 				label,
 				description: label,
-				preview: `<img src="${ ready }"><img src="${ failed }">`,
+				preview: `<img src="${ pathToFileURL( ready ) }"><img src="${ pathToFileURL( failed ) }">`,
 			} ) ),
 		}
 	);
@@ -69,7 +70,9 @@ it( 'generates images in the background while present_design_options waits for t
 
 	finish();
 	expect( await presenting ).toBe(
-		`The user picked option 1: Noir\n\nThese images are missing and were shown as solid color shapes: ${ failed }. Generate them again or adapt the layout before the build.`
+		`The user picked option 1: Noir\n\nThese images are missing and were shown as solid color shapes: ${ pathToFileURL(
+			failed
+		) }. Generate them again or adapt the layout before the build.`
 	);
 	expect( rendered[ 0 ] ).toContain(
 		`src="data:image/jpeg;base64,${ Buffer.from( 'jpeg' ).toString( 'base64' ) }"`

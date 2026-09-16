@@ -1,9 +1,7 @@
-import interpolateComponents from '@automattic/interpolate-components';
-import cliIllustration from '@studio/common/assets/whats-new/cli.svg';
-import darkModeIllustration from '@studio/common/assets/whats-new/dark-mode.svg';
-import nativePhpIllustration from '@studio/common/assets/whats-new/native-php.svg';
-import phpMyAdminIllustration from '@studio/common/assets/whats-new/phpmyadmin.svg';
-import studioCodeIllustration from '@studio/common/assets/whats-new/studio-code.svg';
+import buildingBlocksIllustration from '@studio/common/assets/whats-new/building-blocks.svg';
+import designPickerIllustration from '@studio/common/assets/whats-new/design-picker.svg';
+import designSystemIllustration from '@studio/common/assets/whats-new/design-system.svg';
+import modelTiersIllustration from '@studio/common/assets/whats-new/model-tiers.svg';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
@@ -51,51 +49,34 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: studioCodeIllustration,
-			title: __( 'Studio Code helps you get it done' ),
+			image: designPickerIllustration,
+			title: __( 'Pick your design before a line of code' ),
 			description: __(
-				'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
+				'Start a site with a short brief, then choose from four looks and four layouts drawn as real previews. Studio Code builds the one you pick.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},
 		{
-			image: nativePhpIllustration,
-			title: __( 'Faster local sites with native PHP' ),
+			image: designSystemIllustration,
+			title: __( 'Your design sticks around' ),
 			description: __(
-				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
+				"The look you choose is saved as your site's design system, so every later change — colors, type, even the writing voice — stays in keeping with it."
 			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
+			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},
 		{
-			image: darkModeIllustration,
-			title: __( 'Dark mode is here' ),
+			image: modelTiersIllustration,
+			title: __( 'Fast, Balanced, or Strong' ),
 			description: __(
-				'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
-			),
-		},
-		{
-			image: phpMyAdminIllustration,
-			title: __( 'Manage your database with phpMyAdmin' ),
-			description: __(
-				"Studio now includes phpMyAdmin, giving you a visual interface to manage your site's database. Access it from the Overview tab."
+				'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
 			),
 		},
 		{
-			image: cliIllustration,
-			title: __( 'WP-CLI support and CLI site management' ),
-			description: interpolateComponents( {
-				mixedString: sprintf(
-					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-					__(
-						'Easily install the %s CLI to run WP-CLI commands from your terminal and create, start, stop, or update your sites.'
-					),
-					'{{code}}studio{{/code}}'
-				),
-				components: {
-					code: <code />,
-				},
-			} ),
-			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
+			image: buildingBlocksIllustration,
+			title: __( 'Sites you can keep editing yourself' ),
+			description: __(
+				'Studio Code now styles with theme settings and block styles instead of custom CSS, so you can adjust colors, fonts, and sections right in the Site Editor.'
+			),
 		},
 	];
 

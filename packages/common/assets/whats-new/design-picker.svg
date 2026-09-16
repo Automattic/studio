@@ -1,0 +1,9 @@
+<svg width="360" height="195" viewBox="0 0 360 195" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="360" height="195" fill="black"/>
+<rect opacity="0.3" width="360" height="195" fill="url(#design_picker_dot_grid)"/>
+<defs>
+<pattern id="design_picker_dot_grid" width="28" height="28" patternUnits="userSpaceOnUse">
+<rect x="26" y="25" width="3" height="3" rx="1.5" fill="white"/>
+</pattern>
+</defs>
+</svg>

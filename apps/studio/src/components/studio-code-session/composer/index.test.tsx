@@ -9,11 +9,24 @@ const mockGetPathForFile = vi.hoisted( () =>
 	vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` )
 );
 
+vi.mock( 'src/hooks/use-auth', () => ( {
+	useAuth: () => ( { isAuthenticated: false } ),
+} ) );
+vi.mock( 'src/stores/wpcom-api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/stores/wpcom-api') >() ),
+	useGetStudioAssistantQuota: () => ( { data: undefined } ),
+	useGetStudioAssistantTopUpPricing: () => ( { data: undefined } ),
+} ) );
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getPathForFile: mockGetPathForFile,
 		setAiSessionModel: vi.fn(),
 		createAiSession: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	} ),
 } ) );
 

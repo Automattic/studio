@@ -1,6 +1,12 @@
-import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	getEffectiveSessionProvider,
+	resolveSessionModelForProvider,
+} from '@studio/common/ai/providers';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getStudioCodeAiAccessState,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowDown } from '@wordpress/icons';
@@ -27,6 +33,7 @@ import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
 	useCreateSession,
@@ -318,20 +325,38 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
-	);
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota();
+	const { data: aiSettings } = useAiSettings();
+	// A fresh wpcom session defaults to balanced when purchased credits
+	// remain, fast otherwise.
+	const currentModel = useMemo( () => {
+		const entries = data?.entries ?? [];
+		return resolveSessionModelForProvider(
+			entries,
+			getEffectiveSessionProvider( entries, aiSettings ),
+			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+		);
+	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
-	const unansweredQuestion = pendingQuestions.find(
-		( question ) => typeof pendingAnswers[ question.question ] !== 'string'
-	);
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -351,6 +376,43 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
 			} ),
 		[]
+	);
+	const chooseFreeFormAnswer = useCallback(
+		( question: string ) => {
+			// Retract any option already picked for this question: the typed reply
+			// replaces it, and leaving it in place would dispatch the stale pick.
+			clearQuestionAnswer( question );
+			setArmedFreeFormQuestion( question );
+			composerRef.current?.focus();
+		},
+		[ clearQuestionAnswer ]
+	);
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
+				return;
+			}
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
+		},
+		[ answerQuestion, targetQuestion ]
 	);
 	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
 
@@ -471,12 +533,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		queuedPrompts.length,
 	] );
 
-	const {
-		data: quota,
-		isLoading: isQuotaLoading,
-		isFetching: isQuotaFetching,
-		refetch: refetchQuota,
-	} = useStudioAssistantQuota();
 	// Out of credits swaps the composer for the purchase offer, unless a run is
 	// still in flight — the Stop button lives in the composer.
 	const isOutOfCredits = useIsOutOfAiCredits();
@@ -615,16 +671,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<Composer
 							ref={ composerRef }
 							busy={ composerBusy }
+							awaitingAnswer={ pendingQuestions.length > 0 }
 							canSubmit={ ! isOutOfCredits }
 							isInterrupting={ isInterrupting }
 							error={ runError }
 							model={ currentModel }
 							onSend={ sendMessage }
-							onAnswer={
-								unansweredQuestion
-									? ( answer ) => answerQuestion( unansweredQuestion.question, answer )
-									: undefined
-							}
+							onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 							onInterrupt={ interrupt }
 							sessionId={ sessionId }
 							entries={ data.entries }
@@ -673,7 +726,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
-					onAnswerQuestion={ answerQuestion }
+					freeFormQuestion={ freeFormQuestion }
+					onAnswerQuestion={ answerQuestionFromOption }
+					onChooseFreeForm={ chooseFreeFormAnswer }
 				/>
 				<QueuedPrompts
 					prompts={ queuedPrompts }

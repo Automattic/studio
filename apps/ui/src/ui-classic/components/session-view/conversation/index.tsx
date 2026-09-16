@@ -19,10 +19,14 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
@@ -888,7 +892,9 @@ function AgentQuestion( {
 	isInteractive,
 	pickedLabel,
 	isCollapsing = false,
+	freeFormActive = false,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
@@ -896,18 +902,36 @@ function AgentQuestion( {
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
 	isCollapsing?: boolean;
+	freeFormActive?: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
 	const optionsId = useId();
 	const isFolding = isCollapsing && Boolean( pickedLabel );
+	const freeFormLabel = getFreeFormOptionLabel();
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel =
+		isInteractive && ! isFolding ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! isFolding && ! ownFreeFormLabel;
 	const viewable = options.filter( ( option ) => option.image );
 	const hasImages = viewable.length > 0;
 	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
 	const [ viewing, setViewing ] = useState< number | null >( null );
 	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
 	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
 	const typedAnswer = pickedLabels
-		.filter( ( label ) => label && ! options.some( ( option ) => option.label === label ) )
+		.filter(
+			( label ) =>
+				label &&
+				// The stop marker is written by the app, not the user.
+				label !== STOPPED_WITHOUT_ANSWER &&
+				! options.some( ( option ) => option.label === label )
+		)
 		.join( ', ' );
 	const toggle = ( label: string ) =>
 		setDraft( {
@@ -928,9 +952,11 @@ function AgentQuestion( {
 			{ options.length > 0 ? (
 				<ol className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = pickedLabels.includes( option.label );
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
+						const description = isOwnFreeForm ? getFreeFormOptionDescription() : option.description;
 						const descriptionId =
-							option.description && ! isFolding
+							description && ! isFolding
 								? `${ optionsId }-option-${ index }-description`
 								: undefined;
 						return (
@@ -942,10 +968,16 @@ function AgentQuestion( {
 							>
 								<button
 									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ clsx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () =>
-										multiSelect ? toggle( option.label ) : onAnswer( option.label )
+									onClick={
+										isOwnFreeForm
+											? onChooseFreeForm
+											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
 									}
 									aria-label={ option.label }
 									aria-describedby={ descriptionId }
@@ -958,9 +990,9 @@ function AgentQuestion( {
 									</span>
 									<span className={ styles.questionOptionCopy }>
 										<span className={ styles.questionOptionLabel }>{ option.label }</span>
-										{ option.description ? (
+										{ description ? (
 											<span id={ descriptionId } className={ styles.questionOptionDescription }>
-												{ option.description }
+												{ description }
 											</span>
 										) : null }
 									</span>
@@ -984,6 +1016,34 @@ function AgentQuestion( {
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li
+							className={ styles.questionOptionItem }
+							data-picked={ freeFormActive ? 'true' : undefined }
+						>
+							<button
+								type="button"
+								className={ clsx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-label={ freeFormLabel }
+								aria-pressed={ freeFormActive }
+							>
+								<span className={ styles.questionOptionNumber } aria-hidden="true">
+									{ freeFormActive ? <QuestionOptionCheckIcon /> : options.length + 1 }
+								</span>
+								<span className={ styles.questionOptionCopy }>
+									<span className={ styles.questionOptionLabel }>{ freeFormLabel }</span>
+									<span className={ styles.questionOptionDescription }>
+										{ getFreeFormOptionDescription() }
+									</span>
+								</span>
+							</button>
+						</li>
+					) : null }
 				</ol>
 			) : null }
 			{ hasImages ? (
@@ -1272,12 +1332,16 @@ function AgentQuestionBatch( {
 	questions,
 	pendingQuestions,
 	pendingAnswers,
+	freeFormQuestion,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	questions: AgentQuestionRenderItem[];
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	freeFormQuestion: string | null;
 	onAnswer: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
@@ -1343,15 +1407,21 @@ function AgentQuestionBatch( {
 
 	if ( total === 1 ) {
 		const question = questions[ 0 ];
+		// The scroll-into-view effect needs a target here too, or a lone question
+		// stays half-hidden behind the composer when the agent asks it.
 		return (
-			<AgentQuestion
-				question={ question.question }
-				options={ question.options }
-				multiSelect={ question.multiSelect }
-				isInteractive={ pendingQuestions.has( question.question ) }
-				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
-				onAnswer={ ( label ) => onAnswer( question.question, label ) }
-			/>
+			<div ref={ activeIndex === 0 ? activeQuestionRef : undefined }>
+				<AgentQuestion
+					question={ question.question }
+					options={ question.options }
+					multiSelect={ question.multiSelect }
+					isInteractive={ pendingQuestions.has( question.question ) }
+					pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
+					freeFormActive={ freeFormQuestion === question.question }
+					onAnswer={ ( label ) => onAnswer( question.question, label ) }
+					onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+				/>
+			</div>
 		);
 	}
 
@@ -1405,7 +1475,9 @@ function AgentQuestionBatch( {
 							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
 							pickedLabel={ pickedLabel }
 							isCollapsing={ settlingIndex === index }
+							freeFormActive={ freeFormQuestion === question.question }
 							onAnswer={ ( label ) => handleAnswer( question, index, label ) }
+							onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
 						/>
 					</div>
 				);
@@ -1452,14 +1524,20 @@ export function Conversation( {
 	startedAt,
 	pendingQuestions,
 	pendingAnswers,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 } ) {
 	const entries = data.entries;
 	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
@@ -1530,7 +1608,9 @@ export function Conversation( {
 								questions={ item.questions }
 								pendingQuestions={ pendingQuestions }
 								pendingAnswers={ pendingAnswers }
+								freeFormQuestion={ freeFormQuestion }
 								onAnswer={ onAnswerQuestion }
+								onChooseFreeForm={ onChooseFreeForm }
 							/>
 						);
 					case 'chat-artifact':

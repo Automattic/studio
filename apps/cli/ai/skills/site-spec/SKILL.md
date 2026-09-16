@@ -31,11 +31,11 @@ Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and
 - With one entry, use it without asking. With more, ask once, one option per entry in the order returned, labelled with the entry's name, without describing the options in prose first. A typed answer ("2 but darker") is a preference to apply to the closest option; asking for other options, as a choice or in their own words, means drawing that step again and asking the same way.
 
 1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the active-site line names a design system and the user did not ask for a new look.
-   - If `present_design_options` is available: when `generate_images` is available too, load the `imagery` skill and generate the option images in one call first. Pass each option's `DESIGN.md` draft (see the `visual-design` skill) as its `preview`, with its image and a one-line description of the feel.
+   - If `present_design_options` is available: when `generate_images` is available too, load the `imagery` skill and generate the look image first. Pass each option's `DESIGN.md` draft (see the `visual-design` skill) as its `preview`, with that image and a one-line description of the feel.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of the look.
-   - Write the picked look to `DESIGN.md` at the site root: the draft's front matter exactly as the user saw it, then every section. Delete the other options' images under `wp-content/uploads/studio-generated/`.
+   - Write the picked look to `DESIGN.md` at the site root: the draft's front matter exactly as the user saw it, then every section. Then, when `generate_images` is available, generate the site's image set in that look (see the `imagery` skill) so the layout previews and the build have it.
 2. **The layout**: `catalog: "layouts"`, asking "Which layout should I build?".
-   - If `present_design_options` is available: pass one sneak peek per option, in the picked look (see the `visual-design` skill), as its `preview`, with a one-line description of the layout.
+   - If `present_design_options` is available: pass one sneak peek per option, in the picked look and with the site's image set (see the `visual-design` skill), as its `preview`, with a one-line description of the layout.
    - Otherwise use `AskUserQuestion`, each option with a one-line description of how its first screen would look.
    - Add the picked layout to the Layout section of `DESIGN.md`, then build it.
 

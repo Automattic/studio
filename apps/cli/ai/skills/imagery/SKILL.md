@@ -19,7 +19,7 @@ Use this skill whenever a design calls for images — hero/cover backgrounds, fe
      wp_cli post list --post_type=attachment --post__in=<id> --field=guid             → URL
      ```
      Use the returned URL as the `src` and the id in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`). Delete the staging file afterwards.
-3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The design-options call below is separate and does not count as the page's batch.
+3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The site's set from the design steps below is the first batch: place it before generating anything else.
 4. **Write real alt text.** Generated images are content: give every `<img>` a short, descriptive alt in the markup (what the image shows, for a person who cannot see it). Never leave a spec string or an empty alt on a content image; cover backgrounds keep an empty alt (decorative).
 5. **Verify.** After applying markup, use take_screenshot to confirm the images render, fill their slots, and keep overlaid text legible.
 
@@ -65,13 +65,11 @@ A full-bleed cover BACKGROUND must be `landscape` or `ultrawide` — never squar
 
 ## Images for design options
 
-When the user is about to pick a look (see the `site-spec` skill), each look's board gets at most one generated image, all in one `generate_images` call:
+The look is picked on one image and the layout on a set, both from the `site-spec` skill's design steps:
 
-- **Same scene for every option**: one subject and composition for the site's first screen, written once and repeated per image in `landscape`, so the user compares looks rather than photo content.
-- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. The picked look's image then serves the layout sneak peeks and a single slot of the build; every other image the site needs still gets the normal batch above, with the picked look's grade as the call-wide `imageGrade` so the series reads as one.
-- **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that board shows a pattern instead.
-- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>.jpg`, passed as that option's `image`.
-- **A failed or unavailable image** is not a blocker: that board shows a pattern instead.
+- **The look image**: before the look options, one `generate_images` call with a single image, the site's first-screen scene in `landscape`, at `<site>/wp-content/uploads/studio-generated/look.jpg`, with the call-wide `imageGrade` left out and a neutral, versatile grade in `pageContext` ("natural light, true color, moderate contrast"). Every look's board shows this same photo under that look's `imagery` treatment from its `DESIGN.md` draft, so the user compares looks rather than photo content. A direction that rejects photography (its Imagery line says none, or type-only) passes no image: its board shows a pattern.
+- **The site's set**: once `DESIGN.md` is written, one `generate_images` call with 3–4 images in the picked look, with its Imagery section as the call-wide `imageGrade` and its `style` if it is not photographic: the first-screen scene again plus distinct supporting subjects (a detail, a place or a person, a product), each in the aspect ratio of the slot it is most likely to fill, at `<site>/wp-content/uploads/studio-generated/<name>.jpg`. The layout sneak peeks draw on this set, and the build starts from it: place these files first, per the workflow above, and generate more only for slots they cannot fill, with the same `imageGrade`. Keep `look.jpg` for a look the treatment reproduced; delete it otherwise.
+- **A failed or unavailable image** is not a blocker: the board shows a pattern, and a sneak-peek slot a solid color shape.
 
 ## No decorative or transparent images
 

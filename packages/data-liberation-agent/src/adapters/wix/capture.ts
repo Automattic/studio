@@ -5,7 +5,7 @@
 //
 import type { LiberationHooks } from '../page-actions.js';
 import { providerCreditRules } from '../../lib/source-cleanup.js';
-import type { Page } from 'playwright';
+import type { Locator, Page } from 'playwright';
 
 /** Wix media ids look like `8e80e7_a1b2…`, stable across crops of one asset. */
 const WIX_MEDIA_ID = /([a-z0-9]{4,12}_[a-z0-9]{24,48})/i;
@@ -76,6 +76,8 @@ export const WIX_CAPTURE_CHROME_SELECTOR =
 const WIX_SLIDESHOW_SELECTOR = '.wixui-slideshow';
 const WIX_SLIDESHOW_LIMIT = 4;
 const WIX_SLIDE_LIMIT = 6;
+const WIX_SLIDE_SETTLE_MILLISECONDS = 10_000;
+const WIX_SLIDE_POLL_MILLISECONDS = 100;
 
 /**
  * Wix mounts only the active slide. Replace that transient state with the
@@ -122,41 +124,97 @@ function snapshotWixSlide(
 		const media = [ ...slide.querySelectorAll< HTMLImageElement >( 'img' ) ].map(
 			( image ) => image.currentSrc || image.src
 		);
+		const drawings = [ ...slide.querySelectorAll( 'svg' ) ].map( ( node ) => node.innerHTML );
+		const text = slide.textContent?.replace( /\s+/g, ' ' ).trim() ?? '';
 		return {
 			html: slide.outerHTML,
-			key: `${ slide.textContent?.replace( /\s+/g, ' ' ).trim() }\n${ media.join( '\n' ) }`,
+			key: `${ text }\n${ media.join( '\n' ) }\n${ drawings.join( '\n' ) }`,
 		};
 	}, slideshowIndex );
+}
+
+function slideshowExpectedStateCount( page: Page, slideshowIndex: number ): Promise< number | null > {
+	return page.evaluate( ( index ) => {
+		const slideshow = document.querySelectorAll< HTMLElement >( '.wixui-slideshow' )[ index ];
+		const controls = slideshow?.querySelectorAll( 'nav[aria-label] a[href]' ) ?? [];
+		const destinations = new Set(
+			[ ...controls ]
+				.map( ( control ) => control.getAttribute( 'href' ) ?? '' )
+				.filter( Boolean )
+		);
+		return destinations.size || null;
+	}, slideshowIndex );
+}
+
+async function waitForWixSlideChange(
+	page: Page,
+	slideshowIndex: number,
+	previousKey: string
+): Promise< { html: string; key: string } | null > {
+	for ( let elapsed = 0; elapsed < WIX_SLIDE_SETTLE_MILLISECONDS; elapsed += WIX_SLIDE_POLL_MILLISECONDS ) {
+		await page.waitForTimeout( WIX_SLIDE_POLL_MILLISECONDS );
+		const snapshot = await snapshotWixSlide( page, slideshowIndex );
+		if ( snapshot && snapshot.key !== previousKey ) return snapshot;
+	}
+	return null;
 }
 
 export async function collectWixSlideshowSlides( page: Page ): Promise< void > {
 	const count = await page.locator( WIX_SLIDESHOW_SELECTOR ).count();
 	for ( let slideshowIndex = 0; slideshowIndex < Math.min( count, WIX_SLIDESHOW_LIMIT ); slideshowIndex++ ) {
-		try {
-			const next = page
-				.locator( WIX_SLIDESHOW_SELECTOR )
-				.nth( slideshowIndex )
-				.locator( 'button[data-testid="nextButton"]' );
-			if ( await next.count() !== 1 ) continue;
+		const slideshow = page.locator( WIX_SLIDESHOW_SELECTOR ).nth( slideshowIndex );
+		const next = slideshow.locator( 'button[data-testid="nextButton"]' );
+		if ( await next.count() !== 1 ) continue;
+		await slideshow.scrollIntoViewIfNeeded?.();
 
-			const slides: string[] = [];
-			const seen = new Set< string >();
-			for ( let step = 0; step < WIX_SLIDE_LIMIT; step++ ) {
-				const snapshot = await snapshotWixSlide( page, slideshowIndex );
-				if ( ! snapshot || seen.has( snapshot.key ) ) break;
-				seen.add( snapshot.key );
-				slides.push( snapshot.html );
-				await next.click();
-				await page.waitForTimeout( 250 );
-			}
-			if ( slides.length > 1 ) {
-				// Playwright serializes this callback into the source page, where module
-				// bindings are unavailable.
-				await page.evaluate( preserveWixSlideshowSlides, { slideshowIndex, slides } );
-			}
-		} catch {
-			// One uncooperative Wix widget must not prevent capture of the others.
+		const initial = await snapshotWixSlide( page, slideshowIndex );
+		if ( ! initial ) continue;
+		const expected = await slideshowExpectedStateCount( page, slideshowIndex );
+		const slides = [ initial ];
+		const seen = new Set( [ initial.key ] );
+		let failure = '';
+		const controls: Locator[] = [ next ];
+		const previous = slideshow.locator( 'button[data-testid="prevButton"]' );
+		if ( await previous.count() === 1 ) controls.push( previous );
+		const dots = slideshow.locator( 'nav[aria-label] a[href]' );
+		for ( let index = 0; index < Math.min( await dots.count(), WIX_SLIDE_LIMIT - 1 ); index++ ) {
+			controls.push( dots.nth( index ) );
 		}
+		for ( const control of controls ) {
+			try {
+				await control.click();
+			} catch ( error ) {
+				failure ||= `slideshow control could not be activated: ${ error instanceof Error ? error.message : String( error ) }`;
+				continue;
+			}
+			const snapshot = await waitForWixSlideChange( page, slideshowIndex, slides.at( -1 )!.key );
+			if ( ! snapshot ) {
+				continue;
+			}
+			if ( seen.has( snapshot.key ) ) continue;
+			seen.add( snapshot.key );
+			slides.push( snapshot );
+			if ( expected !== null && slides.length >= expected ) break;
+		}
+
+		if ( expected !== null && slides.length !== expected ) {
+			failure ||= `observed ${ slides.length } of ${ expected } states declared by slideshow navigation`;
+		}
+		if ( slides.length > 1 ) {
+			await page.evaluate( preserveWixSlideshowSlides, {
+				slideshowIndex,
+				slides: slides.map( ( slide ) => slide.html ),
+			} );
+			continue;
+		}
+		await page.evaluate( ( { index, message, observed, expectedStates } ) => {
+			const slideshow = document.querySelectorAll< HTMLElement >( '.wixui-slideshow' )[ index ];
+			if ( ! slideshow ) return;
+			slideshow.dataset.dlaCapturedSlideshow = 'false';
+			slideshow.dataset.dlaCapturedSlideCount = String( observed );
+			if ( expectedStates !== null ) slideshow.dataset.dlaExpectedSlideCount = String( expectedStates );
+			slideshow.dataset.dlaCaptureError = message || 'fewer than two distinct slideshow states observed';
+		}, { index: slideshowIndex, message: failure, observed: slides.length, expectedStates: expected } );
 	}
 }
 
@@ -253,16 +311,15 @@ export const capture: LiberationHooks = {
 				} catch {
 					continue;
 				}
-				if (
-					target.origin !== location.origin ||
-					target.pathname !== location.pathname ||
-					! target.hash
-				)
+				if ( target.origin !== location.origin || target.pathname !== location.pathname )
 					continue;
 
+				const declaredIntent = link.getAttribute( 'data-anchor' ) ?? '';
+				const encodedFragment = target.hash ? target.hash.slice( 1 ) : declaredIntent;
+				if ( ! encodedFragment ) continue;
 				let fragment: string;
 				try {
-					fragment = decodeURIComponent( target.hash.slice( 1 ) );
+					fragment = decodeURIComponent( encodedFragment );
 				} catch {
 					continue;
 				}
@@ -302,6 +359,7 @@ export const capture: LiberationHooks = {
 				);
 				if ( authoredTargets.length === 1 ) {
 					authoredTargets[ 0 ]!.dataset.dlaAnchorTarget = fragment;
+					for ( const link of links ) link.href = `${ location.pathname }#${ encodeURIComponent( fragment ) }`;
 					continue;
 				}
 				if ( authoredTargets.length > 1 ) {
@@ -322,7 +380,7 @@ export const capture: LiberationHooks = {
 				const targetTop = scrollY;
 				const candidates = [
 					...document.querySelectorAll< HTMLElement >(
-						'section,article,main,[role="region"],[data-testid="section-container"]'
+						'section,article,main,footer,[role="region"],[role="contentinfo"],[data-testid="section-container"]'
 					),
 				]
 					.filter( ( element ) => element.getClientRects().length > 0 )
@@ -334,7 +392,8 @@ export const capture: LiberationHooks = {
 						( left, right ) => Math.abs( left.top - targetTop ) - Math.abs( right.top - targetTop )
 					);
 				const resolved = candidates[ 0 ];
-				if ( ! resolved || Math.abs( resolved.top - targetTop ) > 4 ) {
+				const headerOffset = document.querySelector< HTMLElement >( 'header' )?.getBoundingClientRect().height ?? 0;
+				if ( ! resolved || Math.abs( resolved.top - targetTop ) > Math.max( 4, Math.ceil( headerOffset ) + 8 ) ) {
 					markUnresolved( links, 'runtime scroll did not resolve to a section boundary' );
 					continue;
 				}
@@ -348,6 +407,7 @@ export const capture: LiberationHooks = {
 					resolved.top
 				) }px;left:0;width:0;height:0;overflow:hidden;pointer-events:none`;
 				document.body.prepend( marker );
+				for ( const link of links ) link.href = `${ location.pathname }#${ encodeURIComponent( fragment ) }`;
 			}
 
 			const root = document.documentElement;

@@ -180,6 +180,8 @@ interface CaptureEntry {
 	evidenceDocuments: Array< { state: 'desktop' | 'mobile'; html: string } >;
 	/** The source served a structurally distinct document under mobile emulation. */
 	hasMobileDocument?: boolean;
+	/** Receipt evidence for how many responsive variants this route ships and why. */
+	responsiveVariants?: ResponsiveVariantEvidence;
 	identityHtmlPath?: string;
 	sections?: string;
 	canonicalUrl?: string;
@@ -323,7 +325,10 @@ function rewriteCapturedRouteLinks(
 	routes: Map< string, string >
 ): string {
 	const $ = cheerio.load( html );
-	$( 'a[href],area[href]' ).each( ( _index, element ) => {
+	// `rel="canonical"` naming a URL this capture actually produced is source
+	// provenance, not an SEO signal the copy should keep declaring — a reader
+	// (or a search engine) following it lands back on the source.
+	$( 'a[href],area[href],link[rel="canonical"][href]' ).each( ( _index, element ) => {
 		const link = $( element );
 		const href = link.attr( 'href' ) ?? '';
 		if ( ! /^(?:https?:)?\/\//i.test( href ) ) return;
@@ -549,15 +554,64 @@ function documentSwitchCss( switchWidth: number ): string {
 const DEFAULT_SWITCH_WIDTH = 768;
 
 /**
+ * Attributes DLA's own capture infrastructure writes to mark that two
+ * elements correspond across viewports: fluid-learning identities
+ * (viewport-prefixed, e.g. `desktop-wrapper-0` vs `mobile-wrapper-0`) and
+ * responsive counterpart slots. They cannot exist on the source site and
+ * encode correspondence, never difference, so structural equivalence must
+ * not read them as one.
+ */
+const CORRESPONDENCE_ATTRIBUTES = [ 'data-dla-geometry-id', 'data-dla-responsive-source' ];
+
+/**
  * Whether the source served a genuinely different document under mobile
- * emulation, rather than the same one. Structural, so runtime ids and text
- * differences do not masquerade as a second design.
+ * emulation, rather than the same one. Structural, so runtime ids, capture
+ * infrastructure attributes, and text differences do not masquerade as a
+ * second design.
  */
 export function documentsDiffer( desktopHtml: string, mobileHtml: string ): boolean {
 	const desktopBody = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 2 ];
 	const mobileBody = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( mobileHtml )?.[ 2 ];
 	if ( desktopBody === undefined || mobileBody === undefined ) return false;
 	return responsiveBodySignature( desktopBody ) !== responsiveBodySignature( mobileBody );
+}
+
+/**
+ * Per-route record of how many responsive documents were exported and why,
+ * so downstream consumers and humans can audit the collapse decision from
+ * the capture receipt alone. Present only when the source was captured under
+ * mobile emulation too — without a second capture there was no decision.
+ */
+export interface ResponsiveVariantEvidence {
+	/** Documents shipped in the exported route file. */
+	variants: 1 | 2;
+	outcome: 'collapsed-equivalent' | 'dual-structural';
+	reason: string;
+	/** How responsive CSS survives a collapse. Present only when collapsed. */
+	css?: 'shared' | 'viewport-scoped';
+}
+
+function responsiveVariantEvidence(
+	desktopHtml: string,
+	mobileHtml: string | undefined
+): ResponsiveVariantEvidence | undefined {
+	if ( mobileHtml === undefined ) return undefined;
+	if ( documentsDiffer( desktopHtml, mobileHtml ) ) {
+		return {
+			variants: 2,
+			outcome: 'dual-structural',
+			reason: 'mobile document differs structurally from desktop; both variants shipped',
+		};
+	}
+	const sharedStyles =
+		styleBlocks( desktopHtml ).join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' );
+	return {
+		variants: 1,
+		outcome: 'collapsed-equivalent',
+		reason:
+			'mobile document is structurally equivalent to desktop once capture-infrastructure attributes are normalized; shipped one document',
+		css: sharedStyles ? 'shared' : 'viewport-scoped',
+	};
 }
 
 /**
@@ -667,15 +721,48 @@ function assembleResponsiveHtml(
 	if ( responsiveBodySignature( desktopBody ) === responsiveBodySignature( mobileBody ) ) {
 		if ( styleBlocks( desktopHtml ).join( '\n' ) === styleBlocks( mobileHtml ).join( '\n' ) )
 			return withMobileViewport( desktopHtml );
+		// A stylesheet present in both captures must apply at every width, so it is
+		// left out of both scoping passes below and kept exactly once, unscoped, from
+		// the desktop copy that already carries it.
+		const shared = sharedStyleContents( desktopHtml, mobileHtml );
 		return withMobileViewport(
-			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` )
-		).replace( /<\/head\s*>/i, `${ responsiveMobileStyles( mobileHtml, undefined, switchWidth ) }</head>` );
+			scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)`, shared )
+		).replace(
+			/<\/head\s*>/i,
+			`${ responsiveMobileStyles( mobileHtml, undefined, switchWidth, shared ) }</head>`
+		);
 	}
 	( { desktopBody, mobileBody } = markResponsiveCounterparts( desktopBody, mobileBody ) );
 
 	// Both documents ship in one file from here on, so their anchor targets would
 	// collide on a shared id. Namespace the mobile copy and repoint its own links.
+	const desktop = cheerio.load( `<body>${ desktopBody }</body>` );
+	const desktopTargets = new Map< string, string >();
+	desktop( '[data-dla-anchor-target][data-dla-anchor-source-id]' ).each( ( _index, element ) => {
+		const target = desktop( element );
+		const fragment = target.attr( 'data-dla-anchor-target' );
+		const sourceId = target.attr( 'data-dla-anchor-source-id' );
+		if ( fragment && sourceId ) desktopTargets.set( fragment, sourceId );
+	} );
 	const mobile = cheerio.load( `<body>${ mobileBody }</body>` );
+	mobile( 'a[data-dla-anchor-fragment]' ).each( ( _index, element ) => {
+		const fragment = mobile( element ).attr( 'data-dla-anchor-fragment' );
+		const sourceId = fragment ? desktopTargets.get( fragment ) : undefined;
+		if ( ! fragment || mobile( `[data-dla-anchor-target="${ fragment }"]` ).length > 0 ) return;
+		if ( sourceId ) {
+			const counterpart = mobile( '[id]' )
+				.filter( ( _i, candidate ) => mobile( candidate ).attr( 'id' ) === sourceId )
+				.first();
+			if ( counterpart.length === 1 ) {
+				counterpart.attr( 'data-dla-anchor-target', fragment );
+				return;
+			}
+		}
+		const localTarget = mobile( '[id]' )
+			.filter( ( _i, candidate ) => mobile( candidate ).attr( 'id' ) === fragment )
+			.first();
+		if ( localTarget.length === 1 ) localTarget.attr( 'data-dla-anchor-target', fragment );
+	} );
 	mobile( '[data-dla-anchor-target]' ).each( ( _index, element ) => {
 		const node = mobile( element );
 		const fragment = node.attr( 'data-dla-anchor-target' );
@@ -736,12 +823,19 @@ function assembleResponsiveHtml(
 				( _match, closingBody: string ) => `${ outerBody }${ responsiveBody }${ closingBody }`
 			);
 	}
+	// A stylesheet present in both captures must apply at every width, so it is
+	// left out of both scoping passes below and kept exactly once, unscoped, from
+	// the desktop copy that already carries it.
+	const shared = sharedStyleContents( desktopHtml, mobileHtml );
 	const mobileStyles = responsiveMobileStyles(
 		mobileHtml,
 		'.data-liberation-mobile-document',
-		switchWidth
+		switchWidth,
+		shared
 	);
-	return withMobileViewport( scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)` ) )
+	return withMobileViewport(
+		scopedStyles( desktopHtml, `(min-width:${ switchWidth + 1 }px)`, shared )
+	)
 		.replace(
 			/<\/head\s*>/i,
 			`${ mobileStyles }<style>${ RESPONSIVE_DOCUMENT_CSS }${ documentSwitchCss( switchWidth ) }</style></head>`
@@ -756,6 +850,16 @@ function styleBlocks( html: string ): string[] {
 	return [ ...html.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) ].map( ( match ) =>
 		match[ 1 ].trim()
 	);
+}
+
+/**
+ * Stylesheet content present in both captures. A stylesheet keyed here must
+ * survive assembly unscoped rather than being narrowed to whichever viewport's
+ * copy happens to be kept, because the source served it to both.
+ */
+function sharedStyleContents( desktopHtml: string, mobileHtml: string ): Set< string > {
+	const desktopBlocks = new Set( styleBlocks( desktopHtml ) );
+	return new Set( styleBlocks( mobileHtml ).filter( ( block ) => desktopBlocks.has( block ) ) );
 }
 
 export function portableInlineStyle(
@@ -900,10 +1004,11 @@ function recordStyleHoistDiagnostic(
 function responsiveMobileStyles(
 	mobileHtml: string,
 	scope?: string,
-	switchWidth: number = DEFAULT_SWITCH_WIDTH
+	switchWidth: number = DEFAULT_SWITCH_WIDTH,
+	skip: ReadonlySet< string > = new Set()
 ): string {
 	return styleBlocks( mobileHtml )
-		.filter( Boolean )
+		.filter( ( style ) => style !== '' && ! skip.has( style ) )
 		.map(
 			( style ) =>
 				`<style media="(max-width:${ switchWidth }px)">${ scope ? scopeCss( style, { scope } ) : style }</style>`
@@ -911,16 +1016,25 @@ function responsiveMobileStyles(
 		.join( '' );
 }
 
-function scopedStyles( html: string, media: string ): string {
-	return html.replace( /<style\b([^>]*)>/gi, ( tag, attributes: string ) => {
-		const existingMedia = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
-		if ( ! existingMedia ) return `<style${ attributes } media="${ media }">`;
-		const combined = `${ media } and (${ existingMedia[ 2 ] })`;
-		return tag.replace(
-			existingMedia[ 0 ],
-			`media=${ existingMedia[ 1 ] }${ combined }${ existingMedia[ 1 ] }`
-		);
-	} );
+function scopedStyles(
+	html: string,
+	media: string,
+	skip: ReadonlySet< string > = new Set()
+): string {
+	return html.replace(
+		/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
+		( _match, attributes: string, css: string ) => {
+			if ( skip.has( css.trim() ) ) return `<style${ attributes }>${ css }</style>`;
+			const existingMedia = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
+			if ( ! existingMedia ) return `<style${ attributes } media="${ media }">${ css }</style>`;
+			const combined = `${ media } and (${ existingMedia[ 2 ] })`;
+			const scopedAttributes = attributes.replace(
+				existingMedia[ 0 ],
+				`media=${ existingMedia[ 1 ] }${ combined }${ existingMedia[ 1 ] }`
+			);
+			return `<style${ scopedAttributes }>${ css }</style>`;
+		}
+	);
 }
 
 function responsiveBodySignature( body: string ): string {
@@ -946,6 +1060,7 @@ function responsiveBodySignature( body: string ): string {
 				node.removeAttr( attribute );
 			}
 		}
+		for ( const attribute of CORRESPONDENCE_ATTRIBUTES ) node.removeAttr( attribute );
 		if ( node.is( 'img,source,video,audio' ) ) {
 			node.removeAttr( 'src' ).removeAttr( 'srcset' ).removeAttr( 'sizes' );
 		}
@@ -1705,6 +1820,33 @@ function unresolvedCapturedAnchors(
 	} ) );
 }
 
+/**
+ * Group screenshot-stage failures (goto timeouts, nested-document rejections,
+ * etc.) by URL so a route that never produced HTML can report every viewport
+ * failure that led there, instead of the receipt just losing the route.
+ */
+function groupFailureReasonsByUrl(
+	failures: Array< { url: unknown; error: unknown } >
+): Map< string, string[] > {
+	const byUrl = new Map< string, string[] >();
+	for ( const failure of failures ) {
+		if ( typeof failure.url !== 'string' ) continue;
+		const record = failure as Record< string, unknown >;
+		const viewport = typeof record.viewport === 'string' ? record.viewport : 'unknown';
+		const stage = typeof record.stage === 'string' ? record.stage : 'unknown';
+		const error =
+			typeof failure.error === 'string'
+				? failure.error
+				: failure.error === undefined
+					? 'unknown error'
+					: JSON.stringify( failure.error );
+		const list = byUrl.get( failure.url ) ?? [];
+		list.push( `${ viewport }/${ stage }: ${ error.split( '\n' )[ 0 ] }` );
+		byUrl.set( failure.url, list );
+	}
+	return byUrl;
+}
+
 export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const outputDir = resolve( options.outputDir );
 	const portableMediaTotalBytesLimit = Math.max(
@@ -1737,14 +1879,37 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const capturedEntries: CaptureEntry[] = [];
 	const interactionPages: InteractionStatesReport[] = [];
 	const excludedRoutes: string[] = [];
+	// A route that was discovered and attempted must never disappear from the
+	// receipt without a reason. Every screenshot-stage failure (goto timeouts,
+	// nested-document rejections, etc.) is grouped by URL here so that a route
+	// which never produced HTML gets its own named diagnostic below, extending
+	// the same {code,url,reason} shape sitemap discovery already reports
+	// rejected leaves through, rather than a parallel reporting mechanism.
+	const routeFailureReasons = groupFailureReasonsByUrl( options.failures );
+	const routeCaptureDiagnostics: Array< { code: string; url: string; reason: string } > = [];
 	for ( const [ url, entry ] of Object.entries( capture.entries ) ) {
 		if ( ! routeMatchesSourceOrigin( url, options.sourceUrl ) ) {
 			excludedRoutes.push( url );
 			continue;
 		}
-		if ( ! entry.html ) continue;
+		if ( ! entry.html ) {
+			routeCaptureDiagnostics.push( {
+				code: 'route_capture_failed',
+				url,
+				reason: routeFailureReasons.get( url )?.join( '; ' )
+					?? 'capture completed without producing page HTML',
+			} );
+			continue;
+		}
 		const capturedHtmlPath = resolve( outputDir, entry.html );
-		if ( ! pathWithin( outputDir, capturedHtmlPath ) || ! existsSync( capturedHtmlPath ) ) continue;
+		if ( ! pathWithin( outputDir, capturedHtmlPath ) || ! existsSync( capturedHtmlPath ) ) {
+			routeCaptureDiagnostics.push( {
+				code: 'route_capture_failed',
+				url,
+				reason: `captured HTML file is missing or outside the output directory: ${ entry.html }`,
+			} );
+			continue;
+		}
 		const desktopHtml = normalizedDeclarativeFormEmbeds(
 			renderedHtml( readFileSync( capturedHtmlPath, 'utf8' ) )
 		);
@@ -1763,6 +1928,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				: undefined;
 		if ( detectedFloor ) switchWidths.push( detectedFloor );
 		if ( entry.fluid ) fluidReports.push( entry.fluid );
+		const responsiveVariants = responsiveVariantEvidence( desktopHtml, mobileHtml );
 		const capturedHtml =
 			mobileHtml === undefined
 				? desktopHtml
@@ -1781,7 +1947,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				{ state: 'desktop', html: desktopHtml },
 				...( mobileHtml === undefined ? [] : [ { state: 'mobile' as const, html: mobileHtml } ] ),
 			],
-			hasMobileDocument: mobileHtml !== undefined && documentsDiffer( desktopHtml, mobileHtml ),
+			hasMobileDocument: responsiveVariants?.outcome === 'dual-structural',
+			responsiveVariants,
 			sections: entry.sections,
 			canonicalUrl: canonicalMetadataUrl(
 				entry.metadata?.openGraph?.[ 'og:url' ] ?? openGraphUrl( html ),
@@ -2256,14 +2423,19 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 
 	const routes: Array< { url: string; path: string } > = [];
 	const portableRouteLinks = new Map< string, string >();
-	for ( const { url } of retainedEntries ) {
+	for ( const entry of retainedEntries ) {
+		const { url } = entry;
 		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
 			/\\/g,
 			'/'
 		);
 		const portablePath = `/${ routePath }`;
 		portableRouteLinks.set( normalizedUrl( url ), portablePath );
-		routes.push( { url, path: `website/${ routePath }` } );
+		routes.push( {
+			url,
+			path: `website/${ routePath }`,
+			...( entry.responsiveVariants ? { responsiveVariants: entry.responsiveVariants } : {} ),
+		} );
 	}
 	for ( const [ aliasKey, routePath ] of canonicalRouteAliases ) {
 		if ( portableRouteLinks.has( aliasKey ) ) continue;
@@ -2481,6 +2653,16 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		) }\n`
 	);
 
+	// Merge capture-time route diagnostics (this route never produced HTML) with
+	// discovery-time diagnostics (this route was rejected before capture even
+	// started, e.g. a same-origin sitemap leaf) into one reported list — every
+	// route the source advertised is now either in `routes` or named here with
+	// a reason, never just missing.
+	const discoveryDiagnostics = [
+		...( options.discoveryDiagnostics ?? [] ),
+		...routeCaptureDiagnostics,
+	];
+
 	const receiptPath = join( outputDir, 'capture-receipt.json' );
 	const cleanupManifest = JSON.parse(readFileSync(join(outputDir, 'screenshots', 'manifest.json'), 'utf8')) as ScreenshotManifest;
 	const cleanupPages = Object.entries(cleanupManifest.entries).map(([url, entry]) => ({ url, ...entry.cleanup }));
@@ -2511,6 +2693,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				sourceProfile,
 				excludedRoutes,
 				duplicateRoutes,
+				discoveryDiagnostics,
 				summary: options.summary,
 			},
 			null,
@@ -2523,7 +2706,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			{
 				schema: 'data-liberation/capture-diagnostics/v1',
 				failures: options.failures,
-				discoveryDiagnostics: options.discoveryDiagnostics ?? [],
+				discoveryDiagnostics,
 				resourceFailures: resourceManifest.failures,
 				unresolvedDependencies,
 				unresolvedMedia: [

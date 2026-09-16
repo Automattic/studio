@@ -18,9 +18,20 @@ export interface PublishResult {
 	liveUrl: string;
 	/** URL for this exact version, when the target versions publishes. */
 	versionUrl?: string | undefined;
-	/** File count and total bytes actually sent. */
+	/** File count and total bytes archived and sent in the request. A target
+	 * that reports storage outcomes separately may store fewer — see `accepted`. */
 	files: number;
 	bytes: number;
+	/**
+	 * Files the destination actually stored, when it reports that separately
+	 * from what was sent. Undefined when the target gives no such breakdown,
+	 * in which case `files` is the only figure available.
+	 */
+	accepted?: number | undefined;
+	/** Archive paths the destination reports it declined to store, when it
+	 * names them. A non-empty list means the live site is missing content
+	 * that the archive carried. */
+	ignored?: string[] | undefined;
 	/**
 	 * One-time link that transfers ownership of an anonymous publish, with its
 	 * deadline. Present only when the target created an unclaimed space.

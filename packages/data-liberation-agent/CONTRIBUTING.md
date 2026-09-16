@@ -131,6 +131,8 @@ skills/liberate/  The one skill, which drives the CLI
 scripts/          Build and packaging
 ```
 
+`dist/mcp-server.bundle.mjs` and `dist/capture-engine.bundle.mjs` are committed, generated bundles — the plugin installer copies this package verbatim with no build step, so they have to be in git. If your branch conflicts on them, don't hand-merge the hunks: take either side, run `npm run build:mcp-bundle`, and commit the regenerated output. `.gitattributes` declares `merge=ours` for both files, but GitHub's own conflict check never runs git merge drivers, so its PR banner can still show them as conflicting — resolve by merging or rebasing locally instead, where the declaration takes effect, then push. CI's "Verify committed plugin bundles" step is what actually checks correctness; see AGENTS.md for detail.
+
 ## Questions
 
 Open an issue or start a Discussion. AI agents: if you're unsure whether something belongs in this repo, open a Discussion describing what you found and ask.

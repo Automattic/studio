@@ -18,6 +18,17 @@ function getArg(name: string): string | null {
   return val;
 }
 
+const SUBCOMMANDS = ['inspect', 'compare', 'publish', 'mcp'];
+
+function isParseableUrl(candidate: string): boolean {
+  try {
+    new URL(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const HELP = `
   data-liberation — Liberate any website into a complete, portable HTML site
 
@@ -61,12 +72,16 @@ const HELP = `
     SPACEFAST_TOKEN      Publish token for the spacefast target
 `;
 
-if (args[0] === 'mcp') {
+if (args.includes('--help')) {
+  // --help always prints usage, whatever precedes it — a subcommand typo
+  // like `capture --help` should never reach argument parsing below.
+  console.log(HELP);
+} else if (args.length === 0) {
+  console.log(HELP);
+} else if (args[0] === 'mcp') {
   await import('./mcp-server.js');
 } else if (args[0] === '--version') {
   console.log(version);
-} else if (args[0] === '--help' || args.length === 0) {
-  console.log(HELP);
 } else if (args[0] === 'compare') {
   const directory = args[1];
   if (!directory || directory.startsWith('-')) {
@@ -121,6 +136,12 @@ if (args[0] === 'mcp') {
     });
 
     console.log(`Published ${result.files} files to ${result.target}.`);
+    if (result.accepted !== undefined && result.accepted < result.files) {
+      console.log(`Only ${result.accepted} of ${result.files} were accepted by the destination.`);
+    }
+    if (result.ignored && result.ignored.length > 0) {
+      console.log(`Ignored: ${result.ignored.join(', ')}`);
+    }
     console.log(`Live: ${result.liveUrl}`);
     if (result.versionUrl) console.log(`Version: ${result.versionUrl}`);
     if (result.private) {
@@ -145,6 +166,12 @@ if (args[0] === 'mcp') {
   const url = args.find((a: string) => !a.startsWith('-'));
   if (!url) {
     console.error('Error: URL required. Run with --help for usage.');
+    process.exit(1);
+  }
+  if (!isParseableUrl(url)) {
+    console.error(
+      `Error: "${url}" is not a valid URL or a known subcommand (${SUBCOMMANDS.join(', ')}). Run with --help for usage.`,
+    );
     process.exit(1);
   }
 

@@ -1,4 +1,4 @@
-// Bundle the MCP server (dist/mcp-server.bundle.mjs) and the skill-invoked
+// Bundle the MCP server, generic runtime (capture-engine.bundle.mjs), and skill-invoked
 // driver scripts (dist/scripts/<name>.mjs) into self-contained artifacts.
 //
 // Why: the Claude/Codex plugin installer copies this package's files into

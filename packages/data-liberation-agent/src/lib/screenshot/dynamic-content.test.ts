@@ -185,7 +185,9 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
       </script>
     `);
 
-    expect(await hydrateDisclosureContent(page)).toBe(2);
+    const hydrated = await hydrateDisclosureContent(page);
+    expect(hydrated).toHaveLength(2);
+    expect(hydrated.every((record) => record.status === 'captured' && record.kind === 'disclosure')).toBe(true);
     const state = await page.evaluate(() => ({
       expanded: Array.from(document.querySelectorAll('button')).map((button) => button.getAttribute('aria-expanded')),
       answers: Array.from(document.querySelectorAll<HTMLElement>('[role="region"]')).map((panel) => ({
@@ -215,8 +217,166 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
       <button aria-expanded="false" aria-controls="answer">Question?</button>
       <div id="answer" role="region">Existing answer.</div>
     `);
-    expect(await hydrateDisclosureContent(page)).toBe(0);
+    expect(await hydrateDisclosureContent(page)).toHaveLength(0);
     expect(await page.locator('[data-dla-hydrated-disclosure]').count()).toBe(0);
+    await page.close();
+  });
+
+  it('hydrates a Radix-style accordion with no aria-controls, via the reverse aria-labelledby relationship, resilient to single-open auto-collapse', async () => {
+    const page = await browser.newPage();
+    // Mirrors the real shadcn/ui Radix accordion markup: the trigger carries
+    // aria-expanded but NO aria-controls; only the panel names its trigger,
+    // via aria-labelledby. A collapsed panel is truly empty (unmounted), not
+    // merely hidden — content only exists in the runtime until opened.
+    await page.setContent(`
+      <div class="w-full">
+        <div><h3><button type="button" aria-expanded="false" id="radix-t1" data-radix-collection-item="">Question one?</button></h3>
+        <div id="radix-p1" hidden role="region" aria-labelledby="radix-t1"></div></div>
+        <div><h3><button type="button" aria-expanded="false" id="radix-t2" data-radix-collection-item="">Question two?</button></h3>
+        <div id="radix-p2" hidden role="region" aria-labelledby="radix-t2"></div></div>
+        <div><h3><button type="button" aria-expanded="false" id="radix-t3" data-radix-collection-item="">Question three?</button></h3>
+        <div id="radix-p3" hidden role="region" aria-labelledby="radix-t3"></div></div>
+      </div>
+      <script>
+        const answers = { 'radix-p1': '<p>First answer.</p>', 'radix-p2': '<p>Second answer.</p>', 'radix-p3': '<p>Third answer.</p>' };
+        document.querySelectorAll('button[id^="radix-t"]').forEach((trigger) => {
+          trigger.addEventListener('click', () => {
+            const opening = trigger.getAttribute('aria-expanded') === 'false';
+            // Radix's type="single" behavior: opening one auto-collapses every other item.
+            document.querySelectorAll('button[id^="radix-t"]').forEach((other) => {
+              if (other === trigger) return;
+              other.setAttribute('aria-expanded', 'false');
+              document.getElementById('radix-p' + other.id.slice(-1)).setAttribute('hidden', '');
+            });
+            trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+            const panel = document.getElementById('radix-p' + trigger.id.slice(-1));
+            if (opening) {
+              panel.removeAttribute('hidden');
+              panel.innerHTML = answers[panel.id];
+            } else {
+              panel.setAttribute('hidden', '');
+              panel.innerHTML = '';
+            }
+          });
+        });
+      </script>
+    `);
+
+    const hydrated = await hydrateDisclosureContent(page);
+    expect(hydrated).toHaveLength(3);
+    expect(hydrated.every((record) => record.status === 'captured' && record.kind === 'disclosure')).toBe(true);
+    expect(hydrated.map((record) => record.trigger.id)).toEqual(['radix-t1', 'radix-t2', 'radix-t3']);
+    expect(hydrated.map((record) => record.dialog?.html)).toEqual([
+      expect.stringContaining('First answer.'),
+      expect.stringContaining('Second answer.'),
+      expect.stringContaining('Third answer.'),
+    ]);
+    // Every panel stays collapsed (single-open auto-collapse is harmless because
+    // each candidate is captured then reclosed before the next one runs).
+    const state = await page.evaluate(() => ({
+      expanded: ['radix-t1', 'radix-t2', 'radix-t3'].map(
+        (id) => document.getElementById(id)?.getAttribute('aria-expanded'),
+      ),
+      panels: ['radix-p1', 'radix-p2', 'radix-p3'].map((id) => {
+        const panel = document.getElementById(id)!;
+        return { hidden: panel.hasAttribute('hidden'), text: panel.textContent?.trim() };
+      }),
+    }));
+    expect(state.expanded).toEqual(['false', 'false', 'false']);
+    expect(state.panels).toEqual([
+      { hidden: true, text: 'First answer.' },
+      { hidden: true, text: 'Second answer.' },
+      { hidden: true, text: 'Third answer.' },
+    ]);
+    // The serialized page — what actually gets written to html/<slug>.html —
+    // carries the answers even though every panel is collapsed.
+    const html = await page.content();
+    expect(html).toContain('First answer.');
+    expect(html).toContain('Second answer.');
+    expect(html).toContain('Third answer.');
+    await page.close();
+  });
+
+  it('keeps the LAST panel\'s content when the runtime unmounts closed panels after an exit animation', async () => {
+    const page = await browser.newPage();
+    // Regression for the single-open accordion whose LAST item shipped empty.
+    // Real Radix runtimes do not unmount a closed panel's children immediately:
+    // Presence keeps them mounted through the ~200ms close animation, and only
+    // THEN removes them (and re-applies hidden). Restoring captured content
+    // without waiting for that deferred unmount misreads the still-mounted
+    // panel as "already has content", skips the write-back, and the pending
+    // unmount deletes the panel's only copy of its answer — which is exactly
+    // what always happened to the most recently closed (i.e. LAST) item.
+    await page.setContent(`
+      <button type="button" aria-expanded="false" id="exit-t1">Question one?</button>
+      <div id="exit-p1" role="region" aria-labelledby="exit-t1" hidden></div>
+      <button type="button" aria-expanded="false" id="exit-t2">Question two?</button>
+      <div id="exit-p2" role="region" aria-labelledby="exit-t2" hidden></div>
+      <button type="button" aria-expanded="false" id="exit-t3">Question three?</button>
+      <div id="exit-p3" role="region" aria-labelledby="exit-t3" hidden></div>
+      <script>
+        const answers = { 'exit-p1': '<p>First exit answer.</p>', 'exit-p2': '<p>Second exit answer.</p>', 'exit-p3': '<p>Third exit answer.</p>' };
+        const exitTimers = {};
+        function closeWithExitAnimation(triggerId) {
+          const trigger = document.getElementById(triggerId);
+          const panel = document.getElementById('exit-p' + triggerId.slice(-1));
+          trigger.setAttribute('aria-expanded', 'false');
+          // aria-expanded flips immediately, but the unmount lands ~250ms later.
+          exitTimers[panel.id] = setTimeout(() => {
+            panel.innerHTML = '';
+            panel.setAttribute('hidden', '');
+          }, 250);
+        }
+        function openPanel(triggerId) {
+          const trigger = document.getElementById(triggerId);
+          const panel = document.getElementById('exit-p' + triggerId.slice(-1));
+          if (exitTimers[panel.id]) { clearTimeout(exitTimers[panel.id]); exitTimers[panel.id] = null; }
+          trigger.setAttribute('aria-expanded', 'true');
+          panel.removeAttribute('hidden');
+          panel.innerHTML = answers[panel.id];
+        }
+        document.querySelectorAll('button[id^="exit-t"]').forEach((trigger) => {
+          trigger.addEventListener('click', () => {
+            const opening = trigger.getAttribute('aria-expanded') === 'false';
+            if (!opening) { closeWithExitAnimation(trigger.id); return; }
+            document.querySelectorAll('button[id^="exit-t"]').forEach((other) => {
+              if (other !== trigger && other.getAttribute('aria-expanded') === 'true') closeWithExitAnimation(other.id);
+            });
+            openPanel(trigger.id);
+          });
+        });
+      </script>
+    `);
+
+    const hydrated = await hydrateDisclosureContent(page);
+    expect(hydrated).toHaveLength(3);
+    expect(hydrated.every((record) => record.status === 'captured' && record.kind === 'disclosure')).toBe(true);
+    // Give any un-fixed pending exit unmount time to land: with the fix there is
+    // nothing pending (the restore waited for it), so this is a no-op there.
+    await page.waitForTimeout(600);
+    // The diagnostics carry every panel's captured content...
+    expect(hydrated.map((record) => record.dialog?.html)).toEqual([
+      expect.stringContaining('First exit answer.'),
+      expect.stringContaining('Second exit answer.'),
+      expect.stringContaining('Third exit answer.'),
+    ]);
+    // ...and the DOM must too: every panel collapsed, every panel populated —
+    // the LAST one specifically, which is the item this bug always destroyed.
+    const state = await page.evaluate(() =>
+      ['exit-p1', 'exit-p2', 'exit-p3'].map((id) => {
+        const panel = document.getElementById(id)!;
+        return { hidden: panel.hasAttribute('hidden'), text: panel.textContent?.trim() };
+      }),
+    );
+    expect(state).toEqual([
+      { hidden: true, text: 'First exit answer.' },
+      { hidden: true, text: 'Second exit answer.' },
+      { hidden: true, text: 'Third exit answer.' },
+    ]);
+    const html = await page.content();
+    expect(html).toContain('First exit answer.');
+    expect(html).toContain('Second exit answer.');
+    expect(html).toContain('Third exit answer.');
     await page.close();
   });
 
@@ -244,7 +404,7 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
       </script>
     `);
 
-    expect(await hydrateDisclosureContent(page)).toBe(2);
+    expect(await hydrateDisclosureContent(page)).toHaveLength(2);
     expect(await page.locator('[data-dla-hydrated-disclosure]').allTextContents()).toEqual([
       'First answer.',
       'Late answer.',

@@ -54,7 +54,16 @@ export function wireCapturedDialogs(
 	states: CapturedDialogInteraction[],
 	initialDialogs: CapturedInitialDialog[] = []
 ): string {
-	const captured = states.filter( ( state ) => state.status === 'captured' && state.dialog?.html );
+	// Disclosure/accordion panels (`kind === 'disclosure'`) are restored in
+	// place, in the live DOM, before the page's HTML is ever serialized (see
+	// `hydrateDisclosureContent`) — their content is already inline in `html`
+	// here. They carry `states` entries purely as observable diagnostics
+	// (candidate/captured counts); wiring them again as a popup-style
+	// `<details>` overlay would duplicate and misrepresent an inline accordion
+	// as a full-screen dialog, so only dialog/menu-kind states are wired here.
+	const captured = states.filter(
+		( state ) => state.status === 'captured' && state.dialog?.html && state.kind !== 'disclosure'
+	);
 	if ( captured.length === 0 && initialDialogs.length === 0 ) return html;
 	const $ = cheerio.load( html );
 	let wired = 0;

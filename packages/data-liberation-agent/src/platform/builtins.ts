@@ -11,6 +11,8 @@
 // switch, no separate detection table.
 import type { Platform } from './types.js';
 import { registerPlatform } from './registry.js';
+import { registerHost } from './host.js';
+import { netlifyHost } from '../hosts/netlify.js';
 import { defaultAdapter } from '../adapters/default/index.js';
 import { godaddyWmAdapter } from '../adapters/godaddy-wm/index.js';
 import { hostingerAdapter } from '../adapters/hostinger/index.js';
@@ -44,4 +46,11 @@ const builtins: Platform[] = [
 
 for ( const platform of builtins ) {
 	registerPlatform( platform );
+}
+
+// Deployment hosts register through the same public API, and are deliberately
+// a separate list: a host is not a platform, and detecting one says nothing
+// about what built the site.
+for ( const host of [ netlifyHost ] ) {
+	registerHost( host );
 }

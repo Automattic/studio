@@ -30,7 +30,6 @@ export function parseSitemapDocument(xml: string): SitemapDocument {
   return { kind, locs: urls };
 }
 
-import { chromium } from 'playwright';
 import { canonicalizeOrigin } from '../screenshot/same-origin.js';
 
 export function parseSitemapXml(xml: string): string[] {
@@ -237,6 +236,7 @@ async function crawlNavLinks(baseUrl: string, baseOrigin: string): Promise<strin
 async function crawlRenderedNavLinks(baseUrl: string, baseOrigin: string): Promise<string[]> {
   let browser;
   try {
+    const { chromium } = await import('playwright');
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });

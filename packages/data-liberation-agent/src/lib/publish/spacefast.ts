@@ -1,9 +1,12 @@
 // src/lib/publish/spacefast.ts
 //
 // Publish a liberated site to Spacefast (https://spacefast.com) through its
-// public HTTP API. The archive lane is one request: POST the site as a zip and
-// the receipt comes back complete, so there is no upload/finalize/poll state
-// machine to carry here.
+// public HTTP API. The archive lane is one request: POST the site as a zip
+// and read back what the receipt says happened to it. That receipt can carry
+// a `next.action` asking for more (an upload/finalize/poll lane this module
+// does not carry) and, independently of `next`, a per-file `upload.summary`
+// that the destination uses to silently decline content it sniffs and does
+// not want — both are surfaced rather than assumed away.
 //
 // Deliberately no SDK or CLI dependency. Spacefast's own publish skill says the
 // direct API path is complete, and the CLI is a 36 MB install that a single
@@ -32,6 +35,16 @@ interface SpacefastReceipt {
 		activation?: { outcome?: string };
 		next?: { action?: string; hint?: string };
 		claim?: { claimUrl?: string; expiresAt?: string };
+		/**
+		 * Per-file storage outcome for the archived files. The destination
+		 * sniffs content and declines some of it regardless of extension or
+		 * size, so `summary.ignored` is the only signal that stored files
+		 * fall short of sent files, and `targets` is the only way to know which.
+		 */
+		upload?: {
+			summary?: { upload?: number; reused?: number; ignored?: number };
+			targets?: Array< { path?: string; bytes?: number; verdict?: string } >;
+		};
 		diagnostics?: unknown;
 	};
 }
@@ -152,8 +165,29 @@ export const spacefastTarget: PublishTarget = {
 			notes.push( `activation ${ data.activation.outcome }` );
 		}
 		if ( data?.next?.action && data.next.action !== 'done' ) {
-			notes.push( `next step ${ data.next.action }: ${ data.next.hint ?? 'see Spacefast receipt' }` );
+			// The hint describes an upload/finalize/poll lane this module does not
+			// carry out, so it is reported as outstanding rather than relayed as an
+			// instruction the operator could act on themselves.
+			notes.push(
+				`Spacefast reports further work outstanding (${ data.next.action }) that this tool ` +
+					`does not perform: ${ data.next.hint ?? 'see Spacefast receipt' }`
+			);
 		}
+
+		const summary = data?.upload?.summary;
+		const ignoredPaths = ( data?.upload?.targets ?? [] )
+			.filter( ( target ) => target.verdict?.toLowerCase() === 'ignored' && target.path )
+			.map( ( target ) => target.path as string );
+		const ignoredCount = summary?.ignored ?? ignoredPaths.length;
+		if ( ignoredCount > 0 ) {
+			const named = ignoredPaths.length > 0 ? `: ${ ignoredPaths.join( ', ' ) }` : '';
+			notes.push(
+				`Spacefast ignored ${ ignoredCount } file${ ignoredCount === 1 ? '' : 's' } from this ` +
+					`publish${ named }. They archived successfully but the destination declined to store ` +
+					'them, so they are missing from the live site.'
+			);
+		}
+		const accepted = summary ? ( summary.upload ?? 0 ) + ( summary.reused ?? 0 ) : undefined;
 
 		const claimUrl = data?.claim?.claimUrl;
 		return {
@@ -162,6 +196,8 @@ export const spacefastTarget: PublishTarget = {
 			versionUrl: data?.version?.immutableUrl,
 			files: entries.length,
 			bytes,
+			...( accepted !== undefined ? { accepted } : {} ),
+			...( ignoredPaths.length > 0 ? { ignored: ignoredPaths } : {} ),
 			// New spaces are private by default, so a bare live URL 403s until access
 			// is granted. Say so rather than let it look like a broken publish.
 			private: true,

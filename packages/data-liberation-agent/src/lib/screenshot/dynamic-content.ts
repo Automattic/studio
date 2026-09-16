@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import * as cheerio from 'cheerio';
 import type { Page } from 'playwright';
+import type { CapturedDialogInteraction } from './interaction-capture.js';
 
 // ---------------------------------------------------------------------------
 // Dynamic / JS-app content handling for the capture phase.
@@ -65,43 +66,169 @@ export async function expandCollapsedContent(page: Page): Promise<void> {
   } catch { /* page blocked our script — don't fail the capture */ }
 }
 
+const MAX_DISCLOSURE_CANDIDATES = 32;
+const MAX_DISCLOSURE_HTML_BYTES = 512 * 1024;
+/** How long the restore step will wait for a runtime's own close-unmount to land
+ *  before giving up (see `hydrateDisclosureContent` — the Radix Presence exit case). */
+const MAX_DISCLOSURE_SETTLE_MS = 1000;
+
+/** Raw, plain-object shape returned across the `page.evaluate` boundary — see
+ *  `hydrateDisclosureContent` for how this is folded into a `CapturedDialogInteraction`. */
+interface RawDisclosureRecord {
+  status: 'captured' | 'no-dialog' | 'click-failed';
+  trigger: { selector: string; tag: string; id?: string; label?: string };
+  target: { selector: string; tag: string; id?: string };
+  html?: string;
+  error?: string;
+}
+
+function boundDisclosureHtml(html: string): { html: string; bytes: number; truncated: boolean } {
+  const bytes = Buffer.byteLength(html);
+  if (bytes <= MAX_DISCLOSURE_HTML_BYTES) return { html, bytes, truncated: false };
+  return { html: Buffer.from(html).subarray(0, MAX_DISCLOSURE_HTML_BYTES).toString(), bytes, truncated: true };
+}
+
 /**
- * Preserve content that a disclosure runtime only mounts while one item is open.
- * Each empty controlled region is expanded independently, reclosed, then filled
- * with the observed source markup while it remains hidden. This runs after the
- * visual reference so hydration cannot change screenshot geometry.
+ * Preserve content that a disclosure runtime only mounts while one item is open —
+ * FAQ/accordion panels being the common case. A runtime like Radix (shadcn/ui)
+ * UNMOUNTS a collapsed panel's children entirely, so the served static markup is
+ * an empty `<div role="region" hidden>`: the answer text exists only inside the
+ * JS bundle and is otherwise silently lost from the captured page.
+ *
+ * Detection is purely ARIA-based — `aria-expanded` on the trigger plus either
+ * `aria-controls` (the forward relationship) or, when a runtime never writes
+ * `aria-controls` at all, the reverse relationship of a `role="region"` panel's
+ * `aria-labelledby` pointing back at the trigger's id. No vendor/framework
+ * attribute (e.g. `data-radix-*`) is used, so this generalizes to any ARIA
+ * disclosure widget built the same way.
+ *
+ * Each candidate is expanded independently, its revealed content captured,
+ * then RECLOSED before the next candidate runs — required for single-open
+ * ("accordion") widgets, where opening item N can auto-collapse item N-1: by
+ * capturing-then-restoring one at a time, an already-captured sibling being
+ * auto-collapsed is harmless. Restoring a still-empty region back to its
+ * observed content means the panel keeps its original `hidden`/`aria-expanded`
+ * state (collapsed items stay visually collapsed) while its content is now
+ * physically present in the DOM rather than lost to the `hidden` attribute.
+ *
+ * The restore deliberately WAITS (bounded — see `MAX_DISCLOSURE_SETTLE_MS`) for
+ * a runtime that unmounts closed panels to finish its exit animation first:
+ * such a runtime (Radix Presence) keeps the panel's children mounted ~200ms
+ * after the close, so restoring immediately would misread the transient mount
+ * as "content survived" and skip the write-back, letting the pending unmount
+ * delete the panel's only copy of its content.
+ *
+ * Runs after the visual reference so hydration cannot change screenshot
+ * geometry, and BEFORE `page.content()` is serialized, so the captured static
+ * HTML contains the restored panels directly (no post-hoc wiring needed).
+ *
+ * Returns per-candidate diagnostics folded into `interaction-states.json`
+ * alongside dialog/menu captures (`kind: 'disclosure'`) so this work is
+ * observable with the same `candidate_count`/`captured_count` conventions.
  */
-export async function hydrateDisclosureContent(page: Page): Promise<number> {
+export async function hydrateDisclosureContent(page: Page): Promise<CapturedDialogInteraction[]> {
+  let raw: RawDisclosureRecord[];
   try {
-    return await page.evaluate(async () => {
+    const result = await page.evaluate(async ({ limit, settleMs }: { limit: number; settleMs: number }) => {
       const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
       const hasContent = (element: Element) =>
         Boolean((element.textContent || '').trim()) ||
         Boolean(element.querySelector('img,video,audio,picture,svg,canvas'));
-      let hydrated = 0;
-      for (let pass = 0; pass < 3 && hydrated < 32; pass++) {
-        const candidates = Array.from(
-          document.querySelectorAll<HTMLElement>('[aria-expanded="false"][aria-controls]:not([aria-haspopup])'),
-        )
-          .map((trigger) => {
+      const cssEscape = (value: string) =>
+        globalThis.CSS?.escape ? globalThis.CSS.escape(value) : value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      const elementPath = (element: Element): string => {
+        const parts: string[] = [];
+        for (let node: Element | null = element; node && node !== document.body; node = node.parentElement) {
+          const tag = node.tagName.toLowerCase();
+          const siblings = node.parentElement
+            ? Array.from(node.parentElement.children).filter((sibling) => sibling.tagName === node!.tagName)
+            : [];
+          parts.unshift(siblings.length > 1 ? `${tag}:nth-of-type(${siblings.indexOf(node) + 1})` : tag);
+        }
+        return `body > ${parts.join(' > ')}`;
+      };
+      const describe = (element: Element) => ({
+        selector: element.id ? `#${cssEscape(element.id)}` : elementPath(element),
+        tag: element.tagName.toLowerCase(),
+        ...(element.id ? { id: element.id } : {}),
+      });
+      const describeTrigger = (element: HTMLElement) => ({
+        ...describe(element),
+        ...((element.getAttribute('aria-label') || element.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 40)
+          ? {
+              label: (element.getAttribute('aria-label') || element.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 40),
+            }
+          : {}),
+      });
+
+      /** Generic ARIA disclosure candidates: aria-expanded + either aria-controls
+       *  (forward) or a role="region" panel's aria-labelledby back to the trigger
+       *  (reverse — the pattern a runtime that unmounts closed panels leaves behind,
+       *  since it never bothers writing aria-controls on the trigger at all). */
+      const findCandidates = (): Array<{ trigger: HTMLElement; target: HTMLElement }> => {
+        const seen = new Set<HTMLElement>();
+        const out: Array<{ trigger: HTMLElement; target: HTMLElement }> = [];
+        document
+          .querySelectorAll<HTMLElement>('[aria-expanded="false"][aria-controls]:not([aria-haspopup])')
+          .forEach((trigger) => {
             const id = trigger.getAttribute('aria-controls') || '';
             const target = id ? document.getElementById(id) : null;
-            return target?.getAttribute('role') === 'region' ? { trigger, target } : null;
-          })
-          .filter((candidate): candidate is { trigger: HTMLElement; target: HTMLElement } =>
-            Boolean(candidate && !hasContent(candidate.target)),
-          )
-          .slice(0, 32 - hydrated);
+            if (target && target.getAttribute('role') === 'region' && !seen.has(trigger)) {
+              seen.add(trigger);
+              out.push({ trigger, target });
+            }
+          });
+        document.querySelectorAll<HTMLElement>('[role="region"][aria-labelledby]').forEach((target) => {
+          const id = target.getAttribute('aria-labelledby') || '';
+          const trigger = id ? (document.getElementById(id) as HTMLElement | null) : null;
+          if (
+            trigger &&
+            !seen.has(trigger) &&
+            trigger.getAttribute('aria-expanded') === 'false' &&
+            !trigger.hasAttribute('aria-haspopup')
+          ) {
+            seen.add(trigger);
+            out.push({ trigger, target });
+          }
+        });
+        return out;
+      };
+
+      const records: RawDisclosureRecord[] = [];
+      let hydrated = 0;
+      for (let pass = 0; pass < 3 && hydrated < limit; pass++) {
+        const candidates = findCandidates()
+          .filter((candidate) => !hasContent(candidate.target))
+          .slice(0, limit - hydrated);
         if (candidates.length === 0) break;
 
-        const observed: Array<{ target: HTMLElement; content: string }> = [];
+        const observed: Array<{ target: HTMLElement; content: string; trigger: HTMLElement }> = [];
         for (const { trigger, target } of candidates) {
-          trigger.click();
+          try {
+            trigger.click();
+          } catch (error) {
+            records.push({
+              status: 'click-failed',
+              trigger: describeTrigger(trigger),
+              target: describe(target),
+              error: (error instanceof Error ? error.message : String(error)).slice(0, 500),
+            });
+            continue;
+          }
           for (let attempt = 0; attempt < 20; attempt++) {
             if (trigger.getAttribute('aria-expanded') === 'true' && hasContent(target)) break;
             await wait(50);
           }
-          if (trigger.getAttribute('aria-expanded') !== 'true' || !hasContent(target)) continue;
+          if (trigger.getAttribute('aria-expanded') !== 'true' || !hasContent(target)) {
+            records.push({ status: 'no-dialog', trigger: describeTrigger(trigger), target: describe(target) });
+            continue;
+          }
 
           const content = target.innerHTML;
           trigger.click();
@@ -110,20 +237,78 @@ export async function hydrateDisclosureContent(page: Page): Promise<number> {
             await wait(50);
           }
           await wait(50);
-          observed.push({ target, content });
+          observed.push({ target, content, trigger });
         }
-        for (const { target, content } of observed) {
+        // A runtime like Radix keeps a just-closed panel's children mounted through
+        // its exit animation (Presence) and unmounts them only ~200ms LATER. The
+        // restore guard below reads a still-mounted panel as "already has content"
+        // and skips the write-back — and the pending unmount then deletes the
+        // panel's only copy of its content. The most recently closed item always
+        // loses this race (every earlier item's unmount has landed by the time the
+        // restore loop runs), which is why the LAST accordion item shipped empty
+        // while the rest survived. So wait — bounded, concurrently for all observed
+        // panels — for a transient exit mount to clear before restoring. A runtime
+        // that never unmounts closed panels simply runs out the deadline here and
+        // is left untouched by the guard below, exactly as before.
+        const settleDeadline = Date.now() + settleMs;
+        const pending = observed.filter((entry) => hasContent(entry.target));
+        while (pending.length > 0 && Date.now() < settleDeadline) {
+          for (let i = pending.length - 1; i >= 0; i--) {
+            if (!hasContent(pending[i].target)) pending.splice(i, 1);
+          }
+          if (pending.length > 0) await wait(25);
+        }
+        for (const { target, content, trigger } of observed) {
           if (!hasContent(target)) target.innerHTML = content;
           target.dataset.dlaHydratedDisclosure = 'true';
+          records.push({
+            status: 'captured',
+            trigger: describeTrigger(trigger),
+            target: describe(target),
+            html: target.outerHTML,
+          });
         }
         hydrated += observed.length;
         await wait(100);
       }
-      return hydrated;
-    });
+      return records;
+    }, { limit: MAX_DISCLOSURE_CANDIDATES, settleMs: MAX_DISCLOSURE_SETTLE_MS });
+    raw = Array.isArray(result) ? (result as RawDisclosureRecord[]) : [];
   } catch {
-    return 0;
+    raw = [];
   }
+
+  return raw.map((record): CapturedDialogInteraction => {
+    const bounded = record.html !== undefined ? boundDisclosureHtml(record.html) : undefined;
+    return {
+      status: record.status,
+      kind: 'disclosure',
+      trigger: {
+        selector: record.trigger.selector,
+        tag: record.trigger.tag,
+        ...(record.trigger.id ? { id: record.trigger.id } : {}),
+        ariaHaspopup: '',
+        ...(record.target.id ? { ariaControls: record.target.id } : {}),
+        ...(record.trigger.label ? { label: record.trigger.label } : {}),
+        dataBindings: {},
+      },
+      ...(bounded
+        ? {
+            dialog: {
+              selector: record.target.selector,
+              tag: record.target.tag,
+              ...(record.target.id ? { id: record.target.id } : {}),
+              role: 'region',
+              ariaModal: false,
+              html: bounded.html,
+              htmlBytes: bounded.bytes,
+              htmlTruncated: bounded.truncated,
+            },
+          }
+        : {}),
+      ...(record.error ? { error: record.error } : {}),
+    };
+  });
 }
 
 /**

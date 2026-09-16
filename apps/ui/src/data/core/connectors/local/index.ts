@@ -30,7 +30,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/common/ai/providers';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 
@@ -41,7 +41,7 @@ type ServerUserPreferences = Omit<
 	'studioCliInstalled' | 'studioCliExternallyManaged'
 >;
 
-export interface LocalConnectorOptions {
+interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
 	// http://localhost:8081.
 	apiBaseUrl: string;
@@ -247,10 +247,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
 		capabilities: {
 			nativeFolderPicker: false,
-			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: false,
+			readLocalMedia: true,
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: false,
@@ -260,11 +259,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
-		requiresAuth: false,
 		agenticRequiresAuth: false,
-		async isAuthenticated() {
-			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
-		},
 		async getAuthUser(): Promise< AuthUser | null > {
 			return api< AuthUser | null >( '/auth/user' );
 		},
@@ -366,9 +361,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async stopSite( id ) {
 			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
-		},
-		async refreshSiteIcon() {
-			// No-op: icons come back with getSites().
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
@@ -477,11 +469,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// back the server-side temp path the path-based operations expect.
 			return uploadFile( file );
 		},
-		async readLocalMediaFile(): Promise< LocalMediaFile > {
-			// Not exposed over HTTP: reading an arbitrary local file by absolute
-			// path is an arbitrary-read risk and nothing consumes it yet. Reinstate
-			// with a server-side path-containment policy when a real consumer lands.
-			throw new UnsupportedError( 'readLocalMediaFile' );
+		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
+			const response = await fetch(
+				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
+			);
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
+			}
+			return {
+				name: filePath.split( '/' ).pop() ?? filePath,
+				mimeType: response.headers.get( 'Content-Type' ) ?? 'application/octet-stream',
+				data: await response.arrayBuffer(),
+			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
 			const response = await fetch( `${ base }/blueprints/extract`, {
@@ -696,9 +696,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSession( sessionId ): Promise< LoadedAiSession > {
 			return api< LoadedAiSession >( `/sessions/${ encodeURIComponent( sessionId ) }` );
 		},
-		async deleteSession( sessionId ) {
-			await api( `/sessions/${ encodeURIComponent( sessionId ) }`, { method: 'DELETE' } );
-		},
 		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
 			return api< AiSessionSummary >( `/sessions/${ encodeURIComponent( sessionId ) }`, {
 				method: 'PATCH',
@@ -740,10 +737,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { answers } ),
 			} );
-		},
-		async setSessionEnvironment( _sessionId, environment ) {
-			// The agent always acts on the server's local runtime.
-			return { environment };
 		},
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
@@ -803,12 +796,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< AiSettings >( '/ai-settings', {
 				method: 'PUT',
 				body: JSON.stringify( { anthropicApiKey: key } ),
-			} );
-		},
-		async setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings/provider', {
-				method: 'PUT',
-				body: JSON.stringify( { provider } ),
 			} );
 		},
 

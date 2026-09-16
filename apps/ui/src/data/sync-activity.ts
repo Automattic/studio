@@ -5,7 +5,7 @@ import type { PullSiteProgress, PushPhase } from '@/data/core';
 
 // Structurally what `PullSiteProgress` already is, named for the wider set of
 // operations that report through here.
-export type ActivityProgress = PullSiteProgress;
+type ActivityProgress = PullSiteProgress;
 
 // Tracks in-flight and recently completed live-site sync operations so the
 // Site Details header can surface a cross-page indicator. Uses a module-

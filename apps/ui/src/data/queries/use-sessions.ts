@@ -3,11 +3,32 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
+import type {
+	AiModelId,
+	AiSessionSummary,
+	Connector,
+	LoadedAiSession,
+	SessionEntry,
+} from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
-export function primeSessionQueryData( queryClient: QueryClient, summary: AiSessionSummary ): void {
+export function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+	return {
+		type: 'model_change',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		provider: '',
+		modelId,
+	} as unknown as SessionEntry;
+}
+
+export function primeSessionQueryData(
+	queryClient: QueryClient,
+	summary: AiSessionSummary,
+	entries: SessionEntry[] = []
+): void {
 	queryClient.setQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY, ( current ) => {
 		const withoutSummary = ( current ?? [] ).filter( ( session ) => session.id !== summary.id );
 		return [ summary, ...withoutSummary ].sort(
@@ -19,38 +40,40 @@ export function primeSessionQueryData( queryClient: QueryClient, summary: AiSess
 		[ ...SESSIONS_QUERY_KEY, summary.id ],
 		( current ) => {
 			if ( current ) {
-				return {
-					...current,
-					summary,
-				};
+				return { ...current, summary, entries: [ ...( current.entries ?? [] ), ...entries ] };
 			}
-
 			if ( summary.firstPrompt || summary.eventCount > 0 ) {
 				return current;
 			}
-
-			// Newly-created draft sessions have no transcript yet. This shell
-			// gives routes owner metadata immediately while the full JSONL load
-			// reconciles in the background after invalidation.
-			return {
-				summary,
-				entries: [],
-			};
+			// A draft session has no transcript yet; this shell gives routes owner
+			// metadata immediately while the JSONL loads in the background.
+			return { summary, entries };
 		}
 	);
 }
 
-export function reconcilePrimedSessionQueryData(
-	queryClient: QueryClient,
-	sessionId: string
-): Promise< void > {
-	return Promise.all( [
-		queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
-		queryClient.invalidateQueries( {
-			queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-			exact: true,
-		} ),
-	] ).then( () => undefined );
+// Creates a session and primes its cache so the caller can navigate right away;
+// the transcript reconciles from disk in the background.
+export async function openNewSession(
+	{ connector, queryClient }: { connector: Connector; queryClient: QueryClient },
+	siteId?: string,
+	model?: AiModelId
+): Promise< AiSessionSummary > {
+	const summary = await connector.createSession( siteId );
+	let entries: SessionEntry[] = [];
+	if ( model ) {
+		entries = await connector.setSessionModel( summary.id, model ).then(
+			() => [ createModelChangeEntry( model ) ],
+			() => []
+		);
+	}
+	primeSessionQueryData( queryClient, summary, entries );
+	void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
+	void queryClient.invalidateQueries( {
+		queryKey: [ ...SESSIONS_QUERY_KEY, summary.id ],
+		exact: true,
+	} );
+	return summary;
 }
 
 export function useSessions() {
@@ -76,24 +99,12 @@ export function useSession( sessionId: string | undefined ) {
 	} );
 }
 
-export function useDeleteSession() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useMutation( {
-		mutationFn: ( sessionId: string ) => connector.deleteSession( sessionId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
-	} );
-}
-
 export function useCreateSession() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
-		onSuccess: ( summary ) => {
-			primeSessionQueryData( queryClient, summary );
-			void reconcilePrimedSessionQueryData( queryClient, summary.id );
-		},
+		mutationFn: ( { siteId, model }: { siteId?: string; model?: AiModelId } ) =>
+			openNewSession( { connector, queryClient }, siteId, model ),
 	} );
 }
 
@@ -181,62 +192,6 @@ export function useUpdateSessionMetadata() {
 			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 		},
 	} );
-}
-
-export function useSetSessionEnvironment(
-	sessionId: string | undefined,
-	// When available, the wpcom blog id of the live site the pill is about to
-	// flip to. Used in the optimistic update so the derived-effective env can
-	// resolve to 'live' immediately, without waiting for the IPC round-trip to
-	// refresh `summary.lastSelectedWpcomSiteId`.
-	liveWpcomSiteId: number | undefined
-) {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	const sessionKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
-	return useMutation< unknown, Error, 'local' | 'live', { previous: LoadedAiSession | undefined } >(
-		{
-			mutationFn: ( environment ) => {
-				if ( ! sessionId ) {
-					throw new Error( 'No session selected' );
-				}
-				return connector.setSessionEnvironment( sessionId, environment );
-			},
-			// Optimistically flip `activeEnvironment` + `lastSelectedWpcomSiteId`
-			// so the derived-effective env resolves correctly on the next render,
-			// rather than looking "stuck" on 'local' while the IPC round-trip
-			// writes the real `site.selected` event.
-			onMutate: async ( environment ) => {
-				if ( ! sessionId ) {
-					return { previous: undefined };
-				}
-				await queryClient.cancelQueries( { queryKey: sessionKey } );
-				const previous = queryClient.getQueryData< LoadedAiSession >( sessionKey );
-				if ( previous ) {
-					queryClient.setQueryData< LoadedAiSession >( sessionKey, {
-						...previous,
-						summary: {
-							...previous.summary,
-							activeEnvironment: environment,
-							lastSelectedWpcomSiteId: environment === 'live' ? liveWpcomSiteId : undefined,
-						},
-					} );
-				}
-				return { previous };
-			},
-			onError: ( _error, _variables, context ) => {
-				if ( context?.previous ) {
-					queryClient.setQueryData( sessionKey, context.previous );
-				}
-			},
-			onSettled: () => {
-				// Reconcile against the server-side event log so the cache matches the
-				// JSONL truth, and refresh the sidebar list which shows env indicators.
-				void queryClient.invalidateQueries( { queryKey: sessionKey } );
-				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
-			},
-		}
-	);
 }
 
 /**

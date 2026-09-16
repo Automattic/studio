@@ -10,16 +10,19 @@ describe( 'deriveAgenticFeatures', () => {
 		expect( deriveAgenticFeatures( connector, undefined ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 		expect( deriveAgenticFeatures( connector, null ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 		expect( deriveAgenticFeatures( connector, user ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );
@@ -28,6 +31,7 @@ describe( 'deriveAgenticFeatures', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, undefined ) ).toEqual( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );
@@ -36,6 +40,7 @@ describe( 'deriveAgenticFeatures', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null ) ).toEqual( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: true,
 			reason: 'signed-out',
 		} );
 	} );
@@ -44,6 +49,7 @@ describe( 'deriveAgenticFeatures', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user ) ).toEqual( {
 			enabled: true,
 			chatEnabled: true,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );
@@ -52,26 +58,39 @@ describe( 'deriveAgenticFeatures', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, true ) ).toEqual( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: 'offline',
 		} );
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, true ) ).toEqual( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: 'offline',
 		} );
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, true ) ).toEqual( {
 			enabled: false,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: 'offline',
 		} );
 	} );
 
 	// Turning agentic features off in Settings → AI only takes chat away.
 	// Previews, sync and publishing keep working, so `enabled` stays true.
+	it( 'sends signed-out users to Overview, not the sign-in prompt, when chat is off', () => {
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, false, false ) ).toEqual( {
+			enabled: false,
+			chatEnabled: false,
+			chatPromptsSignIn: false,
+			reason: 'signed-out',
+		} );
+	} );
+
 	it( 'disables only chat when the user switches agentic features off', () => {
 		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, false, false ) ).toEqual( {
 			enabled: true,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 		expect(
@@ -79,6 +98,7 @@ describe( 'deriveAgenticFeatures', () => {
 		).toEqual( {
 			enabled: true,
 			chatEnabled: false,
+			chatPromptsSignIn: false,
 			reason: null,
 		} );
 	} );

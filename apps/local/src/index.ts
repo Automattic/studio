@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -54,8 +55,13 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	decodePassword,
+} from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -68,12 +74,15 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -187,6 +196,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
+		fileAccess: site.fileAccess,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -196,6 +207,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		enableScriptDebug: site.enableScriptDebug,
+		environmentType: site.environmentType,
 		operation: site.operation,
 		sortOrder,
 		siteIcon: null,
@@ -215,6 +228,16 @@ function backupFilename( siteName: string ): string {
 // Express 4 doesn't forward async rejections to the error middleware — an
 // unhandled rejection would take the whole process down — so async routes go
 // through this wrapper.
+// Raster formats only: an SVG served from the API origin could run scripts
+// there, and nothing in the transcript needs one.
+const SERVED_MEDIA_MIME_TYPES = new Set( [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'image/avif',
+] );
+
 function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) {
 	return ( req: Request, res: Response, next: ( e?: unknown ) => void ) => {
 		fn( req, res ).catch( next );
@@ -924,7 +947,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Edit a site's settings — the same CLI `site set` the desktop uses, built
 	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded (the agentic UI doesn't edit runtime/file-access).
+	// fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -958,15 +981,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( wpVersion ) {
 				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 			}
+			if ( getSiteRuntime( updated ) !== getSiteRuntime( current ) ) {
+				options.runtime = siteModeFromRuntime( getSiteRuntime( updated ) );
+			}
+			if ( getSiteFileAccess( updated ) !== getSiteFileAccess( current ) ) {
+				options.fileAccess = getSiteFileAccess( updated );
+			}
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
 			}
-			if ( ( updated.adminUsername ?? 'admin' ) !== ( current.adminUsername ?? 'admin' ) ) {
+			if (
+				( updated.adminUsername ?? DEFAULT_ADMIN_USERNAME ) !==
+				( current.adminUsername ?? DEFAULT_ADMIN_USERNAME )
+			) {
 				options.adminUsername = updated.adminUsername;
 			}
-			if ( ( updated.adminPassword ?? '' ) !== ( current.adminPassword ?? '' ) ) {
+			if (
+				decodeAdminPassword( updated.adminPassword ) !==
+				decodeAdminPassword( current.adminPassword )
+			) {
 				// The CLI expects a plaintext password (it encodes before saving).
-				options.adminPassword = decodePassword( updated.adminPassword ?? '' );
+				options.adminPassword = decodeAdminPassword( updated.adminPassword );
 			}
 			if ( ( updated.adminEmail ?? '' ) !== ( current.adminEmail ?? '' ) ) {
 				options.adminEmail = updated.adminEmail;
@@ -976,6 +1011,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( ( updated.enableDebugDisplay ?? false ) !== ( current.enableDebugDisplay ?? false ) ) {
 				options.debugDisplay = updated.enableDebugDisplay ?? false;
+			}
+			if ( ( updated.enableScriptDebug ?? false ) !== ( current.enableScriptDebug ?? false ) ) {
+				options.scriptDebug = updated.enableScriptDebug ?? false;
+			}
+			if ( getWpEnvironmentType( updated ) !== getWpEnvironmentType( current ) ) {
+				options.environmentType = getWpEnvironmentType( updated );
 			}
 
 			// More than path + siteId means a real change to apply.
@@ -1197,12 +1238,44 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// NOTE: there is intentionally no `/media/read` endpoint. Streaming an
-	// arbitrary local file by absolute path over HTTP is an arbitrary-read risk
-	// (the API is reachable cross-origin from the browser), and nothing in the UI
-	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
-	// consumer and a path-containment policy (e.g. restricted to the sites root)
-	// exist.
+	// Reachable cross-origin from the browser, so deliberately not a general
+	// file read: raster images under the sessions root only, symlinks resolved.
+	api.get(
+		'/media/read',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = typeof req.query.path === 'string' ? req.query.path : '';
+			const mimeType = getLocalMediaMimeType( requested );
+			if ( ! requested || ! SERVED_MEDIA_MIME_TYPES.has( mimeType ) ) {
+				res.status( 400 ).json( { error: 'Unsupported media path' } );
+				return;
+			}
+			const root = path.resolve( sessionsRoot );
+			const candidate = path.resolve( root, requested );
+			if ( ! candidate.startsWith( root + path.sep ) ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			let resolved: string;
+			try {
+				resolved = await realpath( candidate );
+				if ( ! resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
+					throw new Error( 'outside the sessions root' );
+				}
+			} catch {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			const stats = await stat( resolved );
+			if ( ! stats.isFile() ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			res.setHeader( 'Content-Type', mimeType );
+			res.setHeader( 'Content-Length', stats.size );
+			res.setHeader( 'Cache-Control', 'private, max-age=31536000, immutable' );
+			await pipeline( createReadStream( resolved ), res );
+		} )
+	);
 
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's

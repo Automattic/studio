@@ -254,7 +254,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 			background: transparent; color: rgba(255,255,255,0.6);
 			font-size: 15px; line-height: 1;
 		}
-		.popup .layers button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+		.popup .layers button:hover:not([disabled]) { background: rgba(255,255,255,0.1); color: #fff; }
+		.popup .layers button[disabled] { opacity: 0.35; cursor: default; }
 		.popup .layers .count {
 			min-width: 24px; text-align: center; font-size: 10px;
 			color: rgba(255,255,255,0.5);
@@ -676,7 +677,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		viewportSpan.textContent = vp.width + '×' + vp.height;
 		viewportSpan.title = 'Viewport when annotated';
 		target.appendChild( viewportSpan );
-		if ( state.targets && state.targets.length > 1 ) {
+		if ( state.layers && state.layers.length > 1 ) {
 			target.appendChild( buildLayerControls( state ) );
 		}
 		popup.appendChild( target );
@@ -770,35 +771,43 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return popup;
 	}
 
-	/* ‹ 2/5 › — cycle through the elements stacked under the click point.
+	/* ‹ 2/5 › — step through the elements stacked under the click point.
 	 * Changing the target re-renders the popup, which keeps its comment;
-	 * the outline, scrim hole and element line move to the chosen layer. */
+	 * the outline, scrim hole and element line move to the chosen layer.
+	 * ‹ walks toward the front of the stack and › deeper into it, so the
+	 * counter reads left to right. The ends don't wrap: wrapping would jump
+	 * from the frontmost element to the backmost while the button says
+	 * "in front of this one". */
 	function buildLayerControls( state ) {
-		const layers = document.createElement( 'span' );
-		layers.className = 'layers';
+		const controls = document.createElement( 'span' );
+		controls.className = 'layers';
+		const total = state.layers.length;
 		const change = ( offset ) => {
-			state.targetIndex =
-				( state.targetIndex + offset + state.targets.length ) % state.targets.length;
-			state.target = state.targets[ state.targetIndex ];
+			const index = state.targetIndex + offset;
+			if ( index < 0 || index >= total ) return;
+			state.targetIndex = index;
+			state.target = targetAt( state, index );
 			render();
 		};
-		const prev = document.createElement( 'button' );
-		prev.type = 'button';
-		prev.textContent = '‹';
-		prev.title = 'Select the element behind this one';
-		prev.setAttribute( 'aria-label', prev.title );
-		prev.addEventListener( 'click', () => change( 1 ) );
+		const front = document.createElement( 'button' );
+		front.type = 'button';
+		front.textContent = '‹';
+		front.title = 'Select the element in front of this one';
+		front.setAttribute( 'aria-label', front.title );
+		front.disabled = state.targetIndex <= 0;
+		front.addEventListener( 'click', () => change( -1 ) );
 		const count = document.createElement( 'span' );
 		count.className = 'count';
-		count.textContent = state.targetIndex + 1 + '/' + state.targets.length;
-		const next = document.createElement( 'button' );
-		next.type = 'button';
-		next.textContent = '›';
-		next.title = 'Select the element in front of this one';
-		next.setAttribute( 'aria-label', next.title );
-		next.addEventListener( 'click', () => change( -1 ) );
-		layers.append( prev, count, next );
-		return layers;
+		count.textContent = state.targetIndex + 1 + '/' + total;
+		const back = document.createElement( 'button' );
+		back.type = 'button';
+		back.textContent = '›';
+		back.title = 'Select the element behind this one';
+		back.setAttribute( 'aria-label', back.title );
+		back.disabled = state.targetIndex >= total - 1;
+		back.addEventListener( 'click', () => change( 1 ) );
+		controls.append( front, count, back );
+		return controls;
 	}
 
 	/* Editing an existing note leaves picking mode alone: markers stay
@@ -890,16 +899,26 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return candidates;
 	}
 
+	/* Describing an element is expensive — \`nearbyText\` reads \`innerText\`,
+	 * which forces layout over the whole subtree — and the stack can hold
+	 * 30 of them, so only the layer actually on screen is ever built. */
+	function targetAt( state, index ) {
+		if ( ! state.targetCache[ index ] ) {
+			state.targetCache[ index ] = targetForElement( state.layers[ index ] );
+		}
+		return state.targetCache[ index ];
+	}
+
 	function openPopupForElement( el, clientX, clientY ) {
 		const elements = elementsAtPoint( el, clientX, clientY );
-		const targets = elements.length ? elements.map( targetForElement ) : [ targetForElement( el ) ];
 		activePopup = {
 			fromPicker: true,
 			comment: '',
-			target: targets[ 0 ],
-			targets,
+			layers: elements.length ? elements : [ el ],
+			targetCache: [],
 			targetIndex: 0,
 		};
+		activePopup.target = targetAt( activePopup, 0 );
 		persistAnnotations();
 		render();
 	}

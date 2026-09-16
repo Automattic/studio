@@ -284,7 +284,7 @@ describe( 'site preview inspector sessions', () => {
 			( root.querySelector( '.highlight' ) as HTMLElement ).style.getPropertyValue( 'width' )
 		).toBe( '100px' );
 
-		( root.querySelector( '.layers button' ) as HTMLButtonElement ).click();
+		stepBack( root );
 		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '2/2' );
 		expect( root.querySelector( '.target code' )?.textContent ).toBe( '<section>' );
 		expect(
@@ -295,7 +295,73 @@ describe( 'site preview inspector sessions', () => {
 			( root.querySelectorAll( '.scrim' )[ 0 ] as HTMLElement ).style.getPropertyValue( 'height' )
 		).toBe( '0px' );
 	} );
+
+	it( 'stops the layer picker at both ends of the stack instead of wrapping', () => {
+		const root = stackedLayers();
+		const buttons = () =>
+			Array.from( root.querySelectorAll( '.layers button' ) ) as HTMLButtonElement[];
+
+		// Frontmost layer: only the right arrow, which counts up, is live.
+		expect( buttons().map( ( b ) => [ b.textContent, b.disabled ] ) ).toEqual( [
+			[ '‹', true ],
+			[ '›', false ],
+		] );
+
+		buttons()[ 1 ].click();
+		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '2/2' );
+		// Backmost layer: nothing is behind it, and the spent control is inert.
+		expect( buttons().map( ( b ) => [ b.textContent, b.disabled ] ) ).toEqual( [
+			[ '‹', false ],
+			[ '›', true ],
+		] );
+		buttons()[ 1 ].click();
+		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '2/2' );
+
+		buttons()[ 0 ].click();
+		expect( root.querySelector( '.layers .count' )?.textContent ).toBe( '1/2' );
+	} );
+
+	it( 'describes a stacked layer only once it is shown', () => {
+		// Both elements are measured once by the hit-test filter; the extra
+		// measurement is the target description, which only the shown layer gets.
+		const computed = vi.spyOn( window, 'getComputedStyle' );
+		const root = stackedLayers();
+		const measurements = ( el: Element ) =>
+			computed.mock.calls.filter( ( call ) => call[ 0 ] === el ).length;
+		const wrap = document.querySelector( '#wrap' ) as HTMLElement;
+		const title = document.querySelector( '#title' ) as HTMLElement;
+
+		expect( measurements( title ) ).toBe( measurements( wrap ) + 1 );
+
+		stepBack( root );
+		expect( measurements( title ) ).toBe( measurements( wrap ) );
+	} );
 } );
+
+/* Clicks ›, which walks one layer deeper into the stack. */
+function stepBack( root: ShadowRoot ) {
+	( root.querySelectorAll( '.layers button' )[ 1 ] as HTMLButtonElement ).click();
+}
+
+/* Mounts the inspector over an `<h1>` inside a larger `<section>` and clicks
+ * the heading, leaving a two-layer picker open. Returns the shadow root. */
+function stackedLayers(): ShadowRoot {
+	vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+	document.body.innerHTML = '<section id="wrap"><h1 id="title">Title</h1></section>';
+	const wrap = document.querySelector( '#wrap' ) as HTMLElement;
+	const title = document.querySelector( '#title' ) as HTMLElement;
+	vi.spyOn( wrap, 'getBoundingClientRect' ).mockReturnValue( rect( 0, 0, 400, 300 ) );
+	vi.spyOn( title, 'getBoundingClientRect' ).mockReturnValue( rect( 10, 10 ) );
+
+	new Function( INSPECTOR_PAGE_SCRIPT )();
+	const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+		.shadowRoot as ShadowRoot;
+	command( 'toggle-picking' );
+	title.dispatchEvent(
+		new MouseEvent( 'click', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 } )
+	);
+	return root;
+}
 
 function seedSavedNote() {
 	( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState = [

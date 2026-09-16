@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, copyFileSync, cpSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -70,13 +71,40 @@ try {
     throw new Error('Installed capture engine does not export captureWebsite.');
   }
 
+  // A bare copied artifact must work without this checkout, source files,
+  // package dependencies, or a browser for its non-browser operations.
+  const browserlessDir = join(scratch, 'browserless');
+  mkdirSync(browserlessDir);
+  copyFileSync(join(packageRoot, 'dist', 'capture-engine.bundle.mjs'), join(browserlessDir, 'runtime.mjs'));
+  run(process.execPath, [join(repoRoot, 'scripts', 'test-runtime.mjs'), join(browserlessDir, 'runtime.mjs'), '--browserless'], { cwd: browserlessDir });
+
+  // Provision ONLY the declared browser driver in a second relocated runtime.
+  // Its transitive playwright-core is part of Playwright's own distribution.
+  // Take the repository's pinned Playwright rather than the consumer install's
+  // freshly resolved one: only the pinned version's browser build is the one
+  // provisioned for this checkout, and a newer resolution would launch a
+  // browser revision that was never downloaded.
+  const standaloneDir = join(scratch, 'standalone');
+  mkdirSync(join(standaloneDir, 'node_modules'), { recursive: true });
+  const repoRequire = createRequire(join(repoRoot, 'package.json'));
+  const playwrightRoot = dirname(repoRequire.resolve('playwright/package.json'));
+  const playwrightRequire = createRequire(join(playwrightRoot, 'package.json'));
+  cpSync(playwrightRoot, join(standaloneDir, 'node_modules', 'playwright'), { recursive: true });
+  cpSync(dirname(playwrightRequire.resolve('playwright-core/package.json')), join(standaloneDir, 'node_modules', 'playwright-core'), { recursive: true });
+  copyFileSync(join(packageRoot, 'dist', 'capture-engine.bundle.mjs'), join(standaloneDir, 'runtime.mjs'));
+  run(process.execPath, [join(repoRoot, 'scripts', 'test-runtime.mjs'), join(standaloneDir, 'runtime.mjs')], { cwd: standaloneDir });
+
   // Public Platform API — an installed consumer registers a custom platform,
   // which must auto-detect through the package entry WITHOUT touching core,
   // and the built-ins must register through the same seam.
   writeFileSync(
     join(consumerDir, 'platform-consumer.mjs'),
     [
-      "import { registerPlatform, detectPlatform, registeredPlatforms } from 'data-liberation';",
+      "import assert from 'node:assert/strict';",
+      "import * as publicApi from 'data-liberation';",
+      "import * as runtime from 'data-liberation/runtime';",
+      "assert.strictEqual(publicApi, runtime, 'Package entries must share operations and registries');",
+      "const { registerPlatform, detectPlatform, registeredPlatforms } = publicApi;",
       "registerPlatform({",
       "  id: 'acme-builder',",
       "  detection: { urlPatterns: [/acme-builder\\.example/i] },",
@@ -98,6 +126,16 @@ try {
   if (!consumer.stdout.includes('consumer platform registered')) {
     throw new Error('Installed-package platform consumer check failed.');
   }
+
+  writeFileSync(join(consumerDir, 'runtime-types.mts'), [
+    "import { inspectSource, captureWebsite, checkFidelity, publishSite, type InspectOptions, type CaptureOptions, type FidelityCheckOptions, type PublishSiteOptions } from 'data-liberation/runtime';",
+    "const inspect: InspectOptions = { rendered: false };",
+    "const capture: CaptureOptions = { url: 'https://example.com', outputDir: './run' };",
+    "const compare: FidelityCheckOptions = { directory: './run' };",
+    "const publish: PublishSiteOptions = { directory: './run', target: 'example' };",
+    "async function workflow() { const a = await inspectSource(capture.url, inspect); const b = await captureWebsite(capture); const c = await checkFidelity(compare); const d = await publishSite(publish); return [a.complexity.band, b.summary.routesFailed, c.pass, d.liveUrl]; }",
+  ].join('\n'));
+  run(process.execPath, [join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'runtime-types.mts'], { cwd: consumerDir });
 
   for (const relativePath of [
     'scripts/run.mjs',
@@ -129,7 +167,7 @@ try {
     await withDeadline(client.close(), 'Installed MCP server shutdown', 10_000);
   }
 
-  process.stdout.write('Installed package CLI, capture engine, Platform API, MCP server, skills, and drivers are ready.\n');
+  process.stdout.write('Installed package and relocated runtime workflows passed: browserless inspection, rendered inspection, capture, comparison, publishing, shared registries, types, CLI and MCP.\n');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

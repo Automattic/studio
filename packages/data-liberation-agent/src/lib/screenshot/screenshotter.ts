@@ -18,7 +18,11 @@ import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
 import { learnAndApplyFluidGeometry } from './fluid-capture.js';
-import { captureTriggeredDialogs, type InteractionStatesReport } from './interaction-capture.js';
+import {
+	captureTriggeredDialogs,
+	type CapturedDialogInteraction,
+	type InteractionStatesReport,
+} from './interaction-capture.js';
 import { hydrateDisclosureContent } from './dynamic-content.js';
 import { JsAggregator } from './js-aggregator.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
@@ -28,7 +32,7 @@ import { CapturedResourceStore } from './resource-capture.js';
 import { enforceSameOrigin } from './same-origin.js';
 import { analyzePage } from './site-analysis.js';
 import {
-	DEFAULT_VIEWPORTS,
+	defaultViewports,
 	SCREENSHOT_DEVICE_SCALE_FACTOR,
 	type CaptureLogSink,
 	type ScreenshotOpts,
@@ -37,7 +41,7 @@ import {
 } from './types.js';
 import type { GeometryCapture } from './layout-geometry-proof.js';
 import type { ExtractedNav } from './nav-extract.js';
-import { devices, type Browser, type BrowserContext, type Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 
 /**
  * Scroll offset multiplier for the scrolled-state screenshot: we scroll to
@@ -48,7 +52,6 @@ import { devices, type Browser, type BrowserContext, type Page } from 'playwrigh
 const SCROLL_OFFSET_RATIO = 1.5;
 const ANALYSIS_SAMPLE_LIMIT = 1;
 const MAX_CAPTURED_DIALOGS = 8;
-const { defaultBrowserType: _defaultBrowserType, ...IPHONE_17_CONTEXT } = devices[ 'iPhone 17' ];
 
 /**
  * Per-URL capture pipeline:
@@ -638,13 +641,19 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		writeFileSync( plan.paths.geometry, `${ JSON.stringify( capture, null, 2 ) }\n` );
 	}
 
+	// Disclosure/accordion panels a runtime unmounts while collapsed (Radix,
+	// shadcn/ui, etc.) so the served static markup has no answer text at all —
+	// restored here, BEFORE serialization, so the captured HTML carries it.
+	// Diagnostics are held until the interaction-states merge below rather than
+	// dropped, so the fix is observable in interaction-states.json.
+	let disclosureStates: CapturedDialogInteraction[] = [];
 	if (
 		plan.captureHtml ||
 		plan.captureMobileHtml ||
 		plan.captureSections ||
 		plan.captureMobileSections
 	) {
-		await hydrateDisclosureContent( page );
+		disclosureStates = await hydrateDisclosureContent( page );
 	}
 
 	// Seam 1b: replace runtime-computed pixel geometry with the relationship the
@@ -989,6 +998,11 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// replacing a desktop-only dialog with a mobile-only menu.
 	try {
 		const interactions = await captureTriggeredDialogs( page, url );
+		// Disclosure/accordion candidates were already resolved (opened, captured,
+		// reclosed) before serialization above — folded in here purely as
+		// diagnostics, using the same states array + totals the dialog/menu path
+		// already reports through, rather than a parallel reporting system.
+		interactions.states = [ ...disclosureStates, ...interactions.states ];
 		if (
 			( interactions.states.length > 0 || ( interactions.initialDialogs?.length ?? 0 ) > 0 ) &&
 			( ! entry.interactions ||
@@ -1164,7 +1178,9 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 	// --- validate + filter ----------------------------------------------------
 	validateOutputDir( opts.outputDir );
 
-	const viewports = opts.viewports ?? DEFAULT_VIEWPORTS;
+	const { devices } = await import('playwright');
+	const { defaultBrowserType: _defaultBrowserType, ...IPHONE_17_CONTEXT } = devices['iPhone 17'];
+	const viewports = opts.viewports ?? defaultViewports(IPHONE_17_CONTEXT.viewport);
 	const rawConcurrency = opts.concurrency ?? 6;
 	const concurrency = Math.max( 1, Math.min( 10, rawConcurrency ) );
 	const browserRestartEvery = opts.browserRestartEvery ?? 100;

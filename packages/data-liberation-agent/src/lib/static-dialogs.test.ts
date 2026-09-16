@@ -83,6 +83,43 @@ describe( 'wireCapturedDialogs', () => {
 		expect( wireCapturedDialogs( input, [] ) ).toBe( input );
 	} );
 
+	it( 'leaves a disclosure/accordion state alone — its content is already inline, not a popup to wire', () => {
+		// hydrateDisclosureContent restores disclosure panels into the live DOM
+		// BEFORE the page is serialized, so `html` here already contains the
+		// answer. A `kind: 'disclosure'` state must not ALSO be wrapped into a
+		// synthetic full-screen `<details>` dialog overlay — that would
+		// duplicate the content and misrepresent an inline accordion as a modal.
+		const input =
+			'<html><head></head><body><button aria-expanded="false" id="t1">Question?</button><div id="p1" hidden role="region" aria-labelledby="t1"><p>Answer text.</p></div></body></html>';
+		const html = wireCapturedDialogs( input, [
+			{
+				status: 'captured',
+				kind: 'disclosure',
+				trigger: {
+					selector: '#t1',
+					id: 't1',
+					tag: 'button',
+					ariaHaspopup: '',
+					ariaControls: 'p1',
+					label: 'Question?',
+					dataBindings: {},
+				},
+				dialog: {
+					selector: '#p1',
+					tag: 'div',
+					id: 'p1',
+					role: 'region',
+					ariaModal: false,
+					html: '<div id="p1" hidden role="region" aria-labelledby="t1"><p>Answer text.</p></div>',
+					htmlBytes: 60,
+					htmlTruncated: false,
+				},
+			},
+		] );
+		expect( html ).toBe( input );
+		expect( html ).not.toContain( 'dla-disclosure' );
+	} );
+
 	it( 'wires a listbox popup onto every matching country-code trigger', () => {
 		const html = wireCapturedDialogs(
 			'<html><head></head><body><button aria-label="Phone. Phone. Select a country code" aria-haspopup="listbox">CA</button><button aria-label="Phone. Phone. Select a country code">CA</button></body></html>',

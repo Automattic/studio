@@ -73,6 +73,33 @@ describe( 'self-contain', () => {
 		expect( html ).toContain( `srcset="${ url.replaceAll( ' ', '%20' ) } 1x"` );
 	} );
 
+	it( 'drops a sourceMappingURL comment pointing at a non-local origin, keeping a local one', () => {
+		expect(
+			stripRemoteCssUrls(
+				'.a{color:red}/*# sourceMappingURL=https://static.parastorage.com/main.css.map */'
+			)
+		).toBe( '.a{color:red}' );
+		expect(
+			stripRemoteCssUrls( '.a{color:red}/*# sourceMappingURL=/external/main.css.map */' )
+		).toBe( '.a{color:red}/*# sourceMappingURL=/external/main.css.map */' );
+	} );
+
+	it( 'strips remote sourceMappingURL comments out of inlined style blocks', () => {
+		const html = stripRemoteAssetRequests(
+			'<style>.a{color:red}/*# sourceMappingURL=https://static.parastorage.com/main.css.map */</style>'
+		);
+		expect( html ).not.toContain( 'sourceMappingURL' );
+		expect( html ).not.toContain( 'static.parastorage.com' );
+	} );
+
+	it( 'drops data-url and data-href provenance attributes that name a remote origin', () => {
+		const html = stripRemoteAssetRequests(
+			'<style data-href="https://static.parastorage.com/dist/main.css" data-url="https://static.parastorage.com/dist/main.css">.a{color:red}</style><div data-href="/local/path">kept</div>'
+		);
+		expect( html ).not.toContain( 'static.parastorage.com' );
+		expect( html ).toContain( 'data-href="/local/path"' );
+	} );
+
 	it( 'neutralizes leftover remote CSS urls without touching local ones', () => {
 		expect(
 			stripRemoteCssUrls(

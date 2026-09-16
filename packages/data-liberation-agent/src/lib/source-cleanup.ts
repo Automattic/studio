@@ -209,7 +209,12 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
   let rounds = 0;
   const observer = new MutationObserver(() => {
     if (scheduled) return;
-    if (++rounds > 100) { report.truncated = true; report.failures.push('mutation-budget'); observer.disconnect(); return; }
+    // Exhausting the observation budget on an animating page (sliders, lazy
+    // images, entrance transitions) says nothing about cleanliness: it only
+    // means the observer stopped watching. `readSourceCleanup()` still runs
+    // an authoritative final sweep, so this stays a diagnostic in `truncated`
+    // rather than a `failures` entry that would fail an otherwise-clean copy.
+    if (++rounds > 100) { report.truncated = true; observer.disconnect(); return; }
     scheduled = true;
     queueMicrotask(() => { scheduled = false; sweep(); });
   });

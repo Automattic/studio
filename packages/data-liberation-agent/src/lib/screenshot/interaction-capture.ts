@@ -15,6 +15,14 @@ const SEMANTIC_POPUP_SELECTOR =
 
 export interface CapturedDialogInteraction {
 	status: 'captured' | 'no-dialog' | 'click-failed';
+	/**
+	 * Distinguishes an in-page disclosure/accordion panel (content restored in
+	 * place, before HTML serialization — see `hydrateDisclosureContent`) from a
+	 * runtime-created popup/menu dialog (wired post-hoc by `wireCapturedDialogs`
+	 * into a synthetic `<details>` overlay). Omitted/`'dialog'` preserves the
+	 * pre-existing shape for callers that predate this field.
+	 */
+	kind?: 'dialog' | 'disclosure';
 	trigger: {
 		selector: string;
 		tag: string;

@@ -1,8 +1,5 @@
 import type { ExtractedNav } from './nav-extract.js';
 import type { UrlType } from '../extraction/sitemap.js';
-import { devices } from 'playwright';
-
-const IPHONE_17 = devices[ 'iPhone 17' ];
 
 export interface CaptureLogSink {
 	sendLoggingMessage( message: { level: 'info'; data: string } ): void | Promise< void >;
@@ -21,10 +18,12 @@ export interface Viewport {
 // outputs the screenshot at fewer real pixels even though the rendered
 // layout is the full 1440×900. That's how to get "~2x fewer pixels"
 // without changing what the page actually looks like.
-export const DEFAULT_VIEWPORTS: Viewport[] = [
-	{ id: 'desktop', width: 1440, height: 900 },
-	{ id: 'mobile', width: IPHONE_17.viewport.width, height: IPHONE_17.viewport.height },
-];
+export function defaultViewports(mobile: { width: number; height: number }): Viewport[] {
+	return [
+		{ id: 'desktop', width: 1440, height: 900 },
+		{ id: 'mobile', width: mobile.width, height: mobile.height },
+	];
+}
 
 /**
  * Default deviceScaleFactor for screenshot capture. 0.7 gives ~49% fewer

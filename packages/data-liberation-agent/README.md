@@ -31,6 +31,8 @@ That is the whole surface. Inspection is bounded and read-only; it reports measu
 
 See [rendered inspection and complexity](docs/inspection.md) and [source cleanup, comparison, and destination attribution](docs/source-cleanup.md) for their API contracts, evidence, and limits.
 
+Embedded Node consumers can import the same operations from [`data-liberation/runtime`](docs/runtime-api.md), or use the committed standalone `dist/capture-engine.bundle.mjs`. Both expose inspect, capture, compare, publish, and their extension registries.
+
 ### Inspect
 
 ```bash

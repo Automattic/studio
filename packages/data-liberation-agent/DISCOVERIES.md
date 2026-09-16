@@ -1,3 +1,18 @@
+## 2026-09-16 — Disclosure expansion must not activate navigation controls
+
+**Found by:** OpenAI Codex
+**During:** Capturing a WordPress/Elementor site with menu anchors that expose disclosure ARIA
+**Type:** bug fix
+
+### What I found
+The generic collapsed-content helper clicked every element with `aria-expanded="false"` and `aria-controls`, including navigation anchors. That replaced the page during capture, discarded the in-page source-cleanup state, and allowed artifacts from the replacement response to be serialized.
+
+### How it works
+Popup controls and anchors whose `href` can leave the current document are now excluded from automatic activation. Real button disclosures and fragment-based in-page controls remain eligible.
+
+### Why it's better than the previous approach
+Capture can expand in-page content without navigating away from the route being captured or losing cleanup evidence.
+
 # Discoveries
 
 A living log of findings from real runs. Newest entries at the top.

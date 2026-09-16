@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { inspectSource as inspect, type InspectOptions } from './inspect.js';
+import { inspectSource as inspect, InspectError, type InspectOptions } from './inspect.js';
+import { INSPECT_DOCUMENT_MAX_BYTES } from './inspect-rendered.js';
 const inspectSource = (url: string, options: InspectOptions = {}) => inspect(url, { rendered: false, ...options });
 
 const CLI = fileURLToPath(new URL('../cli.ts', import.meta.url));
@@ -135,4 +136,28 @@ describe('inspectSource', () => {
     expect(result.coverage.sampling).toMatchObject({ attempted: 2, succeeded: 1, failed: 1, complete: false });
     expect(result.issues).toContainEqual(expect.objectContaining({ code: 'sample-failed', url: expect.stringContaining('/post/slow') }));
   }, 10_000);
+
+  it('inspects HTML documents larger than the old 2 MB asset cap', async () => {
+    const prefix = '<!doctype html><title>big</title>';
+    const oversized = 2 * 1024 * 1024 + 1024;
+    const url = await fixture((_request, response) => {
+      response.setHeader('content-type', 'text/html');
+      response.end(prefix + 'x'.repeat(oversized - prefix.length));
+    });
+    const result = await inspectSource(url, { sampleLimit: 1 });
+    expect(result.samples[0].observations.title).toBe('big');
+  }, 15_000);
+
+  it('names the page document when HTML exceeds the inspect document ceiling', async () => {
+    const tooLarge = INSPECT_DOCUMENT_MAX_BYTES + 1;
+    const url = await fixture((_request, response) => {
+      response.setHeader('content-type', 'text/html');
+      response.setHeader('content-length', String(tooLarge));
+      response.end('x');
+    });
+    await expect(inspectSource(url, { sampleLimit: 1 })).rejects.toBeInstanceOf(InspectError);
+    await expect(inspectSource(url, { sampleLimit: 1 })).rejects.toThrow(
+      `page document ${tooLarge} bytes exceeds inspect document limit ${INSPECT_DOCUMENT_MAX_BYTES}`
+    );
+  });
 });

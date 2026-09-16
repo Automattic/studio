@@ -107,8 +107,59 @@ describe( 'spacefastTarget', () => {
 		const result = await spacefastTarget.publish( { directory: site() } );
 		expect( result.notes ).toEqual( [
 			'activation pending',
-			'next step poll: Still building.',
+			'Spacefast reports further work outstanding (poll) that this tool does not perform: Still building.',
 		] );
+	} );
+
+	it( 'surfaces ignored files instead of reporting unqualified success', async () => {
+		stubFetch( 201, {
+			data: {
+				...receipt.data,
+				upload: {
+					summary: { upload: 1, reused: 0, ignored: 1 },
+					targets: [
+						{ path: 'index.html', bytes: 13, verdict: 'accepted' },
+						{ path: 'blog/post.html', bytes: 14, verdict: 'ignored' },
+					],
+				},
+			},
+		} );
+
+		const result = await spacefastTarget.publish( { directory: site() } );
+
+		expect( result.files ).toBe( 2 );
+		expect( result.accepted ).toBe( 1 );
+		expect( result.ignored ).toEqual( [ 'blog/post.html' ] );
+		expect( result.notes ).toEqual( [
+			'Spacefast ignored 1 file from this publish: blog/post.html. They archived successfully but ' +
+				'the destination declined to store them, so they are missing from the live site.',
+		] );
+	} );
+
+	it( 'reports an ignored count even when the receipt names no paths', async () => {
+		stubFetch( 201, {
+			data: {
+				...receipt.data,
+				upload: { summary: { upload: 1, reused: 0, ignored: 1 } },
+			},
+		} );
+
+		const result = await spacefastTarget.publish( { directory: site() } );
+
+		expect( result.accepted ).toBe( 1 );
+		expect( result.ignored ).toBeUndefined();
+		expect( result.notes ).toEqual( [
+			'Spacefast ignored 1 file from this publish. They archived successfully but the destination ' +
+				'declined to store them, so they are missing from the live site.',
+		] );
+	} );
+
+	it( 'reports no accepted/ignored breakdown when the receipt carries no upload summary', async () => {
+		stubFetch( 201, receipt );
+		const result = await spacefastTarget.publish( { directory: site() } );
+		expect( result.accepted ).toBeUndefined();
+		expect( result.ignored ).toBeUndefined();
+		expect( result.notes ).toEqual( [] );
 	} );
 
 	it( 'surfaces the stable problem code and request id on failure', async () => {

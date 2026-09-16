@@ -27,8 +27,17 @@ export function isRemoteAssetUrl( value: string ): boolean {
 	}
 }
 
+// Browsers fetch a stylesheet's source map from wherever `sourceMappingURL`
+// points once devtools is open. A map the capture never downloaded has no
+// local replacement, so a leftover absolute reference is a live request back
+// to the source CDN rather than an inert pointer — drop the comment entirely.
+const SOURCE_MAPPING_COMMENT = /\/\*[#@]\s*sourceMappingURL=\s*([^\s*]+)\s*\*\//gi;
+
 export function stripRemoteCssUrls( css: string ): string {
 	return css
+		.replace( SOURCE_MAPPING_COMMENT, ( match, reference ) =>
+			isRemoteAssetUrl( reference ) ? '' : match
+		)
 		.replace( /url\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi, ( match, quoted, bare ) => {
 			const reference = quoted ?? bare;
 			return reference && isRemoteAssetUrl( reference ) ? `url("${ EMPTY_CSS_URL }")` : match;
@@ -102,6 +111,17 @@ export function stripRemoteAssetRequests( html: string ): string {
 	$( 'style' ).each( ( _, element ) => {
 		const node = $( element );
 		node.html( stripRemoteCssUrls( node.html() ?? '' ) );
+	} );
+	// `data-url` / `data-href` don't drive a fetch, but platforms (Wix's
+	// stylesheet loader among them) use them to record where a `<style>` was
+	// sourced from. Left in place they ship the source's internal CDN
+	// topology in an otherwise self-contained artifact.
+	$( '[data-url],[data-href]' ).each( ( _, element ) => {
+		const node = $( element );
+		for ( const attribute of [ 'data-url', 'data-href' ] ) {
+			const value = node.attr( attribute );
+			if ( value && isRemoteAssetUrl( value ) ) node.removeAttr( attribute );
+		}
 	} );
 	$( '[style]' ).each( ( _, element ) => {
 		const node = $( element );

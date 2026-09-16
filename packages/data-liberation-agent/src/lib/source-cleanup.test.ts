@@ -87,6 +87,61 @@ it('captures clean artifacts and compares intentional removals while rejecting d
   expect(JSON.parse(readFileSync(join(directory, 'compare', 'cleanup-evidence.json'), 'utf8')).completed).toBe(false);
 }, 90_000);
 
+it('treats mutation-budget exhaustion as a diagnostic, not a cleanup failure, when nothing dirty is left behind', async () => {
+  // Mirrors an animated homepage (sliders, entrance transitions): each tick runs in its
+  // own macrotask, so the observer fires once per tick and exhausts the 100-round budget
+  // well before the loop finishes. None of the churn matches a cleanup rule.
+  const churnHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Animated owner site</title></head><body>
+<main><h1>Owner business</h1><p>${'Real owner content to retain. '.repeat(30)}</p></main>
+<script>
+(function tick(n){
+  const span = document.createElement('span');
+  span.className = 'churn';
+  span.textContent = String(n);
+  document.body.appendChild(span);
+  span.remove();
+  if (n < 160) setTimeout(tick, 0, n + 1);
+})(0);
+</script>
+</body></html>`;
+  server = createServer((_req, res) => { res.setHeader('content-type', 'text/html'); res.end(churnHtml); });
+  await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve));
+  const url = `http://localtest.me:${(server.address() as { port: number }).port}/`;
+  mkdirSync(join(process.cwd(), '.tmp-test'), { recursive: true });
+  directory = mkdtempSync(join(process.cwd(), '.tmp-test', 'cleanup-churn-'));
+  const result = await captureScreenshots({ urls: [url], primaryUrl: url, outputDir: directory,
+    cleanupPolicy: cleanupPolicy(), captureImages: true, learnFluid: false, settleMs: 1000 });
+  expect(result.failed).toBe(0);
+  expect(result.captured).toBe(1);
+  const manifest = JSON.parse(readFileSync(join(directory, 'screenshots', 'manifest.json'), 'utf8'));
+  const reports = manifest.entries[url].cleanup.reports as Array<{ truncated: boolean; failures: string[]; residual: number }>;
+  expect(reports.some((report) => report.truncated)).toBe(true);
+  expect(reports.every((report) => report.failures.length === 0 && report.residual === 0)).toBe(true);
+  exportWebsiteCapture({ outputDir: directory, sourceUrl: url, platform: 'default', summary: {}, failures: [] });
+  const receipt = JSON.parse(readFileSync(join(directory, 'capture-receipt.json'), 'utf8'));
+  expect(receipt.cleanup.complete).toBe(true);
+  const comparison = await checkFidelity({ directory, widths: [1440], settleMs: 200 });
+  expect(comparison.pass).toBe(true);
+}, 90_000);
+
+it('still reports genuine residual distinctly from budget exhaustion', async () => {
+  // Crosses the 1000-removal safety cap on a single rule, so the sweep's own guard
+  // (not the observer budget) leaves matches unremoved and reports them as residual.
+  const adHtml = `<!doctype html><html><head><meta charset="utf-8"></head><body>
+<main><h1>Owner business</h1></main>
+${'<div class="ad-slot">ad</div>'.repeat(1001)}
+</body></html>`;
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(adHtml);
+    await applySourceCleanup(page, policy);
+    const report = await readSourceCleanup(page);
+    expect(report.failures).toEqual([]);
+    expect(report.residual).toBeGreaterThan(0);
+  } finally { await browser.close(); }
+});
+
 it('reports invalid rules rather than silently certifying cleanup', async () => {
   const browser = await chromium.launch();
   try {

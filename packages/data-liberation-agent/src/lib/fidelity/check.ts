@@ -6,7 +6,7 @@
 //
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { chromium, type Page } from 'playwright';
+import type { Page } from 'playwright';
 import { startStaticServer } from '../replicate/local-site/static-server.js';
 import { DEFAULT_SWEEP_WIDTHS } from '../screenshot/fluid-capture.js';
 import { applySourceCleanup, readSourceCleanup, validateCleanupPolicy, type CleanupPolicy, type CleanupReport } from '../source-cleanup.js';
@@ -564,9 +564,17 @@ export async function checkFidelity( options: FidelityCheckOptions ): Promise< F
 	}
 
 	let observe = options.observe;
-	const server = observe ? null : await startStaticServer( websiteDir );
-	const browser = observe ? null : await chromium.launch();
-	const page = browser ? await browser.newPage() : null;
+	const browser = observe ? null : await (await import('playwright')).chromium.launch();
+	let server: Awaited<ReturnType<typeof startStaticServer>> | null = null;
+	let page: Page | null = null;
+	try {
+		server = observe ? null : await startStaticServer( websiteDir );
+		page = browser ? await browser.newPage() : null;
+	} catch (error) {
+		await browser?.close();
+		await server?.close();
+		throw error;
+	}
 	if ( ! observe ) {
 		observe = async ( sourceHref, localHref, viewport ) => {
 			if ( ! page ) throw new Error( 'browser page missing' );

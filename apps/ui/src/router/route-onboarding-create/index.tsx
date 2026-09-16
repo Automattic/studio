@@ -8,6 +8,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BlueprintUpload, type SelectedBlueprint } from '@/components/blueprint-upload';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { Composer, type ComposerHandle } from '@/components/session-view/composer';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -19,7 +20,6 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
-import { Composer, type ComposerHandle } from '@/ui-classic/components/session-view/composer';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 import localStyles from './style.module.css';

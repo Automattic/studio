@@ -282,7 +282,7 @@ describe( 'SessionView', () => {
 
 		const { container } = render( <SessionView sessionId="session-1" /> );
 
-		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+		const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
 		expect( scroller ).not.toBeNull();
 		expect(
 			screen.queryByRole( 'button', { name: SCROLL_TO_LATEST_LABEL } )
@@ -323,7 +323,7 @@ describe( 'SessionView', () => {
 		} );
 
 		const { container, rerender } = render( <SessionView sessionId="session-1" /> );
-		const scroller = container.querySelector( '[class*="classicScroll"]' ) as HTMLDivElement;
+		const scroller = container.querySelector( '[class*="_scroll_"]' ) as HTMLDivElement;
 		setScrollMetrics( scroller, { scrollTop: 0, scrollHeight: 1000, clientHeight: 400 } );
 
 		useStudioAssistantQuotaMock.mockReturnValue( {
@@ -334,7 +334,7 @@ describe( 'SessionView', () => {
 		} );
 		rerender( <SessionView sessionId="session-1" /> );
 
-		expect( container.querySelector( '[class*="classicScroll"]' ) ).toBe( scroller );
+		expect( container.querySelector( '[class*="_scroll_"]' ) ).toBe( scroller );
 		expect( scroller.scrollTop ).toBe( 1000 );
 
 		setScrollMetrics( scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 400 } );

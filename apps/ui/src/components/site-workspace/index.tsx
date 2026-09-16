@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { SessionView, SignedOutSessionView } from '@/components/session-view';
 import { SiteOverviewView } from '@/components/site-overview-view';
-import { SessionView, SignedOutSessionView } from '@/ui-classic/components/session-view';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 

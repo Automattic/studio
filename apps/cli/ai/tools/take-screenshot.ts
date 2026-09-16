@@ -24,14 +24,6 @@ const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALU
 } );
 type ScreenshotColorSchemeArgument = ScreenshotColorScheme | 'all';
 
-/**
- * Experimental: `STUDIO_SCREENSHOT_TILES=1` sends tall pages as full-scale
- * slices instead of one downscaled strip, to test whether the model then needs
- * fewer inspection calls. Each slice is an image block, so it also fills the
- * image history budget faster.
- */
-const SCREENSHOT_TILES_ENV = 'STUDIO_SCREENSHOT_TILES';
-
 function resolveViewportTypes( viewport?: ScreenshotViewportArgument ): ScreenshotViewportType[] {
 	if ( viewport === 'all' ) {
 		return [ 'desktop', 'mobile' ];
@@ -63,18 +55,11 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
-function describeModelImages(
-	images: ModelImage[] | undefined,
+function describeModelImage(
+	image: ModelImage | undefined,
 	captured: { width: number; height: number }
 ): string {
-	if ( ! images?.length ) {
-		return '';
-	}
-	if ( images.length > 1 ) {
-		return `, shown as ${ images.length } full-scale slices`;
-	}
-	const [ image ] = images;
-	return image.width === captured.width && image.height === captured.height
+	return ! image || ( image.width === captured.width && image.height === captured.height )
 		? ''
 		: `, shown downscaled to ${ image.width }x${ image.height }`;
 }
@@ -130,9 +115,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							format: 'jpeg',
 							offset: args.offset,
 							colorScheme,
-							...( visionEnabled
-								? { modelImages: process.env[ SCREENSHOT_TILES_ENV ] === '1' ? 'tiles' : 'fit' }
-								: {} ),
+							modelImage: visionEnabled,
 						} );
 						const screenshotFile = await saveScreenshotFile( capture.buffer, {
 							viewportType,
@@ -151,8 +134,8 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							viewportType,
 							colorScheme,
 							path: screenshotFile.path,
-							modelImages: capture.modelImages,
-							shown: describeModelImages( capture.modelImages, {
+							modelImage: capture.modelImage,
+							shown: describeModelImage( capture.modelImage, {
 								width: VIEWPORTS[ viewportType ].width,
 								height: capture.capturedHeight,
 							} ),
@@ -205,25 +188,16 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
-				// Slices carry a row label each; a single image is described above.
 				const imageBlocks = captures.flatMap( ( capture ) =>
-					( capture.modelImages ?? [] ).flatMap( ( image, _index, images ) => [
-						...( images.length > 1
-							? [
-									{
-										type: 'text' as const,
-										text: `${ getCaptureLabel( capture ) } rows ${
-											capture.offset + image.rowStart
-										}-${ capture.offset + image.rowEnd }`,
-									},
-							  ]
-							: [] ),
-						{
-							type: 'image' as const,
-							data: image.buffer.toString( 'base64' ),
-							mimeType: capture.mimeType,
-						},
-					] )
+					capture.modelImage
+						? [
+								{
+									type: 'image' as const,
+									data: capture.modelImage.buffer.toString( 'base64' ),
+									mimeType: capture.mimeType,
+								},
+						  ]
+						: []
 				);
 				context.onProgress( `Screenshot captured (${ captureLabel })` );
 				return {

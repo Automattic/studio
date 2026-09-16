@@ -132,144 +132,88 @@ export function fitImageToModelResolution( { width, height }: ImageSize ): Image
 	return { width: lo, height: shortEdge( lo ) };
 }
 
-/**
- * Height of the full-width slices a capture is cut into when the caller asks
- * for tiles: the tallest slice the model still sees at 100% scale.
- */
-export function modelImageTileHeight( width: number ): number {
-	const rowTokens = Math.ceil( width / MODEL_IMAGE_PATCH_PX );
-	return Math.min(
-		MODEL_IMAGE_MAX_EDGE_PX,
-		Math.floor( MODEL_IMAGE_MAX_TOKENS / rowTokens ) * MODEL_IMAGE_PATCH_PX
-	);
-}
-
-/** An image block prepared for the model: a region of the capture, encoded. */
+/** The capture as the model receives it. */
 export interface ModelImage extends ImageSize {
 	buffer: Buffer;
-	/** The rows of the capture this image shows, in CSS pixels from its top. */
-	rowStart: number;
-	rowEnd: number;
-}
-
-interface ImageRegion extends ImageSize {
-	sx: number;
-	sy: number;
-	sw: number;
-	sh: number;
 }
 
 /**
- * Re-encode regions of an encoded image at the requested sizes on an in-page
- * canvas. The browser already holds a decoder and a high-quality resampler,
- * which spares the CLI a native image dependency.
+ * Re-encode an image at `size` on an in-page canvas. The browser already holds
+ * a decoder and a high-quality resampler, which spares the CLI a native image
+ * dependency.
  */
-async function renderImageRegions(
+async function resizeImageInPage(
 	page: Page,
 	source: Buffer,
 	mimeType: ScreenshotMimeType,
-	regions: ImageRegion[]
-): Promise< Buffer[] > {
-	const dataUrls = await page.evaluate(
-		async ( { source, mimeType, regions, quality } ) => {
+	size: ImageSize
+): Promise< Buffer > {
+	const dataUrl = await page.evaluate(
+		async ( { source, mimeType, width, height, quality } ) => {
 			const blob = await ( await fetch( source ) ).blob();
+			const bitmap = await createImageBitmap( blob, {
+				resizeWidth: width,
+				resizeHeight: height,
+				resizeQuality: 'high',
+			} );
 			const canvas = document.createElement( 'canvas' );
+			canvas.width = width;
+			canvas.height = height;
 			const context = canvas.getContext( '2d' );
 			if ( ! context ) {
 				throw new Error( 'Canvas 2D context unavailable' );
 			}
-			const encoded: string[] = [];
-			for ( const region of regions ) {
-				const bitmap = await createImageBitmap( blob, region.sx, region.sy, region.sw, region.sh, {
-					resizeWidth: region.width,
-					resizeHeight: region.height,
-					resizeQuality: 'high',
-				} );
-				canvas.width = region.width;
-				canvas.height = region.height;
-				context.drawImage( bitmap, 0, 0 );
-				bitmap.close();
-				const output = await new Promise< Blob | null >( ( resolve ) =>
-					canvas.toBlob( resolve, mimeType, quality )
-				);
-				if ( ! output ) {
-					throw new Error( 'Canvas encoding failed' );
-				}
-				encoded.push(
-					await new Promise< string >( ( resolve, reject ) => {
-						const reader = new FileReader();
-						reader.onload = () => resolve( reader.result as string );
-						reader.onerror = () => reject( reader.error );
-						reader.readAsDataURL( output );
-					} )
-				);
+			context.drawImage( bitmap, 0, 0 );
+			bitmap.close();
+			const output = await new Promise< Blob | null >( ( resolve ) =>
+				canvas.toBlob( resolve, mimeType, quality )
+			);
+			if ( ! output ) {
+				throw new Error( 'Canvas encoding failed' );
 			}
-			return encoded;
+			return new Promise< string >( ( resolve, reject ) => {
+				const reader = new FileReader();
+				reader.onload = () => resolve( reader.result as string );
+				reader.onerror = () => reject( reader.error );
+				reader.readAsDataURL( output );
+			} );
 		},
 		{
 			source: `data:${ mimeType };base64,${ source.toString( 'base64' ) }`,
 			mimeType,
-			regions,
+			...size,
 			quality: MODEL_JPEG_QUALITY / 100,
 		}
 	);
-	return dataUrls.map( ( dataUrl ) =>
-		Buffer.from( dataUrl.slice( dataUrl.indexOf( ',' ) + 1 ), 'base64' )
-	);
+	return Buffer.from( dataUrl.slice( dataUrl.indexOf( ',' ) + 1 ), 'base64' );
 }
 
 /**
- * Prepare the image blocks the model receives for a capture of `size` pixels:
- * the whole capture fitted to the model's native resolution, or — with
- * `tiles` — full-width slices it sees at 100% scale. A capture that already
- * fits is passed through untouched.
+ * The image block the model receives for a capture of `size` pixels: the
+ * capture fitted to the model's native resolution, or the capture itself when
+ * it already fits.
  */
-async function prepareModelImages(
+async function prepareModelImage(
 	page: Page,
 	capture: Buffer,
 	mimeType: ScreenshotMimeType,
-	size: ImageSize,
-	dpr: number,
-	tiles: boolean
-): Promise< ModelImage[] > {
-	const toRows = ( pixels: number ) => Math.round( pixels / dpr );
-	if ( ! tiles ) {
-		const fitted = fitImageToModelResolution( size );
-		if ( fitted.width === size.width && fitted.height === size.height ) {
-			return [ { buffer: capture, ...size, rowStart: 0, rowEnd: toRows( size.height ) } ];
-		}
-		const [ buffer ] = await renderImageRegions( page, capture, mimeType, [
-			{ sx: 0, sy: 0, sw: size.width, sh: size.height, ...fitted },
-		] );
-		return [ { buffer, ...fitted, rowStart: 0, rowEnd: toRows( size.height ) } ];
+	size: ImageSize
+): Promise< ModelImage > {
+	const fitted = fitImageToModelResolution( size );
+	if ( fitted.width === size.width && fitted.height === size.height ) {
+		return { buffer: capture, ...size };
 	}
-	const tileHeight = modelImageTileHeight( size.width );
-	if ( size.height <= tileHeight ) {
-		return [ { buffer: capture, ...size, rowStart: 0, rowEnd: toRows( size.height ) } ];
-	}
-	const regions: ImageRegion[] = [];
-	for ( let sy = 0; sy < size.height; sy += tileHeight ) {
-		const sh = Math.min( tileHeight, size.height - sy );
-		regions.push( { sx: 0, sy, sw: size.width, sh, width: size.width, height: sh } );
-	}
-	const buffers = await renderImageRegions( page, capture, mimeType, regions );
-	return regions.map( ( region, index ) => ( {
-		buffer: buffers[ index ],
-		width: region.width,
-		height: region.height,
-		rowStart: toRows( region.sy ),
-		rowEnd: toRows( region.sy + region.sh ),
-	} ) );
+	return { buffer: await resizeImageInPage( page, capture, mimeType, fitted ), ...fitted };
 }
 
 export interface ScreenshotCapture {
 	/** The full-resolution capture, for the saved file and the user. */
 	buffer: Buffer;
 	/**
-	 * What the model is shown, when the caller asked for `modelImages`: the
-	 * capture fitted to the model's native resolution, or its full-scale tiles.
+	 * The capture fitted to the model's native resolution, when the caller
+	 * asked for `modelImage`.
 	 */
-	modelImages?: ModelImage[];
+	modelImage?: ModelImage;
 	documentHeight: number;
 	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
 	contentHeight: number;
@@ -288,10 +232,9 @@ export interface ScreenshotCapture {
  * capture a subsequent slice of a long page. Returned metadata tells callers
  * whether the page was clipped and how much remains.
  *
- * `modelImages: 'fit'` also returns the capture downscaled to the resolution
- * the vision API would reduce it to anyway, so the model sees the same pixels
- * for a fraction of the bytes; `'tiles'` returns full-width slices instead,
- * each small enough to reach the model at 100% scale.
+ * `modelImage` also returns the capture downscaled to the resolution the
+ * vision API would reduce it to anyway, so the model sees the same pixels for
+ * a fraction of the bytes.
  */
 export async function captureScreenshotBuffer(
 	url: string,
@@ -302,7 +245,7 @@ export async function captureScreenshotBuffer(
 		format?: ScreenshotFormat;
 		offset?: number;
 		colorScheme?: ScreenshotColorScheme;
-		modelImages?: 'fit' | 'tiles';
+		modelImage?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
@@ -387,16 +330,12 @@ export async function captureScreenshotBuffer(
 			format === 'jpeg'
 				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
 				: { type: 'png' as const };
-		const prepareModelImagesFor = ( capture: Buffer, cssHeight: number ) =>
-			options.modelImages
-				? prepareModelImages(
-						page,
-						capture,
-						mimeType,
-						{ width: Math.round( viewport.width * dpr ), height: Math.round( cssHeight * dpr ) },
-						dpr,
-						options.modelImages === 'tiles'
-				  )
+		const prepareModelImageFor = ( capture: Buffer, cssHeight: number ) =>
+			options.modelImage
+				? prepareModelImage( page, capture, mimeType, {
+						width: Math.round( viewport.width * dpr ),
+						height: Math.round( cssHeight * dpr ),
+				  } )
 				: undefined;
 
 		if ( ! options.fullPage ) {
@@ -413,7 +352,7 @@ export async function captureScreenshotBuffer(
 			const buffer = Buffer.from( await page.screenshot( { ...formatOptions } ) );
 			return {
 				buffer,
-				modelImages: await prepareModelImagesFor( buffer, viewport.height ),
+				modelImage: await prepareModelImageFor( buffer, viewport.height ),
 				documentHeight: viewport.height,
 				contentHeight,
 				capturedHeight: viewport.height,
@@ -447,7 +386,7 @@ export async function captureScreenshotBuffer(
 		);
 		return {
 			buffer,
-			modelImages: await prepareModelImagesFor( buffer, capturedHeight ),
+			modelImage: await prepareModelImageFor( buffer, capturedHeight ),
 			documentHeight,
 			contentHeight: documentHeight,
 			capturedHeight,

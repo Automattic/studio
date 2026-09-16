@@ -6,7 +6,6 @@ import { setScreenshotDirectoryProvider } from '../screenshot-storage';
 import {
 	countImageTokens,
 	fitImageToModelResolution,
-	modelImageTileHeight,
 	saveScreenshotFile,
 } from '../tools/screenshot-helpers';
 
@@ -44,15 +43,6 @@ describe( 'screenshot helpers', () => {
 		} );
 		expect( countImageTokens( { width: 473, height: 2576 } ) ).toBe( 1564 );
 		expect( countImageTokens( { width: 2576, height: 1449 } ) ).toBe( 4784 );
-	} );
-
-	it( 'sizes full-scale tiles so each stays within the model resolution', () => {
-		expect( modelImageTileHeight( 1040 ) ).toBe( 2576 );
-		expect( modelImageTileHeight( 390 ) ).toBe( 2576 );
-		expect( countImageTokens( { width: 1040, height: modelImageTileHeight( 1040 ) } ) ).toBe(
-			3496
-		);
-		expect( modelImageTileHeight( 2576 ) ).toBe( 1456 );
 	} );
 
 	it( 'falls back to a temporary directory when no provider is set', async () => {

@@ -165,6 +165,49 @@ describe( 'createLocalConnector Connect contracts', () => {
 
 // Missing routes make `api()` throw and the button silently never appear, so
 // pin the exact URLs.
+describe( 'createLocalConnector openSiteUrl', () => {
+	const fetchMock = vi.fn();
+	let openMock: ReturnType< typeof vi.spyOn >;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'fetch', fetchMock );
+		fetchMock.mockResolvedValue(
+			new Response( JSON.stringify( [ { id: 'site-1', url: 'http://localhost:8881' } ] ) )
+		);
+		openMock = vi.spyOn( window, 'open' ).mockImplementation( () => null );
+	} );
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'routes the URL through /studio-auto-login like the desktop host', async () => {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.openSiteUrl( 'site-1', '/wp-admin/' );
+
+		expect( openMock ).toHaveBeenCalledWith(
+			'http://localhost:8881/studio-auto-login?redirect_to=http%3A%2F%2Flocalhost%3A8881%2Fwp-admin%2F',
+			'_blank',
+			'noopener,noreferrer'
+		);
+	} );
+
+	it( 'opens the plain URL when auto-login is declined', async () => {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.openSiteUrl( 'site-1', '/', { autoLogin: false } );
+
+		expect( openMock ).toHaveBeenCalledWith(
+			'http://localhost:8881/',
+			'_blank',
+			'noopener,noreferrer'
+		);
+	} );
+} );
+
 describe( 'createLocalConnector debug log', () => {
 	const fetchMock = vi.fn();
 

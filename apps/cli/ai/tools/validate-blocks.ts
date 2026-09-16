@@ -68,7 +68,7 @@ export const validateBlocksTool = defineTool(
 			if ( args.filePath ) {
 				filePath = path.resolve( site.path, args.filePath );
 				blockContent = await readFile( filePath, 'utf-8' );
-				fileName = filePath.split( '/' ).slice( -2 ).join( '/' );
+				fileName = filePath.split( path.sep ).slice( -2 ).join( '/' );
 			} else if ( args.content !== undefined ) {
 				blockContent = args.content;
 			} else {

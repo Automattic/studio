@@ -383,28 +383,13 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
 
-	// STUDIO_EVAL_AUTO_ANSWER=1 answers every question with its first option and
-	// registers the tools that need a Studio UI, so the design steps
-	// (present_design_options) run end to end; each pick is reported with the
-	// time it was asked.
 	const autoAnswer = process.env.STUDIO_EVAL_AUTO_ANSWER === '1';
-	const questions: {
-		question: string;
-		options: string[];
-		answer: string;
-		askedAtMs: number;
-	}[] = [];
-	const answerFirstOption: AskUserHandler = async ( asked ) =>
+	const questions: { question: string; answer: string; askedAtMs: number }[] = [];
+	const onAskUser: AskUserHandler = async ( asked ) =>
 		Object.fromEntries(
-			asked.map( ( question ) => {
-				const answer = question.options[ 0 ]?.label ?? '';
-				questions.push( {
-					question: question.question,
-					options: question.options.map( ( option ) => option.label ),
-					answer,
-					askedAtMs: elapsed(),
-				} );
-				return [ question.question, answer ];
+			asked.map( ( { question, options } ) => {
+				questions.push( { question, answer: options[ 0 ].label, askedAtMs: elapsed() } );
+				return [ question, options[ 0 ].label ];
 			} )
 		);
 
@@ -512,7 +497,7 @@ async function runEval( input: EvalRunnerInput ) {
 			session,
 			onEvent: handleEvent,
 			...( input.model ? { model: input.model } : {} ),
-			...( autoAnswer ? { onAskUser: answerFirstOption, chatArtifactsEnabled: true } : {} ),
+			...( autoAnswer ? { onAskUser, chatArtifactsEnabled: true } : {} ),
 		} );
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;

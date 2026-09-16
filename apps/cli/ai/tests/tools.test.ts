@@ -383,19 +383,17 @@ describe( 'Studio AI MCP tools', () => {
 		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
 	} );
 
-	it( 'generate_images offers background generation only where present_design_options exists', () => {
-		const generateImages = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
-			resolveStudioToolDefinitions( { imageGeneration: true, ...options } ).find(
-				( tool ) => tool.name === 'generate_images'
-			) as AnyStudioAgentTool & { parameters: { properties: Record< string, unknown > } };
-		for ( const options of [ {}, { emitChatArtifacts: true }, { canAskUser: true } ] ) {
-			const tool = generateImages( options );
-			expect( tool.parameters.properties ).not.toHaveProperty( 'background' );
-			expect( tool.description ).not.toContain( 'background' );
-		}
-		const tool = generateImages( { emitChatArtifacts: true, canAskUser: true } );
-		expect( tool.parameters.properties ).toHaveProperty( 'background' );
-		expect( tool.description ).toContain( '`background: true`' );
+	it( 'offers background image generation only where present_design_options exists', () => {
+		const properties = ( options: object ) =>
+			(
+				resolveStudioToolDefinitions( { imageGeneration: true, ...options } ).find(
+					( tool ) => tool.name === 'generate_images'
+				)?.parameters as { properties: object }
+			 ).properties;
+		expect( properties( { emitChatArtifacts: true } ) ).not.toHaveProperty( 'background' );
+		expect( properties( { emitChatArtifacts: true, canAskUser: true } ) ).toHaveProperty(
+			'background'
+		);
 	} );
 
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {

@@ -91,8 +91,6 @@ export interface StudioAgentTurnConfig {
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
-	// Registers the tools that need a Studio UI (present_design_options,
-	// refresh_browser, …). Defaults to whether one forked this process.
 	chatArtifactsEnabled?: boolean;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }

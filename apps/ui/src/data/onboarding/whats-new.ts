@@ -9,6 +9,15 @@ export function getWhatsNewGuide(): GuideDefinition {
 	return {
 		pages: [
 			{
+				illustration: 'model-tiers',
+				title: () => __( 'Fast, Balanced, or Strong' ),
+				description: () =>
+					__(
+						'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
+					),
+				action: () => __( 'Next' ),
+			},
+			{
 				illustration: 'design-picker',
 				title: () => __( 'Pick your design before a line of code' ),
 				description: () =>
@@ -27,15 +36,6 @@ export function getWhatsNewGuide(): GuideDefinition {
 					),
 				action: () => __( 'Next' ),
 				learnMore: 'docsStudioCode',
-			},
-			{
-				illustration: 'model-tiers',
-				title: () => __( 'Fast, Balanced, or Strong' ),
-				description: () =>
-					__(
-						'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
-					),
-				action: () => __( 'Next' ),
 			},
 			{
 				illustration: 'building-blocks',

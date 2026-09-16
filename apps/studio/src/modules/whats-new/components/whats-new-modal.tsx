@@ -49,6 +49,13 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
+			image: modelTiersIllustration,
+			title: __( 'Fast, Balanced, or Strong' ),
+			description: __(
+				'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
+			),
+		},
+		{
 			image: designPickerIllustration,
 			title: __( 'Pick your design before a line of code' ),
 			description: __(
@@ -63,13 +70,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				"The look you choose is saved as your site's design system, so every later change — colors, type, even the writing voice — stays in keeping with it."
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
-		},
-		{
-			image: modelTiersIllustration,
-			title: __( 'Fast, Balanced, or Strong' ),
-			description: __(
-				'Model names are gone. Pick the speed and depth you need instead: Fast for everyday changes, Balanced and Strong for bigger builds when you have AI credits.'
-			),
 		},
 		{
 			image: buildingBlocksIllustration,

@@ -172,17 +172,17 @@
 
 .overviewStorageBar [data-storage='plugins'] {
 	width: 18%;
-	background: light-dark(#c7367f, #d75c90);
+	background: var(--studio-color-storage-plugins);
 }
 
 .overviewStorageBar [data-storage='themes'] {
 	width: 48%;
-	background: light-dark(#b26b00, #d39a38);
+	background: var(--studio-color-storage-themes);
 }
 
 .overviewStorageBar [data-storage='database'] {
 	width: 8%;
-	background: light-dark(#00918e, #22a79f);
+	background: var(--studio-color-storage-database);
 }
 
 .overviewStorageBar [data-storage='other'] {

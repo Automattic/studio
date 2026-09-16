@@ -7,7 +7,7 @@ import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
-import { inspectDesignTool } from './inspect-design';
+import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
@@ -104,6 +104,9 @@ export function resolveStudioToolDefinitions(
 		let tool = candidate;
 		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
 			tool = createTakeScreenshotTool( { visionEnabled: false } );
+		}
+		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
+			tool = createInspectDesignTool( { visionEnabled: false } );
 		}
 		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
 			tool = createPickDesignTool( {

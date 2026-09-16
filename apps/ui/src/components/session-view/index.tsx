@@ -160,12 +160,9 @@ function SessionFrame( {
 		}
 
 		const updateChromeSize = () => {
-			root.style.setProperty(
-				'--classic-header-height',
-				`${ headerRef.current?.offsetHeight ?? 0 }px`
-			);
+			root.style.setProperty( '--header-height', `${ headerRef.current?.offsetHeight ?? 0 }px` );
 			const composerHeight = composerRef.current?.offsetHeight ?? 0;
-			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			root.style.setProperty( '--composer-height', `${ composerHeight }px` );
 			// The collapsed-sidebar toast shelf lives in the layout's <main>, an
 			// ancestor of this root, so it can't inherit the value from here.
 			// Publishing it on the document lets the shelf ride above the composer
@@ -218,17 +215,14 @@ function SessionFrame( {
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
-			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
+			<div ref={ scrollRef } className={ styles.scroll }>
 				{ children }
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			{ composer ? (
 				<>
 					<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
-					<div
-						ref={ composerRef }
-						className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-					>
+					<div ref={ composerRef } className={ styles.composerOuter }>
 						{ composer }
 					</div>
 				</>
@@ -595,7 +589,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
-					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+					<div className={ clsx( styles.column, styles.composerColumn ) }>
 						<ComposerSkeleton />
 					</div>
 				}
@@ -641,8 +635,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			composer={
 				<div
 					className={ clsx(
-						styles.classicColumn,
-						styles.classicComposerColumn,
+						styles.column,
+						styles.composerColumn,
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
@@ -713,7 +707,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					}
 				/>
 			) : null }
-			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
+			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

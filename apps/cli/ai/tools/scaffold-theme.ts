@@ -582,5 +582,9 @@ export const scaffoldThemeTool = defineTool(
 				`Failed to scaffold theme: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
 	}
 );

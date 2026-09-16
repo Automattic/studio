@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wapuu World — Level Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #eee; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  header { padding: 10px 16px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  header h1 { font-size: 16px; color: #f5a623; }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tile-btn { width: 36px; height: 36px; border: 2px solid transparent; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; transition: border-color .1s; user-select: none; }
+  .tile-btn.active { border-color: #f5a623; }
+  .tile-btn:hover { border-color: #aaa; }
+
+  .actions { margin-left: auto; display: flex; gap: 8px; }
+  button.action { padding: 6px 12px; border: 1px solid #555; border-radius: 4px; background: #0f3460; color: #eee; cursor: pointer; font: inherit; font-size: 12px; }
+  button.action:hover { background: #1a4a80; }
+  button.action.primary { background: #f5a623; color: #111; border-color: #f5a623; font-weight: bold; }
+  button.action.primary:hover { background: #f0c060; }
+
+  .workspace { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .grid-wrap { display: inline-block; }
+  #grid { display: grid; gap: 1px; background: #333; border: 1px solid #555; cursor: crosshair; user-select: none; }
+  .cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: filter .05s; }
+  .cell:hover { filter: brightness(1.4); }
+
+  .output-section { display: flex; flex-direction: column; gap: 6px; }
+  .output-section label { font-size: 12px; color: #aaa; }
+  textarea { width: 100%; height: 160px; background: #0d0d1a; color: #7effa0; border: 1px solid #333; border-radius: 4px; padding: 10px; font: 13px/1.5 monospace; resize: vertical; }
+
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #aaa; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+
+  .hint { font-size: 11px; color: #666; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Wapuu World — Level Editor</h1>
+  <div class="toolbar" id="toolbar"></div>
+  <div class="actions">
+    <button class="action" onclick="resizeGrid()">Resize…</button>
+    <button class="action" onclick="clearGrid()">Clear</button>
+    <button class="action" onclick="loadFromOutput()">Load from code</button>
+    <button class="action primary" onclick="exportLevel()">Export →</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="grid-wrap">
+    <div id="grid"></div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <p class="hint">Left-click to paint · Right-click to erase · Click and drag to paint multiple cells</p>
+  <div class="output-section">
+    <label>LEVEL_MAP array — paste into level.ts:</label>
+    <textarea id="output" spellcheck="false" placeholder="Output will appear here after clicking Export"></textarea>
+  </div>
+</div>
+
+<script>
+const TILES = [
+  { id: 0, label: '·', name: 'Empty',          bg: '#1a2a3a', color: '#555' },
+  { id: 1, label: '#', name: 'Ground',          bg: '#5d3a1a', color: '#c8a43c' },
+  { id: 2, label: '=', name: 'Platform',        bg: '#8b6914', color: '#f0d060' },
+  { id: 3, label: 'c', name: 'Coin',            bg: '#2a3a1a', color: '#f5a623' },
+  { id: 4, label: 'F', name: 'Flag',            bg: '#1a2a4a', color: '#4af' },
+  { id: 5, label: 'e', name: 'Enemy (block)',   bg: '#3a1a1a', color: '#f44' },
+  { id: 6, label: '~', name: 'Pit edge',        bg: '#1a1a3a', color: '#88f' },
+  { id: 7, label: 'M', name: 'Mguy (boss)',     bg: '#3a1a2a', color: '#f4a' },
+  { id: 8, label: 'X', name: 'Soil',           bg: '#3d2008', color: '#a0714a' },
+];
+
+const TILE_BY_ID = Object.fromEntries(TILES.map(t => [t.id, t]));
+
+let COLS = 30;
+let ROWS = 12;
+let grid = [];
+let activeTile = 1;
+let isPainting = false;
+let paintValue = 1;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+function initGrid(cols, rows, existingData) {
+  COLS = cols;
+  ROWS = rows;
+  grid = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, c) => existingData?.[r]?.[c] ?? 0)
+  );
+}
+
+function buildToolbar() {
+  const tb = document.getElementById('toolbar');
+  tb.innerHTML = '';
+  TILES.forEach(t => {
+    const btn = document.createElement('div');
+    btn.className = 'tile-btn' + (t.id === activeTile ? ' active' : '');
+    btn.title = `${t.name} (${t.id})`;
+    btn.style.background = t.bg;
+    btn.style.color = t.color;
+    btn.textContent = t.label;
+    btn.addEventListener('click', () => {
+      activeTile = t.id;
+      document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    tb.appendChild(btn);
+  });
+}
+
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = TILES.map(t =>
+    `<span class="legend-item"><span class="tile-btn" style="background:${t.bg};color:${t.color};width:20px;height:20px;font-size:11px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center">${t.label}</span> ${t.id} = ${t.name}</span>`
+  ).join('');
+}
+
+function renderGrid() {
+  const el = document.getElementById('grid');
+  el.style.gridTemplateColumns = `repeat(${COLS}, 32px)`;
+  el.style.gridTemplateRows    = `repeat(${ROWS}, 32px)`;
+  el.innerHTML = '';
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      styleCellEl(cell, grid[r][c]);
+      el.appendChild(cell);
+    }
+  }
+
+  el.addEventListener('mousedown', onMouseDown);
+  el.addEventListener('mouseover', onMouseOver);
+  window.addEventListener('mouseup', () => { isPainting = false; });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+function styleCellEl(el, tileId) {
+  const t = TILE_BY_ID[tileId] ?? TILE_BY_ID[0];
+  el.style.background = t.bg;
+  el.style.color = t.color;
+  el.textContent = tileId === 0 ? '' : t.label;
+}
+
+function paintCell(r, c, value) {
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+  grid[r][c] = value;
+  const idx = r * COLS + c;
+  const el = document.getElementById('grid').children[idx];
+  if (el) styleCellEl(el, value);
+}
+
+function onMouseDown(e) {
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  e.preventDefault();
+  isPainting = true;
+  paintValue = e.button === 2 ? 0 : activeTile;
+  paintCell(+cell.dataset.r, +cell.dataset.c, paintValue);
+}
+
+function onMouseOver(e) {
+  if (!isPainting) return;
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  paintCell(+cell.dataset.r, +cell.dataset.c, paintValue);
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+function exportLevel() {
+  const lines = grid.map(row => '\t[ ' + row.join(', ') + ' ]');
+  const out = 'export const LEVEL_MAP: number[][] = [\n' + lines.join(',\n') + ',\n];';
+  document.getElementById('output').value = out;
+  navigator.clipboard?.writeText(out).catch(() => {});
+}
+
+function clearGrid() {
+  if (!confirm('Clear the entire level?')) return;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      paintCell(r, c, 0);
+}
+
+function resizeGrid() {
+  const input = prompt(`New size (colsxrows), current: ${COLS}x${ROWS}`, `${COLS}x${ROWS}`);
+  if (!input) return;
+  const [c, r] = input.split('x').map(Number);
+  if (!c || !r || c < 4 || r < 4) { alert('Invalid size'); return; }
+  initGrid(c, r, grid);
+  renderGrid();
+}
+
+function loadFromOutput() {
+  const src = prompt('Paste the LEVEL_MAP array (just the 2D array literal, or the full export line):');
+  if (!src) return;
+  try {
+    // Extract the 2D array portion
+    const match = src.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('No array found');
+    // eslint-disable-next-line no-new-func
+    const parsed = Function('"use strict"; return (' + match[0] + ')')();
+    if (!Array.isArray(parsed) || !Array.isArray(parsed[0])) throw new Error('Not a 2D array');
+    initGrid(parsed[0].length, parsed.length, parsed);
+    renderGrid();
+  } catch(e) {
+    alert('Could not parse: ' + e.message);
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+// Current level baked in so the editor opens with the real level
+const CURRENT_LEVEL = [
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 4 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 3, 0, 0, 2, 2, 2 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2, 2, 0, 0, 2, 2, 8, 8, 8, 8, 2, 0, 0, 0, 0, 8, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 2, 2, 2, 0, 0, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0 ],
+	[ 0, 0, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0 ],
+	[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 5, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0 ],
+	[ 3, 0, 3, 0, 0, 0, 3, 6, 0, 0, 6, 3, 0, 3, 0, 0, 0, 3, 0, 0, 6, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1 ],
+];
+
+initGrid(CURRENT_LEVEL[0].length, CURRENT_LEVEL.length, CURRENT_LEVEL);
+buildToolbar();
+buildLegend();
+renderGrid();
+</script>
+</body>
+</html>

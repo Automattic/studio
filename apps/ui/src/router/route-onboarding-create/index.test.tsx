@@ -63,7 +63,7 @@ vi.mock( '@/components/create-site-form', () => ( {
 	},
 } ) );
 
-vi.mock( '@/ui-classic/components/session-view/composer', () => ( {
+vi.mock( '@/components/session-view/composer', () => ( {
 	Composer: forwardRef< unknown, Record< string, unknown > >( function MockComposer( props, ref ) {
 		mocks.composerProps = props;
 		useImperativeHandle( ref, () => ( { getSubmission: () => mocks.submission } ) );

@@ -308,6 +308,30 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'resolves a relative filePath against the site root', async () => {
+		const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( siteDir, 'tmp', 'page-home.html' );
+		const fixedContent = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+		await mkdir( path.dirname( filePath ), { recursive: true } );
+		await writeFile( filePath, '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ { ...mockSite, path: siteDir } ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		mockValidatedFix( fixedContent );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath: 'tmp/page-home.html',
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
+		} finally {
+			await rm( siteDir, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );

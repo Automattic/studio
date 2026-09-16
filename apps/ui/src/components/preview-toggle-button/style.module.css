@@ -1,5 +1,5 @@
 /* Mirrors the chat footer's icon-button treatment (see session-view's
-   classicComposerTextButton/classicComposerIconButton) so the toggle looks
+   composerTextButton/composerIconButton) so the toggle looks
    the same wherever it appears. */
 .button {
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-default);

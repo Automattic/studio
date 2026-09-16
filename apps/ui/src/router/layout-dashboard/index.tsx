@@ -9,6 +9,7 @@ import {
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { isSiteSettingsTab, siteSettingsTabToPanel } from '@/components/site-settings-view';
+import { SiteWorkspace } from '@/components/site-workspace';
 import { useConnector } from '@/data/core';
 import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
@@ -25,7 +26,6 @@ import {
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
-import { SiteWorkspace } from '@/ui-classic/components/site-workspace';
 import { rootRoute } from '../layout-root';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 

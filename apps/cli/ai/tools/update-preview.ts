@@ -31,5 +31,9 @@ export const updatePreviewTool = defineTool(
 			'Failed to update preview site',
 			context.onProgress
 		);
+	},
+	{
+		promptSnippet:
+			'Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait',
 	}
 );

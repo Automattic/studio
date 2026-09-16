@@ -31,5 +31,9 @@ export const importSiteTool = defineTool(
 				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.',
 	}
 );

@@ -2,7 +2,7 @@ import { THINKING_MESSAGES } from '@studio/common/ai/thinking-messages';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
-import { AnimatedElapsedTime } from '@/ui-classic/components/session-view/thinking-indicator';
+import { AnimatedElapsedTime } from '@/components/session-view/thinking-indicator';
 import { at, easings, span, useTimeline, type Playback } from './choreography';
 import {
 	CameraGlyph,

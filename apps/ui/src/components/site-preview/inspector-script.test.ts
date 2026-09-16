@@ -11,6 +11,7 @@ describe( 'site preview inspector sessions', () => {
 		// answer the next test's commands alongside the instance under test.
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
 		document.body.replaceChildren();
 		delete ( window as Window & { __studioInspectorState?: unknown[] } ).__studioInspectorState;
 	} );
@@ -246,6 +247,7 @@ describe( 'site preview inspector sessions', () => {
 
 		const popup = root.querySelector( '.popup' ) as HTMLElement;
 		const handle = root.querySelector( '.target' ) as HTMLElement;
+		trackPopupRect( popup );
 		const startLeft = parseFloat( popup.style.left );
 		const startTop = parseFloat( popup.style.top );
 
@@ -267,7 +269,73 @@ describe( 'site preview inspector sessions', () => {
 		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe(
 			startLeft + 40
 		);
-		vi.unstubAllGlobals();
+	} );
+
+	it( 'keeps an undragged note anchored to its element when the page reflows', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		const measure = vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 400, 100 ) );
+		vi.stubGlobal( 'requestAnimationFrame', ( cb: FrameRequestCallback ) => {
+			cb( 0 );
+			return 1;
+		} );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe(
+			290
+		);
+
+		// A narrower layout moves the element; the note has to follow it.
+		measure.mockReturnValue( rect( 20, 100 ) );
+		window.dispatchEvent( new Event( 'resize' ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe( 8 );
+	} );
+
+	it( 'pulls a dragged note back inside the viewport when it shrinks', () => {
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		document.body.innerHTML = '<h1 id="first">First</h1>';
+		const first = document.querySelector( '#first' ) as HTMLElement;
+		vi.spyOn( first, 'getBoundingClientRect' ).mockReturnValue( rect( 200, 100 ) );
+		// Handle 0 keeps relayout's in-flight guard clear once this synchronous
+		// stub has run, so the test can reflow more than once.
+		vi.stubGlobal( 'requestAnimationFrame', ( cb: FrameRequestCallback ) => {
+			cb( 0 );
+			return 0;
+		} );
+
+		new Function( INSPECTOR_PAGE_SCRIPT )();
+		const root = ( document.querySelector( '#__studio-inspector-host' ) as HTMLElement )
+			.shadowRoot as ShadowRoot;
+		command( 'toggle-picking' );
+		first.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true } ) );
+
+		const handle = root.querySelector( '.target' ) as HTMLElement;
+		trackPopupRect( root.querySelector( '.popup' ) as HTMLElement );
+		handle.dispatchEvent(
+			new MouseEvent( 'mousedown', { bubbles: true, button: 0, clientX: 300, clientY: 200 } )
+		);
+		window.dispatchEvent( new MouseEvent( 'mousemove', { clientX: 900, clientY: 200 } ) );
+		window.dispatchEvent( new MouseEvent( 'mouseup', { clientX: 900, clientY: 200 } ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe(
+			690
+		);
+
+		// Shrinking the pane must not strand the note outside it.
+		vi.stubGlobal( 'innerWidth', 400 );
+		window.dispatchEvent( new Event( 'resize' ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe( 72 );
+
+		// Clamping is for display only, so widening gives the note back.
+		vi.stubGlobal( 'innerWidth', 1024 );
+		window.dispatchEvent( new Event( 'resize' ) );
+		expect( parseFloat( ( root.querySelector( '.popup' ) as HTMLElement ).style.left ) ).toBe(
+			690
+		);
 	} );
 
 	it( 'dims the page around the selected element while a note is open', () => {
@@ -335,6 +403,14 @@ function seedSavedNote() {
 			documentRect: { left: 10, top: 10, width: 100, height: 40 },
 		},
 	];
+}
+
+function trackPopupRect( popup: HTMLElement ) {
+	// jsdom never lays out, so getBoundingClientRect always reads 0. Report the
+	// rect a browser would for the styles positionPopup just wrote.
+	vi.spyOn( popup, 'getBoundingClientRect' ).mockImplementation( () =>
+		rect( parseFloat( popup.style.left ), parseFloat( popup.style.top ) )
+	);
 }
 
 function command( type: string ) {

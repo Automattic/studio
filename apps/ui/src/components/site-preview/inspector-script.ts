@@ -616,36 +616,55 @@ export const INSPECTOR_PAGE_SCRIPT =
 		{ signal: teardown.signal }
 	);
 
-	/* Position the popup near the element using viewport coords (it's
-	 * \`position: fixed\` so it stays in the viewport). Falls back to
-	 * centre if the element can't be located. Re-run on relayout. */
+	function popupWidth( popup ) {
+		return popup.offsetWidth || Math.min( 320, window.innerWidth - 16 );
+	}
+
+	function clampToViewport( popup, pos ) {
+		const height = popup.offsetHeight || 200;
+		return {
+			left: Math.min(
+				Math.max( 8, pos.left ),
+				Math.max( 8, window.innerWidth - popupWidth( popup ) - 8 )
+			),
+			top: Math.min( Math.max( 8, pos.top ), Math.max( 8, window.innerHeight - height - 8 ) ),
+		};
+	}
+
+	function applyPosition( popup, pos ) {
+		popup.style.left = pos.left + 'px';
+		popup.style.top = pos.top + 'px';
+		popup.style.transform = '';
+	}
+
+	/* Position the popup in viewport coords (it's \`position: fixed\`). Re-run
+	 * on relayout. \`popupPosition\` is set only by a drag and holds the spot
+	 * the user chose: it is clamped for display, so a pane that shrinks can't
+	 * strand the note out of reach, but kept unclamped so widening the pane
+	 * gives the note back. Any other note anchors under its element, or
+	 * centers if the element can't be located. */
 	function positionPopup( popup, state ) {
-		const el = state.popupPosition ? null : resolveAnnotationElement( state.target );
 		if ( state.popupPosition ) {
-			popup.style.left = state.popupPosition.left + 'px';
-			popup.style.top = state.popupPosition.top + 'px';
-			popup.style.transform = '';
-		} else if ( el ) {
-			const r = el.getBoundingClientRect();
-			const popupWidth = Math.min( 320, window.innerWidth - 16 );
-			const gap = 12;
-			const left = Math.min(
-				Math.max( 8, r.left + r.width / 2 - popupWidth / 2 ),
-				window.innerWidth - popupWidth - 8
-			);
-			let top = r.bottom + gap;
-			if ( top + 200 > window.innerHeight ) {
-				top = Math.max( 8, r.top - 200 - gap );
-			}
-			state.popupPosition = { left, top };
-			popup.style.left = left + 'px';
-			popup.style.top = top + 'px';
-			popup.style.transform = '';
-		} else {
+			applyPosition( popup, clampToViewport( popup, state.popupPosition ) );
+			return;
+		}
+		const el = resolveAnnotationElement( state.target );
+		if ( ! el ) {
 			popup.style.left = '50%';
 			popup.style.top = '50%';
 			popup.style.transform = 'translate(-50%, -50%)';
+			return;
 		}
+		const r = el.getBoundingClientRect();
+		const gap = 12;
+		let top = r.bottom + gap;
+		if ( top + 200 > window.innerHeight ) {
+			top = r.top - 200 - gap;
+		}
+		applyPosition(
+			popup,
+			clampToViewport( popup, { left: r.left + r.width / 2 - popupWidth( popup ) / 2, top } )
+		);
 	}
 
 	function buildPopup( state ) {
@@ -778,18 +797,14 @@ export const INSPECTOR_PAGE_SCRIPT =
 	function makeDraggable( popup, handle, state ) {
 		handle.addEventListener( 'mousedown', ( event ) => {
 			if ( event.button !== 0 || event.target.closest( 'button' ) ) return;
-			if ( ! state.popupPosition ) {
-				const r = popup.getBoundingClientRect();
-				state.popupPosition = { left: r.left, top: r.top };
-				popup.style.left = r.left + 'px';
-				popup.style.top = r.top + 'px';
-				popup.style.transform = '';
-			}
 			event.preventDefault();
+			/* Start from where the popup actually sits: an anchored note has no
+			 * stored position, and a dragged one may be rendered clamped. */
+			const origin = popup.getBoundingClientRect();
 			const startX = event.clientX;
 			const startY = event.clientY;
-			const startLeft = state.popupPosition.left;
-			const startTop = state.popupPosition.top;
+			const startLeft = origin.left;
+			const startTop = origin.top;
 			let next = { left: startLeft, top: startTop };
 			let frame = null;
 			let didDrag = false;
@@ -800,18 +815,10 @@ export const INSPECTOR_PAGE_SCRIPT =
 				if ( Math.abs( e.clientX - startX ) > 2 || Math.abs( e.clientY - startY ) > 2 ) {
 					didDrag = true;
 				}
-				const width = popup.offsetWidth || 320;
-				const height = popup.offsetHeight || 200;
-				next = {
-					left: Math.min(
-						Math.max( 8, startLeft + e.clientX - startX ),
-						Math.max( 8, window.innerWidth - width - 8 )
-					),
-					top: Math.min(
-						Math.max( 8, startTop + e.clientY - startY ),
-						Math.max( 8, window.innerHeight - height - 8 )
-					),
-				};
+				next = clampToViewport( popup, {
+					left: startLeft + e.clientX - startX,
+					top: startTop + e.clientY - startY,
+				} );
 				if ( frame !== null ) return;
 				frame = requestAnimationFrame( () => {
 					frame = null;
@@ -822,28 +829,29 @@ export const INSPECTOR_PAGE_SCRIPT =
 			const stop = () => {
 				if ( frame !== null ) cancelAnimationFrame( frame );
 				frame = null;
-				state.popupPosition = next;
-				popup.style.left = next.left + 'px';
-				popup.style.top = next.top + 'px';
-				popup.style.transform = '';
 				handle.classList.remove( 'dragging' );
 				window.removeEventListener( 'mousemove', move, true );
 				window.removeEventListener( 'mouseup', stop, true );
 				window.removeEventListener( 'blur', stop, true );
-				if ( didDrag ) {
-					/* Swallow the click that ends the drag so the page (and our
-					 * own picker) doesn't treat it as a selection. */
-					const suppress = ( e ) => {
-						e.preventDefault();
-						e.stopPropagation();
-					};
-					window.addEventListener( 'click', suppress, {
-						capture: true,
-						once: true,
-						signal: teardown.signal,
-					} );
-					setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
+				/* A click on the header is not a move: leave the note anchored. */
+				if ( ! didDrag ) {
+					popup.style.transform = '';
+					return;
 				}
+				state.popupPosition = next;
+				applyPosition( popup, next );
+				/* Swallow the click that ends the drag so the page (and our
+				 * own picker) doesn't treat it as a selection. */
+				const suppress = ( e ) => {
+					e.preventDefault();
+					e.stopPropagation();
+				};
+				window.addEventListener( 'click', suppress, {
+					capture: true,
+					once: true,
+					signal: teardown.signal,
+				} );
+				setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
 			};
 			window.addEventListener( 'mousemove', move, true );
 			window.addEventListener( 'mouseup', stop, true );

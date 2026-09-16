@@ -10,9 +10,7 @@ import type { GuideIllustrationId } from '@/data/onboarding/guide';
 import type { ComponentType } from 'react';
 
 // Each orientation page's illustration is a self-contained animated scene
-// registered by id. Ids without a scene fall back to the What's New artwork, and
-// then to a plain tinted slot, so the guide always renders while the remaining
-// scenes are built.
+// registered by id. Ids without a scene render the What's New artwork.
 const SCENES: Partial< Record< GuideIllustrationId, ComponentType > > = {
 	sites: SitesIllustration,
 	chat: ChatIllustration,
@@ -41,20 +39,20 @@ function Artwork( { id, title }: { id: GuideIllustrationId; title: string } ) {
 		return <Scene />;
 	}
 	const artwork = WHATS_NEW_ART[ id ];
-	if ( artwork ) {
-		return (
-			<img
-				className={ styles.artwork }
-				src={ artwork }
-				alt={ sprintf(
-					/* translators: %s is the title of the guide page the illustration belongs to. */
-					__( 'Illustration for %s' ),
-					title
-				) }
-			/>
-		);
+	if ( ! artwork ) {
+		return null;
 	}
-	return <div className={ styles.placeholder } />;
+	return (
+		<img
+			className={ styles.artwork }
+			src={ artwork }
+			alt={ sprintf(
+				/* translators: %s is the title of the guide page the illustration belongs to. */
+				__( 'Illustration for %s' ),
+				title
+			) }
+		/>
+	);
 }
 
 export function GuideIllustration( { id, title }: { id: GuideIllustrationId; title: string } ) {

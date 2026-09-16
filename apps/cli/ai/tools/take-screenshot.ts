@@ -195,6 +195,11 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 				);
 			}
+		},
+		{
+			promptSnippet: visionEnabled
+				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
+				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.',
 		}
 	);
 }

@@ -1,15 +1,13 @@
-import { Icon, Popover } from '@wordpress/components';
+import { Popover } from '@wordpress/components';
 import { PropsWithChildren, ReactElement, useState, useEffect } from 'react';
 
-export interface TooltipProps
+interface TooltipProps
 	extends Pick< React.ComponentProps< typeof Popover >, 'placement' | 'className' > {
-	icon?: ReactElement;
 	text?: string | ReactElement;
 	disabled?: boolean;
 }
 
 const Tooltip = ( {
-	icon,
 	text,
 	children,
 	disabled,
@@ -57,7 +55,6 @@ const Tooltip = ( {
 					placement={ placement }
 				>
 					<div className="inline-flex items-center gap-2 max-w-80 rounded py-2 px-2.5 bg-[#101517] border border-white/15 text-white animate-[fade_0.5s_ease-in-out_1]">
-						{ icon && <Icon className="fill-white shrink-0  m-[2px]" size={ 16 } icon={ icon } /> }
 						<span className="text-left text-xs break-words overflow-hidden">{ text }</span>
 					</div>
 				</Popover>
@@ -66,23 +63,4 @@ const Tooltip = ( {
 	);
 };
 
-function DynamicTooltip( {
-	getTooltipText,
-	children,
-	...props
-}: PropsWithChildren< TooltipProps & { getTooltipText: () => string } > ) {
-	const [ tooltipText, setTooltipText ] = useState( '' );
-
-	const handleMouseEnter = () => {
-		const text = getTooltipText();
-		setTooltipText( text );
-	};
-
-	return (
-		<Tooltip text={ tooltipText } placement="top-start" { ...props }>
-			<div onMouseEnter={ handleMouseEnter }>{ children }</div>
-		</Tooltip>
-	);
-}
-
-export { Tooltip, DynamicTooltip };
+export { Tooltip };

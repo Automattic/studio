@@ -92,7 +92,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	}
 
 	async canHandle(): Promise< boolean > {
-		const supportedExtension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
+		const supportedExtension = [ 'tar.gz', 'tgz', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
 		);
 

@@ -199,7 +199,7 @@ export function OverviewIllustration() {
 				} }
 			>
 				<div className={ styles.overviewContent }>
-					<section className={ styles.overviewAbout }>
+					<section>
 						<h3>{ __( 'About' ) }</h3>
 						<div className={ styles.overviewAboutCard } style={ actionStyle( aboutHover ) }>
 							<div className={ styles.overviewThemeSummary }>

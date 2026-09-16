@@ -8,7 +8,7 @@ const MINUTE_MS = 60_000;
 
 export type TriggerSecondaryTone = 'neutral' | 'pending' | 'success' | 'error';
 
-export type TriggerSecondary = {
+type TriggerSecondary = {
 	label: string;
 	tone: TriggerSecondaryTone;
 };

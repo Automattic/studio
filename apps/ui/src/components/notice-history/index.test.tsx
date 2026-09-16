@@ -2,23 +2,28 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppMessagesForTests, toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { closeNoticeHistory, NoticeHistoryButton, NoticeHistoryDialog } from './index';
 
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
-const writeText = vi.fn( () => Promise.resolve() );
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
+const copyText = vi.fn( () => Promise.resolve() );
 
 describe( 'NoticeHistory', () => {
 	beforeEach( () => {
-		Object.assign( navigator, { clipboard: { writeText } } );
+		vi.mocked( useConnector ).mockReturnValue( { copyText } as never );
 	} );
 
 	afterEach( () => {
 		closeNoticeHistory();
 		resetAppMessagesForTests();
-		writeText.mockClear();
+		copyText.mockClear();
 	} );
 
 	it( 'shows an empty state before anything has been shown', () => {
@@ -49,7 +54,7 @@ describe( 'NoticeHistory', () => {
 		expect( screen.getByText( 'iTerm is not installed.' ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Copy' } ) );
-		expect( writeText ).toHaveBeenCalledWith(
+		expect( copyText ).toHaveBeenCalledWith(
 			'Could not open the terminal.\niTerm is not installed.'
 		);
 		expect( await screen.findByRole( 'button', { name: 'Copied' } ) ).toBeVisible();

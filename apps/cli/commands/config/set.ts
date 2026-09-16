@@ -25,6 +25,12 @@ import {
 	type SiteMode,
 } from '@studio/common/lib/site-runtime';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
+import {
+	getWpEnvironmentType,
+	wpEnvironmentTypeSchema,
+	WP_ENVIRONMENT_TYPES,
+	type WpEnvironmentType,
+} from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -67,6 +73,8 @@ export interface SetCommandOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+	scriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
@@ -91,6 +99,8 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		adminPassword,
 		debugLog,
 		debugDisplay,
+		scriptDebug,
+		environmentType,
 	} = options;
 	let { adminEmail } = options;
 
@@ -107,11 +117,13 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		adminPassword === undefined &&
 		adminEmail === undefined &&
 		debugLog === undefined &&
-		debugDisplay === undefined
+		debugDisplay === undefined &&
+		scriptDebug === undefined &&
+		environmentType === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			)
 		);
 	}
@@ -166,6 +178,8 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		adminEmail,
 		debugLog,
 		debugDisplay,
+		scriptDebug,
+		environmentType,
 	} = options;
 
 	try {
@@ -235,6 +249,9 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		const debugLogChanged = debugLog !== undefined && debugLog !== site.enableDebugLog;
 		const debugDisplayChanged =
 			debugDisplay !== undefined && debugDisplay !== site.enableDebugDisplay;
+		const scriptDebugChanged = scriptDebug !== undefined && scriptDebug !== site.enableScriptDebug;
+		const environmentTypeChanged =
+			environmentType !== undefined && environmentType !== getWpEnvironmentType( site );
 
 		const hasChanges =
 			nameChanged ||
@@ -247,7 +264,9 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			xdebugChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
-			debugDisplayChanged;
+			debugDisplayChanged ||
+			scriptDebugChanged ||
+			environmentTypeChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -265,6 +284,8 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
+			scriptDebugChanged,
+			environmentTypeChanged,
 		} );
 		const oldDomain = site.customDomain;
 
@@ -311,6 +332,12 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 			if ( debugDisplayChanged ) {
 				foundSite.enableDebugDisplay = debugDisplay;
+			}
+			if ( scriptDebugChanged ) {
+				foundSite.enableScriptDebug = scriptDebug;
+			}
+			if ( environmentTypeChanged ) {
+				foundSite.environmentType = environmentType;
 			}
 
 			await saveCliConfig( cliConfig );
@@ -459,6 +486,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'debug-display', {
 					type: 'boolean',
 					description: __( 'Enable WP_DEBUG_DISPLAY' ),
+				} )
+				.option( 'script-debug', {
+					type: 'boolean',
+					description: __( 'Enable SCRIPT_DEBUG' ),
+				} )
+				.option( 'environment-type', {
+					type: 'string',
+					description: __( 'Set WP_ENVIRONMENT_TYPE' ),
+					choices: WP_ENVIRONMENT_TYPES,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -477,6 +513,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adminEmail: argv.adminEmail,
 					debugLog: argv.debugLog,
 					debugDisplay: argv.debugDisplay,
+					scriptDebug: argv.scriptDebug,
+					environmentType: wpEnvironmentTypeSchema.optional().parse( argv.environmentType ),
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

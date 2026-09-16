@@ -1,6 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -41,7 +42,7 @@ function shortEntryId(): string {
 	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
-export interface PendingQuestion {
+interface PendingQuestion {
 	question: string;
 	options: Array< { label: string; description: string; image?: string } >;
 }
@@ -55,14 +56,14 @@ export interface QueuedPrompt {
 	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
 	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
-export interface LiveAgentEvents {
+interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;
@@ -86,6 +87,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	clearQuestionAnswer: ( question: string ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -128,6 +130,7 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
+	| { type: 'question_answer_cleared'; question: string }
 	| { type: 'batch_dispatched' }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
@@ -209,6 +212,10 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
+		case 'question_answer_cleared': {
+			const { [ action.question ]: _cleared, ...rest } = state.pendingAnswers;
+			return { ...state, pendingAnswers: rest };
+		}
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
 		case 'queue_append':
@@ -287,6 +294,7 @@ interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	clearQuestionAnswer: ( sessionId: string, question: string ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -521,7 +529,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 									parentId: null,
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
-									data: { question: q.question, options: q.options },
+									data: q,
 								} ) as SessionEntry
 						),
 					] );
@@ -604,6 +612,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( state.phase === 'idle' ) {
 				return;
 			}
+			// A run blocked on `ask_user` is killed mid-call, so settle the call
+			// first. Without a result the model treats the question UI as broken
+			// and falls back to prose for the rest of the session.
+			if ( state.runId && state.pendingQuestions.length > 0 ) {
+				const answers = { ...state.pendingAnswers };
+				for ( const pending of state.pendingQuestions ) {
+					if ( typeof answers[ pending.question ] !== 'string' ) {
+						answers[ pending.question ] = STOPPED_WITHOUT_ANSWER;
+					}
+				}
+				await connector.answerAgentQuestion( state.runId, answers );
+			}
 			const interruptedRunId = state.runId;
 			if ( interruptedRunId ) {
 				ignoredRunIdsRef.current.add( interruptedRunId );
@@ -640,12 +660,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
-	const answerQuestion = useCallback(
-		( sessionId: string, question: string, answer: string ) => {
-			const state = stateStore.getState()[ sessionId ] ?? initialState;
-			if ( ! state.runId ) {
-				return;
-			}
+	// The transcript reads the highlight straight off the cached entry, so a pick
+	// and its retraction both have to land there as well as in the reducer.
+	const setCachedSelectedLabel = useCallback(
+		( sessionId: string, question: string, answer: string | undefined ) => {
 			updateCache( sessionId, ( entries ) => {
 				let targetIndex = -1;
 				for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
@@ -676,6 +694,34 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} as SessionEntry;
 				} );
 			} );
+		},
+		[ updateCache ]
+	);
+
+	// Arming a free-form reply retracts the pick it replaces, so the batch stays
+	// open until the typed answer lands.
+	const clearQuestionAnswer = useCallback(
+		( sessionId: string, question: string ) => {
+			setCachedSelectedLabel( sessionId, question, undefined );
+			dispatchSession( sessionId, { type: 'question_answer_cleared', question } );
+		},
+		[ dispatchSession, setCachedSelectedLabel ]
+	);
+
+	const answerQuestion = useCallback(
+		( sessionId: string, question: string, answer: string ) => {
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
+			if ( ! state.runId ) {
+				return;
+			}
+			// Only a real selection lights up an option. A typed reply renders as a
+			// message instead, so recording it here would show it twice.
+			const isListedOption = state.pendingQuestions
+				.find( ( pending ) => pending.question === question )
+				?.options.some( ( option ) => option.label === answer );
+			if ( isListedOption ) {
+				setCachedSelectedLabel( sessionId, question, answer );
+			}
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -687,7 +733,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore, updateCache ]
+		[ connector, dispatchSession, setCachedSelectedLabel, stateStore ]
 	);
 
 	const value = useMemo< AgentRunStore >(
@@ -697,8 +743,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			clearQuestionAnswer,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
+		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -716,6 +763,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		clearQuestionAnswer: clearRunQuestionAnswer,
 	} = store;
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
@@ -816,6 +864,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const clearQuestionAnswer = useCallback(
+		( question: string ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			clearRunQuestionAnswer( sessionId, question );
+		},
+		[ clearRunQuestionAnswer, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -838,6 +896,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	};
 }

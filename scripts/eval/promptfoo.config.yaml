@@ -400,8 +400,8 @@ tests:
           });
 
       # The visual-design skill lists the concept and direction catalogs;
-      # pick_design settles the pair(s), and the Site Spec must commit to one
-      # of them before building.
+      # pick_design settles one of each, the Site Spec commits to them before
+      # building, and the look is written to DESIGN.md at the site root.
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync, readdirSync }) => {
@@ -433,7 +433,10 @@ tests:
               stated.push(drawn);
             }
             if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
-            return { pass: true, score: 1, reason: `concept and direction drawn and stated: ${stated.join(' / ')}` };
+            const design = (d.toolCalls || []).find(t => t.name === 'Write' && /\/DESIGN\.md$/.test(t.input?.path || ''));
+            if (!design) return { pass: false, score: 0, reason: 'DESIGN.md was never written at the site root' };
+            if (!/^---\r?\n[\s\S]*?^colors:/m.test(design.input.content || '')) return { pass: false, score: 0, reason: 'DESIGN.md has no colors in its front matter' };
+            return { pass: true, score: 1, reason: `concept and direction drawn and stated, DESIGN.md written: ${stated.join(' / ')}` };
           });
 
   # One-page sites get header navigation that links to page sections. The

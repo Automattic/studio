@@ -43,7 +43,7 @@ import {
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
@@ -54,10 +54,10 @@ import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { getFileToolPrompt } from './file-tool-prompts';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
-	getPayloadLimitDescription,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -305,6 +305,12 @@ async function createStudioAgentSession(
 		isImageGenerationAvailable(),
 	] );
 
+	const tools = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		imageGenerationEnabled,
+		visionEnabled
+	);
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
 			? {
@@ -322,15 +328,10 @@ async function createStudioAgentSession(
 					userInstructions,
 					imageGenerationEnabled,
 					visionEnabled,
+					tools: tools.map( toolPromptContribution ),
 			  }
 	);
 
-	const tools = buildAgentTools(
-		config,
-		chatArtifactsEnabled,
-		imageGenerationEnabled,
-		visionEnabled
-	);
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -562,6 +563,15 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
+// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
+// define-tool.ts); the AgentTool type does not carry them, hence the cast.
+type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+
+function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
+	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
+	return { name: tool.name, promptSnippet, promptGuidelines };
+}
+
 function toToolDefinition(
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState
@@ -569,10 +579,12 @@ function toToolDefinition(
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: getPayloadLimitDescription( tool.name, tool.description ),
+		description: tool.description,
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
+		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
+		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -609,14 +621,10 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = < S extends TSchema >(
-		tool: AgentTool< S >,
-		name: string
-	): AgentTool< S > => ( {
-		...tool,
-		name,
-		label: name,
-	} );
+	// pi's tools are registered under Studio's names; the prompt text for them
+	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
+		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
 	const remoteScratchTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),

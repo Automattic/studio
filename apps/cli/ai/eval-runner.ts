@@ -380,6 +380,7 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
+	let lastTurnEndedEmpty = false;
 
 	let cleanupSeed: ( () => Promise< void > ) | null = null;
 	let prompt = input.prompt.trim();
@@ -468,16 +469,25 @@ async function runEval( input: EvalRunnerInput ) {
 				! lastAssistant ||
 				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
 			numTurnsResult = numTurns;
+			lastTurnEndedEmpty = Boolean(
+				lastAssistant &&
+					lastAssistant.stopReason === 'stop' &&
+					! lastAssistant.content.some(
+						( block ) => block.type === 'toolCall' || ( block.type === 'text' && block.text.trim() )
+					)
+			);
 		}
 	};
 
-	const query = runStudioAgentTurn( {
-		prompt,
-		env,
-		session,
-		onEvent: handleEvent,
-		...( input.model ? { model: input.model } : {} ),
-	} );
+	const runTurn = ( turnPrompt: string ) =>
+		runStudioAgentTurn( {
+			prompt: turnPrompt,
+			env,
+			session,
+			onEvent: handleEvent,
+			...( input.model ? { model: input.model } : {} ),
+		} );
+	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
 	const timeout = setTimeout( () => {
@@ -485,8 +495,20 @@ async function runEval( input: EvalRunnerInput ) {
 		void query.interrupt();
 	}, input.timeoutMs ?? 300000 );
 
+	// Some hosted tiers end a turn with an empty message once their reasoning
+	// budget runs out. STUDIO_EVAL_AUTO_CONTINUE=<n> resumes such a turn with
+	// "continue" up to n times, the way a person would.
+	const maxAutoContinues = Number( process.env.STUDIO_EVAL_AUTO_CONTINUE ?? 0 ) || 0;
+	let autoContinues = 0;
+
 	try {
 		await query.result;
+		while ( autoContinues < maxAutoContinues && ! timedOut && lastTurnEndedEmpty ) {
+			autoContinues++;
+			lastTurnEndedEmpty = false;
+			query = runTurn( 'continue' );
+			await query.result;
+		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
@@ -503,6 +525,7 @@ async function runEval( input: EvalRunnerInput ) {
 		timedOut,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
+		autoContinues,
 		phaseTimingsMs,
 		turnDurationsMs,
 		toolCalls,

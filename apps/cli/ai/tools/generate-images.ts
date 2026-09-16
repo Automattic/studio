@@ -146,5 +146,9 @@ export const generateImagesTool = defineTool(
 						targets.length
 				  } images (${ failures } failed):`;
 		return { content: [ { type: 'text', text: [ summary, ...lines ].join( '\n' ) } ] };
+	},
+	{
+		promptSnippet:
+			'Generate AI images (JPEG) from text specs and write them to files inside a site. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 	}
 );

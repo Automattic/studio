@@ -315,6 +315,30 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'resolves a relative filePath against the site root', async () => {
+		const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( siteDir, 'tmp', 'page-home.html' );
+		const fixedContent = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+		await mkdir( path.dirname( filePath ), { recursive: true } );
+		await writeFile( filePath, '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ { ...mockSite, path: siteDir } ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		mockValidatedFix( fixedContent );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath: 'tmp/page-home.html',
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
+		} finally {
+			await rm( siteDir, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );
@@ -1548,6 +1572,37 @@ describe( 'Studio AI MCP tools', () => {
 				"Block theme 'Acme Studio' scaffolded at wp-content/themes/acme-studio/."
 			);
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
+		} );
+
+		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
+			await writeFile(
+				path.join( tempSiteRoot, 'DESIGN.md' ),
+				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n---\n'
+			);
+
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				activate: false,
+			} as never );
+
+			const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' );
+			const themeJson = JSON.parse( await readFile( path.join( themeDir, 'theme.json' ), 'utf8' ) );
+			expect( themeJson.settings.color.palette ).toEqual( [
+				{ slug: 'primary', color: '#e2231a', name: 'Primary' },
+			] );
+			expect( themeJson.settings.layout ).toEqual( { contentSize: '1000px', wideSize: '1280px' } );
+			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+			expect( functionsPhp ).toContain(
+				"wp_enqueue_style( 'acme-studio-fonts', 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap', array(), null );"
+			);
+			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
+			expect( functionsPhp ).toContain(
+				"add_editor_style( 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap' );"
+			);
+			expect( getTextContent( result ) ).toContain(
+				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 1 text style, 0 spacing steps)'
+			);
 		} );
 
 		it( 'honors an explicit slug argument over the derived one', async () => {

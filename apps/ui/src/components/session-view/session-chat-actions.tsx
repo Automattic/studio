@@ -111,8 +111,8 @@ export function SessionChatActions( {
 	}, [ isCreatingSession, onNewChat, showNewChat ] );
 
 	return (
-		<div className={ styles.classicComposerFooter }>
-			<div className={ styles.classicComposerFooterSide }>
+		<div className={ styles.composerFooter }>
+			<div className={ styles.composerFooterSide }>
 				<Menu.Root modal={ false } onOpenChange={ setHistoryMenuOpen }>
 					<Tooltip.Root disabled={ historyMenuOpen }>
 						<Menu.Trigger
@@ -124,12 +124,12 @@ export function SessionChatActions( {
 											variant="minimal"
 											tone="neutral"
 											size="small"
-											className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
+											className={ `${ styles.composerTextButton } ${ styles.composerIconButton }` }
 											aria-label={ __( 'Chat history' ) }
 										/>
 									}
 								>
-									<Icon icon={ backup } size={ 26 } className={ styles.classicComposerIcon } />
+									<Icon icon={ backup } size={ 26 } className={ styles.composerIcon } />
 								</Tooltip.Trigger>
 							}
 						/>
@@ -137,7 +137,7 @@ export function SessionChatActions( {
 							{ __( 'Chat history' ) }
 						</Tooltip.Popup>
 					</Tooltip.Root>
-					<Menu.Popup side="top" align="end" className={ styles.classicComposerHistoryMenu }>
+					<Menu.Popup side="top" align="end" className={ styles.composerHistoryMenu }>
 						{ sessions.length > 0 ? (
 							sessions.map( ( session ) => {
 								const isCurrent = session.id === currentSessionId;
@@ -146,7 +146,7 @@ export function SessionChatActions( {
 								return (
 									<Menu.Item
 										key={ session.id }
-										className={ styles.classicComposerHistoryItem }
+										className={ styles.composerHistoryItem }
 										aria-current={ isCurrent ? 'page' : undefined }
 										onClick={ () => {
 											if ( ! isCurrent ) {
@@ -154,13 +154,13 @@ export function SessionChatActions( {
 											}
 										} }
 									>
-										<span className={ styles.classicComposerHistoryTitle }>{ title }</span>
+										<span className={ styles.composerHistoryTitle }>{ title }</span>
 										{ updatedAt ? (
-											<span className={ styles.classicComposerHistoryTrailing }>
-												<span className={ styles.classicComposerHistoryMeta }>{ updatedAt }</span>
+											<span className={ styles.composerHistoryTrailing }>
+												<span className={ styles.composerHistoryMeta }>{ updatedAt }</span>
 												<IconButton
 													type="button"
-													className={ styles.classicComposerHistoryArchiveButton }
+													className={ styles.composerHistoryArchiveButton }
 													variant="minimal"
 													tone="neutral"
 													size="small"
@@ -179,18 +179,14 @@ export function SessionChatActions( {
 								);
 							} )
 						) : (
-							<div className={ styles.classicComposerHistoryEmpty }>{ __( 'No chats yet' ) }</div>
+							<div className={ styles.composerHistoryEmpty }>{ __( 'No chats yet' ) }</div>
 						) }
 						{ archivedSessions.length > 0 ? (
 							<>
-								<Menu.Separator className={ styles.classicComposerHistorySeparator } />
+								<Menu.Separator className={ styles.composerHistorySeparator } />
 								<Menu.Item onClick={ () => setArchiveDialogOpen( true ) }>
-									<span className={ styles.classicComposerHistoryTitle }>
-										{ __( 'Archived chats' ) }
-									</span>
-									<span className={ styles.classicComposerHistoryMeta }>
-										{ archivedSessions.length }
-									</span>
+									<span className={ styles.composerHistoryTitle }>{ __( 'Archived chats' ) }</span>
+									<span className={ styles.composerHistoryMeta }>{ archivedSessions.length }</span>
 								</Menu.Item>
 							</>
 						) : null }
@@ -202,7 +198,7 @@ export function SessionChatActions( {
 							<Dialog.Title>{ __( 'Archived chats' ) }</Dialog.Title>
 						</Dialog.Header>
 						<Dialog.Content>
-							<div className={ styles.classicComposerArchiveList }>
+							<div className={ styles.composerArchiveList }>
 								{ archivedSessions.length > 0 ? (
 									archivedSessions.map( ( session ) => {
 										const updatedAt = formatRelativeTime( session.updatedAt );
@@ -210,25 +206,23 @@ export function SessionChatActions( {
 											<button
 												key={ session.id }
 												type="button"
-												className={ styles.classicComposerArchiveItem }
+												className={ styles.composerArchiveItem }
 												onClick={ () => {
 													setArchiveDialogOpen( false );
 													onSwitchSession( session.id );
 												} }
 											>
-												<span className={ styles.classicComposerHistoryTitle }>
+												<span className={ styles.composerHistoryTitle }>
 													{ getSessionTitle( session ) }
 												</span>
 												{ updatedAt ? (
-													<span className={ styles.classicComposerHistoryMeta }>{ updatedAt }</span>
+													<span className={ styles.composerHistoryMeta }>{ updatedAt }</span>
 												) : null }
 											</button>
 										);
 									} )
 								) : (
-									<div className={ styles.classicComposerHistoryEmpty }>
-										{ __( 'No archived chats' ) }
-									</div>
+									<div className={ styles.composerHistoryEmpty }>{ __( 'No archived chats' ) }</div>
 								) }
 							</div>
 						</Dialog.Content>
@@ -245,7 +239,7 @@ export function SessionChatActions( {
 							render={
 								<Button
 									type="button"
-									className={ styles.classicComposerTextButton }
+									className={ styles.composerTextButton }
 									variant="minimal"
 									tone="neutral"
 									size="small"

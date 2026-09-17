@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SiteWorkspace } from './index';
 
-vi.mock( '@/ui-classic/components/session-view', () => ( {
+vi.mock( '@/components/session-view', () => ( {
 	SessionView: ( { sessionId }: { sessionId: string } ) => (
 		<div data-testid="chat">Chat { sessionId }</div>
 	),

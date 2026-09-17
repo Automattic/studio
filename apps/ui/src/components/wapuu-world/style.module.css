@@ -5,17 +5,17 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: rgba( 0, 0, 0, 0.75 );
+	background: color-mix(in srgb, var(--wpds-color-background-surface-neutral) 75%, transparent);
 }
 
 .dialog {
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	border: 4px solid #21759b;
+	border: 4px solid var(--wpds-color-background-interactive-brand-strong);
 	border-radius: 8px;
-	box-shadow: 0 0 40px rgba( 33, 117, 155, 0.6 );
-	background: #000;
+	box-shadow: 0 0 40px color-mix(in srgb, var(--wpds-color-background-interactive-brand-strong) 60%, transparent);
+	background: var(--wpds-color-background-surface-neutral);
 }
 
 .titleBar {
@@ -24,7 +24,7 @@
 	justify-content: space-between;
 	gap: 8px;
 	padding: 6px 12px;
-	background: #21759b;
+	background: var(--wpds-color-background-interactive-brand-strong);
 	border-radius: 4px 4px 0 0;
 }
 
@@ -32,7 +32,7 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	color: #fff;
+	color: var(--wpds-color-foreground-interactive-brand-strong);
 	font-family: monospace;
 	font-weight: bold;
 	font-size: 14px;
@@ -46,7 +46,7 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	color: #cce8f4;
+	color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand-strong) 80%, transparent);
 	font-family: monospace;
 	font-size: 11px;
 }
@@ -56,8 +56,8 @@
 	padding: 1px 7px;
 	border: none;
 	border-radius: 4px;
-	background: rgba( 255, 255, 255, 0.2 );
-	color: #fff;
+	background: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand-strong) 20%, transparent);
+	color: var(--wpds-color-foreground-interactive-brand-strong);
 	font-family: monospace;
 	font-size: 13px;
 	cursor: pointer;
@@ -71,9 +71,9 @@
 
 .controlsHint {
 	padding: 4px 12px;
-	background: #21759b;
+	background: var(--wpds-color-background-interactive-brand-strong);
 	border-radius: 0 0 4px 4px;
-	color: #cce8f4;
+	color: color-mix(in srgb, var(--wpds-color-foreground-interactive-brand-strong) 80%, transparent);
 	font-family: monospace;
 	font-size: 11px;
 	text-align: center;

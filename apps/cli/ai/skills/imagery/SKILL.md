@@ -21,7 +21,6 @@ Use this skill whenever a design calls for images — hero/cover backgrounds, fe
      Use the returned URL as the `src` and the id in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`). Delete the staging file afterwards.
 3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The site's set from the design steps below is the first batch: place it before generating anything else.
 4. **Write real alt text.** Generated images are content: give every `<img>` a short, descriptive alt in the markup (what the image shows, for a person who cannot see it). Never leave a spec string or an empty alt on a content image; cover backgrounds keep an empty alt (decorative).
-5. **Verify.** After applying markup, use take_screenshot to confirm the images render, fill their slots, and keep overlaid text legible.
 
 ## Writing the spec fields
 

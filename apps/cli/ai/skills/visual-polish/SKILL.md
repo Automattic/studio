@@ -1,6 +1,6 @@
 ---
 name: visual-polish
-description: Verify and polish a built or redesigned site by diagnosing rendered-DOM issues against intent and fixing them in a planned, batched screenshot-and-fix loop.
+description: Verify and polish a built or redesigned site by diagnosing rendered-DOM defects against intent, fixing them in one planned batch, and re-checking what changed.
 user-invokable: true
 ---
 
@@ -10,20 +10,17 @@ Use this skill to verify a built or redesigned site and fix the design issues th
 
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
 
-## Scope: which pages to polish, and how much
+## Scope: which pages to polish, and what to fix
 
 Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
 
 For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account, checking the space around `main` on each.
 
-How much to iterate depends on the page:
+Polish fixes **defects**, where the rendered page departs from what was intended (`DESIGN.md`, the layout map, the `block-content` rules): broken layout, overflow, unreadable text, misaligned or doubled spacing, broken images or hover states. It does not add motion, scripts, or sections, and it does not redesign a section: those belong to the build.
 
-- **Home page** — run the full loop below, including Phase 3 (re-diagnose and fix again, up to the pass cap). The home page is the highest-traffic, highest-impact page and is worth iterating until it is right.
-- **Every other page** (other user pages AND WooCommerce pages) — run a **single pass**: diagnose (Phase 1), fix the batch (Phase 2), run one verification pass (Phase 3), then move on. Do not loop these pages; a single diagnose-and-fix pass is enough.
+## Method: one diagnosis, one batch of fixes, one re-check
 
-## Method: diagnose the whole page first, then fix in one batch
-
-The most important rule: **do not fix issues one at a time as you find them.** Fixing reactively makes you miss related issues, introduce regressions, and burn expensive screenshot passes. Split the work into strict phases.
+The most important rule: **do not fix issues one at a time as you find them.** Fixing reactively makes you miss related issues, introduce regressions, and burn expensive screenshot passes. Take each page through these phases once.
 
 ### Phase 1 — Diagnose (read-only — make NO edits in this phase)
 
@@ -35,19 +32,22 @@ The most important rule: **do not fix issues one at a time as you find them.** F
    - every button — BOTH `.wp-block-button` and `.wp-block-button__link`, with `includeHover: true`.
    - every block that paints its own box (background, border, shadow — cards, panels, tinted sections) and every non-constrained full-width section — for `padding-left`/`padding-right`, which must not be `0px` when the box holds text.
    - every inset box — a block that is rounded, bordered, or narrower than its container and paints its own background — for the edges it meets: compare its `boundingBox` with the neighbouring header, footer, or section, because an inset box must not sit directly against a hard edge such as the footer's border. Full-bleed bands are meant to sit flush; leave them alone.
+   - every image — that it renders, fills its slot, and keeps overlaid text legible.
 4. List the **complete** set of issues before fixing anything — a concise checklist, one short line per issue: the section, the root cause from the DOM, and the exact fix (file, selector, change). A list, not prose.
 
 Do not make a single edit until you have diagnosed every section and listed every issue. **A complete diagnosis is the gate into Phase 2.**
 
 ### Phase 2 — Fix the whole batch
 
-Work through the plan with targeted `Edit` calls: one file per turn, with all of that file's fixes as separate entries of one `Edit` call, per the system prompt cadence — never batch files into one turn. Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
+Work through the plan with targeted `Edit` calls: one file per turn, with all of that file's fixes as separate entries of one `Edit` call, per the system prompt cadence — never batch files into one turn. Do **not** screenshot or inspect between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
-### Phase 3 — Verify and loop
+### Phase 3 — Re-check what changed
 
-After the whole batch, take one `viewport: "all"` screenshot — or, when you cannot view images, re-run `inspect_design` on the selectors you changed. Check each plan item off and look for regressions the fixes introduced.
+After the whole batch, take one `viewport: "all"` screenshot — or, when you cannot view images, re-run `inspect_design` on the selectors you changed, and only those. Check each plan item off and look for regressions the fixes introduced; this is not a new diagnosis.
 
-This looping phase applies to the **home page only** (see "Scope" above). For every other page — including WooCommerce pages — stop after this single verification pass; do not loop. For the home page, each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
+On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and confirm it with `inspect_design` on the selectors it touched, without another capture. Then the page is done: never return to Phase 1.
+
+When you cannot view images, take a single capture, of the home page after its last edit: its file is the theme screenshot.
 
 ## Recurring issues and what to inspect
 

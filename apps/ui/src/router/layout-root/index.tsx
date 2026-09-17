@@ -3,12 +3,12 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
+import { WapuuWorldMount } from '@/components/wapuu-world';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
-import { WapuuWorldMount } from '@/ui-classic/components/wapuu-world';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 

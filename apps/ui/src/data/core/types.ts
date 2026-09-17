@@ -13,7 +13,9 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -82,6 +84,8 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from

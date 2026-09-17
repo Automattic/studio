@@ -9,7 +9,7 @@
 .userTurn {
 	display: flex;
 	flex-direction: column;
-	margin-right: calc(-1 * var(--classic-composer-shell-inline-padding));
+	margin-right: calc(-1 * var(--composer-shell-inline-padding));
 	padding: var(--wpds-dimension-padding-xl) 0;
 }
 

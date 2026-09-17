@@ -80,6 +80,7 @@
 	},
 	"devDependencies": {
 		"@studio/common": "file:../../packages/common",
+		"@studio/design-md": "file:../../packages/design-md",
 		"@studio/local": "file:../local",
 		"@types/archiver": "^8.0.0",
 		"@types/http-proxy": "^1.17.17",

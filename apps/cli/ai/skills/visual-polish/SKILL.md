@@ -16,7 +16,7 @@ Polish **every page of the site**, not just the home page. This includes all use
 
 For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account, checking the space around `main` on each.
 
-Polish fixes **defects**, where the rendered page departs from what was intended (`DESIGN.md`, the layout map, the `block-content` rules): broken layout, overflow, unreadable text, misaligned or doubled spacing, broken images or hover states. It does not add motion, scripts, or sections, and it does not redesign a section: those belong to the build.
+Polish fixes **defects**, where the rendered page departs from what was intended (`DESIGN.md`, the layout map, the `block-content` rules): broken layout, overflow, unreadable text, misaligned or doubled spacing, broken images or hover states. Fix each with the smallest change that removes it. Polish does not add motion, scripts, or sections, and does not redesign a section: those belong to the build.
 
 ## Method: one diagnosis, one batch of fixes, one re-check
 
@@ -45,9 +45,9 @@ Work through the plan with targeted `Edit` calls: one file per turn, with all of
 
 After the whole batch, take one `viewport: "all"` screenshot — or, when you cannot view images, re-run `inspect_design` on the selectors you changed, and only those. Check each plan item off and look for regressions the fixes introduced; this is not a new diagnosis.
 
-On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and confirm it with `inspect_design` on the selectors it touched, without another capture. Then the page is done: never return to Phase 1.
+On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and do not check it again. The page is then done: no further edits, no further captures, and never a return to Phase 1.
 
-When you cannot view images, take a single capture, of the home page after its last edit: its file is the theme screenshot.
+The home page's last capture is the theme screenshot, even when a follow-up batch came after it. When you cannot view images, that is the only capture you take: one desktop capture of the home page after its last edit.
 
 ## Recurring issues and what to inspect
 

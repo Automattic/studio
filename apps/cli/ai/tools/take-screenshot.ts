@@ -2,12 +2,9 @@ import { Type } from 'typebox';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
-	MAX_IMAGE_DIMENSION_PX,
-	MODEL_IMAGE_MAX_EDGE_PX,
 	saveScreenshotFile,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
-	type ModelImage,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
 
@@ -55,15 +52,6 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
-function describeModelImage(
-	image: ModelImage | undefined,
-	captured: { width: number; height: number }
-): string {
-	return ! image || ( image.width === captured.width && image.height === captured.height )
-		? ''
-		: `, shown downscaled to ${ image.width }x${ image.height }`;
-}
-
 const TEXT_ONLY_NOTE =
 	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design, and use the saved file path when a screenshot file is needed (e.g. the theme screenshot).';
 
@@ -74,11 +62,11 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 		'take_screenshot',
 		'Takes a full-page screenshot of a URL. ' +
 			( visionEnabled
-				? `Returns the screenshot as an image that you can analyze visually, downscaled to the resolution the model receives (long edge ${ MODEL_IMAGE_MAX_EDGE_PX }px), so a tall page reads as a narrow strip; the saved file keeps the full-resolution capture. `
+				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
 			'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
-			`Pages taller than ${ MAX_IMAGE_DIMENSION_PX } pixels are clipped there; the response reports the document height and whether more remains, and you can call again with \`offset\` to fetch the next slice. ` +
+			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 			'Use this to verify the site looks correct after building it. ' +
 			'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
@@ -115,7 +103,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							format: 'jpeg',
 							offset: args.offset,
 							colorScheme,
-							modelImage: visionEnabled,
+							forModel: visionEnabled,
 						} );
 						const screenshotFile = await saveScreenshotFile( capture.buffer, {
 							viewportType,
@@ -134,11 +122,8 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							viewportType,
 							colorScheme,
 							path: screenshotFile.path,
+							buffer: capture.buffer,
 							modelImage: capture.modelImage,
-							shown: describeModelImage( capture.modelImage, {
-								width: VIEWPORTS[ viewportType ].width,
-								height: capture.capturedHeight,
-							} ),
 							documentHeight: capture.documentHeight,
 							capturedHeight: capture.capturedHeight,
 							offset: capture.offset,
@@ -168,13 +153,16 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 				const describeCapture = ( capture: ( typeof captures )[ number ] ): string => {
 					const captureEnd = capture.offset + capture.capturedHeight;
 					const label = getCaptureLabel( capture );
+					const shown = capture.modelImage
+						? `, shown at ${ capture.modelImage.width }x${ capture.modelImage.height }`
+						: '';
 					if ( capture.clipped ) {
-						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ capture.shown }. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
+						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown }. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
 					}
 					if ( capture.offset > 0 ) {
-						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ capture.shown } (end of page).`;
+						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown } (end of page).`;
 					}
-					return `${ label }: captured full page (${ capture.documentHeight }px tall${ capture.shown }).`;
+					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
 				// The saved path lets the agent reuse a capture as a file — e.g. copying
 				// the final desktop capture to a scaffolded theme's screenshot.jpg.
@@ -188,17 +176,6 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
-				const imageBlocks = captures.flatMap( ( capture ) =>
-					capture.modelImage
-						? [
-								{
-									type: 'image' as const,
-									data: capture.modelImage.buffer.toString( 'base64' ),
-									mimeType: capture.mimeType,
-								},
-						  ]
-						: []
-				);
 				context.onProgress( `Screenshot captured (${ captureLabel })` );
 				return {
 					content: [
@@ -206,7 +183,13 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							type: 'text' as const,
 							text: textLines.join( '\n' ),
 						},
-						...imageBlocks,
+						...( visionEnabled
+							? captures.map( ( capture ) => ( {
+									type: 'image' as const,
+									data: ( capture.modelImage?.buffer ?? capture.buffer ).toString( 'base64' ),
+									mimeType: capture.mimeType,
+							  } ) )
+							: [] ),
 					],
 					...( args.display === false
 						? {}

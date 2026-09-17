@@ -1,140 +1,68 @@
 import { describe, expect, it } from 'vitest';
 import {
-	IMAGE_HISTORY_LIMITS,
 	STALE_IMAGE_PLACEHOLDER_TEXT,
 	stripStaleImagesFromContext,
 } from '../runtimes/pi/strip-stale-images';
-import type { Context, ImageContent, Message, TextContent } from '@earendil-works/pi-ai';
+import type { Context, Message } from '@earendil-works/pi-ai';
 
-function imageBlock( label = 'pixels', bytes = label.length ): ImageContent {
-	return {
-		type: 'image',
-		data: Buffer.from( label.padEnd( bytes, '.' ) ).toString( 'base64' ),
-		mimeType: 'image/jpeg',
-	};
-}
-
-function textBlock( text: string ): TextContent {
-	return { type: 'text', text };
-}
-
-function screenshotResult( id: string, ...images: ImageContent[] ): Message {
+// A screenshot result whose one image takes `bytes` base64 characters.
+function screenshot( id: number, bytes = 4 ): Message {
 	return {
 		role: 'toolResult',
-		toolCallId: id,
+		toolCallId: `tool-${ id }`,
 		toolName: 'take_screenshot',
-		content: [ textBlock( `Screenshot ${ id }` ), ...images ],
+		content: [
+			{ type: 'text', text: `Screenshot ${ id }` },
+			{ type: 'image', data: 'x'.repeat( bytes ), mimeType: 'image/jpeg' },
+		],
 		isError: false,
-		timestamp: Number( id.replace( /\D/g, '' ) ),
+		timestamp: id,
 	};
 }
 
-function context( messages: Context[ 'messages' ] ): Context {
-	return { messages };
-}
-
-const contentOf = ( message: Message ) => ( message as { content: unknown[] } ).content;
+const context = ( messages: Message[] ): Context => ( { messages } );
+const strippedIndexes = ( before: Context, after: Context ) =>
+	after.messages.flatMap( ( message, index ) =>
+		message === before.messages[ index ] ? [] : index
+	);
 
 describe( 'stripStaleImagesFromContext', () => {
-	it( 'returns the same context while the image history fits the limits', () => {
-		const ctx = context( [
-			screenshotResult( 'tool-1', imageBlock( 'first' ) ),
-			{
-				role: 'user',
-				content: [ textBlock( 'looks off' ), imageBlock( 'attached' ) ],
-				timestamp: 2,
-			},
-			screenshotResult( 'tool-3', imageBlock( 'desktop' ), imageBlock( 'mobile' ) ),
-		] );
-		expect( stripStaleImagesFromContext( ctx ) ).toBe( ctx );
+	it( 'keeps every image while the history fits the budget', () => {
+		const ctx = context( [ screenshot( 1 ), screenshot( 2 ), screenshot( 3 ) ] );
+		expect( stripStaleImagesFromContext( ctx, 12 ) ).toBe( ctx );
 
-		const noImages = context( [
-			{ role: 'user', content: [ textBlock( 'hello' ) ], timestamp: 1 },
-		] );
-		expect( stripStaleImagesFromContext( noImages ) ).toBe( noImages );
+		const noImages = context( [ { role: 'user', content: 'hello', timestamp: 1 } ] );
+		expect( stripStaleImagesFromContext( noImages, 0 ) ).toBe( noImages );
 	} );
 
-	it( 'drops the oldest images first once the byte budget is exceeded', () => {
-		const ctx = context( [
-			screenshotResult( 'tool-1', imageBlock( 'first', 100 ) ),
-			screenshotResult( 'tool-2', imageBlock( 'second', 100 ) ),
-			screenshotResult( 'tool-3', imageBlock( 'third', 100 ) ),
-		] );
-		const twoImages = Buffer.from( 'x'.repeat( 100 ) ).toString( 'base64' ).length * 2;
+	it( 'replaces the oldest images with a placeholder once the budget is exceeded', () => {
+		const ctx = context( [ screenshot( 1 ), screenshot( 2 ), screenshot( 3 ) ] );
 
-		const result = stripStaleImagesFromContext( ctx, { maxImages: 20, maxBytes: twoImages } );
-		expect( contentOf( result.messages[ 0 ] ) ).toEqual( [
-			textBlock( 'Screenshot tool-1' ),
-			textBlock( STALE_IMAGE_PLACEHOLDER_TEXT ),
+		const result = stripStaleImagesFromContext( ctx, 8 );
+
+		expect( strippedIndexes( ctx, result ) ).toEqual( [ 0 ] );
+		expect( ( result.messages[ 0 ] as { content: unknown[] } ).content ).toEqual( [
+			{ type: 'text', text: 'Screenshot 1' },
+			{ type: 'text', text: STALE_IMAGE_PLACEHOLDER_TEXT },
 		] );
-		expect( result.messages[ 1 ] ).toBe( ctx.messages[ 1 ] );
-		expect( result.messages[ 2 ] ).toBe( ctx.messages[ 2 ] );
 	} );
 
-	it( 'caps the number of images kept, counting from the newest', () => {
-		const ctx = context( [
-			screenshotResult( 'tool-1', imageBlock( 'a' ), imageBlock( 'b' ) ),
-			screenshotResult( 'tool-2', imageBlock( 'c' ), imageBlock( 'd' ) ),
-			screenshotResult( 'tool-3', imageBlock( 'e' ) ),
-		] );
-
-		const result = stripStaleImagesFromContext( ctx, { maxImages: 3, maxBytes: Infinity } );
-		expect( contentOf( result.messages[ 0 ] ) ).toEqual( [
-			textBlock( 'Screenshot tool-1' ),
-			textBlock( STALE_IMAGE_PLACEHOLDER_TEXT ),
-			textBlock( STALE_IMAGE_PLACEHOLDER_TEXT ),
-		] );
-		expect( result.messages[ 1 ] ).toBe( ctx.messages[ 1 ] );
-		expect( result.messages[ 2 ] ).toBe( ctx.messages[ 2 ] );
+	it( 'always keeps the newest images, even over budget', () => {
+		const ctx = context( [ screenshot( 1 ), screenshot( 2, 100 ) ] );
+		expect( strippedIndexes( ctx, stripStaleImagesFromContext( ctx, 10 ) ) ).toEqual( [ 0 ] );
 	} );
 
-	it( 'always keeps the newest image-bearing message, even one over budget on its own', () => {
-		const ctx = context( [
-			screenshotResult( 'tool-1', imageBlock( 'old', 50 ) ),
-			screenshotResult( 'tool-2', imageBlock( 'desktop', 500 ), imageBlock( 'mobile', 500 ) ),
-			{ role: 'user', content: [ textBlock( 'and then?' ) ], timestamp: 3 },
-		] );
+	// Stripping a message that kept its images on the previous request, or
+	// restoring one, would change the cached prefix.
+	it( 'never restores images to a message as the history grows', () => {
+		const history = [ screenshot( 1 ), screenshot( 2 ), screenshot( 3 ), screenshot( 4 ) ];
+		const strippedAt = ( length: number ) => {
+			const ctx = context( history.slice( 0, length ) );
+			return strippedIndexes( ctx, stripStaleImagesFromContext( ctx, 8 ) );
+		};
 
-		const result = stripStaleImagesFromContext( ctx, { maxImages: 1, maxBytes: 10 } );
-		expect( contentOf( result.messages[ 0 ] ) ).toEqual( [
-			textBlock( 'Screenshot tool-1' ),
-			textBlock( STALE_IMAGE_PLACEHOLDER_TEXT ),
-		] );
-		expect( result.messages[ 1 ] ).toBe( ctx.messages[ 1 ] );
-		expect( result.messages[ 2 ] ).toBe( ctx.messages[ 2 ] );
-	} );
-
-	it( 'keeps a stable suffix so a message that lost its images never gets them back', () => {
-		const limits = { maxImages: 2, maxBytes: Infinity };
-		const history = [
-			screenshotResult( 'tool-1', imageBlock( 'a' ) ),
-			screenshotResult( 'tool-2', imageBlock( 'b' ) ),
-			screenshotResult( 'tool-3', imageBlock( 'c' ) ),
-			screenshotResult( 'tool-4', imageBlock( 'd' ) ),
-		];
-		const strippedAt = ( length: number ) =>
-			stripStaleImagesFromContext( context( history.slice( 0, length ) ), limits ).messages.map(
-				( message, index ) => message !== history[ index ]
-			);
-
-		expect( strippedAt( 2 ) ).toEqual( [ false, false ] );
-		expect( strippedAt( 3 ) ).toEqual( [ true, false, false ] );
-		expect( strippedAt( 4 ) ).toEqual( [ true, true, false, false ] );
-	} );
-
-	it( 'defaults to limits that keep a full build of captures in history', () => {
-		// Ten `viewport: "all"` captures at the fitted size (~150KB of base64
-		// per viewport pair) stay in history untouched.
-		const ctx = context(
-			Array.from( { length: 10 }, ( _, index ) =>
-				screenshotResult(
-					`tool-${ index + 1 }`,
-					imageBlock( 'desktop', 90 * 1024 ),
-					imageBlock( 'mobile', 20 * 1024 )
-				)
-			)
-		);
-		expect( IMAGE_HISTORY_LIMITS.maxImages ).toBe( 20 );
-		expect( stripStaleImagesFromContext( ctx ) ).toBe( ctx );
+		expect( strippedAt( 2 ) ).toEqual( [] );
+		expect( strippedAt( 3 ) ).toEqual( [ 0 ] );
+		expect( strippedAt( 4 ) ).toEqual( [ 0, 1 ] );
 	} );
 } );

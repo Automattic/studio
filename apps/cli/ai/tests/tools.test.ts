@@ -145,20 +145,18 @@ describe( 'Studio AI MCP tools', () => {
 	const createMockPage = ( {
 		buffer,
 		documentHeight,
-		modelBuffer,
+		scaledBuffer = buffer,
 	}: {
 		buffer: Buffer;
 		documentHeight?: number;
-		/** What the in-page canvas pass hands back when a capture is downscaled. */
-		modelBuffer?: Buffer;
+		/** What the in-page canvas returns when a capture is scaled down for the model. */
+		scaledBuffer?: Buffer;
 	} ) => ( {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
 		evaluate: vi.fn( async ( _script: unknown, args?: { source?: string } ) =>
-			args?.source
-				? `data:image/jpeg;base64,${ ( modelBuffer ?? buffer ).toString( 'base64' ) }`
-				: documentHeight
+			args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight
 		),
 		addStyleTag: vi.fn(),
 		screenshot: vi.fn().mockResolvedValue( buffer ),
@@ -433,7 +431,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	it( 'keeps take_screenshot output compact while returning artifacts structurally', async () => {
 		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 1800 } ) );
 		const progressMessages: string[] = [];
 
 		const result = await getTool( 'take_screenshot' ).rawHandler(
@@ -452,7 +450,7 @@ describe( 'Studio AI MCP tools', () => {
 		);
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
-		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
+		expect( text ).toContain( 'desktop: captured full page (1800px tall)' );
 		// The saved path is the agent's only handle for reusing a capture as a
 		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
 		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
@@ -473,10 +471,10 @@ describe( 'Studio AI MCP tools', () => {
 		await cleanUpScreenshotArtifacts( artifacts );
 	} );
 
-	it( 'sends tall captures to the model at its native resolution and saves the full capture', async () => {
+	it( 'sends the model a copy of tall captures scaled down to 2000 px and saves the full capture', async () => {
 		const fullBuffer = Buffer.from( 'full-resolution-jpeg' );
-		const modelBuffer = Buffer.from( 'downscaled-jpeg' );
-		const page = createMockPage( { buffer: fullBuffer, documentHeight: 5662, modelBuffer } );
+		const scaledBuffer = Buffer.from( 'scaled-jpeg' );
+		const page = createMockPage( { buffer: fullBuffer, documentHeight: 5662, scaledBuffer } );
 		mockScreenshotBrowser( page );
 
 		const result = await getTool( 'take_screenshot' ).rawHandler(
@@ -485,18 +483,17 @@ describe( 'Studio AI MCP tools', () => {
 		);
 
 		expect( getTextContent( result ) ).toContain(
-			'desktop: captured full page (5662px tall, shown downscaled to 473x2576)'
+			'desktop: captured full page (5662px tall, shown at 367x2000)'
+		);
+		expect( page.evaluate ).toHaveBeenCalledWith(
+			expect.any( Function ),
+			expect.objectContaining( { width: 367, height: 2000 } )
 		);
 		expect( result.content[ 1 ] ).toEqual( {
 			type: 'image',
-			data: modelBuffer.toString( 'base64' ),
+			data: scaledBuffer.toString( 'base64' ),
 			mimeType: 'image/jpeg',
 		} );
-		expect( page.evaluate ).toHaveBeenCalledWith(
-			expect.any( Function ),
-			expect.objectContaining( { mimeType: 'image/jpeg', quality: 0.8, width: 473, height: 2576 } )
-		);
-		// The saved file (theme screenshot, chat artifact) keeps every pixel.
 		const artifacts = getScreenshotArtifacts( result );
 		await expect( readFile( artifacts[ 0 ].widgetProps.source.path ) ).resolves.toEqual(
 			fullBuffer
@@ -506,8 +503,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
 		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
-		const page = createMockPage( { buffer: screenshotBuffer, documentHeight: 9000 } );
-		mockScreenshotBrowser( page );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
 		const findTakeScreenshot = (
 			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
 		) =>
@@ -518,11 +514,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
 
 		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
-		// No image goes to the model, so the capture is not fitted to its resolution.
-		expect( page.evaluate ).not.toHaveBeenCalledWith(
-			expect.any( Function ),
-			expect.objectContaining( { source: expect.anything() } )
-		);
 
 		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
@@ -567,8 +558,8 @@ describe( 'Studio AI MCP tools', () => {
 		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
 		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
 		const { newPage } = mockScreenshotBrowser(
-			createMockPage( { buffer: desktopBuffer, documentHeight: 2400 } ),
-			createMockPage( { buffer: mobileBuffer, documentHeight: 2400 } )
+			createMockPage( { buffer: desktopBuffer, documentHeight: 1800 } ),
+			createMockPage( { buffer: mobileBuffer, documentHeight: 1800 } )
 		);
 
 		const result = await getTool( 'take_screenshot' ).rawHandler( {
@@ -578,8 +569,8 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 
 		expect( text ).toContain( 'Screenshots captured:' );
-		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
-		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
+		expect( text ).toContain( '- desktop: captured full page (1800px tall)' );
+		expect( text ).toContain( '- mobile: captured full page (1800px tall)' );
 		expect( text ).not.toContain( 'mediaWidgetPayload' );
 		expect( newPage ).toHaveBeenCalledTimes( 2 );
 		expect( result.content.slice( 1 ) ).toEqual( [

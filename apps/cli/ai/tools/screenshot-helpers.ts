@@ -18,29 +18,28 @@ export const VIEWPORTS = {
 } as const;
 
 /**
- * Quality used when encoding a screenshot as JPEG. Full-page PNG captures run
- * to multiple megabytes; JPEG at this quality compresses long page captures by
- * roughly 5–10× with no perceptible loss of layout fidelity for the agent.
+ * Quality used when re-encoding a screenshot as JPEG for vision-model input.
+ * Full-page PNG captures can run to multiple megabytes; the wpcom AI proxy
+ * rejects oversized request bodies with an empty 400 before they ever reach
+ * the model. JPEG at this quality compresses long page captures by roughly
+ * 5–10× with no perceptible loss of layout fidelity for the agent.
  */
 const MODEL_JPEG_QUALITY = 80;
 
 /**
- * Full-page captures are clipped at this many CSS pixels of height. It is the
- * vision API's hard per-dimension limit, and past it the downscaled strip the
- * model receives (see {@link fitImageToModelResolution}) is under a third of
- * the page's size anyway. Callers pass `offset` to fetch subsequent slices.
+ * Anthropic's vision API rejects images whose pixel width OR height exceeds
+ * 8000. Long full-page captures of design-heavy sites blow past this in the
+ * height dimension; clip the capture region to keep us inside the limit and
+ * let callers pass `offset` to fetch subsequent slices on follow-up calls.
  */
 export const MAX_IMAGE_DIMENSION_PX = 8000;
 
 /**
- * Native resolution of the vision models Studio Code targets (Claude 4.7 and
- * later): the API downscales anything larger to fit both limits before the
- * model sees it, so sending more pixels only costs upload bytes. A visual
- * token is one 28×28 px patch.
+ * Longest side of the copy of a capture that goes to the model. pi re-encodes
+ * any larger tool image as a 2000 px PNG, several times the size of a JPEG,
+ * and Anthropic rejects larger images in requests carrying more than 20.
  */
-export const MODEL_IMAGE_MAX_EDGE_PX = 2576;
-export const MODEL_IMAGE_MAX_TOKENS = 4784;
-const MODEL_IMAGE_PATCH_PX = 28;
+const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
@@ -52,7 +51,6 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 }
 
 export type ScreenshotFormat = 'png' | 'jpeg';
-type ScreenshotMimeType = 'image/png' | 'image/jpeg';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
 export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
@@ -74,146 +72,10 @@ export async function applyScreenshotMediaEmulation(
 	} );
 }
 
-export interface ImageSize {
-	width: number;
-	height: number;
-}
-
-/** Visual tokens an image costs the model: one per 28×28 px patch. */
-export function countImageTokens( { width, height }: ImageSize ): number {
-	return Math.ceil( width / MODEL_IMAGE_PATCH_PX ) * Math.ceil( height / MODEL_IMAGE_PATCH_PX );
-}
-
-// The API rounds the short edge half to even; Math.round would pick a
-// different size for some images.
-function roundTiesToEven( value: number ): number {
-	const floor = Math.floor( value );
-	if ( value - floor !== 0.5 ) {
-		return Math.round( value );
-	}
-	return floor % 2 === 0 ? floor : floor + 1;
-}
-
-/**
- * The size the vision API reduces an image to before the model sees it
- * (Anthropic's reference implementation): the largest aspect-preserving size
- * whose patch-padded edges stay within {@link MODEL_IMAGE_MAX_EDGE_PX} and
- * whose visual tokens stay within {@link MODEL_IMAGE_MAX_TOKENS}. An image
- * that already fits is returned unchanged.
- */
-export function fitImageToModelResolution( { width, height }: ImageSize ): ImageSize {
-	const fits = ( size: ImageSize ) =>
-		Math.ceil( size.width / MODEL_IMAGE_PATCH_PX ) * MODEL_IMAGE_PATCH_PX <=
-			MODEL_IMAGE_MAX_EDGE_PX &&
-		Math.ceil( size.height / MODEL_IMAGE_PATCH_PX ) * MODEL_IMAGE_PATCH_PX <=
-			MODEL_IMAGE_MAX_EDGE_PX &&
-		countImageTokens( size ) <= MODEL_IMAGE_MAX_TOKENS;
-	if ( fits( { width, height } ) ) {
-		return { width, height };
-	}
-	if ( height > width ) {
-		const rotated = fitImageToModelResolution( { width: height, height: width } );
-		return { width: rotated.height, height: rotated.width };
-	}
-	// Binary search along the long edge for the largest size that fits.
-	const aspectRatio = width / height;
-	const shortEdge = ( longEdge: number ) =>
-		Math.max( roundTiesToEven( longEdge / aspectRatio ), 1 );
-	let lo = 1;
-	let hi = width;
-	while ( lo + 1 < hi ) {
-		const mid = Math.floor( ( lo + hi ) / 2 );
-		if ( fits( { width: mid, height: shortEdge( mid ) } ) ) {
-			lo = mid;
-		} else {
-			hi = mid;
-		}
-	}
-	return { width: lo, height: shortEdge( lo ) };
-}
-
-/** The capture as the model receives it. */
-export interface ModelImage extends ImageSize {
-	buffer: Buffer;
-}
-
-/**
- * Re-encode an image at `size` on an in-page canvas. The browser already holds
- * a decoder and a high-quality resampler, which spares the CLI a native image
- * dependency.
- */
-async function resizeImageInPage(
-	page: Page,
-	source: Buffer,
-	mimeType: ScreenshotMimeType,
-	size: ImageSize
-): Promise< Buffer > {
-	const dataUrl = await page.evaluate(
-		async ( { source, mimeType, width, height, quality } ) => {
-			const blob = await ( await fetch( source ) ).blob();
-			const bitmap = await createImageBitmap( blob, {
-				resizeWidth: width,
-				resizeHeight: height,
-				resizeQuality: 'high',
-			} );
-			const canvas = document.createElement( 'canvas' );
-			canvas.width = width;
-			canvas.height = height;
-			const context = canvas.getContext( '2d' );
-			if ( ! context ) {
-				throw new Error( 'Canvas 2D context unavailable' );
-			}
-			context.drawImage( bitmap, 0, 0 );
-			bitmap.close();
-			const output = await new Promise< Blob | null >( ( resolve ) =>
-				canvas.toBlob( resolve, mimeType, quality )
-			);
-			if ( ! output ) {
-				throw new Error( 'Canvas encoding failed' );
-			}
-			return new Promise< string >( ( resolve, reject ) => {
-				const reader = new FileReader();
-				reader.onload = () => resolve( reader.result as string );
-				reader.onerror = () => reject( reader.error );
-				reader.readAsDataURL( output );
-			} );
-		},
-		{
-			source: `data:${ mimeType };base64,${ source.toString( 'base64' ) }`,
-			mimeType,
-			...size,
-			quality: MODEL_JPEG_QUALITY / 100,
-		}
-	);
-	return Buffer.from( dataUrl.slice( dataUrl.indexOf( ',' ) + 1 ), 'base64' );
-}
-
-/**
- * The image block the model receives for a capture of `size` pixels: the
- * capture fitted to the model's native resolution, or the capture itself when
- * it already fits.
- */
-async function prepareModelImage(
-	page: Page,
-	capture: Buffer,
-	mimeType: ScreenshotMimeType,
-	size: ImageSize
-): Promise< ModelImage > {
-	const fitted = fitImageToModelResolution( size );
-	if ( fitted.width === size.width && fitted.height === size.height ) {
-		return { buffer: capture, ...size };
-	}
-	return { buffer: await resizeImageInPage( page, capture, mimeType, fitted ), ...fitted };
-}
-
 export interface ScreenshotCapture {
-	/** The full-resolution capture, for the saved file and the user. */
 	buffer: Buffer;
-	/**
-	 * The capture fitted to the model's native resolution, when the caller
-	 * asked for `modelImage`.
-	 */
-	modelImage?: ModelImage;
+	/** A smaller copy for the model, when `forModel` is set and the capture is too big. */
+	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
 	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
 	contentHeight: number;
@@ -223,18 +85,55 @@ export interface ScreenshotCapture {
 }
 
 /**
+ * Scale a capture down to {@link MODEL_IMAGE_MAX_EDGE_PX} on a canvas in the
+ * page that is already open, so Chromium does the decoding and resampling and
+ * no image library is needed. Returns undefined when the capture already fits.
+ */
+async function scaleForModel(
+	page: Page,
+	capture: Buffer,
+	width: number,
+	height: number
+): Promise< ScreenshotCapture[ 'modelImage' ] > {
+	const scale = MODEL_IMAGE_MAX_EDGE_PX / Math.max( width, height );
+	if ( scale >= 1 ) {
+		return undefined;
+	}
+	const size = { width: Math.round( width * scale ), height: Math.round( height * scale ) };
+	// Base64 in and out rather than a data: URL, which the site's
+	// Content-Security-Policy could block.
+	const base64 = await page.evaluate(
+		async ( { source, width, height, quality } ) => {
+			const bytes = Uint8Array.from( atob( source ), ( char ) => char.charCodeAt( 0 ) );
+			const bitmap = await createImageBitmap( new Blob( [ bytes ] ), {
+				resizeWidth: width,
+				resizeHeight: height,
+				resizeQuality: 'high',
+			} );
+			const canvas = new OffscreenCanvas( width, height );
+			canvas.getContext( '2d' )!.drawImage( bitmap, 0, 0 );
+			const jpeg = await canvas.convertToBlob( { type: 'image/jpeg', quality } );
+			let binary = '';
+			for ( const byte of new Uint8Array( await jpeg.arrayBuffer() ) ) {
+				binary += String.fromCharCode( byte );
+			}
+			return btoa( binary );
+		},
+		{ source: capture.toString( 'base64' ), ...size, quality: MODEL_JPEG_QUALITY / 100 }
+	);
+	return { buffer: Buffer.from( base64, 'base64' ), ...size };
+}
+
+/**
  * Capture a screenshot of `url` at the given viewport. Callers decide whether
- * to expose the image as base64 or a temp local file. Use `jpeg` for
- * vision-model input — full-page PNGs balloon to multi-MB.
+ * to expose the image as base64 or a temp local file. Use
+ * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
+ * trip the wpcom AI proxy's request-size limit.
  *
  * Full-page captures are clipped to {@link MAX_IMAGE_DIMENSION_PX} raw pixels
  * tall (accounting for `deviceScaleFactor`); pass `offset` in CSS pixels to
  * capture a subsequent slice of a long page. Returned metadata tells callers
  * whether the page was clipped and how much remains.
- *
- * `modelImage` also returns the capture downscaled to the resolution the
- * vision API would reduce it to anyway, so the model sees the same pixels for
- * a fraction of the bytes.
  */
 export async function captureScreenshotBuffer(
 	url: string,
@@ -245,11 +144,10 @@ export async function captureScreenshotBuffer(
 		format?: ScreenshotFormat;
 		offset?: number;
 		colorScheme?: ScreenshotColorScheme;
-		modelImage?: boolean;
+		forModel?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
-	const mimeType: ScreenshotMimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
 	const browser = await getSharedBrowser();
 	const page = await browser.newPage( {
 		viewport,
@@ -330,13 +228,6 @@ export async function captureScreenshotBuffer(
 			format === 'jpeg'
 				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
 				: { type: 'png' as const };
-		const prepareModelImageFor = ( capture: Buffer, cssHeight: number ) =>
-			options.modelImage
-				? prepareModelImage( page, capture, mimeType, {
-						width: Math.round( viewport.width * dpr ),
-						height: Math.round( cssHeight * dpr ),
-				  } )
-				: undefined;
 
 		if ( ! options.fullPage ) {
 			const contentHeight = await page.evaluate( () =>
@@ -352,7 +243,9 @@ export async function captureScreenshotBuffer(
 			const buffer = Buffer.from( await page.screenshot( { ...formatOptions } ) );
 			return {
 				buffer,
-				modelImage: await prepareModelImageFor( buffer, viewport.height ),
+				modelImage: options.forModel
+					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
+					: undefined,
 				documentHeight: viewport.height,
 				contentHeight,
 				capturedHeight: viewport.height,
@@ -386,7 +279,9 @@ export async function captureScreenshotBuffer(
 		);
 		return {
 			buffer,
-			modelImage: await prepareModelImageFor( buffer, capturedHeight ),
+			modelImage: options.forModel
+				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
+				: undefined,
 			documentHeight,
 			contentHeight: documentHeight,
 			capturedHeight,
@@ -405,7 +300,7 @@ export async function saveScreenshotFile(
 	path: string;
 	fileUrl: string;
 	name: string;
-	mimeType: ScreenshotMimeType;
+	mimeType: 'image/png' | 'image/jpeg';
 } > {
 	const format = options.format ?? 'png';
 	const extension = format === 'jpeg' ? 'jpg' : 'png';

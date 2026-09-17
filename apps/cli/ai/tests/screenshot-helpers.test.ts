@@ -3,46 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setScreenshotDirectoryProvider } from '../screenshot-storage';
-import {
-	countImageTokens,
-	fitImageToModelResolution,
-	saveScreenshotFile,
-} from '../tools/screenshot-helpers';
+import { saveScreenshotFile } from '../tools/screenshot-helpers';
 
 describe( 'screenshot helpers', () => {
 	afterEach( () => {
 		setScreenshotDirectoryProvider( null );
-	} );
-
-	// Sizes from Anthropic's vision docs (high-resolution tier) and from the
-	// tall full-page captures take_screenshot produces.
-	it( 'fits images to the size the vision API would reduce them to', () => {
-		expect( fitImageToModelResolution( { width: 1920, height: 1080 } ) ).toEqual( {
-			width: 1920,
-			height: 1080,
-		} );
-		expect( fitImageToModelResolution( { width: 2000, height: 1500 } ) ).toEqual( {
-			width: 2000,
-			height: 1500,
-		} );
-		expect( fitImageToModelResolution( { width: 3840, height: 2160 } ) ).toEqual( {
-			width: 2576,
-			height: 1449,
-		} );
-		expect( fitImageToModelResolution( { width: 1040, height: 5662 } ) ).toEqual( {
-			width: 473,
-			height: 2576,
-		} );
-		expect( fitImageToModelResolution( { width: 390, height: 3993 } ) ).toEqual( {
-			width: 252,
-			height: 2576,
-		} );
-		expect( fitImageToModelResolution( { width: 1040, height: 1248 } ) ).toEqual( {
-			width: 1040,
-			height: 1248,
-		} );
-		expect( countImageTokens( { width: 473, height: 2576 } ) ).toBe( 1564 );
-		expect( countImageTokens( { width: 2576, height: 1449 } ) ).toBe( 4784 );
 	} );
 
 	it( 'falls back to a temporary directory when no provider is set', async () => {

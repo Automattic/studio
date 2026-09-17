@@ -34,11 +34,8 @@ const MODEL_JPEG_QUALITY = 80;
  */
 export const MAX_IMAGE_DIMENSION_PX = 8000;
 
-/**
- * Longest side of the copy of a capture that goes to the model. pi re-encodes
- * any larger tool image as a 2000 px PNG, several times the size of a JPEG,
- * and Anthropic rejects larger images in requests carrying more than 20.
- */
+// pi re-encodes larger tool images as much heavier PNGs, and Anthropic rejects
+// larger images in requests carrying more than 20 of them.
 const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
@@ -74,7 +71,6 @@ export async function applyScreenshotMediaEmulation(
 
 export interface ScreenshotCapture {
 	buffer: Buffer;
-	/** A smaller copy for the model, when `forModel` is set and the capture is too big. */
 	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
 	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
@@ -84,11 +80,7 @@ export interface ScreenshotCapture {
 	clipped: boolean;
 }
 
-/**
- * Scale a capture down to {@link MODEL_IMAGE_MAX_EDGE_PX} on a canvas in the
- * page that is already open, so Chromium does the decoding and resampling and
- * no image library is needed. Returns undefined when the capture already fits.
- */
+/** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
 async function scaleForModel(
 	page: Page,
 	capture: Buffer,
@@ -100,8 +92,7 @@ async function scaleForModel(
 		return undefined;
 	}
 	const size = { width: Math.round( width * scale ), height: Math.round( height * scale ) };
-	// Base64 in and out rather than a data: URL, which the site's
-	// Content-Security-Policy could block.
+	// Not a data: URL, which the site's Content-Security-Policy could block.
 	const base64 = await page.evaluate(
 		async ( { source, width, height, quality } ) => {
 			const bytes = Uint8Array.from( atob( source ), ( char ) => char.charCodeAt( 0 ) );
@@ -240,9 +231,9 @@ export async function captureScreenshotBuffer(
 					}, 0 )
 				)
 			);
-			const buffer = Buffer.from( await page.screenshot( { ...formatOptions } ) );
+			const buffer = await page.screenshot( { ...formatOptions } );
 			return {
-				buffer,
+				buffer: Buffer.from( buffer ),
 				modelImage: options.forModel
 					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
 					: undefined,
@@ -270,15 +261,13 @@ export async function captureScreenshotBuffer(
 		// the "resulting image" is the viewport and any clip.y beyond the
 		// viewport height fails with "Clipped area is either empty or outside
 		// the resulting image".
-		const buffer = Buffer.from(
-			await page.screenshot( {
-				...formatOptions,
-				fullPage: true,
-				clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
-			} )
-		);
+		const buffer = await page.screenshot( {
+			...formatOptions,
+			fullPage: true,
+			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
+		} );
 		return {
-			buffer,
+			buffer: Buffer.from( buffer ),
 			modelImage: options.forModel
 				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
 				: undefined,

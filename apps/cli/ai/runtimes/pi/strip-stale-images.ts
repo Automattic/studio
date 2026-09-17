@@ -6,18 +6,14 @@ import type { Context, Message } from '@earendil-works/pi-ai';
  */
 export const STALE_IMAGE_PLACEHOLDER_TEXT = '[image removed from older turn to save context]';
 
-/**
- * Base64 characters of image history a request keeps. The wpcom AI proxy
- * rejects oversized request bodies with an empty 400: it accepted 8.7 MB of
- * images and rejected 13 MB.
- */
+/** Keeps requests well under the wpcom AI proxy's body limit, enforced with an empty 400. */
 export const MAX_IMAGE_HISTORY_BYTES = 6 * 1024 * 1024;
 
 function imageBytes( message: Message ): number {
-	if ( message.role !== 'user' && message.role !== 'toolResult' ) {
-		return 0;
-	}
-	if ( typeof message.content === 'string' ) {
+	if (
+		( message.role !== 'user' && message.role !== 'toolResult' ) ||
+		typeof message.content === 'string'
+	) {
 		return 0;
 	}
 	return message.content.reduce(
@@ -41,42 +37,26 @@ function stripImagesFromMessage( message: Message ): Message {
 }
 
 /**
- * Return a {@link Context} whose image history fits `maxBytes`. Walking back
- * from the newest message, image-bearing messages keep their images while they
- * fit, and every older one gets a placeholder instead. The newest image-bearing
- * message is always kept. Compaction in pi-coding-agent keeps a window of
- * recent turns verbatim, so without this pass every accumulated screenshot
- * stays in history and bloats the request body past the proxy's limit.
- *
- * Only the oldest images go, so earlier messages stay byte-identical from one
- * request to the next and the prompt cache survives until the budget is hit.
+ * Replace older images with a placeholder once the image history exceeds
+ * `maxBytes`, always keeping the newest. Dropping only the oldest keeps earlier
+ * messages identical between requests, so the prompt cache survives.
  */
 export function stripStaleImagesFromContext(
 	ctx: Context,
 	maxBytes = MAX_IMAGE_HISTORY_BYTES
 ): Context {
-	const messages = ctx.messages;
 	let keptBytes = 0;
-	let keepFrom = messages.length;
-	for ( let index = messages.length - 1; index >= 0; index-- ) {
-		const bytes = imageBytes( messages[ index ] );
-		if ( bytes === 0 ) {
-			continue;
-		}
-		if ( keepFrom < messages.length && keptBytes + bytes > maxBytes ) {
-			break;
+	for ( let index = ctx.messages.length - 1; index >= 0; index-- ) {
+		const bytes = imageBytes( ctx.messages[ index ] );
+		if ( keptBytes > 0 && keptBytes + bytes > maxBytes ) {
+			return {
+				...ctx,
+				messages: ctx.messages.map( ( message, messageIndex ) =>
+					messageIndex <= index ? stripImagesFromMessage( message ) : message
+				),
+			};
 		}
 		keptBytes += bytes;
-		keepFrom = index;
 	}
-
-	let mutated = false;
-	const transformed = messages.map( ( message, index ) => {
-		if ( index >= keepFrom || imageBytes( message ) === 0 ) {
-			return message;
-		}
-		mutated = true;
-		return stripImagesFromMessage( message );
-	} );
-	return mutated ? { ...ctx, messages: transformed } : ctx;
+	return ctx;
 }

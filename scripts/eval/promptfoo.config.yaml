@@ -183,10 +183,7 @@ tests:
               }
               return null;
             };
-            // Image blocks carry no viewport label; the tool returns them in capture
-            // order (desktop, then mobile). Tall pages reach the model scaled down to
-            // 2000 px on their longest side, so widths vary: check the limit, and that
-            // the desktop capture is the wider one.
+            // Images come in capture order (desktop, then mobile), scaled to at most 2000 px.
             const sizes = images.map((image) => readImageSize(Buffer.from(image.data, 'base64')));
             for (const size of sizes) {
               if (!size || size.height < 600 || Math.max(size.width, size.height) > 2000) {

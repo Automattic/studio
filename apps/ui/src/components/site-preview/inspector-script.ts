@@ -236,13 +236,31 @@ export const INSPECTOR_PAGE_SCRIPT =
 			display: flex; flex-direction: column; gap: 8px;
 		}
 		.popup .target {
-			display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+			display: flex; align-items: center; justify-content: space-between; gap: 8px;
 			font-size: 11px; color: rgba(255,255,255,0.5);
 			cursor: grab; user-select: none;
 		}
 		.popup .target.dragging { cursor: grabbing; }
 		.popup .target .element {
-			min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+			flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		}
+		.popup .layers {
+			display: inline-flex; align-items: center; flex: none; gap: 2px;
+			padding: 1px;
+			border: 1px solid rgba(255,255,255,0.14);
+			border-radius: 7px;
+		}
+		.popup .layers button {
+			width: 18px; height: 18px; padding: 0 0 2px; border-radius: 5px;
+			display: inline-flex; align-items: center; justify-content: center;
+			background: transparent; color: rgba(255,255,255,0.6);
+			font-size: 15px; line-height: 1;
+		}
+		.popup .layers button:hover:not([disabled]) { background: rgba(255,255,255,0.1); color: #fff; }
+		.popup .layers button[disabled] { opacity: 0.35; cursor: default; }
+		.popup .layers .count {
+			min-width: 24px; text-align: center; font-size: 10px;
+			color: rgba(255,255,255,0.5);
 		}
 		.popup .target .element code {
 			font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgba(255,255,255,0.7);
@@ -410,8 +428,8 @@ export const INSPECTOR_PAGE_SCRIPT =
 				const marker = markerNodes.get( ann.id );
 				if ( marker ) positionMarker( marker, ann );
 			} );
-			if ( highlightNode && highlightEl ) {
-				placeHighlight( highlightEl );
+			if ( highlightNode ) {
+				placeHighlight( highlightRect() );
 			}
 			if ( popupNode && activePopup ) {
 				positionPopup( popupNode, activePopup );
@@ -431,12 +449,19 @@ export const INSPECTOR_PAGE_SCRIPT =
 		if ( relayoutFrame ) cancelAnimationFrame( relayoutFrame );
 	} );
 
-	function placeHighlight( el ) {
-		const r = documentRect( el );
+	function placeHighlight( r ) {
+		if ( ! r ) return;
 		highlightNode.style.left = r.left + 'px';
 		highlightNode.style.top = r.top + 'px';
 		highlightNode.style.width = r.width + 'px';
 		highlightNode.style.height = r.height + 'px';
+	}
+
+	/* While a note is open the outline tracks the popup's target (which the
+	 * layer picker can change); otherwise it follows the hovered element. */
+	function highlightRect() {
+		if ( activePopup ) return resolveTargetRect( activePopup.target );
+		return highlightEl ? documentRect( highlightEl ) : null;
 	}
 
 	function showHighlight( el ) {
@@ -445,11 +470,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 			highlightNode = null;
 			highlightEl = null;
 		}
-		if ( ! el || ! isPicking ) return;
+		if ( ! isPicking ) return;
 		highlightEl = el;
+		const rect = highlightRect();
+		if ( ! rect ) return;
 		highlightNode = document.createElement( 'div' );
 		highlightNode.className = 'highlight';
-		placeHighlight( el );
+		placeHighlight( rect );
 		root.appendChild( highlightNode );
 	}
 
@@ -700,6 +727,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		viewportSpan.textContent = vp.width + '×' + vp.height;
 		viewportSpan.title = 'Viewport when annotated';
 		target.appendChild( viewportSpan );
+		if ( state.layers && state.layers.length > 1 ) {
+			target.appendChild( buildLayerControls( state ) );
+		}
 		popup.appendChild( target );
 
 		state.comment = state.comment || '';
@@ -789,6 +819,45 @@ export const INSPECTOR_PAGE_SCRIPT =
 		popup.addEventListener( 'mousemove', ( e ) => e.stopPropagation() );
 
 		return popup;
+	}
+
+	/* ‹ 2/5 › — step through the elements stacked under the click point.
+	 * Changing the target re-renders the popup, which keeps its comment;
+	 * the outline, scrim hole and element line move to the chosen layer.
+	 * ‹ walks toward the front of the stack and › deeper into it, so the
+	 * counter reads left to right. The ends don't wrap: wrapping would jump
+	 * from the frontmost element to the backmost while the button says
+	 * "in front of this one". */
+	function buildLayerControls( state ) {
+		const controls = document.createElement( 'span' );
+		controls.className = 'layers';
+		const total = state.layers.length;
+		const change = ( offset ) => {
+			const index = state.targetIndex + offset;
+			if ( index < 0 || index >= total ) return;
+			state.targetIndex = index;
+			state.target = targetAt( state, index );
+			render();
+		};
+		const front = document.createElement( 'button' );
+		front.type = 'button';
+		front.textContent = '‹';
+		front.title = 'Select the element in front of this one';
+		front.setAttribute( 'aria-label', front.title );
+		front.disabled = state.targetIndex <= 0;
+		front.addEventListener( 'click', () => change( -1 ) );
+		const count = document.createElement( 'span' );
+		count.className = 'count';
+		count.textContent = state.targetIndex + 1 + '/' + total;
+		const back = document.createElement( 'button' );
+		back.type = 'button';
+		back.textContent = '›';
+		back.title = 'Select the element behind this one';
+		back.setAttribute( 'aria-label', back.title );
+		back.disabled = state.targetIndex >= total - 1;
+		back.addEventListener( 'click', () => change( 1 ) );
+		controls.append( front, count, back );
+		return controls;
 	}
 
 	/* Drag the popup by its target row. Movement is applied as a transform
@@ -882,21 +951,92 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
-	function openPopupForElement( el ) {
+	function targetForElement( el ) {
 		const viewport = el.getBoundingClientRect();
+		return {
+			selector: buildSelector( el ),
+			tag: el.tagName.toLowerCase(),
+			classes: Array.from( el.classList || [] ).filter( ( c ) => ! c.startsWith( '__studio-' ) ),
+			nearbyText: nearbyText( el ),
+			boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
+			documentRect: documentRect( el ),
+			computedStyles: pickComputedStyles( el ),
+		};
+	}
+
+	/* Everything stacked under the click point, front to back: the hit
+	 * element, then the rest of the hit-test stack, then (bounded) any other
+	 * element whose box contains the point — this catches things behind a
+	 * pointer-events:none overlay or a full-bleed wrapper. */
+	function elementsAtPoint( initial, clientX, clientY ) {
+		const MAX_CANDIDATES = 30;
+		const MAX_FALLBACK_ELEMENTS = 5000;
+		const MAX_FALLBACK_MS = 20;
+		const candidates = [];
+		const seen = new Set();
+		const add = ( el ) => {
+			if ( candidates.length >= MAX_CANDIDATES || ! el || seen.has( el ) || isOurElement( el ) )
+				return;
+			if ( el === document.documentElement || el === document.body ) return;
+			const rect = el.getBoundingClientRect();
+			if ( rect.width <= 0 || rect.height <= 0 ) return;
+			const style = window.getComputedStyle( el );
+			if ( style.display === 'none' || style.visibility === 'hidden' ) return;
+			seen.add( el );
+			candidates.push( el );
+		};
+		add( initial );
+		if ( typeof document.elementsFromPoint === 'function' ) {
+			document.elementsFromPoint( clientX, clientY ).forEach( add );
+		}
+		const behind = [];
+		const startedAt = performance.now();
+		let scanned = 0;
+		for ( const el of document.querySelectorAll( 'body *' ) ) {
+			scanned += 1;
+			if (
+				scanned > MAX_FALLBACK_ELEMENTS ||
+				( scanned % 50 === 0 && performance.now() - startedAt > MAX_FALLBACK_MS )
+			) {
+				break;
+			}
+			if ( seen.has( el ) || isOurElement( el ) ) continue;
+			const rect = el.getBoundingClientRect();
+			if (
+				rect.width > 0 &&
+				rect.height > 0 &&
+				clientX >= rect.left &&
+				clientX <= rect.right &&
+				clientY >= rect.top &&
+				clientY <= rect.bottom
+			) {
+				behind.push( { el, area: rect.width * rect.height } );
+			}
+		}
+		behind.sort( ( a, b ) => a.area - b.area ).forEach( ( item ) => add( item.el ) );
+		return candidates;
+	}
+
+	/* Describing an element is expensive — \`nearbyText\` reads \`innerText\`,
+	 * which forces layout over the whole subtree — and the stack can hold
+	 * 30 of them, so only the layer actually on screen is ever built. */
+	function targetAt( state, index ) {
+		if ( ! state.targetCache[ index ] ) {
+			state.targetCache[ index ] = targetForElement( state.layers[ index ] );
+		}
+		return state.targetCache[ index ];
+	}
+
+	function openPopupForElement( el, clientX, clientY ) {
+		const elements = elementsAtPoint( el, clientX, clientY );
 		activePopup = {
 			fromPicker: true,
 			comment: '',
-			target: {
-				selector: buildSelector( el ),
-				tag: el.tagName.toLowerCase(),
-				classes: Array.from( el.classList || [] ).filter( ( c ) => ! c.startsWith( '__studio-' ) ),
-				nearbyText: nearbyText( el ),
-				boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
-				documentRect: documentRect( el ),
-				computedStyles: pickComputedStyles( el ),
-			},
+			layers: elements.length ? elements : [ el ],
+			targetCache: [],
+			targetIndex: 0,
 		};
+		activePopup.target = targetAt( activePopup, 0 );
 		persistAnnotations();
 		render();
 	}
@@ -935,7 +1075,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			if ( isOurElement( e.target ) ) return;
 			e.preventDefault();
 			e.stopPropagation();
-			openPopupForElement( e.target );
+			openPopupForElement( e.target, e.clientX, e.clientY );
 		},
 		{ capture: true, signal: teardown.signal }
 	);

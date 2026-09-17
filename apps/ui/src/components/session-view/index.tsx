@@ -152,7 +152,6 @@ function SessionFrame( {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
-	const sidebarCollapsed = useSidebarCollapsed();
 
 	useLayoutEffect( () => {
 		const root = rootRef.current;
@@ -229,12 +228,7 @@ function SessionFrame( {
 				</>
 			) : null }
 			{ footer ? (
-				<div
-					className={ clsx(
-						styles.panelFooterControls,
-						sidebarCollapsed && styles.panelFooterControlsCollapsed
-					) }
-				>
+				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsStart ) }>
 					{ footer }
 				</div>
 			) : null }

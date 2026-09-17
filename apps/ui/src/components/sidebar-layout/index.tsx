@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { ThemeProvider } from '@wordpress/theme';
-import { Button, Icon } from '@wordpress/ui';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
@@ -96,6 +96,24 @@ export function SidebarLayout( {
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
+	// Not IconButton: while collapsed this is the site switcher's trigger, and
+	// IconButton's unconditional tooltip would fight the hover-opened popover.
+	// The sizing overrides in `.floatingToggleControl` replicate IconButton's
+	// box; see the note in style.module.css.
+	const sidebarToggleControl = (
+		<Button
+			type="button"
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			className={ styles.floatingToggleControl }
+			aria-label={ effectiveCollapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+			onClick={ toggleSidebar }
+		>
+			<Icon icon={ drawerIcon } size={ 24 } className={ styles.floatingToggleIcon } />
+		</Button>
+	);
+
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 	useEffect( () => {
 		// When a parent controls the collapsed state it owns the responsive
@@ -170,7 +188,7 @@ export function SidebarLayout( {
 											<AppMessageCards className={ styles.sidebarCards } appearance="intent" />
 										</>
 									) : null }
-									<UserMenu onToggleSidebar={ toggleSidebar } />
+									<UserMenu />
 								</div>
 							</div>
 						</ThemeProvider>
@@ -192,40 +210,31 @@ export function SidebarLayout( {
 						</ThemeProvider>
 					) : null }
 					<main className={ styles.main }>
-						{ effectiveCollapsed && ! forceCollapsed ? (
+						{ ! forceCollapsed ? (
 							<div
 								className={ clsx(
 									styles.floatingToggle,
+									! effectiveCollapsed && styles.floatingToggleFramed,
 									! reserveTrafficLightSpace && styles.floatingToggleFlush
 								) }
 							>
 								<span className={ styles.floatingToggleButton }>
-									<CollapsedSiteSwitcher
-										backgroundColor={ chromeBg }
-										onToggleSidebar={ toggleSidebar }
-										trigger={
-											// Not IconButton: its unconditional tooltip would
-											// fight the hover-opened switcher popover. The
-											// sizing overrides in `.floatingToggleControl`
-											// replicate IconButton's box; see the note in
-											// style.module.css.
-											<Button
-												type="button"
-												variant="minimal"
-												tone="neutral"
-												size="small"
-												className={ styles.floatingToggleControl }
-												aria-label={ __( 'Show sidebar' ) }
-												onClick={ toggleSidebar }
-											>
-												<Icon
-													icon={ drawerIcon }
-													size={ 24 }
-													className={ styles.floatingToggleIcon }
-												/>
-											</Button>
-										}
-									/>
+									{ effectiveCollapsed ? (
+										<CollapsedSiteSwitcher
+											backgroundColor={ chromeBg }
+											onToggleSidebar={ toggleSidebar }
+											trigger={ sidebarToggleControl }
+										/>
+									) : (
+										// Expanded there is no popover to compete with, so the
+										// button can carry its own tooltip.
+										<Tooltip.Root>
+											<Tooltip.Trigger render={ sidebarToggleControl } />
+											<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+												{ __( 'Hide sidebar' ) }
+											</Tooltip.Popup>
+										</Tooltip.Root>
+									) }
 									<AppMessageCardsDot />
 								</span>
 							</div>

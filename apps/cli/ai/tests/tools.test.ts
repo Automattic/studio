@@ -1356,6 +1356,14 @@ describe( 'Studio AI MCP tools', () => {
 			);
 			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
+			for ( const template of await readdir( path.join( themeDir, 'templates' ) ) ) {
+				const markup = await readFile( path.join( themeDir, 'templates', template ), 'utf8' );
+				expect( markup.match( /<!-- wp:template-part .*?-->/g ) ).toEqual( [
+					'<!-- wp:template-part {"slug":"header","tagName":"header"} /-->',
+					'<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->',
+				] );
+			}
+
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
 			) as Record< string, unknown >;

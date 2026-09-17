@@ -70,6 +70,15 @@ The group's `justifyContent` (`left`/`center`/`right`) controls where the label 
 
 This holds even when it looks harmless: inside a flex row an `inline-block` or `inline-flex` declaration changes nothing (flex items blockify), but it becomes a live alignment bug the moment the user moves the block out of the wrapper in the editor. If the class already carries a `display` rule from an earlier pass, remove it when adding the wrapper.
 
+### Grid and Flex Containers
+
+WordPress spaces a group's children by the layout type in its markup, not by its CSS `display`. A `default` (flow) or `constrained` group gives every child after the first a `margin-block-start` equal to the block gap (24px by default), even when `style.css` makes the group a grid or flex container, so its second column or card sits 24px lower; only the `grid` and `flex` layout types zero those margins and space children with `gap`. A group laid out as a grid or flex container (a sidebar-and-content shell, a card grid, a row of panels) therefore takes the matching type in its markup, `"layout":{"type":"grid"}` or `{"type":"flex"}`, which supplies the `display` and stays editable; a `grid-template-columns` rule in `style.css` still overrides the block's default columns. Where a `default` or `constrained` layout has to stay, reset `margin-block-start` on its children.
+
+```css
+/* Wrong — the group's markup says "layout":{"type":"default"} (or "constrained"), and display: grid does not remove those margins */
+.site-shell { display: grid; grid-template-columns: 1fr 2fr; }
+```
+
 ## Root Block Gap
 
 WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
@@ -97,6 +106,10 @@ Do **not** solve this by deleting `core/post-title` from `page.html` — every o
 A site's home page is the usual case for this: with a static front page and no `front-page.html`, WordPress falls through to `page.html`, so the page least likely to want a title block gets one by default.
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
+
+## Header and Footer Parts
+
+A `core/template-part` block renders as `<div class="wp-block-template-part">` unless it sets `tagName`, so CSS aimed at a `header` or `footer` element matches nothing. Templates from `scaffold_theme` write `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->` and `{"slug":"footer","tagName":"footer"}`: keep `tagName` on every header and footer part you place in a template, which also gives the page its landmarks, and keep the part's own root group a plain `div` rather than a second `header` or `footer`.
 
 ## Anchor Links in Shared Parts
 
@@ -131,7 +144,7 @@ For `style.css`, start with custom properties and anchor comments only:
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill the anchors with as few `Edit` calls as the payload limit allows: one entry in `edits[]` per anchor, its `oldText` the anchor line and its `newText` the anchor plus the new styles, several entries per call and under ~8KB of new text per call. A typical `style.css` takes two or three such calls, never one call per anchor. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
+Keep the skeleton under 2KB. Fill the anchors with as few `Edit` calls as the payload limit allows: one entry in `edits[]` per anchor, its `oldText` the anchor line and its `newText` the anchor plus the new styles, several entries per call and under ~8KB of new text per call. A typical `style.css` takes two or three such calls, never one call per anchor. When filling section styles, never set `display` or width on a class used as a block `className` — alignment, shrink-wrapping, and grid or flex display belong in block markup (see Shrink-Wrapped Labels and Grid and Flex Containers).
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 

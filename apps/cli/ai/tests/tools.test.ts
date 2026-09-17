@@ -1,7 +1,6 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
@@ -9,6 +8,7 @@ import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
@@ -32,6 +32,7 @@ import {
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
+import { createTakeScreenshotTool } from '../tools/take-screenshot';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -145,14 +146,18 @@ describe( 'Studio AI MCP tools', () => {
 	const createMockPage = ( {
 		buffer,
 		documentHeight,
+		scaledBuffer = buffer,
 	}: {
 		buffer: Buffer;
 		documentHeight?: number;
+		scaledBuffer?: Buffer;
 	} ) => ( {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-		evaluate: vi.fn().mockResolvedValue( documentHeight ),
+		evaluate: vi.fn( async ( _script: unknown, args?: { source?: string } ) =>
+			args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight
+		),
 		addStyleTag: vi.fn(),
 		screenshot: vi.fn().mockResolvedValue( buffer ),
 		close: vi.fn(),
@@ -163,23 +168,7 @@ describe( 'Studio AI MCP tools', () => {
 			newPage.mockResolvedValueOnce( page );
 		}
 		vi.mocked( getSharedBrowser ).mockResolvedValue( { newPage } as never );
-		return { newPage };
 	};
-	type ScreenshotArtifact = {
-		widgetProps: { alt: string; source: { path: string; name: string } };
-	};
-	const getScreenshotArtifacts = ( result: {
-		studioArtifacts?: Array< { widgetProps: Record< string, unknown > } >;
-	} ): ScreenshotArtifact[] => {
-		expect( result.studioArtifacts?.length ).toBeGreaterThan( 0 );
-		return result.studioArtifacts as unknown as ScreenshotArtifact[];
-	};
-	const cleanUpScreenshotArtifacts = ( artifacts: ScreenshotArtifact[] ) =>
-		Promise.all(
-			artifacts.map( ( artifact ) =>
-				rm( path.dirname( artifact.widgetProps.source.path ), { recursive: true, force: true } )
-			)
-		);
 	const mockWpCliResponse = ( {
 		stdout = '',
 		stderr = '',
@@ -407,209 +396,62 @@ describe( 'Studio AI MCP tools', () => {
 		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 	} );
 
-	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
-		const takeScreenshot = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'take_screenshot' );
-		const studioPresent = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'studio_present' );
-		expect( takeScreenshot?.description ).not.toContain( 'ready-to-use media widget payload' );
-		expect( takeScreenshot?.description ).not.toContain(
-			'This does not automatically show the screenshot to the user'
-		);
-		expect( takeScreenshot?.description ).not.toContain(
-			'Do not use a site-preview widget as a substitute for the screenshot'
-		);
-		expect( studioPresent?.description ).toContain( 'Never call studio_present for a screenshot' );
-	} );
+	describe( 'take_screenshot', () => {
+		let screenshotDirectory: string;
 
-	it( 'keeps take_screenshot output compact while returning artifacts structurally', async () => {
-		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
-		const progressMessages: string[] = [];
-
-		const result = await getTool( 'take_screenshot' ).rawHandler(
-			{
-				url: 'http://localhost:8903/story-time',
-			} as never,
-			{ onProgress: ( message ) => progressMessages.push( message ) }
-		);
-
-		// Terminal users have no artifact rendering; the saved-file progress
-		// line is their only handle on the capture.
-		expect( progressMessages ).toContainEqual(
-			expect.stringMatching(
-				/^Saved desktop screenshot to file:\/\/.*screenshot-desktop-[0-9a-f]{8}\.jpg$/
-			)
-		);
-		const text = getTextContent( result );
-		expect( text ).toContain( 'Screenshot captured' );
-		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
-		// The saved path is the agent's only handle for reusing a capture as a
-		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
-		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
-		expect( text ).not.toContain( 'mediaWidgetPayload' );
-		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
-		expect( text ).not.toContain( 'Path:' );
-		expect( text ).not.toContain( 'File URL:' );
-		expect( result.content[ 1 ] ).toEqual( {
-			type: 'image',
-			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/jpeg',
+		beforeEach( async () => {
+			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
+			setScreenshotDirectoryProvider( () => screenshotDirectory );
 		} );
 
-		const artifacts = getScreenshotArtifacts( result );
-		expect( artifacts[ 0 ].widgetProps.source.name ).toMatch(
-			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
-		);
-		await cleanUpScreenshotArtifacts( artifacts );
-	} );
-
-	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
-		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
-		const findTakeScreenshot = (
-			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
-		) =>
-			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
-		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
-		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
-		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
-		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
-
-		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
-
-		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
-		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
-		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
-		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
-	} );
-
-	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
-		const screenshotBuffer = Buffer.from( 'internal-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
-		const progressMessages: string[] = [];
-
-		const result = await getTool( 'take_screenshot' ).rawHandler(
-			{
-				url: 'http://localhost:8903/story-time',
-				display: false,
-			} as never,
-			{ onProgress: ( message ) => progressMessages.push( message ) }
-		);
-
-		// Nothing to emit into the chat, but the model still gets the image
-		// for its own verification.
-		expect( result.studioArtifacts ).toBeUndefined();
-		expect( result.content[ 1 ] ).toEqual( {
-			type: 'image',
-			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/jpeg',
+		afterEach( async () => {
+			setScreenshotDirectoryProvider( null );
+			await rm( screenshotDirectory, { recursive: true, force: true } );
 		} );
 
-		const savedLine = progressMessages.find( ( message ) => message.startsWith( 'Saved ' ) );
-		expect( savedLine ).toBeDefined();
-		await rm(
-			path.dirname( fileURLToPath( savedLine!.slice( savedLine!.indexOf( 'file://' ) ) ) ),
-			{
-				recursive: true,
-				force: true,
-			}
-		);
-	} );
-
-	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
-		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
-		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
-		const { newPage } = mockScreenshotBrowser(
-			createMockPage( { buffer: desktopBuffer, documentHeight: 2400 } ),
-			createMockPage( { buffer: mobileBuffer, documentHeight: 2400 } )
-		);
-
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			viewport: 'all',
-		} as never );
-		const text = getTextContent( result );
-
-		expect( text ).toContain( 'Screenshots captured:' );
-		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
-		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
-		expect( text ).not.toContain( 'mediaWidgetPayload' );
-		expect( newPage ).toHaveBeenCalledTimes( 2 );
-		expect( result.content.slice( 1 ) ).toEqual( [
-			{
-				type: 'image',
-				data: desktopBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-			{
-				type: 'image',
-				data: mobileBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-		] );
-
-		const artifacts = getScreenshotArtifacts( result );
-		try {
-			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				expect.stringMatching( /^screenshot-desktop-[0-9a-f]{8}\.jpg$/ ),
-				expect.stringMatching( /^screenshot-mobile-[0-9a-f]{8}\.jpg$/ ),
-			] );
-		} finally {
-			await cleanUpScreenshotArtifacts( artifacts );
-		}
-	} );
-
-	it( 'can capture light and dark screenshots in one take_screenshot call', async () => {
-		const lightBuffer = Buffer.from( 'light-jpeg' );
-		const darkBuffer = Buffer.from( 'dark-jpeg' );
-		const lightPage = createMockPage( { buffer: lightBuffer, documentHeight: 1600 } );
-		const darkPage = createMockPage( { buffer: darkBuffer, documentHeight: 1600 } );
-		mockScreenshotBrowser( lightPage, darkPage );
-
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			colorScheme: 'all',
-		} as never );
-		const text = getTextContent( result );
-
-		expect( text ).toContain( '- desktop light: captured full page (1600px tall)' );
-		expect( text ).toContain( '- desktop dark: captured full page (1600px tall)' );
-		expect( lightPage.emulateMedia ).toHaveBeenCalledWith( {
-			reducedMotion: 'reduce',
-			colorScheme: 'light',
-		} );
-		expect( darkPage.emulateMedia ).toHaveBeenCalledWith( {
-			reducedMotion: 'reduce',
-			colorScheme: 'dark',
-		} );
-		expect( result.content.slice( 1 ) ).toEqual( [
-			{
-				type: 'image',
-				data: lightBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-			{
-				type: 'image',
-				data: darkBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-		] );
-
-		const artifacts = getScreenshotArtifacts( result );
-		try {
-			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				expect.stringMatching( /^screenshot-desktop-light-[0-9a-f]{8}\.jpg$/ ),
-				expect.stringMatching( /^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/ ),
-			] );
-			expect( artifacts[ 1 ].widgetProps.alt ).toBe(
-				'Screenshot of http://localhost:8903/story-time (desktop dark)'
+		it( 'sends the model tall captures scaled down to 2000 px and saves them in full', async () => {
+			const desktop = Buffer.from( 'desktop-jpeg' );
+			const scaledDesktop = Buffer.from( 'scaled-desktop-jpeg' );
+			const mobile = Buffer.from( 'mobile-jpeg' );
+			mockScreenshotBrowser(
+				createMockPage( { buffer: desktop, documentHeight: 5662, scaledBuffer: scaledDesktop } ),
+				createMockPage( { buffer: mobile, documentHeight: 1600 } )
 			);
-		} finally {
-			await cleanUpScreenshotArtifacts( artifacts );
-		}
+
+			const result = await getTool( 'take_screenshot' ).rawHandler( {
+				url: 'http://localhost:8903/',
+				viewport: 'all',
+			} as never );
+
+			const text = getTextContent( result );
+			expect( text ).toContain( 'desktop: captured full page (5662px tall, shown at 367x2000)' );
+			expect( text ).toContain( 'mobile: captured full page (1600px tall)' );
+			expect( result.content.slice( 1 ) ).toEqual( [
+				{ type: 'image', data: scaledDesktop.toString( 'base64' ), mimeType: 'image/jpeg' },
+				{ type: 'image', data: mobile.toString( 'base64' ), mimeType: 'image/jpeg' },
+			] );
+			expect( result.studioArtifacts ).toHaveLength( 2 );
+			const desktopFile = ( await readdir( screenshotDirectory ) ).find( ( name ) =>
+				name.startsWith( 'screenshot-desktop-' )
+			);
+			await expect( readFile( path.join( screenshotDirectory, desktopFile! ) ) ).resolves.toEqual(
+				desktop
+			);
+		} );
+
+		it( 'sends no image to models that cannot view images, and no chat artifact when display is false', async () => {
+			mockScreenshotBrowser(
+				createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
+			);
+
+			const result = await createTakeScreenshotTool( { visionEnabled: false } ).rawHandler( {
+				url: 'http://localhost:8903/',
+				display: false,
+			} as never );
+
+			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+			expect( result.studioArtifacts ).toBeUndefined();
+		} );
 	} );
 
 	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {

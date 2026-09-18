@@ -75,6 +75,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
+	getBundledVisualParityEvalScriptPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
@@ -97,6 +98,11 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
+import {
+	buildVisualParityValidationArtifacts,
+	describeVisualParityFailure,
+	type VisualParityEvaluation,
+} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {
 	CLI_AUTO_UPDATE_WP_VERSION,
@@ -122,6 +128,9 @@ const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE = 'visual-parity-eval.php';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE = 'visual-parity-input.json';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE = 'visual-parity-output.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 const ARTIFACT_ROOT_REPORT_FILES = [
@@ -137,6 +146,7 @@ type StaticSiteImporterSource = {
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
 	stagedReportFiles?: Array< { name: string; from: string } >;
+	sectionsPath?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -158,6 +168,7 @@ export type CreateCommandOptions = {
 			bundlePath?: string;
 			sourcePath?: string;
 			reportFiles?: Array< { name: string; from: string } >;
+			sectionsPath?: string;
 		};
 	};
 	adminUsername?: string;
@@ -244,6 +255,28 @@ function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
+// Data Liberation writes a `sections/*.json` per-page geometry record alongside `website/`
+// (sibling to `capture-receipt.json`). `sourcePath` may already be that capture root, or (in
+// the real `--from <url>` flow) the `website/` directory `liberateWebsite()` returns directly
+// — so this checks both the given directory and its parent for the receipt, matching however
+// `resolveDataLiberationWebsiteRoot` ends up locating it. Returns `undefined` (rather than
+// throwing) when no DLA capture is present, since this data is optional: visual parity simply
+// stays unmeasured, exactly like today, for any non-DLA import source.
+function resolveDataLiberationSectionsDir( sourcePath: string ): string | undefined {
+	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
+		const receiptPath = path.join( candidateRoot, 'capture-receipt.json' );
+		const sectionsDir = path.join( candidateRoot, 'sections' );
+		if (
+			fs.existsSync( receiptPath ) &&
+			fs.existsSync( sectionsDir ) &&
+			fs.statSync( sectionsDir ).isDirectory()
+		) {
+			return sectionsDir;
+		}
+	}
+	return undefined;
+}
+
 function collectArtifactRootReports(
 	captureDir: string,
 	websiteRoot: string
@@ -295,6 +328,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			payload: {},
 			stagedSourcePath,
 			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
+			sectionsPath: resolveDataLiberationSectionsDir( sourcePath ),
 		};
 	}
 
@@ -439,6 +473,7 @@ export function buildCreateFromSourceBlueprint(
 		bundlePath?: string;
 		sourcePath?: string;
 		reportFiles?: Array< { name: string; from: string } >;
+		sectionsPath?: string;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -486,6 +521,7 @@ export function buildCreateFromSourceBlueprint(
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
 			reportFiles: source.stagedReportFiles,
+			sectionsPath: source.sectionsPath,
 		},
 	};
 }
@@ -649,13 +685,84 @@ function staticSiteImportQualityFailure(
 	);
 }
 
+// Measures captured-vs-imported section geometry and evaluates it through SSI's own oracle
+// class (`Static_Site_Importer_Visual_Parity_Oracle`, static-site-importer#1707). Returns a
+// human-readable failure detail when the oracle reports a real disagreement, or `undefined`
+// when the check passed, was skipped, or itself could not run — a failure to *measure* never
+// surfaces as an import failure here, only a measured, genuine disagreement does.
+async function runVisualParityCheck(
+	site: SiteData,
+	siteUrl: string,
+	sectionsPath: string,
+	logger: Logger< LoggerAction >
+): Promise< string | undefined > {
+	let artifacts;
+	try {
+		artifacts = await buildVisualParityValidationArtifacts( {
+			sectionsDir: sectionsPath,
+			importedOrigin: siteUrl,
+			logger: { warn: ( message ) => logger.reportProgress( message ) },
+		} );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check could not run. Import quality was not affected.' ),
+				error
+			),
+			false
+		);
+		return undefined;
+	}
+
+	const importDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
+	const inputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE );
+	const outputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE );
+	const scriptPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE );
+	fs.writeFileSync( inputPath, JSON.stringify( { visual_parity: artifacts }, null, 2 ) );
+	fs.copyFileSync( getBundledVisualParityEvalScriptPath(), scriptPath );
+
+	const result = await runWpCli( site, [
+		'eval-file',
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE ),
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE ),
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE ),
+	] );
+	if ( result.exitCode !== 0 || ! fs.existsSync( outputPath ) ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check could not run. Import quality was not affected.' ),
+				new Error( wpCliFailureDetail( result ) )
+			),
+			false
+		);
+		return undefined;
+	}
+
+	let evaluation: VisualParityEvaluation;
+	try {
+		evaluation = JSON.parse( fs.readFileSync( outputPath, 'utf-8' ) );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check produced an unreadable result. Import quality was not affected.' ),
+				error
+			),
+			false
+		);
+		return undefined;
+	}
+
+	return evaluation.status === 'failed' ? describeVisualParityFailure( evaluation ) : undefined;
+}
+
 async function runStaticSiteImport(
 	site: SiteData,
 	request: string,
 	sourcePath?: string,
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger,
-	reportFiles: Array< { name: string; from: string } > = []
+	reportFiles: Array< { name: string; from: string } > = [],
+	sectionsPath?: string
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -725,6 +832,20 @@ async function runStaticSiteImport(
 			__( 'Static site import failed quality validation' ),
 			new Error( qualityFailure )
 		);
+	}
+
+	// Section geometry can only be measured once the imported content is actually live on
+	// this running site, so it happens here — after materialization, before the plugin (and
+	// its visual-parity oracle class) is removed — rather than as part of the request above.
+	// See `cli/lib/visual-parity.ts` for how Studio obtains `source_pages`/`imported_pages`.
+	if ( sectionsPath && site.url ) {
+		const parityFailure = await runVisualParityCheck( site, site.url, sectionsPath, logger );
+		if ( parityFailure ) {
+			throw new LoggerError(
+				__( 'Static site import failed visual parity validation' ),
+				new Error( parityFailure )
+			);
+		}
 	}
 
 	const finalizationStartedAt = Date.now();
@@ -890,7 +1011,8 @@ export async function runCommand(
 					staticSiteImport.sourcePath,
 					true,
 					logger,
-					staticSiteImport.reportFiles
+					staticSiteImport.reportFiles,
+					staticSiteImport.sectionsPath
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
@@ -1090,7 +1212,8 @@ export async function runCommand(
 						staticSiteImport.sourcePath,
 						false,
 						logger,
-						staticSiteImport.reportFiles
+						staticSiteImport.reportFiles,
+						staticSiteImport.sectionsPath
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -1143,7 +1266,8 @@ export async function runCommand(
 							staticSiteImport.sourcePath,
 							false,
 							logger,
-							staticSiteImport.reportFiles
+							staticSiteImport.reportFiles,
+							staticSiteImport.sectionsPath
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}

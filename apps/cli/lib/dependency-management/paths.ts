@@ -97,6 +97,12 @@ export function getBundledWxrImportScriptPath(): string {
 	return path.join( getBundledPhpPath(), 'import-wxr.php' );
 }
 
+// PHP driver that evaluates Studio's captured-vs-imported section geometry through the
+// static-site-importer plugin's own visual-parity oracle (see `cli/lib/visual-parity.ts`).
+export function getBundledVisualParityEvalScriptPath(): string {
+	return path.join( getBundledPhpPath(), 'visual-parity-eval.php' );
+}
+
 // The official wordpress-importer plugin, downloaded into `wp-files/` at install time via the
 // `FILES_TO_DOWNLOAD` registry in `scripts/download-wp-server-files.ts` and shipped in the CLI
 // bundle. Installed into the site's `wp-content/plugins` before running a WXR import so the

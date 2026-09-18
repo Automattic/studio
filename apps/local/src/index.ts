@@ -40,6 +40,7 @@ import {
 } from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import { createCliRunner } from '@studio/common/lib/cli-process';
@@ -117,6 +118,7 @@ import type { UserPreferencesContext } from './user-preferences';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
@@ -1784,16 +1786,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+		const { prompt, displayMessage, visualAnnotations } = req.body as {
+			prompt?: string;
+			displayMessage?: string;
+			visualAnnotations?: unknown;
+		};
 		if ( ! prompt ) {
 			res.status( 400 ).json( { error: 'prompt is required' } );
 			return;
 		}
 		let images: StudioChatImage[];
 		let files: StudioChatFileAttachment[];
+		let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
 		try {
 			images = validateStudioChatImages( req.body.images );
 			files = validateStudioChatFiles( req.body.files );
+			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
 		} catch ( error ) {
 			res.status( 400 ).json( { error: ( error as Error ).message } );
 			return;
@@ -1804,6 +1812,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			displayMessage,
 			images,
 			files,
+			visualAnnotations: validatedVisualAnnotations,
 		} );
 		res.json( { runId } );
 	} );

@@ -716,6 +716,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,
+					visualAnnotations: options?.visualAnnotations,
 				} ),
 			} );
 		},

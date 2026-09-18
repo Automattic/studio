@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+	toVisualAnnotationSummaries,
+} from './annotations';
 import type { Annotation } from '@/components/site-preview/types';
 
 describe( 'formatAnnotationsAsPrompt', () => {
@@ -71,5 +75,30 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( prompt ).toContain( 'The user submitted 2 visual annotations' );
 		expect( prompt ).toContain( '- Page: /pricing' );
 		expect( prompt ).toContain( '- Page: /about' );
+	} );
+
+	it( 'summarizes each note with a short element handle for the transcript', () => {
+		expect(
+			toVisualAnnotationSummaries( [
+				{
+					id: 'a1',
+					comment: 'Make this smaller',
+					tag: 'h1',
+					classes: [ 'hero-title', 'is-large', 'extra' ],
+					nearbyText: '  Welcome  ',
+				},
+				{ id: 'a2', comment: 'Swap the image', tag: 'img' },
+				{ id: 'a3', comment: 'No target info' },
+			] )
+		).toEqual( [
+			{
+				comment: 'Make this smaller',
+				tag: 'h1',
+				elementLabel: 'h1.hero-title.is-large',
+				nearbyText: 'Welcome',
+			},
+			{ comment: 'Swap the image', tag: 'img', elementLabel: '<img>', nearbyText: undefined },
+			{ comment: 'No target info', tag: undefined, elementLabel: undefined, nearbyText: undefined },
+		] );
 	} );
 } );

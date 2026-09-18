@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
 describe( 'getNativePhpIniContents', () => {
@@ -6,6 +6,30 @@ describe( 'getNativePhpIniContents', () => {
 		const contents = getNativePhpIniContents( '8.4' );
 
 		expect( contents.split( /\r?\n/ ) ).toContain( 'max_execution_time=0' );
+	} );
+
+	it( 'leaves extensions to the statically linked binary off Windows', () => {
+		const contents = getNativePhpIniContents( '8.4' );
+
+		expect( contents ).not.toContain( 'extension=soap' );
+	} );
+
+	describe( 'on Windows', () => {
+		const originalPlatform = process.platform;
+
+		beforeAll( () => {
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
+		} );
+
+		afterAll( () => {
+			Object.defineProperty( process, 'platform', { value: originalPlatform } );
+		} );
+
+		it( 'loads SOAP from the DLL that ships in the Windows package', () => {
+			const contents = getNativePhpIniContents( '8.4' );
+
+			expect( contents.split( /\r?\n/ ) ).toContain( 'extension=soap' );
+		} );
 	} );
 } );
 

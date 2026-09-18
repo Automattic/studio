@@ -729,7 +729,7 @@ describe( 'CLI: studio create', () => {
 				type: 'files',
 				ref: 'request-bundle:source',
 				metadata: {
-					reports: [ 'capture-receipt.json', 'scroll-states.json' ],
+					reports: [ 'capture-receipt.json', 'diagnostics.json', 'scroll-states.json' ],
 				},
 			} );
 			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
@@ -739,11 +739,133 @@ describe( 'CLI: studio create', () => {
 					from: path.join( captureDir, 'capture-receipt.json' ),
 				},
 				{
+					name: 'diagnostics.json',
+					from: path.join( captureDir, 'diagnostics.json' ),
+				},
+				{
 					name: 'scroll-states.json',
 					from: path.join( captureDir, 'scroll-states.json' ),
 				},
 			] );
 			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
+		} );
+
+		it( 'forwards capture-root sidecars when the importer source is the website directory', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-website-source-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync( path.join( websiteDir, 'contact.html' ), '<main>Contact</main>' );
+			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'typography.json' ), '{"fonts":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'computed-styles.json' ), '{"pages":[]}' );
+			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
+				const excludedDir = fs.mkdtempSync( path.join( captureDir, `${ excluded }-` ) );
+				fs.writeFileSync( path.join( excludedDir, 'blob.bin' ), 'large' );
+			}
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+			const reportNames = ( blueprint.staticSiteImport.reportFiles ?? [] ).map(
+				( file ) => file.name
+			);
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+				metadata: {
+					reports: [
+						'capture-receipt.json',
+						'computed-styles.json',
+						'interaction-states.json',
+						'typography.json',
+					],
+				},
+			} );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
+				{
+					name: 'capture-receipt.json',
+					from: path.join( captureDir, 'capture-receipt.json' ),
+				},
+				{
+					name: 'computed-styles.json',
+					from: path.join( captureDir, 'computed-styles.json' ),
+				},
+				{
+					name: 'interaction-states.json',
+					from: path.join( captureDir, 'interaction-states.json' ),
+				},
+				{
+					name: 'typography.json',
+					from: path.join( captureDir, 'typography.json' ),
+				},
+			] );
+			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
+				expect( reportNames ).not.toContain( excluded );
+			}
+			expect( request.source ).not.toHaveProperty( 'files' );
+			expect( request.source ).not.toHaveProperty( 'entrypoint' );
+		} );
+
+		it( 'imports a capture that has no sidecars', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-no-sidecars-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+				metadata: {
+					reports: [ 'capture-receipt.json' ],
+				},
+			} );
+		} );
+
+		it( 'imports a plain HTML directory that has no capture sidecars', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-plain-html-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Plain</main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Plain Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( sourceDir );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [] );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+			} );
+			expect( request.source ).not.toHaveProperty( 'metadata' );
 		} );
 
 		it( 'copies a request-bundled directory into the site before import', async () => {
@@ -764,6 +886,46 @@ describe( 'CLI: studio create', () => {
 				sourceDir,
 				path.join( mockSitePath, '.studio-import', 'source' ),
 				{ recursive: true, errorOnExist: true, force: false }
+			);
+		} );
+
+		it( 'copies capture-root sidecars into the staged importer source', async () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sidecar-copy-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+				} )
+			);
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+
+			const stagedSource = path.join( mockSitePath, '.studio-import', 'source' );
+			expect( copySpy ).toHaveBeenCalledWith( websiteDir, stagedSource, {
+				recursive: true,
+				errorOnExist: true,
+				force: false,
+			} );
+			expect( copyFileSpy ).toHaveBeenCalledWith(
+				path.join( captureDir, 'capture-receipt.json' ),
+				path.join( stagedSource, 'capture-receipt.json' )
+			);
+			expect( copyFileSpy ).toHaveBeenCalledWith(
+				path.join( captureDir, 'interaction-states.json' ),
+				path.join( stagedSource, 'interaction-states.json' )
 			);
 		} );
 

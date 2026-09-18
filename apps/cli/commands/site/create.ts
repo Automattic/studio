@@ -133,10 +133,26 @@ const STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE = 'visual-parity-input.json';
 const STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE = 'visual-parity-output.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+// JSON compiler-evidence sidecars written next to `website/`. Copied into the
+// staged importer source and named in `metadata.reports` so SSI keeps them at
+// the artifact root instead of prefixing `website/`. Large capture directories
+// (`screenshots/`, `media/`, `resources/`, `layout-geometry/`) and `sections/`
+// (forwarded separately) are excluded.
 const ARTIFACT_ROOT_REPORT_FILES = [
 	'capture-receipt.json',
-	'scroll-states.json',
+	'asset-evidence.json',
+	'breakpoints.json',
+	'cleanup-evidence.json',
+	'computed-styles.json',
+	'css-variables.json',
+	'diagnostics.json',
 	'interaction-states.json',
+	'layout-geometry-proof.json',
+	'layout-geometry-report.json',
+	'palette.json',
+	'scroll-states.json',
+	'source-profile.json',
+	'typography.json',
 ] as const;
 const STATIC_SITE_IMPORT_RECEIPT_SCHEMA = 'static-site-importer/import-cli-receipt/v1';
 type StaticSiteImportProgressPhase = 'import' | 'finalization';
@@ -277,22 +293,48 @@ function resolveDataLiberationSectionsDir( sourcePath: string ): string | undefi
 	return undefined;
 }
 
-function collectArtifactRootReports(
-	captureDir: string,
-	websiteRoot: string
-): Array< { name: string; from: string } > {
-	if ( path.resolve( captureDir ) === path.resolve( websiteRoot ) ) {
-		return [];
+function isDataLiberationCaptureRoot( directory: string ): boolean {
+	const receiptPath = path.join( directory, 'capture-receipt.json' );
+	if ( ! fs.existsSync( receiptPath ) || ! fs.statSync( receiptPath ).isFile() ) {
+		return false;
 	}
 
-	const files: Array< { name: string; from: string } > = [];
-	for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
-		const filePath = path.join( captureDir, name );
-		if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
-			files.push( { name, from: filePath } );
-		}
+	try {
+		const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf-8' ) ) as {
+			schema?: unknown;
+		};
+		return receipt.schema === DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA;
+	} catch {
+		return false;
 	}
-	return files;
+}
+
+function collectArtifactRootReports(
+	sourcePath: string,
+	websiteRoot: string
+): Array< { name: string; from: string } > {
+	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
+	// live on the capture root, one directory up — the same parent lookup
+	// `resolveDataLiberationSectionsDir` already performs.
+	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
+		if (
+			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
+			! isDataLiberationCaptureRoot( candidateRoot )
+		) {
+			continue;
+		}
+
+		const files: Array< { name: string; from: string } > = [];
+		for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
+			const filePath = path.join( candidateRoot, name );
+			if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
+				files.push( { name, from: filePath } );
+			}
+		}
+		return files;
+	}
+
+	return [];
 }
 
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {

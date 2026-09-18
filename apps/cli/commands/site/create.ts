@@ -100,7 +100,7 @@ import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import {
 	buildVisualParityValidationArtifacts,
-	describeVisualParityFailure,
+	visualParityGateFailure,
 	type VisualParityEvaluation,
 } from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -728,10 +728,10 @@ function staticSiteImportQualityFailure(
 }
 
 // Measures captured-vs-imported section geometry and evaluates it through SSI's own oracle
-// class (`Static_Site_Importer_Visual_Parity_Oracle`, static-site-importer#1707). Returns a
-// human-readable failure detail when the oracle reports a real disagreement, or `undefined`
-// when the check passed, was skipped, or itself could not run — a failure to *measure* never
-// surfaces as an import failure here, only a measured, genuine disagreement does.
+// class (`Static_Site_Importer_Visual_Parity_Oracle`). Returns a human-readable failure
+// detail when the oracle reports a disagreement, or when Studio sent a real payload and the
+// oracle answers `not_verified` (a contract bug). `undefined` when the check passed or itself
+// could not run — a failure to *measure* never surfaces as an import failure.
 async function runVisualParityCheck(
 	site: SiteData,
 	siteUrl: string,
@@ -794,7 +794,7 @@ async function runVisualParityCheck(
 		return undefined;
 	}
 
-	return evaluation.status === 'failed' ? describeVisualParityFailure( evaluation ) : undefined;
+	return visualParityGateFailure( artifacts, evaluation );
 }
 
 async function runStaticSiteImport(
@@ -879,7 +879,8 @@ async function runStaticSiteImport(
 	// Section geometry can only be measured once the imported content is actually live on
 	// this running site, so it happens here — after materialization, before the plugin (and
 	// its visual-parity oracle class) is removed — rather than as part of the request above.
-	// See `cli/lib/visual-parity.ts` for how Studio obtains `source_pages`/`imported_pages`.
+	// See `cli/lib/visual-parity.ts` for how Studio builds `source_reports.layout_baseline`
+	// and `imported_render`.
 	if ( sectionsPath && site.url ) {
 		const parityFailure = await runVisualParityCheck( site, site.url, sectionsPath, logger );
 		if ( parityFailure ) {

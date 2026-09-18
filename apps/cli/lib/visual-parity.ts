@@ -5,26 +5,14 @@ import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
 type Browser = Awaited< ReturnType< typeof launchChromiumWithInstall > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
-// Mirrors constants `static-site-importer`'s `tools/visual-parity-oracle.mjs` exports (merged
-// in static-site-importer#1707), reproduced here because Studio cannot import them directly —
-// the plugin zip is only unpacked into a running site's filesystem at runtime (and, for
-// PHP-WASM/Playground sites, into a virtual filesystem Studio's own Node process cannot read
-// directly at all), not available as a build-time npm dependency.
-//
-// static-site-importer#1710 (already merged, ahead of what this file targets) replaced
-// `Static_Site_Importer_Visual_Parity_Oracle`'s entire contract with an incompatible one
-// (schema `static-site-importer/layout-baseline/v1`, different field names throughout:
-// `offset.top` not `top`, `headings[].font_size` objects not `headingSizes` numbers, a broader
-// `media` query — img/svg/video — not `images`, `forms[].fields[]` carrying `padding` this file
-// never captures). That means the constants below, and everything this file sends to
-// `visual-parity-eval.php`, no longer match what the currently-merged oracle class expects —
-// confirmed by running a real import end-to-end: the oracle degrades to `not_verified` every
-// time, regardless of the underlying geometry. static-site-importer#1716 additionally exported
-// the extractor itself (`EXTRACT_LAYOUT`) for reuse, but reusing it here would both change what
-// this file measures (see `extractImportedSectionPage` below) and still not close the schema
-// gap on its own. Fixing this needs a deliberate migration of this whole file's contract to
-// `layout-baseline/v1`, not a drop-in extractor swap — tracked separately, out of scope here.
-export const VISUAL_PARITY_SCHEMA = 'static-site-importer/visual-parity-oracle-input/v1';
+// Schema and viewport match `static-site-importer`'s `tools/visual-parity-oracle.mjs` and
+// `Static_Site_Importer_Visual_Parity_Oracle::SCHEMA`. Studio cannot import those modules —
+// the plugin zip is unpacked into a running site's filesystem at runtime (and, for
+// PHP-WASM/Playground sites, into a virtual filesystem Studio's Node process cannot read).
+export const LAYOUT_BASELINE_SCHEMA = 'static-site-importer/layout-baseline/v1';
+export const VISUAL_PARITY_SCHEMA = LAYOUT_BASELINE_SCHEMA;
+export const VISUAL_PARITY_COMPILER_REPORT_PATH = 'source_reports.layout_baseline';
+export const VISUAL_PARITY_STAGE = 'import_vs_baseline';
 export const VISUAL_PARITY_VIEWPORT = { width: 1440, height: 900 };
 
 type SectionRecord = Record< string, unknown >;
@@ -41,30 +29,307 @@ export type CapturedSectionPage = {
 	[ key: string ]: unknown;
 };
 
+export type LayoutBaselinePage = {
+	id: string;
+	viewport: { width: number; height: number };
+	page_height?: number;
+	sections: SectionRecord[];
+	landmarks: LandmarkRecord[];
+};
+
+export type LayoutBaselineDocument = {
+	schema: typeof LAYOUT_BASELINE_SCHEMA;
+	viewports: Array< { width: number; height: number } >;
+	pages: LayoutBaselinePage[];
+	intentional_omissions: unknown[];
+};
+
 export type VisualParityArtifacts = {
 	schema: string;
 	status: 'ready' | 'not_verified';
 	verification: string;
 	stage: string;
 	reason?: string;
-	viewport?: typeof VISUAL_PARITY_VIEWPORT;
-	source_pages: Record< string, CapturedSectionPage >;
-	imported_pages: Record< string, CapturedSectionPage >;
-	omissions?: unknown[];
+	compiler_report_path?: string;
+	expected_schema?: string;
+	source_reports: {
+		layout_baseline: LayoutBaselineDocument;
+	};
+	imported_render?: LayoutBaselineDocument;
 };
 
-// Matches the shape of `notVerifiedResult()` in static-site-importer's
-// `tools/visual-parity-oracle.mjs` — a plain data literal (not extraction logic), so this is
-// not a duplicate of the oracle's behavior, only of a documented, versioned response shape.
+function emptyLayoutBaselineDocument(): LayoutBaselineDocument {
+	return {
+		schema: LAYOUT_BASELINE_SCHEMA,
+		viewports: [ VISUAL_PARITY_VIEWPORT ],
+		pages: [],
+		intentional_omissions: [],
+	};
+}
+
 function notVerifiedResult( reason: string ): VisualParityArtifacts {
 	return {
-		schema: VISUAL_PARITY_SCHEMA,
+		schema: LAYOUT_BASELINE_SCHEMA,
 		status: 'not_verified',
 		verification: 'not_verified',
-		stage: 'import_vs_capture',
+		stage: VISUAL_PARITY_STAGE,
 		reason,
-		source_pages: {},
-		imported_pages: {},
+		compiler_report_path: VISUAL_PARITY_COMPILER_REPORT_PATH,
+		expected_schema: LAYOUT_BASELINE_SCHEMA,
+		source_reports: {
+			layout_baseline: emptyLayoutBaselineDocument(),
+		},
+	};
+}
+
+function isRecord( value: unknown ): value is SectionRecord {
+	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
+}
+
+function firstNumber( record: SectionRecord, keys: string[] ): number | undefined {
+	for ( const key of keys ) {
+		const value = record[ key ];
+		if ( typeof value === 'number' && Number.isFinite( value ) ) {
+			return value;
+		}
+	}
+	return undefined;
+}
+
+function viewportOf( value: unknown ): { width: number; height: number } {
+	if ( isRecord( value ) ) {
+		const width = firstNumber( value, [ 'width' ] );
+		const height = firstNumber( value, [ 'height' ] );
+		if ( width !== undefined && height !== undefined ) {
+			return { width, height };
+		}
+	}
+	return VISUAL_PARITY_VIEWPORT;
+}
+
+function headingsFromSection( section: SectionRecord ): SectionRecord[] {
+	const rawHeadings = Array.isArray( section.headings ) ? section.headings : [];
+	const sizes = Array.isArray( section.headingSizes ) ? section.headingSizes : [];
+	if ( rawHeadings.length === 0 && sizes.length === 0 ) {
+		return [];
+	}
+	if ( rawHeadings.every( ( heading ) => isRecord( heading ) ) ) {
+		return rawHeadings as SectionRecord[];
+	}
+	const count = Math.max( rawHeadings.length, sizes.length );
+	const headings: SectionRecord[] = [];
+	for ( let index = 0; index < count; index++ ) {
+		const heading: SectionRecord = {};
+		const text = rawHeadings[ index ];
+		if ( typeof text === 'string' ) {
+			heading.text = text;
+		} else if ( typeof text === 'number' ) {
+			heading.font_size = text;
+		}
+		if ( typeof sizes[ index ] === 'number' ) {
+			heading.font_size = sizes[ index ];
+		}
+		headings.push( heading );
+	}
+	return headings;
+}
+
+function mediaFromSection( section: SectionRecord ): SectionRecord[] {
+	const raw = Array.isArray( section.media )
+		? section.media
+		: Array.isArray( section.images )
+		? section.images
+		: [];
+	return raw.filter( isRecord ).map( ( image, index ) => {
+		const media: SectionRecord = {
+			id: String( image.id || image.selector || '' ),
+			role: String( image.role || image.kind || 'img' ),
+		};
+		if ( media.id === '' ) {
+			media.id = `media-${ index }`;
+		}
+		const displayWidth = firstNumber( image, [ 'display_width', 'displayWidth' ] );
+		const displayHeight = firstNumber( image, [ 'display_height', 'displayHeight' ] );
+		if ( displayWidth !== undefined ) {
+			media.display_width = displayWidth;
+		}
+		if ( displayHeight !== undefined ) {
+			media.display_height = displayHeight;
+		}
+		return media;
+	} );
+}
+
+function formsFromSection( section: SectionRecord ): SectionRecord[] {
+	const raw = Array.isArray( section.forms ) ? section.forms : [];
+	return raw.filter( isRecord ).map( ( form, formIndex ) => {
+		const fields = ( Array.isArray( form.fields ) ? form.fields : [] )
+			.filter( isRecord )
+			.map( ( field, fieldIndex ) => {
+				const mapped: SectionRecord = {
+					id: String( field.id || field.name || `field-${ fieldIndex }` ),
+					name: String( field.name || '' ),
+				};
+				const displayWidth = firstNumber( field, [ 'display_width', 'displayWidth' ] );
+				const displayHeight = firstNumber( field, [ 'display_height', 'displayHeight' ] );
+				if ( displayWidth !== undefined ) {
+					mapped.display_width = displayWidth;
+				}
+				if ( displayHeight !== undefined ) {
+					mapped.display_height = displayHeight;
+				}
+				if ( isRecord( field.padding ) ) {
+					mapped.padding = field.padding;
+				}
+				return mapped;
+			} );
+		const mapped: SectionRecord = {
+			id: String( form.id || `form-${ formIndex }` ),
+			fields,
+		};
+		if ( isRecord( form.padding ) ) {
+			mapped.padding = form.padding;
+		}
+		return mapped;
+	} );
+}
+
+function sectionsFromPage( page: CapturedSectionPage ): SectionRecord[] {
+	const raw = Array.isArray( page.sections ) ? page.sections : [];
+	return raw.filter( isRecord ).map( ( section, index ) => {
+		const top =
+			firstNumber( section, [ 'top' ] ) ??
+			( isRecord( section.offset ) ? firstNumber( section.offset, [ 'top' ] ) : undefined );
+		const height = firstNumber( section, [ 'height' ] );
+		const mapped: SectionRecord = {
+			id: String( section.id || section.selector || `section-${ index }` ),
+			order: firstNumber( section, [ 'order', 'sectionIndex' ] ) ?? index,
+			height: height ?? 0,
+			headings: headingsFromSection( section ),
+			media: mediaFromSection( section ),
+			forms: formsFromSection( section ),
+		};
+		if ( top !== undefined ) {
+			mapped.top = top;
+			mapped.offset = { top };
+		}
+		return mapped;
+	} );
+}
+
+const COMPARABLE_LANDMARK_ROLES = new Set( [
+	'header',
+	'banner',
+	'main',
+	'footer',
+	'contentinfo',
+] );
+
+function landmarksFromPage( page: CapturedSectionPage ): LandmarkRecord[] {
+	const raw = Array.isArray( page.landmarks ) ? page.landmarks : [];
+	return raw.filter( isRecord ).flatMap( ( landmark ) => {
+		const role = String( landmark.role || '' );
+		if ( ! COMPARABLE_LANDMARK_ROLES.has( role ) ) {
+			return [];
+		}
+		const top =
+			firstNumber( landmark, [ 'top' ] ) ??
+			( isRecord( landmark.offset ) ? firstNumber( landmark.offset, [ 'top' ] ) : undefined );
+		const mapped: LandmarkRecord = { role };
+		if ( typeof landmark.id === 'string' && landmark.id ) {
+			mapped.id = landmark.id;
+		}
+		if ( top !== undefined ) {
+			mapped.top = top;
+			mapped.offset = { top };
+		}
+		const height = firstNumber( landmark, [ 'height' ] );
+		if ( height !== undefined ) {
+			mapped.height = height;
+		}
+		if ( Array.isArray( landmark.media ) ) {
+			mapped.media = landmark.media;
+		}
+		return [ mapped ];
+	} );
+}
+
+function pageHeightFrom(
+	page: CapturedSectionPage,
+	sections: SectionRecord[]
+): number | undefined {
+	const recorded = firstNumber( page, [ 'page_height', 'pageHeight' ] );
+	if ( recorded !== undefined ) {
+		return recorded;
+	}
+	let max = 0;
+	for ( const section of sections ) {
+		const top = firstNumber( section, [ 'top' ] ) ?? 0;
+		const height = firstNumber( section, [ 'height' ] ) ?? 0;
+		max = Math.max( max, top + height );
+	}
+	return max || undefined;
+}
+
+export function toLayoutBaselinePage(
+	pageId: string,
+	page: CapturedSectionPage
+): LayoutBaselinePage {
+	const sections = sectionsFromPage( page );
+	const viewport = viewportOf( page.viewport );
+	const layoutPage: LayoutBaselinePage = {
+		id: pageId,
+		viewport,
+		sections,
+		landmarks: landmarksFromPage( page ),
+	};
+	const pageHeight = pageHeightFrom( page, sections );
+	if ( pageHeight !== undefined ) {
+		layoutPage.page_height = pageHeight;
+	}
+	return layoutPage;
+}
+
+export function toLayoutBaselineDocument(
+	pages: Record< string, CapturedSectionPage >,
+	omissions: unknown[] = []
+): LayoutBaselineDocument {
+	const layoutPages = Object.entries( pages ).map( ( [ pageId, page ] ) =>
+		toLayoutBaselinePage( pageId, page )
+	);
+	const viewports: Array< { width: number; height: number } > = [];
+	const seenViewports = new Set< string >();
+	for ( const page of layoutPages ) {
+		const key = `${ page.viewport.width }x${ page.viewport.height }`;
+		if ( ! seenViewports.has( key ) ) {
+			seenViewports.add( key );
+			viewports.push( page.viewport );
+		}
+	}
+	return {
+		schema: LAYOUT_BASELINE_SCHEMA,
+		viewports: viewports.length > 0 ? viewports : [ VISUAL_PARITY_VIEWPORT ],
+		pages: layoutPages,
+		intentional_omissions: omissions,
+	};
+}
+
+export function toVisualParityOraclePayload(
+	sourcePages: Record< string, CapturedSectionPage >,
+	importedPages: Record< string, CapturedSectionPage >,
+	omissions: unknown[] = []
+): VisualParityArtifacts {
+	return {
+		schema: LAYOUT_BASELINE_SCHEMA,
+		status: 'ready',
+		verification: 'section_geometry',
+		stage: VISUAL_PARITY_STAGE,
+		compiler_report_path: VISUAL_PARITY_COMPILER_REPORT_PATH,
+		expected_schema: LAYOUT_BASELINE_SCHEMA,
+		source_reports: {
+			layout_baseline: toLayoutBaselineDocument( sourcePages, omissions ),
+		},
+		imported_render: toLayoutBaselineDocument( importedPages, [] ),
 	};
 }
 
@@ -234,25 +499,12 @@ export async function waitForPageReadiness(
 	await page.waitForTimeout( 800 );
 }
 
-// Extracts section/landmark geometry from the current (already-ready) page in the shape the
-// *originally merged* SSI oracle (static-site-importer#1707) read: `sections[].top`,
-// `.height`, `.headingSizes`, `.images[].displayWidth/displayHeight`, `.forms[].fields[]`, and
-// `landmarks[].role/height/mediaCount`. This selection heuristic (header/main/section/footer
-// and ARIA landmark roles, plus two fixes this file adds — excluding `<header>` as its own
-// section, and excluding a wrapping `<main>` that already contains other qualifying sections,
-// both confirmed gaps against real WordPress block output) was ported from that PR's
-// `EXTRACT_SECTIONS`, which at the time was not exported.
-//
-// static-site-importer#1716 has since exported that repo's *current* extractor
-// (`EXTRACT_LAYOUT`, from static-site-importer#1710) so it can be imported directly. It was
-// evaluated for this file and found not to be a safe drop-in: `EXTRACT_LAYOUT` neither excludes
-// `<header>` nor un-wraps `<main>` the way this function does (so switching to it would change
-// section counts/boundaries for the exact WordPress output this measures — a real extraction-
-// behavior change, not just a rename), and it emits the newer `layout-baseline/v1` field shapes
-// this file does not consume (see the schema comment above). Adopting it would require this
-// whole file's output contract to change too. Until that migration happens, this remains a
-// deliberate, disclosed duplicate — keep it in sync with static-site-importer's extractor if
-// its *shared* selection heuristic (the base selector/isVisible/displayBox logic) changes.
+// Extracts section/landmark geometry from the current (already-ready) page. Selection
+// (header/main/section/footer and ARIA landmark roles, plus excluding `<header>` as its own
+// section and excluding a wrapping `<main>` that already contains other qualifying sections)
+// is kept here rather than swapping in SSI's `EXTRACT_LAYOUT`, which neither excludes
+// `<header>` nor unwraps `<main>` and would change section counts on WordPress block output.
+// Field names are mapped to `layout-baseline/v1` later by `toLayoutBaselinePage`.
 export async function extractImportedSectionPage(
 	page: Page,
 	sourceUrl: string
@@ -416,36 +668,61 @@ export type VisualParityDisagreement = {
 };
 
 export type VisualParityEvaluation = {
-	status: 'passed' | 'failed' | 'skipped';
+	status: 'passed' | 'failed' | 'skipped' | 'not_verified';
 	reason?: string;
 	disagreements?: VisualParityDisagreement[];
+	missing_data_contract?: string[];
 	[ key: string ]: unknown;
 };
 
 export function describeVisualParityFailure( evaluation: VisualParityEvaluation ): string {
 	const disagreements = evaluation.disagreements ?? [];
-	if ( disagreements.length === 0 ) {
-		return evaluation.reason || 'Imported section geometry disagrees with the capture.';
+	if ( disagreements.length > 0 ) {
+		return disagreements
+			.slice( 0, 5 )
+			.map(
+				( disagreement ) =>
+					`${ disagreement.page }${
+						disagreement.section !== null && disagreement.section !== undefined
+							? `#${ disagreement.section }`
+							: ''
+					} (${ disagreement.code }): ${ disagreement.message }`
+			)
+			.join( ' ' );
 	}
-	return disagreements
-		.slice( 0, 5 )
-		.map(
-			( disagreement ) =>
-				`${ disagreement.page }${
-					disagreement.section !== null && disagreement.section !== undefined
-						? `#${ disagreement.section }`
-						: ''
-				} (${ disagreement.code }): ${ disagreement.message }`
-		)
-		.join( ' ' );
+	if ( evaluation.status === 'not_verified' ) {
+		const missing = ( evaluation.missing_data_contract ?? [] ).filter(
+			( entry ): entry is string => typeof entry === 'string' && entry.length > 0
+		);
+		const paths = missing.length > 0 ? missing.join( ', ' ) : VISUAL_PARITY_COMPILER_REPORT_PATH;
+		const reason = evaluation.reason || 'Layout baseline contract is absent or malformed.';
+		return `${ reason } Missing contract: ${ paths }.`;
+	}
+	return evaluation.reason || 'Imported section geometry disagrees with the layout baseline.';
 }
 
-// Orchestrates the whole comparison: reads `source_pages` from the DLA capture (already on
-// disk, no re-extraction) and measures `imported_pages` from the now-live imported WordPress
-// site, one route per captured page. A route that cannot be measured (readiness never settles,
-// navigation throws) is dropped from both sides rather than reported as a pass; a route the
-// imported site answers with an HTTP error is kept on the source side only, so the oracle
-// reports a real `missing_imported_page` disagreement instead of masking it.
+// A populated Studio payload whose oracle answer is `not_verified` is a Studio contract bug,
+// not a clean import. Genuine "could not measure" cases keep `artifacts.status === 'not_verified'`
+// and stay non-fatal.
+export function visualParityGateFailure(
+	artifacts: VisualParityArtifacts,
+	evaluation: VisualParityEvaluation
+): string | undefined {
+	if ( evaluation.status === 'failed' ) {
+		return describeVisualParityFailure( evaluation );
+	}
+	if ( evaluation.status === 'not_verified' && artifacts.status === 'ready' ) {
+		return describeVisualParityFailure( evaluation );
+	}
+	return undefined;
+}
+
+// Orchestrates the whole comparison: reads captured pages from the DLA capture (already on
+// disk, no re-extraction) and measures imported pages from the now-live WordPress site, one
+// route per captured page, then serializes both as `layout-baseline/v1`. A route that cannot
+// be measured (readiness never settles, navigation throws) is dropped from both sides rather
+// than reported as a pass; a route the imported site answers with an HTTP error is kept on
+// the source side only, so the oracle reports a real `missing_imported_page` disagreement.
 export async function buildVisualParityValidationArtifacts( {
 	sectionsDir,
 	importedOrigin,
@@ -512,14 +789,5 @@ export async function buildVisualParityValidationArtifacts( {
 		);
 	}
 
-	return {
-		schema: VISUAL_PARITY_SCHEMA,
-		status: 'ready',
-		verification: 'section_geometry',
-		stage: 'import_vs_capture',
-		viewport: VISUAL_PARITY_VIEWPORT,
-		source_pages: measuredSourcePages,
-		imported_pages: importedPages,
-		omissions: [],
-	};
+	return toVisualParityOraclePayload( measuredSourcePages, importedPages );
 }

@@ -1,16 +1,16 @@
 <?php
 /**
  * Evaluate captured-vs-imported section geometry through the Static Site
- * Importer plugin's own visual-parity oracle (`Static_Site_Importer_Visual_Parity_Oracle`,
- * merged in static-site-importer#1707), without re-running the import.
+ * Importer plugin's own visual-parity oracle (`Static_Site_Importer_Visual_Parity_Oracle`),
+ * without re-running the import.
  *
- * Studio measures `source_pages` (from the Data Liberation capture) and
- * `imported_pages` (from the live imported site) itself with Playwright, then
- * hands both to this script in the exact `validation_artifacts` shape the
- * oracle already knows how to read. The oracle class is a pure function of
- * that input — this script only decodes it, calls the class, and re-encodes
- * the result, so the evaluator that runs here is the real, unmodified,
- * already-merged SSI code, not a Studio reimplementation.
+ * Studio measures captured section geometry (from the Data Liberation capture) and
+ * imported section geometry (from the live imported site) itself with Playwright, then
+ * hands both to this script as `source_reports.layout_baseline` plus `imported_render`
+ * in schema `static-site-importer/layout-baseline/v1`. The oracle class is a pure
+ * function of that input — this script only decodes it, calls the class, and re-encodes
+ * the result, so the evaluator that runs here is the real, unmodified SSI code, not a
+ * Studio reimplementation.
  *
  * Usage:
  *   wp eval-file visual-parity-eval.php <input-json-path> <output-json-path>

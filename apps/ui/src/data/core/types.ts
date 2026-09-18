@@ -149,8 +149,8 @@ export interface ConnectorCapabilities {
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
 	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render local screenshot artifacts inline). Only the desktop IPC connector
-	// supports it; the browser connectors reject local file reads.
+	// render screenshots and generated images inline). The local server limits
+	// it to raster images in the sessions and site folders; hosted can't.
 	readLocalMedia: boolean;
 	// The host can read/write the user's global Studio Code instructions file
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which

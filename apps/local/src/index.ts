@@ -99,7 +99,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { readSitePath } from '@studio/common/sites/site-path';
+import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
@@ -234,9 +234,6 @@ function backupFilename( siteName: string ): string {
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ ts }` );
 }
 
-// Express 4 doesn't forward async rejections to the error middleware — an
-// unhandled rejection would take the whole process down — so async routes go
-// through this wrapper.
 // Raster formats only: an SVG served from the API origin could run scripts
 // there, and nothing in the transcript needs one.
 const SERVED_MEDIA_MIME_TYPES = new Set( [
@@ -247,6 +244,29 @@ const SERVED_MEDIA_MIME_TYPES = new Set( [
 	'image/avif',
 ] );
 
+// `requested` with symlinks resolved, when it lies inside one of `roots` both
+// as written and once resolved.
+async function resolveWithinRoots( roots: string[], requested: string ): Promise< string | null > {
+	for ( const root of roots ) {
+		const candidate = path.resolve( root, requested );
+		if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
+			continue;
+		}
+		try {
+			const resolved = await realpath( candidate );
+			if ( resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
+				return resolved;
+			}
+		} catch {
+			// Missing file or root.
+		}
+	}
+	return null;
+}
+
+// Express 4 doesn't forward async rejections to the error middleware — an
+// unhandled rejection would take the whole process down — so async routes go
+// through this wrapper.
 function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) {
 	return ( req: Request, res: Response, next: ( e?: unknown ) => void ) => {
 		fn( req, res ).catch( next );
@@ -1250,7 +1270,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Reachable cross-origin from the browser, so deliberately not a general
-	// file read: raster images under the sessions root only, symlinks resolved.
+	// file read: raster images under the sessions root or inside a site folder
+	// (where generated images go) only, symlinks resolved.
 	api.get(
 		'/media/read',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1260,30 +1281,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Unsupported media path' } );
 				return;
 			}
-			const root = path.resolve( sessionsRoot );
-			const candidate = path.resolve( root, requested );
-			if ( ! candidate.startsWith( root + path.sep ) ) {
-				res.status( 404 ).json( { error: 'Media not found' } );
-				return;
-			}
-			let resolved: string;
-			try {
-				resolved = await realpath( candidate );
-				if ( ! resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
-					throw new Error( 'outside the sessions root' );
-				}
-			} catch {
-				res.status( 404 ).json( { error: 'Media not found' } );
-				return;
-			}
-			const stats = await stat( resolved );
-			if ( ! stats.isFile() ) {
+			const sessionFile = await resolveWithinRoots( [ sessionsRoot ], requested );
+			const resolved =
+				sessionFile ?? ( await resolveWithinRoots( await readSitePaths(), requested ) );
+			const stats = resolved ? await stat( resolved ) : null;
+			if ( ! resolved || ! stats?.isFile() ) {
 				res.status( 404 ).json( { error: 'Media not found' } );
 				return;
 			}
 			res.setHeader( 'Content-Type', mimeType );
 			res.setHeader( 'Content-Length', stats.size );
-			res.setHeader( 'Cache-Control', 'private, max-age=31536000, immutable' );
+			// Session files never change; a site image can be regenerated in place.
+			res.setHeader(
+				'Cache-Control',
+				sessionFile ? 'private, max-age=31536000, immutable' : 'no-cache'
+			);
 			await pipeline( createReadStream( resolved ), res );
 		} )
 	);

@@ -165,8 +165,13 @@ jobs:
           php -r 'exit(version_compare(PHP_VERSION, "8.3", ">=") ? 0 : 1);' \
             || { echo "static-php-cli needs PHP >= 8.3, found $(php -r 'echo PHP_VERSION;')." >&2; exit 1; }
 
+          # Capture the module list once: piping `php -m` straight into
+          # `grep -q` lets grep exit on the first match and close the pipe,
+          # which kills php with SIGPIPE. Under `pipefail` that makes the whole
+          # pipeline fail (exit 255) even though the extension was found.
+          modules="$(php -m)"
           for extension in mbstring zlib; do
-            php -m | grep -qix "$extension" \
+            printf '%s\n' "$modules" | grep -qix "$extension" \
               || { echo "Required PHP extension missing: $extension." >&2; exit 1; }
           done
 

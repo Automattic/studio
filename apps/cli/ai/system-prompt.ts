@@ -33,10 +33,6 @@ export interface BuildSystemPromptOptions {
 	runtime?: SiteRuntime;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
-	// True when the generate_images tool is registered for this session. Gates
-	// every imagery-related prompt section so unavailable sessions get exactly
-	// the pre-imagery prompt.
-	imageGenerationEnabled?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
 }
@@ -55,17 +51,14 @@ ${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
 `;
 	}
 
-	const imageryRouting = options?.imageGenerationEnabled ? `\n\n${ IMAGERY_SKILL_ROUTING }` : '';
-
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		runtime: options?.runtime,
-		imageGenerationEnabled: options?.imageGenerationEnabled ?? false,
 		visionEnabled,
 		tools: options?.tools ?? [],
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ imageryRouting }${ userInstructionsSection }
+${ LOCAL_SKILL_ROUTING }${ userInstructionsSection }
 `;
 }
 
@@ -172,17 +165,11 @@ ${ guidelines }`
 function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	runtime?: SiteRuntime;
-	imageGenerationEnabled: boolean;
 	visionEnabled: boolean;
 	tools: ToolPromptContribution[];
 } ): string {
 	const toolSections = renderToolSections( options.tools );
 	const postContentGuidance = getPostContentGuidance( options.runtime );
-	const imageryWorkflowSection = options.imageGenerationEnabled
-		? `
-
-Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the \`imagery\` skill and generate the images with \`generate_images\` BEFORE writing the markup that references them: theme imagery goes into the active theme's assets directory, site-specific content imagery is imported into the media library via wp_cli. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.`
-		: '';
 	const terminalScreenshotSection = `
 
 ## Screenshots
@@ -238,7 +225,7 @@ Then continue with:
 4. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 5. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
 6. **Check and polish the result**: You MUST load the \`visual-polish\` skill and follow its instructions to do so. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
-7. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, finish by copying your final desktop take_screenshot capture of the home page (each capture's saved file path is reported in the tool result) to \`screenshot.jpg\` in the theme's directory — it becomes the theme's thumbnail in Appearance → Themes. Copy the existing capture file; do not generate or hand-craft a screenshot image.${ imageryWorkflowSection }
+7. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, finish by copying your final desktop take_screenshot capture of the home page (each capture's saved file path is reported in the tool result) to \`screenshot.jpg\` in the theme's directory — it becomes the theme's thumbnail in Appearance → Themes. Copy the existing capture file; do not generate or hand-craft a screenshot image.
 
 ## Working cadence
 
@@ -312,8 +299,6 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Check the specific plan to determine exact capabilities.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
-
-const IMAGERY_SKILL_ROUTING = `For any work that adds or replaces site imagery — hero/cover backgrounds, feature or gallery images, team photos, product shots — load the \`imagery\` skill before writing image specs or calling \`generate_images\`.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 

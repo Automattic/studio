@@ -4,10 +4,9 @@ import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md
 import { Type } from 'typebox';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { defineTool } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { resolveSite, runWpCli, textResult } from './utils';
 
 async function activateTheme(
 	site: SiteData,
@@ -23,21 +22,7 @@ async function activateTheme(
 					message: `Site is not running. Start it (site_start) then run \`wp theme activate ${ slug }\`.`,
 				};
 			}
-			await using command = await runWpCliCommandWithMessaging( site, [
-				'theme',
-				'activate',
-				slug,
-			] );
-			const exitCode = await command.response.exitCode;
-			const stderr = await command.response.stderrText;
-			const stdout = await command.response.stdoutText;
-			if ( exitCode !== 0 ) {
-				const detail = ( stderr || stdout || '' ).trim();
-				return {
-					ok: false,
-					message: `WP-CLI exited with code ${ exitCode }${ detail ? `: ${ detail }` : '' }`,
-				};
-			}
+			const stdout = await runWpCli( site, [ 'theme', 'activate', slug ] );
 			return { ok: true, message: stdout || `Activated theme '${ slug }'.` };
 		} finally {
 			await disconnectFromDaemon();
@@ -241,7 +226,7 @@ ${ renderFontsEditorStyle( fontsUrl ) }	add_editor_style( 'style.css' );
 `;
 }
 
-const TEMPLATE_INDEX = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_INDEX = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
 <main class="wp-block-group">
@@ -273,10 +258,10 @@ const TEMPLATE_INDEX = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
-const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
 <main class="wp-block-group">
@@ -298,10 +283,10 @@ const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
-const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
 <main class="wp-block-group">
@@ -315,10 +300,10 @@ const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
-const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main","className":"is-flush"} -->
 <main class="wp-block-group is-flush">
@@ -326,10 +311,10 @@ const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
-const TEMPLATE_ARCHIVE = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_ARCHIVE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
 <main class="wp-block-group">
@@ -358,10 +343,10 @@ const TEMPLATE_ARCHIVE = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
-const TEMPLATE_404 = `<!-- wp:template-part {"slug":"header"} /-->
+const TEMPLATE_404 = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
 <main class="wp-block-group">
@@ -381,7 +366,7 @@ const TEMPLATE_404 = `<!-- wp:template-part {"slug":"header"} /-->
 </main>
 <!-- /wp:group -->
 
-<!-- wp:template-part {"slug":"footer"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
 `;
 
 const PART_HEADER = `<!-- wp:group {"layout":{"type":"constrained"}} -->
@@ -418,6 +403,7 @@ export const scaffoldThemeTool = defineTool(
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
+		'The result holds the content of every file it wrote, so edit them without reading them first. ' +
 		'When the site has a DESIGN.md, theme.json is filled from its tokens — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under the same names — and functions.php enqueues its Google Fonts. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
@@ -559,47 +545,20 @@ export const scaffoldThemeTool = defineTool(
 			const shouldActivate = args.activate ?? true;
 			const activation = shouldActivate ? await activateTheme( site, slug ) : null;
 
-			let summaryLines: Array< string >;
-			if ( parentSlug !== undefined ) {
-				summaryLines = [
-					`Child theme '${ trimmedName }' of '${ parentSlug }' scaffolded at wp-content/themes/${ slug }/.`,
-					'',
-					'Created files:',
-					...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
-					'',
-					`Templates, parts, patterns, theme.json settings, and styles inherit from '${ parentSlug }'.`,
-					'Override by creating files at the same relative path inside the child theme; put CSS and theme.json changes in the child, never in the parent.',
-					'',
-					'These files already contain standard WordPress headers.',
-					'Read a file before editing it — do not assume its contents.',
-					'',
-				];
-			} else {
-				summaryLines = [
-					`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
-					'',
-					'Created files:',
-					...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
-					'',
-					'Empty directories:',
-					'  assets/fonts/',
-					'  patterns/',
-					'',
-					// These files already contain standard WordPress headers and starter
-					// markup, so an Edit anchored on an assumed minimal header (e.g. just
-					// `Theme Name`) would fail to match. Nudge the agent to read first.
-					'These files already contain standard WordPress headers and starter content.',
-					'Read a file before editing it — do not assume its contents.',
-					'',
-				];
-			}
+			const summaryLines =
+				parentSlug !== undefined
+					? [
+							`Child theme '${ trimmedName }' of '${ parentSlug }' scaffolded at wp-content/themes/${ slug }/.`,
+							`Templates, parts, patterns, theme.json settings, and styles inherit from '${ parentSlug }'.`,
+							'Override by creating files at the same relative path inside the child theme; put CSS and theme.json changes in the child, never in the parent.',
+					  ]
+					: [ `Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.` ];
 
 			if ( design ) {
 				summaryLines.push(
 					`theme.json carries the DESIGN.md tokens under the same names (${ design.summary })${
 						design.fontsUrl ? ' and functions.php enqueues its Google Fonts' : ''
-					}. Edit it only for what DESIGN.md does not cover.`,
-					''
+					}. Edit it only for what DESIGN.md does not cover.`
 				);
 			}
 
@@ -614,6 +573,14 @@ export const scaffoldThemeTool = defineTool(
 				);
 			}
 
+			summaryLines.push(
+				'',
+				'The files it wrote, in full: Edit or overwrite them without reading them first.',
+				...files.map(
+					( [ relPath, content ] ) => `\n<file path="${ relPath }">\n${ content }</file>`
+				)
+			);
+
 			return textResult( summaryLines.join( '\n' ) );
 		} catch ( error ) {
 			throw new Error(
@@ -623,6 +590,6 @@ export const scaffoldThemeTool = defineTool(
 	},
 	{
 		promptSnippet:
-			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it; when the site has a DESIGN.md, theme.json is filled from its tokens under the same names and its Google Fonts are enqueued. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
+			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site, activate it, and return every file's content; when the site has a DESIGN.md, theme.json is filled from its tokens under the same names and its Google Fonts are enqueued. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
 	}
 );

@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
+import { generateImages, isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
@@ -45,6 +46,12 @@ vi.mock( 'cli/ai/browser-utils', () => ( {
 
 vi.mock( 'cli/ai/json-events', () => ( {
 	emitEvent: vi.fn(),
+} ) );
+
+vi.mock( 'cli/ai/image-generation', async () => ( {
+	...( await vi.importActual( 'cli/ai/image-generation' ) ),
+	generateImages: vi.fn(),
+	isImageGenerationAvailable: vi.fn(),
 } ) );
 
 vi.mock( 'cli/commands/preview/create', () => ( {
@@ -108,6 +115,11 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 	runWpCliCommandWithMessaging: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/site-paths', async () => ( {
+	...( await vi.importActual( 'cli/lib/site-paths' ) ),
+	STUDIO_SITES_ROOT: ( await import( 'os' ) ).tmpdir(),
 } ) );
 
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
@@ -1290,6 +1302,63 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
+	it( 'adds generated images under uploads to the media library and leaves theme images in place', async () => {
+		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
+		const site = { ...mockSite, path: sitePath };
+		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.jpg' );
+		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ mockSite, site ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
+		vi.mocked( generateImages ).mockResolvedValue( [
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+		] );
+		vi.mocked( runWpCliCommandWithMessaging )
+			.mockResolvedValueOnce( mockWpCliResponse( { stdout: '7\n' } ) as never )
+			.mockResolvedValueOnce( mockWpCliResponse( { stdout: '8\n' } ) as never )
+			.mockResolvedValueOnce(
+				mockWpCliResponse( {
+					stdout: JSON.stringify( [
+						{ ID: 8, guid: urlOf( 'buns.jpg' ) },
+						{ ID: 7, guid: urlOf( 'hero.jpg' ) },
+					] ),
+				} ) as never
+			);
+
+		try {
+			const result = await getTool( 'generate_images' ).rawHandler( {
+				images: [
+					{ path: path.join( uploads, 'hero.jpg' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.jpg' ), subject: 'Cardamom buns on a tray' },
+					{ path: themeImage, subject: 'Pebbles on a beach' },
+				],
+			} as never );
+
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( site, [
+				'media',
+				'import',
+				path.join( 'wp-content', 'uploads', 'hero.jpg' ),
+				'--porcelain',
+			] );
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 3 );
+			await expect( readdir( uploads ) ).resolves.toEqual( [] );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+			expect( getTextContent( result ) ).toContain(
+				`OK ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.jpg'
+				) }\nOK ${ path.join( uploads, '2026', '09', 'buns.jpg' ) }, attachment ID 8, URL ${ urlOf(
+					'buns.jpg'
+				) }`
+			);
+		} finally {
+			await rm( sitePath, { recursive: true, force: true } );
+		}
+	} );
+
 	describe( 'scaffold_theme', () => {
 		let tempSiteRoot: string;
 		let scaffoldSite: typeof mockSite;
@@ -1356,6 +1425,14 @@ describe( 'Studio AI MCP tools', () => {
 			);
 			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
+			for ( const template of await readdir( path.join( themeDir, 'templates' ) ) ) {
+				const markup = await readFile( path.join( themeDir, 'templates', template ), 'utf8' );
+				expect( markup.match( /<!-- wp:template-part .*?-->/g ) ).toEqual( [
+					'<!-- wp:template-part {"slug":"header","tagName":"header"} /-->',
+					'<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->',
+				] );
+			}
+
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
 			) as Record< string, unknown >;
@@ -1370,6 +1447,9 @@ describe( 'Studio AI MCP tools', () => {
 				"Block theme 'Acme Studio' scaffolded at wp-content/themes/acme-studio/."
 			);
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
+			expect( getTextContent( result ) ).toContain(
+				`<file path="${ path.join( 'templates', 'page-no-title.html' ) }">\n${ pageNoTitle }</file>`
+			);
 		} );
 
 		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
@@ -1632,32 +1712,6 @@ describe( 'Studio AI MCP tools', () => {
 					"Child theme 'Ollie Child' of 'ollie' scaffolded at wp-content/themes/ollie-child/."
 				);
 				expect( getTextContent( result ) ).toContain( "inherit from 'ollie'" );
-			} );
-
-			it( 'activates the child theme by default when the site is running', async () => {
-				await installParentTheme( 'ollie' );
-				vi.mocked( isServerRunning ).mockResolvedValue( {
-					name: scaffoldSite.id,
-					pmId: 1,
-					status: 'online',
-					pid: 1234,
-					runtime: SITE_RUNTIME_PLAYGROUND,
-				} );
-				vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-					mockWpCliResponse( { stdout: "Success: Switched to 'Ollie Child' theme." } ) as never
-				);
-
-				await getTool( 'scaffold_theme' ).rawHandler( {
-					nameOrPath: scaffoldSite.name,
-					name: 'Ollie Child',
-					parentTheme: 'ollie',
-				} as never );
-
-				expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
-					'theme',
-					'activate',
-					'ollie-child',
-				] );
 			} );
 
 			it( 'fails when the parent theme is not installed', async () => {

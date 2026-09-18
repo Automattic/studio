@@ -11,6 +11,12 @@ export interface LiberationHooks {
    *  removeSelectors. Best-effort: a throw is swallowed and liberation continues. */
   prepare?(page: Page, ctx: LiberationContext): Promise<void>;
   /**
+   * Runs after fluid learning and immediately before HTML/screenshot serialize.
+   * Use this for runtime widgets that only exist on the DOM that will be frozen.
+   * Best-effort: a throw is swallowed and liberation continues.
+   */
+  beforeSerialize?(page: Page, ctx: LiberationContext): Promise<void>;
+  /**
    * Collect the image variants this platform's runtime swapped in at the
    * current viewport, as {stable media id → variant URL}.
    *

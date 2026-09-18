@@ -203,6 +203,176 @@ describe( 'captureTriggeredDialogs', () => {
 	);
 
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'captures a menu trigger whose hit point is covered by an ancestor',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
+					<header>
+						<div class="mx-auto flex h-20" style="position:relative;z-index:0;width:320px;height:80px;background:#fff">
+							<button type="button" aria-label="Open menu" style="position:relative;z-index:-1">Menu</button>
+						</div>
+					</header>
+					<script>
+						document.querySelector('button').addEventListener('click', () => {
+							const nav = document.createElement('nav');
+							nav.id = 'site-navigation';
+							nav.setAttribute('aria-label', 'Site');
+							nav.style.cssText = 'position:fixed;inset:0;background:white';
+							nav.innerHTML = '<a href="/about">About</a><button type="button" aria-label="Close">Close</button>';
+							document.body.append(nav);
+						});
+					</script>
+				</body>` );
+
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toMatchObject( [
+					{
+						status: 'captured',
+						trigger: { tag: 'button', label: 'Open menu' },
+						dialog: { id: 'site-navigation', tag: 'nav', ariaLabel: 'Site' },
+					},
+				] );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'names the intercepting element when an intercepted trigger cannot be activated',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				await page.setContent( `<!doctype html><body>
+					<header>
+						<div class="mx-auto flex h-20" style="position:relative;z-index:0;width:320px;height:80px;background:#fff">
+							<button type="button" aria-label="Open menu" style="position:relative;z-index:-1">Menu</button>
+						</div>
+					</header>
+					<script>
+						HTMLElement.prototype.click = function () { throw new Error('native click blocked'); };
+					</script>
+				</body>` );
+
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toHaveLength( 1 );
+				expect( report.states[ 0 ].status ).toBe( 'click-failed' );
+				expect( report.states[ 0 ].error ).toMatch( /Click intercepted by <div class="mx-auto flex h-20">/ );
+				expect( report.states[ 0 ].error ).toMatch( /native click blocked/ );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'keeps a captured flex menu usable when its scrollable links depend on the root layout',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			const markup = `<!doctype html><html><head><style>
+				#navigation { display: flex; flex-direction: column; position: fixed; inset: 0; visibility: hidden; opacity: 0; background: white; }
+				.menu-open #navigation { visibility: visible; opacity: 1; }
+				.navigation-body { flex: 1; min-height: 0; position: relative; }
+				.navigation-folder { position: absolute; inset: 0; overflow: auto; }
+				.navigation-links { min-height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+				.navigation-links a { padding: 12px; }
+				.hidden-item { display: none; }
+			</style></head><body>
+				<button id="menu" aria-label="Open Menu" aria-controls="navigation">Menu</button>
+				<nav id="navigation"><div class="navigation-body"><div class="navigation-folder"><div class="navigation-links">
+					<a href="#about">About</a><a href="#contact">Contact</a><a class="hidden-item" href="#private">Hidden</a>
+				</div></div></div></nav>
+			</body></html>`;
+			try {
+				await page.setContent( markup );
+				await page.locator( '#menu' ).evaluate( ( element ) => {
+					element.addEventListener( 'click', () => document.body.classList.toggle( 'menu-open' ) );
+					document.addEventListener( 'keydown', ( event ) => {
+						if ( event.key === 'Escape' ) document.body.classList.remove( 'menu-open' );
+					} );
+				} );
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toMatchObject( [ { status: 'captured', dialog: { id: 'navigation' } } ] );
+				await page.setContent( wireCapturedDialogs( markup, report.states ) );
+				await page.locator( 'details.dla-disclosure > summary' ).click();
+				const about = page.getByRole( 'link', { name: 'About', exact: true } );
+				expect( await about.evaluate( ( link ) => {
+					const rect = link.getBoundingClientRect();
+					return document.elementFromPoint( rect.x + rect.width / 2, rect.y + rect.height / 2 )?.closest( 'a' ) === link;
+				} ) ).toBe( true );
+				expect( await page.locator( '.hidden-item' ).isVisible() ).toBe( false );
+				await about.click( { timeout: 1_000 } );
+				expect( page.url() ).toBe( 'about:blank#about' );
+				await page.keyboard.press( 'Escape' );
+				expect( await about.isVisible() ).toBe( false );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'waits for an opening menu instead of capturing a background inside its transparent ancestor',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				await page.setContent( `<!doctype html><style>
+					#navigation { display: none; position: fixed; inset: 0; opacity: 0; }
+					.header-menu-bg { position: absolute; inset: 0; background: white; }
+					#navigation a { position: relative; }
+				</style><button id="menu" aria-label="Menu">Menu</button>
+				<nav id="navigation"><div class="header-menu-bg"></div><a href="#about">About</a></nav>` );
+				await page.locator( '#menu' ).evaluate( ( element ) => {
+					element.addEventListener( 'click', () => {
+						const navigation = document.querySelector< HTMLElement >( '#navigation' )!;
+						navigation.style.display = 'block';
+						setTimeout( () => { navigation.style.opacity = '1'; }, 250 );
+					} );
+				} );
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toMatchObject( [ { status: 'captured', dialog: { id: 'navigation', tag: 'nav' } } ] );
+				expect( report.states[ 0 ].dialog?.html ).toContain( '>About</a>' );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'does not count a navigation surface inside a transparent wrapper as already visible',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			try {
+				await page.setContent( `<!doctype html><button id="menu" aria-label="Menu">Menu</button>
+				<div id="overlay" style="opacity: 0; pointer-events: none;">
+					<nav id="navigation" style="position: fixed; inset: 0; background: white;"><a href="#about">About</a></nav>
+				</div>` );
+				await page.locator( '#menu' ).evaluate( ( element ) => {
+					element.addEventListener( 'click', () => {
+						document.querySelector< HTMLElement >( '#overlay' )!.style.opacity = '1';
+					} );
+				} );
+				const report = await captureTriggeredDialogs( page, 'https://example.test/' );
+				expect( report.states ).toMatchObject( [ { status: 'captured', dialog: { id: 'navigation', tag: 'nav' } } ] );
+				expect( report.states[ 0 ].dialog?.html ).toContain( '>About</a>' );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'dismisses portable triggered dialogs by close control and Escape without handling Escape elsewhere',
 		async () => {
 			const browser = await chromium.launch( { headless: true } );

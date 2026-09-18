@@ -1,7 +1,7 @@
 {
   "name": "data-liberation",
   "description": "Inspect or liberate any website (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix, or any other site) into a complete, portable HTML site, then publish it to a live URL.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "author": {
     "name": "Automattic"
   },

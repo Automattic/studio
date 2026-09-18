@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { chromium, type Browser } from 'playwright';
 import { assessBody, expandCollapsedContent, hydrateDisclosureContent, waitForAppWidgets, readPngHeight, classifyEmptyBodies, KNOWN_WIDGETS, type PageStat } from './dynamic-content.js';
 import { extractFaqsFromHtml } from '../replicate/faq-extract.js';
@@ -463,6 +465,108 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
     const t0 = Date.now();
     await waitForAppWidgets(page, 5000);
     expect(Date.now() - t0).toBeLessThan(2000); // didn't burn the full timeout
+    await page.close();
+  });
+});
+
+// `history.pushState` throws on a page with an opaque origin (about:blank,
+// data:, or page.setContent's default), so these tests serve real content
+// over a throwaway localhost origin — the same shape of origin every real
+// SPA capture runs against.
+describe('expandCollapsedContent vs. a client-routed SPA (Home/Browse regression)', () => {
+  let browser: Browser;
+  let server: Server;
+  let baseUrl: string;
+  beforeAll(async () => {
+    browser = await chromium.launch();
+    server = createServer((_req, res) => res.end('<!doctype html><html><body></body></html>'));
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  afterAll(async () => {
+    await browser?.close();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  // Mirrors how a real client router (e.g. the `history` package underlying
+  // React Router) wires itself up: it patches `history.pushState` so ANY
+  // caller triggers its render — not only its own `navigate()` — which is
+  // exactly the mechanism `expandCollapsedContent`'s revert relies on.
+  const spaFixture = `
+    <div id="root"></div>
+    <button id="faq-trigger" aria-expanded="false" aria-controls="faq-answer">Question?</button>
+    <div id="faq-answer" role="region" hidden>Answer.</div>
+    <button id="view-all">View All</button>
+    <script>
+      const routes = {
+        '/Home': '<main id="hero">Pre-made Logos, Community Approved</main>',
+        '/Browse': '<h1>Browse Logos</h1>',
+      };
+      function render() {
+        document.getElementById('root').innerHTML = routes[location.pathname] || '';
+      }
+      const nativePushState = history.pushState.bind(history);
+      history.pushState = (...args) => { nativePushState(...args); render(); };
+      window.addEventListener('popstate', render);
+      render();
+      document.getElementById('faq-trigger').addEventListener('click', (event) => {
+        event.currentTarget.setAttribute('aria-expanded', 'true');
+        document.getElementById('faq-answer').hidden = false;
+      });
+      document.getElementById('view-all').addEventListener('click', () => {
+        history.pushState({}, '', '/Browse');
+      });
+    </script>
+  `;
+
+  it('reverts a button whose click turns out to be client-side navigation, restoring the route\'s real content', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/Home`);
+    await page.setContent(spaFixture);
+
+    await expandCollapsedContent(page);
+
+    // The "View All" control drifted the SPA to /Browse; the guard must have
+    // caught it and reverted — both the URL AND (because the revert goes
+    // through the router's own patched pushState) the rendered content.
+    expect(await page.evaluate(() => location.pathname)).toBe('/Home');
+    expect(await page.locator('#root').innerText()).toContain('Pre-made Logos, Community Approved');
+    expect(await page.locator('#root').innerText()).not.toContain('Browse Logos');
+    await page.close();
+  });
+
+  it('still expands a genuine in-page disclosure that runs before the navigating control', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/Home`);
+    await page.setContent(spaFixture);
+
+    await expandCollapsedContent(page);
+
+    // aria-controls candidates are activated before the label-text pass, so
+    // the FAQ disclosure — a real in-page toggle — must still have opened,
+    // independent of the later control that turned out to navigate.
+    expect(await page.locator('#faq-trigger').getAttribute('aria-expanded')).toBe('true');
+    expect(await page.locator('#faq-answer').isVisible()).toBe(true);
+    await page.close();
+  });
+
+  it('still expands a genuine "load more" label control that does not navigate', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/products`);
+    await page.setContent(`
+      <ul id="list"><li>One</li></ul>
+      <button id="load-more">Load more</button>
+      <script>
+        document.getElementById('load-more').addEventListener('click', () => {
+          document.getElementById('list').insertAdjacentHTML('beforeend', '<li>Two</li>');
+        });
+      </script>
+    `);
+
+    await expandCollapsedContent(page);
+
+    expect(await page.locator('#list li').count()).toBe(2);
+    expect(await page.evaluate(() => location.pathname)).toBe('/products');
     await page.close();
   });
 });

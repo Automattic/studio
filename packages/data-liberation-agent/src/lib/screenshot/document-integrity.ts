@@ -26,3 +26,43 @@ export function countBodyTags(html: string): number {
 export function isStackingArtifact(html: string): boolean {
   return countBodyTags(html) > 1;
 }
+
+// ---------------------------------------------------------------------------
+// Route identity — a faithfully-captured page is the SAME route it was asked
+// to capture. Every DOM-mutating capture step (lazy-load probing, disclosure
+// hydration, dialog probing…) runs on a live, script-controlled page, and the
+// HTML is deliberately serialized only after all of them — correct for
+// capturing their settled state, but it means any of them navigating the page
+// gets silently baked into the file for the ROUTE THAT WAS INTENDED, not the
+// route that actually got captured (see `expandCollapsedContent`'s own guard
+// against exactly this — this check exists independently of it, because it is
+// generic: whichever operation causes the drift, in this codebase or a future
+// one, a wrong document must never be persisted as if it were the right one).
+// ---------------------------------------------------------------------------
+
+function normalizeRoutePath(pathname: string): string {
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+/**
+ * True when `capturedUrl` (the page's live location after every DOM-mutating
+ * capture step has run) no longer names the same route as `intendedUrl` (the
+ * URL the caller asked to capture). Ignores hash and query string, and
+ * tolerates a trailing slash — a route-preserving difference (an anchor, a
+ * tracking param, an SPA's own initial `replaceState` back to the same path)
+ * must not be reported as drift. Only the origin and normalized pathname have
+ * to agree; anything else disagreeing means the document that got serialized
+ * belongs to a different page than the one on record for this capture.
+ */
+export function isRouteDrift(capturedUrl: string, intendedUrl: string): boolean {
+  try {
+    const captured = new URL(capturedUrl);
+    const intended = new URL(intendedUrl);
+    if (captured.origin !== intended.origin) return true;
+    return normalizeRoutePath(captured.pathname) !== normalizeRoutePath(intended.pathname);
+  } catch {
+    // An unparseable URL can't be proven equivalent — treat unproven as drift
+    // rather than silently accepting it.
+    return capturedUrl !== intendedUrl;
+  }
+}

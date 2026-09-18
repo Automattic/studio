@@ -400,6 +400,73 @@ describe( 'exportWebsiteCapture', () => {
 		] );
 	} );
 
+	it( 'diagnoses an ordinary authored same-page anchor with no matching target', () => {
+		// Regression for a truncated SPA capture: a nav link like
+		// `<a href="#releases">` ships unmarked by any adapter (no
+		// `data-dla-anchor-fragment`) — this is what an entire dropped section
+		// looks like when the deferred content never rendered before the
+		// snapshot. The receipt must surface it instead of reporting a clean
+		// capture.
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-bare-anchor-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><nav><a href="#releases">Releases</a><a href="#listen">Listen</a></nav><section id="listen">Listen</section></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries: { 'https://example.com/': { html: 'html/homepage.html' } } } )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		expect(
+			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedAnchors
+		).toEqual( [
+			{
+				sourceUrl: 'https://example.com/',
+				fragment: 'releases',
+				targetCount: 0,
+				reason: 'captured fragment target is missing',
+			},
+		] );
+	} );
+
+	it( 'does not flag a resolvable same-page anchor or a cross-route fragment link', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-ok-anchor-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><a href="#listen">Listen</a><a href="/about/#team">Team</a><section id="listen">Listen</section></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries: { 'https://example.com/': { html: 'html/homepage.html' } } } )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'generic',
+			summary: {},
+			failures: [],
+		} );
+
+		expect(
+			JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) ).unresolvedAnchors
+		).toEqual( [] );
+	} );
+
 	it( 'declares responsive editing counterparts from stable source component slots', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-counterparts-' ) );
 		dirs.push( outputDir );
@@ -671,6 +738,171 @@ describe( 'exportWebsiteCapture', () => {
 		expect(
 			documentsDiffer( desktop, mobile.replace( 'Same heading', 'Different heading' ) )
 		).toBe( true );
+	} );
+
+	it( 'treats capture geometry ids and runtime UUIDs as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><main><div id="desktop-target-0"><h1>About</h1><section id="AE7E84B0-6F1E-4160-B12C-99F8F4749F09"><p>Hello</p></section></div></main></body></html>';
+		const mobile =
+			'<html><body><main><div id="mobile-target-0"><h1>About</h1><section id="C0834C17-B49B-4A41-88EB-72DE5F404700"><p>Hello</p></section></div></main></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer(
+				desktop,
+				mobile.replace( '</section>', '</section><aside id="mobile-menu">Menu</aside>' )
+			)
+		).toBe( true );
+	} );
+
+	it( 'treats a viewport-injected YUI widget as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><div id="siteWrapper"><header><nav><a href="/">Home</a></nav></header><main><h1>About</h1><p>Hello</p></main></div></body></html>';
+		const mobile =
+			'<html><body><div id="yui_3_17_2_1_1789567315719_163" class="yui3-widget sqs-mobile-info-bar"><div id="yui_3_17_2_1_1789567315719_165"><a href="tel:1">Call</a></div></div><div id="siteWrapper"><header><nav><a href="/">Home</a></nav></header><main><h1>About</h1><p>Hello</p></main></div></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer( desktop, mobile.replace( '<p>Hello</p>', '<p>Hello</p><p>Mobile extra</p>' ) )
+		).toBe( true );
+	} );
+
+	it( 'treats Squarespace block-yui map chrome as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><main><h1>About</h1><div id="block-yui_3_17_2_1_1755739610085_5613"><button type="button"></button><table><tr><td><kbd>←</kbd></td><td>Move left</td></tr></table></div></main></body></html>';
+		const mobile =
+			'<html><body><main><h1>About</h1><div id="block-yui_3_17_2_1_1755739610085_5613"><button type="button"></button><span>To navigate the map with touch gestures double-tap and hold your finger on the map, then drag the map.</span><table><tr><td><kbd>←</kbd></td><td>Move left</td></tr></table></div></main></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer(
+				desktop,
+				mobile.replace( '</main>', '<aside id="mobile-menu">Menu</aside></main>' )
+			)
+		).toBe( true );
+	} );
+
+	it( 'treats generated form field names as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><main><h1>Contact</h1><form action="/form"><input id="message-field" name="message-yui_5a971da7-2728-4c20-80a1-6b77a38b830d-field" type="text"></form></main></body></html>';
+		const mobile =
+			'<html><body><main><h1>Contact</h1><form action="/form"><input id="message-field" name="message-yui_69609980-c587-4cc8-9d6e-c7268aedab8d-field" type="text"></form></main></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer( desktop, mobile.replace( 'type="text"', 'type="email"' ) )
+		).toBe( true );
+	} );
+
+	it( 'treats viewport hydration attributes as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><div id="siteWrapper"><a href="/cart" tabindex="0" data-test="continue-to-cart" data-current-styles="{&quot;layout&quot;:&quot;desktop&quot;}">Cart</a><header data-controller="Header"><nav><a href="/">Home</a></nav></header><main><h1>About</h1></main></div></body></html>';
+		const mobile =
+			'<html><body><div id="siteWrapper"><a href="/cart" data-test="continue-to-cart" data-current-styles="{&quot;layout&quot;:&quot;mobile&quot;}">Cart</a><header data-controller="Header"><nav><a href="/">Home</a></nav></header><main><h1>About</h1></main></div></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer( desktop, mobile.replace( 'href="/"', 'href="/menu"' ) )
+		).toBe( true );
+	} );
+
+	it( 'treats viewport-only iframe embeds as equivalence, not a second document', () => {
+		const desktop =
+			'<html><body><main><h1>Contact</h1><form action="/form"><input name="email"></form>' +
+			'<iframe name="form-1-target-1789528387446" id="form-1-target-1789528387446" style="display:none"></iframe>' +
+			'<iframe src="//www.weebly.com/weebly/apps/generateMap.php?map=google"></iframe>' +
+			'</main></body></html>';
+		const mobile =
+			'<html><body><main><h1>Contact</h1><form action="/form"><input name="email"></form></main></body></html>';
+		expect( documentsDiffer( desktop, mobile ) ).toBe( false );
+		expect(
+			documentsDiffer(
+				desktop,
+				mobile.replace( '</form>', '</form><aside id="mobile-only">Menu</aside>' )
+			)
+		).toBe( true );
+	} );
+
+	it( 'collapses a contact page whose only mobile gap is embed iframes, keeping the desktop map', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-collapse-iframe-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<html><body><main><h1>Contact</h1><form action="/form"><input name="email"></form>' +
+				'<iframe class="map" src="https://source.example/wrong" data-dla-visual-iframe-src="https://maps.example/embed" data-dla-visual-iframe-width="1280" data-dla-visual-iframe-height="350"></iframe>' +
+				'</main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			'<html><body><main><h1>Contact</h1><form action="/form"><input name="email"></form></main></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'weebly',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const $ = cheerio.load( html );
+		expect( $( '.data-liberation-desktop-document' ) ).toHaveLength( 0 );
+		expect( $( '.data-liberation-mobile-document' ) ).toHaveLength( 0 );
+		expect( $( 'form' ) ).toHaveLength( 1 );
+		expect( $( 'iframe' ).attr( 'src' ) ).toBe( 'https://maps.example/embed' );
+		const receipt = JSON.parse(
+			readFileSync( join( outputDir, 'capture-receipt.json' ), 'utf8' )
+		);
+		expect( receipt.routes[ 0 ].responsiveVariants ).toMatchObject( {
+			variants: 1,
+			outcome: 'collapsed-equivalent',
+		} );
+	} );
+
+	it( 'collapses before viewport peeling so hidden-chrome snapshots stay one document', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-collapse-before-peel-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const inner =
+			'<header><nav><a href="/">Home</a></nav></header><main><h1>About</h1><p>Hello</p></main>';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body>${ inner }</body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			`<html><body><div id="yui_3_17_2_1_1" class="yui3-widget sqs-mobile-info-bar" style="position:fixed;bottom:0"><a href="tel:1">Call</a></div>${ inner }</body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { slug: 'homepage', html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'squarespace',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).not.toContain( 'data-liberation-desktop-document' );
+		expect( html ).not.toContain( 'data-liberation-mobile-document' );
+		const receipt = JSON.parse( readFileSync( join( outputDir, 'capture-receipt.json' ), 'utf8' ) );
+		expect( receipt.routes[ 0 ].responsiveVariants ).toMatchObject( {
+			variants: 1,
+			outcome: 'collapsed-equivalent',
+		} );
 	} );
 
 	it( 'collapses structurally equivalent responsive variants into one document and records why', () => {
@@ -1197,9 +1429,18 @@ describe( 'exportWebsiteCapture', () => {
 		const imageUrl = 'https://example.com/media/background.png';
 		const mobileUrl = 'https://cdn.example/mobile-only.png';
 		const missingFont = 'https://example.com/fonts/missing.woff2';
-		writeFileSync( join( outputDir, 'html', 'homepage.html' ), `<link rel="stylesheet" href="${ cssUrl }">` );
-		writeFileSync( join( outputDir, 'html', 'about.html' ), `<link rel="stylesheet" href="${ cssUrl }">` );
-		writeFileSync( join( outputDir, 'html-mobile', 'homepage.html' ), `<img src="${ mobileUrl }">` );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body><link rel="stylesheet" href="${ cssUrl }"></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'about.html' ),
+			`<html><body><link rel="stylesheet" href="${ cssUrl }"></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'html-mobile', 'homepage.html' ),
+			`<html><body><aside id="mobile-menu">Menu</aside><img src="${ mobileUrl }"></body></html>`
+		);
 		writeFileSync( join( outputDir, 'resources/css/site.css' ), `body{background:url("${ imageUrl }")}@font-face{src:url("${ missingFont }")}` );
 		writeFileSync( join( outputDir, 'resources/media/background.png' ), 'image' );
 		writeFileSync( join( outputDir, 'screenshots/manifest.json' ), JSON.stringify( { version: 1, entries: {
@@ -2183,6 +2424,59 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).toContain( ':where(.data-liberation-mobile-document) .mobile-only{color:red}' );
 	} );
 
+	it.each( [ false, true ] )( 'preserves mobile linked styles and their cascade when dual documents are %s', async ( dual ) => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-responsive-linked-css-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'html-mobile', 'screenshots', 'resources/css' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const common = '<link rel="stylesheet" href="https://cdn.example/shared.css">';
+		const body = '<main><div class="bar">Call Map Hours</div></main>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ),
+			`<html><head>${ common }</head><body>${ body }${ dual ? '<aside>Desktop navigation</aside>' : '' }</body></html>` );
+		writeFileSync( join( outputDir, 'html-mobile', 'homepage.html' ),
+			`<html><head><link rel="stylesheet" href="https://cdn.example/widget.css">${ common }<link rel="stylesheet" media="screen and (min-width:300px), print" href="https://cdn.example/labels.css"><link rel="stylesheet" disabled href="https://cdn.example/disabled.css"></head><body>${ body }</body></html>` );
+		const styles = {
+			'widget.css': '.bar{position:fixed;bottom:0;height:64px;background:red;color:green}',
+			'shared.css': '.bar{background:rgb(235,235,235);color:blue}',
+			'labels.css': '.bar{text-transform:uppercase;color:purple}',
+			'disabled.css': '.bar{display:none}',
+		};
+		const resources: Record< string, { path: string; contentType: string } > = {};
+		for ( const [ name, css ] of Object.entries( styles ) ) {
+			writeFileSync( join( outputDir, 'resources/css', name ), css );
+			resources[ `https://cdn.example/${ name }` ] = { path: `resources/css/${ name }`, contentType: 'text/css' };
+		}
+		writeFileSync( join( outputDir, 'resources/manifest.json' ), JSON.stringify( { version: 1, resources, failures: [] } ) );
+		writeFileSync( join( outputDir, 'screenshots/manifest.json' ), JSON.stringify( {
+			version: 1, entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+		} ) );
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage( { viewport: { width: 390, height: 844 } } );
+			await page.route( 'https://portable.test/**', route => {
+				const pathname = new URL( route.request().url() ).pathname;
+				return route.fulfill( { contentType: pathname.endsWith( '.css' ) ? 'text/css' : 'text/html',
+					body: readFileSync( join( outputDir, 'website', pathname === '/' ? 'index.html' : pathname ) ) } );
+			} );
+			await page.goto( 'https://portable.test/' );
+			const facts = () => page.locator( '.bar:visible' ).evaluate( element => {
+				const style = getComputedStyle( element );
+				return { position: style.position, top: element.getBoundingClientRect().top,
+					background: style.backgroundColor, color: style.color, textTransform: style.textTransform };
+			} );
+			expect( await facts() ).toEqual( { position: 'fixed', top: 780,
+				background: 'rgb(235, 235, 235)', color: 'rgb(128, 0, 128)', textTransform: 'uppercase' } );
+			await page.setViewportSize( { width: 280, height: 844 } );
+			expect( await facts() ).toMatchObject( { position: 'fixed', color: 'rgb(0, 0, 255)', textTransform: 'none' } );
+			await page.setViewportSize( { width: 1440, height: 900 } );
+			expect( await facts() ).toMatchObject( { position: 'static', color: 'rgb(0, 0, 255)', textTransform: 'none' } );
+		} finally {
+			await browser.close();
+		}
+	} );
+
 	it( 'hoists byte-identical safe styles across 186 documents without deleting local occurrences', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-' ) );
 		dirs.push( outputDir );
@@ -2324,6 +2618,33 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		] ) );
 	} );
 
+	it( 'still hoists styles whose only unavailable asset became the about:blank sentinel', () => {
+		// The sentinel is base-independent like data: and absolute URLs. Classifying
+		// it as an unknown scheme would silently disable hoisting for every document
+		// that lost an asset.
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-sentinel-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots' ] ) mkdirSync( join( outputDir, path ), { recursive: true } );
+		const css = '<style>.safe{background:url("https://cdn.example/missing.png")}</style>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), `<html><head>${ css }</head><body><p>Home</p></body></html>` );
+		writeFileSync( join( outputDir, 'html', 'about.html' ), `<html><head>${ css }</head><body><p>About</p></body></html>` );
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( {
+			version: 1,
+			entries: {
+				'https://example.com/': { html: 'html/homepage.html' },
+				'https://example.com/about': { html: 'html/about.html' },
+			},
+		} ) );
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		expect( html ).toContain( 'capture-' );
+		const href = /href="([^"]*capture-[^"]*)"/.exec( html )?.[ 1 ];
+		expect( href ).toBeDefined();
+		const hoisted = readFileSync( join( outputDir, 'website', href!.replace( /^\//, '' ) ), 'utf8' );
+		expect( hoisted ).toContain( 'about:blank' );
+	} );
+
 	it( 'preserves computed cascade when shared styles are replaced in place', async () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-browser-' ) );
 		dirs.push( outputDir );
@@ -2451,6 +2772,40 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
 	} );
 
+	it( 'preserves a self-contained data: image src instead of treating it as an unresolved dependency', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const dataUri =
+			"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='1em' height='1em' viewBox='0 0 256 256'%3e%3c/svg%3e";
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><body><img src="${ dataUri }" width="40" height="40" alt="Trello logo"></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( cheerio.load( html )( 'img' ).attr( 'src' ) ).toBe( dataUri );
+		expect( html ).not.toContain( 'R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=' );
+		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
+	} );
+
 	it( 'removes fixed provider acquisition chrome and its matching body reservation', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
@@ -2510,6 +2865,42 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).not.toContain( 'account-app' );
 		expect( html ).not.toContain( 'bottom:-999px' );
 		expect( html.match( /href="\/work"/g ) ).toHaveLength( 1 );
+	} );
+
+	it( 'keeps an in-flow empty footer landmark while dropping detached footer chrome', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<!doctype html><html><head><style>#SITE_FOOTER{height:152px;background:#eee}</style></head><body><main><h1>Home</h1></main><footer id="SITE_FOOTER" class="wixui-footer"><div class="footer-grid"><div class="footer-cell"></div></div></footer><div role="contentinfo" class="site-footer-band"></div><div id="footer-mount"></div><footer class="cookie-footer" style="position:fixed;bottom:0"></footer></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		// The band a site footer reserves is carried by CSS, so the empty
+		// landmark has to survive or the page loses that height everywhere.
+		expect( html ).toContain( 'SITE_FOOTER' );
+		expect( html ).toContain( '<footer' );
+		expect( html ).toContain( 'site-footer-band' );
+		// Named scaffolding that is not a landmark, and detached footer chrome,
+		// are still inert and still dropped.
+		expect( html ).not.toContain( 'footer-mount' );
+		expect( html ).not.toContain( 'cookie-footer' );
 	} );
 
 	it( 'collapses responsive forms whose only difference is a generated target id', () => {
@@ -2648,7 +3039,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect(
 			readFileSync( join( outputDir, 'website', 'assets', 'css', 'site.css' ), 'utf8' )
 		).toBe(
-			'.hero{background:url("/assets/images/hero.webp")}.missing{background:url("data:application/octet-stream;base64,")}'
+			'.hero{background:url("/assets/images/hero.webp")}.missing{background:url("about:blank")}'
 		);
 		expect(
 			readFileSync( join( outputDir, 'website', 'assets', 'images', 'hero.webp' ), 'utf8' )
@@ -2679,14 +3070,53 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).toContain( '<source>' );
 		expect( html ).not.toContain( '/_videos/missing' );
 		expect( html ).not.toContain( '/_fonts/missing.woff2' );
-		expect( html ).toContain( 'data:application/octet-stream;base64,' );
+		expect( html ).toContain( 'about:blank' );
 		expect( html ).not.toContain( '/_runtimes/site.js' );
 		expect( html ).not.toContain( '/_runtimes/missing-script.js' );
 		expect( existsSync( join( outputDir, 'diagnostics.json' ) ) ).toBe( true );
 		expect( existsSync( join( outputDir, 'capture-receipt.json' ) ) ).toBe( true );
 	} );
 
-	it( 'rejects decoded route paths that escape the website directory', () => {
+	it( 'preserves percent-encoded route segments in artifact paths and links', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			'<h1>Home</h1><a href="https://example.com/comms-%26-use-cases">Cases</a>'
+		);
+		writeFileSync( join( outputDir, 'html', 'cases.html' ), '<h1>Cases</h1>' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': { html: 'html/homepage.html' },
+					'https://example.com/comms-%26-use-cases': { html: 'html/cases.html' },
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.routes ).toContainEqual( {
+			url: 'https://example.com/comms-%26-use-cases',
+			path: 'website/comms-%26-use-cases/index.html',
+		} );
+		expect(
+			readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' )
+		).toContain( 'href="/comms-%26-use-cases/index.html"' );
+	} );
+
+	it( 'rejects encoded route paths that escape the website directory', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
 		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
@@ -2841,6 +3271,60 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 			readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' )
 		);
 		expect( diagnostics.discoveryDiagnostics ).toEqual( receipt.discoveryDiagnostics );
+	} );
+
+	it( 'names a discovered HTTP 404 as route_not_found instead of a capture failure', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'home.html' ), '<h1>Home</h1>' );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/': { html: 'html/home.html' },
+					'https://example.com/shop/p/the-echo-vase': {},
+				},
+			} )
+		);
+
+		const failures: Array< { url: string; viewport: string; stage: string; error: string } > = [
+			{
+				url: 'https://example.com/shop/p/the-echo-vase',
+				viewport: 'desktop',
+				stage: 'goto',
+				error: 'HTTP 404',
+			},
+			{
+				url: 'https://example.com/shop/p/the-echo-vase',
+				viewport: 'mobile',
+				stage: 'goto',
+				error: 'HTTP 404',
+			},
+		];
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: { routesFailed: 0, routesSkipped: 1 },
+			failures,
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.routes ).toEqual( [
+			{ url: 'https://example.com/', path: 'website/index.html' },
+		] );
+		expect( receipt.excludedRoutes ).toEqual( [ 'https://example.com/shop/p/the-echo-vase' ] );
+		expect( receipt.discoveryDiagnostics ).toEqual( [
+			{
+				code: 'route_not_found',
+				url: 'https://example.com/shop/p/the-echo-vase',
+				reason: 'desktop/goto: HTTP 404; mobile/goto: HTTP 404',
+			},
+		] );
+		expect( receipt.summary.routesFailed ).toBe( 0 );
 	} );
 
 	it( 'names a route whose HTML file went missing on disk after capture claimed success', () => {
@@ -3323,11 +3807,75 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).not.toMatch(
 			/https:\/\/cdn\.example\/(?:lazy|picture|fallback|favicon|font|preload|site|missing)/
 		);
-		expect( html ).toContain( 'data:application/octet-stream;base64,' );
+		expect( html ).toContain( 'about:blank' );
 		expect( css ).not.toContain( 'https://cdn.example' );
 		expect( diagnostics.unresolvedDependencies ).toContainEqual(
 			expect.objectContaining( { url: 'https://cdn.example/missing.jpg' } )
 		);
+	} );
+
+	it( 'omits failed @font-face src sentinels so captured woff and ttf can load', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-font-face-src-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots', 'resources/css', 'resources/fonts' ] )
+			mkdirSync( join( outputDir, path ), { recursive: true } );
+		const cssUrl = 'https://cdn.example/css/site.css';
+		const eotUrl = 'https://cdn.example/fonts/icon.eot';
+		const woffUrl = 'https://cdn.example/fonts/icon.woff';
+		const ttfUrl = 'https://cdn.example/fonts/icon.ttf';
+		const missingBackground = 'https://cdn.example/images/missing.jpg';
+		writeFileSync(
+			join( outputDir, 'html', 'homepage.html' ),
+			`<html><head><link rel="stylesheet" href="${ cssUrl }"></head><body><span class="icon"></span></body></html>`
+		);
+		writeFileSync(
+			join( outputDir, 'resources', 'css', 'site.css' ),
+			`@font-face{font-family:"icon";src:url("${ eotUrl }");src:url("${ eotUrl }?#iefix") format("embedded-opentype"),url("${ woffUrl }") format("woff"),url("${ ttfUrl }") format("truetype")}.hero{background:url("${ missingBackground }")}`
+		);
+		writeFileSync( join( outputDir, 'resources', 'fonts', 'icon.woff' ), 'woff' );
+		writeFileSync( join( outputDir, 'resources', 'fonts', 'icon.ttf' ), 'ttf' );
+		writeFileSync(
+			join( outputDir, 'resources', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				resources: {
+					[ cssUrl ]: { path: 'resources/css/site.css', contentType: 'text/css' },
+					[ woffUrl ]: { path: 'resources/fonts/icon.woff', contentType: 'font/woff' },
+					[ ttfUrl ]: { path: 'resources/fonts/icon.ttf', contentType: 'font/ttf' },
+				},
+				failures: [
+					{
+						url: eotUrl,
+						error: 'render dependency has unsupported content type application/vnd.ms-fontobject',
+					},
+				],
+			} )
+		);
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: { 'https://example.com/': { html: 'html/homepage.html' } },
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const css = readFileSync( join( outputDir, 'website', 'css', 'site.css' ), 'utf8' );
+		expect( css ).not.toMatch( /@font-face\{[^}]*data:application\/octet-stream;base64,/ );
+		expect( css ).toContain( 'url("/fonts/icon.woff") format("woff")' );
+		expect( css ).toContain( 'url("/fonts/icon.ttf") format("truetype")' );
+		expect( css ).not.toContain( 'embedded-opentype' );
+		expect( css ).not.toContain( '.eot' );
+		expect( css ).toContain( '.hero{background:url("about:blank")}' );
+		expect( readFileSync( join( outputDir, 'website', 'fonts', 'icon.woff' ), 'utf8' ) ).toBe( 'woff' );
+		expect( readFileSync( join( outputDir, 'website', 'fonts', 'icon.ttf' ), 'utf8' ) ).toBe( 'ttf' );
 	} );
 
 	it( 'preserves downloaded backgrounds with HTML-escaped CDN queries in the portable page', () => {
@@ -3339,11 +3887,11 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		const mobileUrl = 'https://cdn.example/image?url=https%3A%2F%2Fimages.example%2Fphoto%2520one.jpg%3Fa%3D1%26b%3D2&width=600&format=webp';
 		writeFileSync(
 			join( outputDir, 'html', 'homepage.html' ),
-			readFileSync( fileURLToPath( new URL( '../../test/fixtures/clearlake-css-background.html', import.meta.url ) ), 'utf8' )
+			`<html><body>${ readFileSync( fileURLToPath( new URL( '../../test/fixtures/clearlake-css-background.html', import.meta.url ) ), 'utf8' ) }</body></html>`
 		);
 		writeFileSync(
 			join( outputDir, 'html-mobile', 'homepage.html' ),
-			'<main><div class="mobile-background" style="background-image:url(&quot;https://cdn.example/image?url=https%3A%2F%2Fimages.example%2Fphoto%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600&amp;format=webp&quot;)">Mobile</div><div class="missing-background" style="background:url(https://cdn.example/missing.jpg?width=600&amp;format=webp)">Missing</div></main>'
+			'<html><body><main><div class="mobile-background" style="background-image:url(&quot;https://cdn.example/image?url=https%3A%2F%2Fimages.example%2Fphoto%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600&amp;format=webp&quot;)">Mobile</div><div class="missing-background" style="background:url(https://cdn.example/missing.jpg?width=600&amp;format=webp)">Missing</div></main></body></html>'
 		);
 		writeFileSync( join( outputDir, 'media', 'background.jpg' ), 'desktop-image' );
 		writeFileSync( join( outputDir, 'media', 'background-mobile.webp' ), 'mobile-image' );
@@ -3364,7 +3912,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( $( '.kv-background-inner' ).attr( 'style' ) ).toContain( "background-image: url('/media/background.jpg')" );
 		expect( $( '.kv-background-inner' ).attr( 'style' ) ).not.toContain( 'data:' );
 		expect( $( '.mobile-background' ).attr( 'style' ) ).toBe( 'background-image:url("/media/background-mobile.webp")' );
-		expect( $( '.missing-background' ).attr( 'style' ) ).toBe( 'background:url(data:application/octet-stream;base64,)' );
+		expect( $( '.missing-background' ).attr( 'style' ) ).toBe( 'background:url(about:blank)' );
 		expect( readFileSync( join( outputDir, 'website', 'media', 'background.jpg' ), 'utf8' ) ).toBe( 'desktop-image' );
 		expect( readFileSync( join( outputDir, 'website', 'media', 'background-mobile.webp' ), 'utf8' ) ).toBe( 'mobile-image' );
 		expect( JSON.parse( readFileSync( receiptPath, 'utf8' ) ).assets ).toEqual( expect.arrayContaining( [
@@ -3425,7 +3973,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 			name: 'blanks CSS media when both download and browser capture failed',
 			mediaStatus: 'failure' as const,
 			browserResource: false,
-			expectedUrl: 'data:application/octet-stream;base64,',
+			expectedUrl: 'about:blank',
 		},
 	] )( '$name', ( { mediaStatus, browserResource, expectedUrl } ) => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-stylesheet-media-' ) );

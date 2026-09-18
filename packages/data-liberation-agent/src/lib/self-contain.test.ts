@@ -45,7 +45,7 @@ describe( 'self-contain', () => {
 		expect( html ).toContain( 'src="/media/kept.png"' );
 		expect( html ).toContain( 'srcset="/media/kept.png 800w"' );
 		expect( html ).toContain( 'data:image/gif;base64,' );
-		expect( html ).toContain( 'data:application/octet-stream;base64,' );
+		expect( html ).toContain( 'about:blank' );
 	} );
 
 	it( 'drops 1x1 gif placeholders from srcset so the browser cannot pick them', () => {
@@ -106,7 +106,37 @@ describe( 'self-contain', () => {
 				'.a{background:url("https://cdn.example/a.jpg")}.b{background:url("/media/b.jpg")}'
 			)
 		).toBe(
-			'.a{background:url("data:application/octet-stream;base64,")}.b{background:url("/media/b.jpg")}'
+			'.a{background:url("about:blank")}.b{background:url("/media/b.jpg")}'
+		);
+	} );
+
+	it( 'omits empty @font-face src sentinels so later woff/ttf sources remain usable', () => {
+		expect(
+			stripRemoteCssUrls(
+				'@font-face{font-family:"icon";src:url("https://cdn.example/icon.eot");src:url("https://cdn.example/icon.eot?#iefix") format("embedded-opentype"),url("/fonts/icon.woff") format("woff"),url("/fonts/icon.ttf") format("truetype")}.hero{background:url("https://cdn.example/missing.jpg")}'
+			)
+		).toBe(
+			'@font-face{font-family:"icon";src:url("/fonts/icon.woff") format("woff"),url("/fonts/icon.ttf") format("truetype")}.hero{background:url("about:blank")}'
+		);
+	} );
+
+	it( 'still recognizes the legacy empty data URL sentinel emitted by earlier captures', () => {
+		// Emission moved to about:blank, but the legacy sentinel still arrives inside
+		// source stylesheets, so recognition must keep matching both forms.
+		expect(
+			stripRemoteCssUrls(
+				'@font-face{font-family:"icon";src:url("about:blank");src:url("about:blank#iefix") format("embedded-opentype"),url("/fonts/icon.woff") format("woff")}'
+			)
+		).toBe( '@font-face{font-family:"icon";src:url("/fonts/icon.woff") format("woff")}' );
+	} );
+
+	it( 'drops injected empty @font-face src sentinels including #iefix fragments', () => {
+		expect(
+			stripRemoteCssUrls(
+				'@font-face{font-family:"icon";src:url(data:application/octet-stream;base64,);src:url(data:application/octet-stream;base64,#iefix) format("embedded-opentype"),url("/fonts/icon.woff") format("woff"),url("/fonts/icon.ttf") format("truetype")}'
+			)
+		).toBe(
+			'@font-face{font-family:"icon";src:url("/fonts/icon.woff") format("woff"),url("/fonts/icon.ttf") format("truetype")}'
 		);
 	} );
 

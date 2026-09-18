@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { chromium, type Browser } from 'playwright';
 import { collectBodyFragment, collectStylesheets, collectHeadLinks, collectScripts, collectBodyAndChrome, collectBodyFragmentMobileOnly, collectMobileChromeLayout } from './dom-capture.js';
+import { capturePageHtml } from './screenshotter.js';
 
 const FIXTURE = `<!DOCTYPE html><html><head>
   <style>.hero{color:red}</style>
@@ -31,6 +32,39 @@ describe('dom-capture', () => {
     await page.setContent(FIXTURE);
     const css = await collectStylesheets(page);
     expect(css).toContain('.hero');
+    await page.close();
+  });
+  it('serializes constructed stylesheets that have no style element', async () => {
+    const page = await browser.newPage();
+    await page.setContent('<main class="mobile">Mobile content</main>');
+    await page.evaluate(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync('.mobile { width: 100%; }');
+      document.adoptedStyleSheets = [ ...document.adoptedStyleSheets, sheet ];
+    });
+
+    const html = await capturePageHtml(page);
+    expect(html).toContain('data-dla-constructed-stylesheet');
+    expect(html).toContain('.mobile { width: 100%; }');
+    await page.close();
+  });
+  it('serializes CSSOM mutations to connected style elements', async () => {
+    const page = await browser.newPage();
+    await page.setContent('<style>.desktop { display: block; }</style><main class="mobile">Mobile content</main>');
+    await page.evaluate(() => document.styleSheets[0].insertRule('.mobile { display: block; }'));
+
+    const html = await capturePageHtml(page);
+    expect(html).toContain('.mobile { display: block; }');
+    // The rule authored in markup must survive the synchronization.
+    expect(html).toContain('.desktop');
+    await page.close();
+  });
+  it('leaves cross-origin link stylesheets to their <link> element', async () => {
+    const page = await browser.newPage();
+    await page.setContent(FIXTURE);
+    const html = await capturePageHtml(page);
+    expect(html).toContain('fonts.googleapis.com');
+    expect(html).not.toContain('data-dla-constructed-stylesheet');
     await page.close();
   });
   it('lists head <link> stylesheet hrefs', async () => {

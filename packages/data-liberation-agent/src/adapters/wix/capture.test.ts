@@ -5,6 +5,7 @@ import {
 	capture,
 	collectWixSlideshowSlides,
 	preserveWixSlideshowSlides,
+	settleScrollReactiveChrome,
 	settleWixNavigation,
 	stripShowcaseMarkup,
 	wixMediaVariant,
@@ -310,6 +311,35 @@ describe( 'wix capture', () => {
 
 	it( 'is attached to the adapter', () => {
 		expect( wixAdapter.liberation ).toBe( capture );
+	} );
+} );
+
+describe( 'settleScrollReactiveChrome', () => {
+	it( 'returns to the top and tells the scroll handler before the freeze', async () => {
+		const calls: string[] = [];
+		const dom = new JSDOM( '<header id="SITE_HEADER"></header>' );
+		dom.window.scrollTo = ( () => calls.push( 'scrollTo' ) ) as unknown as typeof window.scrollTo;
+		dom.window.dispatchEvent = ( ( event: Event ) => {
+			calls.push( `dispatch:${ event.type }` );
+			return true;
+		} ) as unknown as typeof window.dispatchEvent;
+		dom.window.document.getAnimations = () => [];
+		const page = {
+			evaluate: async ( fn: () => unknown ) => {
+				vi.stubGlobal( 'window', dom.window );
+				vi.stubGlobal( 'document', dom.window.document );
+				return fn();
+			},
+			waitForTimeout: async ( ms: number ) => {
+				calls.push( `wait:${ ms }` );
+			},
+		};
+
+		await settleScrollReactiveChrome( page as never );
+
+		// The order is the contract: a handler that only recomputes on an event
+		// needs the event, and its transition needs time before serialization.
+		expect( calls ).toEqual( [ 'scrollTo', 'dispatch:scroll', 'wait:400' ] );
 	} );
 } );
 

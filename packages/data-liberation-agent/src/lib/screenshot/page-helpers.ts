@@ -5,7 +5,8 @@ import { isSourcePromotion } from '../source-cleanup.js';
 /**
  * Wait for a page to reach a stable state after load.
  *
- *   goto('load') ─▶ settleMs ─▶ networkidle best-effort (5s) ─▶ fonts.ready (4s) ─▶ done
+ *   goto('load') ─▶ settleMs ─▶ networkidle best-effort (5s) ─▶ fonts.ready (4s)
+ *     ─▶ DOM quiescence, bounded (5s) ─▶ done
  *
  * Networkidle is wrapped in try/catch because chatty analytics (GA, Intercom)
  * can hold it open indefinitely; we don't want that to block capture.
@@ -17,8 +18,29 @@ import { isSourcePromotion } from '../source-cleanup.js';
  * exactly why source captures of Wix navs came back blank). It runs last, after
  * networkidle, so any font request issued by late hydration JS is already in
  * flight and document.fonts.ready waits for it to actually apply.
+ *
+ * The DOM-quiescence step runs LAST because a client-rendered app can still be
+ * assembling its own content well after 'load' fires and after networkidle has
+ * either resolved or given up. 'load' only covers the document's own
+ * script/stylesheet bundle, not whatever that bundle goes on to fetch and
+ * render — a SPA that loads its data via its own async call (a server
+ * function, a client-side data fetch) mounts a whole section of the page on
+ * that response, at a moment 'load' knows nothing about. And a page embedding
+ * a chatty third-party widget (e.g. a media player polling its own endpoints)
+ * can hold networkidle open indefinitely without that hydration ever finishing
+ * — see [[waitForRenderIdle]] for why network-quiet and render-complete are
+ * different questions. Watching the DOM directly sidesteps both problems: a
+ * MutationObserver on the whole document resolves once no mutation has landed
+ * for `quietMs`, bounded by `domTimeoutMs` so a page that never stops mutating
+ * (a live-updating ticker, a looping carousel re-render) cannot hang the
+ * capture — it simply falls back to whatever the DOM looked like at the
+ * deadline, same as every other best-effort wait in this file.
  */
-export async function waitForStable(page: Page, settleMs: number = 1000): Promise<void> {
+export async function waitForStable(
+  page: Page,
+  settleMs: number = 1000,
+  domTimeoutMs: number = 5_000,
+): Promise<void> {
   await page.waitForLoadState('load');
   if (settleMs > 0) {
     await new Promise((r) => setTimeout(r, settleMs));
@@ -29,6 +51,64 @@ export async function waitForStable(page: Page, settleMs: number = 1000): Promis
     /* best-effort — analytics can keep network busy forever */
   }
   await waitForFonts(page);
+  await waitForDomQuiescence(page, 500, domTimeoutMs);
+}
+
+/**
+ * Wait until the document stops mutating: a MutationObserver watches the
+ * whole document, and this resolves once `quietMs` has elapsed since the last
+ * observed mutation, bounded overall by `timeoutMs`. A page with no further
+ * mutations pending resolves after one `quietMs` window — the cost on an
+ * ordinary static page — rather than a fixed sleep that would either
+ * under-wait a slow page or tax every fast one for no reason.
+ *
+ * Deliberately generic: it has no notion of frameworks, hydration, or data
+ * fetching — it only asks "is the DOM still changing?", which is what a
+ * client-rendered app on ANY stack ultimately reduces to. Best-effort: a
+ * blocked/crashed page falls through to the existing capture, unchanged.
+ */
+export async function waitForDomQuiescence(
+  page: Page,
+  quietMs: number = 500,
+  timeoutMs: number = 5_000,
+): Promise<void> {
+  try {
+    await withEvaluateTimeout(
+      page.evaluate(
+        ({ quietMs, timeoutMs }) =>
+          new Promise<void>((resolve) => {
+            let lastMutation = Date.now();
+            const deadline = Date.now() + timeoutMs;
+            const observer = new MutationObserver(() => {
+              lastMutation = Date.now();
+            });
+            observer.observe(document.documentElement, {
+              childList: true,
+              subtree: true,
+              attributes: true,
+              characterData: true,
+            });
+            const check = () => {
+              const now = Date.now();
+              if (now - lastMutation >= quietMs || now >= deadline) {
+                observer.disconnect();
+                resolve();
+                return;
+              }
+              setTimeout(check, Math.min(50, deadline - now));
+            };
+            check();
+          }),
+        { quietMs, timeoutMs },
+      ),
+      // Outer guard is generous over the in-page deadline: the in-page
+      // setTimeout loop is what enforces timeoutMs, this just protects
+      // against the evaluate call itself never returning (page crash/hang).
+      timeoutMs + 1_000,
+    );
+  } catch {
+    /* best-effort — never block capture on a page that mutates forever */
+  }
 }
 
 /**

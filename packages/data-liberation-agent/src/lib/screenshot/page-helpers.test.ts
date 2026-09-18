@@ -7,6 +7,7 @@ import {
   waitForFonts,
   waitForAnimations,
   waitForRenderIdle,
+  waitForDomQuiescence,
 } from './page-helpers.js';
 
 type MockPage = {
@@ -41,6 +42,30 @@ describe('waitForStable', () => {
     await waitForStable(page as never, 10);
     // the fonts wait evaluates document.fonts.ready in the page
     expect(page.evaluate).toHaveBeenCalled();
+  });
+
+  it('waits for DOM mutations to quiesce after fonts settle, bounded by domTimeoutMs', async () => {
+    // Regression for a truncated SPA capture: a page whose deferred content
+    // (e.g. an async data-driven section) mounts well after 'load' and after
+    // networkidle has given up must still be waited for — see
+    // waitForDomQuiescence below for the actual mechanism.
+    const page = makePage();
+    await waitForStable(page as never, 10, 250);
+    const quiescenceCall = page.evaluate.mock.calls.find(
+      (call) => typeof call[1] === 'object' && call[1] !== null && 'quietMs' in call[1],
+    );
+    expect(quiescenceCall).toBeTruthy();
+    expect(quiescenceCall?.[1]).toMatchObject({ timeoutMs: 250 });
+  });
+
+  it('does not hang when the page never stops mutating (bounded readiness, not a fixed sleep)', async () => {
+    const page = makePage();
+    page.evaluate = vi.fn().mockImplementation((_fn: unknown, args?: { quietMs?: number }) => {
+      // Only the quiescence call ever hangs; fonts.ready resolves normally.
+      if (args && 'quietMs' in args) return new Promise(() => {});
+      return Promise.resolve(true);
+    });
+    await expect(waitForStable(page as never, 0, 30)).resolves.toBeUndefined();
   });
 });
 
@@ -81,6 +106,28 @@ describe('waitForAnimations', () => {
     const page = makePage();
     page.evaluate = vi.fn().mockImplementation(() => new Promise(() => {}));
     await expect(waitForAnimations(page as never, 30)).resolves.toBeUndefined();
+  });
+});
+
+describe('waitForDomQuiescence', () => {
+  it('asks the page to observe mutations with the given quiet/timeout budget', async () => {
+    const page = makePage();
+    await waitForDomQuiescence(page as never, 250, 2_000);
+    expect(page.evaluate).toHaveBeenCalledWith(expect.any(Function), { quietMs: 250, timeoutMs: 2_000 });
+  });
+
+  it('does not throw when the page blocks the observer script', async () => {
+    const page = makePage();
+    page.evaluate = vi.fn().mockRejectedValue(new Error('evaluate blocked'));
+    await expect(waitForDomQuiescence(page as never)).resolves.toBeUndefined();
+  });
+
+  it('does not hang when the page never stops mutating', async () => {
+    // A page that mutates forever (a live ticker, a looping re-render) must
+    // still let the capture proceed — bounded by timeoutMs, not indefinitely.
+    const page = makePage();
+    page.evaluate = vi.fn().mockImplementation(() => new Promise(() => {}));
+    await expect(waitForDomQuiescence(page as never, 10, 30)).resolves.toBeUndefined();
   });
 });
 

@@ -2,6 +2,7 @@ import { writeFileSync, renameSync, existsSync, readFileSync, mkdirSync } from '
 import { dirname, join } from 'node:path';
 import type { DismissedOverlay } from './page-helpers.js';
 import type { InteractionStatesReport } from './interaction-capture.js';
+import type { ScrollStatesReport } from './scroll-state-capture.js';
 
 export interface ManifestEntry {
   cleanup?: { policy: import('../source-cleanup.js').CleanupPolicy; reports: import('../source-cleanup.js').CleanupReport[] };
@@ -17,6 +18,8 @@ export interface ManifestEntry {
   dismissed?: DismissedOverlay[];
   /** User-triggered dialog states captured after baseline page artifacts. */
   interactions?: InteractionStatesReport;
+  /** Scroll-position-driven class/style toggles (e.g. a shrinking sticky header). */
+  scrollStates?: ScrollStatesReport;
   /**
    * Outcome of learning the source's sizing across viewport widths: how much
    * runtime-frozen geometry became fluid CSS, and what stayed frozen.

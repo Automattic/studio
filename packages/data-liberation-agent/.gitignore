@@ -33,3 +33,10 @@ clones/
 
 # This repo uses npm (package-lock.json) — a stray pnpm lockfile shouldn't land
 pnpm-lock.yaml
+
+# npm's own cache, not a dependency directory. A relative `cache=./vendor/npm`
+# in a user-level ~/.npmrc makes every npm invocation write its cache into the
+# current repo, which is how ~1000 _cacache blobs were once swept into a commit.
+# CI restores dependencies with actions/setup-node `cache: npm`, so nothing here
+# belongs in git.
+vendor/

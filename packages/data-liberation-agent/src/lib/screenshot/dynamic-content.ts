@@ -56,20 +56,60 @@ export async function expandCollapsedContent(page: Page): Promise<void> {
         const href = rawHref.trim();
         return href === '#' || href.startsWith('#');
       };
+
+      // safeToActivate is a STRUCTURAL pre-filter: it can tell an anchor with a
+      // real destination from an in-page toggle, but a client-routed SPA's own
+      // navigation controls are ordinary <button>s wired to the router via
+      // onClick — nothing in the markup distinguishes that button from a
+      // genuine "show more" disclosure before it is clicked. So the intent
+      // ("only activate in-page disclosure affordances") is enforced by
+      // OUTCOME as well: click, then check whether the document's route moved.
+      // A control that navigates was never a disclosure — put the route back
+      // (the SPA's own router intercepts history.pushState, which is how these
+      // routers already observe programmatic navigation, so this is a generic
+      // browser-API revert, not framework-specific) and stop touching anything
+      // else on the page, since further probing on a page mid-navigation is
+      // unsafe. This is generic and vendor-neutral: it only ever asks "did the
+      // route change", never what framework produced it.
+      const currentRoute = () => `${location.pathname}${location.search}`;
+      const activate = async (element: Element): Promise<'ok' | 'navigated'> => {
+        const before = currentRoute();
+        const beforeState = history.state;
+        try { (element as HTMLElement).click(); } catch { return 'ok'; }
+        // Let a synchronous router (the common case) act before checking.
+        await new Promise((r) => setTimeout(r, 60));
+        if (currentRoute() === before) return 'ok';
+        try {
+          history.pushState(beforeState, '', before);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: beforeState }));
+        } catch { /* ignore */ }
+        for (let attempt = 0; attempt < 20 && currentRoute() !== before; attempt++) {
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        return 'navigated';
+      };
+
       document.querySelectorAll('details:not([open])').forEach((d) => {
         (d as HTMLDetailsElement).open = true;
       });
-      document.querySelectorAll('[aria-expanded="false"][aria-controls]').forEach((el) => {
-        if (!safeToActivate(el)) return;
-        try { (el as HTMLElement).click(); } catch { /* ignore */ }
-      });
-      const labels = ['load more', 'show more', 'show all', 'view all', 'see all', 'read more', 'expand all'];
-      document.querySelectorAll('button, [role="button"]').forEach((el) => {
-        const t = (el.textContent || '').trim().toLowerCase();
-        if (safeToActivate(el) && t && labels.some((l) => t === l || t.startsWith(l))) {
-          try { (el as HTMLElement).click(); } catch { /* ignore */ }
+
+      let navigated = false;
+      for (const el of Array.from(document.querySelectorAll('[aria-expanded="false"][aria-controls]'))) {
+        if (navigated) break;
+        if (!safeToActivate(el)) continue;
+        if ((await activate(el)) === 'navigated') navigated = true;
+      }
+
+      if (!navigated) {
+        const labels = ['load more', 'show more', 'show all', 'view all', 'see all', 'read more', 'expand all'];
+        for (const el of Array.from(document.querySelectorAll('button, [role="button"]'))) {
+          if (navigated) break;
+          const t = (el.textContent || '').trim().toLowerCase();
+          if (!safeToActivate(el) || !t || !labels.some((l) => t === l || t.startsWith(l))) continue;
+          if ((await activate(el)) === 'navigated') navigated = true;
         }
-      });
+      }
+
       await new Promise((r) => setTimeout(r, 400));
     });
   } catch { /* page blocked our script — don't fail the capture */ }

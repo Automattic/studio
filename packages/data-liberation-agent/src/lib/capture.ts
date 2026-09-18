@@ -176,6 +176,7 @@ export async function captureWebsite(
 		removeSelectors: adapter.liberation?.removeSelectors,
 		cleanupPolicy: (await import('./source-cleanup.js')).cleanupPolicy(adapter.liberation?.cleanupRules),
 		prepareCapture: adapter.liberation?.prepare,
+		beforeSerialize: adapter.liberation?.beforeSerialize,
 		...( adapter.liberation?.responsiveImages
 			? { collectResponsiveImages: adapter.liberation.responsiveImages.bind( adapter.liberation ) }
 			: {} ),

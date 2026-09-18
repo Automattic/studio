@@ -417,4 +417,31 @@ describe( 'CapturedResourceStore', () => {
 		);
 		expect( readFileSync( join( outputDir, 'website', fontPath ), 'utf8' ) ).toBe( 'font' );
 	} );
+	it( 'records a zero-byte font response as a failed dependency', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resource-empty-font-' ) );
+		dirs.push( outputDir );
+		const fontUrl = 'https://fonts.example/font.woff2';
+		const store = new CapturedResourceStore( outputDir, 'https://example.com/', async ( url ) => ( {
+			finalUrl: url,
+			status: 200,
+			headers: new Headers( { 'content-type': 'font/woff2' } ),
+			body: Buffer.alloc( 0 ),
+		} ) );
+
+		await store.captureDomDependencies(
+			`<style>@font-face{src:url("${ fontUrl }")}</style>`,
+			'https://example.com/'
+		);
+		await store.flush();
+
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		// A 200 with no bytes must not be stored as a usable resource: that would
+		// report a clean capture for a font that renders as nothing.
+		expect( manifest.resources[ fontUrl ] ).toBeUndefined();
+		expect( manifest.failures ).toContainEqual(
+			expect.objectContaining( { url: fontUrl, error: 'render dependency response body is empty' } )
+		);
+	} );
 } );

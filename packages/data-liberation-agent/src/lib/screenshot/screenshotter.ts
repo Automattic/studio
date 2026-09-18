@@ -13,7 +13,7 @@ import { applySourceCleanup, readSourceCleanup, cleanupPolicy, type CleanupPolic
 import { captureChromeFidelity } from './capture-chrome-fidelity.js';
 import { CssAggregator } from './css-aggregator.js';
 import { captureDesignForUrl, captureMobileBodyFragment } from './design-capture-runner.js';
-import { countBodyTags, isStackingArtifact } from './document-integrity.js';
+import { countBodyTags, isRouteDrift, isStackingArtifact } from './document-integrity.js';
 import { collectMobileChromeLayout } from './dom-capture.js';
 import { generateChromeCss, type BakedLayoutMap } from './fixups.js';
 import { sanitizeFrozenHtml } from './freeze.js';
@@ -23,8 +23,11 @@ import {
 	type CapturedDialogInteraction,
 	type InteractionStatesReport,
 } from './interaction-capture.js';
+import { applyPagerSlideshowStates, collectPagerSlideshowStates } from './pager-slideshow.js';
+import { captureScrollStates, type ScrollStatesReport } from './scroll-state-capture.js';
 import { hydrateDisclosureContent } from './dynamic-content.js';
 import { JsAggregator } from './js-aggregator.js';
+import { isAbsentDocumentError, isSourceCaptureUrl } from './absent-document.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
 import { validateOutputDir, planArtifacts, type ArtifactPlan } from './output-layout.js';
 import { waitForStable, triggerLazyLoad, dismissOverlays } from './page-helpers.js';
@@ -70,7 +73,8 @@ const MAX_CAPTURED_DIALOGS = 8;
  *    │                                                 newPage
  *    │                                                   │
  *    │                                                   ▼
- *    │                                                 goto ─── 4xx/throw ──▶ failures[goto]
+ *    │                                                 goto ─── 404/410 (discovered) ──▶ skipped
+ *    │                                                   │      other 4xx/throw ──▶ failures[goto]
  *    │                                                   │
  *    │                                                   ▼
  *    │                                                 waitForStable
@@ -158,6 +162,10 @@ interface CapturePerViewportArgs {
 	removeSelectors?: string[];
 	cleanupPolicy?: CleanupPolicy;
 	prepareCapture?: (
+		page: import('playwright').Page,
+		ctx: import('../../adapters/page-actions.js').LiberationContext
+	) => Promise< void >;
+	beforeSerialize?: (
 		page: import('playwright').Page,
 		ctx: import('../../adapters/page-actions.js').LiberationContext
 	) => Promise< void >;
@@ -254,8 +262,39 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 	for ( let attempt = 0; attempt < 10 && ( await hydrateMediaSources() ) === true; attempt++ ) {
 		await page.waitForTimeout( 200 );
 	}
+	// CSSOM mutations do not update a <style> element's text content, and constructed
+	// sheets have no owner node at all, so neither survives markup serialization. Sync
+	// each sheet from its active rules so the static capture preserves the styles the
+	// browser is actually applying. Runs once, after media settling: appending inside
+	// that retry loop would emit a duplicate <style> per attempt.
+	await page.evaluate( () => {
+		const sheets = new Set( [ ...document.styleSheets, ...document.adoptedStyleSheets ] );
+		for ( const sheet of sheets ) {
+			const owner = sheet.ownerNode;
+			if ( owner instanceof HTMLLinkElement ) continue;
+			let cssText = '';
+			try {
+				cssText = Array.from( sheet.cssRules ).map( ( rule ) => rule.cssText ).join( '\n' );
+			} catch {
+				// Cross-origin sheet: .cssRules throws. Its <link> is captured separately.
+				continue;
+			}
+			if ( ! cssText ) continue;
+			if ( owner instanceof HTMLStyleElement && document.documentElement.contains( owner ) ) {
+				owner.textContent = cssText;
+				continue;
+			}
+			const style = document.createElement( 'style' );
+			style.setAttribute( 'data-dla-constructed-stylesheet', '' );
+			style.textContent = cssText;
+			document.head.appendChild( style );
+		}
+	} );
 	try {
-		return await page.content();
+		// Serialize in the renderer's current task. page.content() round-trips through
+		// DevTools and can race framework hydration, pairing a newer class namespace
+		// with older CSS.
+		return await page.evaluate( () => `<!DOCTYPE html>${ document.documentElement.outerHTML }` );
 	} finally {
 		await page.evaluate( ( evidenceAttributes ) => {
 			for ( const frame of document.querySelectorAll( 'iframe' ) ) {
@@ -660,6 +699,10 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 	// source actually obeys, learned by resizing while its runtime still runs.
 	// Must happen after removals (so stripped chrome is never modelled) and
 	// before serialization (so the learned CSS is what gets written).
+	// A slideshow driven by its own thumbnails only advances while the source's
+	// script is running, so read its states before any layout measurement.
+	const pagerSlideshows = await collectPagerSlideshowStates( page ).catch( () => [] );
+
 	if ( isDesktop && plan.captureHtml && args.learnFluid ) {
 		try {
 			const learned = await learnAndApplyFluidGeometry( page, {
@@ -685,6 +728,19 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 				attempt: 1,
 			} );
 		}
+	}
+
+	await applyPagerSlideshowStates( page, pagerSlideshows ).catch( () => {
+		/* best-effort — a picker that will not advance must not block capture */
+	} );
+
+	if ( args.beforeSerialize ) {
+		await args.beforeSerialize( page, {
+			url,
+			viewport: isDesktop ? 'desktop' : 'mobile',
+		} ).catch( () => {
+			/* best-effort — never block capture on a late platform widget */
+		} );
 	}
 
 	// Capture only after every operation that can change the live DOM, then
@@ -718,12 +774,29 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		try {
 			const html = await capturePageHtml( page );
 			await resourceStore.captureDomDependencies( html, url );
-			// Refuse to persist a corrupted capture: if the live DOM serialized more
-			// than one document (e.g. an AJAX page-loader prefetched and nested whole
-			// pages into the body), every section is duplicated + truncated downstream.
-			// Record it as a content failure and skip the write rather than poison the
-			// reference HTML that comparison/design tooling correlates by URL.
-			if ( isStackingArtifact( html ) ) {
+			// Refuse to persist a capture whose page navigated away from the route we
+			// were asked to capture: every DOM-mutating step above (lazy-load probing,
+			// disclosure hydration, dialog probing…) runs on a live, script-controlled
+			// page, and this is the first point the actual document is compared against
+			// the intended one. A drifted document is a real, successfully-rendered
+			// page — just the WRONG one — so there is no corrupted markup to detect the
+			// way isStackingArtifact does; only comparing identities catches it.
+			// Recovering (re-navigating and re-running the capture) is not attempted:
+			// the fullpage screenshot above already ran on the drifted page too, so a
+			// re-fetched HTML would still be paired with the wrong screenshot. Refusing
+			// and recording it — the same discipline as isStackingArtifact below — keeps
+			// the receipt honest instead of shipping a mismatched pair silently.
+			const capturedUrl = page.url();
+			if ( isRouteDrift( capturedUrl, url ) ) {
+				failures.push( {
+					url,
+					viewport: viewport.id,
+					stage: 'content',
+					error: `route drift: captured ${ capturedUrl } while attempting to capture ${ url } (a control navigated the page mid-capture); HTML not persisted`,
+					timestamp: now(),
+					attempt: 1,
+				} );
+			} else if ( isStackingArtifact( html ) ) {
 				failures.push( {
 					url,
 					viewport: viewport.id,
@@ -762,7 +835,11 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		try {
 			const mhtml = sanitizeFrozenHtml( await capturePageHtml( page ) );
 			await resourceStore.captureDomDependencies( mhtml, url );
-			if ( ! isStackingArtifact( mhtml ) ) {
+			// Same route-identity guard as the desktop HTML write above — best-effort
+			// here too (this carry already silently skips on any other failure), so a
+			// drifted mobile capture just leaves the page desktop-only rather than
+			// recording a failure of its own.
+			if ( ! isRouteDrift( page.url(), url ) && ! isStackingArtifact( mhtml ) ) {
 				mkdirSync( dirname( plan.paths.htmlMobile ), { recursive: true } );
 				writeFileSync( plan.paths.htmlMobile, mhtml );
 				mobileHeights[ slug ] = await page.evaluate( () => document.documentElement.scrollHeight );
@@ -1013,6 +1090,21 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		}
 	} catch {
 		/* best-effort: baseline capture remains valid when interaction probing fails */
+	}
+
+	// Scroll-driven chrome (a header/logo that shrinks or gains a background once
+	// the page scrolls past some offset) is a distinct trigger from clicks, so it
+	// gets its own probe. Also runs only after baseline artifacts, and is
+	// best-effort: a failed probe must not invalidate the rest of the capture.
+	if ( ! entry.scrollStates?.toggles.length ) {
+		try {
+			const scrollStates = await captureScrollStates( page, url );
+			if ( scrollStates.toggles.length > 0 ) {
+				entry.scrollStates = scrollStates;
+			}
+		} catch {
+			/* best-effort: baseline capture remains valid when scroll-state probing fails */
+		}
 	}
 	const cleanup = await readSourceCleanup(page);
 	entry.cleanup = { policy: sourcePolicy, reports: [...(entry.cleanup?.reports ?? []), cleanup] };
@@ -1393,6 +1485,7 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 					...( opts.learnFluid ? { learnFluid: true } : {} ),
 					...( opts.fluidWidths ? { fluidWidths: opts.fluidWidths } : {} ),
 					prepareCapture: opts.prepareCapture,
+					beforeSerialize: opts.beforeSerialize,
 				} );
 			} catch ( err ) {
 				urlFailures.push( {
@@ -1424,7 +1517,6 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 
 		for ( const f of urlFailures ) {
 			await manifest.recordFailure( f );
-			allFailures.push( f );
 		}
 		await manifest.updateEntry( url, entry );
 
@@ -1437,11 +1529,22 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 			);
 		}
 
+		const absentFailures = urlFailures.filter(
+			( failure ) => isAbsentDocumentError( failure.error )
+		);
+		const captureFailures =
+			isSourceCaptureUrl( url, opts.primaryUrl )
+				? urlFailures
+				: urlFailures.filter( ( failure ) => ! isAbsentDocumentError( failure.error ) );
 		if ( urlFailures.length === 0 ) {
 			captured++;
 			sendLog( server, `[ok] ${ url }` );
+		} else if ( captureFailures.length === 0 && absentFailures.length > 0 ) {
+			skipped++;
+			sendLog( server, `[skip] ${ url } (${ absentFailures[ 0 ].error })` );
 		} else {
-			sendLog( server, `[fail] ${ url } (${ urlFailures.length } failures)` );
+			allFailures.push( ...captureFailures );
+			sendLog( server, `[fail] ${ url } (${ captureFailures.length } failures)` );
 		}
 		completed++;
 		opts.onProgress?.( completed, totalUrls, url );

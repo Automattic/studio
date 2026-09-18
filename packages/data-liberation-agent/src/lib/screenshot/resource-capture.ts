@@ -441,6 +441,10 @@ export class CapturedResourceStore {
 			if ( fetched.status < 200 || fetched.status >= 300 )
 				throw new Error( `HTTP ${ fetched.status }` );
 			const contentType = canonicalContentType( fetched.headers.get( 'content-type' ) ?? '' );
+			// A 200 with no bytes is not a usable asset. Storing it would record a
+			// successful capture whose font or image renders as nothing downstream.
+			if ( fetched.body.length === 0 )
+				throw new Error( 'render dependency response body is empty' );
 			if (
 				! /^(?:text\/css|image\/|audio\/|video\/|font\/|application\/(?:font|x-font|font-woff|octet-stream))/i.test(
 					contentType
@@ -499,6 +503,11 @@ export class CapturedResourceStore {
 			throw new Error( 'resource path escapes the capture directory' );
 		}
 		const body = fetched?.body ?? ( await responseBodyWithTimeout( response ) );
+		// A 200 with no bytes is not a usable asset; record it as a failed
+		// dependency rather than a resource that silently renders as nothing.
+		if ( body.length === 0 ) {
+			throw new Error( 'render dependency response body is empty' );
+		}
 		if ( body.length > MAX_CAPTURED_RESOURCE_BYTES ) {
 			throw new Error(
 				`resource body ${ body.length } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`

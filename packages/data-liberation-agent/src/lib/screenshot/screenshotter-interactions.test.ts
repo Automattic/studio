@@ -37,6 +37,7 @@ function makePage() {
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
 		evaluate: vi.fn().mockImplementation( async ( fn: unknown ) => {
 			const source = String( fn );
+			if ( source.includes( 'DOCTYPE' ) ) return '<html><body>Tianna Wolfson</body></html>';
 			if ( source.includes( 'motionAnimatedElements' ) ) return { rows: [], landmarks: [] };
 			if ( source.includes( 'scrollHeight' ) ) return 3000;
 			if ( source.includes( 'scrollTo' ) ) return undefined;
@@ -149,7 +150,11 @@ describe( 'captureScreenshots interactions', () => {
 				expect( mobilePage.screenshot.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
 					captureDialogs.mock.invocationCallOrder.at( -1 )!
 				);
-				expect( mobilePage.content.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
+				const serializationOrder = mobilePage.evaluate.mock.invocationCallOrder.find(
+					( _: number, index: number ) =>
+						String( mobilePage.evaluate.mock.calls[ index ][ 0 ] ).includes( 'DOCTYPE' )
+				);
+				expect( serializationOrder! ).toBeLessThan(
 					captureDialogs.mock.invocationCallOrder.at( -1 )!
 				);
 

@@ -6,6 +6,8 @@ Capture applies a versioned source cleanup policy by default before settling, HT
 
 Wix free banners and Webflow badges have explicit rules. Generic rules recognize declared advertising slots, Google advertising frame identifiers, advertising-network script/frame hosts, and Outbrain/Taboola containers. Provider acquisition-bar recognition is shared with overlay detection and legacy export cleanup. Host recognition for provider links and network rules compares URL hostnames, not incidental query-string mentions.
 
+A final `builder-chrome` rule catches host-platform badges from builders with no adapter of their own: a viewport-fixed element making an authoring offer ("edit/made/built/created/designed/generated with/on/by/using", text or image `alt`/`aria-label`/`title`) that also serves an asset or link from the named entity's own domain. Naming without owning a domain (a "Made with love in Brooklyn" credit) or serving assets from the site's own origin (an owner's authored tooling link) is not chrome and stays untouched — the domain-ownership check is what keeps authored content safe. A platform that registers its own rule (Lovable's `#lovable-badge`, Wix, Webflow) is removed by that named rule first and keeps its identity in the evidence; this one is what runs for the platforms nobody named.
+
 Removal collapses the matched slot and up to four empty ad-only wrappers. A fixed bar's matching top/bottom body padding is reclaimed. Normal content landmarks and mixed-content parents are retained. Plain-text credits spanning styled spans are removed by text range, preserving surrounding owner text.
 
 ## Extension API

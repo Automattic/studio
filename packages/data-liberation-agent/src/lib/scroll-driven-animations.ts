@@ -143,20 +143,22 @@ export function detectPausedAnimationRules( css: string ): PausedAnimationRule[]
  *
  * The override binds each pending animation to the element's own view progress,
  * so the browser runs it as the element scrolls into view — the behaviour the
- * stripped script provided. The source completion gate remains on the emitted
- * selector so settled elements keep their captured end state. It is wrapped in
- * `@supports` so browsers without scroll timelines do not park at the first
- * keyframe, which for an entrance is usually invisible.
+ * stripped script provided. It targets the element identity rather than the
+ * source completion gate: a capture is frozen after the page settles, so every
+ * gated element records its entrance as already done and a gated override would
+ * never apply to anything. It is wrapped in `@supports` so browsers without
+ * scroll timelines do not park at the first keyframe, which for an entrance is
+ * usually invisible.
  */
 export function appendScrollDrivenAnimations( css: string, sourceCss: string ): string {
 	const seen = new Set< string >();
 	const blocks: string[] = [];
 	for ( const rule of detectPausedAnimationRules( sourceCss ) ) {
-		const key = `${ rule.sourceSelector }\n${ rule.declarations }`;
+		const key = `${ rule.selector }\n${ rule.declarations }`;
 		if ( seen.has( key ) ) continue;
 		seen.add( key );
 		blocks.push(
-			`${ rule.sourceSelector }{${ rule.declarations };animation-play-state:running;animation-timeline:view();animation-range:entry 0% cover 40%}`
+			`${ rule.selector }{${ rule.declarations };animation-play-state:running;animation-timeline:view();animation-range:entry 0% cover 40%}`
 		);
 	}
 	if ( blocks.length === 0 ) return css;

@@ -44,6 +44,11 @@ function makePage( mobile: boolean, routedRequest?: object ) {
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
 		evaluate: vi.fn().mockImplementation( async ( callback: unknown ) => {
 			const source = String( callback );
+			if ( source.includes( 'DOCTYPE' ) ) {
+				return mobile
+					? '<html><head><style>.hero{background:url("mobile-only.jpg")}</style></head><body>mobile</body></html>'
+					: '<html><body>desktop</body></html>';
+			}
 			if ( source.includes( 'motionAnimatedElements' ) ) return { rows: [], landmarks: [] };
 			if ( source.includes( 'scrollHeight' ) ) return 0;
 			if ( source.includes( 'querySelectorAll' ) && source.includes( "'img'" ) ) return {};

@@ -2,7 +2,17 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as cheerio from 'cheerio';
 
-const EMPTY_CSS_URL = 'data:application/octet-stream;base64,';
+// An empty data: URL is a *valid, zero-byte resource*: the browser loads it
+// successfully, so a stylesheet that lost its asset still reports a clean load
+// and the loss becomes invisible. about:blank cannot be fetched as a
+// subresource, so the missing asset stays observable in devtools and in any
+// parity check that inspects failed requests.
+const UNAVAILABLE_CSS_URL = 'about:blank';
+// Recognition is broader than emission. The legacy empty data: URL still arrives
+// inside source stylesheets — producers inject it themselves, and earlier
+// captures wrote it — so @font-face sentinel stripping must keep matching it
+// even though nothing emits it any more.
+const UNAVAILABLE_CSS_SENTINELS = [ UNAVAILABLE_CSS_URL, 'data:application/octet-stream;base64,' ];
 const TRANSPARENT_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 const TRANSPARENT_IMAGE_PAYLOAD = TRANSPARENT_IMAGE.slice( TRANSPARENT_IMAGE.indexOf( ',' ) + 1 );
 
@@ -13,9 +23,17 @@ const TRANSPARENT_IMAGE_PAYLOAD = TRANSPARENT_IMAGE.slice( TRANSPARENT_IMAGE.ind
  */
 export const ASSET_LINK_REL = /^(?:stylesheet|preload|prefetch|preconnect|dns-prefetch|prerender|modulepreload|manifest)$|(?:^|-)icon$/;
 
+// `data:` and `blob:` URIs carry their bytes inline (or reference an in-memory
+// object): there is nothing on the network to fetch, so neither is ever a
+// dependency to resolve or an asset to strip as remote.
+export function isInlineUrl( value: string ): boolean {
+	const url = value.trim();
+	return url.startsWith( 'data:' ) || url.startsWith( 'blob:' );
+}
+
 export function isRemoteAssetUrl( value: string ): boolean {
 	const url = value.trim().replace( /&amp;/g, '&' );
-	if ( ! url || url.startsWith( 'data:' ) || url.startsWith( 'blob:' ) || url.startsWith( '#' ) ) {
+	if ( ! url || isInlineUrl( url ) || url.startsWith( '#' ) ) {
 		return false;
 	}
 	if ( ! /^(?:https?:)?\/\//i.test( url ) ) return false;
@@ -33,18 +51,78 @@ export function isRemoteAssetUrl( value: string ): boolean {
 // to the source CDN rather than an inert pointer — drop the comment entirely.
 const SOURCE_MAPPING_COMMENT = /\/\*[#@]\s*sourceMappingURL=\s*([^\s*]+)\s*\*\//gi;
 
+function isUnavailableCssAssetUrl( reference: string ): boolean {
+	const url = reference.trim();
+	return UNAVAILABLE_CSS_SENTINELS.some( ( sentinel ) => {
+		if ( url === sentinel ) return true;
+		if ( ! url.startsWith( sentinel ) ) return false;
+		const rest = url.slice( sentinel.length );
+		return rest.startsWith( '#' ) || rest.startsWith( '?' );
+	} );
+}
+
+function splitTopLevel( value: string, separator: string ): string[] {
+	const parts: string[] = [];
+	let current = '';
+	let depth = 0;
+	let quote = '';
+	for ( const char of value ) {
+		if ( quote ) {
+			current += char;
+			if ( char === quote ) quote = '';
+			continue;
+		}
+		if ( char === '"' || char === "'" ) {
+			quote = char;
+			current += char;
+			continue;
+		}
+		if ( char === '(' ) depth += 1;
+		else if ( char === ')' ) depth -= 1;
+		else if ( char === separator && depth === 0 ) {
+			parts.push( current );
+			current = '';
+			continue;
+		}
+		current += char;
+	}
+	parts.push( current );
+	return parts;
+}
+
+function omitEmptyFontFaceSrc( css: string ): string {
+	return css.replace( /(@font-face\s*\{)([^{}]*)\}/gi, ( _block, open: string, body: string ) => {
+		const declarations = splitTopLevel( body, ';' )
+			.map( ( declaration ) => {
+				const prefix = /^\s*src\s*:\s*/i.exec( declaration );
+				if ( ! prefix ) return declaration;
+				const kept = splitTopLevel( declaration.slice( prefix[ 0 ].length ), ',' ).filter( ( part ) => {
+					if ( ! part.trim() ) return false;
+					const urlMatch = /url\(\s*(?:["']([^"']*)["']|([^)]+))\s*\)/i.exec( part );
+					if ( ! urlMatch ) return true;
+					return ! isUnavailableCssAssetUrl( ( urlMatch[ 1 ] ?? urlMatch[ 2 ] ?? '' ).trim() );
+				} );
+				return kept.length === 0 ? '' : `${ prefix[ 0 ] }${ kept.join( ',' ) }`;
+			} )
+			.filter( ( declaration ) => declaration.trim() !== '' );
+		return `${ open }${ declarations.join( ';' ) }}`;
+	} );
+}
+
 export function stripRemoteCssUrls( css: string ): string {
-	return css
-		.replace( SOURCE_MAPPING_COMMENT, ( match, reference ) =>
-			isRemoteAssetUrl( reference ) ? '' : match
-		)
-		.replace( /url\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi, ( match, quoted, bare ) => {
-			const reference = quoted ?? bare;
-			return reference && isRemoteAssetUrl( reference ) ? `url("${ EMPTY_CSS_URL }")` : match;
-		} )
-		.replace( /@import\s+(?:url\(\s*)?["']([^"']+)["'][^;]*;?/gi, ( match, reference ) =>
-			isRemoteAssetUrl( reference ) ? `@import "${ EMPTY_CSS_URL }";` : match
-		);
+	return omitEmptyFontFaceSrc(
+		css
+			.replace( SOURCE_MAPPING_COMMENT, ( match, reference ) =>
+				isRemoteAssetUrl( reference ) ? '' : match
+			)
+			.replace( /url\(\s*(?:["']([^"']+)["']|([^\s)'";]+))\s*\)/gi, ( match, quoted, bare ) => {
+				const reference = quoted ?? bare;
+				return reference && isRemoteAssetUrl( reference ) ? `url("${ UNAVAILABLE_CSS_URL }")` : match;
+			} )
+			.replace( /@import\s+(?:url\(\s*)?["']([^"']+)["'][^;]*;?/gi, ( match, reference ) =>
+				isRemoteAssetUrl( reference ) ? `@import "${ UNAVAILABLE_CSS_URL }";` : match
+			)
+	);
 }
 
 const PLACEHOLDER_SRCSET_CANDIDATE =

@@ -21,6 +21,9 @@ describe('detectFromUrl (heuristics)', () => {
     ['https://shopify.com', 'shopify'],
     ['https://www.shopify.com/something', 'shopify'],
     ['https://mysite.weebly.com', 'weebly'],
+    ['https://eloisacalvinato.lovable.app/', 'lovable'],
+    ['https://eloisacalvinato.lovable.app', 'lovable'],
+    ['https://lovable.dev/projects/abc', 'lovable'],
   ])('detects %s as %s', (url, platform) => {
     const detected = detectFromUrl(url);
     expect(detected).toBe(platform);
@@ -72,6 +75,13 @@ describe('detectFromHttp (fingerprinting)', () => {
     });
     const result = await detectFromHttp('https://example.com');
     expect(result.platform).toBe('squarespace');
+  });
+
+  it('detects Lovable from #lovable-badge on a custom domain', () => {
+    const html = '<aside id="lovable-badge" aria-label="Made with Lovable"><a href="https://lovable.dev/projects/x?utm_source=lovable-badge">Made with Lovable</a></aside>';
+    const result = detectFromDocument('https://example.com', new Headers(), html);
+    expect(result.platform).toBe('lovable');
+    expect(findAdapter(result.platform)).toMatchObject({ id: 'lovable' });
   });
 
   it('returns unknown for unrecognized sites', async () => {

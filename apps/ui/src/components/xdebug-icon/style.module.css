@@ -1,0 +1,282 @@
+.icon {
+	display: block;
+	overflow: visible;
+}
+
+.creature,
+.legOne,
+.legTwo,
+.legThree,
+.legFour,
+.antennaOne,
+.antennaTwo {
+	transform-box: fill-box;
+}
+
+.legs path,
+.antennae path {
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-width: 0.92px;
+}
+
+.legOne,
+.legTwo {
+	transform-origin: right center;
+}
+
+.legThree,
+.legFour {
+	transform-origin: left center;
+}
+
+.antennaOne,
+.antennaTwo {
+	transform-origin: center bottom;
+}
+
+.icon[data-crawl='in'] .creature {
+	animation: xdebug-crawl-in var( --xdebug-crawl-duration, 0.8s ) linear both;
+}
+
+.icon[data-crawl='out'] .creature {
+	animation: xdebug-crawl-out var( --xdebug-crawl-duration, 0.8s ) linear both;
+}
+
+.icon[data-crawl] .legOne,
+.icon[data-crawl] .legFour {
+	animation: xdebug-crawl-leg-a calc( var( --xdebug-crawl-duration, 0.8s ) / 2 ) ease-in-out 2;
+}
+
+.icon[data-crawl] .legTwo,
+.icon[data-crawl] .legThree {
+	animation: xdebug-crawl-leg-b calc( var( --xdebug-crawl-duration, 0.8s ) / 2 ) ease-in-out 2;
+}
+
+.icon:is([data-motion='antennae'], [data-motion='both']) .antennaOne {
+	animation: xdebug-antenna-one-move 620ms ease-in-out;
+}
+
+.icon:is([data-motion='antennae'], [data-motion='both']) .antennaTwo {
+	animation: xdebug-antenna-two-move 620ms ease-in-out;
+}
+
+.icon:is([data-motion='legs'], [data-motion='both']) .legOne,
+.icon:is([data-motion='legs'], [data-motion='both']) .legFour {
+	animation: xdebug-leg-a-move 720ms ease-in-out;
+}
+
+.icon:is([data-motion='legs'], [data-motion='both']) .legTwo,
+.icon:is([data-motion='legs'], [data-motion='both']) .legThree {
+	animation: xdebug-leg-b-move 720ms ease-in-out;
+}
+
+.icon[data-active]:not([data-motion]) .antennaOne {
+	animation: xdebug-antenna-one var( --xdebug-motion-interval, 8s ) ease-in-out infinite;
+}
+
+.icon[data-active]:not([data-motion]) .antennaTwo {
+	animation: xdebug-antenna-two var( --xdebug-motion-interval, 8s ) ease-in-out infinite;
+}
+
+.icon[data-active]:not([data-motion]) .legOne,
+.icon[data-active]:not([data-motion]) .legFour {
+	animation: xdebug-leg-a var( --xdebug-motion-interval, 8s ) ease-in-out infinite;
+}
+
+.icon[data-active]:not([data-motion]) .legTwo,
+.icon[data-active]:not([data-motion]) .legThree {
+	animation: xdebug-leg-b var( --xdebug-motion-interval, 8s ) ease-in-out infinite;
+}
+
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .antennaOne {
+	animation: xdebug-antenna-one-move 620ms ease-in-out;
+}
+
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .antennaTwo {
+	animation: xdebug-antenna-two-move 620ms ease-in-out;
+}
+
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .legOne,
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .legFour {
+	animation: xdebug-leg-a-move 720ms ease-in-out;
+}
+
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .legTwo,
+:global(button:is(:hover, :focus-visible)) .icon[data-interactive]:not([data-motion]) .legThree {
+	animation: xdebug-leg-b-move 720ms ease-in-out;
+}
+
+@keyframes xdebug-crawl-in {
+	0% {
+		transform: translateY( 5px ) rotate( 3deg );
+	}
+	25% {
+		transform: translateY( 3px ) rotate( -2deg );
+	}
+	50% {
+		transform: translateY( 3px ) rotate( 2deg );
+	}
+	75% {
+		transform: translateY( 1px ) rotate( -1deg );
+	}
+	100% {
+		transform: translate( 0, 0 ) rotate( 0deg );
+	}
+}
+
+@keyframes xdebug-crawl-out {
+	0% {
+		transform: translate( 0, 0 ) rotate( 0deg );
+	}
+	25% {
+		transform: translateY( -1px ) rotate( 1deg );
+	}
+	50% {
+		transform: translateY( -3px ) rotate( -2deg );
+	}
+	75% {
+		transform: translateY( -3px ) rotate( 2deg );
+	}
+	100% {
+		transform: translateY( -5px ) rotate( -3deg );
+	}
+}
+
+@keyframes xdebug-crawl-leg-a {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	50% {
+		transform: rotate( calc( 15deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-crawl-leg-b {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	50% {
+		transform: rotate( calc( -15deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-antenna-one {
+	0%,
+	8%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	2% {
+		transform: rotate( calc( -12deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	5% {
+		transform: rotate( calc( 6deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-antenna-one-move {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	30% {
+		transform: rotate( calc( -20deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	65% {
+		transform: rotate( calc( 12deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-antenna-two {
+	0%,
+	8%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	3% {
+		transform: rotate( calc( 11deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	6% {
+		transform: rotate( calc( -5deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-antenna-two-move {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	35% {
+		transform: rotate( calc( 19deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	70% {
+		transform: rotate( calc( -11deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-leg-a {
+	0%,
+	48%,
+	58%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	51% {
+		transform: rotate( calc( 8deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	55% {
+		transform: rotate( calc( -4deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-leg-a-move {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	35% {
+		transform: rotate( calc( 14deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	70% {
+		transform: rotate( calc( -7deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-leg-b {
+	0%,
+	50%,
+	60%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	53% {
+		transform: rotate( calc( -8deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	57% {
+		transform: rotate( calc( 4deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@keyframes xdebug-leg-b-move {
+	0%,
+	100% {
+		transform: rotate( 0deg );
+	}
+	35% {
+		transform: rotate( calc( -14deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+	70% {
+		transform: rotate( calc( 7deg * var( --xdebug-motion-intensity, 1 ) ) );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.icon path,
+	.icon .creature {
+		animation: none;
+	}
+}

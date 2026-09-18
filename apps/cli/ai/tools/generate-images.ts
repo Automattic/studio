@@ -15,6 +15,7 @@ import { defineTool } from './define-tool';
 import { runWpCli } from './utils';
 
 const MAX_IMAGES_PER_CALL = 20;
+const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
 // pi Write tool, and must be JPEGs — the only format the pipeline delivers.
@@ -39,7 +40,7 @@ async function findSiteContaining( filePaths: string[] ): Promise< SiteData > {
 		)
 	);
 	if ( ! site ) {
-		throw new Error( 'Images added to the media library must all be inside one Studio site.' );
+		throw new Error( 'Images under wp-content/uploads must all be inside one Studio site.' );
 	}
 	return site;
 }
@@ -87,7 +88,7 @@ async function addToMediaLibrary( site: SiteData, filePaths: string[] ) {
 
 export const generateImagesTool = defineTool(
 	'generate_images',
-	'Generate AI images (JPEG) from text specs and write them to files inside a site, or add them to its media library. ' +
+	"Generate AI images (JPEG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
 		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
@@ -98,7 +99,7 @@ export const generateImagesTool = defineTool(
 			Type.Object( {
 				path: Type.String( {
 					description:
-						'Absolute file path to write the generated JPEG to. Must be inside the Studio sites directory and end in .jpg.',
+						"Absolute file path to write the generated JPEG to. Must be inside the Studio sites directory and end in .jpg. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
 				} ),
 				subject: Type.String( {
 					description:
@@ -139,12 +140,6 @@ export const generateImagesTool = defineTool(
 					'One site-wide photographic treatment applied to every image so they read as one series (e.g. "warm natural window light, soft muted color"). Keep it identical across calls for the same site.',
 			} )
 		),
-		mediaLibrary: Type.Optional(
-			Type.Boolean( {
-				description:
-					'Add every image of the call to the media library of the site its path is in, for images used in post and page content. Each file is imported as an attachment and leaves its path; the result gives the path WordPress stored it at, its attachment ID and its URL. Leave unset for theme imagery, referenced by its path.',
-			} )
-		),
 	},
 	async ( args, context ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
@@ -157,9 +152,10 @@ export const generateImagesTool = defineTool(
 			...image,
 			resolvedPath: resolveImageFilePath( image.path ),
 		} ) );
-		const site = args.mediaLibrary
-			? await findSiteContaining( targets.map( ( target ) => target.resolvedPath ) )
-			: undefined;
+		const libraryPaths = targets
+			.map( ( target ) => target.resolvedPath )
+			.filter( ( resolvedPath ) => resolvedPath.includes( UPLOADS_DIR ) );
+		const site = libraryPaths.length ? await findSiteContaining( libraryPaths ) : undefined;
 
 		context.onProgress(
 			`Generating ${ targets.length } image${ targets.length === 1 ? '' : 's' }…`
@@ -205,14 +201,15 @@ export const generateImagesTool = defineTool(
 			);
 		}
 
-		if ( site ) {
+		const written = targets
+			.filter(
+				( target, index ) => results[ index ].ok && target.resolvedPath.includes( UPLOADS_DIR )
+			)
+			.map( ( target ) => target.resolvedPath );
+		if ( site && written.length > 0 ) {
 			context.onProgress( 'Adding the images to the media library…' );
-			const written = targets.filter( ( _target, index ) => results[ index ].ok );
 			try {
-				const placements = await addToMediaLibrary(
-					site,
-					written.map( ( target ) => target.resolvedPath )
-				);
+				const placements = await addToMediaLibrary( site, written );
 				targets.forEach( ( target, index ) => {
 					const placement = placements.get( target.resolvedPath );
 					if ( placement ) {
@@ -238,9 +235,9 @@ export const generateImagesTool = defineTool(
 	},
 	{
 		promptSnippet:
-			'Generate AI images (JPEG) from text specs and write them to files inside a site or add them to its media library. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
+			'Generate AI images (JPEG) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 		promptGuidelines: [
-			"Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the `imagery` skill and generate the images with generate_images BEFORE writing the markup that references them: theme imagery goes into the active theme's assets directory, and images for post and page content go into the media library with `mediaLibrary: true`, whose result gives the attachment ID and URL the markup uses. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.",
+			"Whenever the design calls for imagery (hero/cover backgrounds, feature, gallery, or card images, team photos, product shots), load the `imagery` skill and generate the images with generate_images BEFORE writing the markup that references them: images used in theme files (templates, parts, CSS) go into the active theme's assets/images and are referenced by path, and images used in post and page content go under the site's wp-content/uploads/, which adds them to the media library; the markup uses the attachment ID and URL from the result. Never source images from web URLs and never leave a broken image reference — if an image cannot be generated, adapt the layout instead.",
 		],
 	}
 );

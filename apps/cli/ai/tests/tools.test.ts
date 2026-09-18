@@ -1302,16 +1302,26 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
-	it( 'moves generate_images output into the media library of its site', async () => {
+	it( 'adds generated images under uploads to the media library and leaves theme images in place', async () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
+		const themeImage = path.join(
+			sitePath,
+			'wp-content',
+			'themes',
+			'acme',
+			'assets',
+			'images',
+			'band.jpg'
+		);
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite, site ],
 		} as Awaited< ReturnType< typeof readCliConfig > > );
 		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
 		vi.mocked( generateImages ).mockResolvedValue( [
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 		] );
@@ -1332,8 +1342,8 @@ describe( 'Studio AI MCP tools', () => {
 				images: [
 					{ path: path.join( uploads, 'hero.jpg' ), subject: 'A café counter at dawn' },
 					{ path: path.join( uploads, 'buns.jpg' ), subject: 'Cardamom buns on a tray' },
+					{ path: themeImage, subject: 'Pebbles on a beach' },
 				],
-				mediaLibrary: true,
 			} as never );
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( site, [
@@ -1350,7 +1360,10 @@ describe( 'Studio AI MCP tools', () => {
 				'--fields=ID,guid',
 				'--format=json',
 			] );
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 3 );
 			await expect( readdir( uploads ) ).resolves.toEqual( [] );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+			expect( getTextContent( result ) ).toContain( `OK ${ themeImage } (0 KB)` );
 			expect( getTextContent( result ) ).toContain(
 				`OK ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
 					'hero.jpg'

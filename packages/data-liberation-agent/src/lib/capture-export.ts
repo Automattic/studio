@@ -20,7 +20,11 @@ import {
 	buildLayoutGeometryProof,
 	type GeometryCapture,
 } from './screenshot/layout-geometry-proof.js';
-import { failuresAreAbsentDocument } from './screenshot/absent-document.js';
+import {
+	failuresAreAbsentDocument,
+	isAbsentDocumentRender,
+	isSourceCaptureUrl,
+} from './screenshot/absent-document.js';
 import { isInlineUrl, selfContainWebsite } from './self-contain.js';
 import { wireCapturedDialogs } from './static-dialogs.js';
 import { rewriteMediaUrls } from './streaming/media-url-rewrite.js';
@@ -2078,6 +2082,24 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			continue;
 		}
 		const rawDesktopHtml = readFileSync( capturedHtmlPath, 'utf8' );
+		// A client-routed SPA answers every route with HTTP 200 and renders its
+		// own not-found screen in JavaScript, so the HTTP-status check above
+		// (failuresAreAbsentDocument) never sees it: the entry has HTML, capture
+		// succeeded, there is no failure to inspect. Never applied to the source
+		// URL itself -- it is known good regardless of what it renders.
+		if (
+			! isSourceCaptureUrl( url, options.sourceUrl ) &&
+			isAbsentDocumentRender( rawDesktopHtml )
+		) {
+			excludedRoutes.push( url );
+			routeCaptureDiagnostics.push( {
+				code: 'route_not_found',
+				url,
+				reason:
+					'rendered document is the client-routed not-found screen: a heading of just "404"/"410" on an otherwise thin page',
+			} );
+			continue;
+		}
 		const mobileHtmlPath = resolve( outputDir, entry.html.replace( /^html[\\/]/, 'html-mobile/' ) );
 		const rawMobileHtml =
 			pathWithin( outputDir, mobileHtmlPath ) && existsSync( mobileHtmlPath )

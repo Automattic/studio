@@ -3327,6 +3327,85 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( receipt.summary.routesFailed ).toBe( 0 );
 	} );
 
+	it( 'excludes a client-routed SPA not-found screen served as HTTP 200, unlike a real thin route', () => {
+		// Reproduces https://mint-brand-vote.base44.app/Home: every route answers
+		// HTTP 200 (there is no failure for failuresAreAbsentDocument to see), and
+		// /Favorites, /SellerProfile each render the app's own generic not-found
+		// template -- <h1>404</h1> plus a couple of short lines -- parameterized
+		// only by the route name the visitor asked for. A real thin route (here,
+		// an "Access Denied" gate) must survive untouched.
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		const notFoundHtml = ( routeName: string ) =>
+			`<html><body><div class="text-center"><h1>404</h1><h2>Page Not Found</h2>` +
+			`<p>The page "${ routeName }" could not be found in this application.</p>` +
+			`<button>Go Home</button></div></body></html>`;
+		writeFileSync(
+			join( outputDir, 'html', 'home.html' ),
+			'<html><body><h1>Real Home</h1><p>Welcome to the real homepage, with real content on it.</p></body></html>'
+		);
+		writeFileSync(
+			join( outputDir, 'html', 'admin.html' ),
+			'<html><body><h1>Access Denied</h1></body></html>'
+		);
+		writeFileSync( join( outputDir, 'html', 'favorites.html' ), notFoundHtml( 'Favorites' ) );
+		writeFileSync( join( outputDir, 'html', 'sellerprofile.html' ), notFoundHtml( 'SellerProfile' ) );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/Home': { html: 'html/home.html' },
+					'https://example.com/AdminDashboard': { html: 'html/admin.html' },
+					'https://example.com/Favorites': { html: 'html/favorites.html' },
+					'https://example.com/SellerProfile': { html: 'html/sellerprofile.html' },
+				},
+			} )
+		);
+
+		const receiptPath = exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/Home',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const receipt = JSON.parse( readFileSync( receiptPath, 'utf8' ) );
+		expect( receipt.routes.map( ( r: { url: string } ) => r.url ) ).toEqual( [
+			'https://example.com/Home',
+			'https://example.com/AdminDashboard',
+		] );
+		expect( receipt.excludedRoutes ).toEqual( [
+			'https://example.com/Favorites',
+			'https://example.com/SellerProfile',
+		] );
+		expect( receipt.discoveryDiagnostics ).toEqual( [
+			{
+				code: 'route_not_found',
+				url: 'https://example.com/Favorites',
+				reason:
+					'rendered document is the client-routed not-found screen: a heading of just "404"/"410" on an otherwise thin page',
+			},
+			{
+				code: 'route_not_found',
+				url: 'https://example.com/SellerProfile',
+				reason:
+					'rendered document is the client-routed not-found screen: a heading of just "404"/"410" on an otherwise thin page',
+			},
+		] );
+		expect( existsSync( join( outputDir, 'website', 'Favorites', 'index.html' ) ) ).toBe( false );
+		expect( existsSync( join( outputDir, 'website', 'SellerProfile', 'index.html' ) ) ).toBe( false );
+		expect( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) ).toContain(
+			'Real Home'
+		);
+		expect(
+			readFileSync( join( outputDir, 'website', 'AdminDashboard', 'index.html' ), 'utf8' )
+		).toContain( 'Access Denied' );
+	} );
+
 	it( 'names a route whose HTML file went missing on disk after capture claimed success', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );

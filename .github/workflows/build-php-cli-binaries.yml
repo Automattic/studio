@@ -126,23 +126,39 @@ jobs:
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
           echo "PHP_PACKAGE_ID=$PHP_VERSION-$PHP_PACKAGE_VERSION" >> "$GITHUB_ENV"
 
+      # Linux runs SPC inside the spc-gnu-docker container, which ships its own
+      # PHP + Composer; host PHP is only needed for the macOS path. The two
+      # macOS runners need different treatment:
+      #
+      #   - macos-15-intel preinstalls PHP and Composer, and cannot use
+      #     shivammathur/setup-php: that action installs from the
+      #     shivammathur/php tap, which no longer publishes x86_64 macOS
+      #     bottles. brew then falls back to building PHP from source and the
+      #     step times out after ~30 minutes, failing every macos-x86_64 build.
+      #   - macos-15 (arm64) preinstalls neither, so it keeps using the action,
+      #     which resolves an arm64 bottle quickly.
+      #
+      # SPC only needs PHP >= 8.3 with mbstring and zlib.
       - name: Setup PHP for static-php-cli
-        # Linux runs SPC inside the spc-gnu-docker container, which ships
-        # its own PHP + Composer; host PHP is only needed for the macOS path.
-        #
-        # Uses the runner image's own PHP rather than shivammathur/setup-php:
-        # that action installs from the shivammathur/php tap, which no longer
-        # publishes x86_64 macOS bottles. On macos-15-intel brew then fell back
-        # to building PHP from source and the step timed out after ~30 minutes,
-        # failing every macos-x86_64 build. SPC only needs PHP >= 8.3 with
-        # mbstring and zlib, all of which the image already provides.
-        if: runner.os == 'macOS'
+        if: matrix.target == 'macos-aarch64'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          coverage: none
+          tools: composer:v2
+          php-version: 8.4
+          ini-values: memory_limit=-1
+          extensions: mbstring, zlib
+        env:
+          phpts: nts
+
+      - name: Verify preinstalled PHP for static-php-cli
+        if: matrix.target == 'macos-x86_64'
         shell: bash
         run: |
           set -euo pipefail
 
           if ! command -v php >/dev/null || ! command -v composer >/dev/null; then
-            echo "Expected PHP and Composer to be preinstalled on the runner image." >&2
+            echo "Expected PHP and Composer to be preinstalled on the macOS Intel runner image." >&2
             exit 1
           fi
 

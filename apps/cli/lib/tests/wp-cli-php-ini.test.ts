@@ -1,37 +1,160 @@
-import { Readable } from 'node:stream';
-import { describe, expect, it } from 'vitest';
-import { WpCliResponse } from 'cli/lib/run-wp-cli-command';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
+import { setPhpIniEntries } from '@php-wasm/universal';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getWpCliPhpIniArgs, WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
-const PHP_85_DEPRECATION =
-	'Deprecated: Case statements followed by a semicolon (;) are deprecated, use a colon (:) instead in phar:///wp-cli.phar/vendor/react/promise/src/functions.php on line 369\n';
-const JSON_STDOUT = '[{"name":"akismet","status":"active"}]\n';
+const spawnMock = vi.fn();
+
+vi.mock( 'node:child_process', () => {
+	const mockedModule = { spawn: spawnMock, spawnSync: vi.fn() };
+	return { ...mockedModule, default: mockedModule };
+} );
+
+vi.mock( '@php-wasm/universal', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@php-wasm/universal') >();
+	return {
+		...actual,
+		setPhpIniEntries: vi.fn().mockResolvedValue( undefined ),
+		PHP: class {
+			setSapiName = vi.fn().mockResolvedValue( undefined );
+			defineConstant = vi.fn();
+			mkdir = vi.fn();
+			chdir = vi.fn();
+			writeFile = vi.fn();
+			mount = vi.fn().mockResolvedValue( undefined );
+			exit = vi.fn();
+			// Stops the launcher right after the ini entries are applied, so the test
+			// never has to stand up a real WordPress mount to observe them.
+			setSpawnHandler = vi.fn().mockRejectedValue( new Error( 'stop after ini' ) );
+		},
+	};
+} );
+
+vi.mock( '@php-wasm/node', () => ( {
+	loadNodeRuntime: vi.fn().mockResolvedValue( 1 ),
+	createNodeFsMountHandler: vi.fn(),
+} ) );
+
+vi.mock( 'cli/lib/dependency-management/paths', () => ( {
+	getPhpBinaryPath: () => '/fake/php',
+	getWpCliPharPath: () => '/fake/wp-cli.phar',
+	getSqliteCommandPath: () => '/fake/sqlite-command',
+} ) );
+
+vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
+	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
+} ) );
+
+vi.mock( 'cli/lib/native-php/config', () => ( {
+	getDefaultPhpArgs: () => [ '-c', '/fake/php.ini' ],
+} ) );
+
+vi.mock( 'cli/lib/native-php/php-process', () => ( {
+	DETACH_FOR_GROUP_KILL: false,
+	killPhpProcessTree: vi.fn(),
+	reapPhpTreeOnInterrupt: () => () => {},
+} ) );
+
+vi.mock( 'cli/lib/pull/runtime-start-options', () => ( {
+	loadImportedRuntimeStartOptionsNative: () => undefined,
+} ) );
+
+vi.mock( '@studio/common/lib/mu-plugins', () => ( {
+	writeStudioMuPluginsForNativePhpRuntime: vi.fn().mockResolvedValue( undefined ),
+	cleanupLegacyMuPlugins: vi.fn().mockResolvedValue( undefined ),
+	getMuPlugins: vi.fn().mockResolvedValue( [ '/fake/mu', '/fake/loader.php' ] ),
+} ) );
+
+const site: SiteData = {
+	id: 'site-1',
+	name: 'Site',
+	path: '/fake/site',
+	port: 8881,
+	runtime: 'native-php',
+	fileAccess: 'site-directory',
+	phpVersion: '8.5',
+};
+
+function fakeChild() {
+	const child = new EventEmitter() as EventEmitter & Record< string, unknown >;
+	child.stdout = new PassThrough();
+	child.stderr = new PassThrough();
+	child.exitCode = null;
+	child.signalCode = null;
+	child.killed = false;
+	queueMicrotask( () => child.emit( 'spawn' ) );
+	return child;
+}
+
+beforeEach( () => {
+	vi.clearAllMocks();
+	spawnMock.mockImplementation( () => fakeChild() );
+} );
 
 describe( 'WP-CLI PHP ini policy', () => {
-	it( 'configures native -d arguments that route diagnostics to stderr', () => {
+	it( 'pins the policy values', () => {
+		// Literals on purpose: deriving them from the module under test would make
+		// this assertion pass for any value.
+		expect( WP_CLI_PHP_INI_ENTRIES ).toEqual( {
+			error_reporting: '24575',
+			display_errors: 'stderr',
+			log_errors: 0,
+		} );
+	} );
+
+	it( 'formats the policy as PHP CLI -d arguments', () => {
 		expect( getWpCliPhpIniArgs() ).toEqual( [
 			'-d',
-			`error_reporting=${ WP_CLI_PHP_INI_ENTRIES.error_reporting }`,
+			'error_reporting=24575',
 			'-d',
 			'display_errors=stderr',
 			'-d',
 			'log_errors=0',
 		] );
-		expect( Number( WP_CLI_PHP_INI_ENTRIES.error_reporting ) ).toBe( 32767 & ~8192 );
+	} );
+} );
+
+describe( 'WP-CLI launchers apply the PHP ini policy', () => {
+	it( 'passes the -d arguments to the native PHP binary', async () => {
+		const { runWpCliCommand } = await import( 'cli/lib/run-wp-cli-command' );
+
+		using command = await runWpCliCommand( site, [ 'plugin', 'list' ] );
+		void command;
+
+		expect( spawnMock ).toHaveBeenCalledOnce();
+		const [ , argv ] = spawnMock.mock.calls[ 0 ];
+		expect( argv ).toEqual(
+			expect.arrayContaining( [
+				'-d',
+				'error_reporting=24575',
+				'-d',
+				'display_errors=stderr',
+				'-d',
+				'log_errors=0',
+			] )
+		);
+		// The phar must come after the -d flags, or PHP treats them as script arguments.
+		expect( argv.indexOf( '/fake/wp-cli.phar' ) ).toBeGreaterThan(
+			argv.lastIndexOf( 'display_errors=stderr' )
+		);
 	} );
 
-	it( 'keeps JSON stdout parseable when PHP diagnostics are on stderr', async () => {
-		expect( () => JSON.parse( `${ PHP_85_DEPRECATION }${ JSON_STDOUT }` ) ).toThrow();
+	it( 'sets the policy on a fresh Playground instance', async () => {
+		const { runWpCliCommand } = await import( 'cli/lib/run-wp-cli-command' );
 
-		const response = new WpCliResponse(
-			Readable.from( [ Buffer.from( JSON_STDOUT ) ] ),
-			Readable.from( [ Buffer.from( PHP_85_DEPRECATION ) ] ),
-			Promise.resolve( 0 )
+		await expect(
+			runWpCliCommand( { ...site, runtime: 'playground' }, [ 'plugin', 'list' ] )
+		).rejects.toThrow();
+
+		expect( setPhpIniEntries ).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining( {
+				error_reporting: '24575',
+				display_errors: 'stderr',
+				log_errors: 0,
+			} )
 		);
-
-		expect( JSON.parse( await response.stdoutText ) ).toEqual( [
-			{ name: 'akismet', status: 'active' },
-		] );
-		expect( await response.stderrText ).toBe( PHP_85_DEPRECATION );
 	} );
 } );

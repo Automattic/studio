@@ -246,8 +246,8 @@ const SERVED_MEDIA_MIME_TYPES = new Set( [
 // as written and once resolved.
 async function resolveWithinRoots( roots: string[], requested: string ): Promise< string | null > {
 	for ( const root of roots ) {
-		const candidate = confineToRoot( root, requested );
-		if ( ! candidate ) {
+		const candidate = path.resolve( root, requested );
+		if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
 			continue;
 		}
 		try {

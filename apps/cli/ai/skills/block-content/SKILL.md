@@ -98,10 +98,6 @@ A site's home page is the usual case for this: with a static front page and no `
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
 
-## Header and Footer Parts
-
-A `core/template-part` block renders as `<div class="wp-block-template-part">` unless it sets `tagName`, so CSS aimed at a `header` or `footer` element matches nothing. Templates from `scaffold_theme` write `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->` and `{"slug":"footer","tagName":"footer"}`: keep `tagName` on every header and footer part you place in a template, which also gives the page its landmarks, and keep the part's own root group a plain `div` rather than a second `header` or `footer`.
-
 ## Anchor Links in Shared Parts
 
 Header and footer template parts render on **every** template — blog posts, archives, search results, the 404 page — not just the front page, even on a one-page site. A bare-hash link such as `"url":"#contact"` resolves against whatever URL the visitor is on, so it works on the front page and silently does nothing everywhere else.

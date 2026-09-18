@@ -92,9 +92,9 @@ Inspect the box and its neighbour and compare their `boundingBox` values: equal 
 
 ### Spacing between blocks differs from intent
 
-Symptom: gaps between paragraphs, headings, or sections are larger or smaller than the CSS suggests, or the second column of a grid or flex row sits lower than the first.
+Symptom: gaps between paragraphs, headings, or sections are larger or smaller than the CSS suggests.
 
-Inspect the container's layout class and `display`, and each child's `margin-top`. Flow and constrained layouts space children with `margin-block-start`, grid and flex layouts with `gap`, so a group whose CSS `display` does not match its layout class is the usual cause: fix it per Grid and Flex Containers in the `block-content` skill. When the gap itself is wrong, change the gap, not margins that fight it.
+Vertical rhythm is owned by WordPress layout CSS, not your margins: `:where(.is-layout-flow) > * + *` applies `margin-block-start: var(--wp--style--block-gap)`. Inspect the container and the adjacent blocks — read `customProperties["--wp--style--block-gap"]` and the `margin-top`/`margin-bottom` computed values. If block-gap is fighting your margins, set spacing through `theme.json` `spacing.blockGap` or the block's own spacing, or override knowing that exact selector.
 
 ### Backgrounds inside grids/columns are wrong
 

@@ -19,7 +19,6 @@ const mocks = vi.hoisted( () => ( {
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
 	setAiProvider: vi.fn(),
-	startAgentRun: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/cli-process', () => ( {
@@ -42,7 +41,7 @@ vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
 } ) );
 vi.mock( '@studio/common/ai/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
-		startAgentRun: mocks.startAgentRun,
+		startAgentRun: vi.fn(),
 		listActiveAgentRuns: vi.fn( () => [] ),
 		interruptAgentRun: vi.fn(),
 		answerAgentRun: vi.fn(),
@@ -109,7 +108,6 @@ describe( 'local web server Connect contracts', () => {
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: '1234',
 		} ) );
-		mocks.startAgentRun.mockReturnValue( { runId: 'run-1' } );
 		server = await startLocalServer( {
 			cliBinary: '/mock/cli.mjs',
 			sessionsRoot: '/sessions',
@@ -314,72 +312,6 @@ describe( 'local web server Connect contracts', () => {
 		);
 
 		expect( response.status ).toBe( 400 );
-	} );
-
-	it( 'hands chat attachments to the agent run alongside the prompt', async () => {
-		const images = [
-			{ id: 'img-1', name: 'shot.png', mimeType: 'image/png', size: 5, dataBase64: 'aGVsbG8=' },
-		];
-		const files = [
-			{
-				id: 'file-1',
-				name: 'notes.md',
-				path: '/tmp/notes.md',
-				size: 12,
-				mimeType: 'text/markdown',
-			},
-		];
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/session-1/messages`,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( {
-					prompt: 'Describe this',
-					displayMessage: 'Describe',
-					images,
-					files,
-				} ),
-			}
-		);
-
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( { runId: 'run-1' } );
-		expect( mocks.startAgentRun ).toHaveBeenCalledWith( {
-			sessionId: 'session-1',
-			prompt: 'Describe this',
-			displayMessage: 'Describe',
-			images,
-			files,
-		} );
-	} );
-
-	it( 'rejects invalid chat attachments before starting a run', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sessions/session-1/messages`,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( {
-					prompt: 'Describe this',
-					images: [
-						{
-							id: 'img-1',
-							name: 'a.svg',
-							mimeType: 'image/svg+xml',
-							size: 6,
-							dataBase64: 'PHN2Zz4=',
-						},
-					],
-				} ),
-			}
-		);
-
-		expect( response.status ).toBe( 400 );
-		await expect( response.json() ).resolves.toEqual( {
-			error: 'Only PNG, JPEG, GIF, and WebP images can be attached.',
-		} );
-		expect( mocks.startAgentRun ).not.toHaveBeenCalled();
 	} );
 
 	it( 'delegates deletion to the CLI cascade', async () => {

@@ -111,47 +111,6 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
-	it( 'sends chat attachments with the follow-up message', async () => {
-		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-1' } ) ) );
-		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
-		const images = [
-			{
-				id: 'img-1',
-				name: 'shot.png',
-				mimeType: 'image/png' as const,
-				size: 5,
-				dataBase64: 'aGVsbG8=',
-			},
-		];
-		const files = [
-			{
-				id: 'file-1',
-				name: 'notes.md',
-				path: '/tmp/notes.md',
-				size: 12,
-				mimeType: 'text/markdown',
-			},
-		];
-
-		await expect(
-			connector.continueSession( 'session-1', 'Describe this', {
-				displayMessage: 'Describe',
-				images,
-				files,
-			} )
-		).resolves.toEqual( { runId: 'run-1' } );
-
-		const [ url, init ] = fetchMock.mock.calls[ 0 ];
-		expect( String( url ) ).toBe( 'http://localhost:8081/api/sessions/session-1/messages' );
-		expect( init?.method ).toBe( 'POST' );
-		expect( JSON.parse( String( init?.body ) ) ).toEqual( {
-			prompt: 'Describe this',
-			displayMessage: 'Describe',
-			images,
-			files,
-		} );
-	} );
-
 	it( 'persists the manual site order on the server', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );

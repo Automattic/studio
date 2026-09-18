@@ -70,7 +70,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
@@ -899,6 +899,20 @@ async function cleanupStaticSiteImporterPlugin(
 	}
 }
 
+function reportRetainedImportedSite( site: SiteData ): void {
+	const siteUrl = getSiteUrl( site );
+	console.log( '' );
+	console.log(
+		site.running
+			? __( 'The site is running and can be inspected.' )
+			: __( 'The imported site was kept and can be inspected.' )
+	);
+	console.log( sprintf( __( 'Path: %s' ), site.path ) );
+	console.log( sprintf( __( 'URL: %s' ), siteUrl ) );
+	console.log( __( 'Re-run the same command to resume the import.' ) );
+	console.log( '' );
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions,
@@ -1016,6 +1030,7 @@ export async function runCommand(
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
+				reportRetainedImportedSite( existingSite );
 				throw new LoggerError( __( 'Failed to import static site' ), error );
 			}
 			return;
@@ -1230,6 +1245,8 @@ export async function runCommand(
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
+				} else {
+					reportRetainedImportedSite( siteDetails );
 				}
 				throw new LoggerError(
 					staticSiteImport
@@ -1277,6 +1294,8 @@ export async function runCommand(
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );
 						}
+					} else {
+						reportRetainedImportedSite( siteDetails );
 					}
 					throw new LoggerError(
 						staticSiteImport

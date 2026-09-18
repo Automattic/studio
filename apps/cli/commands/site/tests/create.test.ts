@@ -169,6 +169,31 @@ describe( 'CLI: studio create', () => {
 	let fsMkdirSyncSpy: MockInstance;
 	let loggerReportSuccessSpy: MockInstance;
 
+	const printedOutput = () =>
+		consoleLogSpy.mock.calls.map( ( args ) => args.map( String ).join( ' ' ) ).join( '\n' );
+
+	const expectRetainedImportedSiteReported = ( {
+		sitePath = mockSitePath,
+		url = `http://localhost:${ mockPort }`,
+		running = false,
+	}: {
+		sitePath?: string;
+		url?: string;
+		running?: boolean;
+	} = {} ) => {
+		const output = printedOutput();
+		expect( output ).toContain( sitePath );
+		expect( output ).toContain( url );
+		expect( output ).toContain(
+			running
+				? 'The site is running and can be inspected.'
+				: 'The imported site was kept and can be inspected.'
+		);
+		expect( output ).toContain( 'Re-run the same command to resume the import.' );
+		expect( output ).not.toContain( 'generated-password-123' );
+		expect( logSiteDetails ).not.toHaveBeenCalled();
+	};
+
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const path = require( 'path' );
 		const bundledWPPath = path.join( '/test/server-files', 'wordpress-versions', 'latest' );
@@ -1476,6 +1501,7 @@ describe( 'CLI: studio create', () => {
 			).rejects.toThrow(
 				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
 			);
+			expectRetainedImportedSiteReported();
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
@@ -1527,6 +1553,7 @@ describe( 'CLI: studio create', () => {
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
 				'Static site imported successfully'
 			);
+			expectRetainedImportedSiteReported();
 		} );
 
 		it( 'rejects a completed SSI receipt when its report summary fails quality', async () => {
@@ -1564,6 +1591,7 @@ describe( 'CLI: studio create', () => {
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
 				'Static site imported successfully'
 			);
+			expectRetainedImportedSiteReported();
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,
@@ -1632,6 +1660,88 @@ describe( 'CLI: studio create', () => {
 			).rejects.toThrow(
 				'Failed to import static site: Static site import failed quality validation: SSI reported 1 core_html_block failure. Review the importer diagnostics and retry.'
 			);
+			expectRetainedImportedSiteReported();
+			expect( process.exitCode ).toBeUndefined();
+		} );
+
+		it( 'reports a surviving started site when quality validation fails', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									core_html_block_count: 10,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 10 core_html_block failures. Review the importer diagnostics and retry.'
+			);
+
+			expectRetainedImportedSiteReported( { running: true } );
+			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
+			expect( openSiteInBrowser ).not.toHaveBeenCalled();
+			expect( process.exitCode ).toBeUndefined();
+		} );
+
+		it( 'exits non-zero through the CLI handler after a quality-failed import', async () => {
+			const artifactPath = createCapturedSiteArtifact();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									core_html_block_count: 10,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				artifactPath,
+				'--name',
+				'Imported Site',
+				'--skip-browser',
+			] );
+
+			expect( process.exitCode ).toBe( 1 );
+			expectRetainedImportedSiteReported( { running: true } );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

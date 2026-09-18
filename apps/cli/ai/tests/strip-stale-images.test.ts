@@ -3,65 +3,37 @@ import {
 	STALE_IMAGE_PLACEHOLDER_TEXT,
 	stripStaleImagesFromContext,
 } from '../runtimes/pi/strip-stale-images';
-import type { Context, ImageContent, TextContent } from '@earendil-works/pi-ai';
+import type { Message } from '@earendil-works/pi-ai';
 
-function imageBlock( label = 'pixels' ): ImageContent {
-	return { type: 'image', data: Buffer.from( label ).toString( 'base64' ), mimeType: 'image/jpeg' };
-}
+const screenshot = ( id: number, bytes: number ): Message => ( {
+	role: 'toolResult',
+	toolCallId: `tool-${ id }`,
+	toolName: 'take_screenshot',
+	content: [ { type: 'image', data: 'x'.repeat( bytes ), mimeType: 'image/jpeg' } ],
+	isError: false,
+	timestamp: id,
+} );
 
-function textBlock( text: string ): TextContent {
-	return { type: 'text', text };
-}
-
-function context( messages: Context[ 'messages' ] ): Context {
-	return { messages };
-}
+const stripped = { content: [ { type: 'text', text: STALE_IMAGE_PLACEHOLDER_TEXT } ] };
 
 describe( 'stripStaleImagesFromContext', () => {
-	it( 'leaves the context untouched when at most one message carries images', () => {
-		const onlyScreenshot = context( [
-			{
-				role: 'toolResult',
-				toolCallId: 'tool-1',
-				toolName: 'take_screenshot',
-				content: [ textBlock( 'Screenshot captured' ), imageBlock( 'desktop' ) ],
-				isError: false,
-				timestamp: 1,
-			},
-		] );
-		expect( stripStaleImagesFromContext( onlyScreenshot ) ).toBe( onlyScreenshot );
+	it( 'keeps the newest images that fit the budget and replaces older ones', () => {
+		const messages = [ screenshot( 1, 4 ), screenshot( 2, 4 ), screenshot( 3, 4 ) ];
 
-		const noImages = context( [
-			{ role: 'user', content: [ textBlock( 'hello' ) ], timestamp: 1 },
+		const result = stripStaleImagesFromContext( { messages }, 8 );
+
+		expect( result.messages ).toEqual( [
+			expect.objectContaining( stripped ),
+			messages[ 1 ],
+			messages[ 2 ],
 		] );
-		expect( stripStaleImagesFromContext( noImages ) ).toBe( noImages );
 	} );
 
-	it( 'replaces image blocks in older messages with a placeholder and keeps the latest images', () => {
-		const ctx = context( [
-			{
-				role: 'toolResult',
-				toolCallId: 'tool-1',
-				toolName: 'take_screenshot',
-				content: [ textBlock( 'First' ), imageBlock( 'old' ) ],
-				isError: false,
-				timestamp: 1,
-			},
-			{
-				role: 'toolResult',
-				toolCallId: 'tool-2',
-				toolName: 'take_screenshot',
-				content: [ textBlock( 'Second' ), imageBlock( 'new' ) ],
-				isError: false,
-				timestamp: 2,
-			},
-		] );
+	it( 'keeps the newest images even when they alone exceed the budget', () => {
+		const messages = [ screenshot( 1, 4 ), screenshot( 2, 100 ) ];
 
-		const result = stripStaleImagesFromContext( ctx );
-		expect( ( result.messages[ 0 ] as { content: unknown[] } ).content ).toEqual( [
-			textBlock( 'First' ),
-			textBlock( STALE_IMAGE_PLACEHOLDER_TEXT ),
-		] );
-		expect( result.messages[ 1 ] ).toBe( ctx.messages[ 1 ] );
+		const result = stripStaleImagesFromContext( { messages }, 10 );
+
+		expect( result.messages ).toEqual( [ expect.objectContaining( stripped ), messages[ 1 ] ] );
 	} );
 } );

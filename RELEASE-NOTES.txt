@@ -1,6 +1,85 @@
 Unreleased
 ==========
 
+1.22.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Studio Code: scaffold_theme treats an empty parentTheme as no parent #4789
+* build(deps): bump fastlane from 2.238.0 to 2.239.0 in the ruby-minor-and-patch group #4793
+* Update PHP 8.4.25-studio-1 metadata #4742
+* Update PHP 8.5.10-studio-1 metadata #4741
+* AI credits: add top-up confirmation toast #4745
+* Agentic UI: Realign sidebar add/toggle buttons with the site status dots #4765
+* Fix broken build in AI credits notice by using public ThemeProvider API #4799
+* Studio Code: set the scaffolded theme's screenshot from the final desktop capture #4763
+* Have Studio Code validate theme template and part files right after writing them #4801
+* Studio Code: keep take_screenshot for text-only models and gate visual verification on vision #4803
+* Keep standalone CLI bundles out of the release Slack message #4795
+* Remove the Dolly remote-session feature #4798
+* Update Playground and PHP-WASM packages to 3.1.53 #4800
+* Update lock files to resolve fixable Dependabot alerts #4806
+* build(deps): bump colord from 2.9.3 to 2.10.0 in /packages/data-liberation-agent/scripts/block-fixer #4810
+* Agentic UI: Warn in the composer at 90% AI credit usage and complete the exhausted state #4714
+* Studio Code: signature layout concepts with a random pool, an agent shortlist, and a code-side draw #4780
+* Studio Code: draw an artistic direction alongside the layout concept from a 14-entry catalog #4804
+* AI credits: Warn at 80% usage in the sidebar and above the Classic composer #4722
+* Keep WordPress auto-updates on for sites created before the setting existed #4715
+* Agentic UI: Rework the signed-out Studio Code prompt into a feature carousel with animated demos #4767
+* Studio Code: only ask about creating a new site when the prompt names a different site #4812
+* Studio Code: clear tool progress after the call ends and rotate the thinking label per step #4814
+* Update SQLite database integration to v3.0.2 #4815
+* build(deps): bump anthropics/claude-code-action from 1.0.213 to 1.0.219 #4816
+* build(deps): bump softprops/turnstyle from 3.3.2 to 3.3.3 #4817
+* [Design Exploration] Browser-style preview toolbar #4746
+* Fix unclickable Studio Code nudge by opting it out of the window drag region #4818
+* Fix site boot failure when the SQLite database is left in WAL mode #4819
+* Agentic UI: Make sidebar notices legible and add a recent notifications dialog #4777
+* Studio Code: let the user pick a design from four drawn pairs, with rendered sneak peeks in the app #4813
+* Studio Code: support multi-select questions in AskUserQuestion #4830
+* Studio Code: answer pending questions from the prompt box instead of queueing #4831
+* Studio Code: shorten the Pick design tool row and stop revealing the agent's picks #4832
+* build(deps): bump the ruby-minor-and-patch group with 2 updates #4835
+* Agentic UI: Fix sidebar footer spacing around the beta bubble and Settings row #4822
+* Agentic UI: Fix chat opening at the top after a cold start #4823
+* Point the Antigravity editor option at Antigravity IDE #4820
+* Studio Code: pick the look first and save it as DESIGN.md, then pick the layout in that look #4833
+* Dim the preview around the element being annotated #4825
+* Always send an admin password so a renamed admin user can't block site startup #4821
+* Agentic UI: add a "What should we create?" brief to site creation that opens the chat with it as the first prompt #4836
+* Studio Code: widen the artistic direction catalog beyond cream grounds #4839
+* Import .wpress archives with entries larger than 2 GiB #4797
+* Support plain .tar backup imports #4838
+* build(deps): bump aws-sdk-cloudfront from 1.153.0 to 1.154.0 in the ruby-minor-and-patch group #4844
+* Studio Code: track the design options proposed and picked #4842
+* Add SCRIPT_DEBUG and WP_ENVIRONMENT_TYPE toggles to site debug settings #4344
+* Studio Code: unblock multi-question prompts with a user reply #4689
+* Studio Code: fill the layout preview frame and share one image set across design previews #4841
+* Update Xcode to 27.0 #4847
+* Drop oversized environment values before spawning child processes #4848
+* Studio Code: distinguish unclosed DESIGN.md front matter from a missing opening delimiter #4849
+* Replace wpcom model choices with fast/balanced/strong capability tiers #4727
+* Studio Code: stop validate_blocks from flagging valid core/html (SVG/script) blocks on WordPress 7.1 #4853
+* Agentic UI: remove dead code, unused connector members and stale exports #4850
+* Studio Code: batch file edits per turn and let tools document themselves in the prompt #4858
+* Restore the Wapuu World level editor in the Agentic UI #4859
+* Agentic UI: flatten the ui-classic folder into src #4860
+* Studio Code: resolve validate_blocks filePath relative to the site root #4854
+* Restore PHP runtime and file access settings in the Agentic UI #4845
+* Agentic UI: copy notices through the connector so the Copy button works in the Desktop app #4866
+* Agentic UI: replace hardcoded colors with theme tokens #4870
+* Agentic UI: Fix zoom shortcuts with focused preview #4573
+* Keep the annotation note in place: draggable popup and scroll lock #4827
+* Let annotations pick between the elements stacked under the click #4826
+* Agentic UI: reuse the shared Open in destinations in the site list menu #4869
+* Studio Code: fill the scaffolded theme.json from DESIGN.md via a new @studio/design-md package #4855
+* Studio Code: send smaller screenshots and stop rewriting the image history on every capture #4868
+* Agentic UI: move the sidebar toggle out of the sidebar into the panel #4861
+* Agentic UI: make the sync dialog follow the app color scheme #4871
+* Draft What's New copy for the upcoming Studio release #4862
+* Agentic UI: Add a preview zoom option #4775
+* @samuelmbabhazi made their first contribution in https://github.com/Automattic/studio/pull/4797
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.21.0...v1.22.0
+
 1.21.0
 =====
 * Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI's end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal #4681, #4758, #4712, #4695

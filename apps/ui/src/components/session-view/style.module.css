@@ -12,13 +12,6 @@
 	);
 	--panel-control-left: var(--wpds-dimension-padding-xl);
 	--panel-control-gap: var(--wpds-dimension-gap-xs);
-	--panel-footer-left: min(
-		var(--panel-control-left),
-		max(
-			var(--composer-outer-inline-padding),
-			calc((100% - var(--composer-column-max-width)) / 2)
-		)
-	);
 	--header-height: 46px;
 	--composer-height: 0px;
 	--panel-footer-height: 0px;
@@ -168,7 +161,6 @@
 
 .panelFooterControls {
 	position: absolute;
-	inset-inline-start: var(--panel-footer-left);
 	/* Sit the strip low in its reserved band so the controls read as anchored
 	   to the panel's bottom edge rather than floating under the composer. The
 	   strip's own bottom padding keeps the buttons and their focus rings clear
@@ -183,7 +175,10 @@
 	-webkit-app-region: no-drag;
 }
 
-.panelFooterControlsCollapsed {
+/* Applied on top of .panelFooterControls to anchor the strip to the inline-
+   start edge, clearing the sidebar toggle that owns the panel's bottom-left
+   corner (see sidebar-layout's `.floatingToggle`). The 24px is its icon box. */
+.panelFooterControlsStart {
 	inset-inline-start: calc(
 		var(--wpds-dimension-padding-xl) + 24px + var(--panel-control-gap)
 	);

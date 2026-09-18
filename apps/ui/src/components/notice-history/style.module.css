@@ -1,7 +1,10 @@
-/* Same weight as the sidebar toggle beside it (user-menu's `.sidebarToggle`);
-   the button paints its own foreground, so the color has to land on it. */
+/* Trailing control of the sidebar footer row: the button paints its own
+   foreground, so the color has to land on it, and the pull-back lands its
+   trailing edge on the row's `lg` column (see user-menu's
+   `--user-menu-trailing-offset`). */
 .bell {
 	color: var(--wpds-color-foreground-content-neutral-weak);
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
 /* A quiet footnote under the list rather than a subtitle above it: it

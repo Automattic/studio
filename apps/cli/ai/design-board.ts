@@ -1,14 +1,10 @@
-import { parse } from 'yaml';
-
-type Style = Record< string, unknown >;
-
-interface DesignTokens {
-	colors?: Record< string, unknown >;
-	typography?: Record< string, unknown >;
-	rounded?: Record< string, unknown >;
-	components?: Record< string, unknown >;
-	imagery?: { filter?: unknown; overlay?: unknown };
-}
+import {
+	fontFamilyName as fontFamily,
+	googleFontsUrl,
+	parseDesignMd,
+	Style,
+	typographyStyles,
+} from '@studio/design-md';
 
 const escapeHtml = ( value: unknown ) =>
 	String( value ).replace( /[&<>"']/g, ( char ) => `&#${ char.charCodeAt( 0 ) };` );
@@ -31,15 +27,8 @@ function luminance( color: string ): number {
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function fontFamily( style: Style ): string {
-	return String( style.fontFamily ?? '' )
-		.split( ',' )[ 0 ]
-		.trim()
-		.replace( /^["']|["']$/g, '' );
-}
-
 function fontCss( style: Style ): string {
-	const family = fontFamily( style );
+	const family = fontFamily( style.fontFamily );
 	return [
 		family && `font-family:"${ css( family ) }",sans-serif`,
 		style.fontWeight !== undefined && `font-weight:${ css( style.fontWeight ) }`,
@@ -50,47 +39,16 @@ function fontCss( style: Style ): string {
 }
 
 function fontLinks( styles: Style[] ): string {
-	const weights = new Map< string, Set< string > >();
-	for ( const style of styles ) {
-		const family = fontFamily( style );
-		if ( family ) {
-			weights.set(
-				family,
-				( weights.get( family ) ?? new Set< string >() ).add( String( style.fontWeight ?? 400 ) )
-			);
-		}
-	}
-	return [ ...weights ]
-		.flatMap( ( [ family, familyWeights ] ) => {
-			const query = encodeURIComponent( family ).replace( /%20/g, '+' );
-			return [ `${ query }:wght@${ [ ...familyWeights ].sort().join( ';' ) }`, query ];
-		} )
-		.map(
-			( query ) =>
-				`<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${ query }&amp;display=block">`
-		)
-		.join( '\n' );
+	const url = googleFontsUrl( styles, 'block' );
+	return url ? `<link rel="stylesheet" href="${ url.replace( /&/g, '&amp;' ) }">` : '';
 }
 
 export function renderDesignBoard( design: string, image?: string ): string {
-	const frontMatter = design.trimStart().match( /^---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
-	if ( ! frontMatter ) {
-		if ( design.trimStart().startsWith( '---' ) ) {
-			throw new Error(
-				"The DESIGN.md draft's front matter is never closed — end the YAML block with a second --- line before the prose."
-			);
-		}
-		throw new Error(
-			'The DESIGN.md draft must start with YAML front matter, opening with a --- line.'
-		);
-	}
-	const tokens: DesignTokens = parse( frontMatter ) ?? {};
+	const tokens = parseDesignMd( design );
 	const colors = Object.entries( tokens.colors ?? {} ).filter(
 		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
 	);
-	const styles = Object.entries( tokens.typography ?? {} ).filter(
-		( entry ): entry is [ string, Style ] => typeof entry[ 1 ] === 'object' && entry[ 1 ] !== null
-	);
+	const styles = typographyStyles( tokens );
 	if ( colors.length < 2 || ! styles.length ) {
 		throw new Error(
 			'The DESIGN.md front matter needs at least two colors, as quoted hex values (primary: "#c2552b"), and one typography style.'
@@ -141,7 +99,7 @@ export function renderDesignBoard( design: string, image?: string ): string {
 	const label = styleNamed( 'label' ) ?? body;
 	const specimen = ( className: string, style: Style ) =>
 		`<figure><div class="aa ${ className }">Aa</div><figcaption>${ escapeHtml(
-			[ fontFamily( style ), style.fontWeight ].filter( Boolean ).join( ' · ' )
+			[ fontFamily( style.fontFamily ), style.fontWeight ].filter( Boolean ).join( ' · ' )
 		) }</figcaption></figure>`;
 
 	const resolve = ( value: unknown ): unknown => {
@@ -248,15 +206,16 @@ ${
 </head>
 <body>
 <section><h2>Type</h2><div class="specimens">${ specimen( 'display', display ) }${
-		fontFamily( display ) !== fontFamily( body ) || display.fontWeight !== body.fontWeight
+		fontFamily( display.fontFamily ) !== fontFamily( body.fontFamily ) ||
+		display.fontWeight !== body.fontWeight
 			? specimen( 'reading', body )
 			: ''
 	}</div><div class="scale"><p class="headline">Headline in ${ escapeHtml(
-		fontFamily( headline )
+		fontFamily( headline.fontFamily )
 	) }</p><p class="sample">Body text in ${ escapeHtml(
-		fontFamily( body )
+		fontFamily( body.fontFamily )
 	) } sets long reads, captions and forms.</p><p class="label">Label in ${ escapeHtml(
-		fontFamily( label )
+		fontFamily( label.fontFamily )
 	) }</p></div></section>
 <section><h2>Color</h2><div class="palette"><div class="lead">${ tile(
 		palette[ 0 ]

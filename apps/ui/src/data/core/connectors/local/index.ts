@@ -714,6 +714,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( {
 					prompt,
 					displayMessage: options?.displayMessage,
+					images: options?.images,
+					files: options?.files,
 					visualAnnotations: options?.visualAnnotations,
 				} ),
 			} );
@@ -862,10 +864,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
-		async openSiteUrl( siteId, relativeUrl = '' ) {
+		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
-			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
-			window.open( target, '_blank', 'noopener,noreferrer' );
+			const siteUrl = findSiteUrl( sites, siteId );
+			let target = new URL( relativeUrl || '/', siteUrl );
+			// Mirrors the desktop host's `openSiteURL`: go through the site's
+			// /studio-auto-login endpoint so admin screens don't land on the
+			// login form.
+			if ( autoLogin ) {
+				const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+				autoLoginUrl.searchParams.set( 'redirect_to', target.toString() );
+				target = autoLoginUrl;
+			}
+			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
 		},
 		async getWordPressSkillsStatusAllSites() {
 			return [];

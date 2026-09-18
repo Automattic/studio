@@ -326,7 +326,6 @@ async function createStudioAgentSession(
 					chatArtifactsEnabled,
 					runtime,
 					userInstructions,
-					imageGenerationEnabled,
 					visionEnabled,
 					tools: tools.map( toolPromptContribution ),
 			  }

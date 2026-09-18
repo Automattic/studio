@@ -1,35 +1,37 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
 describe( 'getNativePhpIniContents', () => {
+	const originalPlatform = process.platform;
+
+	function setPlatform( platform: NodeJS.Platform ) {
+		Object.defineProperty( process, 'platform', { value: platform } );
+	}
+
+	afterEach( () => {
+		setPlatform( originalPlatform );
+	} );
+
 	it( 'disables the request time limit so the cli-server SAPI 30s default does not apply', () => {
 		const contents = getNativePhpIniContents( '8.4' );
 
 		expect( contents.split( /\r?\n/ ) ).toContain( 'max_execution_time=0' );
 	} );
 
-	it( 'leaves extensions to the statically linked binary off Windows', () => {
+	it( 'leaves extension loading to the statically linked binary on macOS and Linux', () => {
+		setPlatform( 'darwin' );
+
 		const contents = getNativePhpIniContents( '8.4' );
 
 		expect( contents ).not.toContain( 'extension=soap' );
 	} );
 
-	describe( 'on Windows', () => {
-		const originalPlatform = process.platform;
+	it( 'loads SOAP from the DLL that ships in the Windows package', () => {
+		setPlatform( 'win32' );
 
-		beforeAll( () => {
-			Object.defineProperty( process, 'platform', { value: 'win32' } );
-		} );
+		const contents = getNativePhpIniContents( '8.4' );
 
-		afterAll( () => {
-			Object.defineProperty( process, 'platform', { value: originalPlatform } );
-		} );
-
-		it( 'loads SOAP from the DLL that ships in the Windows package', () => {
-			const contents = getNativePhpIniContents( '8.4' );
-
-			expect( contents.split( /\r?\n/ ) ).toContain( 'extension=soap' );
-		} );
+		expect( contents.split( /\r?\n/ ) ).toContain( 'extension=soap' );
 	} );
 } );
 

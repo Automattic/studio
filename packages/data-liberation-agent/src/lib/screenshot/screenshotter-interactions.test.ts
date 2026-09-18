@@ -14,7 +14,8 @@ vi.mock( '../url/index.js', async ( importOriginal ) => {
 	};
 } );
 
-vi.mock( '../browser-kit/index.js', () => ( {
+vi.mock( '../browser-kit/index.js', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import( '../browser-kit/index.js' ) >() ),
 	connectBrowser: vi.fn(),
 } ) );
 

@@ -345,7 +345,11 @@ export async function settleScrollReactiveChrome( page: Page ): Promise< void > 
 
 export const capture: LiberationHooks = {
   cleanupRules: [
-    { id: 'wix-free-banner', category: 'source-attribution', selector: '#WIX_ADS' },
+    // Wix publishes the measured height of its own banner into these, and its
+    // layout reads them from the sticky header, the page root and the pinned
+    // menu layer. The value is live-session state, not the owner's design.
+    { id: 'wix-free-banner', category: 'source-attribution', selector: '#WIX_ADS',
+      reclaimVariables: ['--wix-ads-height', '--wix-ads-top-height', '--sticky-offset'] },
     ...providerCreditRules('wix', ['wix.com'], 'Wix'),
   ],
 	removeSelectors: [ '[id="WIX_ADS"]', '[id$="-hiddenA11ySubMenuIndication"]' ],

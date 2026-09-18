@@ -1,4 +1,5 @@
 import type { Browser, Page } from 'playwright';
+import { desktopContextOptions } from './browser-kit/browser-kit.js';
 import { safeFetch, assertPublicHttpUrl } from './media-fetch/safe-fetch.js';
 
 /**
@@ -87,7 +88,11 @@ export async function createRenderedInspector(signal: AbortSignal, requestTimeou
     async inspect(url: string, rules: CapabilityRule[] = [], residue: HostResidue[] = []): Promise<RenderedInspection> {
       signal.throwIfAborted();
       assertPublicHttpUrl(url);
-      const context = await browser!.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 900 } });
+      const context = await browser!.newContext({
+        ...(await desktopContextOptions(browser!)),
+        serviceWorkers: 'block',
+        viewport: { width: 1440, height: 900 },
+      });
       const page: Page = await context.newPage();
       let requests = 0;
       let bytes = 0;

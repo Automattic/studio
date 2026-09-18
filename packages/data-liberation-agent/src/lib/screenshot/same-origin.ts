@@ -15,8 +15,19 @@ export class SameOriginViolation extends Error {
  */
 export function canonicalizeOrigin(rawUrl: string): string {
   const parsed = new URL(rawUrl);
-  const host = parsed.host.replace(/^www\./i, '');
-  return `${parsed.protocol}//${host}`;
+  return `${parsed.protocol}//${canonicalizeHost(parsed)}`;
+}
+
+/**
+ * The host (with any non-default port) minus a single leading `www.` — the
+ * scheme-independent part of `canonicalizeOrigin`. Sitemaps are published by
+ * the site, not fetched by capture, and routinely list `http://` or the other
+ * `www` variant of the host they are served from, so discovery compares on this
+ * and then rewrites accepted entries onto the entry URL's own origin.
+ */
+export function canonicalizeHost(url: string | URL): string {
+  const parsed = typeof url === 'string' ? new URL(url) : url;
+  return parsed.host.replace(/^www\./i, '');
 }
 
 /**

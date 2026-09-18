@@ -9,7 +9,8 @@ const mocks = vi.hoisted( () => ( {
 	getReplayableResponse: vi.fn(),
 } ) );
 
-vi.mock( '../browser-kit/index.js', () => ( {
+vi.mock( '../browser-kit/index.js', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import( '../browser-kit/index.js' ) >() ),
 	connectBrowser: vi.fn(),
 } ) );
 
@@ -82,6 +83,13 @@ describe( 'screenshot resource capture', () => {
 			} ) );
 		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
 			newContext,
+			newBrowserCDPSession: vi.fn().mockResolvedValue( {
+				send: vi.fn().mockResolvedValue( {
+					userAgent:
+						'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36',
+				} ),
+				detach: vi.fn().mockResolvedValue( undefined ),
+			} ),
 			close: vi.fn().mockResolvedValue( undefined ),
 		} );
 
@@ -99,6 +107,14 @@ describe( 'screenshot resource capture', () => {
 				expect.stringContaining( 'mobile-only.jpg' ),
 				'https://example.com/'
 			);
+			// Desktop loads as the bundled browser, minus the headless marker that
+			// anti-bot challenges refuse.
+			const desktopContext = newContext.mock.calls[ 0 ][ 0 ];
+			expect( desktopContext ).toMatchObject( {
+				viewport: { width: 1440 },
+				userAgent:
+					'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36',
+			} );
 			const mobileContext = newContext.mock.calls[ 1 ][ 0 ];
 			expect( mobileContext ).toMatchObject( {
 				viewport: { width: 402, height: 681 },

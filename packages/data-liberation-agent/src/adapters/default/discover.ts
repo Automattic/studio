@@ -1,6 +1,6 @@
-import { fetchSitemapWithDiagnostics, classifyUrl } from '../../lib/extraction/sitemap.js';
+import { fetchSitemapWithDiagnostics, classifyUrl, extractSameOriginLinks } from '../../lib/extraction/sitemap.js';
 import { extractMeta, extractTitle, extractNavLinks } from '../../lib/html-extract/index.js';
-import { getPlaywright } from '../../lib/browser-kit/browser-kit.js';
+import { desktopContextOptions, getPlaywright } from '../../lib/browser-kit/browser-kit.js';
 import type { InventoryUrl } from '../shared.js';
 import type { DefaultInventory } from './types.js';
 
@@ -47,7 +47,7 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
       const pw = await getPlaywright();
       const browser = await pw.chromium.launch({ headless: true });
       try {
-        const page = await browser.newPage();
+        const page = await browser.newPage(await desktopContextOptions(browser));
         await page.goto(normalized, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
         const renderedNavigation = extractNavLinks(await page.content(), page.url());
@@ -66,13 +66,25 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
   const counts: Record<string, number> = {};
   const inventoryUrls: InventoryUrl[] = [];
   const discoveredUrls = new Set(sitemapUrls);
+  const knownRoutes = new Set(sitemapUrls.map(routeKey));
   const origin = new URL(normalized).origin;
-  for (const href of [...navigation.map((link) => link.href), ...renderedHeaderUrls]) {
+  // A sitemap is not a complete route list: builders routinely omit legal and
+  // CTA pages that are linked only from site chrome, which may be a plain
+  // `div` rather than a <footer>. Merge the homepage's own same-origin links
+  // whatever the sitemap's size, skipping any that differ from a known route
+  // only by a trailing slash or query string — capture treats those as one.
+  for (const href of [
+    ...navigation.map((link) => link.href),
+    ...renderedHeaderUrls,
+    ...extractSameOriginLinks(homepageHtml, normalized),
+  ]) {
     const linkUrl = new URL(href);
-    if (linkUrl.origin === origin && ['http:', 'https:'].includes(linkUrl.protocol)) {
-      linkUrl.hash = '';
-      discoveredUrls.add(linkUrl.href);
-    }
+    if (linkUrl.origin !== origin || !['http:', 'https:'].includes(linkUrl.protocol)) continue;
+    linkUrl.hash = '';
+    const key = routeKey(linkUrl.href);
+    if (knownRoutes.has(key)) continue;
+    knownRoutes.add(key);
+    discoveredUrls.add(linkUrl.href);
   }
   for (const u of discoveredUrls) {
     const type = classifyUrl(u);
@@ -98,4 +110,12 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
     urls: inventoryUrls,
     diagnostics: sitemap.diagnostics,
   };
+}
+
+function routeKey(url: string): string {
+  const route = new URL(url);
+  route.hash = '';
+  route.search = '';
+  route.pathname = route.pathname.replace(/\/$/, '') || '/';
+  return route.href;
 }

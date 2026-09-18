@@ -5,6 +5,7 @@ type PwPage = { close(): Promise<void> };
 const CLOSE_TIMEOUT_MS = 3_000;
 const CREATE_TIMEOUT_MS = 30_000;
 const CONNECT_TIMEOUT_MS = 60_000;
+const IDENTITY_TIMEOUT_MS = 5_000;
 
 type PwBrowser = {
   contexts(): Array<{ newPage(): Promise<PwPage> }>;
@@ -44,6 +45,72 @@ export async function connectBrowser(opts: ConnectBrowserOpts): Promise<PwBrowse
   return await pw.chromium.launch({ headless: !opts.headed });
 }
 
+/**
+ * The desktop browser identity a source page is loaded with: the browser's own
+ * user agent, with the headless marker removed. Playwright's headless Chromium
+ * announces itself as `HeadlessChrome/<version>`, and anti-bot challenges
+ * (Cloudflare `cf-mitigated: challenge`) refuse it outright, so a page that
+ * serves real visitors returns a 403 to capture. Mobile capture already loads as
+ * a real device (iPhone 17); this is the desktop counterpart.
+ *
+ * The version and platform stay the bundled browser's own, so the identity never
+ * goes stale. A user agent without the marker (a real Chrome over CDP) is left
+ * alone, and a browser that cannot report its user agent gets no override.
+ */
+export function desktopUserAgent(nativeUserAgent: string): string | undefined {
+  return nativeUserAgent.includes('HeadlessChrome/')
+    ? nativeUserAgent.replace('HeadlessChrome/', 'Chrome/')
+    : undefined;
+}
+
+type CdpCapableBrowser = {
+  newBrowserCDPSession?(): Promise<{
+    send(method: 'Browser.getVersion'): Promise<{ userAgent: string }>;
+    detach(): Promise<void>;
+  }>;
+};
+
+const desktopContexts = new WeakMap<object, Promise<{ userAgent?: string }>>();
+
+/**
+ * Context options that give a desktop page a real desktop-browser identity.
+ * Spread into every `newContext`/`newPage` that loads the source site, so
+ * discovery, capture and comparison all present the same browser. Resolved
+ * once per browser and never throws.
+ */
+export function desktopContextOptions(browser: object): Promise<{ userAgent?: string }> {
+  let pending = desktopContexts.get(browser);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const cdp = browser as CdpCapableBrowser;
+        if (typeof cdp.newBrowserCDPSession !== 'function') return {};
+        const session = await withTimeout(
+          cdp.newBrowserCDPSession(),
+          IDENTITY_TIMEOUT_MS,
+          'cdp session',
+          (late) => void late.detach().catch(() => {})
+        );
+        try {
+          const { userAgent } = await withTimeout(
+            session.send('Browser.getVersion'),
+            IDENTITY_TIMEOUT_MS,
+            'browser version'
+          );
+          const desktop = desktopUserAgent(userAgent);
+          return desktop ? { userAgent: desktop } : {};
+        } finally {
+          await session.detach().catch(() => {});
+        }
+      } catch {
+        return {};
+      }
+    })();
+    desktopContexts.set(browser, pending);
+  }
+  return pending;
+}
+
 export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }): Promise<{
   browser: PwBrowser;
   page: unknown;
@@ -59,8 +126,12 @@ export async function launchBrowser(opts: { cdpPort?: number; headed?: boolean }
   );
   const browser = raw as unknown as PwBrowser;
 
-  const newContext = () =>
-    withTimeout(browser.newContext(), CREATE_TIMEOUT_MS, 'context create');
+  const newContext = async () =>
+    withTimeout(
+      browser.newContext(await desktopContextOptions(raw)),
+      CREATE_TIMEOUT_MS,
+      'context create'
+    );
   let page: PwPage;
   try {
     const ctx = opts.cdpPort

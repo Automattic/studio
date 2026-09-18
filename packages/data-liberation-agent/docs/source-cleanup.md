@@ -8,7 +8,7 @@ Wix free banners and Webflow badges have explicit rules. Generic rules recognize
 
 A final `builder-chrome` rule catches host-platform badges from builders with no adapter of their own: a viewport-fixed element making an authoring offer ("edit/made/built/created/designed/generated with/on/by/using", text or image `alt`/`aria-label`/`title`) that also serves an asset or link from the named entity's own domain. Naming without owning a domain (a "Made with love in Brooklyn" credit) or serving assets from the site's own origin (an owner's authored tooling link) is not chrome and stays untouched — the domain-ownership check is what keeps authored content safe. A platform that registers its own rule (Lovable's `#lovable-badge`, Wix, Webflow) is removed by that named rule first and keeps its identity in the evidence; this one is what runs for the platforms nobody named.
 
-Removal collapses the matched slot and up to four empty ad-only wrappers. A fixed bar's matching top/bottom body padding is reclaimed. Normal content landmarks and mixed-content parents are retained. Plain-text credits spanning styled spans are removed by text range, preserving surrounding owner text.
+Removal collapses the matched slot and up to four empty ad-only wrappers. A fixed bar's matching top/bottom body padding is reclaimed. A bar whose runtime publishes its measured height into custom properties names them on its rule (`reclaimVariables`), and those are zeroed at `:root` in a stylesheet that travels with the captured document: the reservation leaves with the bar instead of staying frozen at whatever the live session measured, in every rule that reads it. A property that is undeclared or already zero is left untouched, so `var(--name, fallback)` readers keep their fallback. Normal content landmarks and mixed-content parents are retained. Plain-text credits spanning styled spans are removed by text range, preserving surrounding owner text.
 
 ## Extension API
 
@@ -21,6 +21,8 @@ registerPlatform({
   liberation: {
     cleanupRules: [
       ...providerCreditRules('example-builder', ['builder.example'], 'Example Builder'),
+      { id: 'builder-bar', category: 'source-attribution', selector: '#builder-bar',
+        reclaimVariables: ['--builder-bar-height'] },
       { id: 'builder-badge', category: 'source-attribution', selector: '.builder-badge' },
       { id: 'builder-ad', category: 'advertisement', selector: '[data-builder-ad]' },
     ],
@@ -28,9 +30,9 @@ registerPlatform({
 });
 ```
 
-The policy is persisted in `capture-receipt.json`. Per-page/viewport removal evidence lives in `cleanup-evidence.json`: matched rule/category, bounded selector/text, action, padding treatment, failures, truncation and detected residuals. A resumed capture with an absent or different policy is recaptured. Policy-schema changes are required when removal semantics change.
+The policy is persisted in `capture-receipt.json`. Per-page/viewport removal evidence lives in `cleanup-evidence.json`: matched rule/category, bounded selector/text, action, padding treatment, any custom properties reclaimed with the removal (`reclaimedVariables`), failures, truncation and detected residuals. A resumed capture with an absent or different policy is recaptured. Policy-schema changes are required when removal semantics change.
 
-Limits: at most 100 rules, 1,000 removal actions per viewport, 100 mutation batches, and 200 detailed records. Invalid selectors, residual matches at the action limit and exhausted mutation processing fail capture/comparison instead of silently succeeding. Record truncation is reported separately from rule execution failure.
+Limits: at most 100 rules, 20 reclaimed custom properties per rule, 1,000 removal actions per viewport, 100 mutation batches, and 200 detailed records. Invalid selectors, residual matches at the action limit and exhausted mutation processing fail capture/comparison instead of silently succeeding. Record truncation is reported separately from rule execution failure.
 
 This is rule-based recognition, not a claim that arbitrary first-party sponsored content can always be distinguished from owner content. Retained embedded surfaces and open shadow roots are explicitly reported as uninspected. `cleanup.complete` means the recorded rule execution completed; it is not a universal ad-detection guarantee. Consumers can inspect `unknowns` and extend rules for additional sources.
 
@@ -75,7 +77,7 @@ node dist/cli.js https://example.com --output .tmp-test/cleanup-live --no-learn-
 node dist/cli.js compare .tmp-test/cleanup-live/example.com
 ```
 
-The browser fixtures cover a free banner, split-span footer credit, owner copyright, authored platform discussion, inline/framed/late ads, and reclaimed spacing at desktop/mobile widths. The actual screenshot capture/export pipeline produces a clean artifact, cleanup-aware comparison passes, and deleting retained owner content fails. Publisher tests verify default output, destination attribution, immutable source and cleanup on both failure paths. Invalid cleanup selectors produce recorded failures.
+The browser fixtures cover a free banner, split-span footer credit, owner copyright, authored platform discussion, inline/framed/late ads, reclaimed spacing at desktop/mobile widths, and a Wix-shaped bar whose height is published into custom properties read by a sticky header, the page root and a pinned menu layer. The actual screenshot capture/export pipeline produces a clean artifact, cleanup-aware comparison passes, and deleting retained owner content fails. Publisher tests verify default output, destination attribution, immutable source and cleanup on both failure paths. Invalid cleanup selectors produce recorded failures.
 
 Final integration with merged inspection PR #212 passed 96 files / 1,001 tests using `npm test -- --maxWorkers=2 --testTimeout=45000`, plus build/typecheck and installed-package checks. Lower concurrency and a longer per-test timeout were used after a busy-controller run timed out; the timed-out browser test passed in isolation. The 128 MiB export test also passed in isolation and in the final full run without changing its heap limit.
 

@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { afterEach, expect, it } from 'vitest';
@@ -13,6 +13,7 @@ let server: Server | undefined;
 let directory: string | undefined;
 const policy = cleanupPolicy(wixCapture.cleanupRules);
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>Owner site</title><style>
+:root{--wix-ads-height:50px;--wix-ads-top-height:50px;--sticky-offset:50px}
 body{margin:0;font:16px Arial;padding-top:50px}#WIX_ADS{position:fixed;top:0;height:50px}
 main{padding:20px} .ad-slot{height:200px}footer{padding:20px}
 </style></head><body><div id="WIX_ADS">Free website by Wix</div>
@@ -76,6 +77,13 @@ it('captures clean artifacts and compares intentional removals while rejecting d
   expect(output).not.toContain('https://www.wix.com');
   expect(output).toContain('Powered by renewable energy');
   expect(output).toContain('Owner business');
+  // The value has to reach the export: this is what a destination theme ships.
+  const siteDir = join(directory, 'website');
+  const site = readdirSync(siteDir, { recursive: true, encoding: 'utf8' })
+    .filter((name) => /\.(?:html|css)$/.test(name))
+    .map((name) => readFileSync(join(siteDir, name), 'utf8')).join('\n').replace(/\s+/g, '');
+  // The provider's own declaration stays where it was; the reclaim overrides it.
+  expect(site.indexOf('--wix-ads-height:0px!important')).toBeGreaterThan(site.indexOf('--wix-ads-height:50px'));
   const comparison = await checkFidelity({ directory, widths: [1440], settleMs: 200 });
   expect(comparison.scores.flatMap((score) => score.failures)).toEqual([]);
   expect(comparison.pass).toBe(true);
@@ -248,3 +256,65 @@ it('reports invalid rules rather than silently certifying cleanup', async () => 
     expect(report.failures).toContain('invalid');
   } finally { await browser.close(); }
 });
+
+it('reclaims the space a removed provider bar reserved in custom properties, at every viewport', async () => {
+  // The provider's own runtime measures its bar and publishes the height as
+  // custom properties the site's layout reads. Removing the bar leaves that
+  // reservation behind at whatever the live session measured, and one stale
+  // value moves every element that reads it: a sticky header, the page root,
+  // and a pinned menu layer each shift by the height of a bar that is gone.
+  const wixHtml = (height: string) => `<!doctype html><html><head><meta charset="utf-8"><style>
+:root{--wix-ads-height:${height};--wix-ads-top-height:${height};--sticky-offset:${height};--owner-gap:24px}
+body{margin:0;font:16px Arial}
+#WIX_ADS{position:fixed;top:0;left:0;right:0;height:${height}}
+#site-root{position:relative;top:var(--wix-ads-height)}
+#SITE_HEADER{position:sticky;top:var(--wix-ads-height);height:60px}
+.pinned-layer{position:fixed;top:0;margin-top:var(--wix-ads-height)}
+main{padding-top:var(--owner-gap)}
+</style></head><body>
+<div id="WIX_ADS">This site was created with Wix. Create your own website today.</div>
+<div id="site-root"><header id="SITE_HEADER">Logo</header><div class="pinned-layer">Menu</div>
+<main><h1>Owner business</h1></main></div>
+</body></html>`;
+  const browser = await chromium.launch();
+  try {
+    for (const [width, height] of [[1440, '50px'], [390, '38px']] as const) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.setContent(wixHtml(height));
+      await applySourceCleanup(page, policy);
+      const report = await readSourceCleanup(page);
+      expect(await page.locator('#WIX_ADS').count()).toBe(0);
+      const layout = await page.evaluate(() => ({
+        variable: getComputedStyle(document.documentElement).getPropertyValue('--wix-ads-height').trim(),
+        siteRoot: document.querySelector('#site-root')!.getBoundingClientRect().top,
+        header: getComputedStyle(document.querySelector('#SITE_HEADER')!).top,
+        pinned: getComputedStyle(document.querySelector('.pinned-layer')!).marginTop,
+        ownerGap: getComputedStyle(document.querySelector('main')!).paddingTop,
+      }));
+      expect(layout.variable).toBe('0px');
+      expect(layout.siteRoot).toBe(0);
+      expect(layout.header).toBe('0px');
+      expect(layout.pinned).toBe('0px');
+      // Only the properties the rule names are reclaimed; owner tokens stand.
+      expect(layout.ownerGap).toBe('24px');
+      expect(report.records.find((record) => record.rule === 'wix-free-banner')?.reclaimedVariables)
+        .toEqual(['--wix-ads-height', '--wix-ads-top-height', '--sticky-offset']);
+      // The reclaimed value has to travel with the captured document, not just
+      // exist in this session: the export reads serialized HTML.
+      expect(await page.evaluate(() => document.documentElement.outerHTML)).toContain('--wix-ads-height:0px');
+      await page.close();
+    }
+    // A bar that publishes nothing reserves nothing through a property: declaring
+    // one on its behalf would override the fallback its readers were relying on.
+    const page = await browser.newPage();
+    await page.setContent(`<!doctype html><html><head><style>
+#WIX_ADS{position:fixed;top:0;height:50px}main{padding-top:var(--wix-ads-height,12px)}
+</style></head><body><div id="WIX_ADS">Wix</div><main>Owner business</main></body></html>`);
+    await applySourceCleanup(page, policy);
+    const report = await readSourceCleanup(page);
+    expect(await page.locator('style[data-dla-reclaimed-space]').count()).toBe(0);
+    expect(report.records.some((record) => record.reclaimedVariables)).toBe(false);
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('main')!).paddingTop)).toBe('12px');
+    await page.close();
+  } finally { await browser.close(); }
+}, 20_000);

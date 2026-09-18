@@ -340,10 +340,26 @@ function declaresCanonicalRoute( entry: CaptureEntry, claimed: CaptureEntry ): b
 	return normalizedUrl( entry.canonicalUrl ) === claimedCanonical;
 }
 
+/**
+ * Where a copied document lives in the artifact, and every path the artifact serves.
+ *
+ * Captured documents move: a site captured at a subpath serves `/docs/intro` from
+ * `/intro/index.html`, so a relative href keeps its spelling but loses its meaning.
+ * Given this, links that don't land on something the artifact serves are resolved
+ * against the source document instead of being left to dangle.
+ */
+interface PortableLinkContext {
+	documentPath: string;
+	servedPaths: Set< string >;
+}
+
+const PORTABLE_LINK_BASE = 'https://portable.invalid';
+
 function rewriteCapturedRouteLinks(
 	html: string,
 	documentUrl: string,
-	routes: Map< string, string >
+	routes: Map< string, string >,
+	portable?: PortableLinkContext
 ): string {
 	const $ = cheerio.load( html );
 	// `rel="canonical"` naming a URL this capture actually produced is source
@@ -352,7 +368,10 @@ function rewriteCapturedRouteLinks(
 	$( 'a[href],area[href],link[rel="canonical"][href]' ).each( ( _index, element ) => {
 		const link = $( element );
 		const href = link.attr( 'href' ) ?? '';
-		if ( ! /^(?:https?:)?\/\//i.test( href ) ) return;
+		const absolute = /^(?:https?:)?\/\//i.test( href );
+		// Same-document fragments, and schemes such as `mailto:` or `tel:`, mean
+		// the same thing wherever the document is served.
+		if ( ! absolute && ( ! href.trim() || /^\s*(?:#|[a-z][a-z0-9+.-]*:)/i.test( href ) ) ) return;
 
 		let resolved: URL;
 		try {
@@ -361,8 +380,22 @@ function rewriteCapturedRouteLinks(
 			return;
 		}
 		const route = routes.get( normalizedUrl( resolved.href ) );
-		if ( ! route ) return;
-		link.attr( 'href', `${ route }${ resolved.search }${ resolved.hash }` );
+		if ( route ) {
+			link.attr( 'href', `${ route }${ resolved.search }${ resolved.hash }` );
+			return;
+		}
+		if ( absolute || ! portable ) return;
+		// Paths the export itself wrote (routes, localized media and resources)
+		// already resolve in the copy.
+		try {
+			const local = new URL( href, `${ PORTABLE_LINK_BASE }${ portable.documentPath }` );
+			if ( portable.servedPaths.has( local.pathname ) ) return;
+		} catch {
+			return;
+		}
+		// A relative link to something that was not captured would dangle once
+		// the document moves, so point it at the source it was written against.
+		if ( /^https?:$/.test( resolved.protocol ) ) link.attr( 'href', resolved.href );
 	} );
 	return $.html();
 }
@@ -2669,6 +2702,26 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
+	const portableServedPaths = new Set< string >();
+	for ( const path of [
+		...portableRouteLinks.values(),
+		...mediaReplacements.values(),
+		...resourceReplacements.values(),
+		...[ ...sharedStyles.values() ].map( ( style ) => style.path ),
+	] ) {
+		if ( ! path.startsWith( '/' ) ) continue;
+		try {
+			const pathname = new URL( path, PORTABLE_LINK_BASE ).pathname;
+			portableServedPaths.add( pathname );
+			if ( pathname.endsWith( '/index.html' ) ) {
+				portableServedPaths.add( pathname.slice( 0, -'index.html'.length ) );
+				portableServedPaths.add( pathname.slice( 0, -'/index.html'.length ) || '/' );
+			}
+		} catch {
+			// A replacement that is not a URL path serves nothing a link could name.
+		}
+	}
+
 	const unresolvedAnchors: Array< {
 		sourceUrl: string;
 		fragment: string;
@@ -2701,7 +2754,8 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				entry.interactions?.initialDialogs ?? []
 			),
 			url,
-			portableRouteLinks
+			portableRouteLinks,
+			{ documentPath: `/${ routePath }`, servedPaths: portableServedPaths }
 		);
 		unresolvedAnchors.push( ...unresolvedCapturedAnchors( normalizedHtml, url ) );
 		writeFileSync( destination, normalizedHtml );

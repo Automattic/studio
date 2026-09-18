@@ -2864,7 +2864,8 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		expect( html ).toContain( 'layout-spacer' );
 		expect( html ).not.toContain( 'account-app' );
 		expect( html ).not.toContain( 'bottom:-999px' );
-		expect( html.match( /href="\/work"/g ) ).toHaveLength( 1 );
+		// `/work` was not captured, so the copy links it at the source.
+		expect( html.match( /href="https:\/\/example\.com\/work"/g ) ).toHaveLength( 1 );
 	} );
 
 	it( 'keeps an in-flow empty footer landmark while dropping detached footer chrome', () => {
@@ -3574,6 +3575,82 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		);
 	} );
 
+	it( 'rebases relative links in documents captured under a subpath', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ), { recursive: true } );
+		mkdirSync( join( outputDir, 'screenshots' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'html', 'home.html' ), '<h1>Home</h1>' );
+		writeFileSync( join( outputDir, 'html', 'css.html' ), '<h1 id="box">CSS</h1>' );
+		writeFileSync(
+			join( outputDir, 'html', 'interactive.html' ),
+			[
+				'<h1 id="top">Interactive</h1>',
+				'<a href="/bootcamp/">Root-relative home</a>',
+				'<a href="/bootcamp/css">Root-relative route</a>',
+				'<a href="./css?from=nav#box">Document-relative route</a>',
+				'<a href="../bootcamp/css">Parent-relative route</a>',
+				'<map><area href="css" alt="Area route"></map>',
+				'<a href="./luna.zip">Uncaptured download</a>',
+				'<a href="../elsewhere/page?x=1#y">Uncaptured outside the subpath</a>',
+				'<a href="#top">Fragment</a>',
+				'<a href="mailto:hi@example.com">Mail</a>',
+				'<a href="tel:+15555550100">Call</a>',
+				'<a href="https://external.example/bootcamp/css">External</a>',
+				'<a href="/bootcamp/static/zoom.png"><img src="/bootcamp/static/zoom.png"></a>',
+			].join( '' )
+		);
+		mkdirSync( join( outputDir, 'media' ), { recursive: true } );
+		writeFileSync( join( outputDir, 'media', 'zoom.png' ), 'zoom' );
+		const media = MediaStubStore.load( outputDir );
+		media.markSuccess(
+			'https://example.com/bootcamp/static/zoom.png',
+			join( outputDir, 'media', 'zoom.png' )
+		);
+		media.flush();
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( {
+				version: 1,
+				entries: {
+					'https://example.com/bootcamp/': { html: 'html/home.html' },
+					'https://example.com/bootcamp/css': { html: 'html/css.html' },
+					'https://example.com/bootcamp/interactive': { html: 'html/interactive.html' },
+				},
+			} )
+		);
+
+		exportWebsiteCapture( {
+			outputDir,
+			sourceUrl: 'https://example.com/bootcamp/',
+			platform: 'fake',
+			summary: {},
+			failures: [],
+		} );
+
+		const html = readFileSync( join( outputDir, 'website', 'interactive', 'index.html' ), 'utf8' );
+		expect( html ).toContain( '<a href="/index.html">Root-relative home</a>' );
+		expect( html ).toContain( '<a href="/css/index.html">Root-relative route</a>' );
+		expect( html ).toContain(
+			'<a href="/css/index.html?from=nav#box">Document-relative route</a>'
+		);
+		expect( html ).toContain( '<a href="/css/index.html">Parent-relative route</a>' );
+		expect( html ).toContain( '<area href="/css/index.html" alt="Area route">' );
+		expect( html ).toContain(
+			'<a href="https://example.com/bootcamp/luna.zip">Uncaptured download</a>'
+		);
+		expect( html ).toContain(
+			'<a href="https://example.com/elsewhere/page?x=1#y">Uncaptured outside the subpath</a>'
+		);
+		expect( html ).toContain( '<a href="#top">Fragment</a>' );
+		expect( html ).toContain( '<a href="mailto:hi@example.com">Mail</a>' );
+		expect( html ).toContain( '<a href="tel:+15555550100">Call</a>' );
+		expect( html ).toContain( '<a href="https://external.example/bootcamp/css">External</a>' );
+		// A link to media the export localized keeps pointing at the local copy.
+		expect( html ).toContain( '<a href="/media/zoom.png"><img src="/media/zoom.png"></a>' );
+		expect( html ).not.toContain( 'href="/bootcamp' );
+	} );
+
 	it( 'resolves relative rendered Open Graph canonical URLs and rewrites their aliases', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-capture-export-' ) );
 		dirs.push( outputDir );
@@ -4202,7 +4279,7 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
 		const css = readFileSync( join( outputDir, 'website', 'cdn', 'site.css' ), 'utf8' );
 		expect( html ).toContain( 'data-kind="image/x-icon"' );
-		expect( html ).toContain( 'href="/about/"' );
+		expect( html ).toContain( 'href="https://example.com/about/"' );
 		expect( html ).not.toContain( 'https:https://' );
 		expect( css ).toContain( 'data:image/svg+xml;base64,PHN2Zz4=' );
 	} );

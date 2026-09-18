@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 
-export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v2';
+export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v3';
 export interface CleanupRule {
   id: string;
   category: 'advertisement' | 'source-attribution';
@@ -13,6 +13,9 @@ export interface CleanupRule {
   builderChrome?: boolean;
   /** Adapter-owned brand spelling for plain-text footer credit removal. */
   creditText?: string;
+  /** Custom properties this chrome publishes its own height into, so the space
+   *  it reserved is reclaimed with it rather than frozen at the captured value. */
+  reclaimVariables?: string[];
   hosts?: string[];
 }
 export interface CleanupPolicy {
@@ -44,6 +47,8 @@ export interface CleanupRecord {
   text: string;
   action: 'remove' | 'remove-credit-text';
   reclaimedBodyPadding: boolean;
+  /** Custom properties zeroed because this removal took the space they reserved. */
+  reclaimedVariables?: string[];
 }
 export interface CleanupReport {
   url: string;
@@ -94,6 +99,8 @@ export function validateCleanupPolicy(value: unknown): asserts value is CleanupP
     policy.rules.some((rule) => !rule || typeof rule.id !== 'string' || typeof rule.selector !== 'string' ||
       rule.selector.length > 2000 || !['advertisement', 'source-attribution'].includes(rule.category) ||
       (rule.creditText !== undefined && (typeof rule.creditText !== 'string' || rule.creditText.length > 100)) ||
+      (rule.reclaimVariables !== undefined && (!Array.isArray(rule.reclaimVariables) || rule.reclaimVariables.length > 20 ||
+        rule.reclaimVariables.some((name) => typeof name !== 'string' || !/^--[\w-]{1,100}$/.test(name)))) ||
       (rule.hosts !== undefined && (!Array.isArray(rule.hosts) || rule.hosts.some((host) => typeof host !== 'string'))))) {
     throw new Error('Unsupported or invalid source cleanup policy; recapture with a supported policy');
   }
@@ -180,6 +187,35 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
       if (cleaned !== css) style.textContent = cleaned;
     }
     if (pass) report.strippedCssRules = (report.strippedCssRules ?? 0) + pass;
+  };
+  // Chrome that reserves its own space does not always do it with padding on
+  // the body. A provider runtime that measures its bar and publishes the height
+  // as a custom property leaves that reservation behind when the bar is removed,
+  // frozen at whatever the live session measured, and every rule reading the
+  // property keeps holding space for something that is gone. Zero it at the root
+  // in a stylesheet, so the reclaimed value travels with the serialized document
+  // instead of living only in this session.
+  const reclaimedSpace = new Set<string>();
+  let reclaimedSheet: HTMLStyleElement | null = null;
+  const reclaimReservedSpace = (rule: CleanupRule): string[] | undefined => {
+    const reclaimed: string[] = [];
+    for (const name of rule.reclaimVariables ?? []) {
+      if (reclaimedSpace.has(name)) continue;
+      // An undeclared property reserves nothing here, and declaring it would
+      // instead override the `var(--name, fallback)` its readers rely on.
+      const declared = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      if (!declared || parseFloat(declared) === 0) continue;
+      reclaimedSpace.add(name);
+      reclaimed.push(name);
+    }
+    if (!reclaimed.length) return undefined;
+    if (!reclaimedSheet) {
+      reclaimedSheet = document.createElement('style');
+      reclaimedSheet.setAttribute('data-dla-reclaimed-space', '');
+      (document.head ?? document.documentElement).append(reclaimedSheet);
+    }
+    reclaimedSheet.textContent = `:root{${[...reclaimedSpace].map((name) => `${name}:0px!important`).join(';')}}`;
+    return reclaimed;
   };
   const creditPhrase = /(?:powered by|built (?:with|on|by)|created (?:with|using)|website (?:by|built with)|proudly created with)\s*/i;
   const ownerContent = /©|copyright|all rights reserved/i;
@@ -329,8 +365,9 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
             }
           }
         }
+        const reclaimedVariables = reclaimReservedSpace(rule);
         if (report.records.length < 200) report.records.push({ rule: rule.id, category: rule.category,
-          selector: selectorFor(node), text: (node.textContent ?? '').trim().slice(0, 160), action: 'remove', reclaimedBodyPadding });
+          selector: selectorFor(node), text: (node.textContent ?? '').trim().slice(0, 160), action: 'remove', reclaimedBodyPadding, ...(reclaimedVariables ? { reclaimedVariables } : {}) });
         else report.truncated = true;
         let parent = node.parentElement;
         orphanIdsIn(node);

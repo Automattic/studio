@@ -28,7 +28,8 @@ vi.mock('../url/index.js', async (importOriginal) => {
 });
 
 // Mock browser-kit so tests don't require real Chromium.
-vi.mock('../browser-kit/index.js', () => ({
+vi.mock('../browser-kit/index.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../browser-kit/index.js')>()),
   connectBrowser: vi.fn(),
 }));
 

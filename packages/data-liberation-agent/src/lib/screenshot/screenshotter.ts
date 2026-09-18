@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { connectBrowser } from '../browser-kit/index.js';
+import { connectBrowser, desktopContextOptions } from '../browser-kit/index.js';
 import { classifyUrl, type UrlType } from '../extraction/sitemap.js';
 import { assertPublicHttpUrl } from '../media-fetch/safe-fetch.js';
 import { CHROME_AUDIT_PROPERTIES } from '../replicate/chrome-audit-types.js';
@@ -1436,10 +1436,13 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 				// scale 1 because its viewport is already small enough that
 				// further reduction loses layout detail. See types.ts for the
 				// rationale.
-				// Mobile capture must use a real mobile browser identity because builders
-				// can select viewport metadata, navigation, and layout from it.
+				// Each viewport loads as a real browser: builders can select viewport
+				// metadata, navigation, and layout from the identity, and anti-bot
+				// challenges refuse Playwright's default HeadlessChrome one.
 				context = await browser.newContext( {
-					...( viewport.id === 'mobile' ? IPHONE_17_CONTEXT : {} ),
+					...( viewport.id === 'mobile'
+						? IPHONE_17_CONTEXT
+						: await desktopContextOptions( browser ) ),
 					viewport: { width: viewport.width, height: viewport.height },
 					deviceScaleFactor:
 						viewport.id === 'desktop'

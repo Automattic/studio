@@ -11,10 +11,10 @@ Use this skill whenever a design calls for images — hero/cover backgrounds, fe
 ## Workflow
 
 1. **Plan all imagery first.** While planning a page or theme, list every image it needs: filename, subject, placement, aspect ratio. Generate images BEFORE writing the markup that references them, so markup always points at real files.
-2. **Pick the destination per image:**
-   - **Theme imagery** (images used in theme files: hero/cover backgrounds in templates or template parts, section background bands, CSS backgrounds): write to `<site>/wp-content/themes/<theme-slug>/assets/images/<name>.jpg` and reference it in markup as `/wp-content/themes/<theme-slug>/assets/images/<name>.jpg`. It stays in the theme and never goes into the media library.
-   - **Content imagery** (images inside page/post content: products, team photos, gallery items, feature illustrations): write to `<site>/wp-content/uploads/<name>.jpg`. The tool adds every image under `wp-content/uploads/` to the media library and reports its attachment ID and URL: use the URL as the `src` and the ID in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`).
-   One call can mix both: each image goes where its path says.
+2. **Pick the destination by where the image is shown**: the file that holds its markup decides, not what the image depicts.
+   - **Content imagery**: every image shown by page or post content, including a page's hero or cover, section images, products, team photos, and galleries. Write to `<site>/wp-content/uploads/<name>.jpg`. The tool adds every image under `wp-content/uploads/` to the media library and reports its attachment ID and URL: use the URL as the `src` and the ID in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`).
+   - **Theme imagery**: only images shown by theme files, meaning a template, a template part such as the header or footer, or `style.css`. Write to `<site>/wp-content/themes/<theme-slug>/assets/images/<name>.jpg` and reference it in markup as `/wp-content/themes/<theme-slug>/assets/images/<name>.jpg`. It stays in the theme and never goes into the media library.
+   One call can mix both: each image goes where its path says. A one-page site builds its sections in the page content, so its images, hero included, are content imagery.
 3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The site's set from the design steps below is the first batch: use it before generating anything else.
 4. **Write real alt text.** Generated images are content: give every `<img>` a short, descriptive alt in the markup (what the image shows, for a person who cannot see it). Never leave a spec string or an empty alt on a content image; cover backgrounds keep an empty alt (decorative).
 

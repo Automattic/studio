@@ -85,25 +85,13 @@ foreach ( $data['failed'] as $id ) {
 	wp_delete_attachment( $id, true );
 }`;
 
-const pendingGenerations = new Set< Promise< void > >();
-const unreportedFailures: string[] = [];
-
-// Waits for the images still being generated and returns the failures not
-// reported yet.
-export async function waitForGeneratedImages(): Promise< string | undefined > {
-	while ( pendingGenerations.size > 0 ) {
-		await Promise.all( pendingGenerations );
-	}
-	return unreportedFailures.splice( 0 ).join( '\n' ) || undefined;
-}
-
 export const generateImagesTool = defineTool(
 	'generate_images',
 	"Generate AI images (JPEG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
 		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
-		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: take_screenshot, inspect_design, and present_design_options wait for them and report any that failed. " +
+		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +
 		'Failures are reported per image: a safety-filtered image should be retried once with a rewritten subject; other failures should lead you to adapt the layout rather than leave a broken image reference.',
 	{
 		images: Type.Array(
@@ -193,7 +181,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation: Promise< void > = generateImages( requests )
+		const generation = generateImages( requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)
@@ -224,33 +212,29 @@ export const generateImagesTool = defineTool(
 						failed: ids( false ),
 					} );
 				}
-				if ( failures.length ) {
-					unreportedFailures.push(
-						`These images failed, and any attachment reserved for them was removed. Drop them from the markup or generate them again:\n${ failures.join(
+				return failures.length
+					? `These images failed, and any attachment reserved for them was removed. Drop them from the markup or generate them again:\n${ failures.join(
 							'\n'
-						) }`
-					);
-				}
-			} )
-			.catch( ( error ) => {
-				unreportedFailures.push( `Image generation failed: ${ String( error ) }` );
-			} )
-			.finally( () => pendingGenerations.delete( generation ) );
-		pendingGenerations.add( generation );
+					  ) }`
+					: undefined;
+			} );
 
-		return textResult(
-			[
-				`Generating ${ targets.length } image${
-					targets.length === 1 ? '' : 's'
-				} in the background. Use them in the markup now:`,
-				...targets.map( ( target ) => {
-					const attachment = attachments.get( target.resolvedPath );
-					return attachment
-						? `- ${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
-						: `- ${ target.path }`;
-				} ),
-			].join( '\n' )
-		);
+		return {
+			...textResult(
+				[
+					`Generating ${ targets.length } image${
+						targets.length === 1 ? '' : 's'
+					} in the background. Use them in the markup now:`,
+					...targets.map( ( target ) => {
+						const attachment = attachments.get( target.resolvedPath );
+						return attachment
+							? `- ${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
+							: `- ${ target.path }`;
+					} ),
+				].join( '\n' )
+			),
+			pending: generation,
+		};
 	},
 	{
 		promptSnippet:

@@ -1,6 +1,5 @@
 import { Type } from 'typebox';
 import { defineTool } from './define-tool';
-import { waitForGeneratedImages } from './generate-images';
 import {
 	captureScreenshotBuffer,
 	saveScreenshotFile,
@@ -96,7 +95,6 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
-				const imageFailures = await waitForGeneratedImages();
 				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
@@ -175,9 +173,6 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					captures.length === 1
 						? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
-				if ( imageFailures ) {
-					textLines.push( imageFailures );
-				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
@@ -207,6 +202,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 			}
 		},
 		{
+			settlesPendingWork: true,
 			promptSnippet: visionEnabled
 				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
 				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.',

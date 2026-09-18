@@ -32,7 +32,6 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
-import { waitForGeneratedImages } from '../tools/generate-images';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
@@ -1343,7 +1342,7 @@ describe( 'Studio AI MCP tools', () => {
 					'hero.jpg'
 				) }`
 			);
-			expect( await waitForGeneratedImages() ).toContain(
+			expect( await result.pending ).toContain(
 				`FAILED ${ path.join( uploads, 'buns.jpg' ) }: Timed out`
 			);
 			await expect(

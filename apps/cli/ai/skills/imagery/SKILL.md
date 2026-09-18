@@ -78,4 +78,4 @@ For `wp:cover` backgrounds, set the same image URL on BOTH the block's `url` att
 
 - **Safety-filtered image**: rewrite that image's subject to avoid the flagged element and call `generate_images` again for just that image. One retry; if it fails again, treat as a permanent failure.
 - **Permanent failure**: adapt the layout to work without that image (a color/gradient background, a text-led card). NEVER substitute an unrelated image, source an image from a web URL, or leave a reference to a file that does not exist.
-- Failures arrive after the call returns, with the next `take_screenshot`, `inspect_design`, or `present_design_options` result, which wait for the images.
+- Failures arrive after the call returns, with a later tool result; `take_screenshot`, `inspect_design`, and `present_design_options` wait for the images.

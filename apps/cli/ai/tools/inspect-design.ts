@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { defineTool } from './define-tool';
-import { waitForGeneratedImages } from './generate-images';
 import {
 	applyScreenshotMediaEmulation,
 	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
@@ -125,7 +124,6 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 		},
 		async ( args, context ) => {
 			const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
-			const imageFailures = await waitForGeneratedImages();
 			context.onProgress(
 				`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport }${
 					args.colorScheme ? `, ${ args.colorScheme }` : ''
@@ -274,7 +272,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 				}
 
 				context.onProgress( `Inspected ${ args.selectors.length } selector(s) on ${ args.url }` );
-				const result = textResult(
+				return textResult(
 					JSON.stringify(
 						{
 							url: args.url,
@@ -288,10 +286,6 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 						2
 					)
 				);
-				if ( imageFailures ) {
-					result.content.push( { type: 'text', text: imageFailures } );
-				}
-				return result;
 			} catch ( error ) {
 				throw new Error(
 					`Design inspection failed: ${ error instanceof Error ? error.message : String( error ) }`
@@ -301,6 +295,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 			}
 		},
 		{
+			settlesPendingWork: true,
 			promptSnippet: visionEnabled
 				? 'Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.'
 				: 'Inspect the rendered DOM and computed styles of a page by CSS selector. This is your verification tool: read widths, positions, and padding from it instead of looking at a capture.',

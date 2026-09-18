@@ -9,7 +9,6 @@ import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool } from './define-tool';
-import { waitForGeneratedImages } from './generate-images';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
@@ -121,7 +120,6 @@ export function createPresentDesignOptionsTool(
 			if ( args.options.length < 2 || args.options.length > DESIGN_OPTIONS ) {
 				throw new Error( `Present between 2 and ${ DESIGN_OPTIONS } options.` );
 			}
-			const imageFailures = await waitForGeneratedImages();
 			context.onProgress( `Rendering ${ args.options.length } previews…` );
 			const directory = await resolveScreenshotDirectory();
 			const options = await Promise.all(
@@ -184,12 +182,15 @@ export function createPresentDesignOptionsTool(
 				picked: picked === -1 ? undefined : options[ picked ].label,
 				pick_index: picked === -1 ? undefined : picked + 1,
 			} );
-			const answerText = ! answer
-				? 'The user did not answer.'
-				: picked === -1
-				? `The user answered: ${ answer }`
-				: `The user picked option ${ picked + 1 }: ${ answer }`;
-			return textResult( [ answerText, imageFailures ].filter( Boolean ).join( '\n\n' ) );
-		}
+			if ( ! answer ) {
+				return textResult( 'The user did not answer.' );
+			}
+			return textResult(
+				picked === -1
+					? `The user answered: ${ answer }`
+					: `The user picked option ${ picked + 1 }: ${ answer }`
+			);
+		},
+		{ settlesPendingWork: true }
 	);
 }

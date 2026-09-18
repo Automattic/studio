@@ -2,7 +2,11 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { setPhpIniEntries } from '@php-wasm/universal';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getWpCliPhpIniArgs, WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
+import {
+	buildWpCliPhpArgv,
+	getWpCliPhpIniArgs,
+	WP_CLI_PHP_INI_ENTRIES,
+} from 'cli/lib/wp-cli-php-ini';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const spawnMock = vi.fn();
@@ -98,16 +102,26 @@ describe( 'WP-CLI PHP ini policy', () => {
 		// Literals on purpose: deriving them from the module under test would make
 		// this assertion pass for any value.
 		expect( WP_CLI_PHP_INI_ENTRIES ).toEqual( {
-			error_reporting: '24575',
+			error_reporting: '32767',
 			display_errors: 'stderr',
 			log_errors: 0,
 		} );
 	} );
 
+	it( 'reports deprecations rather than suppressing them', () => {
+		const E_DEPRECATED = 8192;
+		const E_USER_DEPRECATED = 16384;
+		const level = Number( WP_CLI_PHP_INI_ENTRIES.error_reporting );
+
+		// #4686 asks for diagnostics on stderr, not for diagnostics to disappear.
+		expect( level & E_DEPRECATED ).toBe( E_DEPRECATED );
+		expect( level & E_USER_DEPRECATED ).toBe( E_USER_DEPRECATED );
+	} );
+
 	it( 'formats the policy as PHP CLI -d arguments', () => {
 		expect( getWpCliPhpIniArgs() ).toEqual( [
 			'-d',
-			'error_reporting=24575',
+			'error_reporting=32767',
 			'-d',
 			'display_errors=stderr',
 			'-d',
@@ -128,7 +142,7 @@ describe( 'WP-CLI launchers apply the PHP ini policy', () => {
 		expect( argv ).toEqual(
 			expect.arrayContaining( [
 				'-d',
-				'error_reporting=24575',
+				'error_reporting=32767',
 				'-d',
 				'display_errors=stderr',
 				'-d',
@@ -151,10 +165,29 @@ describe( 'WP-CLI launchers apply the PHP ini policy', () => {
 		expect( setPhpIniEntries ).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining( {
-				error_reporting: '24575',
+				error_reporting: '32767',
 				display_errors: 'stderr',
 				log_errors: 0,
 			} )
 		);
+	} );
+
+	// The running Playground server reaches WP-CLI through `server.playground.cli()`
+	// (playground-server-child.ts). That module rewires `console` and `process.stdout` at
+	// import time, so it cannot be imported here; `buildWpCliPhpArgv` is the argv it passes.
+	it( 'passes the -d arguments to the running Playground server', () => {
+		expect( buildWpCliPhpArgv( '/tmp/wp-cli.phar', '/wordpress', [ 'plugin', 'list' ] ) ).toEqual( [
+			'php',
+			'-d',
+			'error_reporting=32767',
+			'-d',
+			'display_errors=stderr',
+			'-d',
+			'log_errors=0',
+			'/tmp/wp-cli.phar',
+			'--path=/wordpress',
+			'plugin',
+			'list',
+		] );
 	} );
 } );

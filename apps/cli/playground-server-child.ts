@@ -54,6 +54,7 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
@@ -442,6 +443,7 @@ const startServer = wrapWithStartingPromise(
 				'openssl.cafile': '/internal/shared/ca-bundle.crt',
 				'curl.cainfo': '/internal/shared/ca-bundle.crt',
 				memory_limit: '512M',
+				...WP_CLI_PHP_INI_ENTRIES,
 			} );
 
 			stopSignal.throwIfAborted();

@@ -4,6 +4,11 @@ import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import {
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	validateStudioChatImages,
+} from '@studio/common/ai/chat-images';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
@@ -109,6 +114,8 @@ import {
 	writeUserPreferences,
 } from './user-preferences';
 import type { UserPreferencesContext } from './user-preferences';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
@@ -440,7 +447,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		rateLimit( { windowMs: 60_000, limit: 1_000, standardHeaders: true, legacyHeaders: false } )
 	);
 
-	app.use( express.json() );
+	// Chat attachments ride along as base64 in the JSON body; size the limit for
+	// the image cap (with base64 overhead) plus file metadata.
+	app.use( express.json( { limit: STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
 
 	api.get( '/events', ( req: Request, res: Response ) => {
 		res.setHeader( 'Content-Type', 'text/event-stream' );
@@ -1780,10 +1789,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.status( 400 ).json( { error: 'prompt is required' } );
 			return;
 		}
+		let images: StudioChatImage[];
+		let files: StudioChatFileAttachment[];
+		try {
+			images = validateStudioChatImages( req.body.images );
+			files = validateStudioChatFiles( req.body.files );
+		} catch ( error ) {
+			res.status( 400 ).json( { error: ( error as Error ).message } );
+			return;
+		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
 			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
+			images,
+			files,
 		} );
 		res.json( { runId } );
 	} );

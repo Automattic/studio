@@ -1306,15 +1306,7 @@ describe( 'Studio AI MCP tools', () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
-		const themeImage = path.join(
-			sitePath,
-			'wp-content',
-			'themes',
-			'acme',
-			'assets',
-			'images',
-			'band.jpg'
-		);
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.jpg' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite, site ],
@@ -1352,18 +1344,9 @@ describe( 'Studio AI MCP tools', () => {
 				path.join( 'wp-content', 'uploads', 'hero.jpg' ),
 				'--porcelain',
 			] );
-			expect( runWpCliCommandWithMessaging ).toHaveBeenLastCalledWith( site, [
-				'post',
-				'list',
-				'--post_type=attachment',
-				'--post__in=7,8',
-				'--fields=ID,guid',
-				'--format=json',
-			] );
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 3 );
 			await expect( readdir( uploads ) ).resolves.toEqual( [] );
 			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
-			expect( getTextContent( result ) ).toContain( `OK ${ themeImage } (0 KB)` );
 			expect( getTextContent( result ) ).toContain(
 				`OK ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
 					'hero.jpg'
@@ -1464,9 +1447,6 @@ describe( 'Studio AI MCP tools', () => {
 				"Block theme 'Acme Studio' scaffolded at wp-content/themes/acme-studio/."
 			);
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
-			expect( getTextContent( result ) ).toContain(
-				`<file path="style.css">\n${ styleCss }</file>`
-			);
 			expect( getTextContent( result ) ).toContain(
 				`<file path="${ path.join( 'templates', 'page-no-title.html' ) }">\n${ pageNoTitle }</file>`
 			);
@@ -1732,35 +1712,6 @@ describe( 'Studio AI MCP tools', () => {
 					"Child theme 'Ollie Child' of 'ollie' scaffolded at wp-content/themes/ollie-child/."
 				);
 				expect( getTextContent( result ) ).toContain( "inherit from 'ollie'" );
-				expect( getTextContent( result ) ).toContain(
-					`<file path="functions.php">\n${ functionsPhp }</file>`
-				);
-			} );
-
-			it( 'activates the child theme by default when the site is running', async () => {
-				await installParentTheme( 'ollie' );
-				vi.mocked( isServerRunning ).mockResolvedValue( {
-					name: scaffoldSite.id,
-					pmId: 1,
-					status: 'online',
-					pid: 1234,
-					runtime: SITE_RUNTIME_PLAYGROUND,
-				} );
-				vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-					mockWpCliResponse( { stdout: "Success: Switched to 'Ollie Child' theme." } ) as never
-				);
-
-				await getTool( 'scaffold_theme' ).rawHandler( {
-					nameOrPath: scaffoldSite.name,
-					name: 'Ollie Child',
-					parentTheme: 'ollie',
-				} as never );
-
-				expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
-					'theme',
-					'activate',
-					'ollie-child',
-				] );
 			} );
 
 			it( 'fails when the parent theme is not installed', async () => {

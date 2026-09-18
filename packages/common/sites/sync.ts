@@ -78,6 +78,8 @@ export async function pushSite(
 					...( params.options?.specificSelectionPaths?.length
 						? [ '--include-only', ...params.options.specificSelectionPaths ]
 						: [] ),
+					// `studio_site_exported` means a user-initiated backup export — sync pushes are not counted.
+					'--suppress-tracks-event',
 				],
 				{ output: 'capture' }
 			);
@@ -261,6 +263,9 @@ export function pullSite(
 				...( options?.includePathList?.length
 					? [ '--include-path-list', ...options.includePathList ]
 					: [] ),
+				// The caller emits `studio_sync_pull` itself — the CLI is an
+				// implementation detail here, not a standalone `studio pull`.
+				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
 		);

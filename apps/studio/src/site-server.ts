@@ -426,6 +426,8 @@ export class SiteServer {
 			const [ emitter, childProcess ] = executeCliCommand( cliArgs, {
 				output: 'capture',
 				logPrefix: this.details.id,
+				// Returned to the caller as part of `WpCliResult`, which callers log themselves.
+				suppressStderrEcho: true,
 			} );
 
 			timeoutId = setTimeout( () => {

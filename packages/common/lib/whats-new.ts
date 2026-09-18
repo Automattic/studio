@@ -6,7 +6,7 @@
 // compare it against the same stored `lastSeenVersion`: flipping it once shows
 // the announcements in whichever UI the user is running, and dismissing them in
 // one settles it for the other.
-export const FORCE_SHOW_WHATS_NEW = false;
+export const FORCE_SHOW_WHATS_NEW = true;
 
 // Whether the announcements should auto-show. Shared so the two UIs can't drift
 // apart on the rule; see apps/studio/src/stores/app-version-api.ts for the

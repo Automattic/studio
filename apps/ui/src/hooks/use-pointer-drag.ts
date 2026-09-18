@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, MouseEventHandler } from 'react';
 
-export interface PointerDragHandlers {
+interface PointerDragHandlers {
 	// Called once on a valid primary-button mousedown, after preventDefault.
 	// Return the starting scalar (e.g. the panel/content width at drag start),
 	// or null to abort the drag (e.g. the container is not measurable yet).
@@ -15,7 +15,7 @@ export interface PointerDragHandlers {
 	onCommit: ( latest: number ) => void;
 }
 
-export interface PointerDragControls {
+interface PointerDragControls {
 	isDragging: boolean;
 	onMouseDown: MouseEventHandler< HTMLElement >;
 	// Externally end an in-flight drag (e.g. the panel closed mid-drag). With

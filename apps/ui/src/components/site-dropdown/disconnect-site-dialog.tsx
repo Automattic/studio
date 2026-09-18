@@ -1,6 +1,8 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { useState } from 'react';
+import { useConnector } from '@/data/core';
 import { useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './disconnect-site-dialog.module.css';
@@ -15,6 +17,7 @@ type Props = {
 };
 
 export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChange }: Props ) {
+	const connector = useConnector();
 	const disconnect = useDisconnectWpcomSite();
 	const [ error, setError ] = useState< string | null >( null );
 	const confirmLabel = __( 'Disconnect' );
@@ -25,7 +28,12 @@ export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChang
 		disconnect.mutate(
 			{ siteId: localSiteId, remoteSiteId: liveSite.id },
 			{
-				onSuccess: () => onOpenChange( false ),
+				onSuccess: () => {
+					// Emitted here rather than in `useDisconnectWpcomSite` so a future
+					// non-user-initiated cleanup reusing that hook isn't counted.
+					void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
+					onOpenChange( false );
+				},
 				onError: ( err: Error ) => {
 					setError( err.message ?? __( 'Unable to disconnect. Please try again.' ) );
 				},

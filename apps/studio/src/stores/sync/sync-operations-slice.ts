@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
@@ -11,12 +13,14 @@ import {
 } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
 import { userLoggedOut } from 'src/stores/auth-actions';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { getWpcomClient } from 'src/stores/wpcom-api';
+import type { SyncFailureHint } from '@studio/common/lib/sync/classify-sync-failure';
 import type { ImportResponse, SyncSite } from '@studio/common/types/sync';
 import type {
 	PullStateProgressInfo,
@@ -53,6 +57,34 @@ async function updateSiteTimestamp( {
 	] );
 }
 
+// Classic drives its own push/pull rather than going through the CLI, so it emits
+// `studio_sync_*` itself. Cancels must never reach here — a cancelled sync emits
+// no event, so every call site sits behind the existing `aborted` guards.
+function recordSyncEvent(
+	type: 'push' | 'pull',
+	{
+		startedAt,
+		remoteIsPressable,
+		error,
+		hint,
+	}: {
+		startedAt?: number;
+		remoteIsPressable?: boolean;
+		error?: unknown;
+		hint?: SyncFailureHint;
+	}
+) {
+	recordRendererTracksEvent(
+		type === 'push' ? TRACKS_EVENTS.SYNC_PUSH : TRACKS_EVENTS.SYNC_PULL,
+		buildSyncEventProps( {
+			startedAt: startedAt ?? Date.now(),
+			site: remoteIsPressable === undefined ? undefined : { isPressable: remoteIsPressable },
+			error,
+			hint,
+		} )
+	);
+}
+
 export type SyncBackupState = {
 	remoteSiteId: number;
 	backupId: number | null;
@@ -60,6 +92,11 @@ export type SyncBackupState = {
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
+	// Tracks-only. The thunk resolves as soon as the backup is requested and the
+	// outcome lands in the poller, so the timer and the `sync_type` source have
+	// to travel with the state.
+	startedAt?: number;
+	remoteIsPressable?: boolean;
 };
 
 export type PullSiteOptions = {
@@ -75,6 +112,9 @@ export type SyncPushState = {
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
 	uploadProgress?: number;
+	// Tracks-only — see the matching fields on `SyncBackupState`.
+	startedAt?: number;
+	remoteIsPressable?: boolean;
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -523,6 +563,8 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
 		const operationId = generateStateId( selectedSite.id, remoteSiteId );
+		const startedAt = Date.now();
+		const remoteIsPressable = connectedSite.isPressable;
 
 		try {
 			PUSH_SITE_ABORT_CALLBACKS.set( operationId, abort );
@@ -535,6 +577,8 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 						status: pushStatesProgressInfo.creatingBackup,
 						selectedSite,
 						remoteSiteUrl,
+						startedAt,
+						remoteIsPressable,
 					},
 				} )
 			);
@@ -550,6 +594,13 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 			signal.throwIfAborted();
 
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				// No error object here, so the bucket is stated outright.
+				recordSyncEvent( 'push', {
+					startedAt,
+					remoteIsPressable,
+					error: new Error( 'size limit exceeded' ),
+					hint: { code: 'size_limit' },
+				} );
 				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(
@@ -589,6 +640,12 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 				);
 				void startPushPoller( selectedSite.id, remoteSiteId );
 			} else {
+				recordSyncEvent( 'push', {
+					startedAt,
+					remoteIsPressable,
+					error: response,
+					hint: { phase: 'upload' },
+				} );
 				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: getErrorFromResponse( response ),
@@ -598,6 +655,12 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 			if ( signal.aborted ) {
 				return;
 			}
+			recordSyncEvent( 'push', {
+				startedAt,
+				remoteIsPressable,
+				error,
+				hint: { phase: 'local_export' },
+			} );
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
@@ -634,6 +697,8 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 		const pullStatesProgressInfo = getPullStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
+		const startedAt = Date.now();
+		const remoteIsPressable = connectedSite.isPressable;
 
 		dispatch(
 			syncOperationsActions.updatePullState( {
@@ -645,6 +710,8 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 					downloadUrl: null,
 					remoteSiteUrl,
 					selectedSite,
+					startedAt,
+					remoteIsPressable,
 				},
 			} )
 		);
@@ -698,6 +765,13 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 				throw new Error( 'Pull request failed' );
 			}
 		} catch ( error ) {
+			// Classify the raw error — the message built below is translated display text.
+			recordSyncEvent( 'pull', {
+				startedAt,
+				remoteIsPressable,
+				error,
+				hint: { phase: 'remote_backup' },
+			} );
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
@@ -740,6 +814,12 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			signal.throwIfAborted();
 
 			if ( ! response.success ) {
+				recordSyncEvent( 'push', {
+					startedAt: currentPushState.startedAt,
+					remoteIsPressable: currentPushState.remoteIsPressable,
+					error: response,
+					hint: { phase: 'remote_import' },
+				} );
 				return rejectWithValue( {
 					title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 					message: __(
@@ -752,6 +832,10 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			switch ( response.status ) {
 				case 'finished':
 					status = pushStatesProgressInfo.finished;
+					recordSyncEvent( 'push', {
+						startedAt: currentPushState.startedAt,
+						remoteIsPressable: currentPushState.remoteIsPressable,
+					} );
 					await updateSiteTimestamp( {
 						siteId: remoteSiteId,
 						localSiteId: selectedSiteId,
@@ -791,6 +875,18 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 							'An error occurred while pushing the site. If this problem persists, please contact support.'
 						);
 					}
+					// The remote reports why it failed — reuse the classification already
+					// made above rather than re-deriving it, and never send the raw
+					// `error_data`, which carries the site's name and restore paths.
+					recordSyncEvent( 'push', {
+						startedAt: currentPushState.startedAt,
+						remoteIsPressable: currentPushState.remoteIsPressable,
+						error: response,
+						hint: {
+							phase: 'remote_import',
+							code: isSqlImportFailure ? 'sql_import' : isImportTimedOut ? 'timeout' : undefined,
+						},
+					} );
 					return rejectWithValue( {
 						title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 						message,
@@ -830,6 +926,12 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 				return;
 			}
 
+			recordSyncEvent( 'push', {
+				startedAt: currentPushState.startedAt,
+				remoteIsPressable: currentPushState.remoteIsPressable,
+				error,
+				hint: { phase: 'remote_import' },
+			} );
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pushing from %s' ), currentPushState.selectedSite.name ),
@@ -887,6 +989,25 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 			const response = parseResult.data;
 
 			signal.throwIfAborted();
+
+			// The remote gave up on the backup. Without this the response falls through
+			// to the progress branch below, which stops the poller (the status is no
+			// longer `in-progress`) but records nothing — inflating pull success rates
+			// against push, whose poller handles the symmetric case explicitly.
+			if ( response.status === 'failed' ) {
+				recordSyncEvent( 'pull', {
+					startedAt: currentPullState.startedAt,
+					remoteIsPressable: currentPullState.remoteIsPressable,
+					error: new Error( 'Remote backup failed' ),
+					hint: { phase: 'remote_backup' },
+				} );
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+					message: __(
+						'An error occurred while creating the backup on the remote site. If this problem persists, please contact support.'
+					),
+				} );
+			}
 
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
@@ -979,6 +1100,11 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					return;
 				}
 
+				recordSyncEvent( 'pull', {
+					startedAt: currentPullState.startedAt,
+					remoteIsPressable: currentPullState.remoteIsPressable,
+				} );
+
 				await updateSiteTimestamp( {
 					siteId: remoteSiteId,
 					localSiteId: selectedSiteId,
@@ -1038,6 +1164,12 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				return;
 			}
 
+			recordSyncEvent( 'pull', {
+				startedAt: currentPullState.startedAt,
+				remoteIsPressable: currentPullState.remoteIsPressable,
+				error,
+				hint: { phase: 'local_import' },
+			} );
 			Sentry.captureException( error );
 			return rejectWithValue( {
 				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),

@@ -95,7 +95,6 @@ const TreeItem = ( {
 	level: number;
 	index: number;
 	siblingsLength?: number;
-	isLast?: boolean;
 	disabled?: boolean;
 	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
 	renderEmptyContent?: ( nodeId: string, node: TreeNode ) => React.ReactNode;
@@ -229,7 +228,6 @@ export const TreeView = ( {
 					level={ 1 }
 					index={ index }
 					siblingsLength={ tree.length }
-					isLast={ index === tree.length - 1 }
 					disabled={ disabled }
 					renderAfterChildren={ renderAfterChildren }
 					renderEmptyContent={ renderEmptyContent }

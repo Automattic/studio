@@ -9,52 +9,32 @@ export function getWhatsNewGuide(): GuideDefinition {
 	return {
 		pages: [
 			{
-				illustration: 'studio-code',
-				title: () => __( 'Studio Code helps you get it done' ),
+				illustration: 'model-tiers',
+				title: () => __( 'Fast, Balanced, or Strong' ),
 				description: () =>
 					__(
-						'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
+						'Model names are gone. Pick the speed and depth the job needs instead — and get more done with your AI credits, because Fast handles everyday changes at a fraction of the cost.'
+					),
+				action: () => __( 'Next' ),
+			},
+			{
+				illustration: 'design-picker',
+				title: () => __( 'Pick your design before a line of code' ),
+				description: () =>
+					__(
+						'Start a site with a short brief, then choose from four looks and four layouts drawn as real previews. The one you pick becomes your design system, so everything built later stays in keeping with it.'
 					),
 				action: () => __( 'Next' ),
 				learnMore: 'docsStudioCode',
 			},
 			{
-				illustration: 'native-php',
-				title: () => __( 'Faster local sites with native PHP' ),
+				illustration: 'building-blocks',
+				title: () => __( 'Sites you can keep editing yourself' ),
 				description: () =>
 					__(
-						'Studio now runs WordPress on native PHP by default — fewer abstractions, better performance. Switch between Native and Sandbox runtimes in your site settings.'
-					),
-				action: () => __( 'Next' ),
-				learnMore: 'docsPhpRuntimes',
-			},
-			{
-				illustration: 'dark-mode',
-				title: () => __( 'Dark mode is here' ),
-				description: () =>
-					__(
-						'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
-					),
-				action: () => __( 'Next' ),
-			},
-			{
-				illustration: 'phpmyadmin',
-				title: () => __( 'Manage your database with phpMyAdmin' ),
-				description: () =>
-					__(
-						"Manage your site's database visually with phpMyAdmin, from the Database tab above the preview."
-					),
-				action: () => __( 'Next' ),
-			},
-			{
-				illustration: 'cli',
-				title: () => __( 'WP-CLI support and CLI site management' ),
-				description: () =>
-					__(
-						'Install the studio CLI to run WP-CLI commands from your terminal and create, start, stop, or update your sites.'
+						'Studio Code now styles with theme settings and block styles instead of custom CSS, so you can adjust colors, fonts, and sections right in the Site Editor.'
 					),
 				action: () => __( 'Done' ),
-				learnMore: 'docsCli',
 			},
 		],
 	};

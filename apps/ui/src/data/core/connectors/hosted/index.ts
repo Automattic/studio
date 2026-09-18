@@ -25,7 +25,7 @@ import type { AiSettings } from '@studio/common/ai/providers';
 
 const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
 
-export interface HostedConnectorOptions {
+interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
@@ -120,7 +120,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// and a cross-origin iframe preview that can't host the annotation inspector.
 		capabilities: {
 			nativeFolderPicker: false,
-			nativeSaveDialog: false,
 			openInOS: false,
 			annotatePreview: false,
 			readLocalMedia: false,
@@ -132,11 +131,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
-		requiresAuth: false,
 		agenticRequiresAuth: false,
-		async isAuthenticated() {
-			return true;
-		},
 		async getAuthUser(): Promise< AuthUser | null > {
 			return null;
 		},
@@ -181,9 +176,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async updateSitesSortOrder( updates ) {
 			storeSiteOrder( updates );
-		},
-		async refreshSiteIcon() {
-			// No-op: icons come back with getSites().
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
@@ -315,9 +307,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSession( sessionId ): Promise< LoadedAiSession > {
 			return api< LoadedAiSession >( `/sessions/${ encodeURIComponent( sessionId ) }` );
 		},
-		async deleteSession( sessionId ) {
-			await api( `/sessions/${ encodeURIComponent( sessionId ) }`, { method: 'DELETE' } );
-		},
 		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
 			return api< AiSessionSummary >( `/sessions/${ encodeURIComponent( sessionId ) }`, {
 				method: 'PATCH',
@@ -359,10 +348,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				method: 'POST',
 				body: JSON.stringify( { answers } ),
 			} );
-		},
-		async setSessionEnvironment( _sessionId, environment ) {
-			// The agent always acts on the backend's local runtime.
-			return { environment };
 		},
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
@@ -418,9 +403,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async saveAnthropicApiKey(): Promise< AiSettings > {
 			throw new UnsupportedError( 'saveAnthropicApiKey' );
 		},
-		async setAiProvider(): Promise< AiSettings > {
-			throw new UnsupportedError( 'setAiProvider' );
-		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
@@ -439,6 +421,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async openSiteInTerminal() {
 			throw new UnsupportedError( 'openSiteInTerminal' );
+		},
+		async siteDebugLogExists() {
+			throw new UnsupportedError( 'siteDebugLogExists' );
+		},
+		async openSiteDebugLog() {
+			throw new UnsupportedError( 'openSiteDebugLog' );
 		},
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
@@ -489,6 +477,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},
@@ -545,12 +536,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
-			return { readyToInstall: false, version: null };
+			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.
+			return { state: 'idle', currentVersion: null };
 		},
 		async installAppUpdate() {
 			// No-op.
 		},
 		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		onAppUpdateNotAvailable() {
 			return () => {};
 		},
 	};

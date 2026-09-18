@@ -25,7 +25,7 @@
 }
 
 .host:hover .themeFill {
-	fill: var(--wpds-color-fg-interactive-brand);
+	fill: var(--wpds-color-foreground-interactive-brand);
 }
 
 .host:hover .arrowNudge {

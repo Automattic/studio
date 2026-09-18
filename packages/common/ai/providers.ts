@@ -1,4 +1,11 @@
-import { AI_MODELS, DEFAULT_MODEL, type AiModelFamily, type AiModelId } from './models';
+import {
+	AI_MODELS,
+	DEFAULT_MODEL,
+	PAID_DEFAULT_MODEL,
+	resolveSessionModel,
+	type AiModelFamily,
+	type AiModelId,
+} from './models';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
@@ -21,11 +28,11 @@ export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 	'anthropic-api-key': 'Anthropic API',
 };
 
-// Which model families each provider can service. `wpcom` relays the
-// Anthropic, OpenAI, and hosted wire formats through the same proxy;
+// Which model families each provider can service. `wpcom` serves only the
+// studio capability tiers (resolved to upstream models by the proxy);
 // direct-API providers are restricted to their own family.
 const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > = {
-	wpcom: [ 'anthropic', 'openai', 'hosted' ],
+	wpcom: [ 'studio' ],
 	'anthropic-api-key': [ 'anthropic' ],
 };
 
@@ -55,9 +62,33 @@ export function providerServesModel( provider: AiProviderId, model: AiModelId ):
 	return getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
 }
 
-/** The model to fall back to when a provider can't serve the requested one. */
-export function getAiProviderDefaultModel( provider: AiProviderId ): AiModelId {
+/**
+ * The fallback when no model was chosen or the provider can't serve the
+ * requested one. On wpcom, paid credits upgrade the default to the balanced
+ * tier; everyone else (including callers without quota data) gets fast.
+ */
+export function getAiProviderDefaultModel(
+	provider: AiProviderId,
+	options?: { hasPaidAiCredits?: boolean }
+): AiModelId {
+	if ( provider === 'wpcom' && options?.hasPaidAiCredits ) {
+		return PAID_DEFAULT_MODEL;
+	}
 	return getAiProviderModels( provider )[ 0 ]?.id ?? DEFAULT_MODEL;
+}
+
+/**
+ * `resolveSessionModel` constrained to what the provider can serve: a
+ * recorded model it no longer offers snaps to the provider's default.
+ */
+export function resolveSessionModelForProvider(
+	entries: SessionEntry[],
+	provider: AiProviderId,
+	options?: { hasPaidAiCredits?: boolean }
+): AiModelId {
+	const defaultModel = getAiProviderDefaultModel( provider, options );
+	const model = resolveSessionModel( entries, defaultModel );
+	return providerServesModel( provider, model ) ? model : defaultModel;
 }
 
 /**
@@ -77,6 +108,21 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 		}
 	}
 	return undefined;
+}
+
+/**
+ * The provider a conversation effectively runs on: its pinned choice first,
+ * then the saved global selection. Without a saved Anthropic key the pin is
+ * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ */
+export function getEffectiveSessionProvider(
+	entries: SessionEntry[],
+	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
+): AiProviderId {
+	if ( ! settings?.hasAnthropicApiKey ) {
+		return DEFAULT_AI_PROVIDER;
+	}
+	return resolveSessionProvider( entries ) ?? settings.provider;
 }
 
 /**

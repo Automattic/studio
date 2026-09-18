@@ -84,10 +84,10 @@ wp_cli option update woocommerce_default_country "US:CA"
 
 4. Add products that match what the shop actually sells. Create real, contextual products - coffee products for a coffee shop, books for a bookstore, plants for a plant store - rather than generic placeholders. Only fall back to generic sample products when the shop's niche is genuinely unknown. Populate the catalog first: create each product with its core details (name, type, price, description, category) right away so the shop is functional, then enrich them with images. Sourcing images is the slowest part - never let it block products from being created, and never skip product creation because images are not ready yet.
 
-Products should ideally have a real, relevant image, and a storefront with product images looks far more complete than one with placeholder thumbnails. **Do not pass remote image URLs via `--images` with `src`.** WooCommerce derives the upload filename from the URL's basename, and the extension-less CDN URLs most image hosts return (e.g. `https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=600`) are rejected with `Invalid image: Sorry, you are not allowed to upload this file type`. Instead, download each image to the site with a real extension, import it into the media library, then reference the resulting attachment ID. The WooCommerce CLI requires a `--user`:
+Products should ideally have a real, relevant image, and a storefront with product images looks far more complete than one with placeholder thumbnails. **Do not pass remote image URLs via `--images` with `src`.** WooCommerce derives the upload filename from the URL's basename, and the extension-less CDN URLs most image hosts return (e.g. `https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=600`) are rejected with `Invalid image: Sorry, you are not allowed to upload this file type`. Instead, put each image in the media library and reference its attachment ID: when `generate_images` is available, generate the product images under the site's `wp-content/uploads/` (see the `imagery` skill), which adds them to the media library and reports each attachment ID; otherwise download each image to the site with a real extension and import it. The WooCommerce CLI requires a `--user`:
 
 ```text
-# Download the image to the site's uploads with a real .jpg/.png/.webp name (use the Bash tool with the site path from site_info):
+# Without generate_images: download the image to the site's uploads with a real .jpg/.png/.webp name (use the Bash tool with the site path from site_info), then import it for its attachment ID:
 #   curl -L "<image-url>" -o "<site-path>/wp-content/uploads/premium-dog-food.jpg"
 wp_cli media import wp-content/uploads/premium-dog-food.jpg --porcelain
 wp_cli wc product create --name="Premium Dog Food" --type=simple --regular_price=42 --status=publish --description="High-protein, grain-free kibble made with real chicken." --images='[{"id":<attachmentId>}]' --categories='[{"id":N}]' --user=admin
@@ -108,6 +108,8 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 Use blocks such as `woocommerce/product-collection`, `woocommerce/featured-product`, and `woocommerce/all-products` to surface the catalog.
 
 6. After installing WooCommerce, go back and edit the header template part (`parts/header.html`) to add a mini-cart, unless it already shows one. Add the `woocommerce/mini-cart` block alongside the navigation - it renders a cart icon with a live item count and opens the cart drawer - and add a "Shop" link to the primary navigation.
+
+7. Rely on WooCommerce's default block templates (shop, single product, cart, checkout, my account) whenever possible instead of writing `archive-product.html`, `single-product.html`, or similar into the theme. They already use the theme's header and footer parts and pick up its `theme.json` and `style.css`; the theme's `.wp-site-blocks main` padding (see the `block-content` skill's Root Block Gap section) is what keeps them clear of the header and footer, so style them through the theme rather than per-page body-class rules. Write a template override only when the design genuinely needs a different structure, and keep the header and footer template parts in it.
 
 ## Jetpack Forms
 

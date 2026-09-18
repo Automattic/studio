@@ -1,6 +1,15 @@
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import {
+	getWpEnvironmentType,
+	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
+	WP_ENVIRONMENT_TYPE_LOCAL,
+	WP_ENVIRONMENT_TYPE_PRODUCTION,
+	WP_ENVIRONMENT_TYPE_STAGING,
+	type WpEnvironmentType,
+} from '@studio/common/lib/wp-environment-type';
 import { getClosestSupportedPhpVersion } from '@studio/common/types/php-versions';
 import {
 	DropdownMenu,
@@ -98,7 +107,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		}
 		const path = await getIpcApi().getAbsolutePathFromSite(
 			selectedSite.id,
-			'wp-content/debug.log'
+			DEBUG_LOG_RELATIVE_PATH
 		);
 		setDebugLogPath( path );
 	}, [ selectedSite.id, selectedSite.enableDebugLog ] );
@@ -112,6 +121,14 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
 	const sandboxLabel = __( 'Sandbox' );
 	const runtimeLabel = isNativePhpRuntime ? nativeLabel : sandboxLabel;
+
+	const environmentTypeLabels: Record< WpEnvironmentType, string > = {
+		[ WP_ENVIRONMENT_TYPE_LOCAL ]: __( 'Local' ),
+		[ WP_ENVIRONMENT_TYPE_DEVELOPMENT ]: __( 'Development' ),
+		[ WP_ENVIRONMENT_TYPE_STAGING ]: __( 'Staging' ),
+		[ WP_ENVIRONMENT_TYPE_PRODUCTION ]: __( 'Production' ),
+	};
+	const environmentTypeLabel = environmentTypeLabels[ getWpEnvironmentType( selectedSite ) ];
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -278,6 +295,13 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					<SettingsRow label={ __( 'Debug display' ) }>
 						{ /* translators: status value for the Debug display setting on the site settings screen */ }
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Script debug' ) }>
+						{ /* translators: status value for the Script debug setting on the site settings screen */ }
+						<span>{ selectedSite.enableScriptDebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Environment type' ) }>
+						<span>{ environmentTypeLabel }</span>
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

@@ -616,6 +616,18 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text-secondary );
 	}
 
+	/* Radio — the update-mode control is the app's only radio group, so the
+	   unchecked state has no dark treatment from anywhere else. The `p` rule
+	   above paints every paragraph in primary text, which would make the option
+	   descriptions read as body copy. */
+	.components-radio-control__input[type='radio']:not( :checked ) {
+		border-color: var( --color-frame-border );
+		background-color: var( --color-frame-surface );
+	}
+	.components-radio-control__option-description {
+		color: var( --color-frame-text-secondary );
+	}
+
 	/* Checkbox / Toggle */
 	.components-checkbox-control__input[type='checkbox'],
 	input[type='checkbox'] {

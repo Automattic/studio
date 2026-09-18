@@ -87,7 +87,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					array: true,
 					describe: __(
-						'Restrict the pull to specific wp-content folders (e.g. plugins/akismet, themes, uploads); repeatable.'
+						'Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.'
 					),
 				} )
 				.option( 'skip-database', {
@@ -992,6 +992,7 @@ export async function runFullPull(
 		apiUrl,
 		`--secret=${ secret }`,
 		...onlyArgs,
+		'--mode=mirror',
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,

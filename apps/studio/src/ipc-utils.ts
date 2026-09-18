@@ -3,10 +3,9 @@ import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { ExportIpcEvent, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
-import { getMainWindow } from 'src/main-window';
+import { getExistingMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
-import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { PullSiteProgress, PushPhase } from '@studio/common/types/sync';
 
@@ -73,14 +72,29 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
-	'remote-session-status': [ RemoteSessionStatus ];
 	'app-update-status': [ AppUpdateStatus ];
+	'app-update-not-available': [ { currentVersion: string } ];
 }
 
-export interface AppUpdateStatus {
-	readyToInstall: boolean;
-	version: string | null;
-}
+/**
+ * Updater lifecycle as the renderer sees it. `currentVersion` is null where there is no
+ * desktop app to report on (the browser UI's connectors), and `newVersion` is null until
+ * the feed lookup resolves — Electron's autoUpdater only names the version on download.
+ */
+export type AppUpdateStatus = (
+	| { state: 'idle' | 'checking'; currentVersion: string | null }
+	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
+	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
+	| {
+			state: 'error';
+			currentVersion: string | null;
+			reason: 'read-only-volume' | 'generic';
+			detail?: string;
+	  }
+) & {
+	// Set when the user asked for this check, so the renderer can re-show a dismissed card.
+	requested?: boolean;
+};
 
 let isAppQuitting = false;
 
@@ -95,11 +109,7 @@ export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(
 	if ( isAppQuitting ) {
 		return;
 	}
-	const window = await getMainWindow();
-	// `getMainWindow()` can resolve to `null` during early boot — e.g., the
-	// daemon-status poller fires its initial tick before the renderer window
-	// has been created in some unit-test setups. Mirror the null-check that
-	// `sendIpcEventToRendererWithWindow` already does so we no-op cleanly.
+	const window = getExistingMainWindow();
 	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		window.webContents.send( channel, ...args );
 	}

@@ -2,7 +2,7 @@ import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const LOCAL_MEDIA_QUERY_KEY = [ 'local-media' ] as const;
+const LOCAL_MEDIA_QUERY_KEY = [ 'local-media' ] as const;
 
 // Resolves a local media file to a `data:` URL. A data URL needs no
 // revocation lifecycle (unlike object URLs, which break under StrictMode's

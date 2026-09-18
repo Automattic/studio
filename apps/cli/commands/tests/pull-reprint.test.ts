@@ -337,6 +337,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			'pull-files',
 			'https://example.com/?reprint-api',
 			'--secret=hmac-secret',
+			'--mode=mirror',
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,

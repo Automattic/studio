@@ -1,3 +1,5 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
@@ -29,17 +31,29 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	};
 
 	const handlePickSite = async ( pickedSite: SyncSite ) => {
+		const alreadyConnected =
+			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( site.id ) ) ?? [];
 		try {
 			await connector.connectWpcomSite( site.id, {
 				...pickedSite,
 				localSiteId: site.id,
 				syncSupport: 'already-connected',
 			} );
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+				success: true,
+				// Counted after this connect, so a first connection reports 1.
+				num_of_sites: alreadyConnected.filter( ( { id } ) => id !== pickedSite.id ).length + 1,
+			} );
 			await queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( site.id ),
 			} );
 			onClose();
 		} catch ( error ) {
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+				success: false,
+				failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+				num_of_sites: alreadyConnected.length,
+			} );
 			console.error( 'Failed to connect WordPress.com site:', error );
 		}
 	};
@@ -47,6 +61,11 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	const handleCreateNew = () => {
 		const checkoutUrl = connector.getPublishCheckoutUrl( site );
 		if ( checkoutUrl ) {
+			// This checkout uses `section=publish-site` + `autoOpenPush`, matching
+			// Classic's Publish rather than its Create — so it reports as a publish.
+			// Emitted at the handoff, not at completion: the site coming back is a
+			// later `studio_sync_connect` from the listener below.
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
 			// Desktop receives the new site via the wp-studio:// deep link; surfaces
 			// that can't (the local web server) opt into a server-side watch instead.
 			void connector.watchForPublishedSite?.( site.id );

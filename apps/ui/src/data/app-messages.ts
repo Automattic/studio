@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from 'react';
 
+// Session-only dismissals for persistent sidebar cards. Lives here rather than in
+// use-app-messages so the update hooks can reset it without an import cycle.
+export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
+
 export type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {
@@ -7,7 +11,7 @@ export type ToastAction = {
 	onClick: () => void;
 };
 
-export type ToastInput = {
+type ToastInput = {
 	// Optional stable id. Re-showing an id that is still visible or queued
 	// replaces it in place and restarts its timer — useful for actions the
 	// user can spam, like "Copied".
@@ -32,6 +36,15 @@ export type ToastMessage = {
 	leaving?: boolean;
 };
 
+export type NoticeRecord = {
+	id: string;
+	intent: ToastIntent;
+	title: string;
+	description?: string;
+	// Epoch ms of the first showing; an in-place replacement keeps it.
+	shownAt: number;
+};
+
 const DEFAULT_TOAST_TTL_MS = 4_500;
 // Failures linger so a glance away doesn't miss them.
 const ERROR_TOAST_TTL_MS = 10_000;
@@ -45,13 +58,21 @@ let queued: ToastMessage[] = [];
 let nextId = 1;
 let rendererMounted = false;
 
+// Session-only log of everything shown, newest first. A toast clamps long
+// error text and then expires; the history panel is where the full message
+// can still be read. Bounded so a noisy session can't grow it forever.
+const HISTORY_LIMIT = 50;
+let noticeHistory: NoticeRecord[] = [];
+
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
 
 let snapshot: readonly ToastMessage[] = visible;
+let queuedSnapshot: readonly ToastMessage[] = queued;
 
 function emit() {
 	snapshot = [ ...visible ];
+	queuedSnapshot = [ ...queued ];
 	for ( const listener of listeners ) {
 		listener();
 	}
@@ -78,6 +99,28 @@ function scheduleExpiry( toast: ToastMessage ) {
 		beginToastExit( toast.id );
 	}, toast.durationMs );
 	timers.set( toast.id, timer );
+}
+
+function recordNotice( toastMessage: ToastMessage, isReplacement: boolean ) {
+	const record: NoticeRecord = {
+		id: toastMessage.id,
+		intent: toastMessage.intent,
+		title: toastMessage.title,
+		description: toastMessage.description,
+		shownAt: Date.now(),
+	};
+	if ( isReplacement ) {
+		const index = noticeHistory.findIndex( ( item ) => item.id === toastMessage.id );
+		if ( index >= 0 ) {
+			// A sync ticking from "Pushing… 62%" to "Push complete" is one event,
+			// not two entries.
+			noticeHistory = noticeHistory.map( ( item, i ) =>
+				i === index ? { ...record, shownAt: item.shownAt } : item
+			);
+			return;
+		}
+	}
+	noticeHistory = [ record, ...noticeHistory ].slice( 0, HISTORY_LIMIT );
 }
 
 function promoteQueued() {
@@ -132,13 +175,17 @@ export function showToast( input: ToastInput ): string {
 		// leaving flag, and scheduleExpiry clears the pending removal timer.
 		visible = visible.map( ( toast ) => ( toast.id === toastMessage.id ? toastMessage : toast ) );
 		scheduleExpiry( toastMessage );
+		recordNotice( toastMessage, true );
 	} else if ( queued.some( ( toast ) => toast.id === toastMessage.id ) ) {
 		queued = queued.map( ( toast ) => ( toast.id === toastMessage.id ? toastMessage : toast ) );
+		recordNotice( toastMessage, true );
 	} else if ( visible.length < MAX_VISIBLE_TOASTS ) {
 		visible = [ ...visible, toastMessage ];
 		scheduleExpiry( toastMessage );
+		recordNotice( toastMessage, false );
 	} else {
 		queued = [ ...queued, toastMessage ];
+		recordNotice( toastMessage, false );
 	}
 
 	emit();
@@ -217,15 +264,47 @@ export function getQueuedToastCount(): number {
 	return queued.length;
 }
 
-export function useQueuedToastCount(): number {
+// The toasts waiting behind the visible ones, in the order they will
+// surface — the stack's peek strips tint themselves to match.
+export function useQueuedToasts(): readonly ToastMessage[] {
 	return useSyncExternalStore(
 		subscribe,
-		() => queued.length,
-		() => 0
+		() => queuedSnapshot,
+		() => EMPTY_TOASTS
 	);
 }
 
 const EMPTY_TOASTS: readonly ToastMessage[] = [];
+const EMPTY_HISTORY: readonly NoticeRecord[] = [];
+
+export function getNoticeHistory(): readonly NoticeRecord[] {
+	return noticeHistory;
+}
+
+export function useNoticeHistory(): readonly NoticeRecord[] {
+	return useSyncExternalStore(
+		subscribe,
+		() => noticeHistory,
+		() => EMPTY_HISTORY
+	);
+}
+
+// "Clear all" in the recent-notifications dialog: the list, plus whatever is
+// still showing or waiting in the sidebar — a cleared list with toasts left
+// behind reads as if nothing happened.
+export function clearNoticeHistory(): void {
+	queued = [];
+	for ( const toastMessage of visible ) {
+		beginToastExit( toastMessage.id );
+	}
+	noticeHistory = [];
+	emit();
+}
+
+// Title plus the full description, for the clipboard.
+export function noticeToText( notice: Pick< NoticeRecord, 'title' | 'description' > ): string {
+	return notice.description ? `${ notice.title }\n${ notice.description }` : notice.title;
+}
 
 export function resetAppMessagesForTests(): void {
 	for ( const timer of timers.values() ) {
@@ -237,4 +316,5 @@ export function resetAppMessagesForTests(): void {
 	nextId = 1;
 	rendererMounted = false;
 	snapshot = visible;
+	noticeHistory = [];
 }

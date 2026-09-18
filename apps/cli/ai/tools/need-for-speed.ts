@@ -45,5 +45,9 @@ export const auditPerformanceTool = defineTool(
 				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.',
 	}
 );

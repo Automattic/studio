@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import '@sentry/electron/preload';
-import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
+import { IpcRendererEvent, contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import { IpcEvents } from 'src/ipc-utils';
 import type { AgenticUiSurface } from 'src/lib/beta-features';
 
@@ -140,6 +140,8 @@ const api: IpcApi = {
 	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
 		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
+	ensureMinWindowWidth: ( minimumWidth ) =>
+		ipcRendererInvoke( 'ensureMinWindowWidth', minimumWidth ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	openFileInIDE: ( relativePath, siteId ) =>
@@ -169,10 +171,15 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	getAppZoomFactor: () => webFrame.getZoomFactor(),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewViewport: ( webContentsId, viewport ) =>
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
+	getWebviewNavigationHistory: ( webContentsId ) =>
+		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),
+	goToWebviewNavigationHistoryEntry: ( webContentsId, index ) =>
+		ipcRendererInvoke( 'goToWebviewNavigationHistoryEntry', webContentsId, index ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
@@ -218,9 +225,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
-	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
-	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
-	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),

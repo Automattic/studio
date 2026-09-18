@@ -12,6 +12,11 @@ const { mockIpc, quotaState } = vi.hoisted( () => ( {
 		createAiSession: vi.fn(),
 		markAiMessageEdited: vi.fn(),
 		openURL: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	},
 	quotaState: {
 		data: undefined as Partial< StudioAssistantQuota > | undefined,
@@ -31,6 +36,9 @@ vi.mock( 'src/hooks/use-auth', () => ( {
 
 vi.mock( 'src/stores', () => ( {
 	useI18nLocale: () => 'en',
+	useAppDispatch: () => vi.fn(),
+	// Neutral for every ui-slice selector the session tree reads.
+	useRootSelector: () => null,
 } ) );
 
 vi.mock( 'src/stores/wpcom-api', () => ( {
@@ -84,10 +92,8 @@ vi.mock( '../use-example-prompts', () => ( {
 	useExamplePrompts: () => [],
 } ) );
 
-vi.mock( '../lock-unlock', () => ( {
-	unlock: () => ( {
-		ThemeProvider: ( { children }: { children: React.ReactNode } ) => children,
-	} ),
+vi.mock( '@wordpress/theme', () => ( {
+	ThemeProvider: ( { children }: { children: React.ReactNode } ) => children,
 } ) );
 
 const selectedSite = { id: 'site-1', name: 'Test Site', path: '/tmp/site-1' } as SiteDetails;

@@ -26,8 +26,8 @@
 	overflow: hidden;
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
 	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: var(--wpds-elevation-md);
-	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .scrollArea {
@@ -44,11 +44,8 @@
 	padding-block-end: var(--wpds-dimension-padding-sm);
 }
 
-/* Same fix as .headerClose in settings-view/style.module.css: this popup
-   portals outside the [data-ui-mode='classic'] container, so the global
-   compact-density rule in index.css that shrinks default-24px icons to
-   16px doesn't reach here — the icons render at their unshrunk native
-   size instead of matching the expanded sidebar. */
+/* Same as .headerClose in settings-view/style.module.css: keep the icons at
+   the compact 16px size so they match the expanded sidebar. */
 .surface svg {
 	width: 16px;
 	height: 16px;
@@ -81,7 +78,7 @@
 }
 
 .openSidebarCta:hover {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 }
 
 .shortcutKeys {
@@ -100,8 +97,8 @@
 	padding: 0 var(--wpds-dimension-padding-xs);
 	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm);
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-family: var(--wpds-typography-font-family-body);
 	font-size: var(--wpds-typography-font-size-xs);
 	font-weight: 500;

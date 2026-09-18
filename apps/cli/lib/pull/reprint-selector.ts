@@ -9,7 +9,6 @@ import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
 import { buildTreeFromRemote, fetchPullTree } from 'cli/lib/sync-selector';
 import treeCheckbox from 'cli/lib/tree-checkbox';
-import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const WP_CONTENT_TOKEN = ':wp-content:';
@@ -69,40 +68,12 @@ export function mapCheckedNodesToSelection( selected: TreeNode[] ): PullSelectio
 	};
 }
 
-/**
- * Reprint's `--only` values are directory roots. Keep the database toggle
- * and directory nodes, but never expose files that Reprint cannot pull
- * independently. Jetpack represents directory paths with trailing slashes;
- * use canonical values before the picker or selection logic sees them.
- */
-export function filterTreeToDirectories( tree: TreeNode[] ): TreeNode[] {
-	return tree.flatMap( ( node ) => {
-		if ( node.value === 'database' ) {
-			return [ node ];
-		}
-		if ( ! node.isDirectory ) {
-			return [];
-		}
-		return [
-			{
-				...node,
-				value: node.value.replace( /\/+$/, '' ),
-				children: node.children ? filterTreeToDirectories( node.children ) : undefined,
-			},
-		];
-	} );
-}
-
-function filterEntriesToDirectories( entries: RemoteFileEntry[] ): RemoteFileEntry[] {
-	return entries.filter( ( entry ) => entry.isDirectory );
-}
-
 export async function fetchJetpackPullTree(
 	token: string,
 	remoteSiteId: number
 ): Promise< TreeNode[] > {
 	const { tree } = await fetchPullTree( token, remoteSiteId );
-	return filterTreeToDirectories( tree );
+	return tree;
 }
 
 /**
@@ -127,9 +98,7 @@ export async function selectPullItems(
 							rewindId,
 							`/wp-content/${ node.value }`
 						);
-						return filterTreeToDirectories(
-							buildTreeFromRemote( filterEntriesToDirectories( entries ), node.depth + 1 )
-						);
+						return buildTreeFromRemote( entries, node.depth + 1 );
 				  }
 				: undefined,
 	} );
@@ -142,7 +111,7 @@ export async function selectPullItems(
 	if ( ! selection.hasAnyFile && ! options.allowDatabaseOnly ) {
 		console.log(
 			__(
-				'Refreshing the database on its own is not supported yet. Select at least one folder to refresh.'
+				'Refreshing the database on its own is not supported yet. Select at least one path to refresh.'
 			)
 		);
 		return undefined;

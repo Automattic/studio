@@ -10,9 +10,24 @@ import {
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
 import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { getAiModelFamily, getAiModelLabel, getVisibleAiModels } from '@studio/common/ai/models';
+import {
+	aiModelRequiresPaidCredits,
+	getAiModelFamily,
+	getAiModelLabel,
+} from '@studio/common/ai/models';
+import { getAiProviderModels, getEffectiveSessionProvider } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { isAutomatticianEmail } from '@studio/common/lib/automattician';
+import {
+	formatPaidTiersNudge,
+	getAddAiCreditsUrl,
+	getAiCreditsMeter,
+	getAiCreditsMeterIntent,
+	hasPaidAiCredits,
+	persistPaidTiersNudgeDismissed,
+	readPaidTiersNudgeDismissed,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
@@ -26,11 +41,18 @@ import {
 	useState,
 	type SetStateAction,
 } from 'react';
+import { AiCreditsPurchaseDialog } from 'src/components/ai-credits-purchase-dialog';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	useGetStudioAssistantQuota,
+	useGetStudioAssistantTopUpPricing,
+} from 'src/stores/wpcom-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
+import { AiCreditsControl } from './ai-credits-control';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -67,11 +89,17 @@ export function ComposerSkeleton() {
 
 interface ComposerProps {
 	busy: boolean;
+	// The agent is blocked on `ask_user`. Sending answers the question it is
+	// waiting on, so this is a send, not a queue.
+	awaitingAnswer?: boolean;
+	// Bump to move focus into the textarea without touching its content.
+	focusRequestId?: number;
 	isInterrupting?: boolean;
 	error: string | null;
 	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
+	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -89,6 +117,15 @@ interface ComposerProps {
 	// it to the draft, e.g. while hovering an example prompt. Clearing it
 	// restores whatever the user had typed.
 	previewPrompt?: string | null;
+}
+
+function focusAtEnd( node: HTMLTextAreaElement | null ) {
+	if ( ! node ) {
+		return;
+	}
+	node.focus();
+	const length = node.value.length;
+	node.setSelectionRange( length, length );
 }
 
 const isMacPlatform =
@@ -227,11 +264,14 @@ function getSessionPlaceholder( sessionId: string | undefined ): string {
 
 export function Composer( {
 	busy,
+	awaitingAnswer = false,
+	focusRequestId = 0,
 	isInterrupting = false,
 	error,
 	usageCapMessage,
 	model,
 	onSend,
+	onAnswer,
 	onInterrupt,
 	sessionId,
 	entries,
@@ -273,7 +313,7 @@ export function Composer( {
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( awaitingAnswer );
 
 	useEffect( () => {
 		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {
@@ -281,16 +321,15 @@ export function Composer( {
 		}
 		appliedDraftPromptIdRef.current = draftPrompt.id;
 		setDraftValue( draftPrompt.prompt );
-		queueMicrotask( () => {
-			const node = textareaRef.current;
-			if ( ! node ) {
-				return;
-			}
-			node.focus();
-			const length = node.value.length;
-			node.setSelectionRange( length, length );
-		} );
+		queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 	}, [ draftPrompt, setDraftValue ] );
+
+	useEffect( () => {
+		if ( focusRequestId === 0 ) {
+			return;
+		}
+		focusAtEnd( textareaRef.current );
+	}, [ focusRequestId ] );
 
 	useEffect( () => {
 		setValue( loadDraft( draftStorageKey ) );
@@ -307,13 +346,65 @@ export function Composer( {
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
 	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
 
+	// Only offer models the conversation's provider can serve. The paid tiers
+	// are listed but disabled for accounts without purchased credits.
+	const aiSettings = useAiSettings();
+	const visibleModels = getAiProviderModels(
+		getEffectiveSessionProvider( entries ?? [], aiSettings )
+	);
+	const { isAuthenticated, user } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	// The paid tiers unlock with purchased credits; Automatticians are exempt.
+	const canUsePaidTiers = hasPaidAiCredits( quota ) || isAutomatticianEmail( user?.email );
+	const isModelLocked = useCallback(
+		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
+		[ canUsePaidTiers ]
+	);
+	const hasLockedModels = visibleModels.some( ( { id } ) => isModelLocked( id ) );
+
+	// Nudge free-allowance accounts toward the paid tiers: a footer in the
+	// model picker plus a dismissible line above the prompt. Never shown while
+	// the quota is still loading, on top of the usage-cap banner, or from 80%
+	// usage — the warning ladder carries the same CTA with more urgency.
+	const [ paidTiersNudgeDismissed, setPaidTiersNudgeDismissed ] = useState(
+		readPaidTiersNudgeDismissed
+	);
+	const dismissPaidTiersNudge = () => {
+		setPaidTiersNudgeDismissed( true );
+		persistPaidTiersNudgeDismissed();
+	};
+	const creditsMeter = quota ? getAiCreditsMeter( quota ) : null;
+	const usageWarningActive =
+		!! creditsMeter && getAiCreditsMeterIntent( creditsMeter.fraction ) !== 'ok';
+	const showPaidTiersNudge =
+		Boolean( quota ) &&
+		hasLockedModels &&
+		! paidTiersNudgeDismissed &&
+		! usageCapMessage &&
+		! usageWarningActive;
+
+	// Mirrors AddAiCreditsButton: the chooser when priced options exist, else
+	// straight to checkout for the single fixed top-up.
+	const { data: topUpPricing } = useGetStudioAssistantTopUpPricing();
+	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
+	const openAddCredits = () => {
+		if ( ( topUpPricing?.options.length ?? 0 ) > 0 ) {
+			setCreditsPurchaseOpen( true );
+			return;
+		}
+		void getIpcApi().openURL( getAddAiCreditsUrl( { returnsToDesktop: true } ) );
+	};
+
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
-	const { user } = useAuth();
-	const visibleModels = getVisibleAiModels( isAutomatticianEmail( user?.email ), model );
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+
+	const answerQuestion =
+		onAnswer && attachments.length === 0 && ! resolveSkillFromPrompt( value )
+			? onAnswer
+			: undefined;
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -326,6 +417,10 @@ export function Composer( {
 		const sentAttachments = attachments;
 		setDraftValue( '' );
 		clearAttachments();
+		if ( answerQuestion ) {
+			answerQuestion( trimmed );
+			return;
+		}
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
@@ -336,7 +431,15 @@ export function Composer( {
 			setDraftValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend, setDraftValue ] );
+	}, [
+		value,
+		attachments,
+		clearAttachments,
+		restoreAttachments,
+		onSend,
+		answerQuestion,
+		setDraftValue,
+	] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -393,7 +496,7 @@ export function Composer( {
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
-			if ( picked === model ) {
+			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog
@@ -415,7 +518,7 @@ export function Composer( {
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, isModelLocked, model, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -449,10 +552,12 @@ export function Composer( {
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
-	const placeholder = busy
+	const placeholder = answerQuestion
+		? __( 'Or type your own answer…' )
+		: busy
 		? __( 'Queue a follow-up instruction…' )
 		: getSessionPlaceholder( sessionId );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendAriaLabel = answerQuestion ? __( 'Answer' ) : busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
 	const hoveredAttachment = hoverPreview
 		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
@@ -475,6 +580,26 @@ export function Composer( {
 				{ usageCapMessage ? (
 					<div className={ styles.usageCapBanner } role="alert">
 						{ usageCapMessage }
+					</div>
+				) : null }
+				{ showPaidTiersNudge ? (
+					<div className={ styles.paidTiersNudge }>
+						<span>{ formatPaidTiersNudge() }</span>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeAction }
+							onClick={ openAddCredits }
+						>
+							{ __( 'Add credits' ) }
+						</button>
+						<button
+							type="button"
+							className={ styles.paidTiersNudgeDismiss }
+							onClick={ dismissPaidTiersNudge }
+							aria-label={ __( 'Dismiss' ) }
+						>
+							<Icon icon={ closeSmall } size={ 16 } />
+						</button>
 					</div>
 				) : null }
 				<div
@@ -660,6 +785,7 @@ export function Composer( {
 								className={ styles.iconButton }
 								aria-label={ __( 'Attach files' ) }
 								title={ __( 'Attach files' ) }
+								disabled={ awaitingAnswer }
 								onClick={ openFilePicker }
 							>
 								<Icon icon={ paperclipIcon } size={ 16 } />
@@ -673,6 +799,7 @@ export function Composer( {
 							/>
 						</div>
 						<div className={ styles.rightActions }>
+							<AiCreditsControl />
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
 									render={
@@ -691,12 +818,18 @@ export function Composer( {
 										value={ model }
 										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 									>
-										{ visibleModels.map( ( { id, label } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
+										{ visibleModels.map( ( { id } ) => (
+											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
+												{ getAiModelLabel( id ) }
 											</Menu.RadioItem>
 										) ) }
 									</Menu.RadioGroup>
+									{ hasLockedModels ? (
+										<>
+											<Menu.Separator />
+											<Menu.Item onClick={ openAddCredits }>{ formatPaidTiersNudge() }</Menu.Item>
+										</>
+									) : null }
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
@@ -749,6 +882,9 @@ export function Composer( {
 				onCancel={ cancelFamilyChange }
 				onConfirm={ () => void confirmFamilyChange() }
 			/>
+			{ creditsPurchaseOpen ? (
+				<AiCreditsPurchaseDialog open onOpenChange={ setCreditsPurchaseOpen } />
+			) : null }
 		</>
 	);
 }

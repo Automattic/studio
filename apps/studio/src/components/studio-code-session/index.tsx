@@ -1,14 +1,20 @@
-import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	getEffectiveSessionProvider,
+	resolveSessionModelForProvider,
+} from '@studio/common/ai/providers';
 import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
-import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getStudioCodeAiAccessState,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
 	useCallback,
@@ -21,11 +27,14 @@ import {
 	type UIEvent,
 } from 'react';
 import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
+import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
+import { AiCreditsThresholdNotice } from 'src/components/ai-credits-threshold-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIsOutOfAiCredits } from 'src/hooks/use-is-out-of-ai-credits';
 import { useOffline } from 'src/hooks/use-offline';
@@ -35,7 +44,6 @@ import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
-import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
@@ -50,8 +58,6 @@ import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 interface SessionFrameProps {
 	header?: ReactNode;
@@ -284,18 +290,73 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
-	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
-	);
+	const { isAuthenticated } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	const aiSettings = useAiSettings();
+	// A fresh wpcom session defaults to balanced when purchased credits
+	// remain, fast otherwise.
+	const currentModel = useMemo( () => {
+		const entries = data?.entries ?? [];
+		return resolveSessionModelForProvider(
+			entries,
+			getEffectiveSessionProvider( entries, aiSettings ),
+			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+		);
+	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
+	const [ composerFocusRequestId, setComposerFocusRequestId ] = useState( 0 );
+	const chooseFreeFormAnswer = useCallback(
+		( question: string ) => {
+			// Retract any option already picked for this question: the typed reply
+			// replaces it, and leaving it in place would dispatch the stale pick.
+			clearQuestionAnswer( question );
+			setArmedFreeFormQuestion( question );
+			setComposerFocusRequestId( ( id ) => id + 1 );
+		},
+		[ clearQuestionAnswer ]
+	);
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
+				return;
+			}
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
+		},
+		[ answerQuestion, targetQuestion ]
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -422,16 +483,21 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+						<AiCreditsThresholdNotice />
+						<AiCreditsPurchasedNotice />
 						{ isOutOfCredits ? (
 							<OutOfCreditsNotice />
 						) : (
 							<Composer
 								busy={ composerBusy }
+								awaitingAnswer={ pendingQuestions.length > 0 }
+								focusRequestId={ composerFocusRequestId }
 								isInterrupting={ isInterrupting }
 								error={ usageCapReached ? null : runError }
 								usageCapMessage={ usageCapReached ? runError : null }
 								model={ currentModel }
 								onSend={ sendMessage }
+								onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 								onInterrupt={ interrupt }
 								sessionId={ sessionId }
 								entries={ data.entries }
@@ -459,7 +525,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
-							onAnswerQuestion={ answerQuestion }
+							freeFormQuestion={ freeFormQuestion }
+							onAnswerQuestion={ answerQuestionFromOption }
+							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>
@@ -519,7 +587,7 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<QueryClientProvider client={ queryClient }>
-			<ThemeProvider density="compact">
+			<ThemeProvider>
 				<AgentRunProvider>
 					<SessionGate selectedSite={ selectedSite } />
 				</AgentRunProvider>

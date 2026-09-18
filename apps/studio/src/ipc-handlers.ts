@@ -44,6 +44,7 @@ import {
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -75,16 +76,12 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import {
-	getDaemonStatus,
-	DaemonStartTimeoutError,
-	toRemoteSessionStatus,
-	type RemoteSessionStatus,
-	type StartDaemonResult,
-	type StopDaemonResult,
-} from '@studio/common/lib/remote-session';
+	DEFAULT_ADMIN_PASSWORD,
+	decodePassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
+import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -99,6 +96,7 @@ import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
@@ -114,13 +112,7 @@ import {
 	updateBetaFeature as updateBetaFeatureInLib,
 	type AgenticUiSurface,
 } from 'src/lib/beta-features';
-import {
-	bumpAggregatedUniqueStat,
-	bumpStat,
-	getBlueprintMetric,
-	getPlatformMetric,
-	StatsGroup,
-} from 'src/lib/bump-stats';
+import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -186,7 +178,6 @@ import {
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
-import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -731,10 +722,10 @@ export async function removeWordPressSkillFromAllSites(
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
-const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( DEFAULT_ADMIN_PASSWORD );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
-	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
+	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
@@ -1020,6 +1011,14 @@ export async function updateSite(
 
 	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
 		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
+	}
+
+	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
+		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
+	}
+
+	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
+		options.environmentType = getWpEnvironmentType( updatedSite );
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;
@@ -1998,6 +1997,29 @@ export function toggleMinWindowWidth(
 	parentWindow.setSize( newWidth, currentHeight, true );
 }
 
+export async function ensureMinWindowWidth(
+	event: IpcMainInvokeEvent,
+	minimumWidth: number
+): Promise< number | null > {
+	if ( ! Number.isFinite( minimumWidth ) || minimumWidth <= 0 ) {
+		return null;
+	}
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+		return null;
+	}
+	// Measure and resize the content area, not the whole window. The renderer's
+	// responsive math is entirely in CSS pixels (`window.innerWidth`); on Windows
+	// and Linux the window frame makes that differ from the outer window size, so
+	// growing (and reporting) the content width is what keeps the two in sync.
+	const [ currentWidth, currentHeight ] = parentWindow.getContentSize();
+	const nextWidth = Math.ceil( minimumWidth );
+	if ( currentWidth < nextWidth ) {
+		parentWindow.setContentSize( nextWidth, currentHeight );
+	}
+	return parentWindow.getContentSize()[ 0 ];
+}
+
 /**
  * Returns the absolute path of a file in the site's directory.
  * Returns null if the file does not exist.
@@ -2550,98 +2572,6 @@ export async function updateSitesSortOrder(
 	}
 }
 
-export async function getRemoteSessionDaemonStatus(
-	_event: IpcMainInvokeEvent
-): Promise< RemoteSessionStatus > {
-	// Project at the IPC boundary — the renderer only needs the boolean.
-	// Keeping `pid` / `pidFile` / `staleFileRemoved` on the main-process side
-	// avoids shipping data the UI doesn't read.
-	return toRemoteSessionStatus( getDaemonStatus() );
-}
-
-export async function startRemoteSessionDaemon(
-	_event: IpcMainInvokeEvent
-): Promise< StartDaemonResult > {
-	// The CLI fires its own `STUDIO_CLI_DOLLY_START` bump when the child
-	// process boots. The desktop-side bump captures only bolt-icon clicks, so
-	// we can separate UI-driven starts from direct CLI invocations.
-	// De-dupe on rapid clicks happens in `useRemoteSessionStatus` via
-	// `pendingRunningRef`/`isLoadingRef` before the IPC even fires.
-	bumpStat( StatsGroup.STUDIO_APP_DOLLY_START, getPlatformMetric() );
-	bumpAggregatedUniqueStat(
-		StatsGroup.STUDIO_APP_DOLLY_WKLY_UNQ,
-		getPlatformMetric(),
-		'weekly'
-	).catch( ( err ) => Sentry.captureException( err ) );
-	bumpAggregatedUniqueStat(
-		StatsGroup.STUDIO_APP_DOLLY_MON_UNQ,
-		getPlatformMetric(),
-		'monthly'
-	).catch( ( err ) => Sentry.captureException( err ) );
-
-	// Treat the CLI as an external program (same pattern as every other
-	// CLI-backed operation in Studio): fork it as a child process and let it
-	// own the spawn/detach lifecycle. `cli code remote-session start` already
-	// does exactly that.
-	//
-	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
-	// `code remote-session` subcommand tree behind that env var (see
-	// `packages/common/lib/remote-session.ts`). Without it, the spawned child fails with
-	// "Unknown arguments: remote-session, start". The `remoteSession` beta
-	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
-	// child rather than asking users to set the env var manually.
-	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'start' ], {
-			output: 'capture',
-			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
-		} );
-		emitter.on( 'success', () => {
-			// The CLI returns once the daemon has written its PID file. Re-read it
-			// here so the renderer gets a strongly-typed result with the live PID.
-			const status = getDaemonStatus();
-			if ( status.running && status.pid !== undefined ) {
-				resolve( { pid: status.pid, pidFile: status.pidFile } );
-				return;
-			}
-			reject(
-				new DaemonStartTimeoutError(
-					`Remote-session daemon CLI exited successfully but no live PID file was found at ${ status.pidFile }.`
-				)
-			);
-		} );
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
-}
-
-export async function stopRemoteSessionDaemon(
-	_event: IpcMainInvokeEvent
-): Promise< StopDaemonResult > {
-	bumpStat( StatsGroup.STUDIO_APP_DOLLY_STOP, getPlatformMetric() );
-
-	return new Promise( ( resolve, reject ) => {
-		// Same env-flag handshake as `startRemoteSessionDaemon` — without it
-		// the CLI doesn't register the `code remote-session` subcommand tree
-		// and the spawned child fails with "Unknown argument: stop".
-		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'stop' ], {
-			output: 'capture',
-			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
-		} );
-		emitter.on( 'success', () => {
-			// CLI exit-code 0 indicates the daemon is no longer running (either
-			// stopped this invocation or was already gone). The CLI doesn't
-			// surface the granular SIGTERM/SIGKILL distinction or the
-			// "alreadyStopped" flag over its IPC channel, and the renderer
-			// doesn't read those fields anyway, so we just report success.
-			// A non-zero exit (e.g. SIGKILL refused) lands in the `failure`
-			// branch via CliCommandError.
-			resolve( { stopped: true } );
-		} );
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
-}
-
 function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
 	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
 		throw new Error( 'Invalid webview identifier.' );
@@ -2679,8 +2609,9 @@ async function sendDebuggerCommand< T >(
 // Simulates a viewport for the preview webview via the CDP device-metrics
 // override that DevTools device mode is built on: the guest lays out at
 // `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// to fit the webview, remapping input coordinates to match. `null` returns
-// the guest to the webview's natural size.
+// (down to fit the webview, or up for a zoomed preview), remapping input
+// coordinates to match. `null` returns the guest to the webview's natural
+// size.
 export async function setWebviewViewport(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
@@ -2695,8 +2626,9 @@ export async function setWebviewViewport(
 	const { width, height, scale, mobile } = viewport;
 	const isValidDimension = ( value: number ) =>
 		Number.isInteger( value ) && value > 0 && value <= 10000;
+	// Capped at Chromium's own zoom ceiling.
 	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
 	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
 		throw new Error( 'Unsupported webview viewport.' );
 	}
@@ -2717,6 +2649,32 @@ export async function clearWebviewCache(
 	webContentsId: number
 ): Promise< void > {
 	await getOwnedWebviewContents( event, webContentsId ).session.clearCache();
+}
+
+export async function getWebviewNavigationHistory(
+	event: IpcMainInvokeEvent,
+	webContentsId: number
+): Promise< {
+	activeIndex: number;
+	entries: { index: number; title: string; url: string }[];
+} > {
+	const history = getOwnedWebviewContents( event, webContentsId ).navigationHistory;
+	return {
+		activeIndex: history.getActiveIndex(),
+		entries: history.getAllEntries().map( ( entry, index ) => ( {
+			index,
+			title: entry.title,
+			url: entry.url,
+		} ) ),
+	};
+}
+
+export async function goToWebviewNavigationHistoryEntry(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	index: number
+): Promise< void > {
+	getOwnedWebviewContents( event, webContentsId ).navigationHistory.goToIndex( index );
 }
 
 export { showTextContextMenu } from 'src/text-context-menu';

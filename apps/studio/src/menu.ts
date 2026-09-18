@@ -17,13 +17,13 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { applyAppZoomCommand } from 'src/lib/app-zoom';
 import {
 	BetaFeatureDefinition,
 	getBetaFeatures,
 	getBetaFeaturesDefinition,
 	updateBetaFeature,
 } from 'src/lib/beta-features';
-import { bumpStat, getPlatformMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
@@ -102,14 +102,6 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 						menuItem.checked,
 						key === 'enableAgenticUi' ? 'menu' : undefined
 					);
-					if ( key === 'remoteSession' ) {
-						bumpStat(
-							menuItem.checked
-								? StatsGroup.STUDIO_APP_DOLLY_ENABLE
-								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
-							getPlatformMetric()
-						);
-					}
 					if ( key === 'enableAgenticUi' ) {
 						setAgenticUiEnabled( menuItem.checked );
 						const mainWindow = await getMainWindow();
@@ -136,6 +128,9 @@ export function buildViewMenuItems( {
 	devTools,
 	onToggleSidebar,
 	onToggleSitePreview,
+	onResetZoom,
+	onZoomIn,
+	onZoomOut,
 }: {
 	needsOnboarding: boolean;
 	isDevelopment: boolean;
@@ -143,6 +138,9 @@ export function buildViewMenuItems( {
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
 	onToggleSitePreview: () => void;
+	onResetZoom: () => void;
+	onZoomIn: () => void;
+	onZoomOut: () => void;
 } ): MenuItemConstructorOptions[] {
 	return [
 		{
@@ -164,15 +162,18 @@ export function buildViewMenuItems( {
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
-			role: 'resetZoom',
+			accelerator: 'CommandOrControl+0',
+			click: onResetZoom,
 		},
 		{
 			label: __( 'Zoom In' ),
-			role: 'zoomIn',
+			accelerator: 'CommandOrControl+Plus',
+			click: onZoomIn,
 		},
 		{
 			label: __( 'Zoom Out' ),
-			role: 'zoomOut',
+			accelerator: 'CommandOrControl+-',
+			click: onZoomOut,
 		},
 		{ type: 'separator' },
 		{
@@ -420,6 +421,15 @@ async function getAppMenu(
 				},
 				onToggleSitePreview: () => {
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				},
+				onResetZoom: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );
+				},
+				onZoomIn: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'in' ) );
+				},
+				onZoomOut: () => {
+					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'out' ) );
 				},
 			} ),
 		},

@@ -197,7 +197,7 @@ describe( 'Preview Create Command', () => {
 
 	it( 'should handle errors when folder is not a Studio site', async () => {
 		const errorMessage =
-			'The specified folder is not added to Studio. Please use `studio site create` to add it first.';
+			'The specified folder is not added to Studio. Please use `studio create` to add it first.';
 		vi.mocked( getSiteByFolder ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );

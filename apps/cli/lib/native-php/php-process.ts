@@ -1,5 +1,6 @@
 import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
+import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
@@ -56,6 +57,20 @@ type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
 };
 
+function formatCommandOutputTail( label: string, output: string ): string | undefined {
+	const trimmedOutput = output.trim();
+	if ( ! trimmedOutput ) {
+		return undefined;
+	}
+
+	const maxLength = 4_000;
+	const tail =
+		trimmedOutput.length > maxLength
+			? trimmedOutput.slice( trimmedOutput.length - maxLength )
+			: trimmedOutput;
+	return `${ label }:\n${ tail }`;
+}
+
 export function spawnPhpProcess(
 	args: string[],
 	{
@@ -80,7 +95,7 @@ export function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
+		env: withoutOversizedEnvValues( env ? { ...process.env, ...env } : process.env ),
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 		detached,
@@ -212,7 +227,16 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new PhpCommandError( `PHP command failed (code: ${ code })`, code, stdout, stderr ) );
+			const outputDetails = [
+				formatCommandOutputTail( 'PHP stdout', stdout ),
+				formatCommandOutputTail( 'PHP stderr', stderr ),
+			]
+				.filter( Boolean )
+				.join( '\n\n' );
+			const message = outputDetails
+				? `PHP command failed (code: ${ code })\n\n${ outputDetails }`
+				: `PHP command failed (code: ${ code })`;
+			reject( new PhpCommandError( message, code, stdout, stderr ) );
 		} );
 	} );
 }

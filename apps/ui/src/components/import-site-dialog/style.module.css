@@ -2,6 +2,6 @@
 	margin: var(--wpds-dimension-padding-sm) 0 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 	overflow-wrap: anywhere;
 }

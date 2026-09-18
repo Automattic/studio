@@ -29,9 +29,11 @@ export function useAuthUser() {
 
 	useEffect( () => {
 		return connector.onAuthStateChanged?.( () => {
-			queryClient.removeQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 			removeUserScopedQueries();
-			void queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } );
+			// Reset, not invalidate: a sign-in can land while the first lookup is
+			// still in flight, and invalidate/refetch dedupe against it — leaving
+			// the cache on the pre-login answer.
+			void queryClient.resetQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient, removeUserScopedQueries ] );
 
@@ -72,9 +74,8 @@ export function useLogout() {
 	return useMutation( {
 		mutationFn: () => connector.logout(),
 		onSuccess: () => {
-			queryClient.removeQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 			removeUserScopedQueries();
-			void queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } );
+			void queryClient.resetQueries( { queryKey: AUTH_USER_QUERY_KEY } );
 		},
 	} );
 }

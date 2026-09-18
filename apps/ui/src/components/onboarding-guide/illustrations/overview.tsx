@@ -45,7 +45,7 @@ const CAMERA_PATH: Keyframe[] = [
 
 function actionStyle( opacity: number ): CSSProperties {
 	return {
-		backgroundColor: `color-mix(in srgb, var(--wpds-color-fg-content-neutral) ${ Math.round(
+		backgroundColor: `color-mix(in srgb, var(--wpds-color-foreground-content-neutral) ${ Math.round(
 			opacity * 9
 		) }%, transparent)`,
 		borderColor:
@@ -199,7 +199,7 @@ export function OverviewIllustration() {
 				} }
 			>
 				<div className={ styles.overviewContent }>
-					<section className={ styles.overviewAbout }>
+					<section>
 						<h3>{ __( 'About' ) }</h3>
 						<div className={ styles.overviewAboutCard } style={ actionStyle( aboutHover ) }>
 							<div className={ styles.overviewThemeSummary }>

@@ -13,13 +13,16 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -36,20 +39,10 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
+export type { StudioChatImage } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
-export type {
-	StudioCustomEntry,
-	StudioCustomEntryType,
-	StudioCustomEntryDataMap,
-	StudioSiteSelectedData,
-	StudioToolProgressData,
-	StudioAgentQuestionData,
-	StudioTurnClosedData,
-	StudioSessionContextData,
-	StudioUserPromptData,
-} from '@studio/common/ai/sessions/entry-types';
+export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type {
@@ -64,10 +57,7 @@ export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-set
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-export type {
-	StudioAssistantTopUpOption,
-	StudioAssistantTopUpPricing,
-} from '@studio/common/lib/studio-assistant-top-up-pricing';
+export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
@@ -94,6 +84,8 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from
@@ -103,6 +95,8 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	enableScriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 	sortOrder?: number;
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
@@ -143,9 +137,6 @@ export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
-	// A native "Save As" dialog is available, so exports write to a chosen path.
-	// When false, exports are delivered to the browser as a download.
-	nativeSaveDialog: boolean;
 	// The host can open paths in OS apps (file manager, editor, terminal) and
 	// detect installed apps. True on the desktop and the local server (both on
 	// the user's machine); false when hosted remotely.
@@ -188,9 +179,7 @@ export interface Connector {
 	capabilities: ConnectorCapabilities;
 
 	// Auth
-	requiresAuth: boolean;
 	agenticRequiresAuth: boolean;
-	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
 	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
 	// connector can report it — the browser connectors have no Main process to record through.
@@ -223,9 +212,6 @@ export interface Connector {
 	// Persists the sidebar's manual site order (the same per-site `sortOrder`
 	// the legacy desktop sidebar uses).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
-	// Refreshes the cached WordPress Site Icon path after a site-level icon
-	// change. The renderer receives image bytes through getSites().
-	refreshSiteIcon( siteId: string ): Promise< void >;
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -388,7 +374,6 @@ export interface Connector {
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
-	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
 		patch: Pick< AiSessionSummary, 'archived' >
@@ -430,13 +415,6 @@ export interface Connector {
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
 
-	// Flip the session between acting on its owner site's local runtime vs.
-	// its linked WordPress.com live site. The owner site itself never changes.
-	setSessionEnvironment(
-		sessionId: string,
-		environment: 'local' | 'live'
-	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
-
 	// User preferences — editor, terminal, color scheme, locale. Fanned out to
 	// the granular main-process handlers inside the connector so the UI has a
 	// single query + mutation to work with.
@@ -467,10 +445,9 @@ export interface Connector {
 
 	// AI provider settings stored in the CLI config, gated by
 	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	// WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
-	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -493,6 +470,12 @@ export interface Connector {
 	openSiteFolder( siteId: string ): Promise< void >;
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
+
+	// The site's WordPress debug log, resolved host-side from the site id. Its
+	// existence is a query, not a `SiteDetails` field: the file comes and goes
+	// while the UI is open. Both are gated on `capabilities.openInOS`.
+	siteDebugLogExists( siteId: string ): Promise< boolean >;
+	openSiteDebugLog( siteId: string ): Promise< void >;
 
 	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
 	openStudioLogs(): Promise< void >;
@@ -557,6 +540,7 @@ export interface Connector {
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
+	ensureWindowWidth( minimumWidth: number ): Promise< number | null >;
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 
@@ -612,12 +596,27 @@ export interface Connector {
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+
+	// Separate from the status above: "already up to date" is a transient answer to a user
+	// action, not a lasting state.
+	onAppUpdateNotAvailable( listener: ( info: { currentVersion: string } ) => void ): () => void;
 }
 
-export interface AppUpdateStatus {
-	readyToInstall: boolean;
-	version: string | null;
-}
+// Mirrors `AppUpdateStatus` in apps/studio/src/ipc-utils.ts.
+export type AppUpdateStatus = (
+	| { state: 'idle' | 'checking'; currentVersion: string | null }
+	| { state: 'downloading'; currentVersion: string | null; newVersion: string | null }
+	| { state: 'ready'; currentVersion: string | null; newVersion: string | null }
+	| {
+			state: 'error';
+			currentVersion: string | null;
+			reason: 'read-only-volume' | 'generic';
+			detail?: string;
+	  }
+) & {
+	// Set when the user asked for this check, so a dismissed card is shown again.
+	requested?: boolean;
+};
 
 // Persisted first-run onboarding state for the workbench. Separate from the
 // pre-workbench welcome flag (getOnboardingCompleted).
@@ -704,9 +703,12 @@ export interface CreateSiteParams {
 	skipStart?: boolean;
 	// Optional blueprint payload. `filePath` points at the extracted
 	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
+	// `bundleUrl` is set for API blueprints that bundle resources (theme zips, WXR
+	// files); the server downloads and extracts it to resolve relative paths.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
 		filePath?: string;
+		bundleUrl?: string;
 	};
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.

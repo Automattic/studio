@@ -3,6 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
 
+describe( 'createIpcConnector window sizing', () => {
+	const ensureMinWindowWidth = vi.fn().mockResolvedValue( 640 );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', { ensureMinWindowWidth } );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'asks the main process to grow the desktop window', async () => {
+		const result = await createIpcConnector().ensureWindowWidth( 640 );
+
+		expect( ensureMinWindowWidth ).toHaveBeenCalledWith( 640 );
+		expect( result ).toBe( 640 );
+	} );
+} );
+
 // Guards the renderer ↔ main IPC call shape: `exportSite` must be invoked as
 // ( siteId, destinationPath, options ) to match the main-process handler in
 // apps/studio/src/modules/import-export/lib/ipc-handlers.ts.
@@ -282,5 +303,40 @@ describe( 'createIpcConnector Connect contracts', () => {
 			message: 'Importing plugins… (3406/9394)',
 			action: 'import',
 		} );
+	} );
+} );
+
+// `window.ipcApi` is untyped, so only a test catches a drifting method name or
+// argument order here. The relative path is shared with the local server.
+describe( 'createIpcConnector debug log', () => {
+	const getAbsolutePathFromSite = vi.fn();
+	const openLocalPath = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ipcApi', { getAbsolutePathFromSite, openLocalPath } );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'resolves the log through main, then opens what it resolved', async () => {
+		getAbsolutePathFromSite.mockResolvedValue( '/sites/demo/wp-content/debug.log' );
+
+		await expect( createIpcConnector().siteDebugLogExists( 'site-1' ) ).resolves.toBe( true );
+		expect( getAbsolutePathFromSite ).toHaveBeenCalledWith( 'site-1', 'wp-content/debug.log' );
+
+		await createIpcConnector().openSiteDebugLog( 'site-1' );
+		expect( openLocalPath ).toHaveBeenCalledWith( '/sites/demo/wp-content/debug.log' );
+	} );
+
+	it( 'reports no log, and opens nothing, when main resolves null', async () => {
+		getAbsolutePathFromSite.mockResolvedValue( null );
+
+		await expect( createIpcConnector().siteDebugLogExists( 'site-1' ) ).resolves.toBe( false );
+		await expect( createIpcConnector().openSiteDebugLog( 'site-1' ) ).rejects.toThrow();
+		expect( openLocalPath ).not.toHaveBeenCalled();
 	} );
 } );

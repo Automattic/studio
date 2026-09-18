@@ -37,7 +37,7 @@ export function classifyPreviewFailure( error: unknown ): string {
 // `code`, which these classifiers return as the `failure_reason` Tracks prop. Classifying on the
 // code rather than the message keeps this locale-independent — messages are `__()`-translated
 // display text. Walks the `previousError` chain so a code survives generic wrapping.
-function findFailureCode( error: unknown ): string | undefined {
+export function findFailureCode( error: unknown ): string | undefined {
 	let current: unknown = error;
 	while ( current instanceof LoggerError ) {
 		if ( current.code ) {

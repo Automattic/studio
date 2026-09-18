@@ -8,8 +8,8 @@
 	z-index: 5;
 	background: linear-gradient(
 		to top,
-		var(--wpds-color-bg-surface-neutral) 10%,
-		color-mix(in srgb, var(--wpds-color-bg-surface-neutral) var(--surface-alpha, 80%), transparent)
+		var(--wpds-color-background-surface-neutral) 10%,
+		color-mix(in srgb, var(--wpds-color-background-surface-neutral) var(--surface-alpha, 80%), transparent)
 			55%,
 		transparent
 	);

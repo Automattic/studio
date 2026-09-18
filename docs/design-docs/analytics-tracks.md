@@ -139,6 +139,18 @@ where the sender actually runs — see Testing below for what fires in which bui
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
+- **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
+  **three independent implementations** — Classic's Redux thunks and pollers
+  (`apps/studio/src/stores/sync/sync-operations-slice.ts`), the agentic UI's mutation hooks
+  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), and the CLI
+  `push`/`pull` commands — sharing only the connected-sites storage and the WordPress.com endpoints.
+  Classic never invokes the CLI for either operation, so there is no funnel to emit from; each surface
+  emits its own event and `channel`/`ui_version` identify it. The one overlap is **pull**: an
+  agentic-UI pull *is* a forked `studio pull`, so `pullSite` (`packages/common/sites/sync.ts`) passes
+  the same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
+  `channel=studio-cli` `studio_sync_pull` row is therefore always a genuine standalone run. Push needs
+  no flag: an agentic-UI push runs the CLI `export` command, not CLI `push`. **Cancels emit nothing**
+  at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
   both desktop renderers via `packages/common/ai/run-manager.ts`, the `studio ui` server via the same
@@ -151,6 +163,17 @@ where the sender actually runs — see Testing below for what fires in which bui
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
+- **`studio_code_design_option_proposed`/`studio_code_design_option_picked`** are emitted **only** by
+  the CLI, from the two design tools every chat surface runs: `pick_design`
+  (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
+  was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
+  place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
+  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server builds the tools without a session and
+  records nothing. `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
+  `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI
+  is attached (rendered previews need a chat pane), so a terminal `studio code` session still records
+  proposals but picks made through the generic `AskUserQuestion` tool are not distinguishable and are
+  not recorded.
 - **`studio_onboarding_complete`** fires from desktop Main (`saveOnboarding`), the single funnel both
   front-ends reach — Studio Classic when the user skips or logs in, the agentic UI when the welcome tour
   ends (`connector.setOnboardingCompleted`). It is emitted only on a genuine `false → true` transition, so
@@ -219,6 +242,12 @@ changes. Like `surface`, the renderer supplies it (Main can't infer it) and it i
 initiating call. `account_type` (`new`/`existing`) and `authenticated` (boolean) are Studio-custom props
 introduced with those events; register them alongside the events.
 
+`sync_type` (`pressable`/`wpcom`/`unknown`) and `num_of_sites` (an integer count of the live sites
+connected to one local site) are Studio-custom props introduced with the sync events; register them
+alongside those events. `success`, `time_ms`, and `failure_reason` follow the conventions already
+established by the import/export and preview-site events — a coarse, low-cardinality bucket enum for
+the reason, never the raw error.
+
 **AI / assistant events.** Studio Code assistant events use the data team's AI-event vocabulary so
 they aggregate with other Automattic AI products. The shared identity props are built once by
 `getAiTracksIdentity()` (`packages/common/ai/tracks-identity.ts`) — it lives in `common` because the
@@ -232,6 +261,9 @@ not drift.
 | `client` | AI product | `studio-code` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
+| `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
+| `draw_id` | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call |
+| `answer_type` | **Custom (Studio-only):** how the user answered a design question | `picked`, `other_options` (asked for a fresh draw), `free_form` (typed their own answer — the text is **never** sent), `none` |
 
 `is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
 tagged, and pi is pinned per Studio release so `app_version` already determines it.
@@ -257,7 +289,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
 | `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
-| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
 #### Site operation events
 
@@ -334,6 +366,58 @@ coarse and low-cardinality (the raw error is never sent).
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
 | `studio_preview_site_open` | Renderer (Classic Previews list) | (none — opens the preview URL in the OS browser) |
 
+#### Sync events
+
+Push/pull with WordPress.com and Pressable, plus the connection funnel. Unlike import/export and
+preview sites, sync has **no single funnel**: three independent implementations (Classic's Redux
+thunks and pollers, the agentic UI's mutation hooks, and the CLI `push`/`pull` commands) share only
+the connected-sites storage and the WordPress.com endpoints. Each emits its own event — filter by
+`channel`/`ui_version` to separate them. See "Which surface emits what" for the one overlap (pull)
+and how it's deduplicated.
+
+**Cancels emit nothing at all** — not `success=false`. Backing out of the site picker, declining the
+size-limit warning, aborting a download, and Ctrl-C'ing the CLI all produce no row. So `success=false`
+always means a genuine failure and the success rate is clean, but total sync *attempts* undercount by
+the cancel volume.
+
+`studio_sync_create_site` and `studio_sync_publish_site` fire at the **handoff to WordPress.com
+checkout, not at completion** — the user may abandon it. The completion signal arrives later as a
+`studio_sync_connect` via the `wp-studio://` deep link, so the gap between them is the funnel; neither
+checkout event is a success count. Which of the two fires is decided by the checkout parameters rather
+than the button label: `section=studio-sync` is a create, `section=publish-site` + `autoOpenPush` is a
+publish. That means the agentic UI's "Create a new WordPress.com site" button in the publish picker
+reports as a **publish** (it uses the publish parameters), while its onboarding "Create a WordPress.com
+site" button reports as a create.
+
+No site names, URLs, paths, or raw error text are ever sent — `failure_reason` is a fixed bucket enum.
+
+| Event | Emitted from | Event-specific props |
+|---|---|---|
+| `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
+| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
+| `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
+| `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |
+| `studio_sync_create_site` | Classic Create-site button + agentic UI onboarding connect | (none — opens WordPress.com checkout) |
+| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker | (none — opens WordPress.com checkout) |
+
+`sync_type` is the kind of live site the sync exchanged data with: `pressable`, `wpcom`, or `unknown`
+(the connected site wasn't available at emit time — a deep-link connection whose site lookup missed
+never learns the hosting kind, and reporting the placeholder's hardcoded value would invent data).
+
+`failure_reason` names the step that broke: `size_limit`, `sql_import`, `timeout`, `remote_backup`,
+`remote_import`, `upload`, `network`, `payload_too_large`, `auth`, `not_found`, `local_import`,
+`local_export`, `disk_full`, `storage_write`, `site_fetch`, `unknown`. Classified by
+`classifySyncFailure` (`packages/common/lib/sync/classify-sync-failure.ts`), shared by all three
+surfaces. It prefers an **untranslated** substring match (`ENOSPC`, `ECONNRESET`, …) — an
+environment failure like a full disk is more actionable than whichever step it interrupted — then a
+bucket the call site is certain of, the HTTP status, and finally the phase the sync was in. Only
+untranslated system/library substrings are matched — `__()` display text is locale-dependent and
+embeds site names and filesystem paths.
+
+In the CLI those certain buckets come from the `LoggerError` codes the `sync-api` wrappers attach
+(`apps/cli/lib/sync-api.ts`), so a remote-side failure is attributed to the step that actually broke
+rather than inheriting the caller's fallback.
+
 #### Settings-change events
 
 All fire from Desktop Main **only on a real change** (the handler compares against the persisted value
@@ -376,6 +460,16 @@ AI identity props described under "Property vocabulary" above. Filter by `channe
 | `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
 | `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
+| `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
+| `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |
+
+The design pair is a funnel too. `option_proposed` is one row per entry shown, so per-entry rates need
+no unpivoting: an entry's pick rate is its `option_picked` rows (`picked=<name>`) over its
+`option_proposed` rows, and `draw_id` regroups a draw when the whole set matters (e.g. what Noir was
+shown against when it lost). Join the two events on `ai_session_id` and `catalog`, ordered by time, to
+pair each draw with its answer; `answer_type=other_options` is echoed on the next draw as
+`is_redraw=true`. `options_count=1` rows are not proposals: they are the model settling an entry
+without asking, which happens when the brief already names the look or when the session cannot ask.
 
 Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
 `studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's

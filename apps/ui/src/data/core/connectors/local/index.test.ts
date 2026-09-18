@@ -162,3 +162,42 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 } );
+
+// Missing routes make `api()` throw and the button silently never appear, so
+// pin the exact URLs.
+describe( 'createLocalConnector debug log', () => {
+	const fetchMock = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'fetch', fetchMock );
+	} );
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'unwraps the existence check', async () => {
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( { exists: true } ) ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await expect( connector.siteDebugLogExists( 'site-1' ) ).resolves.toBe( true );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/sites/site-1/debug-log',
+			expect.any( Object )
+		);
+	} );
+
+	it( 'asks the server to open the log', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.openSiteDebugLog( 'site-1' );
+
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/sites/site-1/debug-log/open',
+			expect.objectContaining( { method: 'POST' } )
+		);
+	} );
+} );

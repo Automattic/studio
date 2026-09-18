@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.8';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.2';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -134,7 +134,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.1/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.10.4/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

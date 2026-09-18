@@ -13,14 +13,43 @@ import {
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import {
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+} from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	getAllFilesFileAccessLabel,
+	getFileAccessDescription,
+	getNativeRuntimeLabel,
+	getRuntimeDescription,
+	getSandboxRuntimeLabel,
+	getSiteDirectoryFileAccessLabel,
+} from '@studio/common/lib/site-runtime-labels';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
+import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
 } from '@studio/common/lib/wordpress-version-utils';
+import {
+	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
+	WP_ENVIRONMENT_TYPE_LOCAL,
+	WP_ENVIRONMENT_TYPE_PRODUCTION,
+	WP_ENVIRONMENT_TYPE_STAGING,
+} from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
+import {
+	RuntimeChoiceControl,
+	effectiveFileAccess,
+} from '@/components/site-fields/runtime-control';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
+import type { RuntimeChoiceOption } from '@/components/site-fields/runtime-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Field, Option } from '@wordpress/dataviews';
 
@@ -28,6 +57,13 @@ const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
 	label: version,
 } ) );
+
+const ENVIRONMENT_TYPE_ELEMENTS = [
+	{ value: WP_ENVIRONMENT_TYPE_LOCAL, label: __( 'Local' ) },
+	{ value: WP_ENVIRONMENT_TYPE_DEVELOPMENT, label: __( 'Development' ) },
+	{ value: WP_ENVIRONMENT_TYPE_STAGING, label: __( 'Staging' ) },
+	{ value: WP_ENVIRONMENT_TYPE_PRODUCTION, label: __( 'Production' ) },
+];
 
 export function siteNameField< T extends { name: string } >(): Field< T > {
 	return {
@@ -44,6 +80,7 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 		type: 'text',
 		label: __( 'PHP version' ),
 		elements: PHP_VERSION_ELEMENTS,
+		Edit: CompactSelectControl,
 	};
 }
 
@@ -79,11 +116,14 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	{
 		latestValue = DEFAULT_WORDPRESS_VERSION,
 		currentVersion,
+		autoUpdateVersion,
 		offline = false,
 		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
 	}: {
 		latestValue?: string;
 		currentVersion?: string;
+		/** Version named in the auto-update option. Omit it on a pinned site. */
+		autoUpdateVersion?: string;
 		offline?: boolean;
 		offlineMessage?: string;
 	} = {}
@@ -107,40 +147,40 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	// only versions we can actually install. Otherwise the create form keeps
 	// its free-text fallback.
 	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION || offline ) {
-		let prerelease: WpVersionOption[] = offers
+		const toOption = (
+			{ value, label }: { value: string; label: string },
+			group: WpVersionOption[ 'group' ]
+		): WpVersionOption => ( { value, label, group, current: value === currentVersion } );
+		let prerelease = offers
 			.filter( ( version ) => version.isBeta || version.isDevelopment )
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'prerelease' as const,
-			} ) );
-		let stable: WpVersionOption[] = offers
+			.map( ( version ) => toOption( version, 'prerelease' ) );
+		let stable = offers
 			.filter(
 				( version ) =>
 					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
 			)
-			.map( ( version ) => ( {
-				value: version.value,
-				label: version.label,
-				group: 'stable' as const,
-			} ) );
+			.map( ( version ) => toOption( version, 'stable' ) );
 		// The site's installed version may predate the fetched offers — keep it
 		// selectable, sorted into the right group, like the legacy selector's
 		// extraOptions.
 		if ( currentVersion && ! offers.some( ( version ) => version.value === currentVersion ) ) {
-			const option: WpVersionOption = {
-				value: currentVersion,
-				label: currentVersion,
-				group: 'stable',
-			};
+			const offer = { value: currentVersion, label: currentVersion };
 			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
-				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
+				prerelease = addVersionOption( toOption( offer, 'prerelease' ), prerelease );
 			} else {
-				stable = addVersionOption( option, stable );
+				stable = addVersionOption( toOption( offer, 'stable' ), stable );
 			}
 		}
+		const autoUpdateLabel = getAutoUpdateVersionLabel( autoUpdateVersion );
 		const options: WpVersionOption[] = [
-			{ value: latestValue, label: __( 'latest' ), group: 'latest' },
+			{
+				value: latestValue,
+				label: autoUpdateLabel,
+				group: 'latest',
+				// No installed version to report, so the description names the one
+				// the site will be created with instead.
+				pendingVersion: currentVersion ? undefined : autoUpdateVersion,
+			},
 			...prerelease,
 			...stable,
 		];
@@ -148,11 +188,13 @@ export function wpVersionField< T extends { wpVersion: string } >(
 			// The settings form maps "latest" to '' (auto-update) but falls back
 			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
 			// installed version can't be read. Keep that seed renderable without
-			// offering it.
+			// offering it, and out of the auto-update group: the site is pinned,
+			// so an "Auto-update" readout there would be wrong.
 			options.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
-				label: __( 'latest' ),
-				group: 'latest',
+				/* translators: WordPress version option for a pinned site whose installed version Studio cannot read. */
+				label: __( 'Unknown version' ),
+				group: 'stable',
 				hidden: true,
 			} );
 		}
@@ -235,6 +277,60 @@ export function customDomainField<
 	};
 }
 
+export function phpRuntimeField< T extends { runtime: SiteRuntime } >(): Field< T > {
+	return {
+		id: 'runtime',
+		type: 'text',
+		label: __( 'PHP runtime' ),
+		elements: [
+			{
+				value: SITE_RUNTIME_NATIVE_PHP,
+				label: getNativeRuntimeLabel(),
+				optionDescription: getRuntimeDescription( SITE_RUNTIME_NATIVE_PHP ),
+			},
+			{
+				value: SITE_RUNTIME_PLAYGROUND,
+				label: getSandboxRuntimeLabel(),
+				optionDescription: getRuntimeDescription( SITE_RUNTIME_PLAYGROUND ),
+			},
+		] as RuntimeChoiceOption[],
+		Edit: RuntimeChoiceControl,
+	};
+}
+
+export function fileAccessField<
+	T extends { runtime: SiteRuntime; fileAccess: SiteFileAccess },
+>(): Field< T > {
+	return {
+		id: 'fileAccess',
+		type: 'text',
+		label: __( 'File access' ),
+		elements: [
+			{
+				value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+				label: getSiteDirectoryFileAccessLabel(),
+				optionDescription: getFileAccessDescription(
+					SITE_RUNTIME_NATIVE_PHP,
+					SITE_FILE_ACCESS_SITE_DIRECTORY
+				),
+			},
+			{
+				value: SITE_FILE_ACCESS_ALL_FILES,
+				label: getAllFilesFileAccessLabel(),
+				optionDescription: getFileAccessDescription(
+					SITE_RUNTIME_NATIVE_PHP,
+					SITE_FILE_ACCESS_ALL_FILES
+				),
+			},
+		] as RuntimeChoiceOption[],
+		// The sandbox can only reach the site directory, so the choice is shown
+		// but held there, with the reason on hover or keyboard focus.
+		isDisabled: ( { item }: { item: T } ) => item.runtime === SITE_RUNTIME_PLAYGROUND,
+		getValue: ( { item }: { item: T } ) => effectiveFileAccess( item ),
+		Edit: RuntimeChoiceControl,
+	};
+}
+
 export function enableXdebugField< T extends { enableXdebug: boolean } >( {
 	conflictingSiteName,
 }: { conflictingSiteName?: string } = {} ): Field< T > {
@@ -266,5 +362,30 @@ export function enableDebugDisplayField< T extends { enableDebugDisplay: boolean
 		type: 'boolean',
 		label: __( 'Show errors in browser' ),
 		description: __( 'Display PHP errors and warnings directly in the browser.' ),
+	};
+}
+
+export function enableScriptDebugField< T extends { enableScriptDebug: boolean } >(): Field< T > {
+	return {
+		id: 'enableScriptDebug',
+		type: 'boolean',
+		label: __( 'Enable script debug' ),
+		description: __(
+			'Load the development versions of core CSS and JavaScript instead of the minified files. Useful for reading React errors in the block editor.'
+		),
+	};
+}
+
+export function environmentTypeField<
+	T extends { environmentType: WpEnvironmentType },
+>(): Field< T > {
+	return {
+		id: 'environmentType',
+		type: 'text',
+		label: __( 'Environment type' ),
+		elements: ENVIRONMENT_TYPE_ELEMENTS,
+		description: __(
+			'Sets the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
+		),
 	};
 }

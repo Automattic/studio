@@ -14,7 +14,7 @@
 .title {
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .body {
@@ -24,7 +24,7 @@
 
 .status {
 	padding: var(--wpds-dimension-padding-lg);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	text-align: center;
 }
@@ -52,19 +52,19 @@
 
 .item:hover,
 .item:focus-visible {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 	outline: none;
 }
 
 .itemName {
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
 }
 
 .itemUrl {
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-foreground-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -83,12 +83,12 @@
 	cursor: pointer;
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-interactive-brand);
+	color: var(--wpds-color-foreground-interactive-brand);
 	text-align: left;
 }
 
 .create:hover,
 .create:focus-visible {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 	outline: none;
 }

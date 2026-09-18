@@ -1,6 +1,6 @@
 ---
 name: visual-polish
-description: Verify and polish a built or redesigned site by diagnosing rendered-DOM issues against intent and fixing them in a planned, batched screenshot-and-fix loop.
+description: Verify and polish a built or redesigned site by diagnosing rendered-DOM defects against intent, fixing them in one planned batch, and re-checking what changed.
 user-invokable: true
 ---
 
@@ -10,45 +10,48 @@ Use this skill to verify a built or redesigned site and fix the design issues th
 
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
 
-## Scope: which pages to polish, and how much
+## Scope: which pages to polish, and what to fix
 
 Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
 
-For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account.
+For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account, checking the space around `main` on each.
 
-How much to iterate depends on the page:
+Polish fixes **defects**, where the rendered page departs from what was intended (`DESIGN.md`, the layout map, the `block-content` rules): broken layout, overflow, unreadable text, misaligned or doubled spacing, broken images or hover states. Fix each with the smallest change that removes it. Polish does not add motion, scripts, or sections, and does not redesign a section: those belong to the build.
 
-- **Home page** — run the full loop below, including Phase 3 (re-diagnose and fix again, up to the pass cap). The home page is the highest-traffic, highest-impact page and is worth iterating until it is right.
-- **Every other page** (other user pages AND WooCommerce pages) — run a **single pass**: diagnose (Phase 1), fix the batch (Phase 2), take one verification screenshot, then move on. Do not loop these pages; a single diagnose-and-fix pass is enough.
+## Method: one diagnosis, one batch of fixes, one re-check
 
-## Method: diagnose the whole page first, then fix in one batch
-
-The most important rule: **do not fix issues one at a time as you find them.** Fixing reactively makes you miss related issues, introduce regressions, and burn expensive screenshot passes. Split the work into strict phases.
+The most important rule: **do not fix issues one at a time as you find them.** Fixing reactively makes you miss related issues, introduce regressions, and burn expensive screenshot passes. Take each page through these phases once.
 
 ### Phase 1 — Diagnose (read-only — make NO edits in this phase)
 
 1. Enumerate every section and component of the page (from the page markup you wrote, or by inspecting the top-level containers).
-2. Take one `take_screenshot` with `viewport: "all"` (desktop + mobile).
+2. If you can view images, take one `take_screenshot` with `viewport: "all"` (desktop + mobile). A model that cannot view images skips this step: `inspect_design` is then the whole diagnosis, so the sweep below must be complete rather than guided by what looks wrong.
 3. Go **section by section**. For each, call `inspect_design` on the relevant selectors and compare the rendered DOM and computed styles against your intent and the theme's `style.css` (read it). The screenshot is the symptom; `inspect_design` is the cause — never diagnose from the screenshot alone, because subtle issues like doubled button padding barely show in pixels. Inspect even sections that look roughly right, and always inspect:
+   - the header and footer template parts — for `padding-left`/`padding-right` on the bar; a part whose root group is not `layout: constrained` (and has no constrained inner group) gets no gutter, and its text touches the viewport edge,
    - every section wrapper — for width and centering,
    - every button — BOTH `.wp-block-button` and `.wp-block-button__link`, with `includeHover: true`.
+   - every block that paints its own box (background, border, shadow — cards, panels, tinted sections) and every non-constrained full-width section — for `padding-left`/`padding-right`, which must not be `0px` when the box holds text.
+   - every inset box — a block that is rounded, bordered, or narrower than its container and paints its own background — for the edges it meets: compare its `boundingBox` with the neighbouring header, footer, or section, because an inset box must not sit directly against a hard edge such as the footer's border. Full-bleed bands are meant to sit flush; leave them alone.
+   - every image — that it renders, fills its slot, and keeps overlaid text legible.
 4. List the **complete** set of issues before fixing anything — a concise checklist, one short line per issue: the section, the root cause from the DOM, and the exact fix (file, selector, change). A list, not prose.
 
 Do not make a single edit until you have diagnosed every section and listed every issue. **A complete diagnosis is the gate into Phase 2.**
 
 ### Phase 2 — Fix the whole batch
 
-Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
+Work through the plan with targeted `Edit` calls: one file per turn, with all of that file's fixes as separate entries of one `Edit` call, per the system prompt cadence — never batch files into one turn. Do **not** screenshot or inspect between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
-### Phase 3 — Verify and loop
+### Phase 3 — Re-check what changed
 
-After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced.
+After the whole batch, take one `viewport: "all"` screenshot — or, when you cannot view images, re-run `inspect_design` on the selectors you changed, and only those. Check each plan item off and look for regressions the fixes introduced; this is not a new diagnosis.
 
-This looping phase applies to the **home page only** (see "Scope" above). For every other page — including WooCommerce pages — stop after this single verification screenshot; do not loop. For the home page, each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
+On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and do not check it again. The page is then done: no further edits, no further captures, and never a return to Phase 1.
+
+The home page's last capture is the theme screenshot, even when a follow-up batch came after it. When you cannot view images, that is the only capture you take: one desktop capture of the home page after its last edit.
 
 ## Recurring issues and what to inspect
 
-The issues below are common examples, **not an exhaustive list**. Treat them as a starting checklist, not the full scope of what to look for — fix every visual problem the screenshot reveals, including ones not listed here, and apply the same method (inspect the rendered DOM, find the real cause, then fix). For each, the cause lives in the DOM — inspect, don't guess.
+The issues below are common examples, **not an exhaustive list**. Treat them as a starting checklist, not the full scope of what to look for — fix every visual problem the screenshot or the inspection reveals, including ones not listed here, and apply the same method (inspect the rendered DOM, find the real cause, then fix). For each, the cause lives in the DOM — inspect, don't guess.
 
 ### Section width or centering is off
 
@@ -72,6 +75,20 @@ Inspect BOTH selectors with `includeHover: true` and compare their computed styl
 
 - If padding/background/border is set on BOTH the wrapper and the link, the button renders with **doubled padding and looks too big** — remove that styling from the wrapper (or its custom class) and put it on `.wp-element-button` / `.wp-block-button__link`.
 - There must be exactly ONE hover rule, on the inner element (`.wp-element-button:hover` or `.wp-block-button__link:hover`), never the `.wp-block-button` wrapper. If both have hover styles you get **two conflicting hover effects** — delete the wrapper hover. Use the `hover` block in the inspect output to confirm only the inner element changes.
+
+### Text touches a background, border, or the viewport edge
+
+Symptom: copy sits flush against the edge of a card, a tinted panel, a bordered box, or the window — most visible on mobile.
+
+Inspect the box and read `padding-left`/`padding-right`. WordPress pads only full-width constrained groups (the root gutter via `.has-global-padding`) and zeroes it on constrained groups nested inside them; a group, column, or cover with its own background or border gets no padding, and neither does a full-width section with a `default`, `flex`, or `grid` layout. Fix it by giving the block's class horizontal padding in `style.css` (reuse `var(--wp--style--root--padding-left)` for a section gutter) or by moving the text into a constrained inner group — never with margins on the text blocks.
+
+The header is the usual victim: rewriting `parts/header.html` from scratch tends to drop the scaffold's outer `{"layout":{"type":"constrained"}}` group, leaving a flow or flex group that gets no gutter, so the site title sits at `x: 0`. Restore the constrained wrapper in the part's markup rather than padding the bar in CSS.
+
+### An inset box sits on a hard edge
+
+Symptom: a rounded or bordered card is the first or last section and its edge lands directly on the footer's top border or the header's bottom edge, with no breathing room.
+
+Inspect the box and its neighbour and compare their `boundingBox` values: equal edges with no gap is the fault. Scaffolded themes zero the gap between the template's top-level blocks and let sections own their rhythm, which is right for full-bleed bands but leaves an inset box touching whatever follows it. Give that section (not the text inside it) bottom or top spacing, or close the page on a full-bleed band instead. Do not add spacing to full-bleed sections — they are meant to sit flush.
 
 ### Spacing between blocks differs from intent
 

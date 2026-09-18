@@ -48,6 +48,13 @@ function parseArgs() {
 				demandOption: true,
 				description: 'Path to the JSON file with CDN upload results',
 			} )
+			.option( 'capability', {
+				type: 'string',
+				array: true,
+				choices: [ 'zstd' ],
+				default: [],
+				description: 'Runtime capability verified in every uploaded artifact',
+			} )
 			.option( 'metadata', {
 				type: 'string',
 				default: DEFAULT_METADATA_PATH,
@@ -167,6 +174,7 @@ function main() {
 	const options = parseArgs();
 	const version = options.version;
 	const packageVersion = options.packageVersion;
+	const capabilities = [ ...new Set( options.capability ) ].sort();
 	if ( ! /^[a-z0-9][a-z0-9._-]{0,63}$/.test( packageVersion ) ) {
 		throw new Error( `Invalid package version: ${ packageVersion }` );
 	}
@@ -203,7 +211,7 @@ function main() {
 		};
 	}
 
-	const versionMetadata = { version, packageVersion };
+	const versionMetadata = { version, packageVersion, capabilities };
 	versionMetadata.artifacts = orderedObject( artifacts, ARTIFACT_ORDER );
 	metadata.versions[ minorVersion ] = versionMetadata;
 	metadata.versions = orderedObject(

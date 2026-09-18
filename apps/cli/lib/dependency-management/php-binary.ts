@@ -6,8 +6,10 @@ import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
+	getConfiguredPhpBinaryPackageId,
 	getPhpBinaryDownloadInfo,
 	resolveNativePhpVersion,
+	type PhpBinaryCapability,
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
@@ -20,12 +22,13 @@ const WAIT_TIMEOUT_MS = 5 * 60 * 1_000;
 
 export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
-	onProgress?: ( downloaded: number, total: number ) => void
+	onProgress?: ( downloaded: number, total: number ) => void,
+	requiredCapabilities: readonly PhpBinaryCapability[] = []
 ): Promise< void > {
 	const nativePhpVersion = resolveNativePhpVersion( version );
 
 	if ( ! fs.existsSync( getPhpBinaryPath( nativePhpVersion ) ) ) {
-		await downloadAndInstall( nativePhpVersion, onProgress );
+		await downloadAndInstall( nativePhpVersion, onProgress, requiredCapabilities );
 	}
 
 	// Idempotent — keeps php.ini in sync for existing installs after a Studio
@@ -50,7 +53,8 @@ async function waitForBinary( binaryPath: string ): Promise< void > {
 
 async function downloadAndInstall(
 	version: NativePhpSupportedVersion,
-	onProgress?: ( downloaded: number, total: number ) => void
+	onProgress?: ( downloaded: number, total: number ) => void,
+	requiredCapabilities: readonly PhpBinaryCapability[] = []
 ): Promise< void > {
 	const platform = process.platform;
 	const arch = process.arch;
@@ -63,7 +67,12 @@ async function downloadAndInstall(
 		);
 	}
 
-	const downloadInfo = await resolvePhpBinaryDownloadInfo( version, platform, arch );
+	const downloadInfo = await resolvePhpBinaryDownloadInfo(
+		version,
+		platform,
+		arch,
+		requiredCapabilities
+	);
 	const destPath = getPhpBinaryPath( downloadInfo.packageId );
 	const destDir = path.dirname( destPath );
 	const phpBinRoot = path.dirname( destDir );
@@ -104,11 +113,24 @@ async function downloadAndInstall(
 export async function resolvePhpBinaryDownloadInfo(
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
-	arch: string
+	arch: string,
+	requiredCapabilities: readonly PhpBinaryCapability[] = []
 ): Promise< PhpBinaryDownloadInfo > {
-	const downloadInfo = getPhpBinaryDownloadInfo( version, platform, arch );
+	const downloadInfo = getPhpBinaryDownloadInfo( version, platform, arch, requiredCapabilities );
 	if ( downloadInfo ) {
 		return downloadInfo;
+	}
+
+	if ( requiredCapabilities.length ) {
+		const packageId = getConfiguredPhpBinaryPackageId( version ) ?? version;
+		throw new Error(
+			`PHP ${ version } package ${ packageId } does not provide the required capabilities: ${ requiredCapabilities.join(
+				', '
+			) }. ` +
+				`A published ${ version } native PHP package that declares ${ requiredCapabilities.join(
+					', '
+				) } is required.`
+		);
 	}
 
 	throw new Error( `PHP ${ version } is not available for this platform yet.` );

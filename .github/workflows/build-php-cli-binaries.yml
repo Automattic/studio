@@ -129,16 +129,33 @@ jobs:
       - name: Setup PHP for static-php-cli
         # Linux runs SPC inside the spc-gnu-docker container, which ships
         # its own PHP + Composer; host PHP is only needed for the macOS path.
+        #
+        # Uses the runner image's own PHP rather than shivammathur/setup-php:
+        # that action installs from the shivammathur/php tap, which no longer
+        # publishes x86_64 macOS bottles. On macos-15-intel brew then fell back
+        # to building PHP from source and the step timed out after ~30 minutes,
+        # failing every macos-x86_64 build. SPC only needs PHP >= 8.3 with
+        # mbstring and zlib, all of which the image already provides.
         if: runner.os == 'macOS'
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
-        with:
-          coverage: none
-          tools: composer:v2
-          php-version: 8.4
-          ini-values: memory_limit=-1
-          extensions: curl, openssl, mbstring
-        env:
-          phpts: nts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v php >/dev/null || ! command -v composer >/dev/null; then
+            echo "Expected PHP and Composer to be preinstalled on the runner image." >&2
+            exit 1
+          fi
+
+          php -r 'exit(version_compare(PHP_VERSION, "8.3", ">=") ? 0 : 1);' \
+            || { echo "static-php-cli needs PHP >= 8.3, found $(php -r 'echo PHP_VERSION;')." >&2; exit 1; }
+
+          for extension in mbstring zlib; do
+            php -m | grep -qix "$extension" \
+              || { echo "Required PHP extension missing: $extension." >&2; exit 1; }
+          done
+
+          php -v
+          composer --version
 
       - name: Install static-php-cli dependencies
         # See above — composer install for Linux happens inside the container.

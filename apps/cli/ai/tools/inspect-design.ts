@@ -1,6 +1,7 @@
 import { Type } from 'typebox';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { defineTool } from './define-tool';
+import { waitForGeneratedImages } from './generate-images';
 import {
 	applyScreenshotMediaEmulation,
 	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
@@ -124,6 +125,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 		},
 		async ( args, context ) => {
 			const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
+			const imageFailures = await waitForGeneratedImages();
 			context.onProgress(
 				`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport }${
 					args.colorScheme ? `, ${ args.colorScheme }` : ''
@@ -272,7 +274,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 				}
 
 				context.onProgress( `Inspected ${ args.selectors.length } selector(s) on ${ args.url }` );
-				return textResult(
+				const result = textResult(
 					JSON.stringify(
 						{
 							url: args.url,
@@ -286,6 +288,10 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 						2
 					)
 				);
+				if ( imageFailures ) {
+					result.content.push( { type: 'text', text: imageFailures } );
+				}
+				return result;
 			} catch ( error ) {
 				throw new Error(
 					`Design inspection failed: ${ error instanceof Error ? error.message : String( error ) }`

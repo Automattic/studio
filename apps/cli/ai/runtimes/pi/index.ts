@@ -47,6 +47,7 @@ import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-pr
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
+import { waitForGeneratedImages } from 'cli/ai/tools/generate-images';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
@@ -259,6 +260,7 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
+		await waitForGeneratedImages();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );

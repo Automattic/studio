@@ -1,5 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool } from './define-tool';
+import { waitForGeneratedImages } from './generate-images';
 import {
 	captureScreenshotBuffer,
 	saveScreenshotFile,
@@ -95,6 +96,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
+				const imageFailures = await waitForGeneratedImages();
 				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
@@ -173,6 +175,9 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					captures.length === 1
 						? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
+				if ( imageFailures ) {
+					textLines.push( imageFailures );
+				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}

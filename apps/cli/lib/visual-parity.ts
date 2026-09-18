@@ -5,12 +5,25 @@ import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
 type Browser = Awaited< ReturnType< typeof launchChromiumWithInstall > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
-// Mirrors the constants `static-site-importer`'s `tools/visual-parity-oracle.mjs` exports
-// (merged in static-site-importer#1707, shipped inside the installed plugin). Studio cannot
-// import them directly — the plugin zip is only unpacked into a running site's filesystem at
-// runtime, not available as an npm dependency at build time — so the schema id and viewport
-// are reproduced here. They are stable contract constants, not extraction logic: keep them in
-// sync with the oracle if that schema version changes.
+// Mirrors constants `static-site-importer`'s `tools/visual-parity-oracle.mjs` exports (merged
+// in static-site-importer#1707), reproduced here because Studio cannot import them directly —
+// the plugin zip is only unpacked into a running site's filesystem at runtime (and, for
+// PHP-WASM/Playground sites, into a virtual filesystem Studio's own Node process cannot read
+// directly at all), not available as a build-time npm dependency.
+//
+// static-site-importer#1710 (already merged, ahead of what this file targets) replaced
+// `Static_Site_Importer_Visual_Parity_Oracle`'s entire contract with an incompatible one
+// (schema `static-site-importer/layout-baseline/v1`, different field names throughout:
+// `offset.top` not `top`, `headings[].font_size` objects not `headingSizes` numbers, a broader
+// `media` query — img/svg/video — not `images`, `forms[].fields[]` carrying `padding` this file
+// never captures). That means the constants below, and everything this file sends to
+// `visual-parity-eval.php`, no longer match what the currently-merged oracle class expects —
+// confirmed by running a real import end-to-end: the oracle degrades to `not_verified` every
+// time, regardless of the underlying geometry. static-site-importer#1716 additionally exported
+// the extractor itself (`EXTRACT_LAYOUT`) for reuse, but reusing it here would both change what
+// this file measures (see `extractImportedSectionPage` below) and still not close the schema
+// gap on its own. Fixing this needs a deliberate migration of this whole file's contract to
+// `layout-baseline/v1`, not a drop-in extractor swap — tracked separately, out of scope here.
 export const VISUAL_PARITY_SCHEMA = 'static-site-importer/visual-parity-oracle-input/v1';
 export const VISUAL_PARITY_VIEWPORT = { width: 1440, height: 900 };
 
@@ -222,15 +235,24 @@ export async function waitForPageReadiness(
 }
 
 // Extracts section/landmark geometry from the current (already-ready) page in the shape the
-// merged SSI oracle (`Static_Site_Importer_Visual_Parity_Oracle`) reads: `sections[].top`,
+// *originally merged* SSI oracle (static-site-importer#1707) read: `sections[].top`,
 // `.height`, `.headingSizes`, `.images[].displayWidth/displayHeight`, `.forms[].fields[]`, and
 // `landmarks[].role/height/mediaCount`. This selection heuristic (header/main/section/footer
-// and ARIA landmark roles) is ported from static-site-importer's own
-// `tools/visual-parity-oracle.mjs` (`EXTRACT_SECTIONS`, not exported so it cannot be imported
-// directly) rather than reused, because that function also owns its navigation and hardcodes
-// `waitUntil: 'networkidle'` — incompatible with the polled readiness this task requires. See
-// the PR description for why this one function is a deliberate, disclosed duplicate; keep it
-// in sync with the oracle if its selection heuristic changes.
+// and ARIA landmark roles, plus two fixes this file adds — excluding `<header>` as its own
+// section, and excluding a wrapping `<main>` that already contains other qualifying sections,
+// both confirmed gaps against real WordPress block output) was ported from that PR's
+// `EXTRACT_SECTIONS`, which at the time was not exported.
+//
+// static-site-importer#1716 has since exported that repo's *current* extractor
+// (`EXTRACT_LAYOUT`, from static-site-importer#1710) so it can be imported directly. It was
+// evaluated for this file and found not to be a safe drop-in: `EXTRACT_LAYOUT` neither excludes
+// `<header>` nor un-wraps `<main>` the way this function does (so switching to it would change
+// section counts/boundaries for the exact WordPress output this measures — a real extraction-
+// behavior change, not just a rename), and it emits the newer `layout-baseline/v1` field shapes
+// this file does not consume (see the schema comment above). Adopting it would require this
+// whole file's output contract to change too. Until that migration happens, this remains a
+// deliberate, disclosed duplicate — keep it in sync with static-site-importer's extractor if
+// its *shared* selection heuristic (the base selector/isVisible/displayBox logic) changes.
 export async function extractImportedSectionPage(
 	page: Page,
 	sourceUrl: string

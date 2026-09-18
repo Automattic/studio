@@ -112,8 +112,13 @@ const defaultLogger = new Logger< LoggerAction >();
 // zip with the importer's
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
+//
+// Keep this at or above v1.9.6. Rerunning a staged request is how this command resumes an
+// interrupted import, and only importers from that release on discover the retained run
+// workspace the previous attempt left behind (Automattic/static-site-importer#1524). Pinned
+// below it, every interruption silently recompiles the whole site from zero.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.9.5/static-site-importer-html-site-import.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.12.0/static-site-importer-html-site-import.zip';
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';

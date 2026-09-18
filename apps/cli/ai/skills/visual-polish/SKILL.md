@@ -45,9 +45,9 @@ Work through the plan with targeted `Edit` calls: one file per turn, with all of
 
 After the whole batch, take one `viewport: "all"` screenshot — or, when you cannot view images, re-run `inspect_design` on the selectors you changed, and only those. Check each plan item off and look for regressions the fixes introduced; this is not a new diagnosis.
 
-On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and do not check it again. The page is then done: no further edits, and never a return to Phase 1.
+On the home page only, if an item is still broken or the batch broke something, make one follow-up batch for exactly those items and do not check it again. The page is then done: no further edits, no further captures, and never a return to Phase 1.
 
-When you cannot view images, take no captures while polishing: the theme screenshot step takes the one the theme needs.
+The home page's last capture is the theme screenshot, even when a follow-up batch came after it. When you cannot view images, that is the only capture you take: one desktop capture of the home page after its last edit.
 
 ## Recurring issues and what to inspect
 

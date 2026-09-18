@@ -157,6 +157,7 @@ export type CreateCommandOptions = {
 			request: string;
 			bundlePath?: string;
 			sourcePath?: string;
+			reportFiles?: Array< { name: string; from: string } >;
 		};
 	};
 	adminUsername?: string;

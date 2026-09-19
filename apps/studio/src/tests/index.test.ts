@@ -68,13 +68,6 @@ vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
 vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
 	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'src/modules/remote-session/daemon-status-poller', () => ( {
-	// Started during `appBoot()`; its initial tick calls `sendIpcEventToRenderer`,
-	// which races the partial `getMainWindow()` mock used in these tests. The
-	// poller itself is covered by its own unit-test file, so stubbing it here
-	// keeps this suite focused on app-boot bookkeeping.
-	startRemoteSessionStatusPolling: vi.fn().mockReturnValue( () => undefined ),
-} ) );
 vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
@@ -231,6 +224,48 @@ describe( 'App initialization', () => {
 				Accept: 'text/html',
 				Referer: 'https://developer.wordpress.com/studio/',
 			},
+		} );
+	} );
+
+	describe( 'app zoom in the site preview', () => {
+		async function captureWebContents( contentsType: string ) {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			await mockedEvents.ready();
+
+			const contents = {
+				getType: () => contentsType,
+				on: vi.fn(),
+				setWindowOpenHandler: vi.fn(),
+				isDestroyed: vi.fn().mockReturnValue( false ),
+				getZoomLevel: vi.fn().mockReturnValue( 0.5 ),
+				setZoomLevel: vi.fn(),
+			};
+			await mockedEvents[ 'web-contents-created' ]( {}, contents );
+
+			const onNavigate = contents.on.mock.calls.find(
+				( [ event ] ) => event === 'did-navigate'
+			)?.[ 1 ] as ( () => void ) | undefined;
+
+			return { contents, onNavigate };
+		}
+
+		it( 'pins a site preview back to 1:1 after Electron re-applies the app zoom on navigation', async () => {
+			const { contents, onNavigate } = await captureWebContents( 'webview' );
+
+			onNavigate?.();
+			// Electron's own zoom observer runs after `did-navigate`, so the reset is deferred a tick.
+			expect( contents.setZoomLevel ).not.toHaveBeenCalled();
+			await new Promise( ( resolve ) => setImmediate( resolve ) );
+
+			expect( contents.setZoomLevel ).toHaveBeenCalledWith( 0 );
+		} );
+
+		it( 'leaves web contents outside the site preview alone', async () => {
+			const { onNavigate } = await captureWebContents( 'window' );
+
+			expect( onNavigate ).toBeUndefined();
 		} );
 	} );
 

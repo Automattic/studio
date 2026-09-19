@@ -6,31 +6,33 @@ import styles from './style.module.css';
 export function ThinkingIndicator( {
 	active,
 	startedAt,
+	stepKey,
 	progressMessage,
 }: {
 	active: boolean;
 	startedAt: number | null;
+	stepKey: string | null;
 	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
 
 	useEffect( () => {
-		if ( ! active || startedAt === null ) {
+		if ( ! active ) {
 			return;
 		}
 		setMessage( randomThinkingMessage() );
+	}, [ active, stepKey ] );
+
+	useEffect( () => {
+		if ( ! active || startedAt === null ) {
+			return;
+		}
 		setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
-		const labelInterval = window.setInterval( () => {
-			setMessage( randomThinkingMessage() );
-		}, 4000 );
 		const tickInterval = window.setInterval( () => {
 			setElapsedSeconds( Math.floor( ( Date.now() - startedAt ) / 1000 ) );
 		}, 1000 );
-		return () => {
-			window.clearInterval( labelInterval );
-			window.clearInterval( tickInterval );
-		};
+		return () => window.clearInterval( tickInterval );
 	}, [ active, startedAt ] );
 
 	return (

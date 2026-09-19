@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 
-export const TOP_UP_PRICING_QUERY_KEY = [ 'top-up-pricing' ] as const;
+const TOP_UP_PRICING_QUERY_KEY = [ 'top-up-pricing' ] as const;
 
 /**
  * AI credit top-up options priced for the signed-in account (STU-2326).

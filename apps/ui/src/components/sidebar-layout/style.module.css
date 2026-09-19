@@ -82,8 +82,8 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
-/* The beta affordance stays in normal footer flow, below transient/persistent
-   messages and above Settings, so it never overlays a toast or checklist.
+/* The beta affordance stays in normal footer flow, at the top of the footer
+   so notices sit directly above the Settings row and its bell.
    Margin, not padding: this class lands on the bubble itself, which owns its
    own padding. */
 .sidebarBeta {
@@ -104,13 +104,19 @@
 	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
-/* Bottom-left of the main area. The 46px min-height and the negative bottom
-   offset both match the session view's `panelFooterControls` so the toggle
-   lines up vertically with the chat-history/new-chat buttons — keep the two
-   in sync. */
+/* Bottom-left of the main area, sitting in the content panel's own footer
+   band beside the chat controls. The 46px min-height and the negative bottom
+   offset both match the session view's `panelFooterControls`; the frame inset
+   makes up the rest, since that strip is positioned inside the inset panel
+   while this one is positioned against `.main` — keep the three in sync. */
 .floatingToggle {
+	/* Cleared to 0 while the frame is flush (see `.floatingToggleFramed`);
+	   12px gap + the frame's 1px border. Keep in sync with --panel-frame-gap
+	   in preview-split-frame. */
+	--floating-toggle-frame-inset: 0px;
+
 	position: absolute;
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	bottom: calc(var(--floating-toggle-frame-inset) - var(--wpds-dimension-padding-sm));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
@@ -123,6 +129,14 @@
 
 .floatingToggle button {
 	-webkit-app-region: no-drag;
+}
+
+/* While the sidebar is open the content panel sits inside its inset frame, so
+   the toggle has to rise by that inset to share the panel's footer band with
+   the chat controls. Collapsed, the frame goes flush (see
+   preview-split-frame's `.rootFrameless`) and the inset drops out. */
+.floatingToggleFramed {
+	--floating-toggle-frame-inset: calc(12px + var(--wpds-border-width-xs));
 }
 
 /* With no traffic lights to clear — non-macOS, the browser, or macOS
@@ -162,6 +176,13 @@
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
 }
 
+/* The shelf root stays mounted as the aria-live region even with nothing to
+   show, so an empty shelf must add no space between the beta bubble and the
+   Settings row. */
+.sidebarToasts:empty {
+	padding: 0;
+}
+
 /* --app-main-composer-height is published on the document by the session
    view's chrome observer, so the shelf rides above the composer as it grows.
    Views without a composer leave it unset and the shelf sits on the panel's
@@ -169,8 +190,12 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	inset-inline-start: var(--wpds-dimension-padding-xl);
-	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	/* --app-main-composer-left is the composer box's start edge, published
+	   by the session view like the height. Views without a composer fall
+	   back to the panel's own control inset. */
+	--shelf-start: var(--app-main-composer-left, var(--wpds-dimension-padding-xl));
+	inset-inline-start: var(--shelf-start);
+	width: min(320px, calc(100% - 2 * var(--shelf-start)));
 	z-index: 110;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;

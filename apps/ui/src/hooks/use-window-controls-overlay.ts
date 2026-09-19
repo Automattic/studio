@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export interface WindowControlsOverlayGeometry {
+interface WindowControlsOverlayGeometry {
 	height: number;
 	controlsWidth: number;
 }

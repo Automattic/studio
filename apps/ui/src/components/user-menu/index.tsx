@@ -1,19 +1,14 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Icon, settings } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
+import { NoticeHistoryButton } from '@/components/notice-history';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
-type Props = {
-	onToggleSidebar: () => void;
-};
-
-export function UserMenu( { onToggleSidebar }: Props ) {
+export function UserMenu() {
 	const { data: user } = useAuthUser();
 	const navigate = useNavigate();
 	const themeIsDark = useColorScheme() === 'dark';
@@ -34,15 +29,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 					) }
 					<span className={ styles.userName }>{ __( 'App settings' ) }</span>
 				</SidebarButton>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					className={ styles.sidebarToggle }
-					icon={ drawerIcon }
-					label={ __( 'Hide sidebar' ) }
-					onClick={ onToggleSidebar }
-				/>
+				<NoticeHistoryButton />
 			</div>
 		</div>
 	);

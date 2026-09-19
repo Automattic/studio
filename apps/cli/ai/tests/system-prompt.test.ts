@@ -6,6 +6,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
+import { resolveStudioToolDefinitions } from '../tools';
 
 const remoteSite = {
 	name: 'Remote Studio Test',
@@ -18,6 +19,13 @@ function extractReferencedSkillNames( prompt: string ): string[] {
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
 	].sort();
 }
+
+const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+	resolveStudioToolDefinitions( options ).map( ( tool ) => ( {
+		name: tool.name,
+		promptSnippet: tool.promptSnippet,
+		promptGuidelines: tool.promptGuidelines,
+	} ) );
 
 describe( 'buildSystemPrompt', () => {
 	const previousScratchpadWidgetType = 'sd-' + 'artefact';
@@ -150,6 +158,58 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'studio_present' );
 	} );
 
+	it( 'lists the same tools the hand-written list did', () => {
+		const listed = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+			imageGeneration: true,
+		} )
+			.filter( ( tool ) => tool.promptSnippet )
+			.map( ( tool ) => tool.name );
+		expect( listed ).toEqual( [
+			'site_create',
+			'site_list',
+			'site_info',
+			'site_start',
+			'site_stop',
+			'site_delete',
+			'preview_create',
+			'preview_list',
+			'preview_update',
+			'preview_delete',
+			'wp_cli',
+			'refresh_browser',
+			'scaffold_theme',
+			'validate_blocks',
+			'take_screenshot',
+			'inspect_design',
+			'generate_images',
+			'need_for_speed',
+			'rank_me_up',
+			'site_connected_remote_sites',
+			'site_push',
+			'site_pull',
+			'site_import',
+			'site_export',
+			'studio_present',
+		] );
+	} );
+
+	it( 'lists the registered tools and their guidelines', () => {
+		const prompt = buildSystemPrompt( {
+			tools: [
+				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
+				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
+				{ name: 'hidden' },
+			],
+		} );
+		expect( prompt ).toContain(
+			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
+		);
+		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
+		expect( prompt ).not.toContain( '- hidden' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
+	} );
+
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
 		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 		expect( attachedPrompt ).toContain( 'refresh_browser' );
@@ -163,6 +223,35 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( '## Screenshots' );
 		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'describes the screenshot and inspect tools for models without vision', () => {
+		const polishStep = 'You MUST load the `visual-polish` skill and follow its instructions';
+		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
+		expect( withVision ).toContain( polishStep );
+		expect( withVision ).toContain( 'Pair with take_screenshot' );
+		expect( withVision ).not.toContain( 'You cannot view' );
+
+		const textOnly = buildSystemPrompt( {
+			visionEnabled: false,
+			tools: toolsFor( { visionEnabled: false } ),
+		} );
+		expect( textOnly ).toContain( polishStep );
+		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
+		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );
+		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
+	} );
+
+	it( 'verifies remote sites from the rendered DOM without vision', () => {
+		expect( buildSystemPrompt( { remoteSite } ) ).toContain(
+			'**Verify the result**: Use take_screenshot with `viewport: "all"`'
+		);
+
+		const textOnly = buildSystemPrompt( { remoteSite, visionEnabled: false } );
+		expect( textOnly ).toContain(
+			'**Verify the result**: You cannot view images, so verify from the rendered DOM'
+		);
+		expect( textOnly ).not.toContain( 'Use take_screenshot with `viewport: "all"`' );
 	} );
 
 	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
@@ -197,13 +286,10 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
 	} );
 
-	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
-		// The Telegram user cannot open local file paths; delivery is covered
-		// by the remote-session share_screenshot guidance instead.
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+	it( 'includes the terminal screenshot caveat for terminal sessions', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
-		expect( prompt ).not.toContain( '## Screenshots' );
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
-		expect( prompt ).toContain( '## Telegram remote session' );
+		expect( prompt ).toContain( '## Screenshots' );
+		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 } );

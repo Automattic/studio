@@ -8,7 +8,7 @@ import { SITES_QUERY_KEY } from './use-sites';
 import { WP_VERSION_QUERY_KEY } from './use-wordpress-versions';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
-export interface ImportSiteInput {
+interface ImportSiteInput {
 	siteId: string;
 	backupPath: string;
 	onProgress?: ( event: ImportEventTuple ) => void;

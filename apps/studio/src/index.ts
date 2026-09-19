@@ -29,6 +29,7 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
@@ -53,7 +54,6 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
@@ -111,7 +111,6 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
-let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
 const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
 const YOUTUBE_EMBED_URL_PATTERNS = [
@@ -204,6 +203,26 @@ async function appBoot() {
 	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		const isSitePreviewWebview = contents.getType() === 'webview';
+		if ( isSitePreviewWebview ) {
+			contents.on( 'before-input-event', ( event, input ) => {
+				const zoomCommand = getAppZoomCommand( input );
+				if ( ! zoomCommand ) {
+					return;
+				}
+				event.preventDefault();
+				void getMainWindow().then( ( window ) => {
+					if ( ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+						applyAppZoomCommand( window.webContents, zoomCommand );
+					}
+				} );
+			} );
+			// Electron re-applies the embedder's zoom to a guest after each of its
+			// navigations, from an observer that runs after this event — so the
+			// reset waits a tick.
+			contents.on( 'did-navigate', () => {
+				setImmediate( () => resetPreviewZoom( contents ) );
+			} );
+		}
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {
@@ -453,8 +472,6 @@ async function appBoot() {
 		await autoInstallMacOSCliIfNeeded();
 		await autoInstallLinuxCliIfNeeded();
 
-		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
-
 		finishedInitialization = true;
 	} );
 
@@ -589,7 +606,6 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

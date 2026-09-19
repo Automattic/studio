@@ -5,8 +5,6 @@ import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import settingsStyles from '@/components/site-settings-view/style.module.css';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
@@ -81,14 +79,6 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-auth-user', () => ( {
-	useLogin: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: vi.fn(),
 } ) );
@@ -128,6 +118,18 @@ vi.mock( '@/data/queries/use-site-storage-usage', () => ( {
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
+	useSaveUserPreferences: () => ( { isPending: false, mutate: vi.fn() } ),
+} ) );
+
+// Chat is on in these tests, so the Studio Code upsell stays hidden.
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: () => ( {
+		enabled: true,
+		chatEnabled: true,
+		chatPromptsSignIn: false,
+		reason: null,
+		isReady: true,
+	} ),
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
@@ -158,8 +160,6 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
-const useLoginMock = vi.mocked( useLogin, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
@@ -241,13 +241,6 @@ describe( 'SiteOverviewView', () => {
 			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
 		);
 		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
-		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: true,
-			chatEnabled: true,
-			reason: null,
-			isReady: true,
-		} );
-		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
@@ -644,6 +637,54 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
+	it( 'defaults the runtime and file access radios to the site values', () => {
+		renderView( 'general' );
+
+		// Sites predating the setting count as native with site-directory access.
+		expect( screen.getByRole( 'radio', { name: 'Native' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeEnabled();
+	} );
+
+	it( 'holds file access at the site directory under the sandbox runtime', () => {
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, runtime: 'playground', fileAccess: 'all-files' } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		expect( screen.getByRole( 'radio', { name: 'Sandbox' } ) ).toBeChecked();
+		// The sandbox can only reach the site directory, so the stored
+		// `all-files` is shown coerced rather than as a live selection.
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeDisabled();
+	} );
+
+	it( 'saves a runtime switch, coercing file access the sandbox cannot honor', () => {
+		const updateSiteMutate = vi.fn();
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, fileAccess: 'all-files' } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Sandbox' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( {
+					runtime: 'playground',
+					fileAccess: 'site-directory',
+				} ),
+			} ),
+			expect.anything()
+		);
+	} );
+
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
@@ -652,7 +693,8 @@ describe( 'SiteOverviewView', () => {
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
-		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Automatic updates' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Select a version' } ) ).not.toBeInTheDocument();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -802,7 +844,7 @@ describe( 'SiteOverviewView', () => {
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'internal',
+			browser: 'external',
 		} );
 	} );
 
@@ -1004,35 +1046,6 @@ describe( 'SiteOverviewView', () => {
 			[ 'site-1', 'import', { message: '10% · Extracting…' } ],
 			[ 'site-1', 'import', { message: '20% · Extracting…' } ],
 		] );
-	} );
-
-	it( 'shows a sign-in banner with a login action when signed out', () => {
-		const loginMutate = vi.fn();
-		useAgenticFeaturesMock.mockReturnValue( {
-			enabled: false,
-			chatEnabled: false,
-			reason: 'signed-out',
-			isReady: true,
-		} );
-		useLoginMock.mockReturnValue( { isPending: false, mutate: loginMutate } );
-
-		renderView();
-
-		expect(
-			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).toBeVisible();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-
-		expect( loginMutate ).toHaveBeenCalled();
-	} );
-
-	it( 'hides the sign-in banner while agentic features are available', () => {
-		renderView();
-
-		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).not.toBeInTheDocument();
 	} );
 
 	// Driven by a lookup rather than the setting: the log may not exist yet.

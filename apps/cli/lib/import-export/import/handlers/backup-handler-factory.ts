@@ -1,3 +1,4 @@
+import { isGzipFile } from '@studio/common/lib/archive-format';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
@@ -29,15 +30,17 @@ export class BackupHandlerFactory {
 	];
 	private static zipExtensions = [ '.zip' ];
 
-	private static tarGzTypes = [
+	private static tarTypes = [
 		'application/gzip',
 		'application/x-gzip',
 		'application/x-gtar',
 		'application/x-tgz',
 		'application/x-compressed-tar',
 		'application/tar+gzip',
+		'application/x-tar',
+		'application/tar',
 	];
-	private static tarGzExtensions = [ '.tar.gz', '.tgz' ];
+	private static tarExtensions = [ '.tar.gz', '.tgz', '.tar' ];
 
 	private static sqlTypes = [
 		'application/sql',
@@ -52,48 +55,60 @@ export class BackupHandlerFactory {
 	private static xmlExtensions = [ '.xml' ];
 
 	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
-		if ( this.isZip( file ) ) {
+		// Matched against for extensions only: the real path stays untouched for
+		// filesystem reads, which are case-sensitive on some volumes.
+		const name = file.path.toLowerCase();
+
+		if ( this.isZip( file, name ) ) {
 			return new BackupHandlerZip();
-		} else if ( this.isTarGz( file ) ) {
+		} else if ( this.isTar( file, name ) ) {
 			return new BackupHandlerTarGz();
-		} else if ( this.isSql( file ) ) {
+		} else if ( this.isSql( file, name ) ) {
 			return new BackupHandlerSql();
-		} else if ( this.isXml( file ) ) {
+		} else if ( this.isXml( file, name ) ) {
 			return new BackupHandlerXml();
-		} else if ( this.isWpress( file ) ) {
+		} else if ( this.isWpress( name ) ) {
 			return new BackupHandlerWpress();
+		} else if ( this.isUnlabelledGzip( file ) ) {
+			return new BackupHandlerTarGz();
 		}
 	}
 
-	private static isZip( file: BackupArchiveInfo ): boolean {
+	private static isZip( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			this.zipTypes.includes( file.type ) &&
-			this.zipExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.zipExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isTarGz( file: BackupArchiveInfo ): boolean {
+	private static isTar( file: BackupArchiveInfo, name: string ): boolean {
 		return (
-			this.tarGzTypes.includes( file.type ) &&
-			this.tarGzExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.tarTypes.includes( file.type ) &&
+			this.tarExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isSql( file: BackupArchiveInfo ): boolean {
+	// Last resort, so a gzipped .sql/.xml/.wpress still reaches its own handler:
+	// only files no extension could place fall back to reading the header.
+	private static isUnlabelledGzip( file: BackupArchiveInfo ): boolean {
+		return isGzipFile( file.path );
+	}
+
+	private static isSql( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			( this.sqlTypes.includes( file.type ) || ! file.type ) &&
-			this.sqlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.sqlExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isXml( file: BackupArchiveInfo ): boolean {
+	private static isXml( file: BackupArchiveInfo, name: string ): boolean {
 		return (
 			( this.xmlTypes.includes( file.type ) || ! file.type ) &&
-			this.xmlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+			this.xmlExtensions.some( ( ext ) => name.endsWith( ext ) )
 		);
 	}
 
-	private static isWpress( file: BackupArchiveInfo ): boolean {
-		return file.path.endsWith( '.wpress' );
+	private static isWpress( name: string ): boolean {
+		return name.endsWith( '.wpress' );
 	}
 }

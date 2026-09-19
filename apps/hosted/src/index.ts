@@ -9,6 +9,7 @@ import {
 	listAiSessions,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import {
 	readAuthToken,
 	readSharedSessions,
@@ -298,12 +299,28 @@ api.post(
 );
 
 api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-	const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+	const { prompt, displayMessage, visualAnnotations } = req.body as {
+		prompt?: string;
+		displayMessage?: string;
+		visualAnnotations?: unknown;
+	};
 	if ( ! prompt ) {
 		res.status( 400 ).json( { error: 'prompt is required' } );
 		return;
 	}
-	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
+	let validatedVisualAnnotations;
+	try {
+		validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+	} catch {
+		res.status( 400 ).json( { error: 'visualAnnotations is invalid' } );
+		return;
+	}
+	const { runId } = startAgentRun( {
+		sessionId: req.params.id,
+		prompt,
+		displayMessage,
+		visualAnnotations: validatedVisualAnnotations,
+	} );
 	res.json( { runId } );
 } );
 

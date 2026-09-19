@@ -1,8 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sortSites } from '@studio/common/lib/sort-sites';
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { settings } from '@wordpress/icons';
@@ -26,6 +24,7 @@ import {
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
+import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus, getSiteStatusName } from '@/components/site-dropdown/utils';
@@ -44,14 +43,12 @@ import {
 	useStopSite,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import {
 	useSiteManagementActions,
 	type SiteManagementAction,
 	type SiteManagementActionId,
 } from '@/hooks/use-site-management-actions';
-import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -410,7 +407,6 @@ function SiteActionsMenu( {
 	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const connector = useConnector();
-	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
@@ -428,44 +424,15 @@ function SiteActionsMenu( {
 		event.stopPropagation();
 	};
 
-	const handleOpenFolder = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
-		void connector.openSiteFolder( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site folder:', error );
-		} );
-	};
-
-	const editor = userPreferences?.editor;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label() : null;
-	const terminal = userPreferences?.terminal;
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name() : null;
-
-	const handleOpenInEditor = () => {
-		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in editor:', error );
-		} );
-	};
-
-	const handleOpenInTerminal = () => {
-		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in terminal:', error );
-		} );
-	};
-
-	const handleOpenPhpMyAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
-		void connector.openExternalUrl(
-			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
-		);
-	};
+	// Same entries as the session header's "Open in…" menu and the Overview's
+	// shortcuts, so labels, gating and Tracks events can't drift between them.
+	const destinations = useOpenInDestinations( site );
 
 	const handleOpenWpAdmin = () => {
 		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-		const siteUrl = getSiteUrl( site );
-		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
-		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
-		void connector.openExternalUrl( autoLoginUrl.toString() );
+		void connector.openSiteUrl( site.id, '/wp-admin/' ).catch( ( error ) => {
+			console.error( 'Failed to open WP admin:', error );
+		} );
 	};
 
 	const handleDeleted = () => {
@@ -515,28 +482,19 @@ function SiteActionsMenu( {
 						{ manageById.duplicate.loading ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
-					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					{ editorLabel ? (
-						<Menu.Item onClick={ handleOpenInEditor }>
+					{ destinations.map( ( destination ) => (
+						<Menu.Item
+							key={ destination.id }
+							disabled={ destination.disabled }
+							onClick={ destination.open }
+						>
 							{ sprintf(
-								/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+								/* translators: %s is the name of the app. E.g. "Open in Cursor" */
 								__( 'Open in %s' ),
-								editorLabel
+								destination.label
 							) }
 						</Menu.Item>
-					) : null }
-					{ terminalLabel ? (
-						<Menu.Item onClick={ handleOpenInTerminal }>
-							{ sprintf(
-								/* translators: %s is the name of the terminal app. E.g. "Open in iTerm2" */
-								__( 'Open in %s' ),
-								terminalLabel
-							) }
-						</Menu.Item>
-					) : null }
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
-						{ __( 'Open phpMyAdmin' ) }
-					</Menu.Item>
+					) ) }
 					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
 						{ __( 'Open WP admin' ) }
 					</Menu.Item>
@@ -576,6 +534,7 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate,
 	chatEnabled,
+	chatPromptsSignIn,
 	onSiteOpen,
 }: {
 	row: SiteRow;
@@ -583,6 +542,7 @@ function SiteSection( {
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
 	chatEnabled: boolean;
+	chatPromptsSignIn: boolean;
 	onSiteOpen?: () => void;
 } ) {
 	const { site, latestSession } = row;
@@ -590,11 +550,12 @@ function SiteSection( {
 	const connector = useConnector();
 	const sectionRef = useRef< HTMLElement >( null );
 	const isActive = isChatActive || isContextActive;
-	// Without chat, a site's home is its overview, so the context-active row
-	// is simply "the selected site" — show it solid-selected (no dashed
-	// outline, no overview shortcut), matching how chat-active looks.
-	const isSelected = isChatActive || ( isContextActive && ! chatEnabled );
-	const showContextOutline = isContextActive && chatEnabled;
+	const canOpenChatSurface = chatEnabled || chatPromptsSignIn;
+	// Offline users and users who switched Studio Code off use Overview as the
+	// site's home. Signed-out users still get the chat surface, where the value
+	// of logging in can be explained in context.
+	const isSelected = isChatActive || ( isContextActive && ! canOpenChatSurface );
+	const showContextOutline = isContextActive && canOpenChatSurface;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -626,9 +587,7 @@ function SiteSection( {
 		: 'idle';
 	const handleOpenSite = () => {
 		onSiteOpen?.();
-		// Without chat (signed out, offline, or switched off in Settings →
-		// AI) there's no session to open; the overview is the site's home.
-		if ( ! chatEnabled ) {
+		if ( ! canOpenChatSurface ) {
 			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
 			void navigate( {
 				to: '/sites/$siteId/overview',
@@ -637,6 +596,13 @@ function SiteSection( {
 			return;
 		}
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
+		if ( chatPromptsSignIn ) {
+			void navigate( {
+				to: '/sites/$siteId/new',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -688,7 +654,7 @@ function SiteSection( {
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>
-							{ chatEnabled ? (
+							{ canOpenChatSurface ? (
 								<SiteOverviewButton
 									site={ site }
 									isOverviewActive={ isContextActive }
@@ -727,7 +693,7 @@ export function SiteList( {
 } ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { chatEnabled } = useAgenticFeatures();
+	const { chatEnabled, chatPromptsSignIn } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -746,10 +712,13 @@ export function SiteList( {
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
 	);
-	const activeChatSiteKey = useMemo(
-		() => findSessionSiteKey( rows, activeSessionId ),
-		[ rows, activeSessionId ]
-	);
+	const activeChatSiteKey = useMemo( () => {
+		const sessionSiteKey = findSessionSiteKey( rows, activeSessionId );
+		if ( sessionSiteKey ) {
+			return sessionSiteKey;
+		}
+		return activeSiteId && pathname === `/sites/${ activeSiteId }/new` ? activeSiteId : undefined;
+	}, [ activeSessionId, activeSiteId, pathname, rows ] );
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
 	const activeContextSiteKey =
 		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
@@ -818,6 +787,7 @@ export function SiteList( {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			chatEnabled={ chatEnabled }
+			chatPromptsSignIn={ chatPromptsSignIn }
 			onSiteOpen={ onSiteOpen }
 		/>
 	);

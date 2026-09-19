@@ -29,5 +29,6 @@ export const deleteSiteTool = defineTool(
 				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Delete a site from Studio and optionally move its files to trash' }
 );

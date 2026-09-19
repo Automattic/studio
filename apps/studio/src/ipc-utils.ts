@@ -6,7 +6,6 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getExistingMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
-import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { PullSiteProgress, PushPhase } from '@studio/common/types/sync';
 
@@ -73,7 +72,6 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
-	'remote-session-status': [ RemoteSessionStatus ];
 	'app-update-status': [ AppUpdateStatus ];
 	'app-update-not-available': [ { currentVersion: string } ];
 }

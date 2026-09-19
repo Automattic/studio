@@ -7,6 +7,10 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 
 type SiteRuntime = 'playground' | 'native-php';
 type SiteFileAccess = 'site-directory' | 'all-files';
+// Mirrors WpEnvironmentType in @studio/common/lib/wp-environment-type. Declared
+// inline because this file is a global declaration file — adding an import
+// would turn it into a module and drop these globals.
+type WpEnvironmentType = 'local' | 'development' | 'staging' | 'production';
 
 // Inline import type, not a top-level `import`: this file is an ambient
 // declaration, and a real import would turn it into a module and take every
@@ -51,6 +55,8 @@ interface StoppedSiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	enableScriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 	sortOrder?: number;
 	landingPage?: string;
 	runtime?: SiteRuntime;
@@ -104,13 +110,14 @@ type IpcApi = {
 	// function is exception and need to be defined here manually. See
 	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
+	// The renderer's own zoom factor, read synchronously from `webFrame` — also preload-only.
+	getAppZoomFactor: () => number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
 interface FeatureFlags {}
 
 interface BetaFeatures {
-	remoteSession: boolean;
 	enableAgenticUi: boolean;
 }
 

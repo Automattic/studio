@@ -42,5 +42,9 @@ export const pullSiteTool = defineTool(
 				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.',
 	}
 );

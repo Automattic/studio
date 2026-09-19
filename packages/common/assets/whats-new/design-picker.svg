@@ -1,0 +1,62 @@
+<svg width="360" height="195" viewBox="0 0 560 384" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="560" height="384" fill="black"/>
+<rect opacity="0.3" width="560" height="384" fill="url(#design_picker_dot_grid)"/>
+<defs>
+<pattern id="design_picker_dot_grid" width="28" height="28" patternUnits="userSpaceOnUse">
+<rect x="26" y="25" width="3" height="3" rx="1.5" fill="white"/>
+</pattern>
+<linearGradient id="design_picker_accent" x1="196" y1="96" x2="300" y2="268" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3858E9"/>
+<stop offset="1" stop-color="#069E08"/>
+</linearGradient>
+<filter id="design_picker_glow" x="-30%" y="-30%" width="160%" height="160%">
+<feGaussianBlur stdDeviation="10"/>
+</filter>
+</defs>
+
+<!-- Four design options; the chosen one is lit. -->
+<g transform="translate(88 96)">
+
+<!-- Top-left: picked. -->
+<rect x="-7" y="-7" width="190" height="102" rx="16" fill="#3858E9" opacity="0.16" filter="url(#design_picker_glow)"/>
+<rect x="0" y="0" width="176" height="88" rx="10" fill="#1A1A1A"/>
+<rect x="0.8" y="0.8" width="174.4" height="86.4" rx="9.2" stroke="url(#design_picker_accent)" stroke-width="1.6"/>
+<rect x="12" y="12" width="152" height="30" rx="4" fill="white" fill-opacity="0.1"/>
+<rect x="12" y="50" width="70" height="7" rx="3.5" fill="#DBDBDB" fill-opacity="0.85"/>
+<rect x="12" y="63" width="110" height="5" rx="2.5" fill="white" fill-opacity="0.22"/>
+<rect x="12" y="73" width="88" height="5" rx="2.5" fill="white" fill-opacity="0.22"/>
+<circle cx="150" cy="68" r="6" fill="url(#design_picker_accent)"/>
+<circle cx="136" cy="68" r="6" fill="white" fill-opacity="0.16"/>
+
+<!-- Top-right. -->
+<g opacity="0.5">
+<rect x="200" y="0" width="176" height="88" rx="10" fill="#1A1A1A"/>
+<rect x="200.5" y="0.5" width="175" height="87" rx="9.5" stroke="white" stroke-opacity="0.4"/>
+<rect x="212" y="12" width="70" height="64" rx="4" fill="white" fill-opacity="0.08"/>
+<rect x="292" y="12" width="72" height="7" rx="3.5" fill="#DBDBDB" fill-opacity="0.7"/>
+<rect x="292" y="26" width="60" height="5" rx="2.5" fill="white" fill-opacity="0.2"/>
+<rect x="292" y="36" width="66" height="5" rx="2.5" fill="white" fill-opacity="0.2"/>
+<circle cx="298" cy="62" r="6" fill="white" fill-opacity="0.16"/>
+<circle cx="312" cy="62" r="6" fill="white" fill-opacity="0.16"/>
+</g>
+
+<!-- Bottom-left. -->
+<g opacity="0.5">
+<rect x="0" y="104" width="176" height="88" rx="10" fill="#1A1A1A"/>
+<rect x="0.5" y="104.5" width="175" height="87" rx="9.5" stroke="white" stroke-opacity="0.4"/>
+<rect x="12" y="116" width="152" height="8" rx="4" fill="#DBDBDB" fill-opacity="0.6"/>
+<rect x="12" y="132" width="46" height="46" rx="4" fill="white" fill-opacity="0.08"/>
+<rect x="65" y="132" width="46" height="46" rx="4" fill="white" fill-opacity="0.08"/>
+<rect x="118" y="132" width="46" height="46" rx="4" fill="white" fill-opacity="0.08"/>
+</g>
+
+<!-- Bottom-right. -->
+<g opacity="0.5">
+<rect x="200" y="104" width="176" height="88" rx="10" fill="#1A1A1A"/>
+<rect x="200.5" y="104.5" width="175" height="87" rx="9.5" stroke="white" stroke-opacity="0.4"/>
+<rect x="212" y="116" width="152" height="34" rx="4" fill="white" fill-opacity="0.08"/>
+<rect x="212" y="158" width="94" height="7" rx="3.5" fill="#DBDBDB" fill-opacity="0.6"/>
+<rect x="212" y="172" width="120" height="5" rx="2.5" fill="white" fill-opacity="0.2"/>
+</g>
+</g>
+</svg>

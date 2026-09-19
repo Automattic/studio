@@ -25,10 +25,15 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 export interface ToolResult {
 	content: ToolContent[];
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	// Work the tool leaves running after it returns, settling with an optional
+	// report for the agent. A runtime that cannot wait for it later awaits it
+	// before answering.
+	pending?: Promise< string | undefined >;
 }
 
 export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	pending?: Promise< string | undefined >;
 }
 
 export interface ToolContext {
@@ -50,10 +55,16 @@ export interface ToolPromptOptions {
 	promptGuidelines?: string[];
 }
 
+export interface ToolOptions extends ToolPromptOptions {
+	// The tool renders the site, so it runs only once the pending work of
+	// earlier tools, such as images still being generated, has settled.
+	settlesPendingWork?: boolean;
+}
+
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
 	TObject< TProps >
 > &
-	ToolPromptOptions & {
+	ToolOptions & {
 		rawHandler: (
 			args: Static< TObject< TProps > >,
 			context?: ToolContext
@@ -78,6 +89,7 @@ export interface AnyStudioAgentTool {
 	executionMode?: unknown;
 	promptSnippet?: string;
 	promptGuidelines?: string[];
+	settlesPendingWork?: boolean;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -85,7 +97,7 @@ export function defineTool< TProps extends TProperties >(
 	description: string,
 	properties: TProps,
 	handler: ToolHandler< TProps >,
-	prompt: ToolPromptOptions = {}
+	options: ToolOptions = {}
 ): StudioAgentTool< TProps > {
 	const parameters = Type.Object( properties );
 
@@ -94,8 +106,9 @@ export function defineTool< TProps extends TProperties >(
 		description,
 		parameters,
 		label: name,
-		...( prompt.promptSnippet ? { promptSnippet: prompt.promptSnippet } : {} ),
-		...( prompt.promptGuidelines ? { promptGuidelines: prompt.promptGuidelines } : {} ),
+		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
+		...( options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {} ),
+		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {
@@ -105,9 +118,10 @@ export function defineTool< TProps extends TProperties >(
 				},
 			};
 			const result = await handler( params as never, context );
-			const details: StudioToolResultDetails | undefined = result.studioArtifacts?.length
-				? { studioArtifacts: result.studioArtifacts }
-				: undefined;
+			const details: StudioToolResultDetails | undefined =
+				result.studioArtifacts?.length || result.pending
+					? { studioArtifacts: result.studioArtifacts, pending: result.pending }
+					: undefined;
 			return { content: result.content, details };
 		},
 	};

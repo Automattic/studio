@@ -271,6 +271,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 			}
 		},
 		{
+			settlesPendingWork: true,
 			promptSnippet: visionEnabled
 				? 'Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.'
 				: 'Inspect the rendered DOM and computed styles of a page by CSS selector. This is your verification tool: read widths, positions, and padding from it instead of looking at a capture.',

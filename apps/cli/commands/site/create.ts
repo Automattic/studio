@@ -474,6 +474,7 @@ function buildStaticSiteImporterRequest(
 			source_path: originalSourceUrl ?? source.path,
 		},
 		fail_on_quality: true,
+		write_theme_report_artifacts: true,
 		require_proven_dynamic_client_assets: true,
 		seed_entities: true,
 		materialize_dependencies: true,
@@ -652,18 +653,44 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 	return detail;
 }
 
-function staticSiteImportQualityFailure(
+function staticSiteImportResult(
 	receipt: Record< string, unknown > | undefined
-): string | undefined {
+): Record< string, unknown > | undefined {
 	const response = receipt?.response;
 	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
 		return undefined;
 	}
 	const result = ( response as Record< string, unknown > ).result;
-	const importResult =
-		result && typeof result === 'object' && ! Array.isArray( result )
-			? ( result as Record< string, unknown > )
-			: ( response as Record< string, unknown > );
+	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
+		return result as Record< string, unknown >;
+	}
+	return response as Record< string, unknown >;
+}
+
+function themeImportReportPath(
+	site: SiteData,
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const result = staticSiteImportResult( receipt );
+	const themeDir = result?.theme_dir;
+	if ( typeof themeDir !== 'string' || ! themeDir.trim() ) {
+		return undefined;
+	}
+	const reportPath = path.join( themeDir, 'import-report.json' );
+	const relative = path.relative( site.path, reportPath );
+	if ( relative && ! relative.startsWith( '..' ) && ! path.isAbsolute( relative ) ) {
+		return relative.split( path.sep ).join( '/' );
+	}
+	return reportPath.split( path.sep ).join( '/' );
+}
+
+function staticSiteImportQualityFailure(
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const importResult = staticSiteImportResult( receipt );
+	if ( ! importResult ) {
+		return undefined;
+	}
 	const validation = importResult.import_validation_result;
 	const summary = importResult.import_report_summary;
 	const quality =
@@ -736,14 +763,19 @@ async function runVisualParityCheck(
 	site: SiteData,
 	siteUrl: string,
 	sectionsPath: string,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	reportPath?: string
 ): Promise< string | undefined > {
+	logger.reportStart(
+		LoggerAction.IMPORT_SITE,
+		__( 'Measuring imported pages for visual parity…' )
+	);
 	let artifacts;
 	try {
 		artifacts = await buildVisualParityValidationArtifacts( {
 			sectionsDir: sectionsPath,
 			importedOrigin: siteUrl,
-			logger: { warn: ( message ) => logger.reportProgress( message ) },
+			logger: { warn: ( message ) => logger.reportWarning( message ) },
 		} );
 	} catch ( error ) {
 		logger.reportError(
@@ -760,15 +792,20 @@ async function runVisualParityCheck(
 	const inputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE );
 	const outputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE );
 	const scriptPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE );
+	fs.mkdirSync( importDir, { recursive: true } );
 	fs.writeFileSync( inputPath, JSON.stringify( { visual_parity: artifacts }, null, 2 ) );
 	fs.copyFileSync( getBundledVisualParityEvalScriptPath(), scriptPath );
 
-	const result = await runWpCli( site, [
+	const evalArgs = [
 		'eval-file',
 		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE ),
 		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE ),
 		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE ),
-	] );
+	];
+	if ( reportPath ) {
+		evalArgs.push( reportPath );
+	}
+	const result = await runWpCli( site, evalArgs );
 	if ( result.exitCode !== 0 || ! fs.existsSync( outputPath ) ) {
 		logger.reportError(
 			new LoggerError(
@@ -794,7 +831,28 @@ async function runVisualParityCheck(
 		return undefined;
 	}
 
-	return visualParityGateFailure( artifacts, evaluation );
+	if ( evaluation.visual_parity_artifacts ) {
+		console.log(
+			JSON.stringify( { visual_parity_artifacts: evaluation.visual_parity_artifacts }, null, 2 )
+		);
+	}
+
+	const failure = visualParityGateFailure( artifacts, evaluation );
+	if ( failure ) {
+		logger.reportError(
+			new LoggerError( __( 'Visual parity disagreed with the layout baseline.' ) ),
+			false
+		);
+		return failure;
+	}
+	if ( artifacts.status === 'ready' && evaluation.status === 'passed' ) {
+		logger.reportSuccess( __( 'Visual parity matched the layout baseline' ) );
+	} else {
+		logger.reportWarning(
+			evaluation.reason || __( 'Visual parity could not be verified against the layout baseline.' )
+		);
+	}
+	return undefined;
 }
 
 async function runStaticSiteImport(
@@ -869,26 +927,34 @@ async function runStaticSiteImport(
 		);
 	}
 	const qualityFailure = staticSiteImportQualityFailure( receipt );
-	if ( qualityFailure ) {
-		throw new LoggerError(
-			__( 'Static site import failed quality validation' ),
-			new Error( qualityFailure )
-		);
-	}
 
 	// Section geometry can only be measured once the imported content is actually live on
 	// this running site, so it happens here — after materialization, before the plugin (and
 	// its visual-parity oracle class) is removed — rather than as part of the request above.
 	// See `cli/lib/visual-parity.ts` for how Studio builds `source_reports.layout_baseline`
-	// and `imported_render`.
+	// and `imported_render`. Run even when other quality gates already failed: parity
+	// evidence is most valuable on a broken import.
 	if ( sectionsPath && site.url ) {
-		const parityFailure = await runVisualParityCheck( site, site.url, sectionsPath, logger );
+		const parityFailure = await runVisualParityCheck(
+			site,
+			site.url,
+			sectionsPath,
+			logger,
+			themeImportReportPath( site, receipt )
+		);
 		if ( parityFailure ) {
 			throw new LoggerError(
 				__( 'Static site import failed visual parity validation' ),
 				new Error( parityFailure )
 			);
 		}
+	}
+
+	if ( qualityFailure ) {
+		throw new LoggerError(
+			__( 'Static site import failed quality validation' ),
+			new Error( qualityFailure )
+		);
 	}
 
 	const finalizationStartedAt = Date.now();

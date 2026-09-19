@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -49,6 +50,12 @@ import {
 } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import {
+	LAYOUT_BASELINE_SCHEMA,
+	buildVisualParityValidationArtifacts,
+	toVisualParityOraclePayload,
+	type CapturedSectionPage,
+} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
@@ -101,6 +108,14 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/visual-parity', async () => {
+	const actual =
+		await vi.importActual< typeof import('cli/lib/visual-parity') >( 'cli/lib/visual-parity' );
+	return {
+		...actual,
+		buildVisualParityValidationArtifacts: vi.fn(),
+	};
+} );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -240,6 +255,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
+		vi.mocked( buildVisualParityValidationArtifacts ).mockReset();
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -652,6 +668,7 @@ describe( 'CLI: studio create', () => {
 				activate: true,
 				overwrite: true,
 				fail_on_quality: true,
+				write_theme_report_artifacts: true,
 				require_proven_dynamic_client_assets: true,
 				seed_entities: true,
 				materialize_dependencies: true,
@@ -817,6 +834,40 @@ describe( 'CLI: studio create', () => {
 			}
 			expect( request.source ).not.toHaveProperty( 'files' );
 			expect( request.source ).not.toHaveProperty( 'entrypoint' );
+		} );
+
+		it( 'resolves Data Liberation sections/ from a website/ import source', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sections-source-' ) );
+			const websiteDir = path.join( captureDir, 'website' );
+			const sectionsDir = path.join( captureDir, 'sections' );
+			execFileSync( 'mkdir', [ websiteDir, sectionsDir ] );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( sectionsDir, 'index.json' ),
+				JSON.stringify( {
+					sourceUrl: 'https://example.com/',
+					viewport: { width: 1440, height: 900 },
+					sections: [ { sectionIndex: 0, top: 80, height: 640, headings: [ 'Home' ] } ],
+				} )
+			);
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.sectionsPath ).toBe( sectionsDir );
+			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
+				true
+			);
 		} );
 
 		it( 'imports a capture that has no sidecars', () => {
@@ -1791,6 +1842,236 @@ describe( 'CLI: studio create', () => {
 			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
 				'Static site imported successfully'
 			);
+		} );
+
+		const capturedParityPage: CapturedSectionPage = {
+			sourceUrl: 'https://example.com/',
+			viewport: { width: 1440, height: 900 },
+			sections: [
+				{
+					sectionIndex: 0,
+					selector: 'section.hero',
+					top: 80,
+					height: 640,
+					headings: [ 'Hello' ],
+					headingSizes: [ 48 ],
+					images: [],
+				},
+			],
+			landmarks: [ { role: 'main', tag: 'main', top: 80, height: 640, mediaCount: 0 } ],
+		};
+
+		const createParityCaptureBlueprint = () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-parity-run-' ) );
+			const websiteDir = path.join( captureDir, 'website' );
+			const sectionsDir = path.join( captureDir, 'sections' );
+			execFileSync( 'mkdir', [ websiteDir, sectionsDir ] );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( sectionsDir, 'index.json' ),
+				JSON.stringify( capturedParityPage )
+			);
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
+			);
+			return buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Parity Site',
+				'https://example.com/static-site-importer.zip'
+			);
+		};
+
+		it( 'feeds layout-baseline measurements into SSI visual-parity-eval.php', async () => {
+			const blueprint = createParityCaptureBlueprint();
+			const importedPage: CapturedSectionPage = {
+				...capturedParityPage,
+				sections: [
+					{
+						...( capturedParityPage.sections?.[ 0 ] as Record< string, unknown > ),
+						height: 400,
+					},
+				],
+			};
+			const payload = toVisualParityOraclePayload(
+				{ index: capturedParityPage },
+				{ index: importedPage }
+			);
+			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue( payload );
+
+			const written = new Map< string, string >();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( ( filePath, data ) => {
+				written.set( String( filePath ), String( data ) );
+			} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			const actualExists = fs.existsSync.bind( fs );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return true;
+				}
+				return actualExists( filePath );
+			} );
+			const actualRead = fs.readFileSync.bind( fs );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return JSON.stringify( {
+						status: 'failed',
+						reason: 'Imported section geometry disagrees with the layout baseline.',
+						disagreements: [
+							{
+								page: 'index',
+								section: 0,
+								code: 'section_height',
+								message: 'Section height disagrees with the layout baseline.',
+							},
+						],
+						visual_parity_artifacts: {
+							schema: 'static-site-importer/visual-parity-artifacts/v1',
+							status: 'pending',
+							artifacts: {
+								browser_render: {
+									status: 'captured',
+									kind: 'browser_render_evidence',
+									ref: { artifact_name: 'imported-layout-baseline.json' },
+								},
+								visual_diff: {
+									status: 'captured',
+									kind: 'visual_diff',
+									ref: { artifact_name: 'visual-diff.json' },
+								},
+							},
+						},
+					} );
+				}
+				return actualRead( filePath, options );
+			} );
+
+			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
+				if ( args[ 0 ] === 'static-site-importer' ) {
+					return mockWpCli( {
+						stdout: JSON.stringify( {
+							schema: 'static-site-importer/import-cli-receipt/v1',
+							status: 'completed',
+							response: {
+								success: true,
+								result: {
+									theme_dir: `${ mockSitePath }/wp-content/themes/parity-theme`,
+									import_report_summary: {
+										status: 'completed',
+										quality_pass: true,
+										fail_import: false,
+										fallback_count: 0,
+									},
+								},
+							},
+						} ),
+					} );
+				}
+				return mockWpCli();
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( /visual parity validation.*section_height/ );
+
+			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					importedOrigin: `http://localhost:${ mockPort }`,
+					sectionsDir: blueprint.staticSiteImport.sectionsPath,
+				} )
+			);
+			const inputEntry = [ ...written.entries() ].find( ( [ filePath ] ) =>
+				filePath.endsWith( 'visual-parity-input.json' )
+			);
+			expect( inputEntry ).toBeDefined();
+			const envelope = JSON.parse( inputEntry?.[ 1 ] ?? '{}' );
+			expect( envelope.visual_parity ).toEqual( payload );
+			expect( envelope.visual_parity.schema ).toBe( LAYOUT_BASELINE_SCHEMA );
+			expect( envelope.visual_parity.source_reports.layout_baseline.schema ).toBe(
+				LAYOUT_BASELINE_SCHEMA
+			);
+			expect(
+				envelope.visual_parity.source_reports.layout_baseline.pages[ 0 ].sections[ 0 ].height
+			).toBe( 640 );
+			expect( envelope.visual_parity.imported_render.pages[ 0 ].sections[ 0 ].height ).toBe( 400 );
+
+			const evalCall = vi
+				.mocked( runWpCliCommandWithMessaging )
+				.mock.calls.find( ( call ) => call[ 1 ][ 0 ] === 'eval-file' );
+			expect( evalCall?.[ 1 ] ).toEqual( [
+				'eval-file',
+				'.studio-import/visual-parity-eval.php',
+				'.studio-import/visual-parity-input.json',
+				'.studio-import/visual-parity-output.json',
+				'wp-content/themes/parity-theme/import-report.json',
+			] );
+		} );
+
+		it( 'still runs visual parity when SSI quality validation already failed', async () => {
+			const blueprint = createParityCaptureBlueprint();
+			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue(
+				toVisualParityOraclePayload( { index: capturedParityPage }, { index: capturedParityPage } )
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			const actualExists = fs.existsSync.bind( fs );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return true;
+				}
+				return actualExists( filePath );
+			} );
+			const actualRead = fs.readFileSync.bind( fs );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return JSON.stringify( {
+						status: 'passed',
+						reason: 'Imported section geometry matches the layout baseline within tolerances.',
+						disagreements: [],
+					} );
+				}
+				return actualRead( filePath, options );
+			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
+				if ( args[ 0 ] === 'static-site-importer' ) {
+					return mockWpCli( {
+						stdout: JSON.stringify( {
+							schema: 'static-site-importer/import-cli-receipt/v1',
+							status: 'completed',
+							response: {
+								success: true,
+								result: {
+									import_report_summary: {
+										fail_import: true,
+										failure_reasons: [ 'core_html_block' ],
+										core_html_block_count: 1,
+									},
+								},
+							},
+						} ),
+					} );
+				}
+				return mockWpCli();
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( /failed quality validation.*core_html_block/ );
+			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalled();
+			expect(
+				vi
+					.mocked( runWpCliCommandWithMessaging )
+					.mock.calls.some( ( call ) => call[ 1 ][ 0 ] === 'eval-file' )
+			).toBe( true );
 		} );
 
 		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {

@@ -468,15 +468,14 @@ export async function waitForPageReadiness(
 		const signature = await page.evaluate( () => ( {
 			nodeCount: document.querySelectorAll( '*' ).length,
 			imageCount: document.images.length,
-			decodedImageCount: Array.from( document.images ).filter(
-				( image ) => image.complete && image.naturalWidth > 0
-			).length,
+			completeImageCount: Array.from( document.images ).filter( ( image ) => image.complete )
+				.length,
 			height: document.documentElement.scrollHeight,
 		} ) );
-		const key = `${ signature.nodeCount }|${ signature.imageCount }|${ signature.decodedImageCount }|${ signature.height }`;
+		const key = `${ signature.nodeCount }|${ signature.imageCount }|${ signature.completeImageCount }|${ signature.height }`;
 		stableTickCount = key === previousSignature ? stableTickCount + 1 : 0;
 		previousSignature = key;
-		if ( stableTickCount >= stableTicks && signature.decodedImageCount === signature.imageCount ) {
+		if ( stableTickCount >= stableTicks && signature.completeImageCount === signature.imageCount ) {
 			settled = true;
 			break;
 		}
@@ -500,11 +499,10 @@ export async function waitForPageReadiness(
 }
 
 // Extracts section/landmark geometry from the current (already-ready) page. Selection
-// (header/main/section/footer and ARIA landmark roles, plus excluding `<header>` as its own
-// section and excluding a wrapping `<main>` that already contains other qualifying sections)
-// is kept here rather than swapping in SSI's `EXTRACT_LAYOUT`, which neither excludes
-// `<header>` nor unwraps `<main>` and would change section counts on WordPress block output.
-// Field names are mapped to `layout-baseline/v1` later by `toLayoutBaselinePage`.
+// mirrors Data Liberation's content-flow walk (`body header, body main > *, body footer,
+// body section`) so imported records line up with `sections/*.json`. Site-nav chrome
+// (`<header>` that contains `<nav>`) is measured only as a landmark. Field names are
+// mapped to `layout-baseline/v1` later by `toLayoutBaselinePage`.
 export async function extractImportedSectionPage(
 	page: Page,
 	sourceUrl: string
@@ -527,51 +525,34 @@ export async function extractImportedSectionPage(
 			const box = element.getBoundingClientRect();
 			return { displayWidth: Math.round( box.width ), displayHeight: Math.round( box.height ) };
 		};
+		const isNavChrome = ( element: Element ) =>
+			element.tagName === 'HEADER' && Boolean( element.querySelector( 'nav' ) );
 		const sectionNodes = [
-			...document.querySelectorAll(
-				'header, main, section, footer, [role="banner"], [role="main"], [role="contentinfo"]'
-			),
-		].filter( ( element ) => isVisible( element ) && element.getBoundingClientRect().height >= 32 );
-		// The captured source's `sections[]` (Data Liberation's own record — see
-		// `loadCapturedSectionPages`) never includes the page header/nav: it starts at the
-		// first content row and its last entry is the footer content. WordPress block output
-		// always renders a `<header>` landmark first, so counting it as a section here would
-		// shift every later index by one and manufacture disagreements for content that
-		// actually matches. `<header>`/`[role="banner"]` is measured only as a landmark.
-		const isHeaderLandmark = ( element: Element ) =>
-			element.tagName === 'HEADER' || element.getAttribute( 'role' ) === 'banner';
-		// WordPress block output commonly wraps a page's `<section>` group blocks in one
-		// outer `<main>` landmark (`blocks-engine`'s standard "flex-1" content wrapper). The
-		// captured source has no such wrapper, so without this check `<main>` would swallow
-		// every nested `<section>` into a single page-spanning "section" and the comparison
-		// would be meaningless. A `<main>`/`[role="main"]` landmark that contains other
-		// qualifying sections is excluded from `sections[]` (it still appears in
-		// `landmarks[]`) so its children are measured individually; a `<main>` with no such
-		// children (e.g. a simple page) still falls back to being its own section.
-		const isMainLandmark = ( element: Element ) =>
-			element.tagName === 'MAIN' || element.getAttribute( 'role' ) === 'main';
+			...document.querySelectorAll( 'body header, body main > *, body footer, body section' ),
+		].filter(
+			( element ) =>
+				isVisible( element ) &&
+				element.getBoundingClientRect().height >= 4 &&
+				! isNavChrome( element )
+		);
 		const kept: Element[] = [];
 		const sections = [];
 		for ( const element of sectionNodes ) {
-			if ( isHeaderLandmark( element ) ) {
-				continue;
-			}
 			if ( kept.some( ( existing ) => existing.contains( element ) ) ) {
-				continue;
-			}
-			if (
-				isMainLandmark( element ) &&
-				sectionNodes.some( ( other ) => other !== element && element.contains( other ) )
-			) {
 				continue;
 			}
 			kept.push( element );
 			const box = element.getBoundingClientRect();
-			const headings = [ ...element.querySelectorAll( headingSelector ) ].filter(
-				( heading ) =>
-					heading.parentElement?.closest( 'header, main, section, footer' ) === element ||
-					heading.closest( 'header, main, section, footer' ) === element
-			);
+			const headings = [ ...element.querySelectorAll( headingSelector ) ].filter( ( heading ) => {
+				const inner = heading.closest( 'header, section, footer' );
+				if ( inner === element ) {
+					return true;
+				}
+				if ( inner && inner !== element && element.contains( inner ) ) {
+					return false;
+				}
+				return element.contains( heading );
+			} );
 			const images = [ ...element.querySelectorAll( 'img' ) ]
 				.filter( isVisible )
 				.map( ( image ) => ( {
@@ -639,6 +620,7 @@ export async function extractImportedSectionPage(
 			} );
 		return {
 			viewport: { width: window.innerWidth, height: window.innerHeight },
+			page_height: document.documentElement.scrollHeight,
 			sections,
 			landmarks,
 		};
@@ -672,6 +654,8 @@ export type VisualParityEvaluation = {
 	reason?: string;
 	disagreements?: VisualParityDisagreement[];
 	missing_data_contract?: string[];
+	visual_parity_artifacts?: Record< string, unknown >;
+	quality_pass?: boolean;
 	[ key: string ]: unknown;
 };
 

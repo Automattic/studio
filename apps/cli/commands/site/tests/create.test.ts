@@ -1,4 +1,3 @@
-import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -840,7 +839,8 @@ describe( 'CLI: studio create', () => {
 			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sections-source-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
 			const sectionsDir = path.join( captureDir, 'sections' );
-			execFileSync( 'mkdir', [ websiteDir, sectionsDir ] );
+			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'website-' ) ), websiteDir );
+			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'sections-' ) ), sectionsDir );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
 			fs.writeFileSync(
 				path.join( sectionsDir, 'index.json' ),
@@ -1865,7 +1865,8 @@ describe( 'CLI: studio create', () => {
 			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-parity-run-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
 			const sectionsDir = path.join( captureDir, 'sections' );
-			execFileSync( 'mkdir', [ websiteDir, sectionsDir ] );
+			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'website-' ) ), websiteDir );
+			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'sections-' ) ), sectionsDir );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
 			fs.writeFileSync(
 				path.join( sectionsDir, 'index.json' ),

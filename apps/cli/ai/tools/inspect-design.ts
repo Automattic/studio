@@ -25,8 +25,7 @@ type InspectViewport = keyof typeof INSPECT_VIEWPORTS;
  * Curated, design-relevant computed-style properties. The full computed style
  * is hundreds of properties; this set covers the layout, box, background,
  * typography, flex/grid, and interaction concerns the polish loop reasons
- * about, while keeping the tool output small. WordPress layout custom
- * properties (block gap) are read separately via getPropertyValue.
+ * about, while keeping the tool output small.
  */
 const COMPUTED_PROPERTIES = [
 	'display',
@@ -73,13 +72,6 @@ const COMPUTED_PROPERTIES = [
 	'cursor',
 ] as const;
 
-/**
- * WordPress layout selectors resolve block spacing through this custom
- * property. Reading it on a section explains gaps that "don't match" the CSS
- * the agent wrote, since `:where(.is-layout-flow) > * + *` owns the spacing.
- */
-const CUSTOM_PROPERTIES = [ '--wp--style--block-gap' ] as const;
-
 const MAX_MATCHES_PER_SELECTOR = 5;
 const HTML_PREVIEW_LENGTH = 400;
 const ANCESTOR_DEPTH = 6;
@@ -91,7 +83,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 		'inspect_design',
 		'Inspects the RENDERED DOM of a live page to diagnose visual issues at their root cause. ' +
 			"Given CSS selectors, returns each matched element's tag and class list, bounding box (so you can see actual rendered width/height vs intent), " +
-			'curated computed styles (box model, background, typography, flex/grid, borders), the WordPress block-gap custom property, ' +
+			'curated computed styles (box model, background, typography, flex/grid, borders), ' +
 			'and the ancestor chain of layout classes (is-layout-constrained, alignfull, wp-block-group) that controls width and spacing. ' +
 			'Pass `includeHover: true` to also capture computed styles while hovering the first match — use this for button/link hover states. ' +
 			'Pair this with take_screenshot: the screenshot shows the symptom, inspect_design shows the cause. ' +
@@ -145,27 +137,13 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 				);
 
 				const report = await page.evaluate(
-					( {
-						selectors,
-						properties,
-						customProperties,
-						maxMatches,
-						htmlPreviewLength,
-						ancestorDepth,
-					} ) => {
+					( { selectors, properties, maxMatches, htmlPreviewLength, ancestorDepth } ) => {
 						const describeNode = ( el: Element ) => {
 							const classList = Array.from( el.classList );
 							const style = getComputedStyle( el );
 							const computed: Record< string, string > = {};
 							for ( const prop of properties ) {
 								computed[ prop ] = style.getPropertyValue( prop ).trim();
-							}
-							const custom: Record< string, string > = {};
-							for ( const prop of customProperties ) {
-								const value = style.getPropertyValue( prop ).trim();
-								if ( value ) {
-									custom[ prop ] = value;
-								}
 							}
 							const rect = el.getBoundingClientRect();
 							const html = el.outerHTML;
@@ -180,7 +158,6 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 									height: Math.round( rect.height ),
 								},
 								computedStyle: computed,
-								customProperties: Object.keys( custom ).length ? custom : undefined,
 								outerHTMLPreview:
 									html.length > htmlPreviewLength ? html.slice( 0, htmlPreviewLength ) + '…' : html,
 							};
@@ -228,7 +205,6 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 					{
 						selectors: args.selectors,
 						properties: COMPUTED_PROPERTIES as readonly string[] as string[],
-						customProperties: CUSTOM_PROPERTIES as readonly string[] as string[],
 						maxMatches: MAX_MATCHES_PER_SELECTOR,
 						htmlPreviewLength: HTML_PREVIEW_LENGTH,
 						ancestorDepth: ANCESTOR_DEPTH,

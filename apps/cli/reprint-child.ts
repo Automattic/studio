@@ -10,6 +10,7 @@ import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { PHP, ProcessIdAllocator, setPhpIniEntries } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
+import { WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
 
 const processIdAllocator = new ProcessIdAllocator();
 
@@ -172,9 +173,7 @@ async function runReprint( msg: RunMessage ) {
 			// WASM high-water-mark from the file index carries across phases.
 			// 1024M gives headroom over the ~510M peak seen on large sites.
 			memory_limit: '1024M',
-			error_reporting: String( 32767 & ~8192 ),
-			display_errors: 'stderr',
-			log_errors: 0,
+			...WP_CLI_PHP_INI_ENTRIES,
 		} );
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );

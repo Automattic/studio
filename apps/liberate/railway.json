@@ -1,0 +1,19 @@
+{
+	"$schema": "https://railway.com/railway.schema.json",
+	"build": {
+		"builder": "DOCKERFILE",
+		"dockerfilePath": "apps/liberate/Dockerfile",
+		"watchPatterns": [
+			"apps/liberate/**",
+			"packages/data-liberation-agent/**",
+			"package-lock.json"
+		]
+	},
+	"deploy": {
+		"healthcheckPath": "/healthz",
+		"healthcheckTimeout": 120,
+		"restartPolicyType": "ON_FAILURE",
+		"restartPolicyMaxRetries": 5,
+		"drainingSeconds": "30"
+	}
+}

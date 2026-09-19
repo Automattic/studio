@@ -1,0 +1,39 @@
+{
+	"name": "@studio/liberate",
+	"author": "Automattic Inc.",
+	"version": "0.0.0",
+	"productName": "liberate.sh",
+	"description": "liberate.sh: turn any website into a WordPress site you can download and host anywhere",
+	"license": "GPL-2.0-or-later",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Automattic/studio.git",
+		"directory": "apps/liberate"
+	},
+	"scripts": {
+		"build": "vite build",
+		"dev": "node --watch src/server/index.ts",
+		"start": "NODE_ENV=production node src/server/index.ts",
+		"lint": "eslint .",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"archiver": "^8.0.0",
+		"express": "^4.22.0",
+		"express-rate-limit": "^8.5.2",
+		"tsx": "^4.19.0"
+	},
+	"devDependencies": {
+		"@fontsource-variable/bricolage-grotesque": "^5.3.0",
+		"@fontsource/dm-mono": "^5.3.0",
+		"@types/archiver": "^8.0.0",
+		"@types/express": "^4.17.23",
+		"vite": "^8.2.1"
+	}
+}

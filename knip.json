@@ -41,6 +41,10 @@
 			"entry": ["src/index.ts"],
 			"project": "src/**/*.{ts,tsx}"
 		},
+		"apps/liberate": {
+			"entry": ["src/server/index.ts", "src/web/main.ts"],
+			"project": "src/**/*.{ts,mjs}"
+		},
 		"apps/local": {
 			"entry": ["src/index.ts"],
 			"project": "src/**/*.{ts,tsx}"

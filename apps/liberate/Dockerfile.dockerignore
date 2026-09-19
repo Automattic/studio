@@ -1,0 +1,14 @@
+# The image only needs the workspace manifests, the lockfile, the shared tsconfig and the two
+# packages it runs.
+*
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!apps/*/package.json
+!packages/*/package.json
+!tools/*/package.json
+!apps/liberate
+!packages/data-liberation-agent
+**/node_modules
+**/dist
+apps/liberate/.data

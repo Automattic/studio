@@ -1,0 +1,57 @@
+name: Check Data Liberation upstream drift
+
+# packages/data-liberation-agent is a verbatim vendored copy of
+# https://github.com/Automattic/data-liberation-agent, and `site create --from`
+# runs that vendored copy, not upstream. Upstream can (and repeatedly has)
+# moved ahead of it without anyone noticing, silently making every merged
+# upstream capture fix unreachable here until someone happens to check and
+# hand-sync it. This workflow is the check that used to be missing: it fails
+# when the vendored copy no longer matches upstream, and its output says
+# exactly which revision is vendored, which is expected, and how to resync.
+on:
+  push:
+    branches:
+      - feat/site-artifact-import-cli
+    paths:
+      - packages/data-liberation-agent/**
+      - scripts/check-data-liberation-agent-upstream.mjs
+      - scripts/sync-data-liberation-agent.mjs
+      - .github/workflows/check-data-liberation-agent-upstream.yml
+  pull_request:
+    branches:
+      - feat/site-artifact-import-cli
+    paths:
+      - packages/data-liberation-agent/**
+      - scripts/check-data-liberation-agent-upstream.mjs
+      - scripts/sync-data-liberation-agent.mjs
+      - .github/workflows/check-data-liberation-agent-upstream.yml
+  schedule:
+    # Upstream can drift without any change on this branch at all (that's the
+    # whole failure mode this guards against), so also check on a schedule
+    # instead of relying solely on someone touching the vendored path.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-data-liberation-agent-upstream-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Verify vendored copy matches upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Compare vendored bundles against upstream
+        run: node scripts/check-data-liberation-agent-upstream.mjs

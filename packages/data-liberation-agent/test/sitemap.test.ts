@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseSitemapXml, classifyUrl } from '../src/lib/extraction/sitemap.js';
+import { parseSitemapDocument, parseSitemapXml, classifyUrl } from '../src/lib/extraction/sitemap.js';
 
 describe('parseSitemapXml', () => {
   it('extracts URLs from a standard sitemap', () => {
@@ -28,6 +28,11 @@ describe('parseSitemapXml', () => {
       'https://example.com/sitemap-pages.xml',
       'https://example.com/sitemap-posts.xml',
     ]);
+  });
+
+  it('identifies sitemap indexes and decodes escaped loc URLs', () => {
+    const document = parseSitemapDocument('<sitemapindex><sitemap><loc>https://example.com/child.xml?x=one&amp;y=two</loc></sitemap></sitemapindex>');
+    expect(document).toEqual({ kind: 'index', locs: ['https://example.com/child.xml?x=one&y=two'] });
   });
 
   it('returns empty array for invalid XML', () => {

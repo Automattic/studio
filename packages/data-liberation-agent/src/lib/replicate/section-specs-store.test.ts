@@ -59,6 +59,19 @@ describe('SectionSpecsStore', () => {
     expect(SECTION_SPECS_SCHEMA).toBeGreaterThanOrEqual(8);
   });
 
+  it('stores mobile viewport evidence separately from desktop specs', () => {
+    const dir = mkdtempSync(join(TMP_ROOT, 'out-'));
+    try {
+      const store = SectionSpecsStore.loadMobile(dir);
+      const url = 'https://example.com/about';
+      store.set(url, [spec({ headings: ['Mobile about'] })], [], { width: 320, height: 568 });
+      expect(store.get(url)?.[0].headings).toEqual(['Mobile about']);
+      expect(existsSync(join(dir, 'sections-mobile', 'about.json'))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('returns null (cache miss) when the file was written under an older schema', () => {
     const dir = mkdtempSync(join(TMP_ROOT, 'out-'));
     try {

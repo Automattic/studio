@@ -152,10 +152,37 @@ export function upgradeMediaUrl(url: string): string {
   }
 }
 
-// Map common image content-types to file extensions. Used when the URL
+/**
+ * Strip a charset suffix and map a bare `woff2` token (some font CDNs omit
+ * the `font/` type) onto `font/woff2`. Shared by extension mapping and the
+ * store-time payload allowlist.
+ */
+export function canonicalMediaContentType(contentType: string): string {
+  const ct = contentType.toLowerCase().split(';')[0].trim();
+  return ct === 'woff2' ? 'font/woff2' : ct;
+}
+
+// Media kinds this fetch path actually stores: images (incl. SVG), audio,
+// video, fonts, plus `application/octet-stream` (CDNs often send that for
+// woff2) and the legacy `application/font-*` / `application/x-font-*` types.
+// `text/html` and other documents are not media and must not be stored.
+const SUPPORTED_MEDIA_CONTENT_TYPE =
+  /^(?:image\/|audio\/|video\/|font\/|application\/(?:font|x-font|font-woff|octet-stream))/i;
+
+export function isSupportedMediaContentType(contentType: string): boolean {
+  const ct = canonicalMediaContentType(contentType);
+  return ct.length > 0 && SUPPORTED_MEDIA_CONTENT_TYPE.test(ct);
+}
+
+function looksLikeHtml(bytes: Buffer): boolean {
+  const head = bytes.toString('utf8').replace(/^\uFEFF/, '').trimStart().slice(0, 64).toLowerCase();
+  return head.startsWith('<!doctype html') || head.startsWith('<html') || /^<(?:head|body)[\s>/]/.test(head);
+}
+
+// Map common media content-types to file extensions. Used when the URL
 // provides no extension (e.g. `/isteam/getty/<numeric-id>`).
 export function extensionFromContentType(contentType: string): string {
-  const ct = contentType.toLowerCase().split(';')[0].trim();
+  const ct = canonicalMediaContentType(contentType);
   switch (ct) {
     case 'image/jpeg': case 'image/jpg': return '.jpg';
     case 'image/png': return '.png';
@@ -166,8 +193,34 @@ export function extensionFromContentType(contentType: string): string {
     case 'image/bmp': return '.bmp';
     case 'image/tiff': return '.tiff';
     case 'image/x-icon': case 'image/vnd.microsoft.icon': return '.ico';
+    case 'video/mp4': return '.mp4';
+    case 'video/webm': return '.webm';
+    case 'video/ogg': return '.ogv';
+    case 'audio/mpeg': return '.mp3';
+    case 'audio/ogg': return '.ogg';
+    case 'audio/wav': return '.wav';
+    case 'font/woff2': case 'application/font-woff2': return '.woff2';
+    case 'font/woff': case 'application/font-woff': return '.woff';
+    case 'font/ttf': case 'application/x-font-ttf': return '.ttf';
+    case 'font/otf': case 'application/x-font-otf': return '.otf';
     default: return '';
   }
+}
+
+/**
+ * The Accept header Chromium sends for image requests. Format-negotiating CDNs
+ * (Wix, Squarespace, Cloudinary f_auto, imgix auto=format, Photon) choose the
+ * served encoding from it; without it they fall back to the legacy/original
+ * format, which can be 100x larger than what a visitor's browser receives.
+ */
+export const BROWSER_IMAGE_ACCEPT =
+  'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+
+/** Whether two image extensions name the same format (`.jpeg` and `.JPG` do). */
+function sameImageFormat(a: string, b: string): boolean {
+  const aliases: Record<string, string> = { '.jpeg': '.jpg', '.tif': '.tiff' };
+  const canonical = (ext: string) => aliases[ext.toLowerCase()] ?? ext.toLowerCase();
+  return canonical(a) === canonical(b);
 }
 
 const FONT_EXT_RE = /\.(woff2|woff|ttf|otf|eot)(?:[?#]|$)/i;
@@ -196,6 +249,7 @@ async function fetchMediaResponse(rawUrl: string): Promise<Response> {
     const res = await fetch(currentUrl, {
       signal: AbortSignal.timeout(30000),
       redirect: 'manual',
+      headers: { accept: BROWSER_IMAGE_ACCEPT },
     });
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location');
@@ -232,7 +286,9 @@ export async function downloadMedia(
     // here only to derive the filename. Reject non-http(s)/internal up front so
     // the filename derivation never runs on a blocked URL.
     const urlObj = assertPublicHttpUrl(url);
-    let rawFilename = deriveFilenameFromUrl(urlObj) || `image-${Date.now()}.jpg`;
+    // No fabricated extension: a root/empty path used to become `image-<ts>.jpg`,
+    // which then skipped the content-type gate and stored HTML as a "successful" image.
+    let rawFilename = deriveFilenameFromUrl(urlObj) || `image-${Date.now()}`;
 
     mkdirSync(outputDir, { recursive: true });
 
@@ -257,6 +313,18 @@ export async function downloadMedia(
       }
     }
 
+    // Validate the payload against the media kinds this pipeline stores
+    // (image/audio/video/font, plus octet-stream for oddly-typed fonts). A
+    // homepage HTML response used to slip through when the URL had no
+    // basename — we fabricated `image-<ts>.jpg` and then trusted that
+    // extension, storing megabytes of HTML as a "successful" image.
+    const rawContentType = response.headers.get('content-type') || '';
+    const contentType = canonicalMediaContentType(rawContentType);
+    if (contentType && !isSupportedMediaContentType(contentType)) {
+      try { await response.body?.cancel(); } catch { /* ignore */ }
+      throw new Error(`non-media content-type "${rawContentType}" for ${url}`);
+    }
+
     // If the derived filename has no extension, add one from the response
     // content-type. Skipped entirely for URLs that already carried a real
     // filename like `follow_guidelines.jpg`.
@@ -264,17 +332,23 @@ export async function downloadMedia(
     // Extension-less URLs are how page-builder CDNs (Replo's
     // assets.replocdn.com, Shogun, image-resizing proxies) serve images — the
     // path is a bare id with the format negotiated via content-type. We accept
-    // those, but REJECT an extension-less response whose content-type is NOT an
-    // image so a stray HTML/redirect page can't land in the media library as
-    // junk bytes. (URLs that already carry a real image extension are trusted.)
-    if (!extname(rawFilename)) {
-      const ct = response.headers.get('content-type') || '';
-      const ext = extensionFromContentType(ct);
-      if (!ext) {
-        await response.body?.cancel();
-        throw new Error(`non-image content-type "${ct || 'unknown'}" for extension-less URL`);
+    // those, but REJECT an extension-less response whose content-type does not
+    // map to a media extension so a stray octet-stream page can't land in the
+    // media library as junk bytes. (URLs that already carry a real media
+    // extension keep it; only their format may be corrected below.)
+    const urlExtension = extname(rawFilename);
+    const negotiatedExtension = extensionFromContentType(contentType);
+    if (!urlExtension) {
+      if (!negotiatedExtension) {
+        try { await response.body?.cancel(); } catch { /* ignore */ }
+        throw new Error(`non-media content-type "${rawContentType || 'unknown'}" for ${url}`);
       }
-      rawFilename = `${rawFilename}${ext}`;
+      rawFilename = `${rawFilename}${negotiatedExtension}`;
+    } else if (negotiatedExtension && !sameImageFormat(urlExtension, negotiatedExtension)) {
+      // Content negotiation (the Accept header above) can return a different
+      // format than the URL names — e.g. AVIF for a `.png` transform URL. Name
+      // the file by the bytes that arrived so WordPress types it correctly.
+      rawFilename = `${rawFilename.slice(0, -urlExtension.length)}${negotiatedExtension}`;
     }
 
     const filename = safeFilename(rawFilename, seenNames);
@@ -282,11 +356,17 @@ export async function downloadMedia(
 
     // Stream to disk with a running byte counter so a body that lies about (or
     // omits) Content-Length still can't fill the disk — abort + delete the
-    // partial file if the cap is exceeded.
+    // partial file if the cap is exceeded. Keep the first bytes so a body that
+    // claims to be media (or omits Content-Type) but is actually HTML can be
+    // rejected after the stream without a second disk read.
     let written = 0;
+    let head = Buffer.alloc(0);
     const sizeGuard = new Transform({
       transform(chunk: Buffer, _enc, cb) {
         written += chunk.length;
+        if (head.length < 512) {
+          head = Buffer.concat([head, chunk]).subarray(0, 512);
+        }
         if (written > MAX_DOWNLOAD_BYTES) {
           cb(new BodyTooLargeError(`media body exceeds max ${MAX_DOWNLOAD_BYTES} bytes (streamed)`));
           return;
@@ -301,6 +381,13 @@ export async function downloadMedia(
       // Remove the partial file on any streaming failure (size cap or otherwise).
       try { unlinkSync(destPath); } catch { /* ignore */ }
       throw streamErr;
+    }
+
+    if (looksLikeHtml(head)) {
+      try { unlinkSync(destPath); } catch { /* ignore */ }
+      throw new Error(
+        `non-media HTML payload (content-type "${rawContentType || 'unknown'}") for ${url}`,
+      );
     }
 
     // Deduplicate byte-identical files by content hash. The buffer is kept so

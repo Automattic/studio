@@ -1,10 +1,12 @@
-import type { Page } from 'playwright';
+import type { Page, Request } from 'playwright';
 import { expandCollapsedContent, waitForAppWidgets } from './dynamic-content.js';
+import { isSourcePromotion } from '../source-cleanup.js';
 
 /**
  * Wait for a page to reach a stable state after load.
  *
- *   goto('load') ─▶ settleMs ─▶ networkidle best-effort (5s) ─▶ fonts.ready (4s) ─▶ done
+ *   goto('load') ─▶ settleMs ─▶ networkidle best-effort (5s) ─▶ fonts.ready (4s)
+ *     ─▶ DOM quiescence, bounded (5s) ─▶ done
  *
  * Networkidle is wrapped in try/catch because chatty analytics (GA, Intercom)
  * can hold it open indefinitely; we don't want that to block capture.
@@ -16,8 +18,29 @@ import { expandCollapsedContent, waitForAppWidgets } from './dynamic-content.js'
  * exactly why source captures of Wix navs came back blank). It runs last, after
  * networkidle, so any font request issued by late hydration JS is already in
  * flight and document.fonts.ready waits for it to actually apply.
+ *
+ * The DOM-quiescence step runs LAST because a client-rendered app can still be
+ * assembling its own content well after 'load' fires and after networkidle has
+ * either resolved or given up. 'load' only covers the document's own
+ * script/stylesheet bundle, not whatever that bundle goes on to fetch and
+ * render — a SPA that loads its data via its own async call (a server
+ * function, a client-side data fetch) mounts a whole section of the page on
+ * that response, at a moment 'load' knows nothing about. And a page embedding
+ * a chatty third-party widget (e.g. a media player polling its own endpoints)
+ * can hold networkidle open indefinitely without that hydration ever finishing
+ * — see [[waitForRenderIdle]] for why network-quiet and render-complete are
+ * different questions. Watching the DOM directly sidesteps both problems: a
+ * MutationObserver on the whole document resolves once no mutation has landed
+ * for `quietMs`, bounded by `domTimeoutMs` so a page that never stops mutating
+ * (a live-updating ticker, a looping carousel re-render) cannot hang the
+ * capture — it simply falls back to whatever the DOM looked like at the
+ * deadline, same as every other best-effort wait in this file.
  */
-export async function waitForStable(page: Page, settleMs: number = 1000): Promise<void> {
+export async function waitForStable(
+  page: Page,
+  settleMs: number = 1000,
+  domTimeoutMs: number = 5_000,
+): Promise<void> {
   await page.waitForLoadState('load');
   if (settleMs > 0) {
     await new Promise((r) => setTimeout(r, settleMs));
@@ -28,6 +51,64 @@ export async function waitForStable(page: Page, settleMs: number = 1000): Promis
     /* best-effort — analytics can keep network busy forever */
   }
   await waitForFonts(page);
+  await waitForDomQuiescence(page, 500, domTimeoutMs);
+}
+
+/**
+ * Wait until the document stops mutating: a MutationObserver watches the
+ * whole document, and this resolves once `quietMs` has elapsed since the last
+ * observed mutation, bounded overall by `timeoutMs`. A page with no further
+ * mutations pending resolves after one `quietMs` window — the cost on an
+ * ordinary static page — rather than a fixed sleep that would either
+ * under-wait a slow page or tax every fast one for no reason.
+ *
+ * Deliberately generic: it has no notion of frameworks, hydration, or data
+ * fetching — it only asks "is the DOM still changing?", which is what a
+ * client-rendered app on ANY stack ultimately reduces to. Best-effort: a
+ * blocked/crashed page falls through to the existing capture, unchanged.
+ */
+export async function waitForDomQuiescence(
+  page: Page,
+  quietMs: number = 500,
+  timeoutMs: number = 5_000,
+): Promise<void> {
+  try {
+    await withEvaluateTimeout(
+      page.evaluate(
+        ({ quietMs, timeoutMs }) =>
+          new Promise<void>((resolve) => {
+            let lastMutation = Date.now();
+            const deadline = Date.now() + timeoutMs;
+            const observer = new MutationObserver(() => {
+              lastMutation = Date.now();
+            });
+            observer.observe(document.documentElement, {
+              childList: true,
+              subtree: true,
+              attributes: true,
+              characterData: true,
+            });
+            const check = () => {
+              const now = Date.now();
+              if (now - lastMutation >= quietMs || now >= deadline) {
+                observer.disconnect();
+                resolve();
+                return;
+              }
+              setTimeout(check, Math.min(50, deadline - now));
+            };
+            check();
+          }),
+        { quietMs, timeoutMs },
+      ),
+      // Outer guard is generous over the in-page deadline: the in-page
+      // setTimeout loop is what enforces timeoutMs, this just protects
+      // against the evaluate call itself never returning (page crash/hang).
+      timeoutMs + 1_000,
+    );
+  } catch {
+    /* best-effort — never block capture on a page that mutates forever */
+  }
 }
 
 /**
@@ -86,11 +167,80 @@ export async function waitForAnimations(page: Page, timeoutMs: number = 2_000): 
   }
 }
 
+const RENDER_RESOURCE_TYPES = new Set( [ 'script', 'stylesheet', 'font', 'image', 'media' ] );
+
+function requestAffectsRenderedContent( page: Page, request: Request ): boolean {
+  const resourceType = request.resourceType();
+  if ( RENDER_RESOURCE_TYPES.has( resourceType ) ) return true;
+  if ( ! [ 'fetch', 'xhr' ].includes( resourceType ) ) return false;
+  try {
+    return new URL( request.url() ).origin === new URL( page.url() ).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** Run lazy-load work and wait until render-affecting requests become quiet. */
+export async function waitForRenderIdle(
+  page: Page,
+  action: () => Promise< unknown >,
+  quietMs: number = 500,
+  timeoutMs: number = 5_000,
+): Promise<void> {
+  if ( ! page.on || ! page.off ) {
+    await action();
+    try {
+      await page.waitForLoadState( 'networkidle', { timeout: timeoutMs } );
+    } catch {
+      /* best-effort fallback for reduced browser implementations */
+    }
+    return;
+  }
+
+  const active = new Set< Request >();
+  let lastActivity = Date.now();
+  const onRequest = ( request: Request ) => {
+    if ( ! requestAffectsRenderedContent( page, request ) ) return;
+    active.add( request );
+    lastActivity = Date.now();
+  };
+  const onFinished = ( request: Request ) => {
+    if ( ! active.delete( request ) ) return;
+    lastActivity = Date.now();
+  };
+  page.on( 'request', onRequest );
+  page.on( 'requestfinished', onFinished );
+  page.on( 'requestfailed', onFinished );
+
+  try {
+    await action();
+    const waitStarted = Date.now();
+    await new Promise< void >( ( resolve ) => {
+      const check = () => {
+        const now = Date.now();
+        if (
+          now - waitStarted >= timeoutMs ||
+          ( active.size === 0 && now - lastActivity >= quietMs )
+        ) {
+          resolve();
+          return;
+        }
+        setTimeout( check, Math.min( 50, timeoutMs - ( now - waitStarted ) ) );
+      };
+      check();
+    } );
+  } finally {
+    page.off( 'request', onRequest );
+    page.off( 'requestfinished', onFinished );
+    page.off( 'requestfailed', onFinished );
+  }
+}
+
 /**
  * Scroll from top to bottom in 500px increments with 200ms between steps, wait
- * for networkidle (5s max, best-effort), then RESTORE the top scroll state and
- * let the resulting transitions settle. Triggers lazy-loaded images so the
- * subsequent screenshot captures actual content instead of placeholders.
+ * for render-affecting requests to become quiet, then RESTORE the top scroll
+ * state and let the resulting transitions settle. Triggers lazy-loaded images
+ * so the subsequent screenshot captures actual content instead of placeholders.
  *
  * Restoring the top state matters for scroll-reactive sticky headers: the
  * scroll-through above fades/hides them, and a bare `scrollTo(0, 0)` does NOT
@@ -109,21 +259,29 @@ export async function waitForAnimations(page: Page, timeoutMs: number = 2_000): 
  * screenshot (after-snap: y 0, h:84), so scroll-reactive chrome captured
  * nondeterministically (32 css px header ghost on the replica side).
  */
-export async function triggerLazyLoad(page: Page): Promise<void> {
+export async function triggerLazyLoad(page: Page, requireNetworkIdle: boolean = false): Promise<void> {
   try {
-    await page.evaluate(async () => {
-      const step = 500;
-      const pauseMs = 200;
-      const total = document.documentElement.scrollHeight;
-      for (let y = 0; y < total; y += step) {
-        window.scrollTo({ top: y, left: 0, behavior: 'instant' });
-        await new Promise((r) => setTimeout(r, pauseMs));
+    const scroll = () =>
+      page.evaluate(async () => {
+        const step = 500;
+        const pauseMs = 200;
+        const total = document.documentElement.scrollHeight;
+        for (let y = 0; y < total; y += step) {
+          window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+          await new Promise((r) => setTimeout(r, pauseMs));
+        }
+        window.scrollTo({ top: total, left: 0, behavior: 'instant' });
+      });
+    if ( requireNetworkIdle ) {
+      await scroll();
+      try {
+        await page.waitForLoadState( 'networkidle', { timeout: 5_000 } );
+      } catch {
+        /* best-effort hydration window for the responsive geometry sweep */
       }
-      window.scrollTo({ top: total, left: 0, behavior: 'instant' });
-    });
-    try {
-      await page.waitForLoadState('networkidle', { timeout: 5_000 });
-    } catch { /* best-effort */ }
+    } else {
+      await waitForRenderIdle(page, scroll);
+    }
     // Dynamic / JS-app content: expand statically-collapsed sections, then wait for known
     // content widgets (reviews / FAQ apps) to populate — so the snapshot captures real
     // content, not an empty placeholder. Both are no-ops on ordinary pages. (See
@@ -201,7 +359,7 @@ export interface OverlayDetection {
 /** A candidate that selection decided IS an overlay, with how it scored. */
 export interface OverlayTarget {
   idx: number;
-  kind: 'takeover' | 'consent';
+  kind: 'takeover' | 'consent' | 'provider-promotion';
   score: number;
   signals: string[];
   selector: string;
@@ -215,7 +373,7 @@ export interface OverlayTarget {
 export interface DismissedOverlay {
   selector: string;
   method: 'close-click' | 'escape' | 'remove';
-  kind: 'takeover' | 'consent';
+  kind: 'takeover' | 'consent' | 'provider-promotion';
   score: number;
   signals: string[];
 }
@@ -288,6 +446,12 @@ export function isConsentBanner(c: OverlayCandidate): boolean {
   return CONSENT_TEXT_RE.test(hay) || CONSENT_VENDOR_RE.test(hay);
 }
 
+/** Hosting-platform acquisition chrome is not authored site content. */
+export function isProviderPromotion(c: OverlayCandidate): boolean {
+  const hay = `${c.text} ${c.ariaLabel ?? ''} ${c.selector}`;
+  return c.coverageRatio < 0.25 && isSourcePromotion(hay);
+}
+
 /**
  * Decide which candidates are overlays and in what order to dismiss them.
  * Pure. Takeovers (score ≥ threshold) first, highest score first; then consent
@@ -296,6 +460,7 @@ export function isConsentBanner(c: OverlayCandidate): boolean {
 export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
   const takeovers: OverlayTarget[] = [];
   const consents: OverlayTarget[] = [];
+  const providerPromotions: OverlayTarget[] = [];
   // `?? []` keeps this pure fn total: a partial detection result can't throw
   // (lets the mocked-browser path be a true no-op, and removes a hidden
   // dependency on dismissOverlays' try/catch).
@@ -307,7 +472,10 @@ export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
     // of the viewport — so a small age-gate dialog is still caught while a thin
     // sticky header (no modal role, tiny coverage) is not.
     const hasModalRole = c.ariaModal || c.role === 'dialog' || c.role === 'alertdialog';
-    if (score >= OVERLAY_THRESHOLD && (hasModalRole || c.coverageRatio >= 0.15)) {
+    const hasOverlayEvidence =
+      hasModalRole || c.hasCloseAffordance || c.vendorHint ||
+      (c.hasBackdrop && c.coverageRatio >= 0.15);
+    if (score >= OVERLAY_THRESHOLD && hasOverlayEvidence) {
       takeovers.push({
         idx: c.idx, kind: 'takeover', score, signals,
         selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
@@ -317,10 +485,15 @@ export function selectOverlayTargets(d: OverlayDetection): OverlayTarget[] {
         idx: c.idx, kind: 'consent', score, signals: [...signals, 'consent'],
         selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
       });
+    } else if (isProviderPromotion(c)) {
+      providerPromotions.push({
+        idx: c.idx, kind: 'provider-promotion', score, signals: [...signals, 'provider-promotion'],
+        selector: c.selector, hasCloseAffordance: c.hasCloseAffordance,
+      });
     }
   }
   takeovers.sort((a, b) => b.score - a.score);
-  return [...takeovers, ...consents];
+  return [...takeovers, ...consents, ...providerPromotions];
 }
 
 /**
@@ -465,10 +638,11 @@ function cleanupStamps(page: Page): Promise<void> {
  * could share a parent with a real full-viewport fixed element (hero bg / app
  * shell), and deleting that would corrupt the carried page.
  */
-function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean): Promise<void> {
-  return page.evaluate(({ i, removeBackdrop }: { i: number; removeBackdrop: boolean }) => {
+function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean, reclaimBottomSpace: boolean): Promise<void> {
+  return page.evaluate(({ i, removeBackdrop, reclaimBottomSpace }: { i: number; removeBackdrop: boolean; reclaimBottomSpace: boolean }) => {
     const el = document.querySelector(`[data-lib-overlay="${i}"]`);
     if (el) {
+      const reservedHeight = el.getBoundingClientRect().height;
       if (removeBackdrop) {
         const vpArea = (window.innerWidth || 1) * (window.innerHeight || 1) || 1;
         const parent = el.parentElement;
@@ -482,8 +656,11 @@ function forceRemoveOverlay(page: Page, idx: number, removeBackdrop: boolean): P
         }
       }
       el.remove();
+      if (reclaimBottomSpace && document.body.style.paddingBottom && Math.abs(parseFloat(getComputedStyle(document.body).paddingBottom) - reservedHeight) < 1) {
+        document.body.style.removeProperty('padding-bottom');
+      }
     }
-  }, { i: idx, removeBackdrop });
+  }, { i: idx, removeBackdrop, reclaimBottomSpace });
 }
 
 /**
@@ -547,7 +724,7 @@ async function dismissOne(
   // takeovers: a consent strip could share a parent with a real full-screen
   // fixed element we must not delete.
   try {
-    await forceRemoveOverlay(page, t.idx, t.kind === 'takeover');
+  await forceRemoveOverlay(page, t.idx, t.kind === 'takeover', t.kind === 'provider-promotion');
     if (!(await overlayPresent(page, t.idx))) return 'remove';
   } catch {
     /* give up on this overlay */

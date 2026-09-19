@@ -7,16 +7,17 @@ export function resolveStudioRoot(): string {
 }
 
 /**
- * Default base directory for liberation output. User-owned and Studio-adjacent
- * so artifacts never live inside the (read-only) plugin/package dir.
+ * Default base directory for liberated sites. User-owned so artifacts never
+ * live inside the (read-only) plugin/package dir, and destination-neutral: a
+ * liberated site is portable HTML that stands on its own, so the default must
+ * not live inside any particular consumer's directory (Studio included).
  *   1. DLA_OUTPUT_DIR (absolutized against home if relative) wins.
- *   2. else <studio root>/_liberations  (a non-site sibling dir; Studio tracks
- *      sites via appdata-v1.json, not a filesystem scan, so it's ignored there).
+ *   2. else ~/data-liberation
  */
 export function resolveOutputBase(): string {
   const env = process.env.DLA_OUTPUT_DIR?.trim();
   if (env) return isAbsolute(env) ? env : resolve(homedir(), env);
-  return join(resolveStudioRoot(), '_liberations');
+  return join(homedir(), 'data-liberation');
 }
 
 /**

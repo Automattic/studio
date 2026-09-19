@@ -1,16 +1,16 @@
 import type { PlatformAdapter } from '../../types.js';
+import { detection } from './detection.js';
 import { discoverWebflow } from './discover.js';
-import { extractWebflow } from './extract.js';
+import { providerCreditRules } from '../../lib/source-cleanup.js';
 
 export type { WebflowInventory, WebflowAdapterOpts } from './discover.js';
 
-function detect(url: string): boolean {
-  return /webflow\.io|webflow\.com/i.test(url);
-}
-
 export const webflowAdapter: PlatformAdapter = {
   id: 'webflow',
-  detect,
+  detection,
   discover: discoverWebflow,
-  extract: extractWebflow,
+  liberation: { cleanupRules: [
+    { id: 'webflow-badge', category: 'source-attribution', selector: '.w-webflow-badge' },
+    ...providerCreditRules('webflow', ['webflow.com'], 'Webflow'),
+  ] },
 };

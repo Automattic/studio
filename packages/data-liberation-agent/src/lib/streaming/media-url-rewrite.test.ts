@@ -50,6 +50,35 @@ describe('rewriteMediaUrls', () => {
     expect(out).toContain('https://cdn/unknown.jpg');
   });
 
+  it('rewrites HTML-escaped media queries while preserving replacement query encoding', () => {
+    const source = 'https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&width=600';
+    const map = new Map([[source, '/media/photo.jpg?version=1&format=webp']]);
+    const input = '<style>.hero{background:url("https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&width=600")}</style><div style="background:url(&quot;https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600&quot;)"></div><img src="https://cdn.example/image?url=photo%2520one.jpg%3Fa%3D1%26b%3D2&amp;width=600">';
+    const onMissing = vi.fn();
+
+    expect(rewriteMediaUrls(input, map, { onMissing })).toBe(
+      '<style>.hero{background:url("/media/photo.jpg?version=1&format=webp")}</style><div style="background:url(&quot;/media/photo.jpg?version=1&amp;format=webp&quot;)"></div><img src="/media/photo.jpg?version=1&amp;format=webp">',
+    );
+    expect(onMissing).not.toHaveBeenCalled();
+  });
+
+  it('ignores a root-path mapping that would rewrite every slash', () => {
+    const html = '<link rel="icon" href="https://cdn.example/favicon.ico" type="image/x-icon"><img src="/"><a href="/about/">About</a>';
+    const map = new Map([['/', 'https://example.com/']]);
+
+    expect(rewriteMediaUrls(html, map)).toBe(html);
+  });
+
+  it('does not rewrite an emitted local path through a relative source alias', () => {
+    const map = new Map([
+      ['https://example.com/hero.png', '/media/hero.png'],
+      ['/hero.png', '/media/hero.png'],
+    ]);
+    expect(rewriteMediaUrls('<img src="https://example.com/hero.png">', map)).toBe(
+      '<img src="/media/hero.png">',
+    );
+  });
+
   it('reports unmapped URLs via onMissing callback', () => {
     const html = '<img src="https://cdn/unknown.jpg">';
     const onMissing = vi.fn();
@@ -138,7 +167,7 @@ describe('rewriteMediaUrls', () => {
 
   it('rewrites a Wix srcset whose display filename contains parentheses (no `).png` mangle)', () => {
     // The Wix logo srcset ends each variant with the display name `… (1).png`.
-    // URL_LIKE must not truncate at the `)`, or the rewrite leaves `<local>).png`.
+    // URL extraction must not truncate at the `)`, or the rewrite leaves `<local>).png`.
     const hash = '670df9_dc553b632f22456e8f3e591105cdc3da';
     const base = `https://static.wixstatic.com/media/${hash}~mv2.png`;
     const local = `http://localhost:8884/wp-content/uploads/2026/05/Cornelius-Holmes-1.png`;
@@ -152,6 +181,34 @@ describe('rewriteMediaUrls', () => {
     expect(out).toBe(`<img srcset="${local} 1x, ${local} 2x" src="${local}">`);
     expect(out).not.toContain('static.wixstatic.com');
     expect(out).not.toContain(').png'); // the mangle signature
+  });
+
+  it('does not mangle a Wix transform URL on a surface the candidate scan misses', () => {
+    const hash = 'ea71bb_2b0f0e1b9a1f4f0e9d2a5c7e1b3d4f60';
+    const base = `https://static.wixstatic.com/media/${hash}~mv2.png`;
+    const local = 'http://localhost:8884/wp-content/uploads/2026/05/hero.png';
+    const transform = `${base}/v1/fill/w_58,h_57,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/file.png`;
+    const html = `<div data-image-src="${transform}"></div><video poster="${transform}"></video>`;
+
+    const out = rewriteMediaUrls(html, new Map([[base, local]]));
+
+    expect(out).not.toContain(`${local}/v1/`); // the mangle signature
+    expect(out).toBe(html);
+  });
+
+  it("rewrites Wix display filenames containing apostrophes without suffix corruption", () => {
+    const hash = '670df9_dc553b632f22456e8f3e591105cdc3da';
+    const base = `https://static.wixstatic.com/media/${hash}~mv2.jpg`;
+    const local = 'http://localhost:8884/wp-content/uploads/2026/05/womens-day.jpg';
+    const variant = `${base}/v1/fill/w_640,h_480,q_85,enc_avif,quality_auto/Happy%20Women's%20Day.jpg`;
+    const html = `<img src="${variant}" srcset="${variant} 1x,\n${variant} 2x">`;
+
+    const out = rewriteMediaUrls(html, new Map([[base, local]]));
+
+    expect(out).toBe(`<img src="${local}" srcset="${local} 1x,\n${local} 2x">`);
+    expect(out).not.toContain("Women's%20Day.jpg");
+    expect(out).not.toContain('data:image/gif;base64,');
+    expect(out).not.toContain(`${local}'s%20Day.jpg`);
   });
 });
 

@@ -36,15 +36,25 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import {
+	LAYOUT_BASELINE_SCHEMA,
+	buildVisualParityValidationArtifacts,
+	toVisualParityOraclePayload,
+	type CapturedSectionPage,
+} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
@@ -97,6 +107,14 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/visual-parity', async () => {
+	const actual =
+		await vi.importActual< typeof import('cli/lib/visual-parity') >( 'cli/lib/visual-parity' );
+	return {
+		...actual,
+		buildVisualParityValidationArtifacts: vi.fn(),
+	};
+} );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -165,6 +183,31 @@ describe( 'CLI: studio create', () => {
 	let fsMkdirSyncSpy: MockInstance;
 	let loggerReportSuccessSpy: MockInstance;
 
+	const printedOutput = () =>
+		consoleLogSpy.mock.calls.map( ( args ) => args.map( String ).join( ' ' ) ).join( '\n' );
+
+	const expectRetainedImportedSiteReported = ( {
+		sitePath = mockSitePath,
+		url = `http://localhost:${ mockPort }`,
+		running = false,
+	}: {
+		sitePath?: string;
+		url?: string;
+		running?: boolean;
+	} = {} ) => {
+		const output = printedOutput();
+		expect( output ).toContain( sitePath );
+		expect( output ).toContain( url );
+		expect( output ).toContain(
+			running
+				? 'The site is running and can be inspected.'
+				: 'The imported site was kept and can be inspected.'
+		);
+		expect( output ).toContain( 'Re-run the same command to resume the import.' );
+		expect( output ).not.toContain( 'generated-password-123' );
+		expect( logSiteDetails ).not.toHaveBeenCalled();
+	};
+
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const path = require( 'path' );
 		const bundledWPPath = path.join( '/test/server-files', 'wordpress-versions', 'latest' );
@@ -202,6 +245,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -210,6 +254,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
+		vi.mocked( buildVisualParityValidationArtifacts ).mockReset();
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -249,6 +294,20 @@ describe( 'CLI: studio create', () => {
 	};
 
 	describe( 'Validation Errors', () => {
+		it( 'requires a URL source when keeping a capture', () => {
+			const createParser = () =>
+				registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+				).exitProcess( false );
+
+			expect( () => createParser().parse( [ 'create', '--keep-source' ] ) ).toThrow(
+				'keep-source -> from'
+			);
+			expect( () =>
+				createParser().parse( [ 'create', '--from', '/tmp/source', '--keep-source' ] )
+			).toThrow( '--keep-source requires --from with an HTTP(S) URL' );
+		} );
+
 		it( 'validates and resolves the local Static Site Importer zip option', async () => {
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
 			const createParser = () =>
@@ -394,6 +453,138 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'removes the URL source capture after importing by default', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				await fs.promises.mkdir( outputDir, { recursive: true } );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'index.html' ),
+					'<main>Liberated</main>'
+				);
+				return outputDir;
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).toHaveBeenCalledWith(
+					'https://example.com',
+					capturePath,
+					expect.objectContaining( { onProgress: expect.any( Function ) } )
+				);
+				expect( copySpy ).toHaveBeenCalledWith(
+					capturePath,
+					path.join( sitePath, '.studio-import', 'source' ),
+					{ recursive: true, errorOnExist: true, force: false }
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'keeps the URL source capture when requested', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-import-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const liberate = vi.fn().mockImplementation( async ( _url, outputDir ) => {
+				await fs.promises.mkdir( outputDir, { recursive: true } );
+				await fs.promises.writeFile(
+					path.join( outputDir, 'index.html' ),
+					'<main>Liberated</main>'
+				);
+				return outputDir;
+			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--keep-source',
+					'--name',
+					'Liberated Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( fs.readFileSync( path.join( capturePath, 'index.html' ), 'utf8' ) ).toBe(
+					'<main>Liberated</main>'
+				);
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'retains failed captures without creating a WordPress site', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-failed-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Partial</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					summary: { routesDiscovered: 13, routesCaptured: 10, routesSkipped: 0, routesFailed: 6 },
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							runCli: async () => ( {
+								exitCode: 0,
+								signal: null,
+								stdout: `Site: ${ websiteDir }\n`,
+								stderr: '',
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( saveCliConfig ).not.toHaveBeenCalled();
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );
@@ -476,6 +667,7 @@ describe( 'CLI: studio create', () => {
 				activate: true,
 				overwrite: true,
 				fail_on_quality: true,
+				write_theme_report_artifacts: true,
 				require_proven_dynamic_client_assets: true,
 				seed_entities: true,
 				materialize_dependencies: true,
@@ -533,6 +725,7 @@ describe( 'CLI: studio create', () => {
 			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Captured site</main>' );
 			fs.writeFileSync( path.join( captureDir, 'diagnostics.json' ), '{"failures":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'scroll-states.json' ), '{"pages":[]}' );
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
@@ -551,9 +744,181 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).toEqual( {
 				type: 'files',
 				ref: 'request-bundle:source',
+				metadata: {
+					reports: [ 'capture-receipt.json', 'diagnostics.json', 'scroll-states.json' ],
+				},
 			} );
 			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
+				{
+					name: 'capture-receipt.json',
+					from: path.join( captureDir, 'capture-receipt.json' ),
+				},
+				{
+					name: 'diagnostics.json',
+					from: path.join( captureDir, 'diagnostics.json' ),
+				},
+				{
+					name: 'scroll-states.json',
+					from: path.join( captureDir, 'scroll-states.json' ),
+				},
+			] );
 			expect( blueprint.staticSiteImport.request.length ).toBeLessThan( 4096 );
+		} );
+
+		it( 'forwards capture-root sidecars when the importer source is the website directory', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-website-source-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync( path.join( websiteDir, 'contact.html' ), '<main>Contact</main>' );
+			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'typography.json' ), '{"fonts":[]}' );
+			fs.writeFileSync( path.join( captureDir, 'computed-styles.json' ), '{"pages":[]}' );
+			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
+				const excludedDir = fs.mkdtempSync( path.join( captureDir, `${ excluded }-` ) );
+				fs.writeFileSync( path.join( excludedDir, 'blob.bin' ), 'large' );
+			}
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+			const reportNames = ( blueprint.staticSiteImport.reportFiles ?? [] ).map(
+				( file ) => file.name
+			);
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+				metadata: {
+					reports: [
+						'capture-receipt.json',
+						'computed-styles.json',
+						'interaction-states.json',
+						'typography.json',
+					],
+				},
+			} );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [
+				{
+					name: 'capture-receipt.json',
+					from: path.join( captureDir, 'capture-receipt.json' ),
+				},
+				{
+					name: 'computed-styles.json',
+					from: path.join( captureDir, 'computed-styles.json' ),
+				},
+				{
+					name: 'interaction-states.json',
+					from: path.join( captureDir, 'interaction-states.json' ),
+				},
+				{
+					name: 'typography.json',
+					from: path.join( captureDir, 'typography.json' ),
+				},
+			] );
+			for ( const excluded of [ 'screenshots', 'media', 'resources', 'layout-geometry' ] ) {
+				expect( reportNames ).not.toContain( excluded );
+			}
+			expect( request.source ).not.toHaveProperty( 'files' );
+			expect( request.source ).not.toHaveProperty( 'entrypoint' );
+		} );
+
+		it( 'resolves Data Liberation sections/ from a website/ import source', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sections-source-' ) );
+			const websiteDir = path.join( captureDir, 'website' );
+			const sectionsDir = path.join( captureDir, 'sections' );
+			fsMkdirSyncSpy.mockRestore();
+			fs.mkdirSync( websiteDir );
+			fs.mkdirSync( sectionsDir );
+			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( sectionsDir, 'index.json' ),
+				JSON.stringify( {
+					sourceUrl: 'https://example.com/',
+					viewport: { width: 1440, height: 900 },
+					sections: [ { sectionIndex: 0, top: 80, height: 640, headings: [ 'Home' ] } ],
+				} )
+			);
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.staticSiteImport.sectionsPath ).toBe( sectionsDir );
+			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
+				true
+			);
+		} );
+
+		it( 'imports a capture that has no sidecars', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-no-sidecars-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+				} )
+			);
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( websiteDir );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+				metadata: {
+					reports: [ 'capture-receipt.json' ],
+				},
+			} );
+		} );
+
+		it( 'imports a plain HTML directory that has no capture sidecars', () => {
+			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-plain-html-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main>Plain</main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Plain Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const request = JSON.parse( blueprint.staticSiteImport.request );
+
+			expect( blueprint.staticSiteImport.sourcePath ).toBe( sourceDir );
+			expect( blueprint.staticSiteImport.reportFiles ).toEqual( [] );
+			expect( request.source ).toEqual( {
+				type: 'files',
+				ref: 'request-bundle:source',
+			} );
+			expect( request.source ).not.toHaveProperty( 'metadata' );
 		} );
 
 		it( 'copies a request-bundled directory into the site before import', async () => {
@@ -575,6 +940,69 @@ describe( 'CLI: studio create', () => {
 				path.join( mockSitePath, '.studio-import', 'source' ),
 				{ recursive: true, errorOnExist: true, force: false }
 			);
+		} );
+
+		it( 'copies capture-root sidecars into the staged importer source', async () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sidecar-copy-' ) );
+			const websiteDir = fs.mkdtempSync( path.join( captureDir, 'website-' ) );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync( path.join( captureDir, 'interaction-states.json' ), '{"pages":[]}' );
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: path.basename( websiteDir ),
+				} )
+			);
+			const blueprint = buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Liberated Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+
+			const stagedSource = path.join( mockSitePath, '.studio-import', 'source' );
+			expect( copySpy ).toHaveBeenCalledWith( websiteDir, stagedSource, {
+				recursive: true,
+				errorOnExist: true,
+				force: false,
+			} );
+			expect( copyFileSpy ).toHaveBeenCalledWith(
+				path.join( captureDir, 'capture-receipt.json' ),
+				path.join( stagedSource, 'capture-receipt.json' )
+			);
+			expect( copyFileSpy ).toHaveBeenCalledWith(
+				path.join( captureDir, 'interaction-states.json' ),
+				path.join( stagedSource, 'interaction-states.json' )
+			);
+		} );
+
+		it( 'checks bundled SQLite before capturing a URL source', async () => {
+			const liberate = vi.fn();
+			vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( false );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				'https://example.com',
+				'--name',
+				'Imported Site',
+				'--no-start',
+				'--skip-browser',
+			] );
+
+			expect( liberate ).not.toHaveBeenCalled();
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
+			expect( process.exitCode ).toBe( 1 );
 		} );
 
 		it( 'rejects sources outside the canonical importer contract', () => {
@@ -1254,7 +1682,7 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should retain a new site and its state when the out-of-band static import fails', async () => {
+		it( 'retains a quality-failed SSI preview without reporting import success', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -1285,9 +1713,15 @@ describe( 'CLI: studio create', () => {
 					blueprint,
 					noStart: true,
 				} )
-			).rejects.toThrow( /quality gate failed/ );
+			).rejects.toThrow(
+				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
+			);
+			expectRetainedImportedSiteReported();
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
 				recursive: true,
@@ -1297,6 +1731,467 @@ describe( 'CLI: studio create', () => {
 				recursive: true,
 				force: true,
 			} );
+		} );
+
+		it( 'rejects a completed SSI receipt with failed nested quality validation', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									counts: {
+										fallback_blocks: 4,
+										unsupported_fallbacks: 4,
+									},
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 4 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+			expectRetainedImportedSiteReported();
+		} );
+
+		it( 'rejects a completed SSI receipt when its report summary fails quality', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_validation_result: null,
+								import_report_summary: {
+									status: 'failed',
+									quality_pass: false,
+									fail_import: true,
+									fallback_count: 362,
+									unsupported_fallback_count: 362,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 362 fallback blocks. Review the importer diagnostics and retry.'
+			);
+			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+			expectRetainedImportedSiteReported();
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
+		} );
+
+		it( 'accepts a completed SSI receipt with zero fallback blocks', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValueOnce(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									status: 'completed',
+									quality_pass: true,
+									fail_import: false,
+									fallback_count: 0,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).resolves.toBeUndefined();
+			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+				'Static site imported successfully'
+			);
+		} );
+
+		const capturedParityPage: CapturedSectionPage = {
+			sourceUrl: 'https://example.com/',
+			viewport: { width: 1440, height: 900 },
+			sections: [
+				{
+					sectionIndex: 0,
+					selector: 'section.hero',
+					top: 80,
+					height: 640,
+					headings: [ 'Hello' ],
+					headingSizes: [ 48 ],
+					images: [],
+				},
+			],
+			landmarks: [ { role: 'main', tag: 'main', top: 80, height: 640, mediaCount: 0 } ],
+		};
+
+		const createParityCaptureBlueprint = () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-parity-run-' ) );
+			const websiteDir = path.join( captureDir, 'website' );
+			const sectionsDir = path.join( captureDir, 'sections' );
+			fsMkdirSyncSpy.mockRestore();
+			fs.mkdirSync( websiteDir );
+			fs.mkdirSync( sectionsDir );
+			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
+			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			fs.writeFileSync(
+				path.join( sectionsDir, 'index.json' ),
+				JSON.stringify( capturedParityPage )
+			);
+			fs.writeFileSync(
+				path.join( captureDir, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+				} )
+			);
+			return buildCreateFromSourceBlueprint(
+				websiteDir,
+				'Parity Site',
+				'https://example.com/static-site-importer.zip'
+			);
+		};
+
+		it( 'feeds layout-baseline measurements into SSI visual-parity-eval.php', async () => {
+			const blueprint = createParityCaptureBlueprint();
+			const importedPage: CapturedSectionPage = {
+				...capturedParityPage,
+				sections: [
+					{
+						...( capturedParityPage.sections?.[ 0 ] as Record< string, unknown > ),
+						height: 400,
+					},
+				],
+			};
+			const payload = toVisualParityOraclePayload(
+				{ index: capturedParityPage },
+				{ index: importedPage }
+			);
+			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue( payload );
+
+			const written = new Map< string, string >();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( ( filePath, data ) => {
+				written.set( String( filePath ), String( data ) );
+			} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			const actualExists = fs.existsSync.bind( fs );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return true;
+				}
+				return actualExists( filePath );
+			} );
+			const actualRead = fs.readFileSync.bind( fs );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return JSON.stringify( {
+						status: 'failed',
+						reason: 'Imported section geometry disagrees with the layout baseline.',
+						disagreements: [
+							{
+								page: 'index',
+								section: 0,
+								code: 'section_height',
+								message: 'Section height disagrees with the layout baseline.',
+							},
+						],
+						visual_parity_artifacts: {
+							schema: 'static-site-importer/visual-parity-artifacts/v1',
+							status: 'pending',
+							artifacts: {
+								browser_render: {
+									status: 'captured',
+									kind: 'browser_render_evidence',
+									ref: { artifact_name: 'imported-layout-baseline.json' },
+								},
+								visual_diff: {
+									status: 'captured',
+									kind: 'visual_diff',
+									ref: { artifact_name: 'visual-diff.json' },
+								},
+							},
+						},
+					} );
+				}
+				return actualRead( filePath, options );
+			} );
+
+			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
+				if ( args[ 0 ] === 'static-site-importer' ) {
+					return mockWpCli( {
+						stdout: JSON.stringify( {
+							schema: 'static-site-importer/import-cli-receipt/v1',
+							status: 'completed',
+							response: {
+								success: true,
+								result: {
+									theme_dir: `${ mockSitePath }/wp-content/themes/parity-theme`,
+									import_report_summary: {
+										status: 'completed',
+										quality_pass: true,
+										fail_import: false,
+										fallback_count: 0,
+									},
+								},
+							},
+						} ),
+					} );
+				}
+				return mockWpCli();
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( /visual parity validation.*section_height/ );
+
+			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					importedOrigin: `http://localhost:${ mockPort }`,
+					sectionsDir: blueprint.staticSiteImport.sectionsPath,
+				} )
+			);
+			const inputEntry = [ ...written.entries() ].find( ( [ filePath ] ) =>
+				filePath.endsWith( 'visual-parity-input.json' )
+			);
+			expect( inputEntry ).toBeDefined();
+			const envelope = JSON.parse( inputEntry?.[ 1 ] ?? '{}' );
+			expect( envelope.visual_parity ).toEqual( payload );
+			expect( envelope.visual_parity.schema ).toBe( LAYOUT_BASELINE_SCHEMA );
+			expect( envelope.visual_parity.source_reports.layout_baseline.schema ).toBe(
+				LAYOUT_BASELINE_SCHEMA
+			);
+			expect(
+				envelope.visual_parity.source_reports.layout_baseline.pages[ 0 ].sections[ 0 ].height
+			).toBe( 640 );
+			expect( envelope.visual_parity.imported_render.pages[ 0 ].sections[ 0 ].height ).toBe( 400 );
+
+			const evalCall = vi
+				.mocked( runWpCliCommandWithMessaging )
+				.mock.calls.find( ( call ) => call[ 1 ][ 0 ] === 'eval-file' );
+			expect( evalCall?.[ 1 ].slice( 0, 4 ) ).toEqual( [
+				'eval-file',
+				'.studio-import/visual-parity-eval.php',
+				'.studio-import/visual-parity-input.json',
+				'.studio-import/visual-parity-output.json',
+			] );
+			expect( String( evalCall?.[ 1 ][ 4 ] ?? '' ).replace( /\\/g, '/' ) ).toMatch(
+				/wp-content\/themes\/parity-theme\/import-report\.json$/
+			);
+		} );
+
+		it( 'still runs visual parity when SSI quality validation already failed', async () => {
+			const blueprint = createParityCaptureBlueprint();
+			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue(
+				toVisualParityOraclePayload( { index: capturedParityPage }, { index: capturedParityPage } )
+			);
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			const actualExists = fs.existsSync.bind( fs );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return true;
+				}
+				return actualExists( filePath );
+			} );
+			const actualRead = fs.readFileSync.bind( fs );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
+				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
+					return JSON.stringify( {
+						status: 'passed',
+						reason: 'Imported section geometry matches the layout baseline within tolerances.',
+						disagreements: [],
+					} );
+				}
+				return actualRead( filePath, options );
+			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
+				if ( args[ 0 ] === 'static-site-importer' ) {
+					return mockWpCli( {
+						stdout: JSON.stringify( {
+							schema: 'static-site-importer/import-cli-receipt/v1',
+							status: 'completed',
+							response: {
+								success: true,
+								result: {
+									import_report_summary: {
+										fail_import: true,
+										failure_reasons: [ 'core_html_block' ],
+										core_html_block_count: 1,
+									},
+								},
+							},
+						} ),
+					} );
+				}
+				return mockWpCli();
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( /failed quality validation.*core_html_block/ );
+			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalled();
+			expect(
+				vi
+					.mocked( runWpCliCommandWithMessaging )
+					.mock.calls.some( ( call ) => call[ 1 ][ 0 ] === 'eval-file' )
+			).toBe( true );
+		} );
+
+		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									fallback_count: 0,
+									core_html_block_count: 1,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 1 core_html_block failure. Review the importer diagnostics and retry.'
+			);
+			expectRetainedImportedSiteReported();
+			expect( process.exitCode ).toBeUndefined();
+		} );
+
+		it( 'reports a surviving started site when quality validation fails', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									core_html_block_count: 10,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow(
+				'Failed to import static site: Static site import failed quality validation: SSI reported 10 core_html_block failures. Review the importer diagnostics and retry.'
+			);
+
+			expectRetainedImportedSiteReported( { running: true } );
+			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
+				recursive: true,
+				force: true,
+			} );
+			expect( openSiteInBrowser ).not.toHaveBeenCalled();
+			expect( process.exitCode ).toBeUndefined();
+		} );
+
+		it( 'exits non-zero through the CLI handler after a quality-failed import', async () => {
+			const artifactPath = createCapturedSiteArtifact();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCli( {
+					stdout: JSON.stringify( {
+						schema: 'static-site-importer/import-cli-receipt/v1',
+						status: 'completed',
+						response: {
+							success: true,
+							result: {
+								import_report_summary: {
+									fail_import: true,
+									failure_reasons: [ 'core_html_block' ],
+									core_html_block_count: 10,
+								},
+							},
+						},
+					} ),
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--from',
+				artifactPath,
+				'--name',
+				'Imported Site',
+				'--skip-browser',
+			] );
+
+			expect( process.exitCode ).toBe( 1 );
+			expectRetainedImportedSiteReported( { running: true } );
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {

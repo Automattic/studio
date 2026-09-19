@@ -51,6 +51,12 @@ export function rewriteMediaUrls(
 
   const aliasIndex = buildMediaAliasIndex(mapping);
   const replacements = new Map(mapping);
+  // Inline CSS and other HTML attributes serialize query separators as &amp;.
+  for (const [source, local] of mapping) {
+    if (source.includes('&')) {
+      replacements.set(source.replace(/&/g, '&amp;'), local.replace(/&/g, '&amp;'));
+    }
+  }
 
   // Scan-and-replace strategy:
   //   - For each known source URL in the mapping, do a substring substitution.
@@ -71,15 +77,15 @@ export function rewriteMediaUrls(
     if (seen.has(candidate)) continue;
     seen.add(candidate);
 
-    const local = resolveLocalUrl(candidate, mapping, aliasIndex);
+    const decoded = candidate.replace(/&amp;/g, '&');
+    const local = resolveLocalUrl(decoded, mapping, aliasIndex);
     if (local) {
-      replacements.set(candidate, local);
+      replacements.set(candidate, decoded === candidate ? local : local.replace(/&/g, '&amp;'));
     } else if (opts.onMissing) {
       opts.onMissing(candidate);
     }
   }
 
-  let out = input;
   // Apply LONGEST source URLs first. A mapped BASE url (e.g. `…/<id>~mv2.jpg`)
   // is a substring-prefix of a carried transform url (`…/<id>~mv2.jpg/v1/fill/
   // …/img.jpg`). The alias index resolves that transform url to the same local
@@ -88,17 +94,28 @@ export function rewriteMediaUrls(
   // (a 404). Longest-first guarantees the most-specific (full) url is replaced
   // before any shorter substring of it.
   const ordered = [...replacements.entries()]
-    .filter(([source]) => source)
+    // A same-origin media URL can produce `/` as an alias. Replacing that
+    // substring would corrupt every path, closing tag, and MIME type in the document.
+    .filter(([source]) => source && source !== '/')
     .sort((a, b) => b[0].length - a[0].length);
-  for (const [source, local] of ordered) {
+  if (ordered.length === 0) return input;
+  const patterns = ordered.map(([source]) => {
     // Escape the source URL for safe inclusion in a RegExp. This handles
     // querystring `?`, `&`, `+` and other regex metacharacters that often
     // appear in CDN URLs.
     const safe = escapeRegex(source);
-    out = out.replace(new RegExp(safe, 'g'), () => local);
-  }
-
-  return out;
+    // Longest-first only removes the mangle for transform urls the candidate
+    // scan reached. A transform url on any other surface - a `data-` attribute,
+    // a `<source src>`, a `<video poster>` - never enters `replacements`, so the
+    // shorter base entry is still free to match its prefix and leave
+    // `<local>/v1/fill/.../img.jpg` behind. A mapped url followed by `/` is a
+    // longer path, so it names a different resource: keeping the remote url is
+    // correct there, while a mangled local path is a 404.
+    return `${safe}(?!/)`;
+  });
+  // Match the original input once: a relative source alias must not match
+  // the suffix of a local path emitted by an earlier replacement.
+  return input.replace(new RegExp(patterns.join('|'), 'g'), (source) => replacements.get(source)!);
 }
 
 /**
@@ -125,8 +142,9 @@ export function toLocalUrlMapping(
 // truncate the URL at `(1`, and the rewrite would then swap only the prefix —
 // leaving `<local>).png` (a 404). Candidates are extracted from quoted attribute
 // surfaces / srcset (whitespace- and comma-delimited), so a literal `)` is part
-// of the URL, never a delimiter.
-const URL_LIKE = /https?:\/\/[^\s"'<>\\]+/g;
+// of the URL, never a delimiter. Attribute values are bounded before this
+// matcher runs, so apostrophes remain valid inside double-quoted URLs.
+const URL_LIKE = /https?:\/\/[^\s"<>\\]+/g;
 
 /**
  * Collect plausible media URLs from common attribute surfaces. We don't try
@@ -137,16 +155,16 @@ function collectMediaCandidates(input: string): string[] {
   const candidates: string[] = [];
   // Direct attribute-style matches first — high signal.
   const attrPatterns: RegExp[] = [
-    /<img[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi,
-    /<a[^>]*\bhref\s*=\s*["']([^"']+\.(?:jpe?g|png|gif|webp|svg|avif|mp4|webm|pdf))["']/gi,
-    /\bsrcset\s*=\s*["']([^"']+)["']/gi,
+    /<img[^>]*\bsrc\s*=\s*(["'])([\s\S]*?)\1/gi,
+    /<a[^>]*\bhref\s*=\s*(["'])([\s\S]*?\.(?:jpe?g|png|gif|webp|svg|avif|mp4|webm|pdf))\1/gi,
+    /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi,
     /"src"\s*:\s*"([^"]+)"/g,
     /"url"\s*:\s*"([^"]+)"/g,
   ];
   for (const re of attrPatterns) {
     let m: RegExpExecArray | null;
     while ((m = re.exec(input)) !== null) {
-      const value = m[1];
+      const value = m[2] ?? m[1];
       // srcset can contain multiple URLs — extract via URL_LIKE so that Wix
       // transform URLs (which embed commas in their parameter segments, e.g.
       // `/v1/fill/w_680,h_510,q_90,enc_avif,quality_auto/`) are captured

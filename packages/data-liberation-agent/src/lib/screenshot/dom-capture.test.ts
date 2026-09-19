@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { chromium, type Browser } from 'playwright';
 import { collectBodyFragment, collectStylesheets, collectHeadLinks, collectScripts, collectBodyAndChrome, collectBodyFragmentMobileOnly, collectMobileChromeLayout } from './dom-capture.js';
+import { capturePageHtml } from './screenshotter.js';
 
 const FIXTURE = `<!DOCTYPE html><html><head>
   <style>.hero{color:red}</style>
@@ -31,6 +32,39 @@ describe('dom-capture', () => {
     await page.setContent(FIXTURE);
     const css = await collectStylesheets(page);
     expect(css).toContain('.hero');
+    await page.close();
+  });
+  it('serializes constructed stylesheets that have no style element', async () => {
+    const page = await browser.newPage();
+    await page.setContent('<main class="mobile">Mobile content</main>');
+    await page.evaluate(() => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync('.mobile { width: 100%; }');
+      document.adoptedStyleSheets = [ ...document.adoptedStyleSheets, sheet ];
+    });
+
+    const html = await capturePageHtml(page);
+    expect(html).toContain('data-dla-constructed-stylesheet');
+    expect(html).toContain('.mobile { width: 100%; }');
+    await page.close();
+  });
+  it('serializes CSSOM mutations to connected style elements', async () => {
+    const page = await browser.newPage();
+    await page.setContent('<style>.desktop { display: block; }</style><main class="mobile">Mobile content</main>');
+    await page.evaluate(() => document.styleSheets[0].insertRule('.mobile { display: block; }'));
+
+    const html = await capturePageHtml(page);
+    expect(html).toContain('.mobile { display: block; }');
+    // The rule authored in markup must survive the synchronization.
+    expect(html).toContain('.desktop');
+    await page.close();
+  });
+  it('leaves cross-origin link stylesheets to their <link> element', async () => {
+    const page = await browser.newPage();
+    await page.setContent(FIXTURE);
+    const html = await capturePageHtml(page);
+    expect(html).toContain('fonts.googleapis.com');
+    expect(html).not.toContain('data-dla-constructed-stylesheet');
     await page.close();
   });
   it('lists head <link> stylesheet hrefs', async () => {
@@ -187,7 +221,7 @@ describe('collectMobileChromeLayout', () => {
     // Use a mobile-sized browser context to simulate the mobile viewport.
     const { chromium } = await import('playwright');
     const mobileBrowser = await chromium.launch();
-    const ctx = await mobileBrowser.newContext({ viewport: { width: 390, height: 844 } });
+    const ctx = await mobileBrowser.newContext({ viewport: { width: 402, height: 681 } });
     const page = await ctx.newPage();
     try {
       await page.setContent(CHROME_FIXTURE);
@@ -221,7 +255,7 @@ describe('collectMobileChromeLayout', () => {
       await desktopCtx.close();
 
       // Mobile pass (separate context)
-      const mobileCtx = await testBrowser.newContext({ viewport: { width: 390, height: 844 } });
+      const mobileCtx = await testBrowser.newContext({ viewport: { width: 402, height: 681 } });
       const mobilePage = await mobileCtx.newPage();
       await mobilePage.setContent(CHROME_FIXTURE);
       const mobileMap = await collectMobileChromeLayout(mobilePage);
@@ -244,7 +278,7 @@ describe('collectMobileChromeLayout', () => {
   it('returns null when no header/footer chrome is found', async () => {
     const { chromium } = await import('playwright');
     const mobileBrowser = await chromium.launch();
-    const ctx = await mobileBrowser.newContext({ viewport: { width: 390, height: 844 } });
+    const ctx = await mobileBrowser.newContext({ viewport: { width: 402, height: 681 } });
     const page = await ctx.newPage();
     try {
       // Page with no chrome elements (no header, footer, or nav with sufficient score)

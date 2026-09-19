@@ -1,0 +1,15 @@
+{
+  "id": "data-liberation-agent",
+  "name": "Data Liberation Agent",
+  "source_path": ".",
+  "changelog_target": "CHANGELOG.md",
+  "version_targets": [
+    { "file": "package.json", "pattern": "\"version\": \"([0-9.]+)\"" },
+    { "file": ".claude-plugin/plugin.json", "pattern": "\"version\": \"([0-9.]+)\"" },
+    { "file": ".codex-plugin/plugin.json", "pattern": "\"version\": \"([0-9.]+)\"" },
+    { "file": "gemini-extension.json", "pattern": "\"version\": \"([0-9.]+)\"" }
+  ],
+  "hooks": {
+    "post:release": ["npm run build:mcp-bundle"]
+  }
+}

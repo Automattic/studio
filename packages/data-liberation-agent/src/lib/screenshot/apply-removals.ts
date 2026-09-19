@@ -1,10 +1,10 @@
 import type { Page } from 'playwright';
-import type { CaptureContext } from '../../adapters/page-actions.js';
+import type { LiberationContext } from '../../adapters/page-actions.js';
 
 export interface ApplyRemovalsOpts {
   removeSelectors?: string[];
-  prepare?(page: Page, ctx: CaptureContext): Promise<void>;
-  ctx: CaptureContext;
+  prepare?(page: Page, ctx: LiberationContext): Promise<void>;
+  ctx: LiberationContext;
 }
 
 /**

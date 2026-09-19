@@ -9,6 +9,6 @@ describe('shopify capture', () => {
     );
   });
   it('is attached to the adapter', () => {
-    expect(shopifyAdapter.capture).toBe(capture);
+    expect(shopifyAdapter.liberation).toBe(capture);
   });
 });

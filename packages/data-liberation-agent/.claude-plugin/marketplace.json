@@ -1,0 +1,13 @@
+{
+  "name": "data-liberation",
+  "owner": {
+    "name": "Automattic"
+  },
+  "plugins": [
+    {
+      "name": "data-liberation",
+      "source": "./",
+      "description": "Liberate any website (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix, or any other site) into a complete, portable HTML site. Optionally reconstruct it in WordPress."
+    }
+  ]
+}

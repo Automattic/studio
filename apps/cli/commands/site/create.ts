@@ -60,7 +60,7 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
@@ -70,10 +70,12 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
+	getBundledVisualParityEvalScriptPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
@@ -88,11 +90,19 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
+import {
+	buildVisualParityValidationArtifacts,
+	visualParityGateFailure,
+	type VisualParityEvaluation,
+} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {
 	CLI_AUTO_UPDATE_WP_VERSION,
@@ -108,13 +118,42 @@ const defaultLogger = new Logger< LoggerAction >();
 // zip with the importer's
 // `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
 // `--static-site-importer-path`.
+//
+// Keep this at or above v1.9.6. Rerunning a staged request is how this command resumes an
+// interrupted import, and only importers from that release on discover the retained run
+// workspace the previous attempt left behind (Automattic/static-site-importer#1524). Pinned
+// below it, every interruption silently recompiles the whole site from zero.
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.9.5/static-site-importer-html-site-import.zip';
+	'https://github.com/Automattic/static-site-importer/releases/download/v1.12.0/static-site-importer-html-site-import.zip';
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE = 'visual-parity-eval.php';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE = 'visual-parity-input.json';
+const STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE = 'visual-parity-output.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+// JSON compiler-evidence sidecars written next to `website/`. Copied into the
+// staged importer source and named in `metadata.reports` so SSI keeps them at
+// the artifact root instead of prefixing `website/`. Large capture directories
+// (`screenshots/`, `media/`, `resources/`, `layout-geometry/`) and `sections/`
+// (forwarded separately) are excluded.
+const ARTIFACT_ROOT_REPORT_FILES = [
+	'capture-receipt.json',
+	'asset-evidence.json',
+	'breakpoints.json',
+	'cleanup-evidence.json',
+	'computed-styles.json',
+	'css-variables.json',
+	'diagnostics.json',
+	'interaction-states.json',
+	'layout-geometry-proof.json',
+	'layout-geometry-report.json',
+	'palette.json',
+	'scroll-states.json',
+	'source-profile.json',
+	'typography.json',
+] as const;
 const STATIC_SITE_IMPORT_RECEIPT_SCHEMA = 'static-site-importer/import-cli-receipt/v1';
 type StaticSiteImportProgressPhase = 'import' | 'finalization';
 
@@ -122,6 +161,8 @@ type StaticSiteImporterSource = {
 	path: string;
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
+	stagedReportFiles?: Array< { name: string; from: string } >;
+	sectionsPath?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -142,6 +183,8 @@ export type CreateCommandOptions = {
 			request: string;
 			bundlePath?: string;
 			sourcePath?: string;
+			reportFiles?: Array< { name: string; from: string } >;
+			sectionsPath?: string;
 		};
 	};
 	adminUsername?: string;
@@ -229,6 +272,72 @@ function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
+// Data Liberation writes a `sections/*.json` per-page geometry record alongside `website/`
+// (sibling to `capture-receipt.json`). `sourcePath` may already be that capture root, or (in
+// the real `--from <url>` flow) the `website/` directory `liberateWebsite()` returns directly
+// — so this checks both the given directory and its parent for the receipt, matching however
+// `resolveDataLiberationWebsiteRoot` ends up locating it. Returns `undefined` (rather than
+// throwing) when no DLA capture is present, since this data is optional: visual parity simply
+// stays unmeasured, exactly like today, for any non-DLA import source.
+function resolveDataLiberationSectionsDir( sourcePath: string ): string | undefined {
+	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
+		const receiptPath = path.join( candidateRoot, 'capture-receipt.json' );
+		const sectionsDir = path.join( candidateRoot, 'sections' );
+		if (
+			fs.existsSync( receiptPath ) &&
+			fs.existsSync( sectionsDir ) &&
+			fs.statSync( sectionsDir ).isDirectory()
+		) {
+			return sectionsDir;
+		}
+	}
+	return undefined;
+}
+
+function isDataLiberationCaptureRoot( directory: string ): boolean {
+	const receiptPath = path.join( directory, 'capture-receipt.json' );
+	if ( ! fs.existsSync( receiptPath ) || ! fs.statSync( receiptPath ).isFile() ) {
+		return false;
+	}
+
+	try {
+		const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf-8' ) ) as {
+			schema?: unknown;
+		};
+		return receipt.schema === DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA;
+	} catch {
+		return false;
+	}
+}
+
+function collectArtifactRootReports(
+	sourcePath: string,
+	websiteRoot: string
+): Array< { name: string; from: string } > {
+	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
+	// live on the capture root, one directory up — the same parent lookup
+	// `resolveDataLiberationSectionsDir` already performs.
+	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
+		if (
+			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
+			! isDataLiberationCaptureRoot( candidateRoot )
+		) {
+			continue;
+		}
+
+		const files: Array< { name: string; from: string } > = [];
+		for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
+			const filePath = path.join( candidateRoot, name );
+			if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
+				files.push( { name, from: filePath } );
+			}
+		}
+		return files;
+	}
+
+	return [];
+}
+
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
 		throw new LoggerError(
@@ -261,6 +370,8 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			path: sourcePath,
 			payload: {},
 			stagedSourcePath,
+			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
+			sectionsPath: resolveDataLiberationSectionsDir( sourcePath ),
 		};
 	}
 
@@ -316,7 +427,12 @@ function buildStaticSiteImporterRequest(
 	const artifact = payload.artifact;
 
 	if ( source.stagedSourcePath ) {
-		requestSource = { type: 'files', ref: 'request-bundle:source' };
+		const reports = ( source.stagedReportFiles ?? [] ).map( ( file ) => file.name );
+		requestSource = {
+			type: 'files',
+			ref: 'request-bundle:source',
+			...( reports.length > 0 ? { metadata: { reports } } : {} ),
+		};
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
 		const {
 			schema: _schema,
@@ -359,6 +475,7 @@ function buildStaticSiteImporterRequest(
 			source_path: originalSourceUrl ?? source.path,
 		},
 		fail_on_quality: true,
+		write_theme_report_artifacts: true,
 		require_proven_dynamic_client_assets: true,
 		seed_entities: true,
 		materialize_dependencies: true,
@@ -399,6 +516,8 @@ export function buildCreateFromSourceBlueprint(
 		request: string;
 		bundlePath?: string;
 		sourcePath?: string;
+		reportFiles?: Array< { name: string; from: string } >;
+		sectionsPath?: string;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -445,6 +564,8 @@ export function buildCreateFromSourceBlueprint(
 			request: `${ JSON.stringify( request, null, 2 ) }\n`,
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
+			reportFiles: source.stagedReportFiles,
+			sectionsPath: source.sectionsPath,
 		},
 	};
 }
@@ -518,7 +639,221 @@ function staticSiteImportReceiptError( receipt: Record< string, unknown > | unde
 	}
 	const code = ( error as Record< string, unknown > ).code;
 	const message = ( error as Record< string, unknown > ).message;
-	return [ code, message ].filter( ( value ) => typeof value === 'string' && value ).join( ': ' );
+	const detail = [ code, message ]
+		.filter( ( value ) => typeof value === 'string' && value )
+		.join( ': ' );
+	if ( code === 'static_site_importer_quality_failed' ) {
+		return sprintf(
+			/* translators: %s: Static Site Importer quality validation detail */
+			__(
+				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
+			),
+			detail || __( 'Quality validation failed.' )
+		);
+	}
+	return detail;
+}
+
+function staticSiteImportResult(
+	receipt: Record< string, unknown > | undefined
+): Record< string, unknown > | undefined {
+	const response = receipt?.response;
+	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
+		return undefined;
+	}
+	const result = ( response as Record< string, unknown > ).result;
+	if ( result && typeof result === 'object' && ! Array.isArray( result ) ) {
+		return result as Record< string, unknown >;
+	}
+	return response as Record< string, unknown >;
+}
+
+function themeImportReportPath(
+	site: SiteData,
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const result = staticSiteImportResult( receipt );
+	const themeDir = result?.theme_dir;
+	if ( typeof themeDir !== 'string' || ! themeDir.trim() ) {
+		return undefined;
+	}
+	const reportPath = path.join( themeDir, 'import-report.json' );
+	const relative = path.relative( site.path, reportPath );
+	if ( relative && ! relative.startsWith( '..' ) && ! path.isAbsolute( relative ) ) {
+		return relative.split( path.sep ).join( '/' );
+	}
+	return reportPath.split( path.sep ).join( '/' );
+}
+
+function staticSiteImportQualityFailure(
+	receipt: Record< string, unknown > | undefined
+): string | undefined {
+	const importResult = staticSiteImportResult( receipt );
+	if ( ! importResult ) {
+		return undefined;
+	}
+	const validation = importResult.import_validation_result;
+	const summary = importResult.import_report_summary;
+	const quality =
+		validation && typeof validation === 'object' && ! Array.isArray( validation )
+			? validation
+			: summary && typeof summary === 'object' && ! Array.isArray( summary )
+			? summary
+			: undefined;
+	if ( ! quality ) {
+		return undefined;
+	}
+	const counts = ( quality as Record< string, unknown > ).counts;
+	const {
+		status,
+		quality_pass: qualityPass,
+		fail_import: failImport,
+		fallback_count: fallbackCount,
+		failure_reasons: failureReasons,
+	} = quality as Record< string, unknown >;
+	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
+		return undefined;
+	}
+	const failures = Array.isArray( failureReasons )
+		? failureReasons.filter(
+				( reason ): reason is string => typeof reason === 'string' && Boolean( reason )
+		  )
+		: [];
+	const fallbackBlocks =
+		counts && typeof counts === 'object' && ! Array.isArray( counts )
+			? ( counts as Record< string, unknown > ).fallback_blocks
+			: fallbackCount;
+	const detail = failures.length
+		? failures
+				.map( ( reason ) => {
+					const count = ( quality as Record< string, unknown > )[ `${ reason }_count` ];
+					return typeof count === 'number'
+						? sprintf(
+								/* translators: 1: number of failures, 2: Static Site Importer failure reason */
+								_n( 'SSI reported %1$d %2$s failure.', 'SSI reported %1$d %2$s failures.', count ),
+								count,
+								reason
+						  )
+						: sprintf(
+								/* translators: %s: Static Site Importer failure reason */
+								__( 'SSI reported a %s failure.' ),
+								reason
+						  );
+				} )
+				.join( ' ' )
+		: typeof fallbackBlocks === 'number'
+		? sprintf(
+				/* translators: %d: number of fallback blocks */
+				__( 'SSI reported %d fallback blocks.' ),
+				fallbackBlocks
+		  )
+		: __( 'SSI rejected the imported content.' );
+	return sprintf(
+		/* translators: %s: Static Site Importer validation detail */
+		__( '%s Review the importer diagnostics and retry.' ),
+		detail
+	);
+}
+
+// Measures captured-vs-imported section geometry and evaluates it through SSI's own oracle
+// class (`Static_Site_Importer_Visual_Parity_Oracle`). Returns a human-readable failure
+// detail when the oracle reports a disagreement, or when Studio sent a real payload and the
+// oracle answers `not_verified` (a contract bug). `undefined` when the check passed or itself
+// could not run — a failure to *measure* never surfaces as an import failure.
+async function runVisualParityCheck(
+	site: SiteData,
+	siteUrl: string,
+	sectionsPath: string,
+	logger: Logger< LoggerAction >,
+	reportPath?: string
+): Promise< string | undefined > {
+	logger.reportStart(
+		LoggerAction.IMPORT_SITE,
+		__( 'Measuring imported pages for visual parity…' )
+	);
+	let artifacts;
+	try {
+		artifacts = await buildVisualParityValidationArtifacts( {
+			sectionsDir: sectionsPath,
+			importedOrigin: siteUrl,
+			logger: { warn: ( message ) => logger.reportWarning( message ) },
+		} );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check could not run. Import quality was not affected.' ),
+				error
+			),
+			false
+		);
+		return undefined;
+	}
+
+	const importDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
+	const inputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE );
+	const outputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE );
+	const scriptPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE );
+	fs.mkdirSync( importDir, { recursive: true } );
+	fs.writeFileSync( inputPath, JSON.stringify( { visual_parity: artifacts }, null, 2 ) );
+	fs.copyFileSync( getBundledVisualParityEvalScriptPath(), scriptPath );
+
+	const evalArgs = [
+		'eval-file',
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE ),
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE ),
+		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE ),
+	];
+	if ( reportPath ) {
+		evalArgs.push( reportPath );
+	}
+	const result = await runWpCli( site, evalArgs );
+	if ( result.exitCode !== 0 || ! fs.existsSync( outputPath ) ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check could not run. Import quality was not affected.' ),
+				new Error( wpCliFailureDetail( result ) )
+			),
+			false
+		);
+		return undefined;
+	}
+
+	let evaluation: VisualParityEvaluation;
+	try {
+		evaluation = JSON.parse( fs.readFileSync( outputPath, 'utf-8' ) );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError(
+				__( 'Visual parity check produced an unreadable result. Import quality was not affected.' ),
+				error
+			),
+			false
+		);
+		return undefined;
+	}
+
+	if ( evaluation.visual_parity_artifacts ) {
+		console.log(
+			JSON.stringify( { visual_parity_artifacts: evaluation.visual_parity_artifacts }, null, 2 )
+		);
+	}
+
+	const failure = visualParityGateFailure( artifacts, evaluation );
+	if ( failure ) {
+		logger.reportError(
+			new LoggerError( __( 'Visual parity disagreed with the layout baseline.' ) ),
+			false
+		);
+		return failure;
+	}
+	if ( artifacts.status === 'ready' && evaluation.status === 'passed' ) {
+		logger.reportSuccess( __( 'Visual parity matched the layout baseline' ) );
+	} else {
+		logger.reportWarning(
+			evaluation.reason || __( 'Visual parity could not be verified against the layout baseline.' )
+		);
+	}
+	return undefined;
 }
 
 async function runStaticSiteImport(
@@ -526,7 +861,9 @@ async function runStaticSiteImport(
 	request: string,
 	sourcePath?: string,
 	resume = false,
-	logger: Logger< LoggerAction > = defaultLogger
+	logger: Logger< LoggerAction > = defaultLogger,
+	reportFiles: Array< { name: string; from: string } > = [],
+	sectionsPath?: string
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -541,6 +878,12 @@ async function runStaticSiteImport(
 				errorOnExist: true,
 				force: false,
 			} );
+			for ( const report of reportFiles ) {
+				await fs.promises.copyFile(
+					report.from,
+					path.join( staticSiteImportSourcePath( site.path ), report.name )
+				);
+			}
 		}
 		fs.writeFileSync( requestPath, request );
 	}
@@ -582,6 +925,36 @@ async function runStaticSiteImport(
 		throw new LoggerError(
 			__( 'Static site import returned an invalid terminal receipt.' ),
 			new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
+		);
+	}
+	const qualityFailure = staticSiteImportQualityFailure( receipt );
+
+	// Section geometry can only be measured once the imported content is actually live on
+	// this running site, so it happens here — after materialization, before the plugin (and
+	// its visual-parity oracle class) is removed — rather than as part of the request above.
+	// See `cli/lib/visual-parity.ts` for how Studio builds `source_reports.layout_baseline`
+	// and `imported_render`. Run even when other quality gates already failed: parity
+	// evidence is most valuable on a broken import.
+	if ( sectionsPath && site.url ) {
+		const parityFailure = await runVisualParityCheck(
+			site,
+			site.url,
+			sectionsPath,
+			logger,
+			themeImportReportPath( site, receipt )
+		);
+		if ( parityFailure ) {
+			throw new LoggerError(
+				__( 'Static site import failed visual parity validation' ),
+				new Error( parityFailure )
+			);
+		}
+	}
+
+	if ( qualityFailure ) {
+		throw new LoggerError(
+			__( 'Static site import failed quality validation' ),
+			new Error( qualityFailure )
 		);
 	}
 
@@ -634,6 +1007,20 @@ async function cleanupStaticSiteImporterPlugin(
 		);
 		return false;
 	}
+}
+
+function reportRetainedImportedSite( site: SiteData ): void {
+	const siteUrl = getSiteUrl( site );
+	console.log( '' );
+	console.log(
+		site.running
+			? __( 'The site is running and can be inspected.' )
+			: __( 'The imported site was kept and can be inspected.' )
+	);
+	console.log( sprintf( __( 'Path: %s' ), site.path ) );
+	console.log( sprintf( __( 'URL: %s' ), siteUrl ) );
+	console.log( __( 'Re-run the same command to resume the import.' ) );
+	console.log( '' );
 }
 
 export async function runCommand(
@@ -747,10 +1134,13 @@ export async function runCommand(
 					staticSiteImport.request,
 					staticSiteImport.sourcePath,
 					true,
-					logger
+					logger,
+					staticSiteImport.reportFiles,
+					staticSiteImport.sectionsPath
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
+				reportRetainedImportedSite( existingSite );
 				throw new LoggerError( __( 'Failed to import static site' ), error );
 			}
 			return;
@@ -946,7 +1336,9 @@ export async function runCommand(
 						staticSiteImport.request,
 						staticSiteImport.sourcePath,
 						false,
-						logger
+						logger,
+						staticSiteImport.reportFiles,
+						staticSiteImport.sectionsPath
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -963,6 +1355,8 @@ export async function runCommand(
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
+				} else {
+					reportRetainedImportedSite( siteDetails );
 				}
 				throw new LoggerError(
 					staticSiteImport
@@ -998,7 +1392,9 @@ export async function runCommand(
 							staticSiteImport.request,
 							staticSiteImport.sourcePath,
 							false,
-							logger
+							logger,
+							staticSiteImport.reportFiles,
+							staticSiteImport.sectionsPath
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}
@@ -1008,6 +1404,8 @@ export async function runCommand(
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );
 						}
+					} else {
+						reportRetainedImportedSite( siteDetails );
 					}
 					throw new LoggerError(
 						staticSiteImport
@@ -1112,7 +1510,10 @@ function coerceSiteId( value: string ) {
 	return value;
 }
 
-export const registerCommand = ( yargs: StudioArgv ) => {
+export const registerCommand = (
+	yargs: StudioArgv,
+	dependencies: { liberate?: typeof liberateWebsite } = {}
+) => {
 	return yargs.command( {
 		command: 'create',
 		describe: __( 'Create a new site' ),
@@ -1180,6 +1581,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 						return path.resolve( untildify( value ) );
 					},
+				} )
+				.option( 'keep-source', {
+					type: 'boolean',
+					describe: __(
+						'Keep the Data Liberation source capture at the sibling <site>-source directory when importing from a URL'
+					),
+					implies: 'from',
 				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
@@ -1254,6 +1662,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					// desktop app when it spawns the CLI. Hidden from `--help`.
 					type: 'string',
 					hidden: true,
+				} )
+				.check( ( argv ) => {
+					if ( argv.keepSource && ( ! argv.from || ! isUrl( argv.from ) ) ) {
+						throw new Error( __( '--keep-source requires --from with an HTTP(S) URL' ) );
+					}
+					return true;
 				} );
 		},
 		handler: async ( argv ) => {
@@ -1464,11 +1878,41 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			};
 
 			try {
-				const importSource = argv.from;
-				// Remote URLs are rendered into a local source by Data Liberation before they
-				// reach SSI; until that path exists here, `resolveStaticSiteImporterSource`
-				// rejects them. `sourceUrl` still carries provenance for local captures.
+				let importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
+				let liberationOutputDir: string | undefined;
+				if ( sourceUrl ) {
+					if ( ! ( await isSqliteIntegrationAvailable() ) ) {
+						throw new LoggerError(
+							__(
+								'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
+							)
+						);
+					}
+					let lastProgressAt = 0;
+					liberationOutputDir = path.join(
+						path.dirname( sitePath ),
+						`${ path.basename( sitePath ) }-source`
+					);
+					defaultLogger.reportStart(
+						LoggerAction.IMPORT_SITE,
+						__( 'Preparing source website with Data Liberation…' )
+					);
+					importSource = await ( dependencies.liberate ?? liberateWebsite )(
+						sourceUrl,
+						liberationOutputDir,
+						{
+							onProgress: ( message ) => {
+								const now = Date.now();
+								if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+									lastProgressAt = now;
+									defaultLogger.reportProgress( message );
+								}
+							},
+						}
+					);
+					defaultLogger.reportSuccess( __( 'Source website prepared' ) );
+				}
 
 				if ( importSource ) {
 					config.blueprint = buildCreateFromSourceBlueprint(
@@ -1507,6 +1951,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 				try {
 					await runCommand( sitePath, config );
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
+						await fs.promises
+							.rm( liberationOutputDir, { recursive: true, force: true } )
+							.catch( () => {} );
+					}
 				} finally {
 					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;
 					if ( bundlePath ) {

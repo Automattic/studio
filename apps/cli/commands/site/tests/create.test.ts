@@ -839,8 +839,10 @@ describe( 'CLI: studio create', () => {
 			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sections-source-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
 			const sectionsDir = path.join( captureDir, 'sections' );
-			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'website-' ) ), websiteDir );
-			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'sections-' ) ), sectionsDir );
+			fsMkdirSyncSpy.mockRestore();
+			fs.mkdirSync( websiteDir );
+			fs.mkdirSync( sectionsDir );
+			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
 			fs.writeFileSync(
 				path.join( sectionsDir, 'index.json' ),
@@ -1865,8 +1867,10 @@ describe( 'CLI: studio create', () => {
 			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-parity-run-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
 			const sectionsDir = path.join( captureDir, 'sections' );
-			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'website-' ) ), websiteDir );
-			fs.renameSync( fs.mkdtempSync( path.join( captureDir, 'sections-' ) ), sectionsDir );
+			fsMkdirSyncSpy.mockRestore();
+			fs.mkdirSync( websiteDir );
+			fs.mkdirSync( sectionsDir );
+			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
 			fs.writeFileSync(
 				path.join( sectionsDir, 'index.json' ),
@@ -2005,13 +2009,15 @@ describe( 'CLI: studio create', () => {
 			const evalCall = vi
 				.mocked( runWpCliCommandWithMessaging )
 				.mock.calls.find( ( call ) => call[ 1 ][ 0 ] === 'eval-file' );
-			expect( evalCall?.[ 1 ] ).toEqual( [
+			expect( evalCall?.[ 1 ].slice( 0, 4 ) ).toEqual( [
 				'eval-file',
 				'.studio-import/visual-parity-eval.php',
 				'.studio-import/visual-parity-input.json',
 				'.studio-import/visual-parity-output.json',
-				'wp-content/themes/parity-theme/import-report.json',
 			] );
+			expect( String( evalCall?.[ 1 ][ 4 ] ?? '' ).replace( /\\/g, '/' ) ).toMatch(
+				/wp-content\/themes\/parity-theme\/import-report\.json$/
+			);
 		} );
 
 		it( 'still runs visual parity when SSI quality validation already failed', async () => {

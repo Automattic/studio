@@ -65,11 +65,12 @@ Text Domain: ${ slug }
 Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
 */
 
-/* WordPress inserts margin-block-start: var(--wp--style--block-gap) between the
-   template's top-level sections (header part, main, footer part) — a gap that
-   exists even when no markup asks for it. Zero it so sections butt edge-to-edge
-   and own their vertical rhythm via padding; this does not affect block gaps
-   inside nested layouts. */
+/* WordPress inserts a margin-block-start equal to the block gap (24px unless
+   theme.json sets styles.spacing.blockGap) between the template's top-level
+   sections (header part, main, footer part) — a gap that exists even when no
+   markup asks for it. Zero it so sections butt edge-to-edge and own their
+   vertical rhythm via padding; this does not affect block gaps inside nested
+   layouts. */
 .wp-site-blocks > * + * {
 	margin-block-start: 0;
 }

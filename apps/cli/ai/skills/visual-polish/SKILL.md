@@ -92,9 +92,9 @@ Inspect the box and its neighbour and compare their `boundingBox` values: equal 
 
 ### Spacing between blocks differs from intent
 
-Symptom: gaps between paragraphs, headings, or sections are larger or smaller than the CSS suggests.
+Symptom: gaps between paragraphs, headings, or sections are larger or smaller than the CSS suggests, or one of two side-by-side columns starts lower than the other.
 
-Vertical rhythm is owned by WordPress layout CSS, not your margins: `:where(.is-layout-flow) > * + *` applies `margin-block-start: var(--wp--style--block-gap)`. Inspect the container and the adjacent blocks — read `customProperties["--wp--style--block-gap"]` and the `margin-top`/`margin-bottom` computed values. If block-gap is fighting your margins, set spacing through `theme.json` `spacing.blockGap` or the block's own spacing, or override knowing that exact selector.
+Vertical rhythm is owned by WordPress layout CSS, not your margins: in a default or constrained group, `:root :where(.is-layout-flow) > *` (and `.is-layout-constrained`) gives every child but the first a `margin-block-start` equal to the block gap — a fixed length, 24px unless `theme.json` sets `styles.spacing.blockGap`, so setting `--wp--style--block-gap` changes nothing. Inspect the adjacent blocks and read their `margin-top`/`margin-bottom` computed values. If the gap is fighting your margins, set spacing through `theme.json` `styles.spacing.blockGap` or the block's own spacing, or override knowing that exact selector. A default group laid out side by side in `style.css` keeps these margins, so every column but the first starts lower; give the group the grid layout in its markup (`"layout":{"type":"grid","columnCount":2}` for two columns), which drops them.
 
 ### Backgrounds inside grids/columns are wrong
 

@@ -1,5 +1,6 @@
 import { _n, sprintf } from '@wordpress/i18n';
 import type { Annotation } from '@/components/site-preview/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
@@ -14,6 +15,27 @@ function truncateText( text: string, maxLength: number ): string {
 		return text;
 	}
 	return `${ text.slice( 0, maxLength - 1 ) }...`;
+}
+
+/* Short CSS-ish handle for the chip in the transcript: the tag plus up to two
+ * of the element's own classes, e.g. `h1.hero-title`. */
+function describeElement( annotation: Annotation ): string | undefined {
+	if ( ! annotation.tag ) return undefined;
+	const classes = ( annotation.classes ?? [] ).slice( 0, 2 );
+	return classes.length ? `${ annotation.tag }.${ classes.join( '.' ) }` : `<${ annotation.tag }>`;
+}
+
+export function toVisualAnnotationSummaries(
+	annotations: Annotation[]
+): StudioVisualAnnotationSummary[] {
+	return annotations.map( ( annotation ) => ( {
+		comment: annotation.comment,
+		tag: annotation.tag,
+		elementLabel: describeElement( annotation ),
+		nearbyText: annotation.nearbyText?.trim()
+			? truncateText( annotation.nearbyText.trim(), 120 )
+			: undefined,
+	} ) );
 }
 
 function stringifyAnnotation( annotation: Annotation ): string {

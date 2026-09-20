@@ -39,7 +39,13 @@ export async function startMcpStdioServer(): Promise< void > {
 		// MCP wants `{content, isError}`; pi-native handlers throw — translate.
 		try {
 			const result = await tool.rawHandler( ( request.params.arguments ?? {} ) as never );
-			return { content: result.content, isError: false };
+			const report = await result.pending;
+			return {
+				content: report
+					? [ ...result.content, { type: 'text' as const, text: report } ]
+					: result.content,
+				isError: false,
+			};
 		} catch ( error ) {
 			const message = error instanceof Error ? error.message : String( error );
 			return {

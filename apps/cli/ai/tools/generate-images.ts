@@ -7,12 +7,13 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import {
 	composeImagePrompt,
 	generateImages,
+	type GenerateImageResult,
 	IMAGE_ASPECT_RATIOS,
 	IMAGE_STYLES,
 	isImageGenerationAvailable,
 } from '../image-generation';
 import { defineTool } from './define-tool';
-import { runWpCli } from './utils';
+import { runWpCli, textResult } from './utils';
 
 const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
@@ -45,46 +46,44 @@ async function findSiteContaining( filePaths: string[] ): Promise< SiteData > {
 	return site;
 }
 
-// WordPress keeps its own copy of an imported file under uploads/, so the
-// generated file is removed and the attachment reported at WordPress's path.
-async function addToMediaLibrary( site: SiteData, filePaths: string[] ) {
+interface Attachment {
+	id: number;
+	file: string;
+	url: string;
+}
+
+// Runs `php` through WP-CLI with `data` decoded into `$data`.
+async function evalWithData( site: SiteData, php: string, data: unknown ): Promise< string > {
+	const encoded = Buffer.from( JSON.stringify( data ) ).toString( 'base64' );
 	await connectToDaemon();
 	try {
-		const ids = await Promise.all(
-			filePaths.map( async ( filePath ) =>
-				Number(
-					await runWpCli( site, [
-						'media',
-						'import',
-						path.relative( site.path, filePath ),
-						'--porcelain',
-					] )
-				)
-			)
-		);
-		const attachments: Array< { ID: number; guid: string } > = JSON.parse(
-			await runWpCli( site, [
-				'post',
-				'list',
-				'--post_type=attachment',
-				`--post__in=${ ids.join( ',' ) }`,
-				'--fields=ID,guid',
-				'--format=json',
-			] )
-		);
-		const placements = new Map(
-			filePaths.map( ( filePath, index ) => {
-				const url = attachments.find( ( attachment ) => attachment.ID === ids[ index ] )!.guid;
-				const uploadedPath = path.join( site.path, decodeURIComponent( new URL( url ).pathname ) );
-				return [ filePath, `${ uploadedPath }, attachment ID ${ ids[ index ] }, URL ${ url }` ];
-			} )
-		);
-		await Promise.all( filePaths.map( ( filePath ) => fs.rm( filePath ) ) );
-		return placements;
+		return await runWpCli( site, [
+			'eval',
+			`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,
+		] );
 	} finally {
 		await disconnectFromDaemon();
 	}
 }
+
+// Media-library images get their attachment before they are generated, so the
+// result can give their IDs and URLs right away.
+const RESERVE_ATTACHMENTS = `$upload = wp_upload_dir();
+$reserved = array();
+foreach ( $data as $name ) {
+	$filename = wp_unique_filename( $upload['path'], $name );
+	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => 'image/jpeg', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
+	$reserved[] = array( 'id' => $id, 'file' => substr( $upload['path'], strlen( ABSPATH ) ) . '/' . $filename, 'url' => wp_get_attachment_url( $id ) );
+}
+echo wp_json_encode( $reserved );`;
+
+const FINALIZE_ATTACHMENTS = `require_once ABSPATH . 'wp-admin/includes/image.php';
+foreach ( $data['ready'] as $id ) {
+	wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, get_attached_file( $id ) ) );
+}
+foreach ( $data['failed'] as $id ) {
+	wp_delete_attachment( $id, true );
+}`;
 
 export const generateImagesTool = defineTool(
 	'generate_images',
@@ -92,7 +91,7 @@ export const generateImagesTool = defineTool(
 		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
-		'Generation takes several seconds per image, so tell the user to wait. ' +
+		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +
 		'Failures are reported per image: a safety-filtered image should be retried once with a rewritten subject; other failures should lead you to adapt the layout rather than leave a broken image reference.',
 	{
 		images: Type.Array(
@@ -141,7 +140,7 @@ export const generateImagesTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
+	async ( args ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
@@ -152,14 +151,27 @@ export const generateImagesTool = defineTool(
 			...image,
 			resolvedPath: resolveImageFilePath( image.path ),
 		} ) );
-		const libraryPaths = targets
-			.map( ( target ) => target.resolvedPath )
-			.filter( ( resolvedPath ) => resolvedPath.includes( UPLOADS_DIR ) );
-		const site = libraryPaths.length ? await findSiteContaining( libraryPaths ) : undefined;
-
-		context.onProgress(
-			`Generating ${ targets.length } image${ targets.length === 1 ? '' : 's' }…`
+		const libraryTargets = targets.filter( ( target ) =>
+			target.resolvedPath.includes( UPLOADS_DIR )
 		);
+		const site = libraryTargets.length
+			? await findSiteContaining( libraryTargets.map( ( target ) => target.resolvedPath ) )
+			: undefined;
+		const attachments = new Map< string, Attachment >();
+		if ( site ) {
+			const output = await evalWithData(
+				site,
+				RESERVE_ATTACHMENTS,
+				libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
+			);
+			const reserved: Attachment[] = JSON.parse( output.trim().split( '\n' ).pop() ?? '[]' );
+			libraryTargets.forEach( ( target, index ) =>
+				attachments.set( target.resolvedPath, {
+					...reserved[ index ],
+					file: path.join( site.path, reserved[ index ].file ),
+				} )
+			);
+		}
 
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
@@ -169,69 +181,60 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const lines: string[] = new Array( targets.length );
-		let generated = 0;
-		const results = await generateImages( requests, ( _index, result ) => {
-			if ( result.ok ) {
-				generated++;
-				context.onProgress( `Generated ${ generated }/${ targets.length } images`, true );
-			}
-		} );
-
-		await Promise.all(
-			results.map( async ( result, index ) => {
-				const target = targets[ index ];
-				if ( ! result.ok || ! result.bytes ) {
-					const hint = result.filtered
-						? ' (safety filter — rewrite the subject to avoid the sensitive element and call generate_images again for this image)'
-						: '';
-					lines[ index ] = `FAILED ${ target.path }: ${ result.error }${ hint }`;
-					return;
-				}
-				await fs.mkdir( path.dirname( target.resolvedPath ), { recursive: true } );
-				await fs.writeFile( target.resolvedPath, result.bytes );
-				lines[ index ] = `OK ${ target.path } (${ Math.round( result.bytes.length / 1024 ) } KB)`;
-			} )
-		);
-
-		const failures = results.filter( ( result ) => ! result.ok ).length;
-		if ( failures === targets.length ) {
-			throw new Error(
-				`All ${ targets.length } image generations failed:\n${ lines.join( '\n' ) }`
-			);
-		}
-
-		const written = targets
-			.filter(
-				( target, index ) => results[ index ].ok && target.resolvedPath.includes( UPLOADS_DIR )
+		const generation = generateImages( requests )
+			.catch( ( error ): GenerateImageResult[] =>
+				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)
-			.map( ( target ) => target.resolvedPath );
-		if ( site && written.length > 0 ) {
-			context.onProgress( 'Adding the images to the media library…' );
-			try {
-				const placements = await addToMediaLibrary( site, written );
-				targets.forEach( ( target, index ) => {
-					const placement = placements.get( target.resolvedPath );
-					if ( placement ) {
-						lines[ index ] = `OK ${ placement }`;
-					}
-				} );
-			} catch ( error ) {
-				lines.push(
-					`Not added to the media library: ${
-						error instanceof Error ? error.message : String( error )
-					}`
+			.then( async ( results ) => {
+				const failures: string[] = [];
+				await Promise.all(
+					results.map( async ( result, index ) => {
+						const target = targets[ index ];
+						if ( ! result.ok || ! result.bytes ) {
+							const hint = result.filtered
+								? ' (safety filter — rewrite the subject to avoid the sensitive element and call generate_images again for this image)'
+								: '';
+							failures.push( `FAILED ${ target.path }: ${ result.error }${ hint }` );
+							return;
+						}
+						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
+						await fs.mkdir( path.dirname( file ), { recursive: true } );
+						await fs.writeFile( file, result.bytes );
+					} )
 				);
-			}
-		}
+				if ( site ) {
+					const ids = ( ok: boolean ) =>
+						libraryTargets
+							.filter( ( target ) => results[ targets.indexOf( target ) ].ok === ok )
+							.map( ( target ) => attachments.get( target.resolvedPath )!.id );
+					await evalWithData( site, FINALIZE_ATTACHMENTS, {
+						ready: ids( true ),
+						failed: ids( false ),
+					} );
+				}
+				return failures.length
+					? `These images failed, and any attachment reserved for them was removed. Drop them from the markup or generate them again:\n${ failures.join(
+							'\n'
+					  ) }`
+					: undefined;
+			} );
 
-		const summary =
-			failures === 0
-				? `Generated ${ targets.length } image${ targets.length === 1 ? '' : 's' }:`
-				: `Generated ${ targets.length - failures } of ${
-						targets.length
-				  } images (${ failures } failed):`;
-		return { content: [ { type: 'text', text: [ summary, ...lines ].join( '\n' ) } ] };
+		return {
+			...textResult(
+				[
+					`Generating ${ targets.length } image${
+						targets.length === 1 ? '' : 's'
+					} in the background. Use them in the markup now:`,
+					...targets.map( ( target ) => {
+						const attachment = attachments.get( target.resolvedPath );
+						return attachment
+							? `- ${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
+							: `- ${ target.path }`;
+					} ),
+				].join( '\n' )
+			),
+			pending: generation,
+		};
 	},
 	{
 		promptSnippet:

@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -41,6 +42,7 @@ export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
@@ -147,8 +149,8 @@ export interface ConnectorCapabilities {
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
 	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render local screenshot artifacts inline). Only the desktop IPC connector
-	// supports it; the browser connectors reject local file reads.
+	// render screenshots and generated images inline). The local server limits
+	// it to raster images in the sessions and site folders; hosted can't.
 	readLocalMedia: boolean;
 	// The host can read/write the user's global Studio Code instructions file
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
@@ -393,6 +395,7 @@ export interface Connector {
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
+			visualAnnotations?: StudioVisualAnnotationSummary[];
 		}
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;

@@ -1302,7 +1302,7 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
-	it( 'adds generated images under uploads to the media library and leaves theme images in place', async () => {
+	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
@@ -1314,20 +1314,19 @@ describe( 'Studio AI MCP tools', () => {
 		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
 		vi.mocked( generateImages ).mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
-			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 		] );
 		vi.mocked( runWpCliCommandWithMessaging )
-			.mockResolvedValueOnce( mockWpCliResponse( { stdout: '7\n' } ) as never )
-			.mockResolvedValueOnce( mockWpCliResponse( { stdout: '8\n' } ) as never )
 			.mockResolvedValueOnce(
 				mockWpCliResponse( {
 					stdout: JSON.stringify( [
-						{ ID: 8, guid: urlOf( 'buns.jpg' ) },
-						{ ID: 7, guid: urlOf( 'hero.jpg' ) },
+						{ id: 7, file: 'wp-content/uploads/2026/09/hero.jpg', url: urlOf( 'hero.jpg' ) },
+						{ id: 8, file: 'wp-content/uploads/2026/09/buns.jpg', url: urlOf( 'buns.jpg' ) },
 					] ),
 				} ) as never
-			);
+			)
+			.mockResolvedValueOnce( mockWpCliResponse() as never );
 
 		try {
 			const result = await getTool( 'generate_images' ).rawHandler( {
@@ -1338,22 +1337,24 @@ describe( 'Studio AI MCP tools', () => {
 				],
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( site, [
-				'media',
-				'import',
-				path.join( 'wp-content', 'uploads', 'hero.jpg' ),
-				'--porcelain',
-			] );
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 3 );
-			await expect( readdir( uploads ) ).resolves.toEqual( [] );
-			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
 			expect( getTextContent( result ) ).toContain(
-				`OK ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
+				`- ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
 					'hero.jpg'
-				) }\nOK ${ path.join( uploads, '2026', '09', 'buns.jpg' ) }, attachment ID 8, URL ${ urlOf(
-					'buns.jpg'
 				) }`
 			);
+			expect( await result.pending ).toContain(
+				`FAILED ${ path.join( uploads, 'buns.jpg' ) }: Timed out`
+			);
+			await expect(
+				readFile( path.join( uploads, '2026', '09', 'hero.jpg' ), 'utf8' )
+			).resolves.toBe( 'jpeg' );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+			const finalize = vi.mocked( runWpCliCommandWithMessaging ).mock.calls[ 1 ][ 1 ][ 1 ];
+			expect(
+				JSON.parse(
+					Buffer.from( finalize.match( /base64_decode\( '([^']+)' \)/ )![ 1 ], 'base64' ).toString()
+				)
+			).toEqual( { ready: [ 7 ], failed: [ 8 ] } );
 		} finally {
 			await rm( sitePath, { recursive: true, force: true } );
 		}

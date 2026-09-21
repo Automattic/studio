@@ -337,6 +337,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					contextWindow: models.find( ( model ) => model.id === selectedModel )?.contextWindow,
 				} );
 				ctx.currentModel = selectedModel;
+				// The provider switch below only refreshes the footer when it has
+				// to correct the model, and a local id needs no correcting.
+				ctx.ui.currentModel = selectedModel;
 			} catch ( error ) {
 				ctx.ui.start();
 				if ( isPromptAbortError( error ) ) {

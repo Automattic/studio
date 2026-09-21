@@ -22,6 +22,26 @@ function createOutput(): { outputBase: string; websiteDir: string } {
 	return { outputBase, websiteDir };
 }
 
+function writeReceipt( websiteDir: string, receipt: Record< string, unknown > ): void {
+	fs.writeFileSync(
+		path.join( websiteDir, '..', 'capture-receipt.json' ),
+		JSON.stringify( {
+			schema: 'data-liberation/capture-receipt/v1',
+			entrypoint: 'website/index.html',
+			source: { url: 'https://example.com/' },
+			...receipt,
+		} )
+	);
+}
+
+function droppedRouteDiagnostics( count: number ) {
+	return Array.from( { length: count }, ( _value, index ) => ( {
+		code: 'route_capture_failed',
+		url: `https://example.com/page-${ index }`,
+		reason: 'HTTP 500',
+	} ) );
+}
+
 afterEach( () => {
 	for ( const dir of tempDirs.splice( 0 ) ) {
 		fs.rmSync( dir, { recursive: true, force: true } );
@@ -74,15 +94,10 @@ describe( 'Data Liberation CLI', () => {
 
 	it( 'rejects a capture that lost too many routes even when the CLI exits successfully', async () => {
 		const { outputBase, websiteDir } = createOutput();
-		fs.writeFileSync(
-			path.join( websiteDir, '..', 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'data-liberation/capture-receipt/v1',
-				entrypoint: 'website/index.html',
-				source: { url: 'https://example.com/' },
-				summary: { routesDiscovered: 13, routesCaptured: 7, routesSkipped: 0, routesFailed: 6 },
-			} )
-		);
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: droppedRouteDiagnostics( 6 ),
+			summary: { routesDiscovered: 13, routesCaptured: 7, routesSkipped: 0, routesFailed: 12 },
+		} );
 
 		await expect(
 			liberateWebsite( 'https://example.com', outputBase, {
@@ -93,25 +108,21 @@ describe( 'Data Liberation CLI', () => {
 					stderr: '',
 				} ),
 			} )
-		).rejects.toThrow( /captured 7 of 13 routes and reported 6 capture failures/ );
+		).rejects.toThrow( /could not capture 6 of 13 routes/ );
 		expect( fs.existsSync( path.join( websiteDir, 'index.html' ) ) ).toBe( true );
 	} );
 
-	it( 'imports a capture that lost a few routes and reports them', async () => {
+	// One dead route fails once per captured viewport, so `routesFailed` overcounts the routes
+	// that are actually missing. The gate has to weigh the routes, not the failure records.
+	it( 'imports a capture that lost a single route and reports it', async () => {
 		const { outputBase, websiteDir } = createOutput();
-		fs.writeFileSync(
-			path.join( websiteDir, '..', 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'data-liberation/capture-receipt/v1',
-				entrypoint: 'website/index.html',
-				source: { url: 'https://example.com/' },
-				discoveryDiagnostics: [
-					{ code: 'route_capture_failed', url: 'https://example.com/contact', reason: 'HTTP 500' },
-					{ code: 'route_not_found', url: 'https://example.com/old', reason: 'HTTP 404' },
-				],
-				summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
-			} )
-		);
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: [
+				{ code: 'route_capture_failed', url: 'https://example.com/contact', reason: 'HTTP 500' },
+				{ code: 'route_not_found', url: 'https://example.com/old', reason: 'HTTP 404' },
+			],
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+		} );
 		const onPartialCapture = vi.fn();
 
 		await expect(
@@ -127,26 +138,49 @@ describe( 'Data Liberation CLI', () => {
 		).resolves.toBe( websiteDir );
 		expect( onPartialCapture ).toHaveBeenCalledWith( {
 			routesDiscovered: 14,
-			routesFailed: 1,
-			failedRoutes: [ { url: 'https://example.com/contact', reason: 'HTTP 500' } ],
+			droppedRoutes: [ { url: 'https://example.com/contact', reason: 'HTTP 500' } ],
 			diagnosticsPath: path.join( websiteDir, '..', 'diagnostics.json' ),
 		} );
 	} );
 
+	it.each( [
+		{ dropped: 2, imports: true },
+		{ dropped: 3, imports: false },
+	] )( 'imports $dropped of 20 dropped routes: $imports', async ( { dropped, imports } ) => {
+		const { outputBase, websiteDir } = createOutput();
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: droppedRouteDiagnostics( dropped ),
+			summary: {
+				routesDiscovered: 20,
+				routesCaptured: 20 - dropped,
+				routesSkipped: 0,
+				routesFailed: dropped * 2,
+			},
+		} );
+		const run = liberateWebsite( 'https://example.com', outputBase, {
+			runCli: async () => ( {
+				exitCode: 0,
+				signal: null,
+				stdout: `Site: ${ websiteDir }\n`,
+				stderr: '',
+			} ),
+		} );
+
+		if ( imports ) {
+			await expect( run ).resolves.toBe( websiteDir );
+		} else {
+			await expect( run ).rejects.toThrow( /could not capture 3 of 20 routes/ );
+		}
+	} );
+
 	it( 'rejects a capture whose entry route failed', async () => {
 		const { outputBase, websiteDir } = createOutput();
-		fs.writeFileSync(
-			path.join( websiteDir, '..', 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'data-liberation/capture-receipt/v1',
-				entrypoint: 'website/index.html',
-				source: { url: 'https://example.com/' },
-				discoveryDiagnostics: [
-					{ code: 'route_capture_failed', url: 'https://example.com', reason: 'HTTP 503' },
-				],
-				summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
-			} )
-		);
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: [
+				{ code: 'route_capture_failed', url: 'https://example.com', reason: 'HTTP 503' },
+			],
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+		} );
 		const onPartialCapture = vi.fn();
 
 		await expect(
@@ -163,18 +197,34 @@ describe( 'Data Liberation CLI', () => {
 		expect( onPartialCapture ).not.toHaveBeenCalled();
 	} );
 
+	it( 'does not mistake a query-routed page for the entry route', async () => {
+		const { outputBase, websiteDir } = createOutput();
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: [
+				{ code: 'route_capture_failed', url: 'https://example.com/?p=12', reason: 'HTTP 500' },
+			],
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+		} );
+
+		await expect(
+			liberateWebsite( 'https://example.com', outputBase, {
+				runCli: async () => ( {
+					exitCode: 0,
+					signal: null,
+					stdout: `Site: ${ websiteDir }\n`,
+					stderr: '',
+				} ),
+			} )
+		).resolves.toBe( websiteDir );
+	} );
+
 	it( 'rejects a capture whose entrypoint document is missing', async () => {
 		const { outputBase, websiteDir } = createOutput();
 		fs.rmSync( path.join( websiteDir, 'index.html' ) );
-		fs.writeFileSync(
-			path.join( websiteDir, '..', 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'data-liberation/capture-receipt/v1',
-				entrypoint: 'website/index.html',
-				source: { url: 'https://example.com/' },
-				summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
-			} )
-		);
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: droppedRouteDiagnostics( 1 ),
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+		} );
 
 		await expect(
 			liberateWebsite( 'https://example.com', outputBase, {
@@ -186,6 +236,48 @@ describe( 'Data Liberation CLI', () => {
 				} ),
 			} )
 		).rejects.toThrow( /could not capture the entry route/ );
+	} );
+
+	it( 'rejects capture failures reported without per-route diagnostics', async () => {
+		const { outputBase, websiteDir } = createOutput();
+		writeReceipt( websiteDir, {
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+		} );
+
+		await expect(
+			liberateWebsite( 'https://example.com', outputBase, {
+				runCli: async () => ( {
+					exitCode: 0,
+					signal: null,
+					stdout: `Site: ${ websiteDir }\n`,
+					stderr: '',
+				} ),
+			} )
+		).rejects.toThrow( /without per-route diagnostics/ );
+	} );
+
+	it( 'imports a capture whose failures did not drop a route', async () => {
+		const { outputBase, websiteDir } = createOutput();
+		writeReceipt( websiteDir, {
+			discoveryDiagnostics: [
+				{ code: 'route_not_found', url: 'https://example.com/old', reason: 'HTTP 404' },
+			],
+			summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 1, routesFailed: 2 },
+		} );
+		const onPartialCapture = vi.fn();
+
+		await expect(
+			liberateWebsite( 'https://example.com', outputBase, {
+				onPartialCapture,
+				runCli: async () => ( {
+					exitCode: 0,
+					signal: null,
+					stdout: `Site: ${ websiteDir }\n`,
+					stderr: '',
+				} ),
+			} )
+		).resolves.toBe( websiteDir );
+		expect( onPartialCapture ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [ null, '{', JSON.stringify( { summary: { routesFailed: 0 } } ) ] )(

@@ -316,19 +316,18 @@ function isDataLiberationCaptureRoot( directory: string ): boolean {
 function partialCaptureWarning( report: PartialCaptureReport ): string {
 	const lines = [
 		sprintf(
-			/* translators: 1: captured route count, 2: discovered route count, 3: failed route count */
+			/* translators: 1: dropped route count, 2: discovered route count */
 			__(
-				'Data Liberation captured %1$d of %2$d routes. %3$d failed and are missing from the import.'
+				'Data Liberation could not capture %1$d of %2$d routes. They are missing from the imported site:'
 			),
-			Math.max( report.routesDiscovered - report.routesFailed, 0 ),
-			report.routesDiscovered,
-			report.routesFailed
+			report.droppedRoutes.length,
+			report.routesDiscovered
 		),
-		...report.failedRoutes
+		...report.droppedRoutes
 			.slice( 0, PARTIAL_CAPTURE_REPORTED_ROUTES )
 			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
 	];
-	const unlisted = report.failedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
+	const unlisted = report.droppedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
 	if ( unlisted > 0 ) {
 		/* translators: %d: number of failed routes not listed individually */
 		lines.push( sprintf( __( '  …and %d more.' ), unlisted ) );

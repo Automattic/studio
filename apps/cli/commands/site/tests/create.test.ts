@@ -600,7 +600,7 @@ describe( 'CLI: studio create', () => {
 					discoveryDiagnostics: [
 						{ code: 'route_capture_failed', url: 'https://example.com/', reason: 'HTTP 503' },
 					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
 				} )
 			);
 			const parser = registerCommand(
@@ -657,7 +657,7 @@ describe( 'CLI: studio create', () => {
 							reason: 'HTTP 500',
 						},
 					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
 				} )
 			);
 			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
@@ -694,7 +694,7 @@ describe( 'CLI: studio create', () => {
 				expect( process.exitCode ).toBeUndefined();
 				expect( runBlueprint ).toHaveBeenCalled();
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'captured 13 of 14 routes' )
+					expect.stringContaining( 'could not capture 1 of 14 routes' )
 				);
 				expect( reportWarning ).toHaveBeenCalledWith(
 					expect.stringContaining( 'https://example.com/contact: HTTP 500' )

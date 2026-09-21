@@ -23,22 +23,22 @@ const captureReceiptSchema = z.object( {
 // imported and the missing ones are reported. Past this share the result is too incomplete
 // to be worth creating, and the entry route is never tradeable: a site with no home page is
 // not a usable outcome.
-const MAX_FAILED_ROUTE_RATIO = 0.1;
+const MAX_DROPPED_ROUTE_RATIO = 0.1;
+const ROUTE_CAPTURE_FAILED = 'route_capture_failed';
 
 export type PartialCaptureReport = {
 	routesDiscovered: number;
-	routesFailed: number;
-	failedRoutes: Array< { url: string; reason: string } >;
+	droppedRoutes: Array< { url: string; reason: string } >;
 	diagnosticsPath: string;
 };
 
+// The same page reaches the receipt spelled several ways: as http and https when the source
+// redirects, with and without a trailing slash. A query string is not noise here, though --
+// without pretty permalinks it is what selects the page.
 function routeIdentity( url: string ): string {
 	try {
 		const route = new URL( url );
-		route.hash = '';
-		route.search = '';
-		route.pathname = route.pathname.replace( /\/$/, '' ) || '/';
-		return route.href;
+		return `${ route.host }${ route.pathname.replace( /\/$/, '' ) || '/' }${ route.search }`;
 	} catch {
 		return url;
 	}
@@ -174,35 +174,54 @@ export async function liberateWebsite(
 		throw new Error( `Data Liberation did not provide a valid capture receipt: ${ receiptPath }` );
 	}
 
-	const routesFailed = receipt.summary.routesFailed;
-	if ( routesFailed > 0 ) {
-		const diagnosticsPath = path.join( captureRoot, 'diagnostics.json' );
-		const routesDiscovered = receipt.summary.routesDiscovered ?? 0;
-		const failedRoutes = ( receipt.discoveryDiagnostics ?? [] )
-			.filter( ( diagnostic ) => diagnostic.code === 'route_capture_failed' )
-			.map( ( { url, reason } ) => ( { url, reason } ) );
-		const entrypointPath = receipt.entrypoint
-			? path.resolve( captureRoot, receipt.entrypoint )
-			: path.join( websiteDir, 'index.html' );
-		const entryRoute = routeIdentity( receipt.source?.url ?? parsed.href );
-		if (
-			! fs.existsSync( entrypointPath ) ||
-			failedRoutes.some( ( route ) => routeIdentity( route.url ) === entryRoute )
-		) {
-			throw new Error(
-				`Data Liberation could not capture the entry route ${ entryRoute }. Review ${ diagnosticsPath } before importing.`
-			);
-		}
-		if ( routesDiscovered <= 0 || routesFailed / routesDiscovered > MAX_FAILED_ROUTE_RATIO ) {
-			throw new Error(
-				`Data Liberation captured ${ Math.max(
-					routesDiscovered - routesFailed,
-					0
-				) } of ${ routesDiscovered } routes and reported ${ routesFailed } capture failures. Review ${ diagnosticsPath } before importing.`
-			);
-		}
-		options.onPartialCapture?.( { routesDiscovered, routesFailed, failedRoutes, diagnosticsPath } );
+	if ( receipt.summary.routesFailed === 0 ) {
+		return websiteDir;
 	}
+
+	// `summary.routesFailed` counts failure records rather than routes — one dead route fails
+	// once per captured viewport — so it answers "did anything fail", not "how much is
+	// missing". Only the receipt's per-route diagnostics name the routes that produced no
+	// page, and a receipt that omits them cannot be judged at all, so it keeps the strict
+	// outcome.
+	const diagnosticsPath = path.join( captureRoot, 'diagnostics.json' );
+	if ( ! receipt.discoveryDiagnostics ) {
+		throw new Error(
+			`Data Liberation reported ${ receipt.summary.routesFailed } capture failures without per-route diagnostics. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+
+	const droppedRoutes = receipt.discoveryDiagnostics
+		.filter( ( diagnostic ) => diagnostic.code === ROUTE_CAPTURE_FAILED )
+		.map( ( { url, reason } ) => ( { url, reason } ) );
+	if ( droppedRoutes.length === 0 ) {
+		return websiteDir;
+	}
+
+	const entryRoute = receipt.source?.url ?? parsed.href;
+	const entryRouteIdentity = routeIdentity( entryRoute );
+	const entrypointPath = receipt.entrypoint && path.resolve( captureRoot, receipt.entrypoint );
+	if (
+		( entrypointPath && ! fs.existsSync( entrypointPath ) ) ||
+		droppedRoutes.some( ( route ) => routeIdentity( route.url ) === entryRouteIdentity )
+	) {
+		throw new Error(
+			`Data Liberation could not capture the entry route ${ entryRoute }. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+
+	const routesDiscovered = receipt.summary.routesDiscovered ?? 0;
+	if ( routesDiscovered <= 0 ) {
+		throw new Error(
+			`Data Liberation did not report how many routes it discovered. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+	if ( droppedRoutes.length / routesDiscovered > MAX_DROPPED_ROUTE_RATIO ) {
+		throw new Error(
+			`Data Liberation could not capture ${ droppedRoutes.length } of ${ routesDiscovered } routes. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+
+	options.onPartialCapture?.( { routesDiscovered, droppedRoutes, diagnosticsPath } );
 
 	return websiteDir;
 }

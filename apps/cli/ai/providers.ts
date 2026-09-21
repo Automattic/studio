@@ -14,13 +14,12 @@ import {
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken, getActiveOpenAiCompatibleEndpoint } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import {
 	discoverOpenAiCompatibleModels,
 	resolveOpenAiCompatibleContextWindow,
 } from 'cli/ai/openai-compatible';
-import { getActiveOpenAiCompatibleEndpoint } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 // Labels live in @studio/common so the CLI and the UI can't drift apart.

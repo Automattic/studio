@@ -68,20 +68,6 @@ const siteSchema = siteDetailsSchema
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-// A user-configured OpenAI-compatible endpoint (local model server: vLLM,
-// Apfel, LM Studio, Ollama, …). Stored as an array so multiple endpoints can
-// be supported later without a breaking migration; today only the first entry
-// (the active endpoint) is used.
-export const openAiCompatibleEndpointSchema = z.object( {
-	baseUrl: z.string(),
-	apiKey: z.string().optional(),
-	// Model id selected on this endpoint (from its /v1/models list).
-	selectedModel: z.string().optional(),
-	// Real context window of the selected model, discovered from /v1/models.
-	// Drives the pi runtime's native compaction. Optional override / fallback.
-	contextWindow: z.number().optional(),
-} );
-
 export const updateCheckSchema = z.object( {
 	lastChecked: z.number(),
 	latestVersion: z.string(),
@@ -91,7 +77,6 @@ const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
-	openAiCompatibleEndpoints: z.array( openAiCompatibleEndpointSchema ).optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
@@ -109,7 +94,6 @@ const cliConfigSchema = z.looseObject( {
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
-export type OpenAiCompatibleEndpoint = z.infer< typeof openAiCompatibleEndpointSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,
@@ -177,34 +161,6 @@ export async function updateCliConfigWithPartial(
 		const config = await readCliConfig();
 		const updated = { ...config, ...update };
 		await saveCliConfig( updated );
-	} finally {
-		await unlockCliConfig();
-	}
-}
-
-/**
- * The active OpenAI-compatible endpoint — the first configured entry. Returns
- * undefined when none is configured.
- */
-export async function getActiveOpenAiCompatibleEndpoint(): Promise<
-	OpenAiCompatibleEndpoint | undefined
-> {
-	const { openAiCompatibleEndpoints } = await readCliConfig();
-	return openAiCompatibleEndpoints?.[ 0 ];
-}
-
-/**
- * Persist the active OpenAI-compatible endpoint (index 0), leaving any other
- * configured endpoints untouched.
- */
-export async function saveActiveOpenAiCompatibleEndpoint(
-	endpoint: OpenAiCompatibleEndpoint
-): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const rest = ( config.openAiCompatibleEndpoints ?? [] ).slice( 1 );
-		await saveCliConfig( { ...config, openAiCompatibleEndpoints: [ endpoint, ...rest ] } );
 	} finally {
 		await unlockCliConfig();
 	}

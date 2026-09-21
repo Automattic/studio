@@ -22,12 +22,12 @@ vi.mock( '@inquirer/prompts', () => ( {
 
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
+	getActiveOpenAiCompatibleEndpoint: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: vi.fn().mockResolvedValue( { version: 1, sites: [] } ),
 	updateCliConfigWithPartial: vi.fn(),
-	getActiveOpenAiCompatibleEndpoint: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 vi.mock( '@studio/common/ai/settings-store', () => ( {

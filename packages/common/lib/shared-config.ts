@@ -34,6 +34,22 @@ export const sharedSessionMetadataSchema = z
 
 export type SharedSessionMetadata = z.infer< typeof sharedSessionMetadataSchema >;
 
+// A user-configured OpenAI-compatible endpoint (local model server: vLLM,
+// LM Studio, Ollama, …). Stored as an array so multiple endpoints can be
+// supported later without a breaking migration; today only the first entry
+// (the active endpoint) is used.
+export const openAiCompatibleEndpointSchema = z.object( {
+	baseUrl: z.string(),
+	apiKey: z.string().optional(),
+	// Model id selected on this endpoint (from its /v1/models list).
+	selectedModel: z.string().optional(),
+	// Real context window of the selected model, discovered from /v1/models.
+	// Drives the pi runtime's native compaction. Optional override / fallback.
+	contextWindow: z.number().optional(),
+} );
+
+export type OpenAiCompatibleEndpoint = z.infer< typeof openAiCompatibleEndpointSchema >;
+
 export const sharedConfigSchema = z
 	.object( {
 		version: z.literal( SHARED_CONFIG_VERSION ),
@@ -51,6 +67,11 @@ export const sharedConfigSchema = z
 		// parse; readers narrow with `isAiProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
+		// Endpoints for the `openai-compatible` provider. Only the CLI writes
+		// these today (`/openai-config`), but they live here rather than in
+		// cli.json so Studio can read what a session runs on, and gain an
+		// editor later without moving the data.
+		openAiCompatibleEndpoints: z.array( openAiCompatibleEndpointSchema ).optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),
@@ -194,6 +215,34 @@ export async function deleteSharedSession( sessionId: string ): Promise< void > 
 		delete config.sessions[ sessionId ];
 		pruneEmptySharedSessions( config );
 		await saveSharedConfig( config );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+/**
+ * The active OpenAI-compatible endpoint — the first configured entry. Returns
+ * undefined when none is configured.
+ */
+export async function getActiveOpenAiCompatibleEndpoint(): Promise<
+	OpenAiCompatibleEndpoint | undefined
+> {
+	const { openAiCompatibleEndpoints } = await readSharedConfig();
+	return openAiCompatibleEndpoints?.[ 0 ];
+}
+
+/**
+ * Persist the active OpenAI-compatible endpoint (index 0), leaving any other
+ * configured endpoints untouched.
+ */
+export async function saveActiveOpenAiCompatibleEndpoint(
+	endpoint: OpenAiCompatibleEndpoint
+): Promise< void > {
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		const rest = ( config.openAiCompatibleEndpoints ?? [] ).slice( 1 );
+		await saveSharedConfig( { ...config, openAiCompatibleEndpoints: [ endpoint, ...rest ] } );
 	} finally {
 		await unlockSharedConfig();
 	}

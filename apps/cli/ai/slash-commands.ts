@@ -7,7 +7,12 @@ import {
 	type SelectedModelId,
 } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	isAutomatticianFromToken,
+	readAuthToken,
+	getActiveOpenAiCompatibleEndpoint,
+	saveActiveOpenAiCompatibleEndpoint,
+} from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
 	fetchStudioAssistantQuota,
@@ -31,10 +36,6 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
-import {
-	getActiveOpenAiCompatibleEndpoint,
-	saveActiveOpenAiCompatibleEndpoint,
-} from 'cli/lib/cli-config/core';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';

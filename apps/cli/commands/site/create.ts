@@ -967,10 +967,18 @@ async function runStaticSiteImport(
 	// See `cli/lib/visual-parity.ts` for how Studio builds `source_reports.layout_baseline`
 	// and `imported_render`. Run even when other quality gates already failed: parity
 	// evidence is most valuable on a broken import.
-	if ( sectionsPath && site.url ) {
+	//
+	// Use `getSiteUrl()`, not the raw `site.url` field: `url` is only ever populated in
+	// memory on a fresh `create` run (set on `siteDetails` right before this function is
+	// called) and is never written back to the persisted CLI config. Reading `site.url`
+	// directly made this check silently `undefined`, and therefore skipped, on every
+	// resumed import — the CLI's own documented recovery path after a failure — so a
+	// resume could accept content that would have failed this same gate on a fresh run.
+	const siteUrl = getSiteUrl( site );
+	if ( sectionsPath && siteUrl ) {
 		const parityFailure = await runVisualParityCheck(
 			site,
-			site.url,
+			siteUrl,
 			sectionsPath,
 			logger,
 			themeImportReportPath( site, receipt )

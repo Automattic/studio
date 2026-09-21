@@ -149,3 +149,46 @@ describe('safeFetch', () => {
       .rejects.toThrow(/too many redirects/);
   });
 });
+
+describe('headersForOrigin', () => {
+  it('merges per-hop headers over the static ones, recomputed for each origin', async () => {
+    const seenHeaders: Array<Record<string, string> | undefined> = [];
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      seenHeaders.push(init?.headers as Record<string, string> | undefined);
+      if (url.startsWith('https://a.example.com')) {
+        return mockResponse({ status: 302, headers: { location: 'https://b.example.com/final' } });
+      }
+      return mockResponse({ status: 200, body: new TextEncoder().encode('FINAL') });
+    }) as unknown as typeof fetch;
+
+    await safeFetch('https://a.example.com/start', {
+      fetchImpl: fakeFetch,
+      headers: { accept: 'image/*' },
+      headersForOrigin: async (origin) =>
+        origin === 'https://a.example.com' ? { cookie: 'session=abc' } : undefined,
+    });
+
+    expect(seenHeaders).toHaveLength(2);
+    // First hop (the credentialed origin): both the static and origin headers.
+    expect(seenHeaders[0]).toEqual({ accept: 'image/*', cookie: 'session=abc' });
+    // Second hop (a DIFFERENT origin after the redirect): the static header
+    // survives, but the cookie meant only for a.example.com does not.
+    expect(seenHeaders[1]).toEqual({ accept: 'image/*' });
+  });
+
+  it('never sends the origin-scoped header to a host that never earned it', async () => {
+    const seenHeaders: Array<Record<string, string> | undefined> = [];
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      seenHeaders.push(init?.headers as Record<string, string> | undefined);
+      return mockResponse({ status: 200, body: new TextEncoder().encode('OK') });
+    }) as unknown as typeof fetch;
+
+    await safeFetch('https://untouched.example.com/asset', {
+      fetchImpl: fakeFetch,
+      headersForOrigin: async (origin) =>
+        origin === 'https://a.example.com' ? { cookie: 'session=abc' } : undefined,
+    });
+
+    expect(seenHeaders[0]?.cookie).toBeUndefined();
+  });
+});

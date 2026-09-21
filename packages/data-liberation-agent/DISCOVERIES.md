@@ -1,3 +1,33 @@
+## 2026-09-21 — `<video>` media was never captured, and a failed one lost its `src` entirely
+
+**Found by:** Claude Code
+**During:** A Studio CLI import of a private photo-journal site lost all six of its `<video>` clips
+**Type:** bug fix
+
+### What I found
+Two independent gaps compounded into total video loss. First, `CapturedResourceStore`'s DOM-dependency fetch (the path that independently fetches `<video src>`, `<source src>`, and `<video poster>` referenced in captured HTML) used a bare `safeFetch` with no session-cookie forwarding, so a source gated behind an entry-URL-only session 403'd every video/poster fetch even though the browser itself held a valid session. Second, when a video/source/audio `src` genuinely couldn't be localized (that fetch failing, or any other reason), the export fallback (`removeDanglingMediaSource` in capture-export.ts) removed the `src` attribute outright instead of substituting a placeholder the way it does for `<img>` — and a later self-contain pass (`stripRemoteAssetRequests`) independently did the same for any video `src` that reached it still pointing at a remote URL. An emptied `src` is unrecoverable: downstream (a WordPress import) drops the element entirely, so the reader never even sees a broken-video placeholder.
+
+### How it works
+`CapturedResourceStore`'s default `fetchMedia` now forwards the harvested source session via `safeFetch`'s `headersForOrigin`, mirroring the same pattern already used in `inspect-rendered.ts` and `media.ts`'s downloader. Separately, `removeDanglingMediaSource` now repoints a video/source/audio `src` at its fully resolved absolute URL instead of deleting the attribute, and `self-contain.ts`'s `stripRemoteAssetRequests` now leaves a remote `src` on those elements alone rather than stripping it (an `<img src>` still gets the transparent-gif stub, and a failed `poster` still degrades to that same stub — losing a preview thumbnail is not the same class of loss as losing the media itself).
+
+### Why it's better than the previous approach
+Video and its poster now localize successfully whenever the source is reachable (auth included), and when localization genuinely fails, the element keeps a real, external reference plus a diagnostic — the same treatment this export already gives a plain `<a href>` — instead of an empty, unrecoverable attribute.
+
+## 2026-09-21 — Wix words its footer credit "Powered and secured by Wix"
+
+**Found by:** Claude Code
+**During:** Importing a free Wix test site through Studio, then reading its saved capture and cleanup evidence
+**Type:** bug fix
+
+### What I found
+Current Wix templates qualify the credit verb. Every credit matcher only knew the literal "powered by", and the link rule tested the text of the link's direct parent, which on Wix is an underline span holding just "Wix". Both Wix credit rules ran, neither matched, and the credit with its wix.com link shipped into the liberated site.
+
+### How it works
+The credit phrase accepts one conjoined qualifier ("powered and secured by") wherever it is matched. The plain-text footer rule then removes the phrase and its link by text range and keeps the owner's copyright in the same paragraph. The policy schema moved to v4.
+
+### Why it's better than the previous approach
+The credit leaves on real Wix footers without widening what counts as a credit: a brand or provider link is still required, and authored prose such as "Powered by renewable energy" stays.
+
 ## 2026-09-16 — Localized media in captured stylesheets must stay local
 
 **Found by:** OpenAI Codex

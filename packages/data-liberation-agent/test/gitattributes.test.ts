@@ -7,29 +7,20 @@ import { join } from 'node:path';
 const REPO_ROOT = join(__dirname, '..');
 const BUNDLE_PATHS = ['dist/mcp-server.bundle.mjs', 'dist/capture-engine.bundle.mjs'];
 
-// Regenerating dist/*.bundle.mjs produces different bytes on every branch
-// that touches src/, even when the source changes don't overlap, because
-// the bundles are minified — so two branches that both regenerate them
-// conflict on them by construction (#234). This exercises the committed
-// .gitattributes against a real `git merge` rather than asserting on its
-// text, so it actually proves the declared `merge=ours` strategy resolves
-// that conflict instead of just asserting the right string is present.
-describe('.gitattributes bundle merge strategy', () => {
+// Replay concurrent source PRs across a main-owned bundle rebuild, using
+// ordinary Git merge behavior (the same constraint as GitHub).
+describe('main-owned generated bundles', () => {
   let repoDir: string;
 
   function git(...args: string[]): string {
-    return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8' });
+    return execFileSync('git', ['-c', 'user.email=test@example.com', '-c', 'user.name=Test', ...args], {
+      cwd: repoDir, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' },
+    });
   }
 
   beforeEach(() => {
     repoDir = mkdtempSync(join(tmpdir(), 'gitattributes-bundle-'));
-    git('init', '-q');
-    git('config', 'user.email', 'test@example.com');
-    git('config', 'user.name', 'Test');
-    // Driver definitions live in git config, never in the repository (that
-    // would let a committed .gitattributes run arbitrary commands on every
-    // clone), so a contributor sets this once, locally, per AGENTS.md.
-    git('config', 'merge.ours.driver', 'true');
+    git('init', '-q', '-b', 'main');
 
     copyFileSync(join(REPO_ROOT, '.gitattributes'), join(repoDir, '.gitattributes'));
     mkdirSync(join(repoDir, 'dist'), { recursive: true });
@@ -46,26 +37,33 @@ describe('.gitattributes bundle merge strategy', () => {
     rmSync(repoDir, { recursive: true, force: true });
   });
 
-  it('merges two branches that independently regenerate the bundles without conflict', () => {
+  it('merges independent source branches after main regenerates bundles without a custom driver', () => {
     git('checkout', '-q', 'branch-a');
-    for (const path of BUNDLE_PATHS) {
-      writeFileSync(join(repoDir, path), 'branch-a regenerated output\n');
-    }
-    git('commit', '-q', '-am', 'branch-a regenerates bundles');
+    writeFileSync(join(repoDir, 'source-a.ts'), 'export const a = 1;\n');
+    git('add', 'source-a.ts');
+    git('commit', '-q', '-m', 'source change a');
 
     git('checkout', '-q', 'branch-b');
-    for (const path of BUNDLE_PATHS) {
-      writeFileSync(join(repoDir, path), 'branch-b regenerated output\n');
-    }
-    git('commit', '-q', '-am', 'branch-b regenerates bundles');
+    writeFileSync(join(repoDir, 'source-b.ts'), 'export const b = 2;\n');
+    git('add', 'source-b.ts');
+    git('commit', '-q', '-m', 'source change b');
 
-    git('checkout', '-q', 'branch-a');
+    git('checkout', '-q', 'main');
+    git('merge', '--no-edit', 'branch-a');
+    for (const path of BUNDLE_PATHS) {
+      writeFileSync(join(repoDir, path), 'main rebuilt with source a\n');
+    }
+    git('commit', '-q', '-am', 'build: regenerate plugin bundles');
+
     expect(() => git('merge', '--no-edit', 'branch-b')).not.toThrow();
-
     for (const path of BUNDLE_PATHS) {
-      const merged = readFileSync(join(repoDir, path), 'utf8');
-      expect(merged).toBe('branch-a regenerated output\n');
-      expect(merged).not.toContain('<<<<<<<');
+      expect(readFileSync(join(repoDir, path), 'utf8')).toBe('main rebuilt with source a\n');
     }
+    expect(readFileSync(join(repoDir, 'source-a.ts'), 'utf8')).toContain('a = 1');
+    expect(readFileSync(join(repoDir, 'source-b.ts'), 'utf8')).toContain('b = 2');
+    // The post-merge rebuild now includes both source changes.
+    for (const path of BUNDLE_PATHS) writeFileSync(join(repoDir, path), 'main rebuilt with source a and b\n');
+    git('commit', '-q', '-am', 'build: regenerate plugin bundles');
+    expect(git('status', '--porcelain')).toBe('');
   });
 });

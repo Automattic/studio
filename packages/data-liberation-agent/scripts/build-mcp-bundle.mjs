@@ -6,8 +6,8 @@
 // `npx tsx src/mcp-server.ts` entry has nothing to import once installed as a
 // plugin. The bundles inline every dependency so `.mcp.json` can point a bare
 // `node` at the server bundle and `scripts/run.mjs` can run the drivers. The
-// committed bundles are the plugin's distribution artifacts; regenerate them
-// (npm run build:mcp-bundle) whenever src/, scripts/, or dependencies change.
+// committed bundles are the plugin's distribution artifacts. Build locally for
+// verification; the main-branch Release workflow commits generated output.
 //
 // Exceptions that stay external (resolved at runtime, degrade gracefully):
 // - playwright: browser driver + downloaded browsers can't live in a bundle.

@@ -1,6 +1,7 @@
 // src/lib/screenshot/dom-capture.ts
 import type { Page } from 'playwright';
 import { CHROME_FIXUP_FACTORY_SOURCE, CHROME_MARKER_FACTORY_SOURCE, COVER_IMAGE_FIXUP_FACTORY_SOURCE, type BakedLayoutMap } from './fixups.js';
+import { repairShorthandVarCollapse } from './css-shorthand-repair.js';
 import { NAV_EXTRACT_FACTORY_SOURCE, type ExtractedNav } from './nav-extract.js';
 
 /** Inner HTML of <body>, image src/srcset preserved (no inlining). */
@@ -333,17 +334,37 @@ export async function collectBodyFragmentMobileOnly(page: Page): Promise<string>
 }
 
 /** Concatenated cssText of all SAME-ORIGIN stylesheets. Cross-origin sheets
- *  throw on .cssRules and are skipped (their <link> is captured separately). */
+ *  throw on .cssRules and are skipped (their <link> is captured separately).
+ *
+ *  Reading a rule's live cssText is lossy for one shape: a shorthand set via
+ *  var() (e.g. `font: var(--token)`) followed, in the same declaration, by an
+ *  explicit override of one of that shorthand's own longhands (e.g.
+ *  `font-style: normal`) becomes a CSSOM "pending-substitution value" that
+ *  cannot be re-serialized — every longhand reads back as an empty
+ *  declaration and the shorthand disappears entirely, even though
+ *  getComputedStyle still resolves it. Repair against each inline <style>
+ *  owner's own (pre-read, unmutated) source text — see css-shorthand-repair.ts. */
 export async function collectStylesheets(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const parts: string[] = [];
+  const sheets = await page.evaluate(() => {
+    const result: Array<{ liveCssText: string; originalCssText: string | null }> = [];
     for (const sheet of Array.from(document.styleSheets)) {
+      let liveCssText: string;
       try {
-        for (const rule of Array.from(sheet.cssRules)) parts.push(rule.cssText);
-      } catch { /* cross-origin — skip */ }
+        liveCssText = Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n');
+      } catch {
+        continue; /* cross-origin — skip */
+      }
+      const owner = sheet.ownerNode;
+      const originalCssText = owner instanceof HTMLStyleElement ? owner.textContent : null;
+      result.push({ liveCssText, originalCssText });
     }
-    return parts.join('\n');
+    return result;
   });
+  return sheets
+    .map(({ liveCssText, originalCssText }) =>
+      originalCssText !== null ? repairShorthandVarCollapse(liveCssText, originalCssText) : liveCssText
+    )
+    .join('\n');
 }
 
 /** href of every <head> <link rel=stylesheet>. */

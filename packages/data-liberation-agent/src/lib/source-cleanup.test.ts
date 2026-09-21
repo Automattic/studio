@@ -21,7 +21,7 @@ main{padding:20px} .ad-slot{height:200px}footer{padding:20px}
 <article>Powered by renewable energy. Read <a href="https://wix.com/blog">our platform article</a>.</article></main>
 <div><iframe id="google_ads_iframe_1" srcdoc="Ad creative"></iframe></div>
 <div class="ad-slot">${'Buy advertising now. '.repeat(50)}</div>
-<footer><p>© Owner business. All rights reserved. <span>Powered by </span><span>Wix.</span></p><p>Powered by <a href="https://www.wix.com">Wix</a></p></footer>
+<footer><p>© Owner business. All rights reserved. <span>Powered&nbsp;and  secured\nby </span><span><a href="https://www.wix.com">Wix</a></span></p><p>Powered by <a href="https://www.wix.com">Wix</a></p><p>© 2035 by Owner. Powered and secured by <span style="text-decoration:underline"><a href="https://www.wix.com" target="_blank">Wix</a></span></p></footer>
 <script>setTimeout(()=>{const ad=document.createElement('div');ad.className='ad-slot';ad.textContent='Late advertisement';document.body.prepend(ad)},80)</script>
 </body></html>`;
 
@@ -48,10 +48,10 @@ it('removes source credits and late ads, reclaims space, and preserves owner con
       await page.waitForTimeout(150);
       const report = await readSourceCleanup(page);
       expect(await page.locator('#WIX_ADS,.ad-slot,iframe').count()).toBe(0);
-      expect(await page.locator('footer').innerText()).toBe('© Owner business. All rights reserved.');
+      expect(await page.locator('footer').innerText()).toBe('© Owner business. All rights reserved.\n\n© 2035 by Owner.');
       expect(await page.locator('article a').count()).toBe(1);
       expect(await page.evaluate(() => getComputedStyle(document.body).paddingTop)).toBe('0px');
-      expect(report.removed).toBeGreaterThanOrEqual(5);
+      expect(report.removed).toBeGreaterThanOrEqual(6);
       expect(report.failures).toEqual([]);
       expect(report.records.some((record) => record.reclaimedBodyPadding)).toBe(true);
       await page.close();

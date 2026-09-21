@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { desktopContextOptions } from '../browser-kit/browser-kit.js';
+import { sourceContextOptions } from '../browser-kit/browser-kit.js';
 
 function decodeXml(value: string): string {
   return value.replace(/&(?:amp|lt|gt|quot|apos);|&#(?:x[\da-f]+|\d+);/gi, (entity) => {
@@ -87,6 +87,17 @@ export function classifyUrl(url: string): UrlType {
 const MAX_SITEMAP_DEPTH = 3;
 const MAX_URLS = 50000;
 
+function parseRobotsSitemapDirectives(text: string): string[] {
+  const urls: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const match = /^sitemap:\s*(\S+)/i.exec(trimmed);
+    if (match?.[1]) urls.push(match[1]);
+  }
+  return urls;
+}
+
 export async function fetchSitemap(baseUrl: string): Promise<string[]> {
   return (await fetchSitemapWithDiagnostics(baseUrl)).urls;
 }
@@ -95,10 +106,14 @@ export async function fetchSitemap(baseUrl: string): Promise<string[]> {
  * Fetch sitemap routes scoped to the entry URL's origin. `fetchSitemap` keeps
  * the array-only contract used by existing adapters; callers that surface
  * discovery diagnostics can opt into this richer result.
+ *
+ * Candidates are probed in preference order: `Sitemap:` directives in
+ * `/robots.txt`, then `/sitemap-index.xml`, then `/sitemap.xml`. The first
+ * document that parses as a sitemap wins; index-document following is
+ * unchanged.
  */
 export async function fetchSitemapWithDiagnostics(baseUrl: string): Promise<SitemapFetchResult> {
   const normalizedBase = baseUrl.includes('://') ? baseUrl : `https://${baseUrl}`;
-  const sitemapUrl = `${normalizedBase.replace(/\/$/, '')}/sitemap.xml`;
   let baseOrigin: string;
   let siteHost: string;
   try {
@@ -138,24 +153,39 @@ export async function fetchSitemapWithDiagnostics(baseUrl: string): Promise<Site
     return new URL(`${entryUrl.pathname}${entryUrl.search}`, baseOrigin);
   }
 
-  async function fetchAndParse(url: string, depth: number): Promise<void> {
-    if (depth > MAX_SITEMAP_DEPTH || allUrls.length >= MAX_URLS || visited.has(url)) return;
+  function noteMiss(diagnostic: SitemapDiagnostic, bucket?: SitemapDiagnostic[]): void {
+    (bucket ?? diagnostics).push(diagnostic);
+  }
+
+  async function fetchAndParse(url: string, depth: number, misses?: SitemapDiagnostic[]): Promise<boolean> {
+    if (depth > MAX_SITEMAP_DEPTH || allUrls.length >= MAX_URLS || visited.has(url)) return false;
     visited.add(url);
 
     // Same-origin enforcement to prevent SSRF: only the entry origin is fetched.
     try {
-      if (new URL(url).origin !== baseOrigin) return;
+      if (new URL(url).origin !== baseOrigin) {
+        diagnostics.push({ code: 'sitemap_url_rejected', url, reason: 'origin differs from the entry URL' });
+        return false;
+      }
     } catch {
-      return;
+      diagnostics.push({ code: 'sitemap_url_rejected', url, reason: 'invalid URL' });
+      return false;
     }
 
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-      if (!response.ok) return;
+      if (!response.ok) {
+        noteMiss({ code: 'sitemap_not_found', url, reason: `HTTP ${response.status}` }, misses);
+        return false;
+      }
       const xml = await response.text();
-      const urls = parseSitemapDocument(xml).locs;
+      const document = parseSitemapDocument(xml);
+      if (document.kind === 'unknown' && document.locs.length === 0) {
+        noteMiss({ code: 'sitemap_not_found', url, reason: 'response is not a sitemap document' }, misses);
+        return false;
+      }
 
-      for (const u of urls) {
+      for (const u of document.locs) {
         if (allUrls.length >= MAX_URLS) break;
         // Check for .xml before query string (e.g. sitemap_products_1.xml?from=...&to=...)
         const pathPart = u.includes('?') ? u.slice(0, u.indexOf('?')) : u;
@@ -170,12 +200,70 @@ export async function fetchSitemapWithDiagnostics(baseUrl: string): Promise<Site
           }
         }
       }
-    } catch {
-      // Sitemap fetch failed
+      return true;
+    } catch (error) {
+      diagnostics.push({
+        code: 'sitemap_fetch_failed',
+        url,
+        reason: error instanceof Error ? error.message : 'Sitemap fetch failed',
+      });
+      return false;
     }
   }
 
-  await fetchAndParse(sitemapUrl, 0);
+  const declared: string[] = [];
+  const declaredSeen = new Set<string>();
+  try {
+    const robotsUrl = new URL('/robots.txt', baseOrigin).href;
+    const response = await fetch(robotsUrl, { signal: AbortSignal.timeout(15000) });
+    if (response.ok) {
+      for (const loc of parseRobotsSitemapDirectives(await response.text())) {
+        let absolute: string;
+        try {
+          absolute = new URL(loc, normalizedBase).href;
+        } catch {
+          diagnostics.push({ code: 'sitemap_url_rejected', url: loc, reason: 'invalid URL' });
+          continue;
+        }
+        const accepted = acceptEntry(absolute);
+        if (!accepted || declaredSeen.has(accepted.href)) continue;
+        declaredSeen.add(accepted.href);
+        declared.push(accepted.href);
+      }
+    }
+  } catch {
+    // robots.txt is a pointer, not a sitemap; a miss here is not a sitemap miss.
+  }
+
+  const wellKnown = [
+    new URL('/sitemap-index.xml', baseOrigin).href,
+    new URL('/sitemap.xml', baseOrigin).href,
+  ].filter((url) => !declaredSeen.has(url));
+
+  let foundSitemap = false;
+  for (const candidate of declared) {
+    if (await fetchAndParse(candidate, 0)) {
+      foundSitemap = true;
+      break;
+    }
+  }
+  const fallbackMisses: SitemapDiagnostic[] = [];
+  if (!foundSitemap) {
+    for (const candidate of wellKnown) {
+      if (await fetchAndParse(candidate, 0, fallbackMisses)) {
+        foundSitemap = true;
+        break;
+      }
+    }
+  }
+  if (!foundSitemap) {
+    diagnostics.push({
+      code: 'sitemap_missing',
+      url: `${baseOrigin}/`,
+      reason: 'No sitemap found at any probed location',
+    });
+    diagnostics.push(...fallbackMisses);
+  }
 
   // Supplement with the homepage's links if sitemap was thin
   if (allUrls.length < 5) {
@@ -251,7 +339,7 @@ async function crawlRenderedNavLinks(baseUrl: string, baseOrigin: string): Promi
   try {
     const { chromium } = await import('playwright');
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage(await desktopContextOptions(browser));
+    const page = await browser.newPage(await sourceContextOptions(browser, baseUrl));
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 

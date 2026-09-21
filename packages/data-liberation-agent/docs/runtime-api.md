@@ -34,7 +34,7 @@ Use a tested immutable DLA revision and provision browser dependencies during en
 | Operation | Inputs | Result and failure contract |
 | --- | --- | --- |
 | `inspectSource(url, options?)` | Bounded discovery/rendering options; `rendered: false` selects HTTP-only | `SourceInspection`, including complexity factors, coverage, unknowns and issues. Missing browser support becomes `browser-unavailable` and unknown complexity. Invalid input or an unrecoverable entry request rejects. |
-| `captureWebsite(options)` | `url`, `outputDir`, optional `resume`, `captureImages`, `learnFluid`, `onProgress` | `CaptureResult` with receipt path, route counts and failures. Individual route failures can resolve with `summary.routesFailed > 0`; callers must inspect that count. Setup errors reject. Output follows the existing cwd-local path contract. |
+| `captureWebsite(options)` | `url`, `outputDir`, optional `resume`, `captureImages`, `learnFluid`, `strict`, `onProgress` | `CaptureResult` with receipt path, route counts, `complete`, and `unresolvedAnchors`. A partial site still resolves with `complete: false` unless `strict: true`, which rejects with `IncompleteCaptureError`. Callers must inspect `complete` rather than inferring coverage from counters. Setup errors reject. Output follows the existing cwd-local path contract. |
 | `checkFidelity(options)` | `directory`, optional widths/sample size/screenshots/settling/log callback | `FidelityReport`. `pass: false` means measured fidelity or offline checks failed. Invalid artifacts, unavailable browser support and failed cleanup audits reject. Cleanup-aware comparison consumes the policy recorded by capture. |
 | `publishSite(options)` | `directory`, `target`, optional credentials/log callback | `PublishResult` from the selected target. Publishing is an explicit operation. Target and setup failures reject; optional attribution runs in disposable staging. |
 
@@ -48,7 +48,7 @@ export async function prepareSource(url, outputDir, acceptSource) {
   if (!acceptSource(inspection)) throw new Error('Source needs review');
 
   const capture = await captureWebsite({ url, outputDir });
-  if (capture.summary.routesFailed > 0) throw new Error('Capture is incomplete');
+  if (!capture.complete) throw new Error('Capture is incomplete');
 
   const comparison = await checkFidelity({ directory: outputDir });
   if (!comparison.pass) throw new Error('Captured site failed fidelity checks');

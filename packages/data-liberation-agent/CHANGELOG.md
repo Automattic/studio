@@ -15,6 +15,111 @@ Homeboy does not backfill history: the `0.2.1` and `0.2.2` entries below
 predate Homeboy adoption and were written by hand from their tag messages.
 Everything from the next release onward is Homeboy-generated.
 
+## [0.4.9] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- capture and localize video sources, and never drop a failed one
+
+## [0.4.8] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- recover shorthand-with-var() declarations the live CSSOM cannot re-serialize
+
+## [0.4.7] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- pair default-document captures by normalized URL
+
+## [0.4.6] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- carry a source's entry-URL session through capture and media fetch
+- root sitemap and robots.txt probes at the entry origin
+
+## [0.4.5] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- remove Wix 'Powered and secured by' credits
+
+## [0.4.4] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- Fix delayed Wix desktop anchor scrolling
+
+## [0.4.3] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- wait for images before responsive capture
+
+## [0.4.2] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- capture and localize linked audio files
+
+## [0.4.1] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- distinguish absent source routes from incomplete captures
+
+## [0.4.0] - 2026-09-21
+
+### Added
+- record selectable sets that drive a shared region
+
+### Changed
+- regenerate plugin bundles only on main
+
+### Fixed
+- keep a selectable-set probe from navigating the page
+- stop pager probing from clicking picture-only links off the route
+- remove the "Powered and secured by Wix" footer credit
+- ignore live text in the responsive document signature
+- preserve distinct directory and default-document captures
+- root the website export at the discovered origin, not the entry URL
+- replay captured dialogs onto the captured trigger, not a label match
+
+## [0.3.1] - 2026-09-18
+
+### Fixed
+- discover sitemap-index.xml and make incomplete captures explicit
+- reclaim the space a removed provider bar reserved in custom properties
+- load desktop source pages as desktop Chrome, not HeadlessChrome
+- rebase relative links when captured documents move
+- accept http and www variants of the entry host in sitemaps, and report rejections
+- discover every same-origin homepage link with a DOM, not landmark regexes
+- recognize a client-routed SPA not-found screen served as HTTP 200
+- stop a client-routed SPA control from navigating capture off its route
+- recognize unnamed builder chrome by structure, not vendor name
+- capture interaction triggers covered at the click point
+- stop treating data: and blob: URIs as unresolved dependencies
+
 ## [0.3.0] - 2026-09-17
 
 ### Added

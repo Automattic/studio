@@ -14,9 +14,25 @@ const POLL_MILLISECONDS = 100;
  * control's own thumbnail. Recognising the pair is structural — controls that
  * carry a picture and no label, beside a container whose children are mutually
  * exclusive — so any builder's picker is found without naming its classes.
+ *
+ * Anchors that carry a real destination are excluded. The states are read by
+ * clicking, so a link that goes somewhere takes the whole page with it and the
+ * route being captured is lost; a picture-only link grid is a thumbnail nav
+ * (related posts, a logo wall), not a picker. Same-page hrefs stay eligible,
+ * because a genuine picker commonly writes `#` or `#slide-2` and drives the
+ * stage from its own handler — the same line `selectable-set-capture` draws
+ * between a navigable link and a control.
  */
 export function markPagerSlideshows( limit: number ): { index: number; controls: number }[] {
+	const isNavigable = ( element: Element ): boolean => {
+		if ( element.tagName !== 'A' ) return false;
+		const href = ( element.getAttribute( 'href' ) ?? '' ).trim();
+		if ( ! href || href === '#' || href.startsWith( '#' ) ) return false;
+		if ( href.toLowerCase().startsWith( 'javascript:' ) ) return false;
+		return true;
+	};
 	const isImageOnlyControl = ( element: Element ): boolean =>
+		! isNavigable( element ) &&
 		( element.textContent ?? '' ).replace( /\u00a0/g, ' ' ).trim() === '' &&
 		element.querySelectorAll( 'img' ).length === 1 &&
 		( element.querySelector( 'img' )?.getAttribute( 'src' ) ?? '' ) !== '';

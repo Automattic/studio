@@ -129,7 +129,14 @@ export async function learnAndApplyFluidGeometry(
 						if ( property === 'top' ) {
 							const sourceId = element.getAttribute( 'data-dla-anchor-source-id' );
 							const source = sourceId ? document.getElementById( sourceId ) : null;
-							if ( source ) {
+							// A sticky/fixed source reports the current viewport edge, not
+							// the document destination the anchor observed. In that case
+							// retain the marker's measured document coordinate.
+							if (
+								source &&
+								! source.closest( 'header,[role="banner"]' ) &&
+								! [ 'fixed', 'sticky' ].includes( getComputedStyle( source ).position )
+							) {
 								values[ property ] = source.getBoundingClientRect().top + window.scrollY;
 								continue;
 							}

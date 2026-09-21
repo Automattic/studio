@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { connectBrowser, desktopContextOptions } from '../browser-kit/index.js';
+import { connectBrowser, sourceContextOptions } from '../browser-kit/index.js';
 import { classifyUrl, type UrlType } from '../extraction/sitemap.js';
 import { assertPublicHttpUrl } from '../media-fetch/safe-fetch.js';
 import { CHROME_AUDIT_PROPERTIES } from '../replicate/chrome-audit-types.js';
@@ -12,6 +12,7 @@ import { applyCaptureRemovals } from './apply-removals.js';
 import { applySourceCleanup, readSourceCleanup, cleanupPolicy, type CleanupPolicy } from '../source-cleanup.js';
 import { captureChromeFidelity } from './capture-chrome-fidelity.js';
 import { CssAggregator } from './css-aggregator.js';
+import { CSS_SHORTHAND_REPAIR_FACTORY_SOURCE } from './css-shorthand-repair.js';
 import { captureDesignForUrl, captureMobileBodyFragment } from './design-capture-runner.js';
 import { countBodyTags, isRouteDrift, isStackingArtifact } from './document-integrity.js';
 import { collectMobileChromeLayout } from './dom-capture.js';
@@ -26,6 +27,7 @@ import {
 import { applyPagerSlideshowStates, collectPagerSlideshowStates } from './pager-slideshow.js';
 import { captureScrollStates, type ScrollStatesReport } from './scroll-state-capture.js';
 import { hydrateDisclosureContent } from './dynamic-content.js';
+import { captureSelectableSetStates } from './selectable-set-capture.js';
 import { JsAggregator } from './js-aggregator.js';
 import { isAbsentDocumentError, isSourceCaptureUrl } from './absent-document.js';
 import { ManifestQueue, type ManifestEntry, type FailureEntry } from './manifest-queue.js';
@@ -267,29 +269,49 @@ export async function capturePageHtml( page: Page ): Promise< string > {
 	// each sheet from its active rules so the static capture preserves the styles the
 	// browser is actually applying. Runs once, after media settling: appending inside
 	// that retry loop would emit a duplicate <style> per attempt.
-	await page.evaluate( () => {
-		const sheets = new Set( [ ...document.styleSheets, ...document.adoptedStyleSheets ] );
-		for ( const sheet of sheets ) {
-			const owner = sheet.ownerNode;
-			if ( owner instanceof HTMLLinkElement ) continue;
-			let cssText = '';
-			try {
-				cssText = Array.from( sheet.cssRules ).map( ( rule ) => rule.cssText ).join( '\n' );
-			} catch {
-				// Cross-origin sheet: .cssRules throws. Its <link> is captured separately.
-				continue;
+	//
+	// Reading a rule's live cssText is itself lossy for one shape: a shorthand set via
+	// var() (e.g. `font: var(--token)`) followed, in the same declaration, by an
+	// explicit override of one of that shorthand's own longhands (e.g.
+	// `font-style: normal`) becomes a "pending-substitution value" the CSSOM cannot
+	// re-serialize — every longhand of the shorthand reads back as an empty
+	// declaration and the shorthand itself disappears. getComputedStyle still resolves
+	// it correctly; only the declaration *text* is unrecoverable through the CSSOM.
+	// Repair against the <style> owner's own pre-mutation textContent (read below,
+	// before it is overwritten) — see css-shorthand-repair.ts.
+	await page.evaluate(
+		( { factorySrc } ) => {
+			const repairShorthandVarCollapse = new Function( 'return (' + factorySrc + ')' )()();
+			const sheets = new Set( [ ...document.styleSheets, ...document.adoptedStyleSheets ] );
+			for ( const sheet of sheets ) {
+				const owner = sheet.ownerNode;
+				if ( owner instanceof HTMLLinkElement ) continue;
+				let cssText = '';
+				try {
+					cssText = Array.from( sheet.cssRules ).map( ( rule ) => rule.cssText ).join( '\n' );
+				} catch {
+					// Cross-origin sheet: .cssRules throws. Its <link> is captured separately.
+					continue;
+				}
+				if ( ! cssText ) continue;
+				if ( owner instanceof HTMLStyleElement && document.documentElement.contains( owner ) ) {
+					// Stylesheets copied from a linked resource already have their source
+					// text in the DOM. Replacing it with Chromium's cssRules serialization
+					// can change nested/media CSS semantics (notably responsive form grids).
+					// Keep the source text; constructed sheets still use the active rules
+					// below because they have no serializable owner node.
+					if ( owner.hasAttribute( 'data-href' ) ) continue;
+					owner.textContent = repairShorthandVarCollapse( cssText, owner.textContent ?? '' );
+					continue;
+				}
+				const style = document.createElement( 'style' );
+				style.setAttribute( 'data-dla-constructed-stylesheet', '' );
+				style.textContent = cssText;
+				document.head.appendChild( style );
 			}
-			if ( ! cssText ) continue;
-			if ( owner instanceof HTMLStyleElement && document.documentElement.contains( owner ) ) {
-				owner.textContent = cssText;
-				continue;
-			}
-			const style = document.createElement( 'style' );
-			style.setAttribute( 'data-dla-constructed-stylesheet', '' );
-			style.textContent = cssText;
-			document.head.appendChild( style );
-		}
-	} );
+		},
+		{ factorySrc: CSS_SHORTHAND_REPAIR_FACTORY_SOURCE.factorySrc }
+	);
 	try {
 		// Serialize in the renderer's current task. page.content() round-trips through
 		// DevTools and can race framework hydration, pairing a newer class namespace
@@ -1068,10 +1090,10 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		}
 	}
 
-	// Dialogs are captured only after every baseline artifact so probing a close
-	// control or trigger cannot alter screenshots, geometry, sidecars, or page HTML.
-	// Each viewport needs its own probe: a desktop dialog must not suppress a
-	// mobile-only trigger. Merge their bounded successful evidence rather than
+	// Dialogs and selectable sets are captured only after every baseline artifact
+	// so probing a trigger cannot alter screenshots, geometry, sidecars, or page
+	// HTML. Each viewport needs its own probe: a desktop dialog must not suppress
+	// a mobile-only trigger. Merge their bounded successful evidence rather than
 	// replacing a desktop-only dialog with a mobile-only menu.
 	try {
 		const interactions = await captureTriggeredDialogs( page, url );
@@ -1080,6 +1102,24 @@ async function capturePerViewport( args: CapturePerViewportArgs ): Promise< void
 		// diagnostics, using the same states array + totals the dialog/menu path
 		// already reports through, rather than a parallel reporting system.
 		interactions.states = [ ...disclosureStates, ...interactions.states ];
+		try {
+			const selectableStates = await captureSelectableSetStates( page );
+			if ( selectableStates.length > 0 ) {
+				interactions.states = [ ...interactions.states, ...selectableStates ];
+			}
+		} catch ( error ) {
+			interactions.states.push( {
+				status: 'click-failed',
+				kind: 'selectable-set',
+				trigger: {
+					selector: 'html',
+					tag: 'html',
+					ariaHaspopup: '',
+					dataBindings: {},
+				},
+				error: ( error instanceof Error ? error.message : String( error ) ).slice( 0, 500 ),
+			} );
+		}
 		if (
 			( interactions.states.length > 0 || ( interactions.initialDialogs?.length ?? 0 ) > 0 ) &&
 			( ! entry.interactions ||
@@ -1116,11 +1156,31 @@ function mergeInteractionReports(
 	latest: InteractionStatesReport
 ): InteractionStatesReport {
 	if ( ! previous ) return latest;
-	const states = mergeCapturedEvidence(
-		previous.states,
-		latest.states,
-		( state ) => state.trigger.id ?? state.trigger.selector
-	);
+	const identity = ( state: CapturedDialogInteraction ) =>
+		`${ state.kind ?? 'dialog' }:${ state.trigger.id ?? state.trigger.selector }`;
+	const ofKind =
+		( kind: NonNullable< CapturedDialogInteraction[ 'kind' ] > | 'dialog' ) =>
+		( state: CapturedDialogInteraction ) =>
+			( state.kind ?? 'dialog' ) === kind;
+	const states = [
+		...mergeCapturedEvidence(
+			previous.states.filter( ofKind( 'disclosure' ) ),
+			latest.states.filter( ofKind( 'disclosure' ) ),
+			identity,
+			Number.POSITIVE_INFINITY
+		),
+		...mergeCapturedEvidence(
+			previous.states.filter( ofKind( 'dialog' ) ),
+			latest.states.filter( ofKind( 'dialog' ) ),
+			identity
+		),
+		...mergeCapturedEvidence(
+			previous.states.filter( ofKind( 'selectable-set' ) ),
+			latest.states.filter( ofKind( 'selectable-set' ) ),
+			identity,
+			Number.POSITIVE_INFINITY
+		),
+	];
 	const initialDialogs = mergeCapturedEvidence(
 		previous.initialDialogs ?? [],
 		latest.initialDialogs ?? [],
@@ -1136,7 +1196,8 @@ function mergeInteractionReports(
 function mergeCapturedEvidence< T extends { status: string } >(
 	previous: T[],
 	latest: T[],
-	identity: ( state: T ) => string
+	identity: ( state: T ) => string,
+	limit = MAX_CAPTURED_DIALOGS
 ): T[] {
 	const merged = new Map< string, T >();
 	for ( const state of previous ) merged.set( identity( state ), state );
@@ -1146,10 +1207,11 @@ function mergeCapturedEvidence< T extends { status: string } >(
 		if ( state.status === 'captured' || existing?.status !== 'captured' ) merged.set( key, state );
 	}
 	const states = Array.from( merged.values() );
-	return [
+	const ordered = [
 		...states.filter( ( state ) => state.status === 'captured' ),
 		...states.filter( ( state ) => state.status !== 'captured' ),
-	].slice( 0, MAX_CAPTURED_DIALOGS );
+	];
+	return Number.isFinite( limit ) ? ordered.slice( 0, limit ) : ordered;
 }
 
 /**
@@ -1302,6 +1364,11 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 			: `https://${ opts.primaryUrl }`
 		: null;
 	enforceSameOrigin( primaryRef, urls );
+	// The URL a session (if any) is harvested from — see sourceContextOptions
+	// call below. Falls back to the first route when no primaryUrl was given
+	// (e.g. a direct captureScreenshots() call), which just reproduces the
+	// prior no-session behavior for that origin.
+	const entryUrl = primaryRef ?? urls[ 0 ] ?? '';
 
 	// --- output layout -------------------------------------------------------
 	mkdirSync( join( opts.outputDir, 'screenshots', 'desktop' ), { recursive: true } );
@@ -1439,10 +1506,16 @@ export async function captureScreenshots( opts: ScreenshotOpts ): Promise< Scree
 				// Each viewport loads as a real browser: builders can select viewport
 				// metadata, navigation, and layout from the identity, and anti-bot
 				// challenges refuse Playwright's default HeadlessChrome one.
+				//
+				// entryUrl (not `url`) is what gets navigated to harvest a session:
+				// some sources gate every route/asset behind a session only the
+				// tokenized ENTRY url establishes. Keyed by origin, so this navigates
+				// once per run — every worker and viewport for every route reuses it.
+				const sessionContext = await sourceContextOptions( browser, entryUrl );
 				context = await browser.newContext( {
 					...( viewport.id === 'mobile'
-						? IPHONE_17_CONTEXT
-						: await desktopContextOptions( browser ) ),
+						? { ...IPHONE_17_CONTEXT, storageState: sessionContext.storageState }
+						: sessionContext ),
 					viewport: { width: viewport.width, height: viewport.height },
 					deviceScaleFactor:
 						viewport.id === 'desktop'

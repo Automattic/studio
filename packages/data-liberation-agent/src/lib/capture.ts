@@ -25,7 +25,22 @@ export interface CaptureOptions {
 	captureImages?: boolean;
 	/** Learn responsive sizing by sweeping widths instead of freezing one. */
 	learnFluid?: boolean;
+	/**
+	 * Fail closed when the capture is incomplete. Default is false: a partial
+	 * site is still written and returned with `complete: false`. Programmatic
+	 * callers that used to guard on `routesFailed > 0` should check `complete`
+	 * instead, or pass `strict: true` to reject.
+	 */
+	strict?: boolean;
 	onProgress?: ( progress: CaptureProgress ) => void;
+}
+
+export interface UnresolvedAnchor {
+	sourceUrl: string;
+	reason: string;
+	fragment?: string;
+	targetCount?: number;
+	url?: string;
 }
 
 export interface CaptureResult {
@@ -37,9 +52,12 @@ export interface CaptureResult {
 		routesSkipped: number;
 		routesFailed: number;
 		durationMs: number;
+		complete: boolean;
 	};
+	complete: boolean;
 	failures: Array< { url: unknown; error: unknown } >;
 	discoveryDiagnostics: Array< { code: string; url: string; reason: string } >;
+	unresolvedAnchors: UnresolvedAnchor[];
 	provenance: { provider: string; platform: string };
 }
 
@@ -48,6 +66,16 @@ export interface CaptureDependencies {
 }
 
 export class UnsupportedCapturePlatformError extends Error {}
+
+export class IncompleteCaptureError extends Error {
+	readonly result: CaptureResult;
+
+	constructor( result: CaptureResult ) {
+		super( 'Capture is incomplete' );
+		this.name = 'IncompleteCaptureError';
+		this.result = result;
+	}
+}
 
 const defaultDependencies: CaptureDependencies = { findAdapter };
 
@@ -210,14 +238,34 @@ export async function captureWebsite(
 		failures,
 		discoveryDiagnostics: inventory.diagnostics ?? [],
 	} );
-	const result = {
+	const unresolvedAnchors = readUnresolvedAnchors( outputDir );
+	const complete =
+		summary.routesFailed === 0 &&
+		unresolvedAnchors.every( ( anchor ) => anchor.reason !== 'target route was not captured' );
+	const result: CaptureResult = {
 		captureReceiptPath,
 		outputDir,
-		summary,
+		summary: { ...summary, complete },
+		complete,
 		failures,
 		discoveryDiagnostics: inventory.diagnostics ?? [],
+		unresolvedAnchors,
 		provenance: { provider: 'data-liberation/browser-capture', platform: detection.platform },
 	};
 	progress( { phase: 'complete', current: urls.length, total: urls.length } );
+	if ( options.strict && ! complete ) throw new IncompleteCaptureError( result );
 	return result;
+}
+
+function readUnresolvedAnchors( outputDir: string ): UnresolvedAnchor[] {
+	const diagnosticsPath = join( outputDir, 'diagnostics.json' );
+	if ( ! existsSync( diagnosticsPath ) ) return [];
+	try {
+		const diagnostics = JSON.parse( readFileSync( diagnosticsPath, 'utf8' ) ) as {
+			unresolvedAnchors?: UnresolvedAnchor[];
+		};
+		return Array.isArray( diagnostics.unresolvedAnchors ) ? diagnostics.unresolvedAnchors : [];
+	} catch {
+		return [];
+	}
 }

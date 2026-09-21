@@ -1,5 +1,5 @@
 import type { Browser, Page } from 'playwright';
-import { desktopContextOptions } from './browser-kit/browser-kit.js';
+import { desktopContextOptions, sourceSessionCookieHeader } from './browser-kit/browser-kit.js';
 import { safeFetch, assertPublicHttpUrl } from './media-fetch/safe-fetch.js';
 
 /**
@@ -117,6 +117,14 @@ export async function createRenderedInspector(signal: AbortSignal, requestTimeou
                 10 * 1024 * 1024 - bytes
               ),
               signal: sampleSignal,
+              // Every request this page makes is actually fetched here, not by
+              // the browser — so a source gated behind an entry-URL session
+              // needs its cookie forwarded per request, scoped to that
+              // request's own origin so it can't follow a cross-origin redirect.
+              headersForOrigin: async (origin) => {
+                const cookie = await sourceSessionCookieHeader(origin);
+                return cookie ? { cookie } : undefined;
+              },
             });
             bytes += response.body.length;
             if (bytes > 10 * 1024 * 1024) { limited = true; throw new Error('Rendered byte budget reached'); }

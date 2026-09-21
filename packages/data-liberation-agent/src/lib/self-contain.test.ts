@@ -48,6 +48,24 @@ describe( 'self-contain', () => {
 		expect( html ).toContain( 'about:blank' );
 	} );
 
+	it( 'keeps a remote video/source/audio src instead of stripping it', () => {
+		const html = stripRemoteAssetRequests(
+			[
+				'<video src="https://cdn.example/clip.mp4" poster="https://cdn.example/clip.jpg" preload="none"></video>',
+				'<video><source src="https://cdn.example/clip.webm" type="video/webm"></video>',
+				'<audio src="https://cdn.example/track.mp3"></audio>',
+			].join( '' )
+		);
+		expect( html ).toContain( 'src="https://cdn.example/clip.mp4"' );
+		expect( html ).toContain( 'src="https://cdn.example/clip.webm"' );
+		expect( html ).toContain( 'src="https://cdn.example/track.mp3"' );
+		// A leftover remote `poster` reaching this pass is the capture-export
+		// fallback stub having been bypassed (an edge case, not the normal
+		// path) — self-contain's existing "drop it" behavior for a stray
+		// remote poster is unchanged; only `src` on media elements is exempt.
+		expect( html ).not.toContain( 'https://cdn.example/clip.jpg' );
+	} );
+
 	it( 'drops 1x1 gif placeholders from srcset so the browser cannot pick them', () => {
 		const html = stripRemoteAssetRequests(
 			'<img width="2660" src="/files/hero.png" srcset="/media/hero-2660.png 2660w, data:image/gif;base64, R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs= 1536w, /media/hero-2048.png 2048w"><source srcset="R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">'

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
+import { sourceSessionCookieHeader } from '../browser-kit/browser-kit.js';
 import { safeFetch, type SafeFetchResult } from '../media-fetch/safe-fetch.js';
 import type { Page, Response } from 'playwright';
 
@@ -185,6 +186,15 @@ function canonicalContentType( contentType: string ): string {
 	return contentType.trim().toLowerCase() === 'woff2' ? 'font/woff2' : contentType;
 }
 
+export function isAudioLink( reference: string, documentUrl: string ): boolean {
+	try {
+		const url = new URL( reference.replace( /&amp;/g, '&' ), documentUrl );
+		return /^https?:$/.test( url.protocol ) && /\.(?:mp3|ogg|wav)$/i.test( url.pathname );
+	} catch {
+		return false;
+	}
+}
+
 export class CapturedResourceStore {
 	private readonly origin: string;
 	private readonly resourceDir: string;
@@ -206,8 +216,22 @@ export class CapturedResourceStore {
 	constructor(
 		outputDir: string,
 		sourceUrl: string,
+		// A source gated behind an entry-URL-only session (the URL carries a
+		// token, the origin answers with Set-Cookie) requires that cookie for
+		// EVERY asset, not just the navigated document — video and poster URLs
+		// referenced in the DOM are fetched independently here, never through
+		// the browser that holds the session. Without it every such asset
+		// 403s, which used to surface as "never captured" rather than an
+		// authentication failure.
 		fetchMedia: ( url: string ) => Promise< SafeFetchResult > = ( url ) =>
-			safeFetch( url, { maxBytes: MAX_CAPTURED_RESOURCE_BYTES, timeoutMs: 10_000 } )
+			safeFetch( url, {
+				maxBytes: MAX_CAPTURED_RESOURCE_BYTES,
+				timeoutMs: 10_000,
+				headersForOrigin: async ( origin ) => {
+					const cookie = await sourceSessionCookieHeader( origin );
+					return cookie ? { cookie } : undefined;
+				},
+			} )
 	) {
 		this.origin = new URL( sourceUrl ).origin;
 		this.resourceDir = resolve( outputDir, 'resources' );
@@ -282,6 +306,10 @@ export class CapturedResourceStore {
 				}
 				for ( const candidate of srcsetReferences( node.attr( 'srcset' ) ?? '' ) )
 					add( candidate, baseUrl );
+			} );
+			$( 'a[href],area[href]' ).each( ( _, element ) => {
+				const href = $( element ).attr( 'href' ) ?? '';
+				if ( isAudioLink( href, baseUrl ) ) add( href, baseUrl );
 			} );
 			$( 'link[href]' ).each( ( _, element ) => {
 				const node = $( element );

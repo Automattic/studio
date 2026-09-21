@@ -1,6 +1,6 @@
 import { fetchSitemapWithDiagnostics, classifyUrl, extractSameOriginLinks } from '../../lib/extraction/sitemap.js';
 import { extractMeta, extractTitle, extractNavLinks } from '../../lib/html-extract/index.js';
-import { desktopContextOptions, getPlaywright } from '../../lib/browser-kit/browser-kit.js';
+import { sourceContextOptions, getPlaywright } from '../../lib/browser-kit/browser-kit.js';
 import type { InventoryUrl } from '../shared.js';
 import type { DefaultInventory } from './types.js';
 
@@ -47,7 +47,7 @@ export async function discoverDefault(url: string, _opts: Record<string, unknown
       const pw = await getPlaywright();
       const browser = await pw.chromium.launch({ headless: true });
       try {
-        const page = await browser.newPage(await desktopContextOptions(browser));
+        const page = await browser.newPage(await sourceContextOptions(browser, normalized));
         await page.goto(normalized, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
         const renderedNavigation = extractNavLinks(await page.content(), page.url());

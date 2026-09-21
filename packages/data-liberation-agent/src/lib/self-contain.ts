@@ -169,8 +169,22 @@ export function stripRemoteAssetRequests( html: string ): string {
 		for ( const attribute of [ 'src', 'poster' ] ) {
 			const value = node.attr( attribute );
 			if ( ! value || ! isRemoteAssetUrl( value ) ) continue;
-			if ( tag === 'img' && attribute === 'src' ) node.attr( 'src', TRANSPARENT_IMAGE );
-			else node.removeAttr( attribute );
+			if ( tag === 'img' && attribute === 'src' ) {
+				node.attr( 'src', TRANSPARENT_IMAGE );
+			} else if (
+				attribute === 'src' &&
+				( tag === 'source' || tag === 'video' || tag === 'audio' )
+			) {
+				// `src` on these elements names the media itself, not a fetch
+				// that runs on page load (playback is user-initiated, and
+				// capture never localized it): stripping it would leave the
+				// element unrecoverable downstream, the same class of loss
+				// this export already avoids for a plain `<a href>`. Leave it
+				// pointing at the source rather than removing it.
+				continue;
+			} else {
+				node.removeAttr( attribute );
+			}
 		}
 	} );
 	$( '[srcset]' ).each( ( _, element ) => {

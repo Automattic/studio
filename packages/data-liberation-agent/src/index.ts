@@ -30,8 +30,8 @@ export type { Host, HostDetection, HostResidueRule, DetectedHost } from './platf
 
 export { detect as detectPlatform, detectFromUrl, detectFromHttp } from './lib/detect-platform/index.js';
 export { inspectSource, InspectError, INSPECTION_SCHEMA_VERSION } from './lib/inspect.js';
-export { captureWebsite, UnsupportedCapturePlatformError } from './lib/capture.js';
-export type { CaptureOptions, CaptureResult, CaptureProgress, CaptureDependencies } from './lib/capture.js';
+export { captureWebsite, UnsupportedCapturePlatformError, IncompleteCaptureError } from './lib/capture.js';
+export type { CaptureOptions, CaptureResult, CaptureProgress, CaptureDependencies, UnresolvedAnchor } from './lib/capture.js';
 export { checkFidelity } from './lib/fidelity/check.js';
 export type { FidelityCheckOptions, FidelityReport, RouteScore, ObservePair } from './lib/fidelity/check.js';
 export type {

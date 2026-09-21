@@ -34,7 +34,7 @@ import {
 	type InteractionStatesReport,
 } from './screenshot/interaction-capture.js';
 import { SCROLL_STATES_SCHEMA, type ScrollStatesReport } from './screenshot/scroll-state-capture.js';
-import type { CapturedResourceManifest } from './screenshot/resource-capture.js';
+import { isAudioLink, type CapturedResourceManifest } from './screenshot/resource-capture.js';
 import { isSourcePromotion } from './source-cleanup.js';
 
 export const CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
@@ -289,8 +289,28 @@ function normalizedUrl( url: string ): string {
 	return parsed.href;
 }
 
-function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string ): string {
-	if ( url === entrypointUrl ) return 'index.html';
+function isOriginRootPath( pathname: string ): boolean {
+	return ( pathname.replace( /\/$/, '' ) || '/' ) === '/';
+}
+
+function capturedOriginRoot( urls: string[], origin: string ): boolean {
+	return urls.some( ( url ) => {
+		try {
+			const route = new URL( url );
+			return route.origin === origin && isOriginRootPath( route.pathname );
+		} catch {
+			return false;
+		}
+	} );
+}
+
+function routeOutputPath(
+	url: string,
+	sourceUrl: string,
+	entrypointUrl: string,
+	originRootCaptured: boolean
+): string {
+	if ( url === entrypointUrl && ! originRootCaptured ) return 'index.html';
 	const route = new URL( url );
 	const source = new URL( sourceUrl );
 	// Artifact paths must retain URL percent-encoding. Decoding turns a valid
@@ -306,21 +326,16 @@ function routeOutputPath( url: string, sourceUrl: string, entrypointUrl: string 
 		if ( decoded === '.' || decoded === '..' || /[\\/\0]/.test( decoded ) )
 			throw new Error( `Captured route path escapes the website directory: ${ route.pathname }` );
 	}
-	const sourcePath = source.pathname.replace( /\/$/, '' );
-	const outsideSourcePath =
-		route.origin === source.origin &&
-		sourcePath !== '' &&
-		pathname.replace( /\/$/, '' ) !== sourcePath &&
-		! pathname.startsWith( `${ sourcePath }/` );
+	const sourcePath = originRootCaptured ? '' : source.pathname.replace( /\/$/, '' );
 
 	if ( route.origin === source.origin && sourcePath && pathname.startsWith( `${ sourcePath }/` ) ) {
 		pathname = pathname.slice( sourcePath.length );
-	} else if ( route.origin === source.origin && pathname.replace( /\/$/, '' ) === sourcePath ) {
+	} else if ( route.origin === source.origin && sourcePath && pathname.replace( /\/$/, '' ) === sourcePath ) {
 		pathname = '/';
 	}
 
 	const cleanPath = pathname.replace( /^\/+|\/+$/g, '' );
-	if ( ! cleanPath ) return outsideSourcePath ? 'site-root/index.html' : 'index.html';
+	if ( ! cleanPath ) return 'index.html';
 	if ( /\.[a-z0-9]+$/i.test( cleanPath ) ) return cleanPath;
 	return join( cleanPath, 'index.html' );
 }
@@ -658,10 +673,13 @@ function isUnstableResponsiveId( id: string ): boolean {
 
 /**
  * Whether the source served a genuinely different document under mobile
- * emulation, rather than the same one. Structural, so runtime ids, capture
- * infrastructure attributes, text differences, and embed hosts (iframes that
- * hydrated on one viewport and not the other) do not masquerade as a
- * second design.
+ * emulation, rather than the same one. The comparison is the element tree,
+ * ordering, and structural attributes. Runtime ids, capture infrastructure
+ * attributes, all text content, and embed hosts (iframes that hydrated on
+ * one viewport and not the other) do not masquerade as a second design.
+ * Text is ignored because desktop and mobile captures are taken seconds
+ * apart, so any live value — a countdown, a cart count, relative time —
+ * would otherwise ship two copies of the same responsive document.
  */
 export function documentsDiffer( desktopHtml: string, mobileHtml: string ): boolean {
 	const desktopBody = /<body\b([^>]*)>([\s\S]*?)<\/body\s*>/i.exec( desktopHtml )?.[ 2 ];
@@ -1183,13 +1201,6 @@ function responsiveBodySignature( body: string ): string {
 		if ( isYuiRuntimeId( $( element ).attr( 'id' ) ?? '' ) ) $( element ).remove();
 	} );
 	$( 'svg,map,area,picture,source,img,canvas,slot' ).remove();
-	$( '[id]' ).each( ( _index, element ) => {
-		$( element )
-			.contents()
-			.each( ( _childIndex, child ) => {
-				if ( child.type === 'text' ) child.data = '';
-			} );
-	} );
 	$( '*' )
 		.contents()
 		.each( ( _index, child ) => {
@@ -1227,6 +1238,11 @@ function responsiveBodySignature( body: string ): string {
 			}
 		} );
 	}
+	$( '*' )
+		.contents()
+		.each( ( _index, child ) => {
+			if ( child.type === 'text' ) child.data = '';
+		} );
 	return ( $( 'body' ).html() ?? '' ).replace( />\s+</g, '><' ).replace( /\s+/g, ' ' ).trim();
 }
 
@@ -1506,8 +1522,13 @@ function dependencyReferences(
 		.replace( /&quot;|&#34;|&#x22;/gi, '"' )
 		.replace( /&apos;|&#39;|&#x27;/gi, "'" );
 	let cssContent = searchableHtml;
+	const audioLinks: string[] = [];
 	if ( ! cssOnly ) {
 		const $ = cheerio.load( html );
+		$( 'a[href],area[href]' ).each( ( _, element ) => {
+			const href = $( element ).attr( 'href' ) ?? '';
+			if ( isAudioLink( href, documentUrl ) ) audioLinks.push( href );
+		} );
 		cssContent = [
 			...$( 'style' )
 				.map( ( _index, element ) => $( element ).html() ?? '' )
@@ -1527,6 +1548,7 @@ function dependencyReferences(
 		// must not be recorded, let alone reported as unresolved.
 		if ( reference && ! isInlineUrl( reference ) ) references.add( reference.replace( /&amp;/g, '&' ) );
 	};
+	for ( const href of audioLinks ) add( href );
 
 	const mediaReferences = new Set< string >();
 	const cssReferences = new Set< string >();
@@ -1615,8 +1637,7 @@ interface AssetEvidenceReferences {
 
 function assetReferences(
 	entries: CaptureEntry[],
-	sourceUrl: string,
-	entrypointUrl: string,
+	routePathOf: ( url: string ) => string,
 	resourceManifest: CapturedResourceManifest,
 	outputDir: string
 ): AssetEvidenceReferences {
@@ -1644,7 +1665,7 @@ function assetReferences(
 		if ( indexed.references.length < MAX_ASSET_EVIDENCE_REFERENCES ) indexed.references.push( location );
 	};
 	for ( const entry of entries ) {
-		const path = `website/${ routeOutputPath( entry.url, sourceUrl, entrypointUrl ).replace( /\\/g, '/' ) }`;
+		const path = `website/${ routePathOf( entry.url ) }`;
 		const visitedCss = new Set< string >();
 		const visit = ( dependency: PortableDependency, document: AssetEvidenceReference[ 'document' ] ) => {
 			add( dependency, { route: entry.url, path, document, reference: dependency.reference } );
@@ -1744,18 +1765,35 @@ function assetEvidence(
 function removeDanglingMediaSource(
 	html: string,
 	reference: string,
+	resolvedUrl: string,
 	rejectedKeys?: Set< string >
 ): string {
 	const normalizedReference = reference.replace( /&amp;/g, '&' );
+	// A video/source/audio `src` that could not be localized must keep naming
+	// a real, fetchable location rather than an empty attribute: an emptied
+	// `src` is unrecoverable downstream (a WordPress import, say, drops the
+	// element entirely), while the resolved source URL at least survives as
+	// external evidence with a matching diagnostic already recorded by the
+	// caller. `poster` (an ordinary image, handled below) keeps the existing
+	// stub behavior — losing a preview thumbnail is not the same class of
+	// loss as losing the media itself.
+	let strippedNonImageSrc = false;
 	const withoutSources = html.replace( /<(img|source|video|audio)\b[^>]*>/gi, ( tag ) => {
 		const element = /^<(\w+)/.exec( tag )?.[ 1 ].toLowerCase();
 		const src = /\bsrc\s*=\s*(["'])([\s\S]*?)\1/i.exec( tag )?.[ 2 ].replace( /&amp;/g, '&' );
-		return src === normalizedReference
-			? element === 'img'
-				? tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` )
-				: tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, '' )
-			: tag;
+		if ( src !== normalizedReference ) return tag;
+		if ( element === 'img' ) {
+			return tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, ` src="${ TRANSPARENT_IMAGE_DATA_URL }"` );
+		}
+		strippedNonImageSrc = true;
+		return tag.replace( /\s+src\s*=\s*(["'])([\s\S]*?)\1/i, ` src="${ resolvedUrl }"` );
 	} );
+	// Once a non-image `src` has been repointed at its resolved URL, the
+	// broad substring pass below must not run: `resolvedUrl` commonly
+	// contains `reference` as a trailing substring (a relative reference
+	// resolved against its document), and re-scanning would immediately
+	// mangle the replacement it just made.
+	if ( strippedNonImageSrc ) return withoutSources;
 	return replaceAll(
 		withoutSources,
 		new Map( [
@@ -2013,6 +2051,61 @@ function unresolvedCapturedAnchors(
 	} ) );
 }
 
+const UNCAPTURED_ROUTE_REASON = 'target route was not captured';
+const SKIP_UNCAPTURED_PATHS = /^\/(cart|account|login|signup|checkout|search|api|admin|favicon)/i;
+const UNCAPTURED_ASSET_PATH =
+	/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|pdf|zip|xml|json)$/i;
+
+/**
+ * Same-origin page links in captured HTML whose target was never captured.
+ *
+ * Checked against the pre-rewrite document so hrefs still resolve on the
+ * source origin. No extra network: the route set is whatever export already
+ * retained on disk.
+ */
+function uncapturedRouteAnchors(
+	html: string,
+	sourceUrl: string,
+	capturedRoutes: Set< string >,
+	absentRoutes: Set< string >
+): Array< { sourceUrl: string; url: string; reason: string } > {
+	let documentUrl: URL;
+	try {
+		documentUrl = new URL( sourceUrl );
+	} catch {
+		return [];
+	}
+	const $ = cheerio.load( html );
+	const missing = new Map< string, string >();
+	$( 'a[href],area[href]' ).each( ( _index, element ) => {
+		const href = ( $( element ).attr( 'href' ) ?? '' ).trim();
+		if ( ! href || href === '#' ) return;
+		let resolved: URL;
+		try {
+			resolved = new URL( href, sourceUrl );
+		} catch {
+			return;
+		}
+		if ( resolved.protocol !== 'http:' && resolved.protocol !== 'https:' ) return;
+		if ( resolved.origin !== documentUrl.origin ) return;
+		if ( UNCAPTURED_ASSET_PATH.test( resolved.pathname ) || isAudioLink( href, sourceUrl ) ) return;
+		if ( SKIP_UNCAPTURED_PATHS.test( resolved.pathname ) ) return;
+		let key: string;
+		try {
+			key = normalizedUrl( resolved.href );
+		} catch {
+			return;
+		}
+		if ( capturedRoutes.has( key ) || missing.has( key ) ) return;
+		missing.set( key, key );
+	} );
+	return [ ...missing.values() ].map( ( url ) => ( {
+		sourceUrl,
+		url,
+		reason: absentRoutes.has( url ) ? 'target route is absent at source' : UNCAPTURED_ROUTE_REASON,
+	} ) );
+}
+
 /**
  * Group screenshot-stage failures (goto timeouts, nested-document rejections,
  * etc.) by URL so a route that never produced HTML can report every viewport
@@ -2212,6 +2305,58 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		);
 	}
 	const entrypointUrl = entrypointCandidates[ 0 ].url;
+	const originRootCaptured = capturedOriginRoot(
+		capturedEntries.map( ( entry ) => entry.url ),
+		new URL( options.sourceUrl ).origin
+	);
+	const naturalRoutePath = ( url: string ) =>
+		routeOutputPath( url, options.sourceUrl, entrypointUrl, originRootCaptured ).replace(
+			/\\/g,
+			'/'
+		);
+	const allocatedPaths = new Map< string, string >();
+	const reservedPaths = new Set( capturedEntries.map( ( entry ) => naturalRoutePath( entry.url ) ) );
+	// Keyed by normalized URL, not the raw captured URL: an entry URL carrying
+	// a query string or fragment (a tokenized link, tracking parameter, etc.)
+	// still names the site root, and its captured directory route must be
+	// found by what it resolves to rather than by exact string equality.
+	const entriesByNormalizedUrl = new Map(
+		capturedEntries.map( ( entry ) => [ normalizedUrl( entry.url ), entry ] )
+	);
+	// Two captured URLs naming the same document are content-duplicates when
+	// they render identically; recorded here so the dedupe pass below treats
+	// them the same way a declared canonical route already would.
+	const contentAliasPartners = new Map< string, string >();
+	// A directory and its default document can be distinct pages. Keep both
+	// unless the existing canonical contract proves an alias. Reserve every
+	// natural path first so a generated filename never steals another route.
+	for ( const entry of capturedEntries ) {
+		const url = new URL( entry.url );
+		if ( url.search || url.hash || ! url.pathname.endsWith( '/index.html' ) ) continue;
+		const directoryUrl = new URL( './', url ).href;
+		const directory = entriesByNormalizedUrl.get( normalizedUrl( directoryUrl ) );
+		const path = naturalRoutePath( entry.url );
+		if ( ! directory || naturalRoutePath( directoryUrl ) !== path ) continue;
+		if ( declaresCanonicalRoute( entry, directory ) || declaresCanonicalRoute( directory, entry ) ) continue;
+		if ( readFileSync( entry.htmlPath, 'utf8' ) === readFileSync( directory.htmlPath, 'utf8' ) ) {
+			contentAliasPartners.set( entry.url, directory.url );
+			contentAliasPartners.set( directory.url, entry.url );
+			continue;
+		}
+		const displaced = entry.url === entrypointUrl ? directory : entry;
+		if ( [ ...reservedPaths ].some( ( reserved ) => path.startsWith( `${ reserved }/` ) ) )
+			throw new Error( `Captured route needs a directory already claimed by a file: ${ path }` );
+		let suffix = 2;
+		let allocated: string;
+		do {
+			allocated = `${ path.slice( 0, -'.html'.length ) }-${ suffix++ }.html`;
+		} while ( [ ...reservedPaths ].some( ( reserved ) =>
+			reserved === allocated || reserved.startsWith( `${ allocated }/` )
+		) );
+		reservedPaths.add( allocated );
+		allocatedPaths.set( displaced.url, allocated );
+	}
+	const routePathOf = ( url: string ) => allocatedPaths.get( url ) ?? naturalRoutePath( url );
 
 	const retainedEntries: CaptureEntry[] = [];
 	const duplicateRoutes: Array< { url: string; canonicalUrl: string; path: string } > = [];
@@ -2221,17 +2366,17 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		...capturedEntries.filter( ( { url } ) => url === entrypointUrl ),
 		...capturedEntries.filter( ( { url } ) => url !== entrypointUrl ),
 	] ) {
-		const routePath = routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
-			/\\/g,
-			'/'
-		);
+		const routePath = routePathOf( entry.url );
 		const claimed = claimedRoutes.get( routePath );
 		if ( ! claimed ) {
 			claimedRoutes.set( routePath, entry );
 			retainedEntries.push( entry );
 			continue;
 		}
-		if ( ! declaresCanonicalRoute( entry, claimed ) ) {
+		if (
+			! declaresCanonicalRoute( entry, claimed ) &&
+			contentAliasPartners.get( entry.url ) !== claimed.url
+		) {
 			throw new Error( `Captured routes resolve to the same website path: ${ routePath }` );
 		}
 		if ( entry.jsonLd.length > 0 ) {
@@ -2254,7 +2399,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! isUsableSectionEvidence( desktop ) ) return [];
 		const mobile = mobileSections.get( entry.url );
 		return [ {
-			path: `website/${ routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace( /\\/g, '/' ) }`,
+			path: `website/${ routePathOf( entry.url ) }`,
 			url: entry.url,
 			viewports: {
 				desktop: semanticSectionEvidence( desktop ),
@@ -2273,8 +2418,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const resourceManifest = capturedResources( outputDir );
 	const assetReferenceLocations = assetReferences(
 		retainedEntries,
-		options.sourceUrl,
-		entrypointUrl,
+		routePathOf,
 		resourceManifest,
 		outputDir
 	);
@@ -2594,7 +2738,12 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			} else {
 				html =
 					dependency.kind === 'media'
-						? removeDanglingMediaSource( html, dependency.reference, rejectedReplacementKeys )
+						? removeDanglingMediaSource(
+								html,
+								dependency.reference,
+								dependency.url,
+								rejectedReplacementKeys
+						  )
 						: dependency.kind === 'css'
 						? replaceDanglingCssUrl( html, dependency.reference, rejectedReplacementKeys )
 						: removeDanglingResourceReference( html, dependency.reference );
@@ -2675,10 +2824,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	const portableRouteLinks = new Map< string, string >();
 	for ( const entry of retainedEntries ) {
 		const { url } = entry;
-		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
-			/\\/g,
-			'/'
-		);
+		const routePath = routePathOf( url );
 		const portablePath = `/${ routePath }`;
 		portableRouteLinks.set( normalizedUrl( url ), portablePath );
 		routes.push( {
@@ -2695,10 +2841,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		if ( ! canonicalUrl ) continue;
 		const canonicalKey = normalizedUrl( canonicalUrl );
 		if ( portableRouteLinks.has( canonicalKey ) ) continue;
-		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
-			/\\/g,
-			'/'
-		);
+		const routePath = routePathOf( url );
 		portableRouteLinks.set( canonicalKey, `/${ routePath }` );
 	}
 
@@ -2724,24 +2867,31 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 
 	const unresolvedAnchors: Array< {
 		sourceUrl: string;
-		fragment: string;
-		targetCount: number;
 		reason: string;
+		fragment?: string;
+		targetCount?: number;
+		url?: string;
 	} > = [];
+	const capturedRouteKeys = new Set( portableRouteLinks.keys() );
+	const absentRoutes = new Set( routeCaptureDiagnostics
+		.filter( ( diagnostic ) => diagnostic.code === 'route_not_found' )
+		.map( ( diagnostic ) => diagnostic.url ) );
+	const absentRouteKeys = new Set( [ ...absentRoutes ].map( normalizedUrl ) );
 	for ( const entry of retainedEntries ) {
 		const { url, htmlPath } = entry;
-		const routePath = routeOutputPath( url, options.sourceUrl, entrypointUrl ).replace(
-			/\\/g,
-			'/'
-		);
+		const routePath = routePathOf( url );
 		const destination = join( websiteDir, routePath );
 		if ( ! pathWithin( websiteDir, destination ) ) {
 			throw new Error( `Captured route escapes the website directory: ${ url }` );
 		}
 		mkdirSync( dirname( destination ), { recursive: true } );
+		const originalHtml = readFileSync( htmlPath, 'utf8' );
+		unresolvedAnchors.push( ...uncapturedRouteAnchors( originalHtml, url, capturedRouteKeys, absentRouteKeys ) );
+		// Rewrite route links once, after wiring dialogs below. A portable path
+		// can also name a source route that was allocated a different filename.
 		const identityHtml = replaceAll(
 			rewriteMediaUrls(
-				rewriteCapturedRouteLinks( readFileSync( htmlPath, 'utf8' ), url, portableRouteLinks ),
+				originalHtml,
 				omitDegenerateReplacements( mediaReplacements, rejectedReplacementKeys )
 			),
 			resourceReplacements,
@@ -2793,10 +2943,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 						( geometryCaptureOmissions[ 'capture_invalid' ] ?? 0 ) + 1;
 				}
 			}
-			const routePath = routeOutputPath( entry.url, options.sourceUrl, entrypointUrl ).replace(
-				/\\/g,
-				'/'
-			);
+			const routePath = routePathOf( entry.url );
 			const html = readFileSync( join( websiteDir, routePath ), 'utf8' );
 			yield {
 				sourcePath: `website/${ routePath }`,
@@ -2953,8 +3100,11 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 	];
 
 	const receiptPath = join( outputDir, 'capture-receipt.json' );
-	const cleanupManifest = JSON.parse(readFileSync(join(outputDir, 'screenshots', 'manifest.json'), 'utf8')) as ScreenshotManifest;
-	const cleanupPages = Object.entries(cleanupManifest.entries).map(([url, entry]) => ({ url, ...entry.cleanup }));
+	// Only proven source-absent routes lack a document requiring cleanup.
+	// Keep every other attempted route in the audit, even if it lost its HTML.
+	const cleanupPages = Object.entries(capture.entries)
+		.filter(([url]) => !absentRoutes.has(url))
+		.map(([url, entry]) => ({ url, ...entry.cleanup }));
 	const recordedPolicy = cleanupPages.find((page) => page.policy)?.policy;
 	const cleanup = recordedPolicy ? {
 		policy: recordedPolicy,
@@ -2963,6 +3113,10 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 			page.reports?.length && page.reports.every((report) => report.failures.length === 0 && report.residual === 0)),
 	} : undefined;
 	if (cleanup) writeFileSync(join(outputDir, 'cleanup-evidence.json'), JSON.stringify({ schema: recordedPolicy!.schema, pages: cleanupPages }, null, 2));
+	const complete =
+		Number( options.summary.routesFailed ?? 0 ) === 0 &&
+		! unresolvedAnchors.some( ( anchor ) => anchor.reason === UNCAPTURED_ROUTE_REASON );
+
 	writeFileSync(
 		receiptPath,
 		`${ JSON.stringify(
@@ -2989,7 +3143,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 				excludedRoutes,
 				duplicateRoutes,
 				discoveryDiagnostics,
-				summary: options.summary,
+				summary: { ...options.summary, complete },
 			},
 			null,
 			2
@@ -3000,6 +3154,7 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		`${ JSON.stringify(
 			{
 				schema: 'data-liberation/capture-diagnostics/v1',
+				complete,
 				failures: options.failures,
 				discoveryDiagnostics,
 				resourceFailures: resourceManifest.failures,

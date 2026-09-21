@@ -57,12 +57,16 @@ export function wireCapturedDialogs(
 	// Disclosure/accordion panels (`kind === 'disclosure'`) are restored in
 	// place, in the live DOM, before the page's HTML is ever serialized (see
 	// `hydrateDisclosureContent`) — their content is already inline in `html`
-	// here. They carry `states` entries purely as observable diagnostics
-	// (candidate/captured counts); wiring them again as a popup-style
-	// `<details>` overlay would duplicate and misrepresent an inline accordion
-	// as a full-screen dialog, so only dialog/menu-kind states are wired here.
+	// here. Selectable-set states (`kind === 'selectable-set'`) are evidence of
+	// a shared region captured after serialization; they are not a popup to
+	// wire. Both carry `states` entries as diagnostics. Wiring either as a
+	// `<details>` overlay would misrepresent them, so only dialog/menu-kind
+	// states (omitted kind included) are wired here.
 	const captured = states.filter(
-		( state ) => state.status === 'captured' && state.dialog?.html && state.kind !== 'disclosure'
+		( state ) =>
+			state.status === 'captured' &&
+			state.dialog?.html &&
+			( state.kind === undefined || state.kind === 'dialog' )
 	);
 	if ( captured.length === 0 && initialDialogs.length === 0 ) return html;
 	const $ = cheerio.load( html );
@@ -170,9 +174,13 @@ function findTriggers(
 		const byId = $( `#${ cssEscape( trigger.id ) }` );
 		if ( byId.length ) return byId;
 	}
+	const bySelector = selectByCapturedSelector( $, trigger.selector, trigger.tag );
+	if ( bySelector.length ) return bySelector;
 	const label = ( trigger.label ?? '' ).replace( /\s+/g, ' ' ).trim().toLowerCase();
 	if ( ! label ) return $( [] );
 	return $( 'button,summary,a,[role="button"]' ).filter( ( _, element ) => {
+		if ( trigger.tag && element.tagName !== trigger.tag ) return false;
+		if ( isNavigatingAnchor( $, element ) ) return false;
 		const text = ( $( element ).attr( 'aria-label' ) || $( element ).text() )
 			.replace( /\s+/g, ' ' )
 			.trim()
@@ -180,6 +188,29 @@ function findTriggers(
 		if ( ! text ) return false;
 		return text.includes( label ) || label.includes( text );
 	} );
+}
+
+function selectByCapturedSelector(
+	$: cheerio.CheerioAPI,
+	selector: string | undefined,
+	tag: string | undefined
+) {
+	if ( ! selector ) return $( [] );
+	try {
+		const matches = $( selector );
+		if ( ! tag ) return matches;
+		return matches.filter( ( _, element ) => ( element as Element ).tagName === tag );
+	} catch {
+		return $( [] );
+	}
+}
+
+function isNavigatingAnchor( $: cheerio.CheerioAPI, element: Element ): boolean {
+	if ( element.tagName !== 'a' ) return false;
+	const href = ( $( element ).attr( 'href' ) ?? '' ).trim();
+	if ( ! href || href === '#' || href.startsWith( '#' ) ) return false;
+	const scheme = href.split( ':', 1 )[ 0 ]!.toLowerCase();
+	return scheme !== 'javascript';
 }
 
 function cssEscape( value: string ): string {

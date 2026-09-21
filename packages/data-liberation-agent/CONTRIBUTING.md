@@ -75,6 +75,7 @@ This is required. DISCOVERIES.md is a local, untracked log (gitignored — it is
 ### 4. Submit the PR
 
 ```bash
+git restore --source=HEAD --staged --worktree -- dist
 git add -A
 git commit -m "discovery: short description of what you found"
 git push origin improvement/your-branch-name
@@ -131,7 +132,11 @@ skills/liberate/  The one skill, which drives the CLI
 scripts/          Build and packaging
 ```
 
-`dist/mcp-server.bundle.mjs` and `dist/capture-engine.bundle.mjs` are committed, generated bundles — the plugin installer copies this package verbatim with no build step, so they have to be in git. If your branch conflicts on them, don't hand-merge the hunks: take either side, run `npm run build:mcp-bundle`, and commit the regenerated output. `.gitattributes` declares `merge=ours` for both files, but GitHub's own conflict check never runs git merge drivers, so its PR banner can still show them as conflicting — resolve by merging or rebasing locally instead, where the declaration takes effect, then push. CI's "Verify committed plugin bundles" step is what actually checks correctness; see AGENTS.md for detail.
+`dist/` remains committed for dependency-free plugin installs, and the `Release` workflow maintains it on main. Feature PRs change source and tests only. Build locally with `npm run build`, run `npm run test:package`, and restore generated output before committing. PR CI rejects authored bundle changes and verifies freshly built output instead of requiring a bundle commit.
+
+For an older branch that already committed bundles, run `git restore --source="$(git merge-base HEAD origin/main)" --staged --worktree -- dist` and commit the restoration before merging main. This removes the branch's generated-output changes so Git can accept main's bundles normally. Never hand-merge minified output.
+
+After a merge, the serialized main workflow builds and tests the latest source, commits regenerated bundles, checks reproducibility, then invokes Homeboy release. A rejected push leaves the newer main untouched; its queued run rebuilds it. Main can briefly contain the previous bundles while that job runs. Dependency-free installations should pin a successful release; development checkouts build from source.
 
 ## Questions
 

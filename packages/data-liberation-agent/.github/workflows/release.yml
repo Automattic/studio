@@ -16,15 +16,47 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
+          # A queued run builds the latest main, including earlier queued merges.
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:package
+      - run: npm test
+
+      - name: Commit verified plugin bundles
+        run: |
+          git add -- dist
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "build: regenerate plugin bundles"
+          fi
+          # A concurrent source merge makes this fail safely. Its queued run
+          # rebuilds the new main; generated output is never rebased or forced.
+          git push origin HEAD:main
+      - name: Verify committed bundle reproducibility
+        run: |
+          npm run build:mcp-bundle
+          test -z "$(git status --porcelain -- dist)"
 
       - uses: Extra-Chill/homeboy-action@v2
         id: release
         with:
-          extension: node
+          extension: nodejs
           component: data-liberation-agent
           commands: release
+          # Distribution currently uses committed bundles and GitHub tags.
+          # npm publishing/release assets are a separate tracked change (#296).
+          release-skip-publish: 'true'

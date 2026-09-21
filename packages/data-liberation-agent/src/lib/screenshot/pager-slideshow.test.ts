@@ -57,6 +57,57 @@ const LABELLED_CONTROL_FIXTURE = `<!doctype html><html><body>
 </div>
 </body></html>`;
 
+const ORIGIN = 'https://pager.test';
+const ROUTE = `${ ORIGIN }/post/one`;
+
+/**
+ * The shape a blog post's related-posts strip takes: picture-only cards that
+ * each link somewhere real, sitting beside a block whose children are mutually
+ * exclusive. Structurally indistinguishable from a picker beside a stage, so
+ * only the destination on the card separates the two.
+ */
+const LINK_GRID_FIXTURE = `<!doctype html><html><body>
+<article><h1>Post one</h1></article>
+<div class="showcase">
+	<div class="stage">
+		<div class="frame"><img src="${ FULL[ 0 ] }"></div>
+		<div class="frame" style="display:none"><img src="${ FULL[ 1 ] }"></div>
+	</div>
+	<div class="related">
+		<a href="/"><img src="${ THUMBS[ 0 ] }"></a>
+		<a href="/post/two"><img src="${ THUMBS[ 1 ] }"></a>
+	</div>
+</div>
+</body></html>`;
+
+/** A real picker, written the three same-page ways a picker is usually written. */
+const SAME_PAGE_HREF_FIXTURE = `<!doctype html><html><body>
+<div class="showcase">
+	<div class="stage">
+		<div class="frame"><img src="${ FULL[ 0 ] }"></div>
+		<div class="frame" style="display:none"><img src=""></div>
+		<div class="frame" style="display:none"><img src=""></div>
+	</div>
+	<div class="picker" style="width:75px">
+		<a href="#" data-n="0"><img src="${ THUMBS[ 0 ] }"></a>
+		<a href="#slide-1" data-n="1"><img src="${ THUMBS[ 1 ] }"></a>
+		<a href="javascript:void(0)" data-n="2"><img src="${ THUMBS[ 2 ] }"></a>
+	</div>
+</div>
+<script>
+	const full = ${ JSON.stringify( FULL ) };
+	for ( const control of document.querySelectorAll( '.picker a' ) ) {
+		control.addEventListener( 'click', () => {
+			const index = Number( control.dataset.n );
+			document.querySelectorAll( '.stage > .frame' ).forEach( ( frame, position ) => {
+				frame.style.display = position === index ? '' : 'none';
+			} );
+			document.querySelectorAll( '.stage img' )[ index ].src = full[ index ];
+		} );
+	}
+</script>
+</body></html>`;
+
 describe( 'pager slideshow capture', () => {
 	let browser: Browser;
 
@@ -71,6 +122,21 @@ describe( 'pager slideshow capture', () => {
 	const openPage = async ( html: string ) => {
 		const page = await browser.newPage();
 		await page.setContent( html );
+		return page;
+	};
+
+	// setContent leaves the page on about:blank, where a relative href cannot
+	// resolve and a click therefore cannot navigate. Serving the fixture from an
+	// origin is what makes a control's destination real.
+	const openRoutedPage = async ( html: string ) => {
+		const page = await browser.newPage();
+		await page.route( `${ ORIGIN }/**`, ( route ) =>
+			route.fulfill( {
+				contentType: 'text/html',
+				body: new URL( route.request().url() ).pathname === '/post/one' ? html : '<h1>Home</h1>',
+			} )
+		);
+		await page.goto( ROUTE );
 		return page;
 	};
 
@@ -128,6 +194,28 @@ describe( 'pager slideshow capture', () => {
 		await applyPagerSlideshowStates( page, await collectPagerSlideshowStates( page ) );
 
 		expect( await page.locator( '[data-dla-captured-slide]' ).count() ).toBe( 0 );
+		await page.close();
+	} );
+
+	it( 'leaves the route it is capturing when a picture-only card links somewhere real', async () => {
+		const page = await openRoutedPage( LINK_GRID_FIXTURE );
+		await applyPagerSlideshowStates( page, await collectPagerSlideshowStates( page ) );
+
+		expect( page.url() ).toBe( ROUTE );
+		expect( await page.locator( '[data-dla-pager-control]' ).count() ).toBe( 0 );
+		expect( await page.locator( '[data-dla-captured-slide]' ).count() ).toBe( 0 );
+		await page.close();
+	} );
+
+	it( 'still walks a picker whose controls are same-page links', async () => {
+		const page = await openRoutedPage( SAME_PAGE_HREF_FIXTURE );
+		await applyPagerSlideshowStates( page, await collectPagerSlideshowStates( page ) );
+
+		const slides = await page.$$eval( '[data-dla-pager-stage] > [data-dla-captured-slide]', ( nodes ) =>
+			nodes.map( ( node ) => node.querySelector( 'img' )?.getAttribute( 'src' ) ?? '' )
+		);
+		expect( slides ).toEqual( FULL );
+		expect( new URL( page.url() ).pathname ).toBe( '/post/one' );
 		await page.close();
 	} );
 } );

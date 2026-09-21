@@ -157,6 +157,16 @@ export interface SafeFetchOpts {
   fetchImpl?: typeof fetch;
   /** Extra request headers. */
   headers?: Record<string, string>;
+  /**
+   * Called with each hop's own (post-redirect) origin, for headers that must
+   * NOT survive a redirect off that origin — a session cookie harvested for
+   * the entry URL's origin, say. Re-evaluated on every hop and merged over
+   * `headers`, so a redirect to a different origin gets a fresh (typically
+   * empty) result instead of the first hop's credentials.
+   */
+  headersForOrigin?: (
+    origin: string
+  ) => Record<string, string> | undefined | Promise<Record<string, string> | undefined>;
   /** Shared cancellation signal, checked for every redirect hop and body read. */
   signal?: AbortSignal;
 }
@@ -191,10 +201,14 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOpts = {}): Promi
   let currentUrl = assertPublicHttpUrl(rawUrl).toString();
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
+    const originHeaders = opts.headersForOrigin
+      ? await opts.headersForOrigin(new URL(currentUrl).origin)
+      : undefined;
+    const headers = originHeaders ? { ...opts.headers, ...originHeaders } : opts.headers;
     const res = await doFetch(currentUrl, {
       signal: requestSignal,
       redirect: 'manual',
-      headers: opts.headers,
+      headers,
     });
 
     // Defensive header accessor — real fetch always supplies `headers`, but

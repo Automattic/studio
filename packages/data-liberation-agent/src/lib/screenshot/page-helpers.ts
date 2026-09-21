@@ -130,6 +130,36 @@ export async function waitForFonts(page: Page, timeoutMs: number = 4_000): Promi
 }
 
 /**
+ * Wait for images reached by the lazy-load sweep to decode before measuring.
+ * Image load can complete before layout has incorporated the decoded intrinsic
+ * size, so waiting for the request alone is not enough for responsive pages.
+ */
+export async function waitForImages(page: Page, timeoutMs: number = 4_000): Promise<void> {
+  try {
+    await withEvaluateTimeout(
+      page.evaluate(async () => {
+        const images = [ ...document.images ];
+        await Promise.all(
+          images.map(async (image) => {
+            if (!image.complete) {
+              await new Promise<void>((resolve) => {
+                image.addEventListener('load', () => resolve(), { once: true });
+                image.addEventListener('error', () => resolve(), { once: true });
+                if (image.complete) resolve();
+              });
+            }
+            await image.decode().catch(() => undefined);
+          })
+        );
+      }),
+      timeoutMs,
+    );
+  } catch {
+    /* best-effort — never block capture on a slow/blocked image */
+  }
+}
+
+/**
  * Wait for in-flight CSS animations/transitions to finish so opacity/transform
  * states are fully settled before the screenshot.
  *
@@ -288,6 +318,7 @@ export async function triggerLazyLoad(page: Page, requireNetworkIdle: boolean = 
     // dynamic-content.ts; DISCOVERIES 2026-06-04.)
     await expandCollapsedContent(page);
     await waitForAppWidgets(page);
+    await waitForImages(page);
     // Return to top AND fire a scroll event so scroll-reactive headers recompute
     // their at-top (un-faded) state — scrollTo alone doesn't trigger their handler.
     await page.evaluate(() => {

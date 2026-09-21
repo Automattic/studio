@@ -160,10 +160,203 @@ describe('fetchSitemap', () => {
         { code: 'sitemap_url_rejected', url: 'https://sub.example.test/other-host', reason: 'origin differs from the entry URL' },
         { code: 'sitemap_url_rejected', url: 'https://elsewhere.test/sitemap_pages.xml', reason: 'origin differs from the entry URL' },
       ]);
-      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-        'https://www.example.test/sitemap.xml',
-        'https://www.example.test/sitemap_pages.xml',
+       expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+         'https://www.example.test/robots.txt',
+         'https://www.example.test/sitemap-index.xml',
+         'https://www.example.test/sitemap.xml',
+         'https://www.example.test/sitemap_pages.xml',
+       ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('discovers every URL from sitemap-index.xml when sitemap.xml is absent', async () => {
+    const pages = ['/', '/blog', '/contact', '/now', '/post-one', '/post-two', '/post-three', '/post-four', '/post-five'];
+    const server = createServer((request, response) => {
+      const origin = `http://${request.headers.host}`;
+      if (request.url === '/sitemap-index.xml') {
+        response.setHeader('content-type', 'application/xml');
+        response.end(`<sitemapindex><sitemap><loc>${origin}/sitemap-0.xml</loc></sitemap></sitemapindex>`);
+        return;
+      }
+      if (request.url === '/sitemap-0.xml') {
+        response.setHeader('content-type', 'application/xml');
+        response.end(`<urlset>${pages.map((path) => `<url><loc>${origin}${path}</loc></url>`).join('')}</urlset>`);
+        return;
+      }
+      if (request.url === '/') {
+        response.setHeader('content-type', 'text/html');
+        response.end('<nav><a href="/blog">Blog</a><a href="/contact">Contact</a><a href="/now">Now</a></nav>');
+        return;
+      }
+      response.statusCode = 404;
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Test server did not start');
+    const origin = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const { urls, diagnostics } = await fetchSitemapWithDiagnostics(origin);
+      expect(urls).toEqual(pages.map((path) => `${origin}${path}`));
+      expect(diagnostics.filter((diagnostic) => diagnostic.code.startsWith('sitemap_missing') || diagnostic.code === 'sitemap_not_found')).toEqual([]);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
+  it('prefers a Sitemap: directive in robots.txt over well-known filenames', async () => {
+    const responseByUrl = new Map([
+      ['https://example.test/robots.txt', 'User-agent: *\nAllow: /\nSitemap: https://example.test/declared.xml\n'],
+      ['https://example.test/declared.xml', `<urlset>${['/', '/a', '/b', '/c', '/d'].map((path) => `<url><loc>https://example.test${path}</loc></url>`).join('')}</urlset>`],
+      ['https://example.test/sitemap-index.xml', '<urlset><url><loc>https://example.test/from-index</loc></url></urlset>'],
+      ['https://example.test/sitemap.xml', '<urlset><url><loc>https://example.test/from-xml</loc></url></urlset>'],
+    ]);
+    const fetchMock = vi.fn(async (url: string) => responseByUrl.has(url)
+      ? new Response(responseByUrl.get(url), { status: 200 })
+      : new Response('', { status: 404 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      await expect(fetchSitemap('https://example.test')).resolves.toEqual([
+        'https://example.test/',
+        'https://example.test/a',
+        'https://example.test/b',
+        'https://example.test/c',
+        'https://example.test/d',
       ]);
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        'https://example.test/robots.txt',
+        'https://example.test/declared.xml',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('rejects an off-origin robots Sitemap: and continues to well-known paths', async () => {
+    const responseByUrl = new Map([
+      ['https://example.test/robots.txt', 'Sitemap: https://elsewhere.test/sitemap.xml\n'],
+      ['https://example.test/sitemap-index.xml', `<urlset>${['/', '/one', '/two', '/three', '/four'].map((path) => `<url><loc>https://example.test${path}</loc></url>`).join('')}</urlset>`],
+    ]);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => responseByUrl.has(url)
+      ? new Response(responseByUrl.get(url), { status: 200 })
+      : new Response('', { status: 404 })));
+
+    try {
+      const { urls, diagnostics } = await fetchSitemapWithDiagnostics('https://example.test/');
+      expect(urls).toEqual([
+        'https://example.test/',
+        'https://example.test/one',
+        'https://example.test/two',
+        'https://example.test/three',
+        'https://example.test/four',
+      ]);
+      expect(diagnostics).toContainEqual({
+        code: 'sitemap_url_rejected',
+        url: 'https://elsewhere.test/sitemap.xml',
+        reason: 'origin differs from the entry URL',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('reports when no sitemap exists at any probed location', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href === 'https://example.test/' || href === 'https://example.test') {
+        return new Response('<nav><a href="/a">A</a></nav>', { status: 200 });
+      }
+      return new Response('', { status: 404 });
+    }));
+
+    try {
+      const { diagnostics } = await fetchSitemapWithDiagnostics('https://example.test/');
+      expect(diagnostics).toEqual(expect.arrayContaining([
+        { code: 'sitemap_missing', url: 'https://example.test/', reason: 'No sitemap found at any probed location' },
+        { code: 'sitemap_not_found', url: 'https://example.test/sitemap-index.xml', reason: 'HTTP 404' },
+        { code: 'sitemap_not_found', url: 'https://example.test/sitemap.xml', reason: 'HTTP 404' },
+      ]));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('probes robots.txt and well-known sitemap paths against the origin, not the entry URL, when the entry URL carries a query string', async () => {
+    const entryUrl = 'https://example.test/?token=abc';
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url) === entryUrl) return new Response('<nav><a href="/a">A</a></nav>', { status: 200 });
+      return new Response('', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const { diagnostics } = await fetchSitemapWithDiagnostics(entryUrl);
+      // Probed against the origin, never with the query string spliced in
+      // (e.g. NOT 'https://example.test/?token=abc/sitemap.xml').
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        'https://example.test/robots.txt',
+        'https://example.test/sitemap-index.xml',
+        'https://example.test/sitemap.xml',
+        entryUrl,
+      ]);
+      expect(diagnostics).toContainEqual({
+        code: 'sitemap_missing',
+        url: 'https://example.test/',
+        reason: 'No sitemap found at any probed location',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('probes robots.txt and well-known sitemap paths against the origin, not the entry URL, when the entry URL is a deep subpath', async () => {
+    const entryUrl = 'https://example.test/en/store/checkout';
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url) === entryUrl) return new Response('<nav><a href="/a">A</a></nav>', { status: 200 });
+      return new Response('', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const { diagnostics } = await fetchSitemapWithDiagnostics(entryUrl);
+      // Probed against the origin, never with the deep path prefixed
+      // (e.g. NOT 'https://example.test/en/store/checkout/sitemap.xml').
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        'https://example.test/robots.txt',
+        'https://example.test/sitemap-index.xml',
+        'https://example.test/sitemap.xml',
+        entryUrl,
+      ]);
+      expect(diagnostics).toContainEqual({
+        code: 'sitemap_missing',
+        url: 'https://example.test/',
+        reason: 'No sitemap found at any probed location',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('reports a sitemap fetch failure instead of swallowing it', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href.endsWith('/robots.txt')) return new Response('', { status: 404 });
+      if (href === 'https://example.test/' || href === 'https://example.test') {
+        return new Response('<nav><a href="/a">A</a></nav>', { status: 200 });
+      }
+      throw new Error('network down');
+    }));
+
+    try {
+      const { diagnostics } = await fetchSitemapWithDiagnostics('https://example.test/');
+      expect(diagnostics).toEqual(expect.arrayContaining([
+        { code: 'sitemap_fetch_failed', url: 'https://example.test/sitemap-index.xml', reason: 'network down' },
+        { code: 'sitemap_missing', url: 'https://example.test/', reason: 'No sitemap found at any probed location' },
+      ]));
     } finally {
       vi.unstubAllGlobals();
     }

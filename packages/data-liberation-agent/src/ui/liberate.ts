@@ -7,6 +7,7 @@
 //
 import { join } from 'node:path';
 import { captureWebsite } from '../lib/capture.js';
+import type { UnresolvedAnchor } from '../lib/capture.js';
 import { siteOutputDir } from '../lib/paths.js';
 import { startStaticServer } from '../lib/replicate/local-site/static-server.js';
 import type { StaticServer } from '../lib/replicate/local-site/static-server.js';
@@ -33,6 +34,8 @@ export interface LiberateResult {
 	/** Routes already on disk and reused instead of recaptured. */
 	routesSkipped: number;
 	routesFailed: number;
+	complete: boolean;
+	unresolvedAnchors: UnresolvedAnchor[];
 	/** Running local server, or null when serving is disabled. */
 	server: StaticServer | null;
 }
@@ -66,6 +69,8 @@ export async function liberateSite( options: LiberateOptions ): Promise< Liberat
 		routesCaptured: capture.summary.routesCaptured,
 		routesSkipped: capture.summary.routesSkipped,
 		routesFailed: capture.summary.routesFailed,
+		complete: capture.complete,
+		unresolvedAnchors: capture.unresolvedAnchors,
 		server: options.serve === false ? null : await startStaticServer( websiteDir ),
 	};
 }

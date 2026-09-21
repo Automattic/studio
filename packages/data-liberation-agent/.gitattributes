@@ -1,16 +1,8 @@
-# The committed dist/ bundles must be byte-identical when CI rebuilds them
-# from source (see .buildkite/commands/run-lint.sh). Newlines inside template
+# The main-branch distribution bundles must rebuild byte-identically.
+# Newlines inside template
 # literals end up in the bundle bytes, so a CRLF checkout would build bundles
 # that differ from CI's LF build. Pin LF for everything in this package.
 * text=auto eol=lf
 
-# Generated bundles conflict on every concurrent PR that regenerates them,
-# even when the underlying source changes don't overlap, because they're
-# minified and any two rebuilds differ byte-for-byte. Hand-merging them is
-# also unsafe: a textual merge can produce a file that merges cleanly and is
-# wrong. Take one side instead of merging, then regenerate with
-# `npm run build:mcp-bundle` and let CI's "Verify committed plugin bundles"
-# step confirm the committed bytes match a fresh build. Never resolve a
-# conflict on these files by hand-merging the hunks.
-dist/mcp-server.bundle.mjs merge=ours
-dist/capture-engine.bundle.mjs merge=ours
+# Release automation owns generated bundles on main. Feature branches keep
+# their merge-base bundles; CI builds fresh output for verification only.

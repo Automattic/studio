@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { Page } from 'playwright';
-import { desktopContextOptions } from '../browser-kit/browser-kit.js';
+import { sourceContextOptions } from '../browser-kit/browser-kit.js';
 import { startStaticServer } from '../replicate/local-site/static-server.js';
 import { DEFAULT_SWEEP_WIDTHS } from '../screenshot/fluid-capture.js';
 import { applySourceCleanup, readSourceCleanup, validateCleanupPolicy, type CleanupPolicy, type CleanupReport } from '../source-cleanup.js';
@@ -570,7 +570,7 @@ export async function checkFidelity( options: FidelityCheckOptions ): Promise< F
 	let page: Page | null = null;
 	try {
 		server = observe ? null : await startStaticServer( websiteDir );
-		page = browser ? await browser.newPage( await desktopContextOptions( browser ) ) : null;
+		page = browser ? await browser.newPage( await sourceContextOptions( browser, sourceUrl ) ) : null;
 	} catch (error) {
 		await browser?.close();
 		await server?.close();

@@ -189,12 +189,21 @@ if (args.includes('--help')) {
   const notes = [
     result.routesSkipped ? `${result.routesSkipped} reused` : '',
     result.routesFailed ? `${result.routesFailed} failed` : '',
+    result.complete ? '' : 'incomplete',
   ].filter(Boolean);
   console.log(
     `Liberated ${result.routesCaptured + result.routesSkipped}/${result.routesDiscovered} routes` +
       (notes.length ? ` (${notes.join(', ')})` : ''),
   );
   console.log(`Site: ${result.websiteDir}`);
+  if (!result.complete) {
+    const missing = result.unresolvedAnchors.filter((anchor) => anchor.reason === 'target route was not captured').length;
+    process.stderr.write(
+      missing
+        ? `Capture incomplete: ${missing} same-origin link(s) point at routes that were not captured.\n`
+        : 'Capture incomplete.\n',
+    );
+  }
 
   const server = result.server;
   if (server) {

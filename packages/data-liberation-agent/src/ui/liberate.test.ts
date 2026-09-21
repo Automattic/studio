@@ -45,9 +45,12 @@ describe( 'liberateSite', () => {
 					routesSkipped: 0,
 					routesFailed: 0,
 					durationMs: 10,
+					complete: true,
 				},
+				complete: true,
 				failures: [],
 				discoveryDiagnostics: [],
+				unresolvedAnchors: [],
 				provenance: { provider: 'data-liberation/browser-capture', platform: 'wix' },
 			};
 		} );
@@ -94,9 +97,12 @@ describe( 'liberateSite', () => {
 					routesSkipped: 0,
 					routesFailed: 0,
 					durationMs: 5,
+					complete: true,
 				},
+				complete: true,
 				failures: [],
 				discoveryDiagnostics: [],
+				unresolvedAnchors: [],
 				provenance: { provider: 'data-liberation/browser-capture', platform: 'wix' },
 			};
 		} );

@@ -59,6 +59,38 @@ describe('dom-capture', () => {
     expect(html).toContain('.desktop');
     await page.close();
   });
+  it('recovers a font shorthand set via var() that the live CSSOM would otherwise collapse to empty', async () => {
+    // Generic browser CSSOM quirk, reproduced with a plain custom property (no
+    // platform involved): a shorthand set via var() (`font: var(--token)`),
+    // followed in the same declaration by an explicit override of one of that
+    // shorthand's own longhands (`font-style: normal`), becomes a
+    // pending-substitution value. Reading it back through the live CSSOM
+    // (rule.cssText / getPropertyValue) yields every longhand as an empty
+    // declaration and drops the shorthand text entirely, even though the
+    // browser is still rendering the real font.
+    const page = await browser.newPage();
+    await page.setContent(`<!DOCTYPE html><html><head><style>
+      :root { --token: bold 20px/1.4 Georgia, serif; }
+      .foo { font: var(--token); font-style: normal; color: red; }
+    </style></head><body><p class="foo">hi</p></body></html>`);
+
+    const computed = await page.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('.foo')!);
+      return { fontFamily: cs.fontFamily, fontWeight: cs.fontWeight, fontSize: cs.fontSize };
+    });
+    expect(computed.fontFamily).toContain('Georgia');
+    expect(computed.fontWeight).toBe('700');
+
+    const html = await capturePageHtml(page);
+    expect(html).toContain('font: var(--token)');
+    expect(html).not.toMatch(/font-family:\s*;/);
+    expect(html).not.toMatch(/font-weight:\s*;/);
+
+    const css = await collectStylesheets(page);
+    expect(css).toContain('font: var(--token)');
+    expect(css).not.toMatch(/font-family:\s*;/);
+    await page.close();
+  });
   it('leaves cross-origin link stylesheets to their <link> element', async () => {
     const page = await browser.newPage();
     await page.setContent(FIXTURE);

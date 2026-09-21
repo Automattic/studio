@@ -1,7 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectBrowser } from '../browser-kit/index.js';
+import { __resetSourceSessionsForTests } from '../browser-kit/browser-kit.js';
 import { captureScreenshots } from './screenshotter.js';
 
 const mocks = vi.hoisted( () => ( {
@@ -70,6 +71,13 @@ function makePage( mobile: boolean, routedRequest?: object ) {
 }
 
 describe( 'screenshot resource capture', () => {
+	// Both cases below capture https://example.com/, and the session harvest
+	// caches per origin — reset so each case pays for (and consumes a mocked
+	// page/newContext call for) its own harvest.
+	beforeEach( () => {
+		__resetSourceSessionsForTests();
+	} );
+
 	it( 'discovers dependencies in both desktop and mobile HTML', async () => {
 		const parent = join( process.cwd(), '.tmp-test' );
 		mkdirSync( parent, { recursive: true } );
@@ -80,6 +88,7 @@ describe( 'screenshot resource capture', () => {
 			newPage: vi.fn().mockResolvedValue( makePage( options.viewport?.width === 402 ) ),
 				addInitScript: vi.fn().mockResolvedValue( undefined ),
 				close: vi.fn().mockResolvedValue( undefined ),
+				storageState: vi.fn().mockResolvedValue( { cookies: [], origins: [] } ),
 			} ) );
 		( connectBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( {
 			newContext,
@@ -107,15 +116,18 @@ describe( 'screenshot resource capture', () => {
 				expect.stringContaining( 'mobile-only.jpg' ),
 				'https://example.com/'
 			);
+			// newContext call 0 is the one-time session harvest (see
+			// sourceContextOptions in screenshotter.ts), before either real
+			// viewport capture.
 			// Desktop loads as the bundled browser, minus the headless marker that
 			// anti-bot challenges refuse.
-			const desktopContext = newContext.mock.calls[ 0 ][ 0 ];
+			const desktopContext = newContext.mock.calls[ 1 ][ 0 ];
 			expect( desktopContext ).toMatchObject( {
 				viewport: { width: 1440 },
 				userAgent:
 					'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36',
 			} );
-			const mobileContext = newContext.mock.calls[ 1 ][ 0 ];
+			const mobileContext = newContext.mock.calls[ 2 ][ 0 ];
 			expect( mobileContext ).toMatchObject( {
 				viewport: { width: 402, height: 681 },
 				screen: { width: 402, height: 874 },
@@ -159,6 +171,7 @@ describe( 'screenshot resource capture', () => {
 				),
 				addInitScript: vi.fn().mockResolvedValue( undefined ),
 				close: vi.fn().mockResolvedValue( undefined ),
+				storageState: vi.fn().mockResolvedValue( { cookies: [], origins: [] } ),
 			} ) ),
 			close: vi.fn().mockResolvedValue( undefined ),
 		} );

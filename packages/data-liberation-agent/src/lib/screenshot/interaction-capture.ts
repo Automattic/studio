@@ -19,10 +19,11 @@ export interface CapturedDialogInteraction {
 	 * Distinguishes an in-page disclosure/accordion panel (content restored in
 	 * place, before HTML serialization — see `hydrateDisclosureContent`) from a
 	 * runtime-created popup/menu dialog (wired post-hoc by `wireCapturedDialogs`
-	 * into a synthetic `<details>` overlay). Omitted/`'dialog'` preserves the
-	 * pre-existing shape for callers that predate this field.
+	 * into a synthetic `<details>` overlay) and from a selectable set whose
+	 * members drive one shared region (`selectable-set`). Omitted/`'dialog'`
+	 * preserves the pre-existing shape for callers that predate this field.
 	 */
-	kind?: 'dialog' | 'disclosure';
+	kind?: 'dialog' | 'disclosure' | 'selectable-set';
 	trigger: {
 		selector: string;
 		tag: string;
@@ -43,6 +44,16 @@ export interface CapturedDialogInteraction {
 		html: string;
 		htmlBytes: number;
 		htmlTruncated: boolean;
+	};
+	/**
+	 * Present on `kind: 'selectable-set'` states. `size` is how many members
+	 * were recognised; `index` is this member's document order. Driving may
+	 * stop before `size` when a cap is hit.
+	 */
+	set?: {
+		selector: string;
+		size: number;
+		index: number;
 	};
 	error?: string;
 }

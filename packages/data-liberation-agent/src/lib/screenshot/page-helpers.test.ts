@@ -1,10 +1,12 @@
 import { EventEmitter } from 'node:events';
-import { describe, it, expect, vi } from 'vitest';
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
+import { chromium, type Browser } from 'playwright';
 import {
   waitForStable,
   triggerLazyLoad,
   withEvaluateTimeout,
   waitForFonts,
+  waitForImages,
   waitForAnimations,
   waitForRenderIdle,
   waitForDomQuiescence,
@@ -132,6 +134,16 @@ describe('waitForDomQuiescence', () => {
 });
 
 describe('triggerLazyLoad', () => {
+  let browser: Browser;
+
+  beforeAll(async () => {
+    browser = await chromium.launch();
+  });
+
+  afterAll(async () => {
+    await browser.close();
+  });
+
   it('scrolls and waits, does not throw', async () => {
     const page = makePage();
     await triggerLazyLoad(page as never);
@@ -169,6 +181,19 @@ describe('triggerLazyLoad', () => {
     const page = makePage();
     await triggerLazyLoad(page as never, true);
     expect(page.waitForLoadState).toHaveBeenCalledWith('networkidle', { timeout: 5_000 });
+  });
+
+  it('waits for decoded images before the capture continues', async () => {
+    const page = await browser.newPage();
+    await page.setContent('<img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22/%3E">');
+    await waitForImages(page);
+    expect(await page.locator('img').count()).toBe(1);
+    const image = await page.locator('img').evaluate((element) => ({
+      complete: (element as HTMLImageElement).complete,
+      naturalWidth: (element as HTMLImageElement).naturalWidth,
+    }));
+    expect(image).toEqual({ complete: true, naturalWidth: 10 });
+    await page.close();
   });
 });
 

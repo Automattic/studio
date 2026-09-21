@@ -1,7 +1,8 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectBrowser } from '../browser-kit/index.js';
+import { __resetSourceSessionsForTests } from '../browser-kit/browser-kit.js';
 import { wireCapturedDialogs } from '../static-dialogs.js';
 import { captureTriggeredDialogs } from './interaction-capture.js';
 import { captureScreenshots } from './screenshotter.js';
@@ -25,6 +26,11 @@ vi.mock( './interaction-capture.js', () => ( {
 
 const LOCAL_TMP = join( process.cwd(), '.tmp-test' );
 mkdirSync( LOCAL_TMP, { recursive: true } );
+
+/** Stands in for the page the one-time session harvest navigates. */
+function makeHarvestPage() {
+	return { goto: vi.fn().mockResolvedValue( { status: () => 200 } ) };
+}
 
 function makePage() {
 	let currentUrl = '';
@@ -53,6 +59,13 @@ function makePage() {
 }
 
 describe( 'captureScreenshots interactions', () => {
+	// The session harvest (sourceContextOptions) caches per origin, and every
+	// case here shares https://example.com — without a reset, only the first
+	// case in the file would pay for (and consume a mocked page on) it.
+	beforeEach( () => {
+		__resetSourceSessionsForTests();
+	} );
+
 	it.each( [
 		{ name: 'mobile first', viewportIds: [ 'mobile', 'desktop' ] as const, expectedCalls: 2 },
 		{
@@ -66,7 +79,10 @@ describe( 'captureScreenshots interactions', () => {
 			const outputDir = mkdtempSync( join( LOCAL_TMP, 'ss-' ) );
 			const mobilePage = makePage();
 			const desktopPage = makePage();
-			const pages = viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) );
+			// A leading entry for the one-time session-harvest page (see
+			// sourceContextOptions in screenshotter.ts) — it navigates before
+			// either real viewport capture, so it claims pages[0].
+			const pages = [ makeHarvestPage(), ...viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) ) ];
 			const captureDialogs = vi.mocked( captureTriggeredDialogs );
 			captureDialogs.mockReset();
 			let triggerClicks = 0;
@@ -128,6 +144,7 @@ describe( 'captureScreenshots interactions', () => {
 						newPage: vi.fn().mockResolvedValue( pages.shift()! ),
 						addInitScript: vi.fn().mockResolvedValue( undefined ),
 						close: vi.fn().mockResolvedValue( undefined ),
+						storageState: vi.fn().mockResolvedValue( { cookies: [], origins: [] } ),
 					} )
 				),
 				close: vi.fn().mockResolvedValue( undefined ),
@@ -185,7 +202,7 @@ describe( 'captureScreenshots interactions', () => {
 		const outputDir = mkdtempSync( join( LOCAL_TMP, 'ss-' ) );
 		const desktopPage = makePage();
 		const mobilePage = makePage();
-		const pages = viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) );
+		const pages = [ makeHarvestPage(), ...viewportIds.map( ( id ) => ( id === 'mobile' ? mobilePage : desktopPage ) ) ];
 		const captureDialogs = vi.mocked( captureTriggeredDialogs );
 		captureDialogs.mockReset();
 		captureDialogs.mockImplementation( async ( page, sourceUrl ) => ( {
@@ -216,6 +233,7 @@ describe( 'captureScreenshots interactions', () => {
 			newContext: vi.fn().mockImplementation( () => Promise.resolve( {
 				newPage: vi.fn().mockResolvedValue( pages.shift()! ),
 				addInitScript: vi.fn().mockResolvedValue( undefined ), close: vi.fn().mockResolvedValue( undefined ),
+				storageState: vi.fn().mockResolvedValue( { cookies: [], origins: [] } ),
 			} ) ),
 			close: vi.fn().mockResolvedValue( undefined ),
 		} );

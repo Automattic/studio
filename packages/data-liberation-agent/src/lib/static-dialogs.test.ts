@@ -69,13 +69,101 @@ describe( 'wireCapturedDialogs', () => {
 
 	it( 'keeps global attributes without copying element-specific behavior to summary', () => {
 		const html = wireCapturedDialogs(
-			'<html><head></head><body><a class="menu" aria-label="Open Menu" data-menu="primary" href="/" target="_self" rel="home">Menu</a></body></html>',
+			'<html><head></head><body><button class="menu" aria-label="Open Menu" data-menu="primary" type="submit" name="menu">Menu</button></body></html>',
 			[ captured ]
 		);
 		expect( html ).toContain(
 			'<summary class="menu" aria-label="Open Menu" data-menu="primary" data-dla-disclosure-label="Open Menu">Menu</summary>'
 		);
-		expect( html ).not.toMatch( /<summary[^>]+(?:href|target|rel)=/ );
+		expect( html ).not.toMatch( /<summary[^>]+(?:type|name)=/ );
+	} );
+
+	it( 'replays a captured button trigger onto that button, not a sibling nav link sharing its label', () => {
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><header><nav><a href="/#menu">Menu</a><a href="/#concept">Concept</a></nav><button aria-label="Menu"><svg></svg></button></header></body></html>',
+			[
+				{
+					status: 'captured',
+					trigger: {
+						selector: 'body > header > button',
+						tag: 'button',
+						ariaHaspopup: '',
+						label: 'Menu',
+						dataBindings: {},
+					},
+					dialog: {
+						selector: 'nav.md\\:hidden',
+						tag: 'nav',
+						ariaModal: false,
+						html: '<nav class="md:hidden"><a href="/#concept">Concept</a><a href="/#menu">Menu</a></nav>',
+						htmlBytes: 78,
+						htmlTruncated: false,
+					},
+				},
+			]
+		);
+		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 1 );
+		expect( html ).toContain( '<a href="/#menu">Menu</a>' );
+		expect( html ).toMatch( /<nav><a href="\/#menu">Menu<\/a><a href="\/#concept">Concept<\/a><\/nav>/ );
+		expect( html ).toContain( '<summary aria-label="Menu" data-dla-disclosure-label="Menu"><svg></svg></summary>' );
+		expect( html ).not.toMatch( /<button[^>]*aria-label="Menu"/ );
+	} );
+
+	it( 'still converts the captured button when its selector no longer matches, without touching a navigating Menu link', () => {
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><nav><a href="/#menu">Menu</a></nav><div><button>Menu</button></div></body></html>',
+			[
+				{
+					status: 'captured',
+					trigger: {
+						selector: 'body > header > button',
+						tag: 'button',
+						ariaHaspopup: '',
+						label: 'Menu',
+						dataBindings: {},
+					},
+					dialog: {
+						selector: '#drawer',
+						tag: 'nav',
+						ariaModal: false,
+						html: '<nav id="drawer"><a href="/about">About</a></nav>',
+						htmlBytes: 48,
+						htmlTruncated: false,
+					},
+				},
+			]
+		);
+		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 1 );
+		expect( html ).toContain( '<a href="/#menu">Menu</a>' );
+		expect( html ).not.toMatch( /<nav><details/ );
+		expect( html ).toContain( '<summary data-dla-disclosure-label="Menu">Menu</summary>' );
+	} );
+
+	it( 'does not convert a navigating link that only shares the captured trigger label', () => {
+		const input =
+			'<html><head></head><body><nav><a href="/#menu">Menu</a></nav></body></html>';
+		const html = wireCapturedDialogs( input, [
+			{
+				status: 'captured',
+				trigger: {
+					selector: 'body > header > button',
+					tag: 'button',
+					ariaHaspopup: '',
+					label: 'Menu',
+					dataBindings: {},
+				},
+				dialog: {
+					selector: '#drawer',
+					tag: 'nav',
+					ariaModal: false,
+					html: '<nav id="drawer"><a href="/about">About</a></nav>',
+					htmlBytes: 48,
+					htmlTruncated: false,
+				},
+			},
+		] );
+		expect( html ).toContain( '<a href="/#menu">Menu</a>' );
+		expect( html ).not.toContain( 'dla-disclosure' );
 	} );
 
 	it( 'leaves the page alone when nothing was captured', () => {
@@ -114,6 +202,37 @@ describe( 'wireCapturedDialogs', () => {
 					htmlBytes: 60,
 					htmlTruncated: false,
 				},
+			},
+		] );
+		expect( html ).toBe( input );
+		expect( html ).not.toContain( 'dla-disclosure' );
+	} );
+
+	it( 'leaves a selectable-set state alone — it is shared-region evidence, not a popup to wire', () => {
+		const input =
+			'<html><head></head><body><div id="z1">Zone 1</div><div id="panel">Placeholder</div></body></html>';
+		const html = wireCapturedDialogs( input, [
+			{
+				status: 'captured',
+				kind: 'selectable-set',
+				trigger: {
+					selector: '#z1',
+					id: 'z1',
+					tag: 'div',
+					ariaHaspopup: '',
+					label: 'Zone 1',
+					dataBindings: {},
+				},
+				dialog: {
+					selector: '#panel',
+					tag: 'div',
+					id: 'panel',
+					ariaModal: false,
+					html: '<div id="panel">Zone 1 details</div>',
+					htmlBytes: 36,
+					htmlTruncated: false,
+				},
+				set: { selector: 'body > div:nth-of-type(1)', size: 1, index: 0 },
 			},
 		] );
 		expect( html ).toBe( input );

@@ -38,6 +38,20 @@ describe( 'learnAndApplyFluidGeometry', () => {
 		await page.close();
 	} );
 
+	it( 'keeps a marker coordinate when its source is sticky chrome', async () => {
+		const page = await browser.newPage( { viewport: { width: 1440, height: 900 } } );
+		await page.setContent( `
+			<header id="source" style="position:sticky;top:0;height:40px">Header</header>
+			<span id="target" data-dla-anchor-target="target" data-dla-anchor-source-id="source" style="position:absolute;top:640px;width:0;height:0"></span>
+			<div style="height:1800px"></div>
+		` );
+
+		await learnAndApplyFluidGeometry( page, { widths: [ 768, 1440 ], settleMs: 20 } );
+
+		expect( await page.locator( '#target' ).getAttribute( 'style' ) ).toContain( 'top:640px' );
+		await page.close();
+	} );
+
 	it( 'keeps container-derived heights definite after runtime removal', async () => {
 		const page = await browser.newPage( { viewport: { width: 1440, height: 900 } } );
 		await page.setContent( `

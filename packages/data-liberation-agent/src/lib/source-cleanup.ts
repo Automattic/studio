@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 
-export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v3';
+export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v5';
 export interface CleanupRule {
   id: string;
   category: 'advertisement' | 'source-attribution';
@@ -217,7 +217,10 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
     reclaimedSheet.textContent = `:root{${[...reclaimedSpace].map((name) => `${name}:0px!important`).join(';')}}`;
     return reclaimed;
   };
-  const creditPhrase = /(?:powered by|built (?:with|on|by)|created (?:with|using)|website (?:by|built with)|proudly created with)\s*/i;
+  // Providers qualify the verb ("Powered and secured by Wix"), so one optional
+  // conjoined word is part of the phrase everywhere it is matched.
+  const powered = 'powered(?:\\s+and\\s+\\w+)?\\s+by';
+  const creditPhrase = new RegExp(`(?:${powered}|built (?:with|on|by)|created (?:with|using)|website (?:by|built with)|proudly created with)\\s*`, 'i');
   const ownerContent = /©|copyright|all rights reserved/i;
   const promotionText = new RegExp(policy.promotion.text, 'i');
   const promotionSignup = new RegExp(policy.promotion.signup, 'i');
@@ -307,7 +310,7 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
         if (report.removed >= 1000) { report.truncated = true; report.residual++; return; }
         if (rule.creditText) {
           const brand = rule.creditText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const expression = new RegExp(`(?:proudly\\s+)?(?:powered by|built (?:with|on|by)|created (?:with|using)|website by)\\s+${brand}(?:\\.com)?\\b[.!]?`, 'gi');
+          const expression = new RegExp(`(?:proudly\\s+)?(?:${powered}|built (?:with|on|by)|created (?:with|using)|website by)\\s+${brand}(?:\\.com)?\\b[.!]?`, 'gi');
           const walker = document.createTreeWalker(match, NodeFilter.SHOW_TEXT);
           const nodes: Array<{ node: Node; start: number; text: string }> = [];
           let content = '';
@@ -349,7 +352,7 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
             !parent.querySelector('img,video,form,input,button')) node = parent;
           else {
             const previous = node.previousSibling;
-            if (previous?.nodeType === Node.TEXT_NODE) previous.textContent = (previous.textContent ?? '').replace(/(?:powered by|built (?:with|on|by)|created (?:with|using)|proudly created with)\s*$/i, '');
+            if (previous?.nodeType === Node.TEXT_NODE) previous.textContent = (previous.textContent ?? '').replace(new RegExp(`(?:${powered}|built (?:with|on|by)|created (?:with|using)|proudly created with)\\s*$`, 'i'), '');
           }
         }
         const rect = node.getBoundingClientRect();

@@ -8,6 +8,7 @@ import {
   MAX_DOWNLOAD_BYTES,
   MAX_REDIRECTS,
 } from './safe-fetch.js';
+import { sourceSessionCookieHeader } from '../browser-kit/browser-kit.js';
 import { Transform } from 'stream';
 import { isRiskySvg, rasterizeSvg } from './svg-raster.js';
 
@@ -242,14 +243,22 @@ export function isFontUrl(url: string): boolean {
  * every redirect target against internal hosts, follows redirects manually
  * (capped), and returns the final Response for streaming. Throws on a blocked
  * host or too-many-redirects.
+ *
+ * Some sources gate every asset behind a session only their tokenized ENTRY
+ * url establishes (a preview-protected host, a tokenized share link) — the
+ * capture pipeline's browser navigation harvests that session (see
+ * sourceContextOptions in browser-kit.ts) and this fetch presents it back,
+ * recomputed for EACH hop's own origin so a redirect off the source can't
+ * receive credentials meant only for it.
  */
 async function fetchMediaResponse(rawUrl: string): Promise<Response> {
   let currentUrl = assertPublicHttpUrl(rawUrl).toString();
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const cookie = await sourceSessionCookieHeader(new URL(currentUrl).origin);
     const res = await fetch(currentUrl, {
       signal: AbortSignal.timeout(30000),
       redirect: 'manual',
-      headers: { accept: BROWSER_IMAGE_ACCEPT },
+      headers: { accept: BROWSER_IMAGE_ACCEPT, ...(cookie ? { cookie } : {}) },
     });
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location');

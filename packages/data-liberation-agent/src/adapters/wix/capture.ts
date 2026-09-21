@@ -78,6 +78,7 @@ const WIX_SLIDESHOW_LIMIT = 4;
 const WIX_SLIDE_LIMIT = 6;
 const WIX_SLIDE_SETTLE_MILLISECONDS = 10_000;
 const WIX_SLIDE_POLL_MILLISECONDS = 100;
+export const WIX_ANCHOR_SCROLL_MAX_MILLISECONDS = 3_000;
 
 /**
  * Wix mounts only the active slide. Replace that transient state with the
@@ -361,10 +362,22 @@ export const capture: LiberationHooks = {
 	 */
 	prepare: async ( page, ctx ) => {
 		await page.evaluate( settleWixNavigation, ctx.viewport );
-		await page.evaluate( async ( chromeSelector ) => {
+		// Wix only wires some section navigation after its scroll-reactive layout
+		// has visited the page. This bounded sweep makes anchor readiness explicit
+		// instead of relying on whichever lazy-load phase happened to run first.
+		await page.evaluate( async () => {
+			const max = Math.min( document.documentElement.scrollHeight, 12_000 );
+			for ( let top = 0; top <= max; top += 600 ) {
+				window.scrollTo( { top, left: 0, behavior: 'instant' } );
+				await new Promise( ( resolve ) => setTimeout( resolve, 80 ) );
+			}
+			window.scrollTo( { top: 0, left: 0, behavior: 'instant' } );
+			await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+		} );
+		const fragments = await page.evaluate( ( chromeSelector ) => {
 			for ( const chrome of document.querySelectorAll( chromeSelector ) ) chrome.remove();
 
-			const linksByFragment = new Map< string, HTMLAnchorElement[] >();
+			const fragments = new Set< string >();
 			for ( const link of document.querySelectorAll< HTMLAnchorElement >( 'a[href]' ) ) {
 				let target: URL;
 				try {
@@ -388,31 +401,24 @@ export const capture: LiberationHooks = {
 				if ( ! fragment || fragment.length > 128 || /[\u0000-\u001f\u007f]/.test( fragment ) )
 					continue;
 				link.dataset.dlaAnchorFragment = fragment;
-				linksByFragment.set( fragment, [ ...( linksByFragment.get( fragment ) ?? [] ), link ] );
+				fragments.add( fragment );
 			}
+			return [ ...fragments ];
+		}, WIX_CAPTURE_CHROME_SELECTOR );
 
-			const originalScroll = { x: scrollX, y: scrollY };
-			const waitForScroll = async (): Promise< void > => {
-				let previous = scrollY;
-				let stableFrames = 0;
-				for ( let attempt = 0; attempt < 40 && stableFrames < 4; attempt++ ) {
-					await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
-					if ( Math.abs( scrollY - previous ) < 1 ) stableFrames++;
-					else stableFrames = 0;
-					previous = scrollY;
+		const originalScroll = await page.evaluate( () => ( { x: scrollX, y: scrollY } ) );
+		for ( const [ index, fragment ] of fragments.entries() ) {
+			const trigger = await page.evaluate( ( { fragment, index } ) => {
+				const links = [ ...document.querySelectorAll< HTMLAnchorElement >(
+					`a[data-dla-anchor-fragment="${ CSS.escape( fragment ) }"]`
+				) ];
+				const markUnresolved = ( reason: string ) => {
+					for ( const link of links ) link.dataset.dlaAnchorUnresolved = reason;
+				};
+				if ( index >= 32 ) {
+					markUnresolved( 'runtime fragment target limit reached' );
+					return null;
 				}
-			};
-			const markUnresolved = ( links: HTMLAnchorElement[], reason: string ) => {
-				for ( const link of links ) link.dataset.dlaAnchorUnresolved = reason;
-			};
-
-			let resolvedFragments = 0;
-			for ( const [ fragment, links ] of linksByFragment ) {
-				if ( resolvedFragments >= 32 ) {
-					markUnresolved( links, 'runtime fragment target limit reached' );
-					continue;
-				}
-				resolvedFragments++;
 				const authoredTargets = [
 					...document.querySelectorAll< HTMLElement >( '[id],a[name]' ),
 				].filter(
@@ -421,22 +427,63 @@ export const capture: LiberationHooks = {
 				if ( authoredTargets.length === 1 ) {
 					authoredTargets[ 0 ]!.dataset.dlaAnchorTarget = fragment;
 					for ( const link of links ) link.href = `${ location.pathname }#${ encodeURIComponent( fragment ) }`;
-					continue;
+					return null;
 				}
 				if ( authoredTargets.length > 1 ) {
-					markUnresolved( links, 'multiple authored fragment targets' );
-					continue;
+					markUnresolved( 'multiple authored fragment targets' );
+					return null;
 				}
 
-				const trigger = links.find( ( link ) => link.getClientRects().length > 0 );
+				const trigger = links.find( ( link ) => {
+					const rect = link.getBoundingClientRect();
+					const style = getComputedStyle( link );
+					return (
+						rect.width > 0 &&
+						rect.height > 0 &&
+						style.display !== 'none' &&
+						style.visibility !== 'hidden' &&
+						style.opacity !== '0'
+					);
+				} );
 				if ( ! trigger ) {
-					markUnresolved( links, 'no rendered fragment trigger' );
-					continue;
+					markUnresolved( 'no rendered fragment trigger' );
+					return null;
 				}
-				// Wix resolves named anchors in its click runtime, so observe the
-				// resulting settled section boundary before provider scripts are removed.
-				trigger.click();
-				await waitForScroll();
+				return {
+					index: [ ...document.querySelectorAll( 'a[data-dla-anchor-fragment]' ) ].indexOf( trigger ),
+				};
+			}, { fragment, index } );
+			if ( ! trigger ) continue;
+
+			// Use Playwright's trusted input: Wix ignores synthetic `.click()` for
+			// this navigation on some desktop pages.
+			const link = page.locator( 'a[data-dla-anchor-fragment]' ).nth( trigger.index );
+			await link.scrollIntoViewIfNeeded( { timeout: WIX_ANCHOR_SCROLL_MAX_MILLISECONDS } );
+			// Record before the trusted click: an instant handler can finish scrolling
+			// before Playwright returns. Its own visibility scroll is already complete.
+			const initialScroll = await page.evaluate( () => scrollY );
+			await link.click( { timeout: WIX_ANCHOR_SCROLL_MAX_MILLISECONDS } );
+			await page.evaluate( async ( { fragment, maxWait, initialScroll } ) => {
+				const links = [ ...document.querySelectorAll< HTMLAnchorElement >(
+					`a[data-dla-anchor-fragment="${ CSS.escape( fragment ) }"]`
+				) ];
+				const markUnresolved = ( reason: string ) => {
+					for ( const link of links ) link.dataset.dlaAnchorUnresolved = reason;
+				};
+				let previous = scrollY;
+				let moved = false;
+				let stableFrames = 0;
+				for ( let attempt = 0; attempt < maxWait / 50 && ( ! moved || stableFrames < 4 ); attempt++ ) {
+					await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+					if ( Math.abs( scrollY - initialScroll ) >= 1 ) moved = true;
+					if ( Math.abs( scrollY - previous ) < 1 ) stableFrames++;
+					else stableFrames = 0;
+					previous = scrollY;
+				}
+				if ( ! moved ) {
+					markUnresolved( 'runtime scroll did not move before timeout' );
+					return false;
+				}
 
 				const targetTop = scrollY;
 				const candidates = [
@@ -455,8 +502,8 @@ export const capture: LiberationHooks = {
 				const resolved = candidates[ 0 ];
 				const headerOffset = document.querySelector< HTMLElement >( 'header' )?.getBoundingClientRect().height ?? 0;
 				if ( ! resolved || Math.abs( resolved.top - targetTop ) > Math.max( 4, Math.ceil( headerOffset ) + 8 ) ) {
-					markUnresolved( links, 'runtime scroll did not resolve to a section boundary' );
-					continue;
+					markUnresolved( 'runtime scroll did not resolve to a section boundary' );
+					return false;
 				}
 
 				const marker = document.createElement( 'span' );
@@ -469,14 +516,17 @@ export const capture: LiberationHooks = {
 				) }px;left:0;width:0;height:0;overflow:hidden;pointer-events:none`;
 				document.body.prepend( marker );
 				for ( const link of links ) link.href = `${ location.pathname }#${ encodeURIComponent( fragment ) }`;
-			}
+				return true;
+			}, { fragment, maxWait: WIX_ANCHOR_SCROLL_MAX_MILLISECONDS, initialScroll } );
+		}
 
+		await page.evaluate( ( originalScroll ) => {
 			const root = document.documentElement;
 			const scrollBehavior = root.style.scrollBehavior;
 			root.style.scrollBehavior = 'auto';
 			window.scrollTo( originalScroll.x, originalScroll.y );
 			root.style.scrollBehavior = scrollBehavior;
-		}, WIX_CAPTURE_CHROME_SELECTOR );
+		}, originalScroll );
 
 		const galleries = await page.evaluate( async () => {
 			const urls = [

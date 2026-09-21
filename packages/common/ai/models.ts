@@ -112,7 +112,10 @@ export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
 // built-in model that doesn't say otherwise still takes images.
 export function aiModelSupportsImages( id: SelectedModelId ): boolean {
 	const model = MODEL_BY_ID.get( id );
-	return model ? model.supportsImages ?? true : false;
+	if ( ! model ) {
+		return false;
+	}
+	return model.supportsImages ?? true;
 }
 
 /**

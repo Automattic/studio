@@ -12,18 +12,21 @@ Relevant code:
 - `apps/cli/ai/openai-compatible.ts` — endpoint model/context-window discovery.
 - `apps/cli/ai/runtimes/pi/index.ts` — the runtime hook that builds an `openai-completions` model for the local endpoint.
 - `apps/cli/ai/slash-commands.ts` — the `/openai-config` and `/model` commands.
-- `apps/cli/lib/cli-config/core.ts` — the persisted endpoint config.
+- `packages/common/lib/shared-config.ts` — the persisted endpoint config.
 - `packages/common/ai/models.ts` — the model catalog and the widened `SelectedModelId` type.
 
 ## Providers
 
-Three providers are available (`AI_PROVIDERS` in `providers.ts`):
+Three providers are available. The ids and labels live in
+`packages/common/ai/providers.ts` (`AI_PROVIDER_IDS`, `AI_PROVIDER_LABELS`) so the CLI
+and both UIs can't drift; `apps/cli/ai/providers.ts` re-exports the labels as
+`AI_PROVIDERS` and adds the CLI's behavioral hooks.
 
-| Provider            | ID                  | Configuration                                          |
-| ------------------- | ------------------- | ------------------------------------------------------ |
-| WordPress.com       | `wpcom`             | WordPress.com OAuth (`/login`)                         |
-| Anthropic · API key | `anthropic-api-key` | Anthropic API key (`/api-key`)                         |
-| OpenAI-compatible   | `openai-compatible` | Local endpoint + model (`/openai-config`)              |
+| Provider          | ID                  | Configuration                             | Offered in app UI |
+| ----------------- | ------------------- | ----------------------------------------- | ----------------- |
+| WordPress.com     | `wpcom`             | WordPress.com OAuth (`/login`)            | yes               |
+| Anthropic API     | `anthropic-api-key` | Anthropic API key (`/api-key`)            | yes               |
+| OpenAI-compatible | `openai-compatible` | Local endpoint + model (`/openai-config`) | no — CLI only     |
 
 Switch with `/provider`. Configure the local endpoint with `/openai-config`, which prompts for a base URL and optional API key, then lists the endpoint's models (from `GET /v1/models`) so the user picks one. Selection can be changed later with `/model`.
 
@@ -35,11 +38,26 @@ Studio ships a fixed model catalog (`AI_MODELS` in `packages/common/ai/models.ts
 - `getAiModelFamily()` / `getAiModelLabel()` tolerate unknown ids: family defaults to `'openai'` (local endpoints speak OpenAI), and the label falls back to the id itself.
 - The `openai-compatible` provider implements two dynamic hooks on `AiProviderDefinition`: `listDynamicModels()` (used by `/model` to show the endpoint's live models instead of the catalog) and `resolveDefaultModel()` (used when switching to the provider — the saved selection, or the first discovered model).
 
-The **desktop app** (`apps/studio`, `apps/ui`) intentionally does not expose this provider; its model picker stays on the built-in catalog. When it opens a CLI-created session that used a local model, it narrows the display back to a known id (`isAiModelId( … ) ? … : DEFAULT_MODEL`).
+## The app UIs display it but don't offer it
+
+Every agent turn runs inside the CLI (`runStudioAgentTurn`), so a session pinned to
+`openai-compatible` runs normally in the Desktop app and the browser UI. Only
+*configuration* is CLI-only. The UIs therefore report the pin rather than hiding it:
+
+- `UI_AI_PROVIDER_IDS` / `isUiSelectableProvider()` (`packages/common/ai/providers.ts`)
+  list the providers a picker may offer. `openai-compatible` is excluded, so the
+  provider switcher is hidden for a session pinned to it instead of rendering a
+  selection that matches no option.
+- `getEffectiveSessionProvider()` drops a pin only for `anthropic-api-key` with no key
+  saved. Other pins survive — silently reporting a local session as WordPress.com would
+  be a lie about where the user's prompts are going.
+- `resolveSessionModelForProvider()` returns `SelectedModelId` and keeps the recorded id
+  verbatim when the provider has no built-in catalog, so the composer pill shows
+  `Local · <model id>` and the model menu shows that model read-only.
 
 ## Endpoint configuration
 
-Stored in `cli.json` under `openAiCompatibleEndpoints` — an **array**, though only the first entry (the active endpoint) is used today. Modeling it as a list leaves room for multiple endpoints later without a breaking migration.
+Stored in `shared.json` under `openAiCompatibleEndpoints` — an **array**, though only the first entry (the active endpoint) is used today. Modeling it as a list leaves room for multiple endpoints later without a breaking migration.
 
 ```jsonc
 "openAiCompatibleEndpoints": [
@@ -52,7 +70,12 @@ Stored in `cli.json` under `openAiCompatibleEndpoints` — an **array**, though 
 ]
 ```
 
-Access via `getActiveOpenAiCompatibleEndpoint()` / `saveActiveOpenAiCompatibleEndpoint()`.
+Access via `getActiveOpenAiCompatibleEndpoint()` / `saveActiveOpenAiCompatibleEndpoint()`
+(`packages/common/lib/shared-config.ts`), which write under `lockSharedConfig()`.
+
+It lives in `shared.json` rather than the CLI-owned `cli.json` even though only the CLI
+writes it today: Desktop can't write `cli.json`, so an app-side editor would have meant a
+config migration later. Placing it here costs nothing now and leaves that door open.
 
 ## Discovery (`openai-compatible.ts`)
 
@@ -63,9 +86,15 @@ Access via `getActiveOpenAiCompatibleEndpoint()` / `saveActiveOpenAiCompatibleEn
 The provider's `resolveEnv` sets:
 
 - `OPENAI_BASE_URL` = the endpoint base URL, `OPENAI_API_KEY` = the key (or `'local'`; pi's openai path rejects an empty key, and local servers usually ignore it).
-- `STUDIO_OPENAI_COMPLETIONS=1` and `STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW=<n>` — markers read by the runtime.
+- `STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW=<n>` — the discovered window, read by the runtime.
 
-`resolveCredentials` reads those markers into `ResolvedCredentials.openaiApi` (`'completions'` vs the wpcom/OpenAI `'responses'` path) and `contextWindow`. `buildModel` then, for the `openai` family with `openaiApi === 'completions'`, builds a `Model<'openai-completions'>` pointed at the endpoint, with `reasoning: false` and the discovered `contextWindow` (falling back to `DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192`). Output tokens are scaled under the window to avoid pi clamping them to an invalid value on small local windows.
+The `openai` model family belongs to this provider alone: the built-in tiers ride the
+`studio` family through the wpcom proxy, so no flavor flag is needed to tell them apart.
+`resolveCredentials` reads `OPENAI_BASE_URL` and the context-window marker into
+`ResolvedCredentials`; `buildModel` then builds a `Model<'openai-completions'>` pointed at
+the endpoint, with `reasoning: false` and the discovered `contextWindow` (falling back to
+`DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192`). Output tokens are scaled under the
+window to avoid pi clamping them to an invalid value on small local windows.
 
 ## Compaction is pi's job
 
@@ -80,6 +109,14 @@ Compaction only trims *conversation history*. The **system prompt is fixed overh
 
 The window is auto-discovered from `/v1/models`, so an under-sized model isn't blocked at configuration time — it simply fails on first use. If you hit `context_length_exceeded` immediately, the model is too small.
 
+## Analytics
+
+`studio_code_message_sent` reports `provider` (so `openai-compatible` appears alongside
+`wpcom` and `anthropic-api-key`) and `model_family` (`openai` for a local model). The
+`model` property is sent only when the id is a built-in catalog id — a local endpoint
+names its own models, and servers like vLLM report the filesystem path they were launched
+with, so anything else is reported as `local`. See `docs/design-docs/analytics-tracks.md`.
+
 ## Testing
 
 Automated:
@@ -90,7 +127,10 @@ npm test -- apps/cli/ai packages/common/ai
 npm run typecheck
 ```
 
-Relevant suites: `packages/common/ai/tests/models.test.ts` (family/label fallbacks for unknown ids), `apps/cli/ai/tests/openai-compatible.test.ts` (discovery field-name handling and graceful failure), `apps/cli/ai/tests/auth.test.ts` (provider list).
+Relevant suites: `packages/common/ai/tests/models.test.ts` (family/label fallbacks for
+unknown ids), `packages/common/ai/tests/providers.test.ts` (pin survival, UI selectability,
+verbatim local model ids), `apps/cli/ai/tests/openai-compatible.test.ts` (discovery
+field-name handling and graceful failure), `apps/cli/ai/tests/auth.test.ts` (provider list).
 
 Manual:
 

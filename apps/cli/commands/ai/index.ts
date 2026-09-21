@@ -7,6 +7,7 @@ import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
 	getAiModelFamily,
+	isAiModelId,
 	readRecordedSessionModel,
 	type AiModelId,
 	type SelectedModelId,
@@ -655,7 +656,10 @@ export async function runCommand( options: {
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
 			provider: currentProvider,
-			model: currentModel,
+			// A local endpoint names its own models, and servers like vLLM report
+			// the filesystem path they were launched with — which can carry a home
+			// directory. Only catalog ids are safe to send.
+			model: isAiModelId( currentModel ) ? currentModel : 'local',
 			model_family: getAiModelFamily( currentModel ),
 		};
 		const turnStartedAt = Date.now();

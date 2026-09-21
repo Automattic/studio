@@ -154,7 +154,6 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.STUDIO_WPCOM_API_KEY;
 	delete env.STUDIO_WPCOM_BASE_URL;
 	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
-	delete env.STUDIO_OPENAI_COMPLETIONS;
 	delete env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW;
 
 	return env;
@@ -281,7 +280,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			// pi's openai family requires a non-empty key; local servers usually
 			// ignore it, so default to a placeholder when none is configured.
 			env.OPENAI_API_KEY = endpoint.apiKey || 'local';
-			env.STUDIO_OPENAI_COMPLETIONS = '1';
 			env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW = String( contextWindow );
 			return env;
 		},

@@ -26,6 +26,18 @@ function run( command, args ) {
 	execFileSync( command, args, { stdio: 'inherit' } );
 }
 
+/**
+ * Replaces `destination` with a verbatim copy of `source`.
+ *
+ * verbatimSymlinks preserves upstream's relative links (CLAUDE.md -> AGENTS.md).
+ * Without it cpSync rewrites them to absolute paths inside the throwaway clone
+ * directory, vendoring symlinks that dangle on every other checkout.
+ */
+export function replaceVendoredTree( source, destination ) {
+	rmSync( destination, { recursive: true, force: true } );
+	cpSync( source, destination, { recursive: true, verbatimSymlinks: true } );
+}
+
 export async function main( { ref = process.argv[ 2 ] } = {} ) {
 	const tmpDir = mkdtempSync( path.join( tmpdir(), 'data-liberation-agent-' ) );
 	try {
@@ -39,8 +51,7 @@ export async function main( { ref = process.argv[ 2 ] } = {} ) {
 		rmSync( path.join( tmpDir, '.git' ), { recursive: true, force: true } );
 
 		const destination = path.join( repoRoot, VENDORED_DIR );
-		rmSync( destination, { recursive: true, force: true } );
-		cpSync( tmpDir, destination, { recursive: true } );
+		replaceVendoredTree( tmpDir, destination );
 		writeFileSync( path.join( destination, '.upstream-revision' ), `${ revision }\n` );
 
 		console.log( `Synced ${ VENDORED_DIR } to Automattic/data-liberation-agent@${ revision }.` );

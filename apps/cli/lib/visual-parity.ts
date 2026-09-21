@@ -342,8 +342,46 @@ function normalizePageId( value: string ): string {
 	return [ '', 'index', 'home', 'homepage' ].includes( normalized ) ? 'index' : normalized;
 }
 
-function routeForCapturedPage( pageId: string, sourceUrl: string | undefined ): string {
+// Maps each captured source URL to the route its exported document occupies under `website/`,
+// as recorded by the DLA capture receipt beside `sections/`. The imported site is rooted at
+// that export, not at the source URL: a source hosted under a subpath
+// (`https://user.wixsite.com/my-site`) exports its homepage to `website/index.html`, so the
+// imported homepage lives at `/`, not `/my-site`.
+export function loadCapturedRoutes( sectionsDir: string ): Map< string, string > {
+	const routes = new Map< string, string >();
+	try {
+		const receipt = JSON.parse(
+			fs.readFileSync( path.join( path.dirname( sectionsDir ), 'capture-receipt.json' ), 'utf8' )
+		);
+		const websiteRoot = typeof receipt?.websiteRoot === 'string' ? receipt.websiteRoot : 'website';
+		const prefix = `${ websiteRoot.replace( /^\/+|\/+$/g, '' ) }/`;
+		for ( const route of Array.isArray( receipt?.routes ) ? receipt.routes : [] ) {
+			if ( typeof route?.url !== 'string' || typeof route?.path !== 'string' ) {
+				continue;
+			}
+			const exportedPath = route.path.replace( /\\/g, '/' );
+			if ( ! exportedPath.startsWith( prefix ) ) {
+				continue;
+			}
+			const relative = exportedPath.slice( prefix.length ).replace( /(^|\/)index\.html?$/, '' );
+			routes.set( route.url, relative ? `/${ relative }/` : '/' );
+		}
+	} catch {
+		// No readable receipt: callers fall back to the source URL's own path.
+	}
+	return routes;
+}
+
+export function routeForCapturedPage(
+	pageId: string,
+	sourceUrl: string | undefined,
+	capturedRoutes: Map< string, string > = new Map()
+): string {
 	if ( sourceUrl ) {
+		const capturedRoute = capturedRoutes.get( sourceUrl );
+		if ( capturedRoute ) {
+			return capturedRoute;
+		}
 		try {
 			return new URL( sourceUrl ).pathname || '/';
 		} catch {
@@ -721,6 +759,7 @@ export async function buildVisualParityValidationArtifacts( {
 		return notVerifiedResult( 'No captured section records were available to compare.' );
 	}
 
+	const capturedRoutes = loadCapturedRoutes( sectionsDir );
 	let browser: Browser | undefined;
 	const measuredSourcePages: Record< string, CapturedSectionPage > = {};
 	const importedPages: Record< string, CapturedSectionPage > = {};
@@ -730,7 +769,7 @@ export async function buildVisualParityValidationArtifacts( {
 			'the Studio visual parity check'
 		);
 		for ( const [ pageId, sourcePage ] of Object.entries( sourcePages ) ) {
-			const route = routeForCapturedPage( pageId, sourcePage.sourceUrl );
+			const route = routeForCapturedPage( pageId, sourcePage.sourceUrl, capturedRoutes );
 			const target = new URL( route, importedOrigin ).href;
 			const page = await browser.newPage( {
 				viewport: VISUAL_PARITY_VIEWPORT,

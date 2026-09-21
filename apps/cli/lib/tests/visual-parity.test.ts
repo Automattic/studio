@@ -7,7 +7,9 @@ import {
 	VISUAL_PARITY_COMPILER_REPORT_PATH,
 	VISUAL_PARITY_STAGE,
 	VISUAL_PARITY_VIEWPORT,
+	loadCapturedRoutes,
 	loadCapturedSectionPages,
+	routeForCapturedPage,
 	toVisualParityOraclePayload,
 	visualParityGateFailure,
 	type CapturedSectionPage,
@@ -354,5 +356,59 @@ describe( 'visualParityGateFailure', () => {
 			disagreements: [],
 		};
 		expect( visualParityGateFailure( readyArtifacts, evaluation ) ).toBeUndefined();
+	} );
+} );
+
+describe( 'routeForCapturedPage', () => {
+	let tmpDir: string | undefined;
+
+	afterEach( () => {
+		if ( tmpDir ) {
+			fs.rmSync( tmpDir, { recursive: true, force: true } );
+			tmpDir = undefined;
+		}
+	} );
+
+	it( 'probes a subpath-hosted source at the route its export occupies', () => {
+		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-visual-parity-routes-' ) );
+		const sectionsDir = path.join( tmpDir, 'sections' );
+		fs.mkdirSync( sectionsDir );
+		fs.writeFileSync(
+			path.join( tmpDir, 'capture-receipt.json' ),
+			JSON.stringify( {
+				websiteRoot: 'website',
+				routes: [
+					{ url: 'https://user.wixsite.com/my-site', path: 'website/index.html' },
+					{
+						url: 'https://user.wixsite.com/my-site/privacy-policy',
+						path: 'website/privacy-policy/index.html',
+					},
+				],
+			} )
+		);
+
+		const routes = loadCapturedRoutes( sectionsDir );
+
+		expect( routeForCapturedPage( 'my-site', 'https://user.wixsite.com/my-site', routes ) ).toBe(
+			'/'
+		);
+		expect(
+			routeForCapturedPage(
+				'my-site--privacy-policy',
+				'https://user.wixsite.com/my-site/privacy-policy',
+				routes
+			)
+		).toBe( '/privacy-policy/' );
+	} );
+
+	it( 'falls back to the source URL path when the receipt has no matching route', () => {
+		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-visual-parity-routes-' ) );
+		const routes = loadCapturedRoutes( path.join( tmpDir, 'sections' ) );
+
+		expect( routes.size ).toBe( 0 );
+		expect( routeForCapturedPage( 'social-kit', 'https://example.com/social-kit', routes ) ).toBe(
+			'/social-kit'
+		);
+		expect( routeForCapturedPage( 'index', undefined, routes ) ).toBe( '/' );
 	} );
 } );

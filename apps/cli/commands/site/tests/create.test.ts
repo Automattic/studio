@@ -2201,6 +2201,113 @@ describe( 'CLI: studio create', () => {
 			).toBe( true );
 		} );
 
+		it( 'still runs visual parity when resuming an existing site without a persisted URL', async () => {
+			// `SiteData.url` is only ever set in memory during the *first* `create` run
+			// (see the assignment right before `startWordPressServer()` below); it is never
+			// written back to the on-disk CLI config. Resuming an import — the CLI's own
+			// documented recovery path after any failure ("Re-run the same command to resume
+			// the import.") — loads the site straight from `readCliConfig()`, so `site.url` is
+			// `undefined` on every resume, exactly like `mockExistingSite` here.
+			const blueprint = createParityCaptureBlueprint();
+			const resumePort = 8883;
+			const existingSite = {
+				...mockExistingSite,
+				path: mockSitePath,
+				port: resumePort,
+				running: true,
+			};
+			expect( existingSite.url ).toBeUndefined();
+
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ existingSite ],
+			} );
+			createPathExistsMock( true );
+			vi.mocked( isEmptyDir ).mockResolvedValue( false );
+			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
+			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue(
+				toVisualParityOraclePayload( { index: capturedParityPage }, { index: capturedParityPage } )
+			);
+
+			const requestPath = path.join( mockSitePath, '.studio-import', 'request.json' );
+			const stagedSourcePath = path.join( mockSitePath, '.studio-import', 'source' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				const value = String( filePath );
+				if ( value === requestPath || value === stagedSourcePath ) {
+					return true;
+				}
+				return value.endsWith( 'visual-parity-output.json' );
+			} );
+			const actualReadFileSync = fs.readFileSync.bind( fs );
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
+				const value = String( filePath );
+				if ( value === requestPath ) {
+					return blueprint.staticSiteImport.request;
+				}
+				if ( value.endsWith( 'visual-parity-output.json' ) ) {
+					// The oracle genuinely disagrees with the layout baseline — this is the real
+					// `my-site-2--accessibility-statement` disagreement shape from the R4 rebuild.
+					return JSON.stringify( {
+						status: 'failed',
+						reason: 'Imported section geometry disagrees with the layout baseline.',
+						disagreements: [
+							{
+								page: 'index',
+								section: 0,
+								code: 'section_height',
+								message: 'Section height disagrees with the layout baseline.',
+							},
+						],
+					} );
+				}
+				return actualReadFileSync( filePath, options );
+			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
+				if ( args[ 0 ] === 'static-site-importer' ) {
+					return mockWpCli( {
+						stdout: JSON.stringify( {
+							schema: 'static-site-importer/import-cli-receipt/v1',
+							status: 'completed',
+							response: {
+								success: true,
+								result: {
+									theme_dir: `${ mockSitePath }/wp-content/themes/parity-theme`,
+									import_report_summary: {
+										status: 'completed',
+										quality_pass: true,
+										fail_import: false,
+										fallback_count: 0,
+									},
+								},
+							},
+						} ),
+					} );
+				}
+				return mockWpCli();
+			} );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
+			).rejects.toThrow( /visual parity validation.*section_height/ );
+
+			// The oracle genuinely disagreed — a resumed import must not silently accept content
+			// that would have failed the same gate on a fresh `create`.
+			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					importedOrigin: `http://localhost:${ resumePort }`,
+					sectionsDir: blueprint.staticSiteImport.sectionsPath,
+				} )
+			);
+			expect(
+				vi
+					.mocked( runWpCliCommandWithMessaging )
+					.mock.calls.some( ( call ) => call[ 1 ][ 0 ] === 'eval-file' )
+			).toBe( true );
+		} );
+
 		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );

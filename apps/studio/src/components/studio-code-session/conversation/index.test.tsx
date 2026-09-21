@@ -89,6 +89,64 @@ function toolResultEntry( text: string ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
+function assistantThinkingEntry( thinking: string, text?: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `assistant-thinking-${ Math.random().toString( 36 ).slice( 2 ) }`,
+		parentId: null,
+		timestamp: '2026-06-19T00:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				// Reasoning arrives in `thinking`, never in `text`.
+				{ type: 'thinking', thinking },
+				...( text ? [ { type: 'text', text } ] : [] ),
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
+describe( 'entriesToRenderItems – reasoning', () => {
+	it( 'renders a thinking block as its own row', () => {
+		const items = entriesToRenderItems( [
+			assistantThinkingEntry( 'Weighing the options', 'Done' ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'thinking', 'assistant-text' ] );
+		expect( items[ 0 ] ).toMatchObject( { kind: 'thinking', text: 'Weighing the options' } );
+	} );
+
+	it( 'drops an empty thinking block', () => {
+		// Some endpoints emit an empty reasoning block; an empty disclosure
+		// row is just noise.
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   ', 'Done' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'keeps the reasoning collapsed until asked for', () => {
+		render(
+			<Conversation
+				data={
+					{
+						entries: [ assistantThinkingEntry( 'Weighing the options', 'Done' ) ],
+					} as unknown as LoadedAiSession
+				}
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ new Set() }
+				pendingAnswers={ {} }
+				answeredQuestions={ {} }
+				freeFormQuestion={ null }
+				onAnswerQuestion={ () => {} }
+				onChooseFreeForm={ () => {} }
+			/>
+		);
+		const summary = screen.getByText( 'Thought process' );
+		expect( summary.closest( 'details' ) ).not.toHaveAttribute( 'open' );
+		fireEvent.click( summary );
+		expect( screen.getByText( 'Weighing the options' ) ).toBeVisible();
+	} );
+} );
+
 describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'pairs a question with its persisted ask_user answer', () => {
 		const items = entriesToRenderItems( [ question( 'Pick one', [ 'A', 'B' ] ), answer( 'B' ) ] );

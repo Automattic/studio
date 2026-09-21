@@ -539,3 +539,57 @@
 		animation: none;
 	}
 }
+
+.thinkingBlock {
+	margin: 0;
+}
+
+.thinkingSummary {
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-spacing-3xs, 2px);
+	width: fit-content;
+}
+
+.thinkingSummary::-webkit-details-marker {
+	display: none;
+}
+
+/* Rotating triangle rather than the native marker, which can't be recolored. */
+.thinkingSummary::before {
+	content: '';
+	border: 4px solid transparent;
+	border-left-color: currentcolor;
+	margin-inline-end: 2px;
+	transition: transform 0.15s ease;
+}
+
+.thinkingBlock[open] > .thinkingSummary::before {
+	transform: rotate(90deg) translateX(-2px);
+}
+
+.thinkingSummary:hover,
+.thinkingSummary:focus-visible {
+	color: var(--color-frame-text);
+}
+
+.thinkingBody {
+	margin-block-start: var(--wpds-dimension-padding-sm);
+	padding-inline-start: var(--wpds-dimension-padding-md);
+	border-inline-start: 2px solid var(--color-frame-border);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.6;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.thinkingSummary::before {
+		transition: none;
+	}
+}

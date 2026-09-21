@@ -64,6 +64,23 @@ describe( 'resolveSessionModelForProvider', () => {
 		expect( resolveSessionModelForProvider( entries, 'wpcom' ) ).toBe( 'fast' );
 	} );
 
+	it( 'names the configured endpoint model before a turn is recorded', () => {
+		// Nothing recorded yet, so without the endpoint the picker would show a
+		// built-in tier while the CLI actually runs the local model.
+		expect(
+			resolveSessionModelForProvider( [], 'openai-compatible', { localModel: 'qwen3.8-27b' } )
+		).toBe( 'qwen3.8-27b' );
+	} );
+
+	it( 'prefers the recorded model over the configured endpoint', () => {
+		// The endpoint can be re-pointed mid-session; the transcript is what
+		// that session actually ran on.
+		const entries = [ sessionContext( { provider: 'openai-compatible', model: 'qwen3.6-27b' } ) ];
+		expect(
+			resolveSessionModelForProvider( entries, 'openai-compatible', { localModel: 'qwen3.8-27b' } )
+		).toBe( 'qwen3.6-27b' );
+	} );
+
 	it( 'upgrades the wpcom default with paid credits', () => {
 		expect( resolveSessionModelForProvider( [], 'wpcom', { hasPaidAiCredits: true } ) ).toBe(
 			'balanced'

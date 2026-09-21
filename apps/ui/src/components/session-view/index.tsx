@@ -334,7 +334,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return resolveSessionModelForProvider(
 			entries,
 			getEffectiveSessionProvider( entries, aiSettings ),
-			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+			{
+				hasPaidAiCredits: hasPaidAiCredits( quota ),
+				localModel: aiSettings?.openAiCompatibleModel,
+			}
 		);
 	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(

@@ -2,6 +2,7 @@ import {
 	AI_MODELS,
 	DEFAULT_MODEL,
 	PAID_DEFAULT_MODEL,
+	readRecordedSessionModel,
 	resolveSessionModel,
 	type AiModelFamily,
 	type AiModelId,
@@ -103,13 +104,18 @@ export function getAiProviderDefaultModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: AiProviderId,
-	options?: { hasPaidAiCredits?: boolean }
+	options?: { hasPaidAiCredits?: boolean; localModel?: string | null }
 ): SelectedModelId {
 	const defaultModel = getAiProviderDefaultModel( provider, options );
-	const model = resolveSessionModel( entries, defaultModel );
 	if ( getAiProviderModels( provider ).length === 0 ) {
-		return model;
+		// No catalog to default to, so `getAiProviderDefaultModel` can only
+		// offer a built-in id — which would name a model the turn will never
+		// run on (the endpoint's own model is what the CLI resolves). Prefer
+		// what the session recorded, then the configured endpoint, and fall
+		// back to the built-in default only before either is known.
+		return readRecordedSessionModel( entries ) ?? options?.localModel ?? defaultModel;
 	}
+	const model = resolveSessionModel( entries, defaultModel );
 	return providerServesModel( provider, model ) ? model : defaultModel;
 }
 
@@ -171,4 +177,11 @@ export interface AiSettings {
 	hasAnthropicApiKey: boolean;
 	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
 	anthropicApiKeyPreview: string | null;
+	/**
+	 * Model id the active `openai-compatible` endpoint is configured with, or
+	 * null when no endpoint is set up. The base URL and key stay server-side —
+	 * this is only what the pickers need to name the running model. Ids outside
+	 * `AI_MODELS` are expected here; that's the whole point of the provider.
+	 */
+	openAiCompatibleModel: string | null;
 }

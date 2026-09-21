@@ -40,6 +40,29 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			openAiCompatibleModel: null,
+		} );
+	} );
+
+	it( 'surfaces the active endpoint model', async () => {
+		// The pickers name the running model from this; the base URL and key
+		// stay server-side.
+		fs.writeFileSync(
+			sharedConfigPath(),
+			JSON.stringify( {
+				version: 1,
+				aiProvider: 'openai-compatible',
+				openAiCompatibleEndpoints: [
+					{ baseUrl: 'http://localhost:8000/v1', apiKey: 'secret', selectedModel: 'qwen3.8-27b' },
+				],
+			} )
+		);
+
+		await expect( readAiSettings() ).resolves.toEqual( {
+			provider: 'openai-compatible',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+			openAiCompatibleModel: 'qwen3.8-27b',
 		} );
 	} );
 
@@ -50,6 +73,7 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			openAiCompatibleModel: null,
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
@@ -126,6 +150,7 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			openAiCompatibleModel: null,
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();

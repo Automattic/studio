@@ -74,6 +74,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
@@ -145,6 +146,7 @@ export async function runCommand( options: {
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
+	initialVisualAnnotations?: StudioVisualAnnotationSummary[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -573,7 +575,8 @@ export async function runCommand( options: {
 		prompt: string,
 		displayMessage = prompt,
 		images: StudioChatImage[] = [],
-		files: StudioChatFileAttachment[] = []
+		files: StudioChatFileAttachment[] = [],
+		visualAnnotations?: StudioVisualAnnotationSummary[]
 	): Promise< { status: TurnStatus; sessionId: string } > {
 		// The quota-based default must land before the turn captures its model.
 		await wpcomDefaultModelResolution;
@@ -657,6 +660,7 @@ export async function runCommand( options: {
 				source: 'prompt',
 				sitePath: site?.path,
 				attachments: buildChatAttachmentSummaries( images, files ),
+				visualAnnotations,
 			} )
 		);
 
@@ -742,7 +746,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
@@ -767,7 +772,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 		} catch ( error ) {
 			handleAgentTurnError( error );

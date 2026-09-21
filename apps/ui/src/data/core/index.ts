@@ -26,6 +26,7 @@ export type {
 	StudioChatFileAttachment,
 	StudioChatImage,
 	StudioCustomEntry,
+	StudioVisualAnnotationSummary,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,

@@ -190,6 +190,7 @@ export function createPresentDesignOptionsTool(
 					? `The user answered: ${ answer }`
 					: `The user picked option ${ picked + 1 }: ${ answer }`
 			);
-		}
+		},
+		{ settlesPendingWork: true }
 	);
 }

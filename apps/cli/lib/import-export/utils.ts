@@ -5,12 +5,20 @@ export function getBackupFileType( importFile: string ): string {
 		return 'application/gzip';
 	}
 
+	if ( normalizedPath.endsWith( '.tar' ) ) {
+		return 'application/x-tar';
+	}
+
 	if ( normalizedPath.endsWith( '.zip' ) ) {
 		return 'application/zip';
 	}
 
 	if ( normalizedPath.endsWith( '.sql' ) ) {
 		return 'application/sql';
+	}
+
+	if ( normalizedPath.endsWith( '.xml' ) ) {
+		return 'application/xml';
 	}
 
 	return '';

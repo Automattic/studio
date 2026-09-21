@@ -1,12 +1,59 @@
-import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { __, sprintf } from '@wordpress/i18n';
+import {
+	aspectRatio,
+	check,
+	chevronDown,
+	closeSmall,
+	desktop,
+	fullscreen as fullscreenIcon,
+	Icon,
+	mobile,
+	pencil,
+	tablet,
+} from '@wordpress/icons';
+import {
+	ariaKeyShortcut,
+	displayShortcut,
+	isAppleOS,
+	isKeyboardEvent,
+	shortcutAriaLabel,
+} from '@wordpress/keycodes';
+import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DotGrid } from '@/components/dot-grid';
+import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import {
+	useIsSiteBusy,
+	useIsSiteStarting,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
+import { useAppZoomFactor } from '@/hooks/use-app-zoom-factor';
+import { refreshThemeDetails } from '@/hooks/use-theme-details';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import {
+	browserBackIcon,
+	browserForwardIcon,
+	drawerIcon,
+	playIcon,
+	refreshIcon,
+} from '@/lib/icons';
+import {
+	DATABASE_HOME_PATH,
+	getPathFromPreviewUrl,
+	getPreviewRealm,
+	getRealmNavigationPath,
+	getRealmOpenEvent,
+	PreviewAddressBar,
+	useDebouncedValue,
+	type PreviewRealm,
+} from './address-bar';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -15,9 +62,9 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement } from 'react';
+import type { CSSProperties } from 'react';
 
-export type { Annotation } from './types';
+export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -37,25 +84,37 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	// True while the preview fills the whole window (sidebar and chat hidden).
+	fullscreen?: boolean;
+	// Enters/leaves full preview. The toolbar toggle only renders when provided.
+	onFullscreenChange?: ( value: boolean ) => void;
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'annotations-updated' | 'browser-command' | 'cancel-requested' | 'done' | 'state';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
-	command?: BrowserShortcutCommandType;
+	hasUnsavedDraft?: boolean;
+	command?: PreviewShortcutCommandType;
 }
 
 interface InspectorState {
 	ready: boolean;
 	isPicking: boolean;
 	annotationCount: number;
+	hasUnsavedDraft: boolean;
 }
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'cancel' | 'toggle-picking' | 'submit';
+}
+
+interface BrowserHistoryEntry {
+	index: number;
+	title: string;
+	url: string;
 }
 
 interface BrowserNavigationState {
@@ -64,13 +123,21 @@ interface BrowserNavigationState {
 	loading: boolean;
 	progress: number;
 	title: string | null;
+	historyEntries: BrowserHistoryEntry[];
+	activeHistoryIndex: number;
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
 
+// What the guest page can forward over the console bridge: the browser
+// commands it swallows, plus the full-preview toggle (the webview covers most
+// of the window in full preview, so the host listener alone would miss it).
+type PreviewShortcutCommandType = BrowserShortcutCommandType | 'full-preview';
+
 interface BrowserCommand {
 	id: number;
-	type: BrowserShortcutCommandType;
+	type: BrowserShortcutCommandType | 'go-to-history';
+	historyIndex?: number;
 }
 
 // Electron's `<webview>` is a custom element with non-standard methods. Type
@@ -80,6 +147,7 @@ interface WebviewTag extends HTMLElement {
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
 	canGoBack?(): boolean;
 	canGoForward?(): boolean;
+	getWebContentsId?(): number;
 	goBack?(): void;
 	goForward?(): void;
 	reload?(): void;
@@ -103,19 +171,358 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
+interface ViewportPreset {
+	id: 'mobile' | 'tablet' | 'desktop';
+	// Emulated CSS dimensions; the frame keeps this exact size and scales
+	// down to fit the pane.
+	width: number;
+	height: number;
+	// Report the emulated viewport to the page as a mobile device.
+	mobile?: boolean;
+}
+
+// Simulated-viewport presets, rendered as fixed-size device frames scaled
+// to fit the pane: an iPhone-class phone, an iPad-class tablet, and a
+// 16:10 laptop.
+const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
+	{ id: 'mobile', width: 390, height: 844, mobile: true },
+	{ id: 'tablet', width: 768, height: 1024 },
+	{ id: 'desktop', width: 1440, height: 900 },
+];
+
+// The preview's viewport mode: natural pane size, one simulated preset, or
+// the side-by-side comparison of the desktop and mobile presets.
+type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
+
+// How large the natural (fit-to-pane) view renders its page, in device px
+// per page CSS px — browser zoom, for the preview alone. Simulated presets
+// always fit the pane, so it doesn't apply to them.
+export type PreviewZoom = number;
+
+export const PREVIEW_ZOOM_LEVELS = [ 0.5, 0.75, 1, 1.25, 1.5, 2 ] as const;
+
+// The split view reuses the desktop and mobile presets for its two panes.
+const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
+const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
+
+// The phone frame's orientation, shared by the mobile preset and the split
+// view. Landscape rotates the frame a quarter turn (844×390).
+type MobileOrientation = 'portrait' | 'landscape';
+
+const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
+	...MOBILE_PRESET,
+	width: MOBILE_PRESET.height,
+	height: MOBILE_PRESET.width,
+};
+
+function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
+	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
+}
+
+// The preset behind the primary preview surface, or null when the pane
+// renders at its natural size. The split view's primary frame is the desktop
+// preset; its phone companion is sized separately.
+function getActivePreset(
+	mode: ViewportMode,
+	orientation: MobileOrientation
+): ViewportPreset | null {
+	if ( mode === 'mobile' ) {
+		return getMobilePreset( orientation );
+	}
+	if ( mode === 'split' ) {
+		return DESKTOP_PRESET;
+	}
+	return VIEWPORT_PRESETS.find( ( preset ) => preset.id === mode ) ?? null;
+}
+
+// Breathing room around a floating device frame, mirroring the CSS padding on
+// `.realmLayerSimulated` and `.splitMobilePane`. Subtracted from the measured
+// pane before computing a frame's fit-to-pane scale.
+const PREVIEW_PANE_PADDING = 16;
+
+// A simulated guest viewport: the page lays out at `width`×`height` CSS px
+// and its rendering is scaled by `scale` to fit the preview pane. `mobile`
+// makes the emulation report a mobile device, so meta-viewport handling and
+// responsive behavior match a real phone.
+interface PreviewViewport {
+	width: number;
+	height: number;
+	scale: number;
+	mobile?: boolean;
+}
+
+/**
+ * The viewport to simulate for a preset inside a pane of the given size:
+ * the preset's exact dimensions, scaled down (never up) to fit both axes,
+ * like a device frame.
+ *
+ * The pane is measured in the host document's CSS px, which the app's zoom
+ * scales; the preset is in device px, which it doesn't. `zoomFactor` converts
+ * the pane so a preset keeps its real size whatever the UI is scaled to.
+ */
+export function getSimulatedViewport(
+	preset: { width: number; height: number; mobile?: boolean } | null,
+	pane: { width: number; height: number } | null,
+	zoomFactor = 1
+): PreviewViewport | null {
+	if ( ! preset || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+		return null;
+	}
+	return {
+		width: preset.width,
+		height: preset.height,
+		scale: Math.min(
+			1,
+			( pane.width * zoomFactor ) / preset.width,
+			( pane.height * zoomFactor ) / preset.height
+		),
+		mobile: Boolean( preset.mobile ),
+	};
+}
+
+/**
+ * The viewport to simulate for the natural (fit-to-pane) view at a zoom
+ * other than 100%: the page lays out at the pane's device size divided by
+ * the zoom and renders back up to fill it — browser zoom in emulation terms,
+ * which keeps the guest itself at 1:1. Null at 100%, where the pane shows as is.
+ */
+export function getZoomedPaneViewport(
+	pane: { width: number; height: number } | null,
+	zoomFactor: number,
+	zoom: PreviewZoom
+): PreviewViewport | null {
+	if ( zoom === 1 || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+		return null;
+	}
+	return {
+		width: Math.max( 1, Math.round( ( pane.width * zoomFactor ) / zoom ) ),
+		height: Math.max( 1, Math.round( ( pane.height * zoomFactor ) / zoom ) ),
+		scale: zoom,
+		mobile: false,
+	};
+}
+
+// The box a simulated viewport occupies in the host document, in its CSS px:
+// the scaled device size, brought back through the app's zoom.
+export function getFrameSize(
+	viewport: PreviewViewport,
+	zoomFactor = 1
+): { width: number; height: number } {
+	return {
+		width: ( viewport.width * viewport.scale ) / zoomFactor,
+		height: ( viewport.height * viewport.scale ) / zoomFactor,
+	};
+}
+
+interface PreviewWindow extends Window {
+	ipcApi?: {
+		setWebviewViewport?: (
+			webContentsId: number,
+			viewport: PreviewViewport | null
+		) => Promise< void >;
+		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
+		getWebviewNavigationHistory?: ( webContentsId: number ) => Promise< {
+			activeIndex: number;
+			entries: BrowserHistoryEntry[];
+		} >;
+		goToWebviewNavigationHistoryEntry?: ( webContentsId: number, index: number ) => Promise< void >;
+	};
+}
+
+function getWebviewContentsId( webview: WebviewTag ): number {
+	const webContentsId = webview.getWebContentsId?.();
+	if ( ! webContentsId ) {
+		throw new Error( 'Preview webview is not ready.' );
+	}
+	return webContentsId;
+}
+
+// Reloading always drops the HTTP cache: it keeps edited CSS/JS from being
+// served stale, and it's the only way to shake a cached 301 (Chrome keeps those
+// through every reload variant). When such a redirect has already moved the
+// webview onto another origin, reload() would reload *that*, so navigate.
+async function reloadPreview(
+	webview: WebviewTag,
+	intendedUrl: string,
+	currentUrl: string
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	try {
+		await ipcApi?.clearWebviewCache?.( getWebviewContentsId( webview ) );
+	} catch {
+		// No IPC bridge, or the webview isn't ready.
+	}
+	if ( isOffOriginRedirect( currentUrl, intendedUrl ) ) {
+		await webview.loadURL( intendedUrl ).catch( () => undefined );
+		return;
+	}
+	webview.reload?.();
+}
+
+export function isOffOriginRedirect( settledUrl: string, intendedUrl: string ): boolean {
+	try {
+		return new URL( settledUrl ).origin !== new URL( intendedUrl ).origin;
+	} catch {
+		return false;
+	}
+}
+
+export function isThemeActivationUrl( url: string ): boolean {
+	try {
+		const parsed = new URL( url );
+		return (
+			parsed.pathname.endsWith( '/wp-admin/themes.php' ) &&
+			parsed.searchParams.get( 'activated' ) === 'true'
+		);
+	} catch {
+		return false;
+	}
+}
+
+async function applyWebviewViewport(
+	webview: WebviewTag,
+	viewport: PreviewViewport | null
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
+}
+
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
 	loading: false,
 	progress: 0,
 	title: null,
+	historyEntries: [],
+	activeHistoryIndex: -1,
 };
 
 const EMPTY_INSPECTOR_STATE: InspectorState = {
 	ready: false,
 	isPicking: false,
 	annotationCount: 0,
+	hasUnsavedDraft: false,
 };
+
+const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
+
+// Where each realm segment lands before its per-realm memory has anything
+// better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
+const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
+	frontend: '/',
+	admin: '/wp-admin/',
+	database: DATABASE_HOME_PATH,
+};
+
+/**
+ * Realms that share a browsing session share a surface.
+ *
+ * The front end and WP Admin link to each other and share a login, so they stay
+ * one webview: one history stack, and a page loaded after signing in reflects
+ * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
+ * isn't responsive — so it gets its own surface, which never resizes or reloads
+ * when the preview flips to it.
+ */
+type PreviewSurfaceKey = 'site' | 'database';
+
+function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
+	return realm === 'database' ? 'database' : 'site';
+}
+
+// Whether a surface previews responsive pages. phpMyAdmin has no mobile layout,
+// so its surface always renders at the pane's natural size and the viewport
+// controls don't apply to it.
+function isResponsiveSurface( key: PreviewSurfaceKey ): boolean {
+	return key === 'site';
+}
+
+// A mounted preview surface: its url, plus the load state and pending commands
+// belonging to that webview. Kept alive once created so returning to it is a
+// visibility swap rather than a resize plus a fresh load.
+interface PreviewSurfaceState {
+	path: string;
+	browser: BrowserNavigationState;
+	inspector: InspectorState;
+	browserCommand: BrowserCommand | null;
+	inspectorCommand: InspectorCommand | null;
+	reloadNonce: number;
+}
+
+type PreviewSurfaces = Partial< Record< PreviewSurfaceKey, PreviewSurfaceState > >;
+
+// Surfaces belong to the site they were opened for, so the owning id travels
+// with them: moving to another site replaces the whole set rather than leaving
+// the previous site's webviews behind.
+interface MountedSurfaces {
+	siteId: string;
+	byKey: PreviewSurfaces;
+}
+
+function createPreviewSurface( path: string, reloadNonce: number ): PreviewSurfaceState {
+	return {
+		path,
+		browser: EMPTY_BROWSER_STATE,
+		inspector: EMPTY_INSPECTOR_STATE,
+		browserCommand: null,
+		inspectorCommand: null,
+		reloadNonce,
+	};
+}
+
+// Sizing for the frame around a surface: the preset's exact scaled box (the
+// emulation paints it edge to edge), or nothing when the surface fills its layer.
+function getFrameStyle(
+	viewport: PreviewViewport | null,
+	zoomFactor: number
+): CSSProperties | undefined {
+	if ( ! viewport ) {
+		return undefined;
+	}
+	return { flex: '0 0 auto', ...getFrameSize( viewport, zoomFactor ) };
+}
+
+// The iframe fallback has no device emulation, so scaling is a CSS transform
+// instead: lay out at full size, scale down to fit; the frame clips the
+// transform's leftover layout box.
+function getIframeStyle(
+	viewport: PreviewViewport | null,
+	zoomFactor: number
+): CSSProperties | undefined {
+	if ( ! viewport ) {
+		return undefined;
+	}
+	const scale = viewport.scale / zoomFactor;
+	if ( scale === 1 ) {
+		return undefined;
+	}
+	return {
+		flex: '0 0 auto',
+		width: viewport.width,
+		height: viewport.height,
+		transform: `scale(${ scale })`,
+		transformOrigin: 'top left',
+	};
+}
+
+function areInspectorStatesEqual( a: InspectorState, b: InspectorState ) {
+	return (
+		a.ready === b.ready &&
+		a.isPicking === b.isPicking &&
+		a.annotationCount === b.annotationCount &&
+		a.hasUnsavedDraft === b.hasUnsavedDraft
+	);
+}
+
+function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState ) {
+	return (
+		a.path === b.path &&
+		a.reloadNonce === b.reloadNonce &&
+		a.browserCommand === b.browserCommand &&
+		a.inspectorCommand === b.inspectorCommand &&
+		areBrowserStatesEqual( a.browser, b.browser ) &&
+		areInspectorStatesEqual( a.inspector, b.inspector )
+	);
+}
 
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
@@ -149,16 +556,43 @@ function getBrowserShortcutDescriptor( key: string ) {
 	return {
 		displayShortcut: displayShortcut.primary( key ),
 		ariaKeyShortcut: ariaKeyShortcut.primary( key ),
+		label: shortcutAriaLabel.primary( key ),
 	};
 }
 
-function getBrowserShortcutCommand(
+function getNavigationShortcutDescriptor( direction: 'back' | 'forward' ) {
+	const isApple = isAppleOS();
+	const arrow = direction === 'back' ? '←' : '→';
+	const arrowKey = direction === 'back' ? 'ArrowLeft' : 'ArrowRight';
+	const bracket = direction === 'back' ? '[' : ']';
+	const arrowLabel = direction === 'back' ? __( 'Left Arrow' ) : __( 'Right Arrow' );
+	return {
+		displayShortcut: isApple ? `⌘${ arrow }` : `Alt+${ arrow }`,
+		ariaKeyShortcut: `${ isApple ? 'Meta' : 'Alt' }+${ arrowKey } ${ ariaKeyShortcut.primary(
+			bracket
+		) }`,
+		label: isApple ? `${ __( 'Command' ) } ${ arrowLabel }` : `${ __( 'Alt' ) } + ${ arrowLabel }`,
+	};
+}
+
+function isTextEntryTarget( target: EventTarget | null ) {
+	return (
+		target instanceof HTMLElement &&
+		( target.isContentEditable ||
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLSelectElement )
+	);
+}
+
+export function getBrowserShortcutCommand(
 	event: globalThis.KeyboardEvent
 ): BrowserShortcutCommandType | null {
 	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	if ( isKeyboardEvent.primary( event, 'r' ) ) {
+	// ⌘⇧R is accepted as an alias so the browser habit isn't a dead key.
+	if ( isKeyboardEvent.primary( event, 'r' ) || isKeyboardEvent.primaryShift( event, 'r' ) ) {
 		return 'reload';
 	}
 	if ( isKeyboardEvent.primary( event, '[' ) ) {
@@ -167,25 +601,477 @@ function getBrowserShortcutCommand(
 	if ( isKeyboardEvent.primary( event, ']' ) ) {
 		return 'forward';
 	}
+	// Layout-independent back/forward aliases (⌘←/⌘→ on macOS, Alt+←/→
+	// elsewhere): the bracket chords need Option/AltGr on many European
+	// layouts. Skipped while editing text to keep native caret movement.
+	if ( isTextEntryTarget( event.target ) ) {
+		return null;
+	}
+	const isNavigationChord = isAppleOS() ? isKeyboardEvent.primary : isKeyboardEvent.alt;
+	if ( isNavigationChord( event, 'ArrowLeft' ) ) {
+		return 'back';
+	}
+	if ( isNavigationChord( event, 'ArrowRight' ) ) {
+		return 'forward';
+	}
 	return null;
 }
 
-function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
+// ⇧⌘F (Ctrl+Shift+F elsewhere) toggles full preview. Listed in Settings →
+// Keyboard alongside the other preview shortcuts.
+const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function getFullPreviewShortcutDescriptor() {
+	return {
+		displayShortcut: displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+		ariaKeyShortcut: ariaKeyShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+		label: shortcutAriaLabel.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ),
+	};
 }
 
-function ToolbarTooltip( {
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactElement< Record< string, unknown > >;
-} ) {
+function isFullPreviewShortcut( event: globalThis.KeyboardEvent ): boolean {
+	if ( event.defaultPrevented || event.repeat ) {
+		return false;
+	}
+	return isKeyboardEvent.primaryShift( event, FULL_PREVIEW_SHORTCUT_KEY );
+}
+
+function isPreviewShortcutCommand( command: unknown ): command is PreviewShortcutCommandType {
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger render={ children } />
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
+		command === 'back' ||
+		command === 'forward' ||
+		command === 'reload' ||
+		command === 'full-preview'
+	);
+}
+
+function PreviewResponsiveControls( {
+	viewportMode,
+	onViewportModeChange,
+	viewportControlsDisabled,
+	mobileOrientation,
+	onMobileOrientationChange,
+	previewZoom,
+	onPreviewZoomChange,
+}: {
+	viewportMode: ViewportMode;
+	onViewportModeChange: ( mode: ViewportMode ) => void;
+	// Disables the viewport controls for a surface that can't simulate one,
+	// keeping the chosen mode for when the preview returns to one that can.
+	viewportControlsDisabled: boolean;
+	mobileOrientation: MobileOrientation;
+	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+	previewZoom: PreviewZoom;
+	onPreviewZoomChange: ( zoom: PreviewZoom ) => void;
+} ) {
+	const viewportLabels: Record< ViewportMode, string > = {
+		fit: __( 'Responsive' ),
+		mobile: __( 'Mobile' ),
+		tablet: __( 'Tablet' ),
+		desktop: __( 'Desktop' ),
+		split: __( 'Desktop + Mobile' ),
+	};
+	const viewportIcons: Record< ViewportMode, typeof desktop > = {
+		fit: aspectRatio,
+		mobile,
+		tablet,
+		desktop,
+		split: drawerIcon,
+	};
+	const selectedLabel = viewportLabels[ viewportMode ];
+	const tooltipLabel = viewportControlsDisabled
+		? __( 'Not available for Database' )
+		: __( 'Preview size' );
+	const getPresetLabel = ( preset: ViewportPreset ) =>
+		sprintf(
+			/* translators: 1: device name (e.g. Mobile), 2: viewport width, 3: viewport height in pixels */
+			__( '%1$s · %2$d×%3$d' ),
+			viewportLabels[ preset.id ],
+			preset.width,
+			preset.height
+		);
+	const renderSelectedIndicator = ( mode: ViewportMode ) => (
+		<span className={ styles.responsiveModeIndicator } aria-hidden="true">
+			{ viewportMode === mode ? <Icon icon={ check } size={ 18 } data-keep-size /> : null }
+		</span>
+	);
+	return (
+		<Menu.Root>
+			<span
+				className={ styles.disabledControlTooltipTarget }
+				title={ viewportControlsDisabled ? tooltipLabel : undefined }
+			>
+				<Tooltip.Root>
+					<Menu.Trigger
+						render={
+							<Tooltip.Trigger
+								render={
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ styles.responsiveModeTrigger }
+										aria-label={ sprintf( __( 'Responsive mode: %s' ), selectedLabel ) }
+										aria-description={ viewportControlsDisabled ? tooltipLabel : undefined }
+										disabled={ viewportControlsDisabled }
+									/>
+								}
+							>
+								<Icon icon={ viewportIcons[ viewportMode ] } size={ 18 } />
+								<span className={ styles.toolbarLabel }>{ selectedLabel }</span>
+								<Icon
+									icon={ chevronDown }
+									size={ 12 }
+									className={ styles.responsiveModeChevron }
+									data-keep-size
+								/>
+							</Tooltip.Trigger>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ tooltipLabel }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</span>
+			<Menu.Popup side="bottom" align="end">
+				<Menu.Group>
+					<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
+					<Menu.Group>
+						<Menu.Item
+							className={ styles.responsiveModeItem }
+							aria-current={ viewportMode === 'fit' ? 'true' : undefined }
+							disabled={ viewportControlsDisabled }
+							onClick={ () => onViewportModeChange( 'fit' ) }
+						>
+							{ renderSelectedIndicator( 'fit' ) }
+							{ __( 'Responsive' ) }
+						</Menu.Item>
+						{ VIEWPORT_PRESETS.map( ( preset ) => (
+							<Menu.Item
+								key={ preset.id }
+								className={ styles.responsiveModeItem }
+								aria-current={ viewportMode === preset.id ? 'true' : undefined }
+								disabled={ viewportControlsDisabled }
+								onClick={ () => onViewportModeChange( preset.id ) }
+							>
+								{ renderSelectedIndicator( preset.id ) }
+								{ getPresetLabel(
+									// Keep the advertised dimensions honest in landscape.
+									preset.id === 'mobile' ? getMobilePreset( mobileOrientation ) : preset
+								) }
+							</Menu.Item>
+						) ) }
+						<Menu.Item
+							className={ styles.responsiveModeItem }
+							aria-current={ viewportMode === 'split' ? 'true' : undefined }
+							disabled={ viewportControlsDisabled }
+							onClick={ () => onViewportModeChange( 'split' ) }
+						>
+							{ renderSelectedIndicator( 'split' ) }
+							{ __( 'Desktop + Mobile' ) }
+						</Menu.Item>
+					</Menu.Group>
+				</Menu.Group>
+				{ viewportMode === 'fit' ? (
+					// Zoom belongs to the natural view alone: a preset is already a
+					// device frame scaled to fit, so it takes the group's place in
+					// the menu, the way the phone frame brings its orientation.
+					<>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Zoom' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ String( previewZoom ) }
+								onValueChange={ ( next ) => onPreviewZoomChange( Number( next ) ) }
+								disabled={ viewportControlsDisabled }
+							>
+								{ PREVIEW_ZOOM_LEVELS.map( ( level ) => (
+									<Menu.RadioItem key={ level } value={ String( level ) }>
+										{ sprintf(
+											/* translators: %d: zoom level as a percentage */
+											__( '%d%%' ),
+											level * 100
+										) }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Group>
+					</>
+				) : null }
+				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
+					<>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Mobile orientation' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ mobileOrientation }
+								onValueChange={ ( next ) => onMobileOrientationChange( next as MobileOrientation ) }
+								disabled={ viewportControlsDisabled }
+							>
+								<Menu.RadioItem value="portrait">{ __( 'Portrait' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
+							</Menu.RadioGroup>
+						</Menu.Group>
+					</>
+				) : null }
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
+// Annotation commands. With nothing pending there's only one command, so the
+// toolbar shows a bare toggle at every width. Once notes are waiting there are
+// two, and a narrow toolbar can't fit them inline — `style.module.css` swaps
+// the inline pair for a split button, so only one layout is ever in the a11y
+// tree.
+function PreviewAnnotationControls( {
+	isPicking,
+	annotationCount,
+	hasUnsavedDraft,
+	cancelRequestId,
+	disabled,
+	disabledReason,
+	onCommand,
+}: {
+	isPicking: boolean;
+	annotationCount: number;
+	hasUnsavedDraft: boolean;
+	cancelRequestId: number;
+	disabled: boolean;
+	disabledReason?: string;
+	onCommand: ( type: InspectorCommand[ 'type' ] ) => void;
+} ) {
+	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
+	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
+	const submitLabel = __( 'Send annotations to chat' );
+	const hasPending = annotationCount > 0;
+	const handledCancelRequestId = useRef( cancelRequestId );
+	const requestCancel = useCallback( () => {
+		if ( hasPending || hasUnsavedDraft ) {
+			setCancelDialogOpen( true );
+		} else {
+			onCommand( 'cancel' );
+		}
+	}, [ hasPending, hasUnsavedDraft, onCommand ] );
+	useEffect( () => {
+		if ( handledCancelRequestId.current === cancelRequestId ) return;
+		handledCancelRequestId.current = cancelRequestId;
+		if ( isPicking ) requestCancel();
+	}, [ cancelRequestId, isPicking, requestCancel ] );
+	const handleToggle = () => ( isPicking ? requestCancel() : onCommand( 'toggle-picking' ) );
+	const handleCancel = () => {
+		setCancelDialogOpen( false );
+		onCommand( 'cancel' );
+	};
+	return (
+		<>
+			<div
+				className={ clsx( styles.annotationControls, hasPending && styles.annotationControlsWide ) }
+			>
+				<span
+					className={ styles.disabledControlTooltipTarget }
+					title={ disabled ? disabledReason : undefined }
+				>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="small"
+									className={ clsx(
+										styles.annotationToggle,
+										isPicking && styles.annotationToggleActive
+									) }
+									aria-label={ toggleLabel }
+									aria-description={ disabled ? disabledReason : undefined }
+									disabled={ disabled }
+									onClick={ handleToggle }
+								>
+									<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
+									<span className={ styles.toolbarLabel }>
+										{ isPicking ? __( 'Cancel' ) : __( 'Annotate' ) }
+									</span>
+								</Button>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+							{ disabledReason ?? ( isPicking ? __( 'Cancel annotation' ) : __( 'Add notes' ) ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				</span>
+				{ hasPending ? (
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
+						className={ styles.annotationSubmit }
+						disabled={ disabled }
+						aria-label={ submitLabel }
+						onClick={ () => onCommand( 'submit' ) }
+					>
+						{ __( 'Send to chat' ) }
+					</Button>
+				) : null }
+			</div>
+			{ hasPending ? (
+				<div className={ styles.annotationMenu }>
+					{ /* Two commands to offer, so the narrow layout folds them into one
+						menu, like the "Open in…" control beside it. Modal for the same
+						reason as the overflow menu — the webview swallows outside clicks,
+						so the backdrop is what dismisses it. */ }
+					<Menu.Root>
+						<Tooltip.Root>
+							<Menu.Trigger
+								render={
+									<Tooltip.Trigger
+										render={
+											<Button
+												variant="minimal"
+												tone="neutral"
+												size="small"
+												className={ styles.annotationMenuTrigger }
+												aria-label={ __( 'Annotation options' ) }
+												disabled={ disabled }
+											/>
+										}
+									>
+										<Icon icon={ isPicking ? closeSmall : pencil } size={ 18 } />
+										<Icon
+											icon={ chevronDown }
+											size={ 12 }
+											className={ styles.responsiveModeChevron }
+											data-keep-size
+										/>
+									</Tooltip.Trigger>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+								{ __( 'Annotation options' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Item onClick={ handleToggle }>{ toggleLabel }</Menu.Item>
+							<Menu.Item onClick={ () => onCommand( 'submit' ) }>{ submitLabel }</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+			) : null }
+			<Dialog.Root open={ cancelDialogOpen } onOpenChange={ setCancelDialogOpen }>
+				<Dialog.Popup size="small">
+					<Dialog.Header>
+						<Dialog.Title>{ __( 'Cancel annotation?' ) }</Dialog.Title>
+					</Dialog.Header>
+					<Dialog.Content>
+						<Dialog.Description>
+							{ __( 'Your annotations and any unfinished note will be discarded.' ) }
+						</Dialog.Description>
+					</Dialog.Content>
+					<Dialog.Footer>
+						<Dialog.Action variant="minimal" tone="neutral">
+							{ __( 'Keep annotating' ) }
+						</Dialog.Action>
+						<Button variant="solid" tone="brand" onClick={ handleCancel }>
+							{ __( 'Discard annotations' ) }
+						</Button>
+					</Dialog.Footer>
+				</Dialog.Popup>
+			</Dialog.Root>
+		</>
+	);
+}
+
+export function getDirectionalHistoryEntries(
+	entries: BrowserHistoryEntry[],
+	activeIndex: number,
+	direction: 'back' | 'forward'
+): BrowserHistoryEntry[] {
+	const directional = entries.filter( ( entry ) =>
+		direction === 'back' ? entry.index < activeIndex : entry.index > activeIndex
+	);
+	return direction === 'back' ? directional.reverse() : directional;
+}
+
+function getHistoryEntryPath( url: string ) {
+	try {
+		const parsed = new URL( url );
+		return `${ parsed.pathname }${ parsed.search }${ parsed.hash }`;
+	} catch {
+		return url;
+	}
+}
+
+function BrowserHistoryButton( {
+	direction,
+	browserState,
+	shortcut,
+	onStep,
+	onJump,
+}: {
+	direction: 'back' | 'forward';
+	browserState: BrowserNavigationState;
+	shortcut: ReturnType< typeof getNavigationShortcutDescriptor >;
+	onStep: () => void;
+	onJump: ( index: number ) => void;
+} ) {
+	const entries = getDirectionalHistoryEntries(
+		browserState.historyEntries,
+		browserState.activeHistoryIndex,
+		direction
+	);
+	const back = direction === 'back';
+	const label = back ? __( 'Back' ) : __( 'Forward' );
+	const disabled = back ? ! browserState.canGoBack : ! browserState.canGoForward;
+	const [ menuOpen, setMenuOpen ] = useState( false );
+	const trigger = (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			icon={ back ? browserBackIcon : browserForwardIcon }
+			label={ label }
+			shortcut={ shortcut }
+			disabled={ disabled }
+			onClick={ onStep }
+			onContextMenu={ ( event ) => {
+				event.preventDefault();
+				setMenuOpen( true );
+			} }
+		/>
+	);
+
+	return (
+		<Menu.Root
+			open={ menuOpen }
+			onOpenChange={ ( open ) => {
+				if ( ! open ) {
+					setMenuOpen( false );
+				}
+			} }
+		>
+			<Menu.Trigger render={ trigger } />
+			<Menu.Popup side="bottom" align="start">
+				{ entries.length ? (
+					entries.map( ( entry ) => (
+						<Menu.Item
+							key={ `${ entry.index }:${ entry.url }` }
+							onClick={ () => onJump( entry.index ) }
+						>
+							<span className={ styles.historyEntry }>
+								<span className={ styles.historyTitle }>
+									{ entry.title || getHistoryEntryPath( entry.url ) }
+								</span>
+								<span className={ styles.historyPath }>{ getHistoryEntryPath( entry.url ) }</span>
+							</span>
+						</Menu.Item>
+					) )
+				) : (
+					<Menu.Item disabled>
+						{ back ? __( 'No back history' ) : __( 'No forward history' ) }
+					</Menu.Item>
+				) }
+			</Menu.Popup>
+		</Menu.Root>
 	);
 }
 
@@ -195,7 +1081,13 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 		a.canGoForward === b.canGoForward &&
 		a.loading === b.loading &&
 		a.progress === b.progress &&
-		a.title === b.title
+		a.title === b.title &&
+		a.activeHistoryIndex === b.activeHistoryIndex &&
+		a.historyEntries.length === b.historyEntries.length &&
+		a.historyEntries.every( ( entry, index ) => {
+			const other = b.historyEntries[ index ];
+			return other?.index === entry.index && other.title === entry.title && other.url === entry.url;
+		} )
 	);
 }
 
@@ -206,76 +1098,379 @@ export function SitePreview( {
 	onAnnotationsDone,
 	onPathChange,
 	collapsed = false,
+	fullscreen = false,
+	onFullscreenChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const { chatEnabled } = useAgenticFeatures();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	const isBusy = useIsSiteBusy( site );
+	const operation = useSiteOperation( site );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
-	const [ browserState, setBrowserState ] =
-		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
-	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
-	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
-	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
+	const canUseWebview = isElectron();
+	const trafficLightSpace = useTrafficLightSpace();
+	const safePath = getSafePath( path );
+	// Which realm the host is pointing the preview at. Derived from the path
+	// rather than stored alongside it, so the parent stays the single source of
+	// truth for where the preview is aimed.
+	const activeRealm = getPreviewRealm( safePath );
+	const activeSurfaceKey = getSurfaceKey( activeRealm );
+	const siteThumbnail = useQuery( {
+		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
+		queryFn: () => connector.getSiteThumbnail( site.id ),
+		enabled: ! canPreview,
+		meta: { persist: false },
+	} );
+	// Surfaces mounted so far. Once created a surface stays mounted and warm;
+	// only the active one is visible.
+	const [ surfaces, setSurfaces ] = useState< MountedSurfaces >( () => ( {
+		siteId: site.id,
+		byKey: { [ activeSurfaceKey ]: createPreviewSurface( safePath, reloadNonce ) },
+	} ) );
+	const activeSurface = surfaces.byKey[ activeSurfaceKey ];
+	const browserState = activeSurface?.browser ?? EMPTY_BROWSER_STATE;
+	const inspectorState = activeSurface?.inspector ?? EMPTY_INSPECTOR_STATE;
+	// 'fit' renders at the pane's natural size; a preset id simulates that
+	// viewport; 'split' shows the desktop and mobile presets together.
+	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
+	// Orientation of the phone frame, wherever it shows (mobile preset and
+	// the split view's phone pane).
+	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ previewZoom, setPreviewZoom ] = useState< PreviewZoom >( 1 );
+	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
+	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
-	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
+	// The app's zoom scales the host document's CSS px but not the device
+	// sizes the presets simulate, so the pane math converts between the two.
+	const zoomFactor = useAppZoomFactor();
+	// Presets are module constants, so this stays referentially stable per
+	// mode + orientation.
+	const activePreset = getActivePreset( viewportMode, mobileOrientation );
+	const splitPreview = isResponsiveSurface( activeSurfaceKey ) && viewportMode === 'split';
+	// Simulated frames float inside the layer's padding, so the space they fit
+	// into is the measured pane minus that padding.
+	const simulatedPaneSize = useMemo(
+		() =>
+			paneSize
+				? {
+						width: Math.max( 1, paneSize.width - PREVIEW_PANE_PADDING * 2 ),
+						height: Math.max( 1, paneSize.height - PREVIEW_PANE_PADDING * 2 ),
+				  }
+				: null,
+		[ paneSize ]
+	);
+	// The split view's phone pane: the mobile preset (in its current
+	// orientation) scaled to fit the pane height, and capped at half the
+	// pane's width so a landscape frame can't crowd out the primary view.
+	const splitMobileViewport = useMemo( () => {
+		if ( ! splitPreview || ! simulatedPaneSize ) {
+			return null;
+		}
+		const preset = getMobilePreset( mobileOrientation );
+		return getSimulatedViewport(
+			preset,
+			{
+				width: Math.max(
+					160,
+					Math.min( preset.width / zoomFactor, Math.round( simulatedPaneSize.width / 2 ) )
+				),
+				height: Math.max( 120, simulatedPaneSize.height - PREVIEW_PANE_PADDING * 2 ),
+			},
+			zoomFactor
+		);
+	}, [ mobileOrientation, simulatedPaneSize, splitPreview, zoomFactor ] );
+	// In split mode the desktop simulation fits the space left beside the
+	// rendered mobile frame, including its pane padding. This keeps the page
+	// at the desktop breakpoint even when the comparison itself is narrow.
+	const primaryPaneSize = useMemo( () => {
+		if ( ! splitPreview || ! simulatedPaneSize || ! splitMobileViewport ) {
+			return simulatedPaneSize;
+		}
+		const mobilePaneWidth =
+			getFrameSize( splitMobileViewport, zoomFactor ).width + PREVIEW_PANE_PADDING * 2;
+		return {
+			width: Math.max( 1, simulatedPaneSize.width - mobilePaneWidth ),
+			height: simulatedPaneSize.height,
+		};
+	}, [ simulatedPaneSize, splitMobileViewport, splitPreview, zoomFactor ] );
+	// The viewport a responsive surface simulates. No emulation while the site
+	// is stopped: the empty state renders in the plain pane, and the chosen mode
+	// re-applies on start.
+	// A preset fits the pane; only the natural view carries the zoom, which
+	// waits for the preview to return to it.
+	const previewViewport = useMemo( () => {
+		if ( ! canPreview ) {
+			return null;
+		}
+		if ( activePreset ) {
+			return getSimulatedViewport( activePreset, primaryPaneSize, zoomFactor );
+		}
+		return getZoomedPaneViewport( paneSize, zoomFactor, previewZoom );
+	}, [ activePreset, canPreview, paneSize, previewZoom, primaryPaneSize, zoomFactor ] );
 
-	const handlePreviewNavigation = useCallback(
-		( url: string ) => {
+	const patchSurface = useCallback(
+		( key: PreviewSurfaceKey, patch: Partial< PreviewSurfaceState > ) => {
+			setSurfaces( ( current ) => {
+				const surface = current.byKey[ key ];
+				if ( ! surface ) {
+					return current;
+				}
+				const next = { ...surface, ...patch };
+				return arePreviewSurfacesEqual( surface, next )
+					? current
+					: { ...current, byKey: { ...current.byKey, [ key ]: next } };
+			} );
+		},
+		[]
+	);
+	const handleSurfaceNavigation = useCallback(
+		( key: PreviewSurfaceKey, url: string ) => {
+			if ( isThemeActivationUrl( url ) && connector.getThemeDetails ) {
+				void refreshThemeDetails( connector, queryClient, site.id ).catch( () => undefined );
+			}
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
-			if ( ! nextPath || nextPath === path ) {
+			if ( ! nextPath ) {
 				return;
 			}
-			onPathChange?.( nextPath );
+			patchSurface( key, { path: nextPath } );
+			// Only the visible surface speaks for the preview's location, so the
+			// hidden one settling a redirect can't move the address bar. This is also
+			// what lights up the WordPress segment when a front-end link points at
+			// wp-admin: same surface, new path, new realm.
+			if ( key === activeSurfaceKey && nextPath !== safePath ) {
+				onPathChange?.( nextPath );
+			}
 		},
-		[ onPathChange, path, siteUrl ]
+		[
+			activeSurfaceKey,
+			connector,
+			onPathChange,
+			patchSurface,
+			queryClient,
+			safePath,
+			site.id,
+			siteUrl,
+		]
 	);
-	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
-		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
-	}, [] );
-	const handleInspectorState = useCallback( ( state: InspectorState ) => {
-		setInspectorState( state );
-	}, [] );
-	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
-		commandIdRef.current += 1;
-		setBrowserCommand( { id: commandIdRef.current, type } );
-	}, [] );
-	const sendInspectorCommand = useCallback( ( type: InspectorCommand[ 'type' ] ) => {
-		commandIdRef.current += 1;
-		setInspectorCommand( { id: commandIdRef.current, type } );
-	}, [] );
+	// Commands are addressed to the surface on screen. Each has its own slot, so
+	// the hidden one never sees a command it should have missed — and never
+	// replays a stale one when it comes back into view.
+	const sendBrowserCommand = useCallback(
+		( type: BrowserCommand[ 'type' ] ) => {
+			commandIdRef.current += 1;
+			patchSurface( activeSurfaceKey, { browserCommand: { id: commandIdRef.current, type } } );
+		},
+		[ activeSurfaceKey, patchSurface ]
+	);
+	const goToHistoryIndex = useCallback(
+		( historyIndex: number ) => {
+			commandIdRef.current += 1;
+			patchSurface( activeSurfaceKey, {
+				browserCommand: {
+					id: commandIdRef.current,
+					type: 'go-to-history',
+					historyIndex,
+				},
+			} );
+		},
+		[ activeSurfaceKey, patchSurface ]
+	);
+	const sendInspectorCommand = useCallback(
+		( type: InspectorCommand[ 'type' ] ) => {
+			commandIdRef.current += 1;
+			patchSurface( activeSurfaceKey, { inspectorCommand: { id: commandIdRef.current, type } } );
+		},
+		[ activeSurfaceKey, patchSurface ]
+	);
+	// Shortcuts the guest page swallowed and forwarded back over the console
+	// bridge: browser commands go to the webview, full preview to the host.
+	const handleForwardedShortcut = useCallback(
+		( command: PreviewShortcutCommandType ) => {
+			if ( command === 'full-preview' ) {
+				onFullscreenChange?.( ! fullscreen );
+				return;
+			}
+			if ( inspectorState.isPicking ) {
+				return;
+			}
+			sendBrowserCommand( command );
+		},
+		[ fullscreen, inspectorState.isPicking, onFullscreenChange, sendBrowserCommand ]
+	);
+
+	// Point the active surface at whatever path the host is asking for, creating
+	// it the first time it's needed. The other surface keeps the url it was left
+	// on, so it doesn't reload. A brand-new surface starts level with the host's
+	// reload nonce, so mounting it doesn't count as a reload request.
+	useEffect( () => {
+		setSurfaces( ( current ) => {
+			const mounted = createPreviewSurface( safePath, reloadNonce );
+			if ( current.siteId !== site.id ) {
+				return { siteId: site.id, byKey: { [ activeSurfaceKey ]: mounted } };
+			}
+			const surface = current.byKey[ activeSurfaceKey ];
+			if ( ! surface ) {
+				return { ...current, byKey: { ...current.byKey, [ activeSurfaceKey ]: mounted } };
+			}
+			return surface.path === safePath
+				? current
+				: {
+						...current,
+						byKey: { ...current.byKey, [ activeSurfaceKey ]: { ...surface, path: safePath } },
+				  };
+		} );
+	}, [ activeSurfaceKey, reloadNonce, safePath, site.id ] );
+
+	// A host-driven reload targets what's on screen. Tracked against the last
+	// seen nonce so merely switching surfaces never reloads the one arrived at.
+	const lastHostReloadNonceRef = useRef( reloadNonce );
+	useEffect( () => {
+		if ( lastHostReloadNonceRef.current === reloadNonce ) {
+			return;
+		}
+		lastHostReloadNonceRef.current = reloadNonce;
+		patchSurface( activeSurfaceKey, { reloadNonce } );
+	}, [ activeSurfaceKey, patchSurface, reloadNonce ] );
+
+	// Where each realm was last seen, so flipping to WP Admin and back returns
+	// to the exact front-end page rather than the site root.
+	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
+		...DEFAULT_REALM_PATHS,
+	} );
+	useEffect( () => {
+		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
+	}, [ site.id ] );
+	useEffect( () => {
+		// Auto-login is a transient hop, not a place to return to.
+		if ( safePath.startsWith( '/studio-auto-login' ) ) {
+			return;
+		}
+		lastRealmPathsRef.current[ getPreviewRealm( safePath ) ] = safePath;
+	}, [ safePath ] );
+
+	// Realm segments (front end / WP Admin / database). Moving between the front
+	// end and WP Admin is a navigation inside the shared site surface, so they
+	// keep one history and one login; admin targets go through the site's
+	// /studio-auto-login endpoint so they never land on the login form. Moving to
+	// or from the database only swaps which surface is visible — it's already
+	// loaded, at its own size, so there's nothing to reload or resize.
+	const handleSwitchRealm = useCallback(
+		( realm: PreviewRealm ) => {
+			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
+			if ( activeRealm === realm ) {
+				return;
+			}
+			// The agentic UI opens the realm in its in-app preview panel.
+			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
+			const target = lastRealmPathsRef.current[ realm ];
+			// Returning to a surface that's already sitting on the target path just
+			// reveals it; anything else is a real navigation.
+			if ( surfaces.byKey[ getSurfaceKey( realm ) ]?.path === target ) {
+				onPathChange?.( target );
+				return;
+			}
+			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
+		},
+		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
+	);
 
 	const browserShortcuts = useMemo(
 		() => ( {
-			back: getBrowserShortcutDescriptor( '[' ),
-			forward: getBrowserShortcutDescriptor( ']' ),
+			back: getNavigationShortcutDescriptor( 'back' ),
+			forward: getNavigationShortcutDescriptor( 'forward' ),
 			reload: getBrowserShortcutDescriptor( 'r' ),
 		} ),
 		[]
 	);
 
+	// Per-site viewport memory (session-lived, like the parent's per-site
+	// path memory): returning to a site restores its last responsive mode.
+	const viewportBySiteRef = useRef<
+		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation; zoom?: PreviewZoom } >
+	>( {} );
+	const handleViewportModeChange = useCallback(
+		( mode: ViewportMode ) => {
+			setViewportMode( mode );
+			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], mode };
+		},
+		[ site.id ]
+	);
+	const handleMobileOrientationChange = useCallback(
+		( orientation: MobileOrientation ) => {
+			setMobileOrientation( orientation );
+			viewportBySiteRef.current[ site.id ] = {
+				...viewportBySiteRef.current[ site.id ],
+				orientation,
+			};
+		},
+		[ site.id ]
+	);
+	const handlePreviewZoomChange = useCallback(
+		( zoom: PreviewZoom ) => {
+			setPreviewZoom( zoom );
+			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], zoom };
+		},
+		[ site.id ]
+	);
+
 	useEffect( () => {
-		setBrowserState( EMPTY_BROWSER_STATE );
-		setInspectorState( EMPTY_INSPECTOR_STATE );
+		const remembered = viewportBySiteRef.current[ site.id ];
+		setViewportMode( remembered?.mode ?? 'fit' );
+		setMobileOrientation( remembered?.orientation ?? 'portrait' );
+		setPreviewZoom( remembered?.zoom ?? 1 );
 	}, [ site.id ] );
 
-	// Browser shortcuts (⌘R / ⌘[ / ⌘]) pressed while focus is in the host
-	// document. Shortcuts pressed inside the guest page are forwarded by the
-	// inspector script through the console bridge instead.
+	// The simulated viewport is derived from the pane's size, so it has to
+	// follow pane resizes live. Rounded to whole px so subpixel resize
+	// reports don't churn re-renders and emulation calls.
+	useEffect( () => {
+		const pane = paneRef.current;
+		if ( ! pane || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( ( entries ) => {
+			const rect = entries[ entries.length - 1 ]?.contentRect;
+			if ( ! rect ) {
+				return;
+			}
+			const width = Math.round( rect.width );
+			const height = Math.round( rect.height );
+			setPaneSize( ( current ) =>
+				current?.width === width && current?.height === height ? current : { width, height }
+			);
+		} );
+		observer.observe( pane );
+		return () => observer.disconnect();
+	}, [] );
+
+	// Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→)
+	// pressed while focus is in the host document. Shortcuts pressed inside the
+	// guest page are forwarded by the inspector script through the console
+	// bridge instead.
 	useEffect( () => {
 		if ( ! canPreview || collapsed ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
-			const command = getBrowserShortcutCommand( event );
-			if ( ! command ) {
+			const cancelAnnotation =
+				inspectorState.isPicking &&
+				event.key === 'Escape' &&
+				! ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) );
+			const command = inspectorState.isPicking ? null : getBrowserShortcutCommand( event );
+			// Only claim the full-preview chord when the host actually offers
+			// the mode, so it stays available to the page otherwise.
+			const fullPreview = ! command && !! onFullscreenChange && isFullPreviewShortcut( event );
+			if ( ! cancelAnnotation && ! command && ! fullPreview ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -288,38 +1483,68 @@ export function SitePreview( {
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			sendBrowserCommand( command );
+			if ( cancelAnnotation ) {
+				setAnnotationCancelRequestId( ( current ) => current + 1 );
+			} else if ( command ) {
+				sendBrowserCommand( command );
+			} else {
+				onFullscreenChange?.( ! fullscreen );
+			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, sendBrowserCommand ] );
+	}, [
+		canPreview,
+		collapsed,
+		fullscreen,
+		inspectorState.isPicking,
+		onFullscreenChange,
+		sendBrowserCommand,
+	] );
 
 	return (
-		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			<div className={ styles.header }>
-				{ canPreview ? (
-					<>
-						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronLeft }
-								label={ __( 'Back' ) }
+		<aside
+			ref={ rootRef }
+			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
+			aria-label={ __( 'Site preview' ) }
+		>
+			<div
+				hidden={ ! canPreview }
+				// In full preview the toolbar reaches the window's physical left
+				// edge, where the macOS traffic lights sit.
+				className={ clsx(
+					styles.header,
+					! canPreview && styles.browserChromeHidden,
+					inspectorState.isPicking && styles.headerAnnotating,
+					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
+				) }
+				style={
+					// In RTL the preview pane sits at the physical left, so the
+					// header's end-side controls land under the macOS traffic
+					// lights — pad past them. Windows/Linux need nothing: their
+					// controls sit in the chrome band above the frame.
+					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
+				}
+			>
+				{ /* Browser navigation stays at the start, the address field fills the
+					available middle track, and preview actions stay at the end. */ }
+				<div className={ styles.headerSide }>
+					{ canPreview && ! inspectorState.isPicking ? (
+						<>
+							<BrowserHistoryButton
+								direction="back"
+								browserState={ browserState }
 								shortcut={ browserShortcuts.back }
-								disabled={ ! browserState.canGoBack }
-								onClick={ () => sendBrowserCommand( 'back' ) }
+								onStep={ () => sendBrowserCommand( 'back' ) }
+								onJump={ goToHistoryIndex }
 							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ chevronRight }
-								label={ __( 'Forward' ) }
+							<BrowserHistoryButton
+								direction="forward"
+								browserState={ browserState }
 								shortcut={ browserShortcuts.forward }
-								disabled={ ! browserState.canGoForward }
-								onClick={ () => sendBrowserCommand( 'forward' ) }
+								onStep={ () => sendBrowserCommand( 'forward' ) }
+								onJump={ goToHistoryIndex }
 							/>
 							<IconButton
 								variant="minimal"
@@ -330,52 +1555,79 @@ export function SitePreview( {
 								shortcut={ browserShortcuts.reload }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
-						</div>
-						<div className={ styles.browserLocation }>
-							<ToolbarTooltip label={ previewUrl }>
-								<span className={ styles.browserTitle }>{ pageTitle }</span>
-							</ToolbarTooltip>
-						</div>
-						{ connector.capabilities.annotatePreview ? (
-							<div className={ styles.annotationControls }>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ pencil }
-									label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-									disabled={ ! canAnnotate }
-									aria-pressed={ inspectorState.isPicking }
-									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-								/>
-								{ inspectorState.annotationCount > 0 ? (
-									<Button
-										variant="solid"
-										tone="brand"
-										size="small"
-										disabled={ ! canAnnotate }
-										aria-label={ __( 'Submit annotations' ) }
-										onClick={ () => sendInspectorCommand( 'submit' ) }
-									>
-										{ __( 'Submit' ) }
-									</Button>
-								) : null }
-							</div>
-						) : null }
-					</>
-				) : (
-					<span className={ styles.headerSpacer } aria-hidden="true" />
-				) }
-				<span className={ styles.separator } aria-hidden="true" />
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ external }
-					label={ __( 'Open site in browser' ) }
-					disabled={ ! canPreview }
-					onClick={ () => void connector.openExternalUrl( previewUrl ) }
-				/>
+						</>
+					) : null }
+				</div>
+				<div className={ styles.browserLocation }>
+					{ canPreview && inspectorState.isPicking ? (
+						<p className={ styles.annotatingMessage } role="status">
+							{ __( 'Click anything on the page to add a note' ) }
+						</p>
+					) : null }
+					{ canPreview && ! inspectorState.isPicking ? (
+						<PreviewAddressBar
+							site={ site }
+							siteUrl={ siteUrl }
+							path={ getSafePath( path ) }
+							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+							onSwitchRealm={ handleSwitchRealm }
+							onOpenExternal={ () => {
+								const safePath = getSafePath( path );
+								// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
+								// rather than always the front end.
+								void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
+									browser: 'external',
+								} );
+								// Via the host so the URL goes through /studio-auto-login; opening
+								// it raw drops the session and lands admin screens on the login form.
+								void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
+									console.error( 'Failed to open site in browser:', error );
+								} );
+							} }
+						/>
+					) : null }
+				</div>
+				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+					{ canPreview ? (
+						<PreviewResponsiveControls
+							viewportMode={ viewportMode }
+							onViewportModeChange={ handleViewportModeChange }
+							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
+							mobileOrientation={ mobileOrientation }
+							onMobileOrientationChange={ handleMobileOrientationChange }
+							previewZoom={ previewZoom }
+							onPreviewZoomChange={ handlePreviewZoomChange }
+						/>
+					) : null }
+					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
+						<PreviewAnnotationControls
+							isPicking={ inspectorState.isPicking }
+							annotationCount={ inspectorState.annotationCount }
+							hasUnsavedDraft={ inspectorState.hasUnsavedDraft }
+							cancelRequestId={ annotationCancelRequestId }
+							disabled={ ! canAnnotate }
+							disabledReason={
+								! isResponsiveSurface( activeSurfaceKey )
+									? __( 'Not available for Database' )
+									: undefined
+							}
+							onCommand={ sendInspectorCommand }
+						/>
+					) : null }
+					{ canPreview && onFullscreenChange ? (
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ fullscreenIcon }
+							label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+							shortcut={ getFullPreviewShortcutDescriptor() }
+							aria-pressed={ fullscreen }
+							onClick={ () => onFullscreenChange( ! fullscreen ) }
+							positioner={ <Tooltip.Positioner side="bottom" /> }
+						/>
+					) : null }
+				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
@@ -383,61 +1635,188 @@ export function SitePreview( {
 				) : null }
 			</div>
 			<div className={ styles.body }>
-				{ canPreview ? (
-					isElectron() ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ previewUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							onInspectorState={ handleInspectorState }
-							inspectorCommand={ inspectorCommand }
-							browserCommand={ browserCommand }
-							onBrowserStateChange={ handleBrowserStateChange }
-							onBrowserCommand={ sendBrowserCommand }
-							onNavigate={ handlePreviewNavigation }
-						/>
+				<div ref={ paneRef } className={ styles.previewViewport }>
+					{ canPreview ? (
+						// One stacked layer per mounted surface. Only the active layer is
+						// visible; the other stays mounted and laid out at its own size, so
+						// coming back to it is a visibility swap with nothing to resize,
+						// reload or re-emulate.
+						( Object.keys( surfaces.byKey ) as PreviewSurfaceKey[] ).map( ( key ) => {
+							const surface = surfaces.byKey[ key ];
+							if ( ! surface ) {
+								return null;
+							}
+							const active = key === activeSurfaceKey;
+							const viewport = isResponsiveSurface( key ) ? previewViewport : null;
+							// The natural view zoomed still fills its layer; only a preset
+							// gets the floating device frame.
+							const frame = activePreset ? viewport : null;
+							const surfaceUrl = `${ siteUrl }${ surface.path }`;
+							return (
+								<div
+									key={ key }
+									className={ clsx(
+										styles.realmLayer,
+										frame && styles.realmLayerSimulated,
+										! active && styles.realmLayerHidden
+									) }
+									inert={ active ? undefined : true }
+								>
+									{ frame ? (
+										<div className={ styles.viewportGrid } aria-hidden="true">
+											<DotGrid
+												spacing={ 32 }
+												crossSize={ 5 }
+												crossThickness={ 0.75 }
+												opacity={ 0.16 }
+												intro={ false }
+											/>
+										</div>
+									) : null }
+									<div
+										className={ clsx( styles.surfaceFrame, frame && styles.deviceFrame ) }
+										style={ getFrameStyle( frame, zoomFactor ) }
+									>
+										{ canUseWebview ? (
+											<WebviewSurface
+												key={ `${ site.id }-${ key }` }
+												url={ surfaceUrl }
+												reloadNonce={ surface.reloadNonce }
+												// phpMyAdmin isn't an annotation target, so the
+												// inspector never goes near it.
+												inspector={ isResponsiveSurface( key ) }
+												onAnnotationsDone={ onAnnotationsDone }
+												onInspectorState={ ( state ) => patchSurface( key, { inspector: state } ) }
+												onInspectorCancelRequest={ () =>
+													setAnnotationCancelRequestId( ( current ) => current + 1 )
+												}
+												inspectorCommand={ surface.inspectorCommand }
+												browserCommand={ surface.browserCommand }
+												onBrowserStateChange={ ( state ) => {
+													patchSurface( key, { browser: state } );
+												} }
+												onBrowserCommand={ handleForwardedShortcut }
+												onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+												viewport={ viewport }
+											/>
+										) : (
+											// Non-Electron fallback: plain iframe, no inspector. Reloads
+											// by remounting; back/forward aren't reachable from the host.
+											<iframe
+												key={ `${ surfaceUrl }#${ surface.reloadNonce }#${
+													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
+												}` }
+												className={ styles.iframe }
+												style={ getIframeStyle( viewport, zoomFactor ) }
+												src={ surfaceUrl }
+												title={ site.name }
+												onLoad={ ( event ) => {
+													const title = getIframeTitle( event.currentTarget );
+													handleSurfaceNavigation( key, event.currentTarget.src );
+													patchSurface( key, {
+														browser: {
+															...surface.browser,
+															loading: false,
+															progress: 0,
+															title,
+														},
+													} );
+												} }
+											/>
+										) }
+									</div>
+									{ active && splitPreview && splitMobileViewport ? (
+										// The comparison's phone pane: a lean companion surface that
+										// follows the primary's navigation (shared url) but keeps
+										// annotations and history on the primary pane.
+										<div className={ styles.splitMobilePane }>
+											<div
+												className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
+												style={ getFrameStyle( splitMobileViewport, zoomFactor ) }
+											>
+												{ canUseWebview ? (
+													<WebviewSurface
+														key={ `${ site.id }-${ key }-mobile` }
+														url={ surfaceUrl }
+														reloadNonce={ surface.reloadNonce }
+														inspector={ false }
+														viewport={ splitMobileViewport }
+														browserCommand={
+															surface.browserCommand?.type === 'reload'
+																? surface.browserCommand
+																: null
+														}
+														onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+													/>
+												) : (
+													<iframe
+														key={ `${ surfaceUrl }#${ surface.reloadNonce }` }
+														className={ styles.iframe }
+														style={ getIframeStyle( splitMobileViewport, zoomFactor ) }
+														src={ surfaceUrl }
+														title={ sprintf(
+															/* translators: %s: site name */
+															__( '%s (mobile)' ),
+															site.name
+														) }
+													/>
+												) }
+											</div>
+										</div>
+									) : null }
+								</div>
+							);
+						} )
 					) : (
-						// Non-Electron fallback: plain iframe, no inspector. Reloads
-						// by remounting; back/forward aren't reachable from the host.
-						<iframe
-							key={ `${ previewUrl }#${ reloadNonce }#${
-								browserCommand?.type === 'reload' ? browserCommand.id : 0
-							}` }
-							className={ styles.iframe }
-							src={ previewUrl }
-							title={ site.name }
-							onLoad={ ( event ) => {
-								handlePreviewNavigation( event.currentTarget.src );
-								setBrowserState( ( current ) => {
-									const next = {
-										...current,
-										loading: false,
-										progress: 0,
-										title: getIframeTitle( event.currentTarget ),
-									};
-									return areBrowserStatesEqual( current, next ) ? current : next;
-								} );
-							} }
-						/>
-					)
-				) : (
-					<div className={ styles.empty }>
-						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>
-						<Button
-							variant="solid"
-							tone="brand"
-							loading={ isStarting }
-							loadingAnnouncement={ __( 'Starting site' ) }
-							onClick={ () => startSite.mutate( site.id ) }
-						>
-							<span className={ styles.startIcon } aria-hidden="true">
-								{ playIcon }
-							</span>
-							{ __( 'Start site' ) }
-						</Button>
-					</div>
-				) }
+						<div className={ styles.empty }>
+							<div className={ styles.emptyGrid } aria-hidden="true">
+								<DotGrid
+									spacing={ 32 }
+									crossSize={ 5 }
+									crossThickness={ 0.75 }
+									opacity={ 0.16 }
+									intro={ false }
+								/>
+							</div>
+							<div className={ styles.emptyContent }>
+								{ siteThumbnail.data ? (
+									<div className={ styles.emptyThumbnail }>
+										<img
+											src={ siteThumbnail.data }
+											alt={ sprintf(
+												/* translators: %s: site name */
+												__( 'Screenshot of %s' ),
+												site.name
+											) }
+										/>
+									</div>
+								) : null }
+								<p className={ styles.emptyText }>
+									{ operation
+										? sprintf(
+												/* translators: %s: an operation in progress, e.g. "Saving settings". */
+												__( '%s… the site can start once this finishes.' ),
+												getSiteOperationLabel( operation )
+										  )
+										: __( 'Start the site to see a live preview.' ) }
+								</p>
+								<Button
+									variant="solid"
+									tone="brand"
+									loading={ isStarting }
+									loadingAnnouncement={ __( 'Starting site' ) }
+									disabled={ isBusy }
+									onClick={ () => startSite.mutate( site.id ) }
+								>
+									<span className={ styles.startIcon } aria-hidden="true">
+										{ playIcon }
+									</span>
+									{ __( 'Start site' ) }
+								</Button>
+							</div>
+						</div>
+					) }
+				</div>
 			</div>
 		</aside>
 	);
@@ -447,41 +1826,22 @@ function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
 }
 
-export function getToolbarPageTitle( title: string | null, siteName: string ) {
-	const trimmedTitle = normalizeDocumentTitle( title );
-	if ( trimmedTitle ) {
-		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+‹\s+/ );
-		const withoutWordPressSuffix = wordPressAdminTitle
-			.replace( /\s+[–—-]\s+WordPress$/i, '' )
-			.trim();
-		return withoutWordPressSuffix || trimmedTitle;
-	}
-	return siteName || __( 'Site preview' );
-}
-
-export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
-	try {
-		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
-			return null;
-		}
-		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
-	} catch {
-		return null;
-	}
-}
-
 interface WebviewSurfaceProps {
 	url: string;
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	onInspectorState?: ( state: InspectorState ) => void;
+	onInspectorCancelRequest?: () => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
+	onBrowserCommand?: ( type: PreviewShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	// Simulated guest viewport, or null for the webview's natural size.
+	viewport?: PreviewViewport | null;
+	// Whether to inject the annotation inspector into the guest page. Off for
+	// surfaces that can't be annotated (phpMyAdmin, the split companion).
+	inspector?: boolean;
 }
 
 /**
@@ -497,22 +1857,31 @@ function WebviewSurface( {
 	reloadNonce,
 	onAnnotationsDone,
 	onInspectorState,
+	onInspectorCancelRequest,
 	inspectorCommand,
 	browserCommand,
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	viewport = null,
+	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
+	// How many loads have reached `dom-ready`. `ready` alone can't drive
+	// per-load work — it latches true on the first one and never changes again.
+	const [ domReadyCount, setDomReadyCount ] = useState( 0 );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	const onInspectorStateRef = useRef( onInspectorState );
+	const onInspectorCancelRequestRef = useRef( onInspectorCancelRequest );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
+	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
+	const storedAnnotationsRef = useRef< Annotation[] >( [] );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
@@ -523,6 +1892,9 @@ function WebviewSurface( {
 		onInspectorStateRef.current = onInspectorState;
 	}, [ onInspectorState ] );
 	useEffect( () => {
+		onInspectorCancelRequestRef.current = onInspectorCancelRequest;
+	}, [ onInspectorCancelRequest ] );
+	useEffect( () => {
 		onBrowserStateChangeRef.current = onBrowserStateChange;
 	}, [ onBrowserStateChange ] );
 	useEffect( () => {
@@ -531,6 +1903,24 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		inspectorEnabledRef.current = inspector;
+	}, [ inspector ] );
+	// The url we want shown; `currentUrlRef` is where the webview actually landed.
+	const urlRef = useRef( url );
+	useEffect( () => {
+		urlRef.current = url;
+	}, [ url ] );
+	// The last url the host asked for, which is what separates a navigation
+	// from a refresh: `currentUrlRef` follows the guest wherever it lands, so
+	// it can't tell "the parent wants another page" from "the parent wants this
+	// page again".
+	const lastRequestedUrlRef = useRef( url );
+	// Only loads we started (the mount-time `src` counts) are judged for redirects.
+	const pendingLoadRef = useRef( true );
+	// Identifies the most recent load we started, so a rejection from a load
+	// that a newer one superseded can't roll the address bar backwards.
+	const loadGenerationRef = useRef( 0 );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -590,12 +1980,10 @@ function WebviewSurface( {
 		}, 180 );
 	}, [ clearProgressTimers, publishBrowserState ] );
 
-	// The initial url+nonce are loaded by the `src` attribute on the
-	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
-	// "WebView must be attached to the DOM and the dom-ready event emitted".
-	// We capture the mount-time values once and skip the navigation effect
-	// while it still matches them.
-	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
+	// before `dom-ready` throws); it must stay stable so later navigation
+	// goes through `loadURL` instead of remounting the webview.
+	const [ initialSrc ] = useState( () => url );
 
 	// Wire DOM events on the underlying custom element. We use refs + native
 	// event listeners because React doesn't recognise `<webview>`'s
@@ -603,6 +1991,25 @@ function WebviewSurface( {
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
+
+		const publishNavigationHistory = () => {
+			const { ipcApi } = window as PreviewWindow;
+			let webContentsId: number;
+			try {
+				webContentsId = getWebviewContentsId( webview );
+			} catch {
+				return;
+			}
+			void ipcApi
+				?.getWebviewNavigationHistory?.( webContentsId )
+				.then( ( history ) => {
+					publishBrowserState( {
+						historyEntries: history.entries,
+						activeHistoryIndex: history.activeIndex,
+					} );
+				} )
+				.catch( () => undefined );
+		};
 
 		const publishDocumentTitle = ( title?: unknown ) => {
 			if ( typeof title === 'string' ) {
@@ -621,17 +2028,26 @@ function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
+			setDomReadyCount( ( count ) => count + 1 );
 			publishDocumentTitle();
+			publishNavigationHistory();
+			if ( ! inspectorEnabledRef.current ) {
+				return;
+			}
+			// If annotations were collected on a previous page, seed
+			// window.__studioInspectorState before the IIFE runs so the
+			// freshly-injected inspector picks them up on init.
+			const stored = storedAnnotationsRef.current;
+			const preload =
+				stored.length > 0 ? `window.__studioInspectorState=${ JSON.stringify( stored ) };` : '';
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript( preload + INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
 					onInspectorStateRef.current?.( {
 						ready: true,
 						isPicking: false,
-						annotationCount: 0,
+						annotationCount: stored.length,
+						hasUnsavedDraft: false,
 					} );
 				} )
 				.catch( () => {
@@ -652,9 +2068,13 @@ function WebviewSurface( {
 			}
 			if ( ! parsed ) return;
 			if ( parsed.type === 'browser-command' ) {
-				if ( isBrowserShortcutCommand( parsed.command ) ) {
+				if ( isPreviewShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
 				}
+				return;
+			}
+			if ( parsed.type === 'cancel-requested' ) {
+				onInspectorCancelRequestRef.current?.();
 				return;
 			}
 			if ( parsed.type === 'state' ) {
@@ -662,7 +2082,14 @@ function WebviewSurface( {
 					ready: true,
 					isPicking: Boolean( parsed.isPicking ),
 					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+					hasUnsavedDraft: Boolean( parsed.hasUnsavedDraft ),
 				} );
+				return;
+			}
+			if ( parsed.type === 'annotations-updated' ) {
+				if ( Array.isArray( parsed.annotations ) ) {
+					storedAnnotationsRef.current = parsed.annotations;
+				}
 				return;
 			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
@@ -680,18 +2107,32 @@ function WebviewSurface( {
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
+				// Once per load, so a site that legitimately redirects can't loop.
+				if ( pendingLoadRef.current ) {
+					pendingLoadRef.current = false;
+					if ( isOffOriginRedirect( navigateEvent.url, urlRef.current ) ) {
+						void reloadPreview( webview, urlRef.current, navigateEvent.url );
+					}
+				}
 			}
 			didReadTitleAfterLoad = false;
 			publishBrowserState();
+			publishNavigationHistory();
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
+			if ( inspectorEnabledRef.current ) {
+				onInspectorStateRef.current?.( {
+					...EMPTY_INSPECTOR_STATE,
+					annotationCount: storedAnnotationsRef.current.length,
+				} );
+			}
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
 		const handleStopLoading = () => {
 			finishProgress();
+			publishNavigationHistory();
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
 				publishDocumentTitle();
@@ -724,20 +2165,53 @@ function WebviewSurface( {
 	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
-	// `dom-ready`. If url/nonce changed while loading, the latest values are
-	// flushed when `ready` flips to true. In-preview navigation reported via
-	// `onNavigate` round-trips through the parent's `path` state, so skip the
-	// reload when the webview is already showing the requested url.
+	// `dom-ready` (the initial url is loaded by the `src` attribute on the
+	// `<webview>`, tracked by `currentUrlRef`'s initial value; calling
+	// `loadURL` before `dom-ready` throws). In-preview navigation reported
+	// via `onNavigate` round-trips through the parent's `path` state, so skip
+	// the reload when the webview is already showing the requested url —
+	// this also covers the initial render, and unlike a mount-time snapshot
+	// it doesn't block navigating *back* to the starting url later.
 	useEffect( () => {
 		if ( ! ready ) return;
-		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
-		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
+		const reloadRequested = reloadNonce !== lastReloadNonceRef.current;
+		const requestedUrlChanged = url !== lastRequestedUrlRef.current;
+		// Tracked even when we go on to skip the load, so an in-preview
+		// navigation that round-trips through `path` doesn't leave the next
+		// nonce bump looking like a page change.
+		lastRequestedUrlRef.current = url;
+		if ( url === currentUrlRef.current && ! reloadRequested ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		currentUrlRef.current = url;
+		const previousUrl = currentUrlRef.current;
+		const generation = ++loadGenerationRef.current;
 		lastReloadNonceRef.current = reloadNonce;
-		webview.loadURL( url ).catch( () => undefined );
-	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+		pendingLoadRef.current = true;
+		// A nonce bump that asks for the same url is a refresh, not a
+		// navigation, so it goes through the same cache-dropping path as the
+		// toolbar's ⟳ — otherwise the agent's `refresh_browser` reloads with a
+		// warm cache and serves the CSS/JS it just edited back stale.
+		if ( reloadRequested && ! requestedUrlChanged ) {
+			void reloadPreview( webview, url, previousUrl );
+			return;
+		}
+		// `currentUrlRef` is advanced by `did-navigate`, never optimistically:
+		// a load the guest refuses — an unsaved-changes guard, a dead url —
+		// must leave the host showing the page that's actually on screen.
+		webview.loadURL( url ).catch( () => {
+			// A newer load we started, or one the guest committed on its own
+			// (a link click, a back navigation), owns the address bar now —
+			// both can abort this load, and neither should be rolled back.
+			if ( loadGenerationRef.current !== generation ) {
+				return;
+			}
+			if ( currentUrlRef.current !== previousUrl ) {
+				return;
+			}
+			pendingLoadRef.current = false;
+			onNavigateRef.current?.( previousUrl );
+		} );
+	}, [ url, reloadNonce, ready ] );
 
 	useEffect( () => {
 		if ( ! ready || ! inspectorCommand ) return;
@@ -763,19 +2237,50 @@ function WebviewSurface( {
 				webview.goBack?.();
 			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
 				webview.goForward?.();
+			} else if (
+				browserCommand.type === 'go-to-history' &&
+				typeof browserCommand.historyIndex === 'number'
+			) {
+				const { ipcApi } = window as PreviewWindow;
+				const webContentsId = getWebviewContentsId( webview );
+				void ipcApi?.goToWebviewNavigationHistoryEntry?.(
+					webContentsId,
+					browserCommand.historyIndex
+				);
 			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
+				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
 			}
 		} finally {
 			publishBrowserState();
 		}
 	}, [ browserCommand, publishBrowserState, ready ] );
 
+	// The CDP metrics override outlives a navigation, but only for as long as
+	// the guest webContents it was attached to: if that one goes away (a crash,
+	// or a process swap that drops the debugger) the override goes with it while
+	// `applied` still claims otherwise, and nothing would ever restore it. So
+	// re-assert on every dom-ready as well as on viewport changes — one extra
+	// round-trip per load in a responsive mode, and it self-heals. The `applied`
+	// ref still skips the initial clear so plain previews pay nothing. The value
+	// is debounced because pane resizes stream continuous viewport changes and
+	// each application is an IPC + CDP round-trip; the CSS frame tracks the
+	// drag live and the emulation settles right behind it.
+	const debouncedViewport = useDebouncedValue( viewport, 150 );
+	const appliedViewportRef = useRef( false );
+	useEffect( () => {
+		if ( ! domReadyCount ) return;
+		if ( ! debouncedViewport && ! appliedViewportRef.current ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		appliedViewportRef.current = Boolean( debouncedViewport );
+		void applyWebviewViewport( webview, debouncedViewport ).catch( () => undefined );
+	}, [ debouncedViewport, domReadyCount ] );
+
 	return (
 		<>
 			<webview
 				ref={ ref }
-				src={ initialNav.url }
+				src={ initialSrc }
 				className={ styles.iframe }
 				allowpopups={ true }
 				partition="persist:site-preview"

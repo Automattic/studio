@@ -15,7 +15,7 @@ on:
       xdebug_version:
         description: Xdebug version to package
         required: true
-        default: 3.5.1
+        default: 3.5.3
       spc_ref:
         # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
         # Unix builds so PDO populates getColumnMeta()['table'] (fixes
@@ -58,7 +58,7 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
@@ -84,7 +84,7 @@ jobs:
             runner: windows-2022
             artifact_platform: windows
             artifact_arch: x86_64
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
@@ -97,11 +97,11 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Checkout static-php-cli
         if: runner.os == 'macOS' || runner.os == 'Linux'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}
@@ -126,19 +126,57 @@ jobs:
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
           echo "PHP_PACKAGE_ID=$PHP_VERSION-$PHP_PACKAGE_VERSION" >> "$GITHUB_ENV"
 
+      # Linux runs SPC inside the spc-gnu-docker container, which ships its own
+      # PHP + Composer; host PHP is only needed for the macOS path. The two
+      # macOS runners need different treatment:
+      #
+      #   - macos-15-intel preinstalls PHP and Composer, and cannot use
+      #     shivammathur/setup-php: that action installs from the
+      #     shivammathur/php tap, which no longer publishes x86_64 macOS
+      #     bottles. brew then falls back to building PHP from source and the
+      #     step times out after ~30 minutes, failing every macos-x86_64 build.
+      #   - macos-15 (arm64) preinstalls neither, so it keeps using the action,
+      #     which resolves an arm64 bottle quickly.
+      #
+      # SPC only needs PHP >= 8.3 with mbstring and zlib.
       - name: Setup PHP for static-php-cli
-        # Linux runs SPC inside the spc-gnu-docker container, which ships
-        # its own PHP + Composer; host PHP is only needed for the macOS path.
-        if: runner.os == 'macOS'
+        if: matrix.target == 'macos-aarch64'
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           coverage: none
           tools: composer:v2
           php-version: 8.4
           ini-values: memory_limit=-1
-          extensions: curl, openssl, mbstring
+          extensions: mbstring, zlib
         env:
           phpts: nts
+
+      - name: Verify preinstalled PHP for static-php-cli
+        if: matrix.target == 'macos-x86_64'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v php >/dev/null || ! command -v composer >/dev/null; then
+            echo "Expected PHP and Composer to be preinstalled on the macOS Intel runner image." >&2
+            exit 1
+          fi
+
+          php -r 'exit(version_compare(PHP_VERSION, "8.3", ">=") ? 0 : 1);' \
+            || { echo "static-php-cli needs PHP >= 8.3, found $(php -r 'echo PHP_VERSION;')." >&2; exit 1; }
+
+          # Capture the module list once: piping `php -m` straight into
+          # `grep -q` lets grep exit on the first match and close the pipe,
+          # which kills php with SIGPIPE. Under `pipefail` that makes the whole
+          # pipeline fail (exit 255) even though the extension was found.
+          modules="$(php -m)"
+          for extension in mbstring zlib; do
+            printf '%s\n' "$modules" | grep -qix "$extension" \
+              || { echo "Required PHP extension missing: $extension." >&2; exit 1; }
+          done
+
+          php -v
+          composer --version
 
       - name: Install static-php-cli dependencies
         # See above — composer install for Linux happens inside the container.
@@ -549,6 +587,7 @@ jobs:
             -d "extension=pdo" `
             -d "extension=pdo_sqlite" `
             -d "extension=redis" `
+            -d "extension=soap" `
             -d "extension=sodium" `
             -d "extension=sqlite3" `
             -d "extension=ssh2" `
@@ -572,14 +611,14 @@ jobs:
           (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() | Set-Content -NoNewline "$archive.sha256"
 
       - name: Upload PHP CLI artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
           path: out/php-binaries/*
 
       - name: Upload static-php-cli logs
         if: ${{ failure() && (runner.os == 'macOS' || runner.os == 'Linux') }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: spc-logs-${{ matrix.target }}
           path: .cache/static-php-cli/log/*.log
@@ -601,15 +640,27 @@ jobs:
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@d45b1a4e94b71acab930e56e79c6aa188764e7f9 # v1.316.0
+        uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           bundler-cache: true
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # The metadata script and the formatting it runs afterwards need the repo's dev dependencies.
+        # `--ignore-scripts` skips the postinstall downloads (WordPress files, PHP binaries), which
+        # this job never uses.
+        run: npm ci --ignore-scripts
+
       - name: Download PHP CLI artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:
           pattern: php-${{ env.PHP_VERSION }}-cli-*
           path: out/php-binaries

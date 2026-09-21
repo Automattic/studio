@@ -9,6 +9,7 @@ import {
 	listAiSessions,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import {
 	readAuthToken,
 	readSharedSessions,
@@ -49,14 +50,14 @@ function getPort(): number {
 	return parseInt( process.env.STUDIO_WEB_SERVER_PORT ?? String( DEFAULT_PORT ), 10 );
 }
 
-// Star/archive live in the shared config (`~/.studio/shared.json`), not the
-// session JSONL — the same store the desktop app reads, so flags set in either
-// surface show up in both.
+// The archived flag lives in the shared config (`~/.studio/shared.json`), not
+// the session JSONL — the same store the desktop app reads, so flags set in
+// either surface show up in both.
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+	metadata?: Pick< AiSessionSummary, 'archived' >
 ): AiSessionSummary {
-	return { ...summary, starred: metadata?.starred, archived: metadata?.archived };
+	return { ...summary, archived: metadata?.archived };
 }
 
 const root = getAiSessionsRootDirectory();
@@ -276,7 +277,7 @@ api.patch(
 	'/sessions/:id',
 	asyncHandler( async ( req: Request, res: Response ) => {
 		const { summary } = await loadAiSession( root, req.params.id );
-		const patch = req.body as { starred?: boolean; archived?: boolean };
+		const patch = req.body as { archived?: boolean };
 		// Same persistence the desktop app uses (updateAiSessionMetadata in
 		// ipc-handlers.ts): flags go to the shared config under its lock.
 		const metadata = await updateSharedSession( summary.id, patch );
@@ -298,12 +299,28 @@ api.post(
 );
 
 api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-	const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+	const { prompt, displayMessage, visualAnnotations } = req.body as {
+		prompt?: string;
+		displayMessage?: string;
+		visualAnnotations?: unknown;
+	};
 	if ( ! prompt ) {
 		res.status( 400 ).json( { error: 'prompt is required' } );
 		return;
 	}
-	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
+	let validatedVisualAnnotations;
+	try {
+		validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+	} catch {
+		res.status( 400 ).json( { error: 'visualAnnotations is invalid' } );
+		return;
+	}
+	const { runId } = startAgentRun( {
+		sessionId: req.params.id,
+		prompt,
+		displayMessage,
+		visualAnnotations: validatedVisualAnnotations,
+	} );
 	res.json( { runId } );
 } );
 

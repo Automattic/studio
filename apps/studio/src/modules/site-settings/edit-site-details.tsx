@@ -23,6 +23,14 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import {
+	getWpEnvironmentType,
+	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
+	WP_ENVIRONMENT_TYPE_LOCAL,
+	WP_ENVIRONMENT_TYPE_PRODUCTION,
+	WP_ENVIRONMENT_TYPE_STAGING,
+	type WpEnvironmentType,
+} from '@studio/common/lib/wp-environment-type';
+import {
 	getClosestSupportedPhpVersion,
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
@@ -39,6 +47,7 @@ import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import PasswordControl from 'src/components/password-control';
+import { SettingsSection } from 'src/components/settings-section';
 import { AgentInstructionsPanel, WordPressSkillsPanel } from 'src/components/site-settings-panels';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
@@ -78,6 +87,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ enableDebugLog, setEnableDebugLog ] = useState( selectedSite?.enableDebugLog ?? false );
 	const [ enableDebugDisplay, setEnableDebugDisplay ] = useState(
 		selectedSite?.enableDebugDisplay ?? false
+	);
+	const [ enableScriptDebug, setEnableScriptDebug ] = useState(
+		selectedSite?.enableScriptDebug ?? false
+	);
+	const [ environmentType, setEnvironmentType ] = useState< WpEnvironmentType >(
+		getWpEnvironmentType( selectedSite ?? {} )
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
 	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
@@ -162,6 +177,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		() => activeTab === 'general' || activeTab === 'debugging',
 		[ activeTab ]
 	);
+	const environmentTypeOptions = useMemo< { label: string; value: WpEnvironmentType }[] >(
+		() => [
+			{ label: __( 'Local' ), value: WP_ENVIRONMENT_TYPE_LOCAL },
+			{ label: __( 'Development' ), value: WP_ENVIRONMENT_TYPE_DEVELOPMENT },
+			{ label: __( 'Staging' ), value: WP_ENVIRONMENT_TYPE_STAGING },
+			{ label: __( 'Production' ), value: WP_ENVIRONMENT_TYPE_PRODUCTION },
+		],
+		[ __ ]
+	);
 
 	useEffect( () => {
 		getIpcApi()
@@ -208,7 +232,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
 		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
-		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
+		!! selectedSite.enableDebugDisplay === enableDebugDisplay &&
+		!! selectedSite.enableScriptDebug === enableScriptDebug &&
+		getWpEnvironmentType( selectedSite ) === environmentType;
 	const hasValidationErrors =
 		! selectedSite ||
 		! siteName.trim() ||
@@ -237,6 +263,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
+		setEnableScriptDebug( selectedSite.enableScriptDebug ?? false );
+		setEnvironmentType( getWpEnvironmentType( selectedSite ) );
 	}, [
 		selectedSite,
 		getEffectiveWpVersion,
@@ -247,6 +275,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setCustomDomainError,
 		setEnableDebugDisplay,
 		setEnableDebugLog,
+		setEnableScriptDebug,
+		setEnvironmentType,
 		setEnableHttps,
 		setEnableXdebug,
 		setErrorUpdatingWpVersion,
@@ -272,6 +302,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
 			enableDebugDisplay !== ( selectedSite.enableDebugDisplay ?? false );
+		const hasScriptDebugChanged = enableScriptDebug !== ( selectedSite.enableScriptDebug ?? false );
+		const hasEnvironmentTypeChanged = environmentType !== getWpEnvironmentType( selectedSite );
 		const hasDomainChanged =
 			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
@@ -295,6 +327,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
+				scriptDebugChanged: hasScriptDebugChanged,
+				environmentTypeChanged: hasEnvironmentTypeChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -322,6 +356,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
+					enableScriptDebug,
+					environmentType,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -388,19 +424,46 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 								<div className="mt-6 px-8 flex flex-col">
 									{ name === 'general' && (
 										<>
-											<label className="flex flex-col gap-1.5 leading-4 mb-6">
-												<span className="font-semibold">{ __( 'Site name' ) }</span>
-												<TextControlComponent
-													disabled={ isEditingSite }
-													onChange={ setSiteName }
-													value={ siteName }
-												></TextControlComponent>
-											</label>
+											<SettingsSection title={ __( 'Site details' ) } isFirst>
+												<label className="flex flex-col gap-1.5 leading-4">
+													<span className="font-semibold">{ __( 'Site name' ) }</span>
+													<TextControlComponent
+														disabled={ isEditingSite }
+														onChange={ setSiteName }
+														value={ siteName }
+													></TextControlComponent>
+												</label>
 
-											<div className="flex flex-row gap-x-6">
+												<div className="mt-4">
+													<WPVersionSelector
+														selectedValue={ selectedWpVersion }
+														onChange={ setSelectedWpVersion }
+														disabled={ isEditingSite }
+														errorMessage={ errorUpdatingWpVersion }
+														autoUpdateVersion={
+															selectedWpVersion === DEFAULT_WORDPRESS_VERSION
+																? currentWpVersion
+																: undefined
+														}
+														extraOptions={ [
+															{ label: currentWpVersion, value: currentWpVersion },
+														] }
+														fallbackOptions={ [
+															{ label: currentWpVersion, value: currentWpVersion },
+														] }
+													/>
+												</div>
+												{ errorUpdatingWpVersion && (
+													<ErrorInformation className="mt-2">
+														{ errorUpdatingWpVersion }
+													</ErrorInformation>
+												) }
+											</SettingsSection>
+
+											<SettingsSection title={ __( 'PHP environment' ) }>
 												<label
 													htmlFor="php-version-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
+													className="flex flex-col gap-1.5 leading-4"
 												>
 													<span className="inline-flex items-center gap-2 font-semibold">
 														{ __( 'PHP version' ) }
@@ -435,86 +498,62 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													/>
 												</label>
 
-												<WPVersionSelector
-													selectedValue={ selectedWpVersion }
-													onChange={ setSelectedWpVersion }
-													disabled={ isEditingSite }
-													errorMessage={ errorUpdatingWpVersion }
-													extraOptions={ [
-														{
-															label: currentWpVersion,
-															value: currentWpVersion,
-														},
-													] }
-													fallbackOptions={ [
-														{
-															label: currentWpVersion,
-															value: currentWpVersion,
-														},
-													] }
-												/>
-											</div>
-											{ errorUpdatingWpVersion && (
-												<ErrorInformation className="mt-2">
-													{ errorUpdatingWpVersion }
-												</ErrorInformation>
-											) }
-
-											<div className="flex flex-row gap-x-6 mt-4">
-												<label
-													htmlFor="php-runtime-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
-												>
-													<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
-													<SelectControl< SiteRuntime >
-														id="php-runtime-select"
-														disabled={ isEditingSite }
-														value={ selectedRuntime }
-														options={ [
-															/* translators: As in an application that runs natively on a computer */
-															{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
-															/* translators: As in a secure, sandboxed environment */
-															{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
-														] }
-														onChange={ ( value ) => setSelectedRuntime( value ) }
-														__next40pxDefaultSize
-														__nextHasNoMarginBottom
-													/>
-													<span className="text-frame-text-secondary text-xs">
-														<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
-													</span>
-												</label>
-
-												<label
-													htmlFor="file-access-select"
-													className="flex flex-1 flex-col gap-1.5 leading-4"
-												>
-													<span className="font-semibold">{ __( 'File access' ) }</span>
-													<SelectControl< SiteFileAccess >
-														id="file-access-select"
-														disabled={
-															isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
-														}
-														value={ usedFileAccess }
-														options={ [
-															{
-																label: __( 'Site directory' ),
-																value: SITE_FILE_ACCESS_SITE_DIRECTORY,
-															},
-															{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
-														] }
-														onChange={ ( value ) => setSelectedFileAccess( value ) }
-														__next40pxDefaultSize
-														__nextHasNoMarginBottom
-													/>
-													<span className="text-frame-text-secondary text-xs">
-														<FileAccessDescription
-															runtime={ selectedRuntime }
-															fileAccess={ usedFileAccess }
+												<div className="flex flex-col gap-4 mt-4">
+													<label
+														htmlFor="php-runtime-select"
+														className="flex flex-col gap-1.5 leading-4"
+													>
+														<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
+														<SelectControl< SiteRuntime >
+															id="php-runtime-select"
+															disabled={ isEditingSite }
+															value={ selectedRuntime }
+															options={ [
+																/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
+																{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+																/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
+																{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+															] }
+															onChange={ ( value ) => setSelectedRuntime( value ) }
+															__next40pxDefaultSize
+															__nextHasNoMarginBottom
 														/>
-													</span>
-												</label>
-											</div>
+														<span className="text-frame-text-secondary text-xs">
+															<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
+														</span>
+													</label>
+
+													<label
+														htmlFor="file-access-select"
+														className="flex flex-col gap-1.5 leading-4"
+													>
+														<span className="font-semibold">{ __( 'File access' ) }</span>
+														<SelectControl< SiteFileAccess >
+															id="file-access-select"
+															disabled={
+																isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
+															}
+															value={ usedFileAccess }
+															options={ [
+																{
+																	label: __( 'Site directory' ),
+																	value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+																},
+																{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+															] }
+															onChange={ ( value ) => setSelectedFileAccess( value ) }
+															__next40pxDefaultSize
+															__nextHasNoMarginBottom
+														/>
+														<span className="text-frame-text-secondary text-xs">
+															<FileAccessDescription
+																runtime={ selectedRuntime }
+																fileAccess={ usedFileAccess }
+															/>
+														</span>
+													</label>
+												</div>
+											</SettingsSection>
 
 											<div className="flex flex-col gap-2 mt-4">
 												<div className="flex items-center gap-2">
@@ -754,6 +793,57 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
+													) }
+												</div>
+											</div>
+
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="enable-script-debug"
+														checked={ enableScriptDebug }
+														onChange={ ( e ) => setEnableScriptDebug( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label
+														htmlFor="enable-script-debug"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Enable script debug' ) }
+													</label>
+												</div>
+												<div className="text-frame-text-secondary text-xs mt-1">
+													{ __(
+														'Load the development versions of core CSS and JavaScript instead of the minified files by setting the SCRIPT_DEBUG constant. Useful for reading React errors in the block editor.'
+													) }
+												</div>
+											</div>
+
+											<div className="flex flex-col gap-2 mt-4">
+												<label
+													htmlFor="environment-type-select"
+													className="flex flex-col gap-1.5 leading-4"
+												>
+													<span className="font-semibold">{ __( 'Environment type' ) }</span>
+													<SelectControl< WpEnvironmentType >
+														id="environment-type-select"
+														disabled={ isEditingSite }
+														value={ environmentType }
+														options={ environmentTypeOptions }
+														onChange={ ( value ) => setEnvironmentType( value ) }
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
+													/>
+												</label>
+												<div className="text-frame-text-secondary text-xs">
+													{ __(
+														'Sets the WP_ENVIRONMENT_TYPE constant, which determines the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
 													) }
 												</div>
 											</div>

@@ -1,6 +1,149 @@
 Unreleased
 ==========
 
+1.22.0
+=====
+* Studio Code now lets you pick your site's design before it builds: four looks, then four layouts previewed in the look you chose, each shown as a rendered sneak peek with real imagery. Your pick is saved as `DESIGN.md` at the site root, which later sessions and other coding agents follow #4813, #4833, #4780, #4804, #4839, #4841, #4855, #4832, #4849
+* Replaced the WordPress.com model picker's vendor names with three capability tiers — Fast, Balanced and Strong — so you choose by what you need rather than by model name #4727
+* Added a "What should we create?" brief to site creation in the Agentic UI, which opens the new site's chat with your brief already sent #4836
+* Studio Code: You can now answer the agent's questions by typing in the prompt box, and questions can accept multiple selections #4831, #4689, #4830
+* AI credits: Added usage warnings at 80% and 90%, and a confirmation toast when you return from checkout #4722, #4714, #4745
+* Reworked the signed-out Studio Code screen into a feature carousel with animated demos #4767
+* Agentic UI: Restored the PHP runtime and file access settings, so switching a site between Native and Sandbox no longer needs Studio Classic or the CLI #4845
+* Agentic UI: Rebuilt the site preview with a browser-style toolbar — an editable address field with recent addresses, and back, forward and refresh with right-click history menus #4746
+* Agentic UI: Added a preview zoom option, and made Cmd/Ctrl +, − and 0 scale the interface even when the preview has focus #4775, #4573
+* Agentic UI: Made sidebar notices legible at a glance and added a recent notifications dialog #4777
+* Improved preview annotations: the page dims around the element you're describing, the note can be dragged aside, and you can step through the elements stacked under your click #4825, #4827, #4826
+* Agentic UI: Moved the sidebar toggle to a fixed spot in the chat panel instead of it jumping between the two #4861
+* Added SCRIPT_DEBUG and WP_ENVIRONMENT_TYPE toggles to a site's Debugging settings #4344
+* Fixed WordPress auto-updates being silently off on sites created before the setting existed, while Settings showed them as on #4715
+* Fixed a site failing to start after renaming its admin user without setting a password #4821
+* Fixed sites failing to boot when their SQLite database was left in WAL mode #4819
+* Fixed site startup failing on Windows with an unexplained "PHP error during startup" #4848
+* Fixed importing `.wpress` backups with entries of 2 GiB or more, and added clear errors for truncated archives #4797
+* Added support for importing plain `.tar` backups, including archives whose extension no longer matches their contents #4838
+* Fixed the "new way to build in Studio" nudge being unclickable on Windows #4818
+* Fixed the Agentic UI opening the most recent chat scrolled to the top after a cold start #4823
+* Fixed the sync dialog following the OS color scheme instead of the app's Appearance setting #4871
+* Fixed the Copy button on notices doing nothing in the Desktop app #4866
+* Pointed the Antigravity editor option at Antigravity IDE, which had been non-functional since Google split the product #4820
+* Fixed phpMyAdmin and wp-admin not auto-logging in from the sidebar's site menu #4869
+* Agentic UI: Fixed sidebar button alignment, footer spacing, and colors that ignored the Light/Dark setting #4765, #4822, #4870
+* Studio Code: Made the agent build sites more reliably — theme templates are validated as they're written, `validate_blocks` accepts site-relative paths and stops flagging valid SVG and script blocks, and blank themes scaffold without a stray parent #4801, #4854, #4853, #4789, #4763
+* Studio Code: Made builds faster and cheaper by batching file edits per turn and sending smaller screenshots without breaking the prompt cache #4858, #4868
+* Studio Code: Stopped asking whether to create a new site unless your prompt names a different one, and kept `take_screenshot` available to models that can't see images #4812, #4803
+* Studio Code: Cleared tool progress once a call ends and rotated the thinking label per step #4814
+* Removed Dolly, the beta Telegram bridge for driving a `studio code` session from a chat app #4798
+* Updated the bundled SQLite database integration to v3.0.2, and WordPress Playground and PHP-WASM to 3.1.53 #4815, #4800, #4742, #4741
+* Added Tracks analytics for the design options Studio Code proposes and which ones you pick #4842
+* Updated multiple dependencies and resolved fixable Dependabot alerts #4806, #4810, #4793, #4835, #4844, #4816, #4817, #4847
+* Misc and maintenance improvements #4795, #4799, #4850, #4859, #4860, #4862
+
+1.21.0
+=====
+* Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI's end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal #4681, #4758, #4712, #4695
+* Reworked the WordPress version setting: "latest" is now an "Automatic updates" toggle with a separate version picker, and it shows the version your site is actually running, so Settings and wp-admin no longer disagree. The CLI accepts `--wp auto-update` to match #4702, #4752, #4750
+* Studio Code: Improved the sites the agent builds — a wider default content width with wide layouts for grids, proper padding on cards and full-width sections, and WooCommerce shop pages that clear the header and footer #4779, #4778, #4781
+* Added a blueprints library to the Agentic UI #4701
+* Agentic UI: The window can now shrink to 420px so Studio works as a compact companion beside your browser or editor, with the sidebar collapsing automatically at narrow widths #4444
+* Agentic UI: Added a link to debug.log in site settings once the file exists, and preserved unsent chat drafts when switching between sites #4761, #4596
+* Agentic UI: Fixed the publish flow suggesting an invalid WordPress.com domain based on your local `.wp.local` address #4743
+* Added `studio create --from` to build a site from static sources — compiled artifacts, directories, zip archives, and Data Liberation captures #4725, #4757
+* CLI: `studio delete` now accepts multiple sites in one command, running the whole batch through a single daemon session #4733
+* Fixed a site delete leaving the site behind when moving its files to the trash failed #4764
+* Fixed Studio reopening its window right after you closed it on nightly builds #3901
+* Allowed selecting individual files in `pull-reprint` selections #4582
+* Fixed 171 CLI strings never reaching translators because string extraction silently skipped files using `await using` #4467
+* Added Tracks analytics for sync with WordPress.com and Pressable, and fixed Agentic UI pushes inflating the export event #4551
+* Updated multiple dependencies, including Electron 44, the WordPress, Sentry and testing groups, and the release toolkit #4709, #4320, #4770, #4773, #4772, #4740
+* Misc and maintenance improvements #4762, #4774, #4754, #4744, #4769
+
+1.20.0
+=====
+* Added AI image generation to Studio Code: the agent now creates real images while it builds a site, instead of leaving placeholders behind, guided by a new imagery skill #4668
+* Improved the AI credits experience: the top-up dialog now offers four credit amounts, explains what credits are and how they differ from tokens, and links to the AI credits guidelines. A new usage meter in Settings → Usage shows how much you have left #4678, #4679, #4692
+* Improved the Studio Code terminal UI: tools that run at the same time now report their own progress and results live, instead of piling up under the last tool call #4653
+* Studio Code: Improved the sites the agent builds — anchor links in one-page site headers now point at the home page, pill labels stay inside the content column, and styling prefers the theme's block styles over custom CSS #4655, #4677, #4680
+* Fixed new sites being created in English instead of the language configured in Studio #4667
+* Fixed being signed out of wp-admin every time a site restarted, such as after saving settings, changing the PHP version, or toggling Xdebug #4703
+* Fixed the Publish button showing the previous user's cached remote sites after signing out and back in #4589
+* Agentic UI: Fixed settings alignment in some languages, a blurred scrollbar beneath conversations, the empty-state frost clipping at the panel edge, and the About card's disk measurement thrashing when switching sites #4687, #4556, #4555, #4627
+* Agentic UI: Simplified phpMyAdmin's embedded interface, improved the working timer's units and transition, and made the agent's preview refresh drop the cache like the toolbar's does #4684, #4579, #4625
+* Data Liberation: Added timeouts to browser calls so extraction cannot hang, removed stub commands that shadowed their skills, and updated its dependencies #4584, #4682, #4664
+* Updated multiple dependencies, including the ESLint and testing groups, RuboCop and claude-code-action #4707, #4708, #4710, #4711
+* Misc and maintenance improvements #4670, #4693, #4694
+
+1.19.0
+=====
+* Introduced AI credits in Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up #4604, #4602, #4636, #4609, #4619, #4628, #4639, #4624
+* Added hosted AI models — Kimi, GLM and DeepSeek — available through the WordPress.com proxy #4529
+* Studio Code: Improved generated themes with a content width and horizontal gutter, a registered no-title page template so designed pages no longer repeat their title, and slideshow and gallery builds steered to Jetpack blocks #4571, #4576, #4610
+* Misc Agentic UI improvements #4468, #4526, #4537, #4538, #4558, #4560, #4561, #4568, #4569, #4570, #4572, #4575, #4578, #4586, #4591, #4598, #4607, #4608, #4621, #4623, #4626
+* Improved Studio analytics #4535
+* Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups #4547, #4631, #4548, #4633, #4549, #4632, #4566, #4661, #4546, #4629, #4630
+* Misc and maintenance improvements #4531, #4654, #4581, #4600, #4665
+
+1.18.0
+=====
+* Made the Agentic UI the default experience for new users, removed its feature flag, and added a Beta menu to the sidebar #4389, #4485
+* Agentic UI: Reworked the new-user onboarding with a first-run orientation guide and a "What's New" view #4413, #4331, #4414, #4501
+* Agentic UI: Rebuilt the site preview with a new address bar and omnibox, live page and post search, responsive preview modes, and a full preview panel with Desktop + Mobile comparison #4366, #4367, #4373, #4368, #4423, #4364, #4527
+* Agentic UI: Brought over the remaining site workflows from the classic UI — the site overview, backup import, Open in actions, connecting a WordPress.com site, selective sync, and cancelling an in-flight push or pull #4470, #4473, #4500, #4469, #4365, #4307, #4305, #4377, #4510, #4522, #4461, #4350
+* Agentic UI: Added multi-note annotation sessions and support for your own Anthropic API key, selectable per conversation from the model menu #4521, #4460, #4455, #4503, #4550
+* Agentic UI: Polished chat, settings and the create-site flow, improved RTL and reduced-transparency support, and fixed a range of preview, layout and interaction issues #4328, #4509, #4459, #4530, #4408, #4291, #4339, #4497, #4354, #4433, #4391, #4528, #4341, #4499, #4388, #4442, #4370, #4505, #4519, #4329, #4337, #4335, #4359, #4520, #4334, #4338, #4380, #4498, #4362, #4443, #4421, #4453, #4332, #4361
+* Studio Code: Replaced Opus 4.8 with Opus 5, surfaced the payment-method requirement before the first prompt, and showed a clear notice when AI is disabled or the account is blocked #4342, #4422, #4386, #4463, #4493
+* Studio Code: Fixed a 400 error when using a direct Anthropic API key, validated the key in the api-key and provider CLI commands, and sent a custom user agent on AI requests #4480, #4504, #4437
+* Improved analytics across the app #4162, #4532, #4464, #4490, #4482, #4434, #4506, #4457, #4420, #4395, #4418, #4358
+* Made site startup and creation more resilient: a site with a fatal PHP error now starts and shows the error, a failed Blueprint reports the real reason instead of the PHP exit code, and a failed creation no longer leaves a ghost site behind #4246, #4487, #4489
+* Fixed sites getting into a broken state when two operations ran at once, such as starting a site while it was still stopping #4406
+* Fixed a stuck Start/Stop indicator and the inverted play/pause glyphs on the site status toggle #4253, #4374
+* Fixed site URLs not updating on native PHP imports and an ENAMETOOLONG error from open_basedir, raised max_execution_time, and dropped Blueprint features the native runner cannot accept #4454, #4432, #4274, #4488
+* Added Spotlight keywords for improved discoverability, and dropped the restart popup when an update is ready #3255, #4405
+* Updated the bundled PHP binaries and the SQLite database integration to v3.0.0-rc.8 #4438, #4440, #4439, #4436, #4417
+* Updated multiple dependencies, including WP Playground, Electron and the pi (agent) packages, resolving several security alerts #4230, #4327, #4357, #4383, #4384, #4428, #4416
+* Misc and maintenance improvements #4456, #4375, #4431, #4491, #4313, #4379, #4378, #4340, #4394, #4393, #4372, #4399, #4419, #4290, #4472, #4336, #4492, #4481, #4507, #4512, #4396, #4330, #4324, #4371
+
+1.17.0
+=====
+* Added support for importing WordPress export (WXR/.xml) files #4046
+* Agentic UI: Redesigned application settings as an auto-saving fullscreen overlay with new tabs — Account, AI, MCP, Skills, Usage, Keyboard shortcuts, Studio CLI — plus a default site directory preference #4297, #4219, #4270, #4295, #4264, #4271, #4286, #4277, #4302, #4275, #4278
+* Agentic UI: Added a site overview view, site creation from imports, suggested starter prompts, persistent update notifications, and an Xdebug indicator for Xdebug-enabled sites #4258, #4249, #4225, #4204, #4285
+* Agentic UI: Improved continuity between sessions — returning to the last visited site, remembering the preview path per site — and defined the signed-out and offline experiences #4130, #4281, #4183, #4232
+* Agentic UI: Separated the agentic features toggle from the classic UI switcher, and removed the theme toggle from the sidebar user menu #4312, #4263
+* Agentic UI: Fixed expired previews, chat input resizing, preview button sizing, the collapsed sidebar overlapping the chat history icon, and made the WordPress version field a dropdown in site settings #4298, #4301, #4303, #4280, #4284
+* Agentic UI: Brought over the Wapuu World easter egg #4299
+* Studio Code: Added a global instructions config for the agent #4255
+* Studio Code: Surfaced monthly AI usage limit errors across all surfaces #4310
+* Studio Code: Made the agent aware of theme asset bundling #4262
+* Deleted AI chat sessions when their site is deleted, continuing cleanup even if one session fails #4132, #4292
+* CLI: Added aliases for the help, version and path commands, and made `studio ui` work in release builds #4276, #4257
+* Hardened security: fixed path injection in path comparison, ReDoS in the mu-plugins loader, and HTML sanitization in AI tool result previews; restricted local imports to registered uploads and scoped CLI preview listings to the authenticated user #4267, #4254, #4260, #4308, #4252
+* Updated multiple dependencies, including Electron, Sentry, tar and shell-quote, resolving security alerts for esbuild and brace-expansion #4319, #4241, #4242, #4266, #4268, #4294
+* Misc and maintenance improvements #4272, #4293, #4279, #4289, #4300, #4234, #4282, #4229
+
+1.16.0
+=====
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
+* Studio Code: Added a button to copy the full assistant message #4113
+* Studio Code: Added opportunity to paste an image anywhere in the view #4208
+* Studio Code: Added a recovery action to the Session not found state #4243
+* Studio Code: Refreshed the composer placeholder copy #4149
+* Studio Code: Added support for creating new blank or child themes #4209
+* Studio Code: Fixed showing an error when the max token limit is reached #4077
+* Studio Code: Fixed AskUserQuestion to support multiline input #4119
+* Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
+* Studio Code: Fixed headless runs not exiting after the turn completed #4175
+* Studio Code: Made data-liberation flows more reliable with consistent AI wording, bundled driver scripts so skills work as installed plugins, and fixed the data-liberation scripts #4122, #4126, #4201
+* Fixed sites showing offline after import #4106
+* Fixed plugin reinstall failure after deletion in the Sandbox runtime #4044
+* Fixed the macOS Trust Certificate button being hidden for untrusted CAs #4223
+* Fixed native PHP sites not picking up updated Studio mu-plugins #4196
+* Disabled Jetpack Stats for local sites #4035
+* Simplified the "What to do with running sites" dialog shown when quitting Studio #4140
+* Improved CLI sync error messages for sites that can't be synced #4202
+* Added Linux to the bug report Platform field and split out Architecture #4224
+* Misc and maintenance improvements #4235, #4128, #4131, #4187, #4129, #4168, #4199, #4227, #4233
+
 1.15.0
 =====
 * Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
@@ -18,7 +161,7 @@ Unreleased
 
 1.14.0
 =====
-* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082
 * Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
 * Studio Code: Added a /publish command to push local sites to WordPress.com #4043
 * Studio Code: Updated the assistant's available model to Sonnet 5 #4024

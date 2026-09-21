@@ -1,7 +1,8 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import { readFile } from 'atomically';
@@ -9,10 +10,12 @@ import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
+	ensureMinWindowWidth,
 	getFileSize,
 	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
+	readBlueprintFile,
 	readLocalMediaFile,
 } from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
@@ -21,7 +24,7 @@ import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
-	const fs = await import( 'fs' );
+	const { fs } = await import( 'memfs' );
 	return { default: fs.promises };
 } );
 vi.mock( 'fs-extra' );
@@ -35,9 +38,6 @@ vi.mock( '@sentry/electron/main', () => ( {
 	setTag: vi.fn(),
 } ) );
 vi.mock( 'src/site-server' );
-vi.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
-} ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
@@ -119,6 +119,7 @@ describe( 'createSite', () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
+			noStart: true,
 		} );
 
 		expect( userData ).toEqual( {
@@ -139,9 +140,30 @@ describe( 'createSite', () => {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
+				noStart: true,
 			} ),
 			expect.any( Object )
 		);
+	} );
+} );
+
+describe( 'readBlueprintFile', () => {
+	it( 'deletes the temporary deep-link file after reading it', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/blueprint.json' );
+		vol.fromJSON( { [ filePath ]: JSON.stringify( { meta: { title: 'Deep link' } } ) } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).resolves.toEqual( {
+			meta: { title: 'Deep link' },
+		} );
+		expect( existsSync( filePath ) ).toBe( false );
+	} );
+
+	it( 'deletes invalid temporary deep-link JSON', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/invalid.json' );
+		vol.fromJSON( { [ filePath ]: '{invalid' } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
+		expect( existsSync( filePath ) ).toBe( false );
 	} );
 } );
 
@@ -164,6 +186,52 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'ensureMinWindowWidth', () => {
+	it( 'grows the sender window content while preserving its height', async () => {
+		const setContentSize = vi.fn();
+		let width = 420;
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ width, 700 ],
+			setContentSize: ( nextWidth: number, height: number ) => {
+				width = nextWidth;
+				setContentSize( nextWidth, height );
+			},
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setContentSize ).toHaveBeenCalledWith( 640, 700 );
+		expect( result ).toBe( 640 );
+	} );
+
+	it( 'leaves an already-wide window unchanged', async () => {
+		const setContentSize = vi.fn();
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ 900, 700 ],
+			setContentSize,
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( setContentSize ).not.toHaveBeenCalled();
+		expect( result ).toBe( 900 );
+	} );
+
+	it( 'returns the content width the window manager actually applied', async () => {
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce( {
+			isDestroyed: () => false,
+			getContentSize: () => [ 600, 700 ],
+			setContentSize: vi.fn(),
+		} as unknown as BrowserWindow );
+
+		const result = await ensureMinWindowWidth( mockIpcMainInvokeEvent, 640 );
+
+		expect( result ).toBe( 600 );
 	} );
 } );
 

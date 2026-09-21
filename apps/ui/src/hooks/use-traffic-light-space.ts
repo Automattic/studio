@@ -1,18 +1,22 @@
+import { isRTL } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 
 /**
- * Whether the UI should reserve the top-left gap for macOS window controls
+ * Which inline edge should leave a gap for the macOS window controls
  * ("traffic lights").
  *
- * True only when the host overlays them (the macOS desktop app — never the
- * browser) AND the window isn't fullscreen (macOS hides the traffic lights in
- * fullscreen). On Windows/Linux and in `studio ui` / hosted, this is always
- * false, so the sidebar header and the collapsed-sidebar toggle sit flush
- * against the left edge instead of leaving an empty gap.
+ * The lights always sit at the window's physical top-left, so the gap belongs
+ * at inline-start in LTR and inline-end in RTL. Both are false when the host
+ * doesn't overlay them (browser, Windows/Linux) or the window is fullscreen
+ * (macOS hides them there).
  */
-export function useTrafficLightSpace(): boolean {
+export function useTrafficLightSpace(): { start: boolean; end: boolean } {
 	const connector = useConnector();
 	const isFullscreen = useFullscreen();
-	return connector.reservesTrafficLightSpace && ! isFullscreen;
+	const visible = connector.reservesTrafficLightSpace && ! isFullscreen;
+	return {
+		start: visible && ! isRTL(),
+		end: visible && isRTL(),
+	};
 }

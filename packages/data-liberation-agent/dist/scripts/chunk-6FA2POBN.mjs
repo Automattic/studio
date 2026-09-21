@@ -1,0 +1,3 @@
+import { createRequire as __bundleCreateRequire } from 'node:module';
+const require = __bundleCreateRequire(import.meta.url);
+async function u(e,r,n){let i=new Array(e.length),t=0,a=async()=>{for(let o=t++;o<e.length;o=t++)i[o]=await n(e[o],o)},s=Math.max(1,Math.min(Math.floor(r)||1,e.length||1));return await Promise.all(Array.from({length:s},()=>a())),i}var m=class extends Error{label;constructor(r,n){super(`${r} timed out after ${n}ms`),this.name="TimeoutError",this.label=r}};async function c(e,r,n,i){let t,a=!1,s=new Promise((o,l)=>{t=setTimeout(()=>{a=!0,l(new m(n,r))},r)});try{return await Promise.race([e,s])}finally{t&&clearTimeout(t),a&&i&&e.then(i).catch(()=>{})}}export{u as a,c as b};

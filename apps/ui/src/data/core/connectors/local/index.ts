@@ -1,49 +1,47 @@
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
+import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	QuitSitesBehavior,
+	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
-	SupportedEditor,
-	SupportedTerminal,
+	SnapshotUsage,
+	StudioAssistantQuota,
+	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
+import type { AiSettings } from '@studio/common/ai/providers';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { PushOutput } from '@studio/common/types/sync';
 
-// The in-app dark/light/system choice, persisted in the browser (there's no
-// Electron `nativeTheme` to mirror it) so it sticks across reloads.
-const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
-// Editor/terminal choices live in the browser too (no Electron user-settings
-// store); the server reads them back from each open request.
-const EDITOR_STORAGE_KEY = 'studio-local-editor';
-const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
-const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
-function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
-	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
-		? value
-		: undefined;
-}
+type ServerUserPreferences = Omit<
+	UserPreferences,
+	'studioCliInstalled' | 'studioCliExternallyManaged'
+>;
 
-export interface LocalConnectorOptions {
+interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
 	// http://localhost:8081.
 	apiBaseUrl: string;
@@ -58,12 +56,22 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
+type PullProgressSseOutput = PullSiteProgress & {
+	siteId: string;
+	remoteSiteId: number;
+};
+type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
+
 // Envelope used by the backend's `/events` SSE stream so a single connection
-// can carry agent-run events, session-placement updates, and snapshot progress.
+// can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
+	| { channel: 'sync-push'; payload: PushSseOutput }
+	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
 /**
@@ -86,6 +94,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
+	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
+	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
@@ -104,8 +115,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		} );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
+			// Server errors carry a user-facing `{ error }` body — surface that
+			// message directly instead of the transport line.
+			let serverError: string | undefined;
+			try {
+				const payload: unknown = JSON.parse( text );
+				if ( payload && typeof payload === 'object' && 'error' in payload ) {
+					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+				}
+			} catch {
+				// Not JSON; fall through to the transport error.
+			}
 			throw new Error(
-				`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
+				serverError ??
+					`${ init?.method ?? 'GET' } ${ path } failed (${ response.status }): ${ text }`
 			);
 		}
 		if ( response.status === 204 ) {
@@ -191,8 +214,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	return {
 		async init() {
-			// One SSE connection carries both agent and placement events; the
-			// browser's EventSource reconnects automatically.
+			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
 			eventSource.onmessage = ( message ) => {
@@ -208,6 +230,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-pull' ) {
+					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-push' ) {
+					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'import' ) {
+					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
@@ -219,19 +247,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
 		capabilities: {
 			nativeFolderPicker: false,
-			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
-			readLocalMedia: false,
+			readLocalMedia: true,
+			agentInstructions: true,
+			aiSettings: true,
+			studioLogs: false,
+			switchToClassicUi: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
-		requiresAuth: false,
-		async isAuthenticated() {
-			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
-		},
+		agenticRequiresAuth: false,
 		async getAuthUser(): Promise< AuthUser | null > {
 			return api< AuthUser | null >( '/auth/user' );
 		},
@@ -239,7 +267,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate() {
+		async authenticate( signup = false ) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
@@ -249,7 +277,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				( { url: loginUrl } = await api< { url: string | null } >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }`
+					) }${ signup ? '&signup=1' : '' }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -258,8 +286,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( ! loginUrl ) {
 				// No OAuth client configured → paste-the-token fallback.
 				popup?.close();
+				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getAuthenticationUrl( 'en', 'https://developer.wordpress.com/copy-oauth-token' ),
+					signup ? getSignUpUrl( 'en', redirectUri ) : getAuthenticationUrl( 'en', redirectUri ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -315,10 +344,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAuthStateChanged() {
 			return () => {};
 		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
+			lastSites = await api< SiteDetails[] >( '/sites' );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -327,8 +362,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async stopSite( id ) {
 			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
-		async refreshSiteIcon() {
-			// No-op: icons come back with getSites().
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getSiteStorageUsage( siteId, signal ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
@@ -345,6 +383,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminUsername: params.adminUsername,
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
+					skipStart: params.skipStart,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -356,6 +395,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const { name } = await api< { name: string } >( '/site-defaults/name' );
 			return name;
 		},
+		async generateNumberedSiteName( baseName ): Promise< string > {
+			const { name } = await api< { name: string } >(
+				`/site-defaults/name?base=${ encodeURIComponent( baseName ) }`
+			);
+			return name;
+		},
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
 			return api< ProposedSitePath >(
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
@@ -364,6 +409,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
+			return null;
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
 			return null;
 		},
 		async comparePaths( path1, path2 ) {
@@ -396,7 +445,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		async updateSitesSortOrder( updates ) {
-			storeSiteOrder( updates );
+			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -406,17 +455,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
+		getWordPressVersions: fetchWordPressVersions,
+
+		async getWpVersion( siteId ) {
+			const { wpVersion } = await api< { wpVersion: string } >(
+				`/sites/${ encodeURIComponent( siteId ) }/wp-version`
+			);
+			return wpVersion;
 		},
 
 		async getFilePath( file ) {
@@ -424,19 +469,31 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// back the server-side temp path the path-based operations expect.
 			return uploadFile( file );
 		},
-		async readLocalMediaFile(): Promise< LocalMediaFile > {
-			// Not exposed over HTTP: reading an arbitrary local file by absolute
-			// path is an arbitrary-read risk and nothing consumes it yet. Reinstate
-			// with a server-side path-containment policy when a real consumer lands.
-			throw new UnsupportedError( 'readLocalMediaFile' );
+		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
+			const response = await fetch(
+				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
+			);
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
+			}
+			return {
+				name: filePath.split( '/' ).pop() ?? filePath,
+				mimeType: response.headers.get( 'Content-Type' ) ?? 'application/octet-stream',
+				data: await response.arrayBuffer(),
+			};
 		},
-		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
-		// the server extracts it (shared extractor) and returns the parsed bundle.
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
-			return api< ExtractedBlueprintBundle >( '/blueprints/extract', {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
-				body: JSON.stringify( { zipFilePath } ),
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: file,
 			} );
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+			}
+			return ( await response.json() ) as ExtractedBlueprintBundle;
 		},
 		async cleanupBlueprintTempDir( tempDir ) {
 			await api( '/blueprints/cleanup', {
@@ -444,17 +501,48 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { tempDir } ),
 			} );
 		},
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-				method: 'POST',
-				body: JSON.stringify( { path: backup.path, type: backup.type } ),
-			} );
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
+		},
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const listener = onProgress
+				? ( output: ImportSseOutput ) => {
+						if ( output.siteId === siteId ) onProgress( output.event );
+				  }
+				: undefined;
+			if ( listener ) importListeners.add( listener );
+			try {
+				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+					method: 'POST',
+					body: JSON.stringify( { path: backupPath } ),
+				} );
+			} finally {
+				if ( listener ) importListeners.delete( listener );
+			}
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
 		// manager and sync routes (the same shared code the desktop uses).
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
+		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			// No usage endpoint on the local server yet; callers fall back to
+			// counting snapshots.
+			return null;
+		},
+		async getStudioAssistantQuota() {
+			// The server proxies the WordPress.com quota endpoint and returns
+			// the already-parsed shape (or null when signed out).
+			return api< StudioAssistantQuota | null >( '/quota' );
+		},
+		async getStudioAssistantTopUpPricing() {
+			// Proxied server-side for the same reason as the quota: the browser
+			// UI never holds the wpcom token.
+			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
+		},
+		async deleteAllSnapshots() {
+			// No-op: the local server has no delete-all route yet.
 		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
@@ -467,7 +555,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return awaitSnapshotOperation( operationId );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
-			return api< SyncSite[] >( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites` );
+			return api< SyncSite[] >(
+				localSiteId
+					? `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`
+					: '/wpcom/connected-sites'
+			);
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return api< SyncSite[] >( '/wpcom/syncable-sites' );
@@ -499,31 +591,101 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
+			const listener = ( output: PushSseOutput ) => {
+				if ( output.siteId === siteId && output.kind === 'phase' ) {
+					onPhase?.( output.phase, output.progress );
+				}
+			};
+			if ( onPhase ) {
+				pushOutputListeners.add( listener );
+			}
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId, options } ),
+				} );
+			} finally {
+				pushOutputListeners.delete( listener );
+			}
+			// The server reports a cancel instead of failing the request; turn it
+			// back into an error for the caller.
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+
+		async cancelSync( siteId, remoteSiteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/sync/cancel`, {
 				method: 'POST',
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
-			} );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
+			const listener = ( output: PullProgressSseOutput ) => {
+				if ( output.siteId === siteId ) {
+					onProgress?.( {
+						message: output.message,
+						...( output.progress === undefined ? {} : { progress: output.progress } ),
+						// Drives the cancel gate — without it every pull looks cancellable.
+						...( output.action === undefined ? {} : { action: output.action } ),
+					} );
+				}
+			};
+			if ( onProgress ) {
+				pullProgressListeners.add( listener );
+			}
+			let result: { cancelled?: boolean } | undefined;
+			try {
+				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId, options } ),
+				} );
+			} finally {
+				pullProgressListeners.delete( listener );
+			}
+			if ( result?.cancelled ) {
+				throw new SyncCancelledError();
+			}
+		},
+		async getLatestRewindId( remoteSiteId ) {
+			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		},
+		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+			return api< Record< string, unknown > >(
+				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
+					rewindId
+				) }&path=${ encodeURIComponent( path ) }`
+			);
+		},
+		// Selective-sync local lookups: the server has no per-file endpoints yet,
+		// so degrade the same way the dialog does elsewhere without this data —
+		// category-level selection works; file trees, size estimates, and
+		// version warnings are simply absent.
+		async listLocalFileTree() {
+			return [];
+		},
+		async getDirectorySize() {
+			return 0;
+		},
+		async getFileSize() {
+			return 0;
+		},
+		async getIsMultisite() {
+			return undefined;
+		},
+		async getHostingPhpVersion( remoteSiteId ) {
+			const version = await api< string | null >(
+				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
+			);
+			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
-			// The same WordPress.com hosted-site checkout the desktop opens — a pure
-			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
-			// relies on the deep-link listener, which a browser tab can't receive, so
-			// the user finishes by connecting the new site from the picker.)
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			// The post-checkout auto-connect relies on the deep-link listener, which
+			// a browser tab can't receive, so the user finishes by connecting the
+			// new site from the picker.
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by
@@ -533,9 +695,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSession( sessionId ): Promise< LoadedAiSession > {
 			return api< LoadedAiSession >( `/sessions/${ encodeURIComponent( sessionId ) }` );
-		},
-		async deleteSession( sessionId ) {
-			await api( `/sessions/${ encodeURIComponent( sessionId ) }`, { method: 'DELETE' } );
 		},
 		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
 			return api< AiSessionSummary >( `/sessions/${ encodeURIComponent( sessionId ) }`, {
@@ -552,7 +711,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
 			return api< { runId: string } >( `/sessions/${ encodeURIComponent( sessionId ) }/messages`, {
 				method: 'POST',
-				body: JSON.stringify( { prompt, displayMessage: options?.displayMessage } ),
+				body: JSON.stringify( {
+					prompt,
+					displayMessage: options?.displayMessage,
+					images: options?.images,
+					files: options?.files,
+					visualAnnotations: options?.visualAnnotations,
+				} ),
 			} );
 		},
 		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
@@ -564,6 +729,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionProvider( sessionId, provider, model ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
+				method: 'POST',
+				body: JSON.stringify( { provider, model } ),
+			} );
+		},
 		async interruptAgentRun( runId ) {
 			await api( `/runs/${ encodeURIComponent( runId ) }/interrupt`, { method: 'POST' } );
 		},
@@ -572,10 +743,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { answers } ),
 			} );
-		},
-		async setSessionEnvironment( _sessionId, environment ) {
-			// The agent always acts on the server's local runtime.
-			return { environment };
 		},
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
@@ -586,50 +753,23 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => placementListeners.delete( listener );
 		},
 
-		// User preferences are persisted in the browser; `locale` follows the app.
+		// Preferences come from the machine's own Studio config, the same files
+		// the desktop reads, so both front ends show one set of values.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
-			const colorScheme: ColorScheme =
-				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
-			const quitSitesBehavior = parseQuitSitesBehavior(
-				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
-			);
+			const preferences = await api< ServerUserPreferences >( '/user-preferences' );
 			return {
-				editor:
-					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
-				terminal:
-					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
-					null,
-				colorScheme,
-				quitSitesBehavior,
-				locale: undefined,
+				...preferences,
+				// This target is already running inside the CLI, not managing it.
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {
-			if ( partial.colorScheme ) {
-				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
-			}
-			if ( partial.editor !== undefined ) {
-				if ( partial.editor ) {
-					window.localStorage.setItem( EDITOR_STORAGE_KEY, partial.editor );
-				} else {
-					window.localStorage.removeItem( EDITOR_STORAGE_KEY );
-				}
-			}
-			if ( partial.terminal !== undefined ) {
-				if ( partial.terminal ) {
-					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
-				} else {
-					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
-				}
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				if ( partial.quitSitesBehavior ) {
-					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
-				} else {
-					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
-				}
-			}
+			// JSON drops `undefined` keys, so a clear has to travel as null.
+			const patch = Object.fromEntries(
+				Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+			);
+			await api( '/user-preferences', { method: 'PATCH', body: JSON.stringify( patch ) } );
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
 		// detection, server-side) so the preferences picker offers only what's there.
@@ -637,13 +777,38 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions(
+			content: string,
+			options: { editSession?: { previousContent: string } } = {}
+		): Promise< void > {
+			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( request ),
+				body: JSON.stringify( { content, editSession: options.editSession } ),
 			} );
+		},
+
+		async getAiSettings(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings' );
+		},
+		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings', {
+				method: 'PUT',
+				body: JSON.stringify( { anthropicApiKey: key } ),
+			} );
+		},
+
+		// The local server has no REST-proxy route yet; the preview omnibox
+		// only offers search where the webview connector serves it.
+		async fetchSiteRest() {
+			throw new UnsupportedError( 'fetchSiteRest' );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -651,38 +816,83 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
+		// The server resolves the preference; a 400 means none is configured and
+		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {
-			const editor = window.localStorage.getItem( EDITOR_STORAGE_KEY );
-			if ( ! editor ) {
-				// Matches the desktop contract: callers route the user to Settings.
-				throw new Error( 'No preferred editor configured.' );
-			}
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
-				method: 'POST',
-				body: JSON.stringify( { editor } ),
-			} );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
 		},
 		async openSiteInTerminal( siteId ) {
-			const terminal = window.localStorage.getItem( TERMINAL_STORAGE_KEY ) ?? undefined;
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
+		},
+
+		// Resolved server-side, so no host path crosses into the browser.
+		async siteDebugLogExists( siteId ) {
+			const { exists } = await api< { exists: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/debug-log`
+			);
+			return exists;
+		},
+		async openSiteDebugLog( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/debug-log/open`, { method: 'POST' } );
+		},
+
+		// The CLI has no equivalent of the desktop's log file — site server output
+		// goes to `~/.studio/daemon/logs` and the rest to the terminal that ran
+		// `studio ui` — so there is nothing to open here.
+		async openStudioLogs() {
+			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		// The server attaches the origin and common props. Callers fire and forget, so a
+		// failure here must not become an unhandled rejection.
+		async trackEvent( eventName, props = {} ) {
+			await api< void >( '/analytics/event', {
 				method: 'POST',
-				body: JSON.stringify( { terminal } ),
-			} );
+				body: JSON.stringify( { eventName, props } ),
+			} ).catch( () => undefined );
 		},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
+		},
 		async popupAppMenu() {},
-		async openSiteUrl( siteId, relativeUrl = '' ) {
+		showsAppMenuButton: false,
+		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
-			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
-			window.open( target, '_blank', 'noopener,noreferrer' );
+			const siteUrl = findSiteUrl( sites, siteId );
+			let target = new URL( relativeUrl || '/', siteUrl );
+			// Mirrors the desktop host's `openSiteURL`: go through the site's
+			// /studio-auto-login endpoint so admin screens don't land on the
+			// login form.
+			if ( autoLogin ) {
+				const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+				autoLoginUrl.searchParams.set( 'redirect_to', target.toString() );
+				target = autoLoginUrl;
+			}
+			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
+		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
+		async ensureWindowWidth() {
+			return window.innerWidth;
+		},
 		async isFullscreen() {
 			return false;
 		},
@@ -699,6 +909,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
+		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.
 			return () => {};
@@ -707,12 +924,53 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAiCreditsPurchased() {
+			// A browser tab can't receive the wp-studio:// checkout return link.
+			return () => {};
+		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onShowWhatsNew() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async getLastSeenVersion() {
+			return readLastSeenVersion();
+		},
+		async saveLastSeenVersion( version ) {
+			writeLastSeenVersion( version );
+		},
+		async getAppUpdateStatus() {
+			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.
+			return { state: 'idle', currentVersion: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		onAppUpdateNotAvailable() {
+			return () => {};
 		},
 	};
 }

@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { getMainWindow } from 'src/main-window';
 import { createLinuxCliInstallationManager } from 'src/modules/cli/lib/linux-installation-manager';
 import { createMacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
@@ -10,6 +11,7 @@ import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-insta
  */
 export interface StudioCliInstallationManager {
 	isCliInstalled(): Promise< boolean >;
+	isCliExternallyManaged(): Promise< boolean >;
 	installCliWithConfirmation(): Promise< void >;
 	uninstallCliWithConfirmation(): Promise< void >;
 }
@@ -32,6 +34,11 @@ export async function isStudioCliInstalled(): Promise< boolean > {
 	return await manager.isCliInstalled();
 }
 
+export async function isStudioCliExternallyManaged(): Promise< boolean > {
+	const manager = getCliInstallationManager();
+	return await manager.isCliExternallyManaged();
+}
+
 export async function installStudioCli(): Promise< void > {
 	if ( process.env.NODE_ENV !== 'production' ) {
 		const mainWindow = await getMainWindow();
@@ -50,6 +57,10 @@ export async function installStudioCli(): Promise< void > {
 
 	const manager = getCliInstallationManager();
 	await manager.installCliWithConfirmation();
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_CLI_CHANGE, {
+		installed: true,
+		surface: 'settings',
+	} );
 }
 
 export async function uninstallStudioCli(): Promise< void > {
@@ -70,4 +81,8 @@ export async function uninstallStudioCli(): Promise< void > {
 
 	const manager = getCliInstallationManager();
 	await manager.uninstallCliWithConfirmation();
+	await recordTracksEvent( TRACKS_EVENTS.SETTING_CLI_CHANGE, {
+		installed: false,
+		surface: 'settings',
+	} );
 }

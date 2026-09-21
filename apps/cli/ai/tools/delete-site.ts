@@ -1,5 +1,6 @@
 import { Type } from 'typebox';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
+import { Logger } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -14,15 +15,20 @@ export const deleteSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runDeleteSiteCommand( site.path, args.deleteFiles ?? true );
+			await runDeleteSiteCommand(
+				site.path,
+				args.deleteFiles ?? true,
+				new Logger( { onProgress: context.onProgress } )
+			);
 			return textResult( `Site "${ site.name }" deleted.` );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Delete a site from Studio and optionally move its files to trash' }
 );

@@ -91,9 +91,9 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 //      with `extension=`.
 //   2. The curated macOS extension list in .github/workflows/build-php-cli-binaries.yml.
 //      windows.php.net also ships bz2, com_dotnet, enchant, ffi, gmp, ldap,
-//      odbc, pdo_firebird, pdo_odbc, pdo_pgsql, pgsql, snmp, soap, sysvshm,
-//      and tidy, but Studio doesn't ship those on macOS, so we don't enable
-//      them on Windows either to keep behavior symmetric.
+//      odbc, pdo_firebird, pdo_odbc, pdo_pgsql, pgsql, snmp, sysvshm, and
+//      tidy, but Studio doesn't ship those on macOS, so we don't enable them
+//      on Windows either to keep behavior symmetric.
 // opcache and xdebug are Zend extensions and loaded separately via
 // `zend_extension=` (the latter only when config.enableXdebug is true). On
 // macOS every extension is baked into the `php` binary by static-php-cli, so
@@ -116,6 +116,7 @@ const WINDOWS_PHP_EXTENSIONS = [
 	'pdo_sqlite',
 	'redis',
 	'shmop',
+	'soap',
 	'sockets',
 	'sodium',
 	'sqlite3',
@@ -162,6 +163,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	);
 	const directives: string[] = [
 		'memory_limit=512M',
+		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
 		'display_errors=1',

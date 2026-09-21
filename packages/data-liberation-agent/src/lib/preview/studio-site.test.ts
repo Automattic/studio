@@ -79,7 +79,7 @@ describe('ensureStudioSite', () => {
   it('creates + starts the site via `studio site create` when absent, then resolves wpRoot', async () => {
     // The site dir exists but has no wp-content yet; the stubbed create
     // materializes wp-content (what `studio site create` does on disk).
-    const exec = vi.fn<ExecFn>(async (_file, _args, _opts) => {
+    const exec = vi.fn<ExecFn>(async (_args, _opts) => {
       mkdirSync(join(dir, 'wp-content'), { recursive: true });
       return { stdout: '', stderr: '' };
     });
@@ -87,8 +87,7 @@ describe('ensureStudioSite', () => {
     expect(res.created).toBe(true);
     expect(res.wpRoot).toBe(dir);
     expect(exec).toHaveBeenCalledOnce();
-    const [file, args] = exec.mock.calls[0];
-    expect(file).toBe('studio');
+    const [args] = exec.mock.calls[0];
     expect(args.slice(0, 2)).toEqual(['site', 'create']);
     expect(args).toContain('--name');
     expect(args).toContain('Maison Clouet');
@@ -114,7 +113,7 @@ describe('ensureStudioSite', () => {
       php: '8.3',
       exec,
     });
-    const [, args] = exec.mock.calls[0];
+    const [args] = exec.mock.calls[0];
     expect(args).toContain('--admin-username');
     expect(args).toContain('admin');
     expect(args).toContain('--admin-password');

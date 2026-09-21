@@ -59,7 +59,7 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 	// relays the CLI's progress/result through `emit`.
 	function run( args: string[] ): { operationId: OperationId } {
 		const operationId = crypto.randomUUID();
-		const [ emitter ] = ctx.executeCliCommand( args, { output: 'capture' } );
+		const [ emitter ] = ctx.executeCliCommand( args, { output: 'capture', logPrefix: 'preview' } );
 
 		emitter.on( 'data', ( { data } ) => {
 			const parsed = snapshotEventSchema.safeParse( data );

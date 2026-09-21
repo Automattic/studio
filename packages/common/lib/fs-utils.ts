@@ -72,6 +72,21 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
+// Resolve `candidate` under `root`, returning the normalized path when it is `root`
+// or a descendant, or `null` when it escapes (e.g. via `../`). Callers with
+// untrusted input must use the returned value for filesystem access, not the raw input.
+export function confineToRoot( root: string, candidate: string ): string | null {
+	const resolvedRoot = path.resolve( root );
+	const resolvedCandidate = path.resolve( resolvedRoot, candidate );
+	if (
+		resolvedCandidate === resolvedRoot ||
+		resolvedCandidate.startsWith( resolvedRoot + path.sep )
+	) {
+		return resolvedCandidate;
+	}
+	return null;
+}
+
 // Compare paths, preferring inode comparison when both paths exist on disk.
 // `fs.Stats.dev` signifies the device ID, and `fs.Stats.ino` signifies the inode number
 // that uniquely identifies the file or directory. This approach respects the current file

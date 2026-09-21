@@ -1,8 +1,9 @@
 import type { SiteDetails } from '../types';
 
-// Manual sidebar site order (ordered site ids). The desktop persists this in
-// appdata via IPC; the browser connectors have no such store, so it lives in
-// localStorage instead.
+// Manual sidebar site order (ordered site ids), for connectors with no access
+// to the machine's Studio config: the desktop persists this in app.json via
+// IPC and the `studio ui` server reads that same file, but the hosted backend
+// has no such store, so it lives in localStorage instead.
 const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 function readStoredSiteOrder(): string[] {

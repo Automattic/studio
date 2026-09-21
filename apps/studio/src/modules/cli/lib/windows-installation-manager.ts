@@ -39,6 +39,15 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	async isCliExternallyManaged(): Promise< boolean > {
+		try {
+			return await this.isStandaloneCli();
+		} catch ( error ) {
+			console.error( 'Failed to check for a standalone CLI', error );
+			return false;
+		}
+	}
+
 	async autoInstallIfNeeded(): Promise< void > {
 		const userData = await loadUserData();
 		if ( userData.cliUserUninstalled ) {

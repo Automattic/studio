@@ -1,0 +1,31 @@
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+
+const IMPORT_FILE_TYPES_BY_LENGTH = [ ...ACCEPTED_IMPORT_FILE_TYPES ].sort(
+	( first, second ) => second.length - first.length
+);
+
+export function isSupportedBackupFilename(
+	filename: string,
+	acceptedFileTypes: readonly string[] = ACCEPTED_IMPORT_FILE_TYPES
+): boolean {
+	const lower = filename.toLowerCase();
+	return acceptedFileTypes.some( ( extension ) => lower.endsWith( extension ) );
+}
+
+export function getSuggestedSiteNameFromBackupFilename( filename: string ): string {
+	const basename = filename.replace( /^.*[\\/]/, '' );
+	const lower = basename.toLowerCase();
+	const extension = IMPORT_FILE_TYPES_BY_LENGTH.find( ( candidate ) =>
+		lower.endsWith( candidate )
+	);
+	const stem = extension ? basename.slice( 0, -extension.length ) : basename;
+
+	return stem
+		.replace( /^studio[-_\s]+backup[-_\s]+/i, '' )
+		.replace( /^(backup|export)[-_\s]+/i, '' )
+		.replace( /[-_\s]+\d{4}[-_]\d{2}[-_]\d{2}(?:[T_-]\d{2}){0,3}(?:Z)?(?:[-_\s].*)?$/i, '' )
+		.replace( /[-_\s]+(backup|export|wordpress|jetpack)s?$/i, '' )
+		.replace( /[-_]+/g, ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+}

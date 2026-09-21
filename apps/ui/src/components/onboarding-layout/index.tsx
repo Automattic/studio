@@ -1,8 +1,7 @@
-import { __ } from '@wordpress/i18n';
-import { close } from '@wordpress/icons';
-import { IconButton, Stack } from '@wordpress/ui';
+import { Stack } from '@wordpress/ui';
+import { FullscreenChrome } from '@/components/fullscreen-chrome';
 import styles from './style.module.css';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 interface OnboardingLayoutProps {
 	children: ReactNode;
@@ -12,33 +11,30 @@ interface OnboardingLayoutProps {
 	 * the user isn't trapped in the flow.
 	 */
 	onClose?: () => void;
-	/**
-	 * Content width variant. Defaults to a narrow column (`'default'`) sized
-	 * for forms and short cards; `'wide'` is used by pages that host grids of
-	 * content (e.g. the blueprint selector).
-	 */
+	closeDisabled?: boolean;
 	width?: 'default' | 'wide';
+	contentRef?: Ref< HTMLDivElement >;
+	background?: ReactNode;
 }
 
 export function OnboardingLayout( {
 	children,
 	onClose,
+	closeDisabled = false,
 	width = 'default',
+	contentRef,
+	background,
 }: OnboardingLayoutProps ) {
 	return (
-		<Stack align="center" justify="center" className={ styles.root }>
-			{ onClose && (
-				<IconButton
-					className={ styles.close }
-					variant="minimal"
-					tone="neutral"
-					size="default"
-					icon={ close }
-					label={ __( 'Close' ) }
-					onClick={ onClose }
-				/>
-			) }
-			<div className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }>
+		<Stack align="flex-start" justify="center" className={ styles.root }>
+			{ background }
+			<FullscreenChrome onClose={ onClose } closeDisabled={ closeDisabled } />
+			<div
+				ref={ contentRef }
+				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' } ${
+					onClose ? styles.contentWithClose : ''
+				}` }
+			>
 				{ children }
 			</div>
 		</Stack>

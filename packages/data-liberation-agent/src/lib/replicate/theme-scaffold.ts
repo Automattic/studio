@@ -341,7 +341,7 @@ function buildStyleCss(args: { themeName: string; themeSlug: string; themeDescri
   // Standard WordPress theme header; required keys: Theme Name, Version, Text Domain.
   return buildThemeHeader([
     ['Theme Name', args.themeName],
-    ['Theme URI', 'https://github.com/Automattic/data-liberation-agent'],
+    ['Theme URI', 'https://github.com/Automattic/studio/tree/trunk/packages/data-liberation-agent'],
     ['Author', 'data-liberation'],
     ['Description', args.themeDescription],
     ['Version', '0.1.0'],

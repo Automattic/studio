@@ -83,14 +83,6 @@ export default defineConfig( {
 			viteStaticCopy( {
 				targets: [
 					{
-						src: normalizePath( require.resolve( '@rive-app/canvas/rive.wasm' ) ),
-						dest: 'assets',
-					},
-					{
-						src: normalizePath( require.resolve( '@rive-app/canvas/rive_fallback.wasm' ) ),
-						dest: 'assets',
-					},
-					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/about-menu.html' ) ),
 						dest: '.',
 						rename: { stripBase: true },
@@ -119,9 +111,9 @@ export default defineConfig( {
 			devSourcemap: true,
 			postcss: resolve( __dirname, 'postcss.config.js' ),
 		},
-		assetsInclude: [ '**/*.riv', '**/*.wasm' ],
+		assetsInclude: [ '**/*.wasm' ],
 		optimizeDeps: {
-			include: [ '@wordpress/i18n', '@rive-app/react-canvas', '@rive-app/canvas' ],
+			include: [ '@wordpress/i18n' ],
 			rolldownOptions: {
 				output: {
 					sourcemap: false,

@@ -18,25 +18,6 @@ export const VIEWPORTS = {
 } as const;
 
 /**
- * 16:9 viewport used by `share_screenshot` to capture "as it would look on a
- * screen" — an above-the-fold view of the rendered page. The user can ask
- * for the full page explicitly by setting `fullPage: true`.
- */
-export const SHARE_VIEWPORTS = {
-	desktop: { width: 1280, height: 720 },
-	mobile: { width: 390, height: 844 },
-} as const;
-
-/**
- * Render `share_screenshot` at 2x DPR so the captured PNG has retina pixel
- * density (e.g. 2560x1440 raw pixels for the desktop viewport) without
- * changing CSS layout breakpoints. The page still sees a 1280x720 window;
- * only the rasterized output is denser. This survives Telegram's compression
- * pipeline noticeably better than 1x captures.
- */
-export const SHARE_DEVICE_SCALE_FACTOR = 2;
-
-/**
  * Quality used when re-encoding a screenshot as JPEG for vision-model input.
  * Full-page PNG captures can run to multiple megabytes; the wpcom AI proxy
  * rejects oversized request bodies with an empty 400 before they ever reach
@@ -52,6 +33,10 @@ const MODEL_JPEG_QUALITY = 80;
  * let callers pass `offset` to fetch subsequent slices on follow-up calls.
  */
 export const MAX_IMAGE_DIMENSION_PX = 8000;
+
+// pi re-encodes larger tool images as much heavier PNGs, and Anthropic rejects
+// larger images in requests carrying more than 20 of them.
+const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
@@ -86,16 +71,53 @@ export async function applyScreenshotMediaEmulation(
 
 export interface ScreenshotCapture {
 	buffer: Buffer;
+	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
+	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
+	contentHeight: number;
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
 }
 
+/** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
+async function scaleForModel(
+	page: Page,
+	capture: Buffer,
+	width: number,
+	height: number
+): Promise< ScreenshotCapture[ 'modelImage' ] > {
+	const scale = MODEL_IMAGE_MAX_EDGE_PX / Math.max( width, height );
+	if ( scale >= 1 ) {
+		return undefined;
+	}
+	const size = { width: Math.round( width * scale ), height: Math.round( height * scale ) };
+	// Not a data: URL, which the site's Content-Security-Policy could block.
+	const base64 = await page.evaluate(
+		async ( { source, width, height, quality } ) => {
+			const bytes = Uint8Array.from( atob( source ), ( char ) => char.charCodeAt( 0 ) );
+			const bitmap = await createImageBitmap( new Blob( [ bytes ] ), {
+				resizeWidth: width,
+				resizeHeight: height,
+				resizeQuality: 'high',
+			} );
+			const canvas = new OffscreenCanvas( width, height );
+			canvas.getContext( '2d' )!.drawImage( bitmap, 0, 0 );
+			const jpeg = await canvas.convertToBlob( { type: 'image/jpeg', quality } );
+			let binary = '';
+			for ( const byte of new Uint8Array( await jpeg.arrayBuffer() ) ) {
+				binary += String.fromCharCode( byte );
+			}
+			return btoa( binary );
+		},
+		{ source: capture.toString( 'base64' ), ...size, quality: MODEL_JPEG_QUALITY / 100 }
+	);
+	return { buffer: Buffer.from( base64, 'base64' ), ...size };
+}
+
 /**
- * Capture a screenshot of `url` at the given viewport. Shared by both
- * `take_screenshot` and `share_screenshot`; callers decide whether to expose
- * the image as base64, a temp local file, or an external media event. Use
+ * Capture a screenshot of `url` at the given viewport. Callers decide whether
+ * to expose the image as base64 or a temp local file. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
  * trip the wpcom AI proxy's request-size limit.
  *
@@ -113,6 +135,7 @@ export async function captureScreenshotBuffer(
 		format?: ScreenshotFormat;
 		offset?: number;
 		colorScheme?: ScreenshotColorScheme;
+		forModel?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
@@ -198,10 +221,24 @@ export async function captureScreenshotBuffer(
 				: { type: 'png' as const };
 
 		if ( ! options.fullPage ) {
+			const contentHeight = await page.evaluate( () =>
+				Math.ceil(
+					Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
+						const rect = element.getBoundingClientRect();
+						return rect.width > 0 && rect.height > 0
+							? Math.max( bottom, rect.bottom + window.scrollY )
+							: bottom;
+					}, 0 )
+				)
+			);
 			const buffer = await page.screenshot( { ...formatOptions } );
 			return {
 				buffer: Buffer.from( buffer ),
+				modelImage: options.forModel
+					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
+					: undefined,
 				documentHeight: viewport.height,
+				contentHeight,
 				capturedHeight: viewport.height,
 				offset: 0,
 				clipped: false,
@@ -231,7 +268,11 @@ export async function captureScreenshotBuffer(
 		} );
 		return {
 			buffer: Buffer.from( buffer ),
+			modelImage: options.forModel
+				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
+				: undefined,
 			documentHeight,
+			contentHeight: documentHeight,
 			capturedHeight,
 			offset,
 			clipped: offset + capturedHeight < documentHeight,
@@ -239,25 +280,6 @@ export async function captureScreenshotBuffer(
 	} finally {
 		await page.close();
 	}
-}
-
-/**
- * Capture a PNG screenshot and return it as a base64 string. Used by
- * `share_screenshot`, where retina-quality PNG survives Telegram's
- * compression pipeline noticeably better than JPEG (see
- * {@link SHARE_DEVICE_SCALE_FACTOR}).
- */
-export async function captureScreenshotPng(
-	url: string,
-	viewport: { width: number; height: number },
-	options: {
-		fullPage: boolean;
-		deviceScaleFactor?: number;
-		colorScheme?: ScreenshotColorScheme;
-	}
-): Promise< string > {
-	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
-	return capture.buffer.toString( 'base64' );
 }
 
 export async function saveScreenshotFile(

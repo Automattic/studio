@@ -9,5 +9,9 @@ export const refreshBrowserTool = defineTool(
 	async () => {
 		emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } );
 		return textResult( 'Reloaded the site preview.' );
+	},
+	{
+		promptSnippet:
+			'Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.',
 	}
 );

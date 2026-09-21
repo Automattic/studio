@@ -10,6 +10,7 @@ import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
+import { useAiCreditsPurchasedListener } from 'src/hooks/use-ai-credits-purchased-listener';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
@@ -65,6 +66,7 @@ export default function App() {
 	}, [ client, dispatch ] );
 
 	useListenDeepLinkConnection();
+	useAiCreditsPurchasedListener();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );

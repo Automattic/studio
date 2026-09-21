@@ -122,6 +122,10 @@ dist-local
 # Playwright traces
 test-results
 
+# Page snapshots written by the Playwright MCP browser tools. Throwaway debug
+# output, and it captures whatever is on screen — including site credentials.
+.playwright-mcp/
+
 # Data-heavy e2e fixtures downloaded by `npm run e2e:fixtures` (see test-fixtures/readme.md)
 test-fixtures/downloads/
 

@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
@@ -9,6 +10,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { recordRendererTracksEvent } from 'src/lib/analytics';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getFileManagerLabel } from 'src/lib/file-manager';
@@ -191,7 +193,7 @@ function SiteItem( {
 		const isAnySiteAdding = sites.some( ( s ) => s.isAddingSite );
 		const finderLabel = getFileManagerLabel();
 		const editorLabel =
-			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
+			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label() : null;
 		const terminalLabel = getTerminalName( terminal );
 
 		ipcApi.showSiteContextMenu( {
@@ -313,22 +315,30 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						void stopServer( site.id );
 						break;
 					case 'open-site':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, {
+							browser: 'external',
+						} );
 						if ( ! site.running ) {
 							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
 						break;
 					case 'open-admin':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, {
+							browser: 'external',
+						} );
 						if ( ! site.running ) {
 							await startServer( site );
 						}
 						ipcApi.openSiteURL( site.id, '/wp-admin/' );
 						break;
 					case 'open-finder':
+						recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 						ipcApi.openLocalPath( site.path );
 						break;
 					case 'open-editor':
 						if ( editor ) {
+							recordRendererTracksEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 							void ipcApi.openAppAtPath( editor, site.path );
 						}
 						break;

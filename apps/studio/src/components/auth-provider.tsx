@@ -11,12 +11,15 @@ import { setSentryWpcomUserIdRenderer } from 'src/lib/renderer-sentry-utils';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
 import { userLoggedOut } from 'src/stores/auth-actions';
 import { setWpcomClient } from 'src/stores/wpcom-api';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { WPCOM } from 'wpcom/types';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
 	isAuthenticated: boolean;
-	authenticate: () => void; // Adjust based on the actual implementation
+	// `source` is required so every login affordance has to name itself for `studio_wpcom_auth` — a
+	// missed one becomes a type error rather than a silent `unknown` in the data.
+	authenticate: ( source: TracksAuthSource ) => void;
 	logout: () => Promise< void >; // Adjust based on the actual implementation
 	user?: { id: number; email: string; displayName: string };
 }
@@ -33,7 +36,7 @@ interface WpcomParams extends Record< string, unknown > {
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
-	authenticate: () => {
+	authenticate: ( _source: TracksAuthSource ) => {
 		// Placeholder for authenticate logic. Just to avoid lint error
 	},
 	logout: () => Promise.resolve(),
@@ -48,7 +51,10 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const isOffline = useOffline();
 
 	const dispatch = useAppDispatch();
-	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
+	const authenticate = useCallback(
+		( source: TracksAuthSource ) => getIpcApi().authenticate( false, source ),
+		[]
+	);
 
 	const handleInvalidToken = useCallback( async () => {
 		try {

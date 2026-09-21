@@ -9,12 +9,30 @@ const mockGetPathForFile = vi.hoisted( () =>
 	vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` )
 );
 
+vi.mock( 'src/hooks/use-auth', () => ( {
+	useAuth: () => ( { isAuthenticated: false } ),
+} ) );
+vi.mock( 'src/stores/wpcom-api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/stores/wpcom-api') >() ),
+	useGetStudioAssistantQuota: () => ( { data: undefined } ),
+	useGetStudioAssistantTopUpPricing: () => ( { data: undefined } ),
+} ) );
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getPathForFile: mockGetPathForFile,
 		setAiSessionModel: vi.fn(),
 		createAiSession: vi.fn(),
+		getAiSettings: vi.fn().mockResolvedValue( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+		} ),
 	} ),
+} ) );
+
+// Covered by its own test file; its RTK Query hooks would need a Redux store.
+vi.mock( './ai-credits-control', () => ( {
+	AiCreditsControl: () => null,
 } ) );
 
 const defaultProps = {
@@ -69,6 +87,24 @@ describe( 'Composer', () => {
 		renderComposer( { sessionId: 'session-2' } );
 
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+	} );
+
+	it( 'answers a pending question with typed text, but still queues skill commands', async () => {
+		const onAnswer = vi.fn();
+		renderComposer( { busy: true, onAnswer } );
+
+		const textarea = screen.getByRole( 'combobox' );
+		fireEvent.change( textarea, { target: { value: 'Something warmer' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer' } ) );
+
+		expect( onAnswer ).toHaveBeenCalledWith( 'Something warmer' );
+
+		fireEvent.change( textarea, { target: { value: '/annotate' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( defaultProps.onSend ).toHaveBeenCalledTimes( 1 ) );
+		expect( defaultProps.onSend.mock.calls[ 0 ][ 0 ] ).toBe( '/annotate' );
+		expect( onAnswer ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'clears the stored draft after sending', async () => {
@@ -150,6 +186,43 @@ describe( 'Composer', () => {
 			mimeType: 'image/png',
 			dataBase64: 'aW1hZ2UtYnl0ZXM=',
 		} );
+	} );
+
+	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
+		renderComposer();
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( document.body, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
+	} );
+
+	it( 'ignores pastes inside open dialogs', () => {
+		renderComposer();
+
+		const dialog = document.createElement( 'div' );
+		dialog.setAttribute( 'role', 'dialog' );
+		document.body.appendChild( dialog );
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( dialog, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'button', { name: /Remove attachment/ } ) ).not.toBeInTheDocument();
+
+		dialog.remove();
 	} );
 
 	it( 'previews attached files as compact square tiles', async () => {

@@ -18,10 +18,8 @@ providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
-# Custom grader uses Studio's WP.com auth for llm-rubric assertions.
 defaultTest:
   options:
-    provider: file://grader-provider.mjs
     repeat: 1
 
 tests:
@@ -46,6 +44,35 @@ tests:
               pass,
               score: pass ? 1 : 0,
               reason: pass ? 'identifies as WordPress Studio' : `got: ${text.slice(0, 300)}`,
+            };
+          });
+
+  # The global instructions file (~/.studio/knowledge/instructions.md) is
+  # seeded with a sentinel-token rule for the turn and restored afterwards.
+  # A compliant agent ends its reply with the token; an agent that never saw
+  # the instructions can't produce it.
+  - description: agent follows the user's global instructions
+    vars:
+      caseId: global-instructions
+      timeoutMs: 60000
+      prompt: In one short sentence, say hello. Do not call any tools.
+      seed:
+        globalInstructions: |
+          Always end every reply with the exact token STUDIO-EVAL-TOKEN-7319.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            if (d.success !== true) return { pass: false, score: 0, reason: `runner success=${d.success}` };
+            const text = (d.textSegments || []).join('\n');
+            const pass = text.includes('STUDIO-EVAL-TOKEN-7319');
+            return {
+              pass,
+              score: pass ? 1 : 0,
+              reason: pass ? 'reply carries the token from the global instructions' : `token missing from reply: ${text.slice(0, 300)}`,
             };
           });
 
@@ -96,9 +123,13 @@ tests:
         for both desktop and mobile, then briefly report whether the
         screenshots were captured.
     assert:
+      # The runner records the image content blocks the tool returned to the
+      # model (`toolResults[].images`) — unlike the chat artifacts, they are
+      # emitted even when the agent passes `display: false`, so the check can't
+      # be dodged by an internal-verification capture.
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync, existsSync }) => {
+          return Promise.all([import('node:fs'), import('node:buffer')]).then(([{ readFileSync }, { Buffer }]) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -121,29 +152,13 @@ tests:
 
             const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
             if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
+              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result).slice(0, 500)}` };
             }
-            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
-            if (!rawPayloads) {
-              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
-            }
-
-            let payloads;
-            try {
-              payloads = JSON.parse(rawPayloads);
-            } catch (error) {
-              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
-            }
-            if (!Array.isArray(payloads) || payloads.length !== 2) {
-              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
+            const images = result.images || [];
+            if (images.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot image payloads (desktop + mobile), got ${images.length}` };
             }
 
-            // take_screenshot emits JPEG; key the expected width by viewport so
-            // the check survives a future format change rather than the extension.
-            const expectedWidths = new Map([
-              ['desktop', 1040],
-              ['mobile', 390],
-            ]);
             // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
             const readImageSize = (buf) => {
               if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
@@ -168,28 +183,21 @@ tests:
               }
               return null;
             };
-            const seen = [];
-            for (const payload of payloads) {
-              const source = payload.widgetProps?.source;
-              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
-              const expectedWidth = expectedWidths.get(viewport);
-              if (!expectedWidth) {
-                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
-              }
-              if (typeof source.path !== 'string' || !existsSync(source.path)) {
-                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
-              }
-              const size = readImageSize(readFileSync(source.path));
-              if (!size || size.width !== expectedWidth || size.height < 600) {
+            // Images come in capture order (desktop, then mobile), scaled to at most 2000 px.
+            const sizes = images.map((image) => readImageSize(Buffer.from(image.data, 'base64')));
+            for (const size of sizes) {
+              if (!size || size.height < 600 || Math.max(size.width, size.height) > 2000) {
                 return {
                   pass: false,
                   score: 0,
-                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
+                  reason: `image payload did not look like a screenshot scaled for the model: ${JSON.stringify(size)}`,
                 };
               }
-              seen.push(source.name);
             }
-            return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
+            if (sizes[0].width <= sizes[1].width) {
+              return { pass: false, score: 0, reason: `expected a desktop then a mobile screenshot, got ${JSON.stringify(sizes)}` };
+            }
+            return { pass: true, score: 1, reason: `captured valid screenshots: ${JSON.stringify(sizes)}` };
           });
       - type: javascript
         value: |
@@ -227,8 +235,34 @@ tests:
 
         Then build a simple WordPress site named "Eval Turn Timing". The
         site only needs a single page — no extra pages, no blog posts, no
-        navigation menu beyond what a one-page site requires.
+        navigation menu beyond what a one-page site requires. Use the site
+        name as the brand and skip the discovery questions: nobody can
+        answer during this run, so make every choice yourself.
     assert:
+      # The default new-site flow: no installed theme is mentioned, so the
+      # agent must start from a fresh blank scaffold — scaffold_theme called
+      # WITHOUT parentTheme (the parentTheme path is covered by the
+      # child-theme-for-installed-theme case below).
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme');
+            if (scaffolds.length === 0) {
+              return { pass: false, score: 0, reason: `scaffold_theme was never called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            }
+            const call = scaffolds[0];
+            if (call.input?.parentTheme) {
+              return { pass: false, score: 0, reason: `expected a blank scaffold but got a child theme: ${JSON.stringify(call.input)}` };
+            }
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
+          });
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -304,6 +338,152 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
+      # Workflow step 8: the build must finish by copying the final desktop
+      # take_screenshot capture to the scaffolded theme's screenshot.jpg (the
+      # Appearance → Themes thumbnail). The capture files are JPEGs, so the
+      # copied file must carry a real JPEG signature — a hand-crafted or
+      # generated placeholder fails.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync, openSync, readSync, closeSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const created = (d.toolResults || []).find(r => r.toolName === 'site_create' && !r.isError);
+            if (!created || !created.text) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
+            let sitePath;
+            try { sitePath = JSON.parse(created.text).path; } catch { return { pass: false, score: 0, reason: `site_create result text is not JSON: ${created.text.slice(0, 200)}` }; }
+            const scaffold = (d.toolResults || []).find(r => r.toolName === 'scaffold_theme' && !r.isError);
+            const slug = scaffold?.text?.match(/scaffolded at wp-content\/themes\/([a-z0-9-]+)\//)?.[1];
+            if (!sitePath || !slug) return { pass: false, score: 0, reason: `could not resolve theme dir (sitePath=${sitePath}, slug=${slug})` };
+            const screenshotPath = `${sitePath}/wp-content/themes/${slug}/screenshot.jpg`;
+            let fd;
+            try { fd = openSync(screenshotPath, 'r'); } catch { return { pass: false, score: 0, reason: `theme screenshot missing: ${screenshotPath}` }; }
+            const head = Buffer.alloc(3);
+            const bytesRead = readSync(fd, head, 0, 3, 0);
+            closeSync(fd);
+            if (bytesRead < 3 || head[0] !== 0xff || head[1] !== 0xd8 || head[2] !== 0xff) {
+              return { pass: false, score: 0, reason: `${screenshotPath} exists but is not a JPEG (starts with ${head.toString('hex')})` };
+            }
+            return { pass: true, score: 1, reason: `theme screenshot set from a real capture: ${screenshotPath}` };
+          });
+      # Theme templates and parts are live as soon as they are written, so each
+      # Write/Edit on one must be followed by validate_blocks on that file —
+      # the serialization fix is what puts comment attributes (padding, align,
+      # colors) into the wrapper HTML the front end renders.
+      - type: javascript
+        value: |
+          return Promise.all([import('node:fs'), import('node:path')]).then(([{ readFileSync }, { resolve }]) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            let sitePath;
+            try { sitePath = JSON.parse((d.toolResults || []).find(r => r.toolName === 'site_create' && !r.isError).text).path; } catch {}
+            if (!sitePath) return { pass: false, score: 0, reason: 'no successful site_create result to resolve the site path from' };
+            const calls = d.toolCalls || [];
+            const isThemeMarkup = p => typeof p === 'string' && /\/(templates|parts)\/[^/]+\.html$/.test(p);
+            const unvalidated = calls
+              .map((t, i) => ({ t, i }))
+              .filter(({ t }) => (t.name === 'Write' || t.name === 'Edit') && isThemeMarkup(t.input && t.input.path))
+              .filter(({ t, i }) => !calls.slice(i + 1).some(c => c.name === 'validate_blocks' && typeof c.input?.filePath === 'string' && resolve(sitePath, c.input.filePath) === t.input.path))
+              .map(({ t }) => t.input.path.split('/').slice(-2).join('/'));
+            if (unvalidated.length > 0) {
+              return { pass: false, score: 0, reason: `theme markup written without a following validate_blocks on the file: ${[...new Set(unvalidated)].join(', ')}` };
+            }
+            return { pass: true, score: 1, reason: 'every written template/part file was validated afterwards' };
+          });
+
+      # The visual-design skill lists the concept and direction catalogs;
+      # pick_design settles one of each, the Site Spec commits to them before
+      # building, and the look is written to DESIGN.md at the site root.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync, readdirSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const loaded = (d.toolCalls || []).some(t => t.name === 'Skill' && t.input?.name === 'visual-design');
+            if (!loaded) return { pass: false, score: 0, reason: 'visual-design skill was never loaded' };
+            const text = (d.textSegments || []).join('\n');
+            const picks = (d.toolResults || []).filter(r => r.toolName === 'pick_design' && !r.isError).map(r => r.text || '').join('\n');
+            if (!picks) return { pass: false, score: 0, reason: 'pick_design was never called successfully' };
+            const skillsDir = ['apps/cli/ai/skills/visual-design', '../../apps/cli/ai/skills/visual-design'].find(p => { try { readdirSync(`${p}/layouts`); return true; } catch { return false; } });
+            if (!skillsDir) return { pass: false, score: 0, reason: `design catalogs not found from cwd ${process.cwd()}` };
+            // One frontmatter file per entry; the title line is a JSON string.
+            const catalogNames = folder => readdirSync(`${skillsDir}/${folder}`).filter(f => f.endsWith('.md') && f !== 'README.md').map(f => JSON.parse(readFileSync(`${skillsDir}/${folder}/${f}`, 'utf8').match(/^title:\s*(.+)$/m)[1]).toLowerCase());
+            const stated = [];
+            for (const [label, folder, heading] of [['Concept', 'layouts', 'layout concept'], ['Direction', 'artistic-directions', 'artistic direction']]) {
+              const lines = text.split(/\r?\n/).filter(l => new RegExp(`\\b${label}\\b\\**\\s*[:—-]`, 'i').test(l));
+              if (!lines.length) return { pass: false, score: 0, reason: `no "${label}:" line in the agent text` };
+              const catalog = catalogNames(folder);
+              const fromCatalog = lines.find(l => catalog.some(name => l.toLowerCase().includes(name)));
+              if (!fromCatalog) return { pass: false, score: 0, reason: `${label} line does not name a catalog entry: ${JSON.stringify(lines.slice(0, 3))}` };
+              // Each must be what pick_design drew (or returned for a named brief), not a substitute.
+              // With `options: 4` the tool returns several pairs; the stated one must be among them.
+              const drawnNames = [...picks.matchAll(new RegExp(`^${heading[0].toUpperCase()}${heading.slice(1)}(?: named in the brief)?: (.+)$`, 'gm'))].map(m => m[1]);
+              if (!drawnNames.length) return { pass: false, score: 0, reason: `pick_design never returned a ${heading}` };
+              const drawn = drawnNames.find(name => fromCatalog.toLowerCase().includes(name.toLowerCase()));
+              if (!drawn) return { pass: false, score: 0, reason: `${label} line "${fromCatalog.trim().slice(0, 80)}" does not match any pick_design result (${drawnNames.join(', ')})` };
+              stated.push(drawn);
+            }
+            if (!/layout map/i.test(text)) return { pass: false, score: 0, reason: 'no "Layout map" in the Site Spec' };
+            const design = (d.toolCalls || []).find(t => t.name === 'Write' && /\/DESIGN\.md$/.test(t.input?.path || ''));
+            if (!design) return { pass: false, score: 0, reason: 'DESIGN.md was never written at the site root' };
+            if (!/^---\r?\n[\s\S]*?^colors:/m.test(design.input.content || '')) return { pass: false, score: 0, reason: 'DESIGN.md has no colors in its front matter' };
+            return { pass: true, score: 1, reason: `concept and direction drawn and stated, DESIGN.md written: ${stated.join(' / ')}` };
+          });
+
+  # One-page sites get header navigation that links to page sections. The
+  # header template part renders on EVERY template (posts, archives, search,
+  # 404), and a bare-hash URL like "#contact" resolves against the current
+  # URL — it silently does nothing everywhere except the home page. Anchor
+  # nav links must be home-relative ("/#contact"). Regression guard for the
+  # one-page navigation guidance in the block-content skill.
+  - description: one-page site header nav uses home-relative anchor links
+    vars:
+      caseId: one-page-nav-anchor-links
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval One Page Nav" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a one-page site named "Eval One Page Nav": a single
+        scrollable home page with Features, About, and Contact sections, and
+        a header navigation menu whose items jump to those sections. Keep the
+        design simple — no extra pages and no blog posts.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const strings = [];
+            const collect = (v) => {
+              if (typeof v === 'string') strings.push(v);
+              else if (Array.isArray(v)) v.forEach(collect);
+              else if (v && typeof v === 'object') Object.values(v).forEach(collect);
+            };
+            (d.toolCalls || []).forEach(t => collect(t.input));
+            // wp_cli payloads carry markup with shell/JSON-escaped quotes;
+            // strip backslashes so one regex covers theme files and commands.
+            const flat = strings.map(s => s.replace(/\\/g, ''));
+            const links = flat.flatMap(s => s.match(/wp:navigation-link\s*\{[^}]*\}/g) || []);
+            if (links.length === 0) {
+              return { pass: false, score: 0, reason: 'no wp:navigation-link blocks were produced — the build did not exercise header section navigation' };
+            }
+            const anchorLinks = links.filter(l => /"url":"[^"]*#/.test(l));
+            if (anchorLinks.length === 0) {
+              return { pass: false, score: 0, reason: `nav links carry no anchor URLs at all — the section-jump scenario was not exercised (links: ${links.slice(0, 3).join(' | ').slice(0, 300)})` };
+            }
+            const bare = links.filter(l => /"url":"#/.test(l));
+            if (bare.length > 0) {
+              return { pass: false, score: 0, reason: `${bare.length}/${links.length} nav link(s) use bare-hash URLs, which resolve against the current URL and break on every page except home (first: ${bare[0].slice(0, 200)}). Anchor nav links must be home-relative ("/#anchor").` };
+            }
+            return { pass: true, score: 1, reason: `${anchorLinks.length} anchor nav link(s), all home-relative` };
+          });
 
   # Regression (STU-1775): the agent used to present a temporary preview site as
   # a connected WordPress.com remote site when listing what a local site is
@@ -368,25 +548,14 @@ tests:
             const ok = /"type"\s*:\s*"preview"/.test(r.text || '');
             return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'preview output tagged type=preview' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
           });
-      # The behavioral guard: the agent must not merge the two categories.
-      # Grade the assistant's prose, not the EVAL_RUNNER_RESULT_FILE marker line.
-      - type: llm-rubric
-        transform: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = String(output).split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return String(output);
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            return (d.textSegments || []).join('\n');
-          });
-        value: |
-          The assistant lists what the local site "Eval Site Categories" is
-          connected or related to. PASS only if it classifies
-          "abc123-studio.wp.build" as a temporary/preview site (and NOT as a
-          connected WordPress.com remote/production site), AND classifies
-          "My Production Site" / "myprod.wordpress.com" as a connected
-          WordPress.com remote site (and NOT as a preview site). FAIL if it
-          labels the preview as a "WordPress.com" remote/production site, labels
-          the remote site as a preview, or merges the two into one undifferentiated list.
+      # A behavioral llm-rubric assertion used to grade the assistant's prose
+      # here — that it keeps preview and connected-remote sites in distinct
+      # categories. It was removed because the WP.com AI proxy's Studio lane now
+      # rejects the grader's plain judge call (no agent envelope/identity), and
+      # the honest fix (a dedicated eval-grader feature slug from #ai-ops, or an
+      # ANTHROPIC_API_KEY-backed grader) is not yet in place. The two
+      # assertions above still guard the tool-output discriminators. Restore the
+      # prose guard once the grader can authenticate.
 
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)
     vars:
@@ -407,16 +576,27 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const writtenContents = (d.toolCalls || [])
-              .filter(c => c.name === 'Write' && c.input && typeof c.input.content === 'string')
-              .map(c => c.input.content);
-            const usedJetpackBlock = writtenContents.some(c => /<!--\s*wp:jetpack\//.test(c));
+            const blobs = [];
+            for (const c of d.toolCalls || []) {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                // The Edit tool applies changes as { edits: [{ oldText, newText }] }.
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
+            }
+            const usedJetpackBlock = blobs.some(c => /<!--\s*wp:jetpack\//.test(c));
             return {
               pass: usedJetpackBlock,
               score: usedJetpackBlock ? 1 : 0,
               reason: usedJetpackBlock
                 ? 'page content uses a jetpack/* block'
-                : `no jetpack/* block in any Write tool call; sample: ${(writtenContents[0] || '').slice(0, 300)}`,
+                : `no jetpack/* block in any Write/Edit/wp_cli call; sample: ${(blobs.find(c => /<!--\s*wp:/.test(c)) || blobs[0] || '').slice(0, 300)}`,
             };
           });
 
@@ -456,6 +636,68 @@ tests:
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
             const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
             return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
+          });
+
+  # Regression (STU-2017): customizing a site running an installed third-party
+  # theme used to edit that theme's files directly, so a theme update would
+  # silently wipe the customizations. The agent must scaffold a child theme
+  # (scaffold_theme with parentTheme) and keep every change inside it.
+  - description: customizing an installed third-party theme creates a child theme and never edits the parent
+    vars:
+      caseId: child-theme-for-installed-theme
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Child Theme Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Child Theme Site", install and
+        activate the Ollie theme from the WordPress.org directory, and
+        customize the design: make all headings a serif font and shift the
+        color palette warmer. Keep it quick — only typography and color
+        changes, no new pages or content.
+    assert:
+      # The agent must scaffold a child theme of ollie, successfully.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const call = (d.toolCalls || []).find(t => t.name === 'scaffold_theme' && t.input?.parentTheme === 'ollie');
+            if (!call) {
+              const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme').map(t => t.input);
+              return { pass: false, score: 0, reason: `no scaffold_theme call with parentTheme="ollie"; scaffold_theme calls: ${JSON.stringify(scaffolds)}` };
+            }
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `scaffold_theme(parentTheme=ollie) failed: ${JSON.stringify(result).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: `child theme scaffolded: ${JSON.stringify(call.input)}` };
+          });
+      # No Write/Edit/Bash may touch the installed parent theme's files.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const offending = (d.toolCalls || []).filter(c => {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                return String(i.file_path || i.path || i.filePath || '').includes('/themes/ollie/');
+              }
+              if (c.name === 'Bash') {
+                // Reads are fine; catch anything that could mutate the parent.
+                return /themes\/ollie\//.test(i.command || '') && /\b(>|>>|sed\s+-i|mv|cp|rm|tee|touch)\b/.test(i.command || '');
+              }
+              return false;
+            });
+            if (offending.length > 0) {
+              return { pass: false, score: 0, reason: `${offending.length} call(s) modified the installed parent theme (first: ${JSON.stringify({ name: offending[0].name, input: offending[0].input }).slice(0, 300)})` };
+            }
+            return { pass: true, score: 1, reason: 'no Write/Edit/Bash mutation under themes/ollie/' };
           });
 
   # When adding sections to a site that already has an active theme, the agent
@@ -530,4 +772,222 @@ tests:
               return { pass: false, score: 0, reason: `sections apply no theme-palette colors (no color-slug attributes or --wp--preset--color-- vars) — cannot confirm the section is colored from the palette` };
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
+          });
+
+  # Regression: shrink-wrapped labels (eyebrows, badges, pills) used to be
+  # styled with `display: inline-block` on the block wrapper class. Constrained
+  # layouts align children with `margin-left/right: auto !important`, which only
+  # works on block-level boxes, so the label escapes the content column and hugs
+  # the edge of the full-width section. The fix is a flex row group wrapper (or
+  # styling an inner element) — never a display override on the block wrapper.
+  # The prompt deliberately elicits the pattern: a pill label above a hero
+  # heading is the canonical case where the agent reaches for inline-block.
+  - description: hero eyebrow pill keeps content-column alignment (no inline-block on block wrappers)
+    vars:
+      caseId: inline-block-constrained-alignment
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Eyebrow Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then build a simple one-page site named "Eval Eyebrow Site". The
+        homepage needs a full-width hero section whose content stays in the
+        normal content column, containing: a small uppercase eyebrow label
+        styled as a pill (rounded background that hugs the text) sitting
+        above the main heading, the main heading, and a short subtitle.
+        Keep the rest of the page minimal — no extra sections needed.
+    assert:
+      # Collect everything the agent wrote (block markup + theme CSS) and fail
+      # if any CSS rule sets an inline-level `display` on a bare block-wrapper
+      # class — i.e. a selector that is exactly `.foo` where `foo` appears in a
+      # block `className` attribute. Descendant selectors (`.foo span`) and
+      # classes never used on blocks are fine.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const blobs = [];
+            for (const c of d.toolCalls || []) {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
+            }
+            const all = blobs.join('\n');
+            if (!/<!--\s*wp:/.test(all)) {
+              return { pass: false, score: 0, reason: `no block markup found in Write/Edit/wp_cli calls; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            }
+            // Class names used on block wrappers via the className attribute.
+            const blockClasses = new Set();
+            for (const m of all.matchAll(/"className"\s*:\s*"([^"]+)"/g)) {
+              for (const cls of m[1].split(/\s+/)) if (cls) blockClasses.add(cls);
+            }
+            // CSS rules that set an inline-level display. Strip CSS comments
+            // first so an anchor comment before a rule can't pollute the
+            // selector text and mask a match.
+            const scrubbed = all.replace(/\/\*[\s\S]*?\*\//g, ' ');
+            const offenders = [];
+            for (const m of scrubbed.matchAll(/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g)) {
+              for (const sel of m[1].split(',')) {
+                const bare = sel.trim().match(/^\.([A-Za-z0-9_-]+)$/);
+                if (bare && blockClasses.has(bare[1])) {
+                  offenders.push(`.${bare[1]} { ${m[2].trim().slice(0, 120)} }`);
+                }
+              }
+            }
+            if (offenders.length > 0) {
+              return { pass: false, score: 0, reason: `${offenders.length} block-wrapper class(es) styled with an inline-level display, which breaks constrained-layout alignment: ${offenders.slice(0, 3).join(' | ')}` };
+            }
+            return { pass: true, score: 1, reason: `no inline-level display on block-wrapper classes (${blockClasses.size} block classes checked)` };
+          });
+
+  # A visual treatment repeated across instances of one block type should be a
+  # registered block style variation (register_block_style + is-style-<slug>),
+  # not a bare custom class styled only in CSS. Variations show up in the
+  # editor's Styles switcher, so users can restyle without touching CSS — the
+  # behavior this case guards is the agent reaching for custom CSS first.
+  - description: repeated card treatment uses a registered block style variation
+    vars:
+      caseId: repeated-treatment-uses-block-style
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Block Style Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Block Style Site" and build a simple
+        homepage for a coffee shop with a fresh scaffolded theme. The homepage
+        must include a features section of three cards that all share the same
+        visual treatment: same background, border radius, padding, and shadow.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '').toLowerCase();
+            const blobs = [];
+            const styleJsonPaths = [];
+            for (const c of calls) {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+                if (/\/styles\/.*\.json$/.test(pathOf(i))) styleJsonPaths.push(pathOf(i));
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') blobs.push(i.command);
+            }
+            const markup = blobs.join('\n');
+            if (!/<!--\s*wp:/.test(markup)) {
+              return { pass: false, score: 0, reason: `no block markup found in Write/Edit/wp_cli calls; tool calls: ${JSON.stringify(calls.map(c => c.name))}` };
+            }
+            // Registration: register_block_style() in PHP, or a theme styles/*.json
+            // block-style file (WP 6.6+) declaring blockTypes.
+            const registeredPhp = /register_block_style\s*\(/.test(markup);
+            const registeredJson = styleJsonPaths.length > 0 && /"blockTypes"/.test(markup);
+            // Application: an is-style-<slug> class on the card blocks, used more
+            // than once (the treatment is repeated). Exclude core built-in slugs
+            // so e.g. is-style-rounded on an image doesn't count as the cards'.
+            const coreSlugs = new Set(['default', 'fill', 'outline', 'rounded', 'plain', 'pill-shape', 'large', 'checkmark-list']);
+            const applied = (markup.match(/is-style-[a-z0-9-]+/g) || []).filter(s => !coreSlugs.has(s.slice('is-style-'.length)));
+            if (!registeredPhp && !registeredJson) {
+              return { pass: false, score: 0, reason: `no block style variation registered (no register_block_style call and no styles/*.json block-style file) — the repeated card treatment was styled some other way (is-style uses found: ${applied.length})` };
+            }
+            if (applied.length < 2) {
+              return { pass: false, score: 0, reason: `a block style variation was registered but applied ${applied.length} time(s) — the repeated card treatment does not use it` };
+            }
+            // Preset-first applies to sizes too: a raw fontSize value repeated
+            // across blocks belongs in theme.json's size scale as a preset slug.
+            const rawSizes = markup.match(/"fontSize"\s*:\s*"\d[^"]*"/g) || [];
+            const sizeCounts = {};
+            for (const s of rawSizes) sizeCounts[s] = (sizeCounts[s] || 0) + 1;
+            const repeatedSizes = Object.entries(sizeCounts).filter(([, n]) => n >= 3).map(([s, n]) => `${s} x${n}`);
+            if (repeatedSizes.length > 0) {
+              return { pass: false, score: 0, reason: `raw font-size value(s) repeated across blocks instead of a theme.json size preset: ${repeatedSizes.join(', ')}` };
+            }
+            return { pass: true, score: 1, reason: `repeated card treatment uses a registered block style variation (${registeredPhp ? 'register_block_style' : 'styles/*.json'}; applied ${applied.length} times: ${[...new Set(applied)].join(', ')}); no raw font-size repeated ${'>'}= 3 times` };
+          });
+
+  # Site pick: with an active site and a prompt that names no other site, the
+  # agent builds into the active site instead of asking whether to create a
+  # separate one. Seeds a real (stopped) site as the active site.
+  - description: active site is reused when the prompt names no other site
+    vars:
+      caseId: active-site-reused
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build me a minimal one-page site for a small neighborhood bakery: a
+        hero and a short about section. Skip the discovery questions. Before
+        writing any files, state the Site Spec and stop — I will confirm the
+        plan first.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) instead of reusing the active site` };
+            const reused = calls.some(t => {
+              if (t.name === 'Skill') return t.input?.name === 'site-spec';
+              const target = t.input?.nameOrPath;
+              return typeof target === 'string' && /eval-active-site|Eval Active Site/i.test(target);
+            });
+            return { pass: reused, score: reused ? 1 : 0, reason: reused ? 'agent worked on the active site without asking to create a new one' : `no site_info/skill call on the active site in ${JSON.stringify(calls.map(t => t.name))}` };
+          });
+
+  # Site pick: with an active site and a prompt that names a different site,
+  # the agent asks whether to update the active site or create a new one
+  # before calling site_create.
+  - description: active site with a different site name asks before creating
+    vars:
+      caseId: active-site-different-name
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Active Site
+      prompt: |
+        Build a one-page site named "Joe's Bakery".
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls ?? [];
+            const created = calls.find(t => t.name === 'site_create');
+            if (created) return { pass: false, score: 0, reason: `site_create was called (${JSON.stringify(created.input)}) without asking first` };
+            const building = ['scaffold_theme', 'Write', 'Edit', 'wp_cli', 'validate_blocks', 'generate_images', 'pick_design', 'Skill'];
+            const built = calls.find(t => building.includes(t.name));
+            if (built) return { pass: false, score: 0, reason: `agent started building (${built.name}) instead of stopping to ask` };
+            const text = (d.textSegments ?? []).join('\n');
+            const mentionsCurrent = /(current|existing|active)\s+site|Eval Active Site/i.test(text);
+            const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
+            const asks = mentionsCurrent && mentionsNew && text.includes('?');
+            return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
           });

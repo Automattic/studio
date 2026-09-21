@@ -15,7 +15,9 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
 
-export function useComposerAttachments() {
+// `disabled` blocks every entry point at once — button, drag-and-drop and
+// paste all funnel through `addFiles`.
+export function useComposerAttachments( disabled = false ) {
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
 	const attachmentsRef = useRef< ComposerAttachment[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
@@ -47,50 +49,53 @@ export function useComposerAttachments() {
 		[ setTrackedAttachments ]
 	);
 
-	const addFiles = useCallback( async ( incoming: FileList | File[] ) => {
-		const list = Array.from( incoming );
-		if ( list.length === 0 ) {
-			return;
-		}
-		setError( null );
-		const messages = {
-			imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
-			imageReadFailed: __( 'Failed to read the attached image.' ),
-			fileAttachFailed: __( 'This file could not be attached.' ),
-			maxImages: sprintf(
-				/* translators: %d: maximum number of images. */
-				__( 'You can attach up to %d images.' ),
-				STUDIO_CHAT_MAX_IMAGES
-			),
-			totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
-			maxFiles: sprintf(
-				/* translators: %d: maximum number of files. */
-				__( 'You can attach up to %d files.' ),
-				STUDIO_CHAT_MAX_FILES
-			),
-		};
-
-		const prepared = await prepareComposerAttachments( list, {
-			resolveFilePath: ( file ) => getIpcApi().getPathForFile( file ),
-			messages,
-			existingAttachments: attachmentsRef.current,
-		} );
-		if ( prepared.error ) {
-			setError( prepared.error );
-		}
-		if ( prepared.attachments.length === 0 ) {
-			return;
-		}
-
-		setAttachments( ( current ) => {
-			const merged = mergeComposerAttachments( current, prepared.attachments, messages );
-			if ( merged.error ) {
-				setError( merged.error );
+	const addFiles = useCallback(
+		async ( incoming: FileList | File[] ) => {
+			const list = Array.from( incoming );
+			if ( disabled || list.length === 0 ) {
+				return;
 			}
-			attachmentsRef.current = merged.attachments;
-			return merged.attachments;
-		} );
-	}, [] );
+			setError( null );
+			const messages = {
+				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
+				imageReadFailed: __( 'Failed to read the attached image.' ),
+				fileAttachFailed: __( 'This file could not be attached.' ),
+				maxImages: sprintf(
+					/* translators: %d: maximum number of images. */
+					__( 'You can attach up to %d images.' ),
+					STUDIO_CHAT_MAX_IMAGES
+				),
+				totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
+				maxFiles: sprintf(
+					/* translators: %d: maximum number of files. */
+					__( 'You can attach up to %d files.' ),
+					STUDIO_CHAT_MAX_FILES
+				),
+			};
+
+			const prepared = await prepareComposerAttachments( list, {
+				resolveFilePath: ( file ) => getIpcApi().getPathForFile( file ),
+				messages,
+				existingAttachments: attachmentsRef.current,
+			} );
+			if ( prepared.error ) {
+				setError( prepared.error );
+			}
+			if ( prepared.attachments.length === 0 ) {
+				return;
+			}
+
+			setAttachments( ( current ) => {
+				const merged = mergeComposerAttachments( current, prepared.attachments, messages );
+				if ( merged.error ) {
+					setError( merged.error );
+				}
+				attachmentsRef.current = merged.attachments;
+				return merged.attachments;
+			} );
+		},
+		[ disabled ]
+	);
 
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {
 		if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {

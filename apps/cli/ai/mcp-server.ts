@@ -6,13 +6,16 @@ import {
 	ListToolsRequestSchema,
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
+import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import type { StudioAgentTool } from 'cli/ai/tools/define-tool';
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
-	const tools = resolveStudioToolDefinitions() as StudioAgentTool[];
+	const tools = resolveStudioToolDefinitions( {
+		imageGeneration: await isImageGenerationAvailable(),
+	} ) as StudioAgentTool[];
 	const toolsByName = new Map( tools.map( ( tool ) => [ tool.name, tool ] ) );
 
 	const server = new Server(
@@ -36,7 +39,13 @@ export async function startMcpStdioServer(): Promise< void > {
 		// MCP wants `{content, isError}`; pi-native handlers throw — translate.
 		try {
 			const result = await tool.rawHandler( ( request.params.arguments ?? {} ) as never );
-			return { content: result.content, isError: false };
+			const report = await result.pending;
+			return {
+				content: report
+					? [ ...result.content, { type: 'text' as const, text: report } ]
+					: result.content,
+				isError: false,
+			};
 		} catch ( error ) {
 			const message = error instanceof Error ? error.message : String( error );
 			return {

@@ -1,13 +1,16 @@
 import fs from 'fs';
-import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
 import {
-	stream as streamAnthropic,
-	type AnthropicOptions,
-} from '@earendil-works/pi-ai/api/anthropic-messages';
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+	type Model,
+	type SimpleStreamOptions,
+} from '@earendil-works/pi-ai';
+import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
+import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
-	AuthStorage,
 	createAgentSession,
 	createBashTool,
 	createEditTool,
@@ -17,14 +20,16 @@ import {
 	createReadTool,
 	createWriteTool,
 	DefaultResourceLoader,
-	ModelRegistry,
+	ModelRuntime,
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
+	aiModelSupportsImages,
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
@@ -36,36 +41,40 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
+import { type TSchema } from 'typebox';
+import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
+import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
+import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { getFileToolPrompt } from './file-tool-prompts';
+import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
-	getPayloadLimitDescription,
 	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
+import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { StudioToolResultDetails } from 'cli/ai/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel =
-	| Model< 'openai-responses' >
-	| Model< 'openai-completions' >
-	| Model< 'anthropic-messages' >;
-type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
+type StudioWpcomModel = Model< 'openai-completions' > | Model< 'openai-responses' >;
+type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
+type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
+const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
 const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
@@ -130,11 +139,6 @@ interface ResolvedCredentials {
 	apiKey: string;
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
-	useBearerAuth: boolean;
-	// OpenAI wire flavor. The built-in GPT path uses the Responses API; a
-	// local `openai-compatible` endpoint uses chat/completions. Only set for
-	// the `openai` family.
-	openaiApi?: 'responses' | 'completions';
 	// Real context window of a local `openai-compatible` model, discovered
 	// from its `/v1/models` endpoint. Drives pi's native compaction so long
 	// conversations stay within the local model's limit.
@@ -149,56 +153,69 @@ function resolveCredentials(
 	family: AiModelFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
-	if ( family === 'openai' ) {
-		const apiKey = env.OPENAI_API_KEY?.trim();
+	if ( family === 'studio' ) {
+		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
 		if ( ! apiKey ) {
 			return {
 				ok: false,
 				reason:
-					'OpenAI provider selected but OPENAI_API_KEY is not set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate.',
+					'The WordPress.com models need a wpcom access token, and STUDIO_WPCOM_API_KEY is not set — run /login to authenticate.',
 			};
 		}
-		const baseURL = env.OPENAI_BASE_URL?.trim();
+		const baseURL = env.STUDIO_WPCOM_BASE_URL?.trim();
 		if ( ! baseURL ) {
-			return { ok: false, reason: 'OPENAI_BASE_URL not set — cannot route to wpcom proxy.' };
+			return { ok: false, reason: 'STUDIO_WPCOM_BASE_URL not set — cannot route to wpcom proxy.' };
 		}
-		// A local `openai-compatible` endpoint sets this marker; it speaks
-		// chat/completions and carries its own context window. Absent the
-		// marker this is the wpcom/OpenAI Responses path.
-		const isLocalCompletions = env.STUDIO_OPENAI_COMPLETIONS?.trim() === '1';
-		const contextWindow = Number.parseInt( env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW ?? '', 10 );
 		return {
 			ok: true,
 			creds: {
 				apiKey,
 				baseURL,
-				extraHeaders: parseJsonHeaderEnv( env.STUDIO_OPENAI_DEFAULT_HEADERS ),
-				useBearerAuth: false,
-				openaiApi: isLocalCompletions ? 'completions' : 'responses',
+				extraHeaders: parseJsonHeaderEnv(
+					'STUDIO_WPCOM_DEFAULT_HEADERS',
+					env.STUDIO_WPCOM_DEFAULT_HEADERS
+				),
+			},
+		};
+	}
+
+	// The `openai` family is the `openai-compatible` provider's local endpoint
+	// (the built-in tiers ride the `studio` family through the wpcom proxy).
+	if ( family === 'openai' ) {
+		const baseURL = env.OPENAI_BASE_URL?.trim();
+		if ( ! baseURL ) {
+			return {
+				ok: false,
+				reason: 'No OpenAI-compatible endpoint configured — run /openai-config to set a base URL.',
+			};
+		}
+		const contextWindow = Number.parseInt( env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW ?? '', 10 );
+		return {
+			ok: true,
+			creds: {
+				// Local servers usually ignore the key; the provider defaults it
+				// to a placeholder because pi rejects an empty one.
+				apiKey: env.OPENAI_API_KEY?.trim() || 'local',
+				baseURL,
 				contextWindow:
 					Number.isFinite( contextWindow ) && contextWindow > 0 ? contextWindow : undefined,
 			},
 		};
 	}
 
-	const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
 	const apiKey = env.ANTHROPIC_API_KEY?.trim();
-	const credential = authToken ?? apiKey;
-	if ( ! credential ) {
+	if ( ! apiKey ) {
 		return {
 			ok: false,
 			reason:
-				'Anthropic provider selected but neither ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY is set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate. Otherwise switch to the Anthropic · API key provider with /provider and save a key.',
+				'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
 		};
 	}
-	const baseURL = env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com';
 	return {
 		ok: true,
 		creds: {
-			apiKey: credential,
-			baseURL,
-			extraHeaders: parseAnthropicHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ),
-			useBearerAuth: Boolean( authToken ),
+			apiKey,
+			baseURL: 'https://api.anthropic.com',
 		},
 	};
 }
@@ -276,6 +293,7 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
+		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -314,9 +332,20 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const visionEnabled = aiModelSupportsImages( config.model );
+	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
+		readGlobalInstructions(),
+		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+		isImageGenerationAvailable(),
+	] );
 
+	const tools = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		imageGenerationEnabled,
+		visionEnabled
+	);
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
 			? {
@@ -325,18 +354,23 @@ async function createStudioAgentSession(
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
-					remoteSession,
+					userInstructions,
+					visionEnabled,
 			  }
 			: {
 					chatArtifactsEnabled,
-					remoteSession,
-					runtime: await resolveActiveSiteRuntime( config.activeSite ),
+					runtime,
+					userInstructions,
+					visionEnabled,
+					tools: tools.map( toolPromptContribution ),
 			  }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
-	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
-	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const pendingWork = getPendingWork( config.session );
+	const toolDefinitions = tools.map( ( tool ) =>
+		toToolDefinition( tool, payloadGuardState, pendingWork )
+	);
+	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
@@ -355,8 +389,7 @@ async function createStudioAgentSession(
 	const result = await createAgentSession( {
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
-		authStorage,
-		modelRegistry,
+		modelRuntime,
 		model,
 		thinkingLevel: 'medium',
 		sessionManager: config.session,
@@ -380,82 +413,153 @@ function buildModel(
 		id: modelId,
 		name: modelId,
 		baseUrl,
-		input: [ 'text' as const, 'image' as const ],
+		input: aiModelSupportsImages( modelId )
+			? [ 'text' as const, 'image' as const ]
+			: [ 'text' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
+	// A local `openai-compatible` endpoint speaks chat/completions and declares
+	// its own (usually much smaller) context window, discovered from
+	// `/v1/models`. pi's native compaction keeps sessions within it.
 	if ( family === 'openai' ) {
-		// A local `openai-compatible` endpoint speaks chat/completions and
-		// declares its own (usually much smaller) context window, discovered
-		// from `/v1/models`. pi's native compaction keeps sessions within it.
-		if ( creds.openaiApi === 'completions' ) {
-			const contextWindow = creds.contextWindow ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
-			// Keep max output well under the window. pi clamps output tokens to
-			// the window minus its context estimate; on a small local window an
-			// over-large value can clamp down to 1 (a 400 from the server), so
-			// scale with the window and cap it.
-			const maxTokens = Math.max( 512, Math.min( 8_192, Math.floor( contextWindow / 4 ) ) );
-			return {
-				...common,
-				api: 'openai-completions',
-				provider: 'openai',
-				// Reasoning is an OpenAI-hosted feature; local models generally
-				// don't support it and can reject the parameter.
-				reasoning: false,
-				contextWindow,
-				maxTokens,
-			};
-		}
-		// GPT-5.6 models reject function tools on /v1/chat/completions unless
-		// reasoning is disabled; the Responses API supports tools + reasoning.
-		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
-		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
-		// in — so compaction keeps sessions below it. Understating the window
-		// is also load-bearing for correctness: pi clamps max output tokens to
-		// the declared window minus its (post-compaction, sometimes stale)
-		// context estimate, and a too-small window can clamp all the way down
-		// to 1, which the API rejects with a 400.
+		const contextWindow = creds.contextWindow ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
+		// Keep max output well under the window. pi clamps output tokens to the
+		// window minus its context estimate; on a small local window an
+		// over-large value can clamp down to 1 (a 400 from the server), so scale
+		// with the window and cap it.
+		const maxTokens = Math.max( 512, Math.min( 8_192, Math.floor( contextWindow / 4 ) ) );
 		return {
 			...common,
-			api: 'openai-responses',
+			api: 'openai-completions',
 			provider: 'openai',
-			reasoning: true,
-			contextWindow: 272_000,
-			maxTokens: 32_000,
+			// Reasoning is an OpenAI-hosted feature; local models generally
+			// don't support it and can reject the parameter.
+			reasoning: false,
+			contextWindow,
+			maxTokens,
 		};
 	}
+
+	if ( family === 'studio' ) {
+		// The capability tiers are resolved to upstream models by the wpcom
+		// proxy. The context window is a conservative floor across the
+		// upstreams a tier may resolve to, so compaction kicks in before any
+		// of them overflows.
+		//
+		// `strong` rides the Responses path: its upstream is a reasoning model
+		// that rejects tools-plus-reasoning on Chat Completions.
+		if ( modelId === 'strong' ) {
+			return {
+				...common,
+				api: 'openai-responses',
+				provider: STUDIO_WPCOM_PROVIDER,
+				reasoning: true,
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			};
+		}
+		// The other tiers speak Chat Completions. pi infers `compat` from the
+		// base URL, which for us reads as plain OpenAI — so spell out the shape
+		// or requests carry OpenAI-only fields other upstreams reject. With
+		// `supportsReasoningEffort` false no thinking switch is sent at all and
+		// each upstream uses its own default — the portable choice across
+		// vendors that spell that parameter differently.
+		return {
+			...common,
+			api: 'openai-completions',
+			provider: STUDIO_WPCOM_PROVIDER,
+			reasoning: true,
+			contextWindow: 200_000,
+			maxTokens: 32_000,
+			compat: {
+				supportsStore: false,
+				supportsDeveloperRole: false,
+				supportsReasoningEffort: false,
+				supportsStrictMode: false,
+				maxTokensField: 'max_tokens',
+			},
+		};
+	}
+	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
+	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
+	const catalogModel = (
+		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
+	 )[ modelId ];
 	return {
 		...common,
 		api: 'anthropic-messages',
-		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
+		provider: 'anthropic',
 		reasoning: true,
+		// contextWindow/maxTokens intentionally stay below the catalog values.
 		contextWindow: 200_000,
 		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
 		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
 		// output so single tool calls can emit a full-page HTML payload.
 		maxTokens: 32_000,
+		...( catalogModel?.thinkingLevelMap
+			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
+			: {} ),
+		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
 	};
 }
 
-function createModelRegistry(
+// In-memory credential store so the runtime never reads or writes an auth.json
+// on disk. Studio resolves credentials from the environment on every turn and
+// injects them via runtime API keys or registered provider configs, so nothing
+// needs to be persisted.
+class InMemoryCredentialStore implements CredentialStore {
+	private readonly credentials = new Map< string, Credential >();
+
+	async read( providerId: string ): Promise< Credential | undefined > {
+		return this.credentials.get( providerId );
+	}
+
+	async list(): Promise< readonly CredentialInfo[] > {
+		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
+			providerId,
+			type: credential.type,
+		} ) );
+	}
+
+	async modify(
+		providerId: string,
+		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
+	): Promise< Credential | undefined > {
+		const next = await fn( this.credentials.get( providerId ) );
+		if ( next ) {
+			this.credentials.set( providerId, next );
+		}
+		return next;
+	}
+
+	async delete( providerId: string ): Promise< void > {
+		this.credentials.delete( providerId );
+	}
+}
+
+async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
-	const authStorage = AuthStorage.inMemory();
-	const modelRegistry = ModelRegistry.inMemory( authStorage );
+): Promise< ModelRuntime > {
+	const modelRuntime = await ModelRuntime.create( {
+		credentials: new InMemoryCredentialStore(),
+		modelsPath: null,
+	} );
 
-	if ( family === 'anthropic' && creds.useBearerAuth ) {
-		modelRegistry.registerProvider(
-			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
-			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
+	if ( family === 'studio' ) {
+		modelRuntime.registerProvider(
+			model.provider,
+			createWpcomProviderConfig( model as StudioWpcomModel, creds )
 		);
-		return { authStorage, modelRegistry };
+		return modelRuntime;
 	}
 
-	authStorage.setRuntimeApiKey( family, creds.apiKey );
-	return { authStorage, modelRegistry };
+	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
@@ -470,38 +574,31 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-function createWpcomAnthropicProviderConfig(
-	model: Model< 'anthropic-messages' >,
+// The wpcom lane only needs pi's stock streaming for each tier's API; the
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite
+// and to strip stale screenshots, which would otherwise bloat requests past
+// the proxy's body limit.
+function createWpcomProviderConfig(
+	model: StudioWpcomModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
+	// pi types `streamSimple` against `Model<Api>`; each API's stream function
+	// is narrower, and the model registered below is the one passed in.
+	const stream = (
+		model.api === 'openai-completions' ? streamOpenAiCompletions : streamOpenAiResponses
+	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
-		api: 'anthropic-messages',
+		api: model.api,
 		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
-			const client = new Anthropic( {
-				apiKey: null,
-				authToken: options?.apiKey ?? creds.apiKey,
-				baseURL: m.baseUrl,
-				dangerouslyAllowBrowser: true,
-				defaultHeaders: options?.headers,
-			} );
-			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic(
-				m as Model< 'anthropic-messages' >,
-				stripStaleImagesFromContext( ctx ),
-				{
-					...( options as AnthropicOptions | undefined ),
-					client: clientForPi,
-				}
-			);
-		},
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
+			withUsageCapErrorRewrite( stream( m, stripStaleImagesFromContext( ctx ), options ) ),
 		models: [
 			{
 				id: model.id,
 				name: model.name,
-				api: 'anthropic-messages',
+				api: model.api,
 				baseUrl: model.baseUrl,
 				reasoning: model.reasoning,
 				input: model.input,
@@ -525,17 +622,29 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
+// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
+// define-tool.ts); the AgentTool type does not carry them, hence the cast.
+type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+
+function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
+	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
+	return { name: tool.name, promptSnippet, promptGuidelines };
+}
+
 function toToolDefinition(
 	tool: AgentToolAny,
-	payloadGuardState: StudioToolPayloadGuardState
+	payloadGuardState: StudioToolPayloadGuardState,
+	pendingWork: PendingWork
 ): ToolDefinition {
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: getPayloadLimitDescription( tool.name, tool.description ),
+		description: tool.description,
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
+		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
+		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -545,7 +654,19 @@ function toToolDefinition(
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
 			}
-			return tool.execute( toolCallId, params, signal, onUpdate );
+			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
+				await pendingWork.settle();
+			}
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			const details = result.details as StudioToolResultDetails | undefined;
+			if ( details?.pending ) {
+				pendingWork.add( details.pending );
+				delete details.pending;
+			}
+			const reports = pendingWork.takeReports();
+			return reports
+				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
+				: result;
 		},
 	};
 }
@@ -553,7 +674,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean
+	imageGenerationEnabled: boolean,
+	visionEnabled: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -562,15 +684,19 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
+	const tracks = { sessionId: config.session.getSessionId() };
+	const designOptionsTool: AgentToolAny[] =
+		config.onAskUser && chatArtifactsEnabled
+			? [ createPresentDesignOptionsTool( config.onAskUser, tracks ) as unknown as AgentToolAny ]
+			: [];
 
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
-		...tool,
-		name,
-		label: name,
-	} );
+	// pi's tools are registered under Studio's names; the prompt text for them
+	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
+		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
 	const remoteScratchTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
@@ -580,9 +706,11 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
-		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
-			withChatArtifactEmission( tool, chatArtifactsEnabled )
-		);
+		const remoteStudioTools = [
+			visionEnabled ? takeScreenshotTool : createTakeScreenshotTool( { visionEnabled: false } ),
+			createSiteTool,
+			pullSiteTool,
+		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			...remoteStudioTools,
@@ -603,12 +731,18 @@ function buildAgentTools(
 	];
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
-		remoteSession,
+		imageGeneration: imageGenerationEnabled,
+		visionEnabled,
+		canAskUser: Boolean( config.onAskUser ),
+		tracks,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
 }
 
-function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
+function parseJsonHeaderEnv(
+	name: string,
+	value: string | undefined
+): Record< string, string > | undefined {
 	if ( ! value ) return undefined;
 	try {
 		const parsed: unknown = JSON.parse( value );
@@ -619,27 +753,10 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 			return entries.length ? Object.fromEntries( entries ) : undefined;
 		}
 		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
+			`${ name } must be a JSON object of string→string pairs; ignoring custom headers.`
 		);
 	} catch {
-		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
-		);
+		console.warn( `${ name } contained malformed JSON; ignoring custom headers.` );
 	}
 	return undefined;
-}
-
-function parseAnthropicHeaderEnv(
-	value: string | undefined
-): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	const out: Record< string, string > = {};
-	for ( const line of value.split( '\n' ) ) {
-		const idx = line.indexOf( ':' );
-		if ( idx <= 0 ) continue;
-		const name = line.slice( 0, idx ).trim();
-		const v = line.slice( idx + 1 ).trim();
-		if ( name && v ) out[ name ] = v;
-	}
-	return Object.keys( out ).length ? out : undefined;
 }

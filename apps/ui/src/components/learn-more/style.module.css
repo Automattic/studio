@@ -3,7 +3,7 @@
 	border: none;
 	padding: 0;
 	font: inherit;
-	color: var(--wpds-color-fg-interactive-brand, #0075ff);
+	color: var(--wpds-color-foreground-interactive-brand, #0075ff);
 	text-decoration: underline;
 	cursor: pointer;
 }

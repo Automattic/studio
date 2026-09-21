@@ -5,6 +5,7 @@ import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 export async function exportDatabaseToFile(
@@ -26,7 +27,7 @@ export async function exportDatabaseToFile(
 
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( __( 'Database export failed' ) );
+		throw new LoggerError( __( 'Database export failed' ), undefined, 'database_export' );
 	}
 
 	// Move the file to its final destination
@@ -57,7 +58,7 @@ export async function exportDatabaseToMultipleFiles(
 	const tablesStdout = await command.response.stdoutText;
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( __( 'Database export failed' ) );
+		throw new LoggerError( __( 'Database export failed' ), undefined, 'database_export' );
 	}
 
 	let tables;
@@ -68,7 +69,11 @@ export async function exportDatabaseToMultipleFiles(
 		console.error(
 			sprintf( __( 'Could not get list of database tables. The WP CLI output: %s' ), tablesStdout )
 		);
-		throw new Error( __( 'Could not get list of database tables to export.' ) );
+		throw new LoggerError(
+			__( 'Could not get list of database tables to export.' ),
+			undefined,
+			'database_export'
+		);
 	}
 
 	const tmpFiles: string[] = [];
@@ -101,7 +106,11 @@ export async function exportDatabaseToMultipleFiles(
 
 		const exitCode = await command.response.exitCode;
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Database export failed for table %s' ), table ) );
+			throw new LoggerError(
+				sprintf( __( 'Database export failed for table %s' ), table ),
+				undefined,
+				'database_export'
+			);
 		}
 
 		// Move the file to its final destination

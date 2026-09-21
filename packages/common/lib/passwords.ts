@@ -4,6 +4,25 @@ import { __, sprintf } from '@wordpress/i18n';
 export { generatePassword };
 
 /**
+ * Defaults for a site's admin credentials, shared by both front ends and the CLI so an
+ * unset value resolves to the same thing everywhere. A site whose config predates these
+ * fields — or that only ever had one of them set — falls back to these on start.
+ */
+export const DEFAULT_ADMIN_USERNAME = 'admin';
+export const DEFAULT_ADMIN_PASSWORD = 'password';
+export const DEFAULT_ADMIN_EMAIL = 'admin@localhost.com';
+
+/**
+ * Resolves a site's stored (encoded) admin password to plain text, falling back to the
+ * default when nothing is stored. Callers that send credentials to WordPress must use
+ * this rather than skipping the field: omitting the password fails the admin API when
+ * the username names a user that does not exist yet.
+ */
+export function decodeAdminPassword( encodedPassword?: string ): string {
+	return encodedPassword ? decodePassword( encodedPassword ) : DEFAULT_ADMIN_PASSWORD;
+}
+
+/**
  * Generates a random, Base64-encoded password.
  *
  * @returns The Base64-encoded password.

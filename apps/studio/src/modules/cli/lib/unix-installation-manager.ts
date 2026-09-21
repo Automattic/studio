@@ -93,6 +93,10 @@ export class UnixCliInstallationManager implements StudioCliInstallationManager 
 		return await doesSymlinkLeadToPackagedCli( cliSymlinkPath, this.config.prodCliPackagedPath );
 	}
 
+	async isCliExternallyManaged(): Promise< boolean > {
+		return await this.isExternallyManagedCli( cliSymlinkPath );
+	}
+
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();

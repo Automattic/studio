@@ -1,10 +1,35 @@
 import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
+import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
+
+// The tail, because PHP reports the fatal last, and capped so a chatty process (the Blueprint
+// runner emits a progress line per step) can't grow the buffer without bound.
+export const MAX_CAPTURED_OUTPUT_CHARS = 64 * 1024;
+
+// Carries the output so callers can report why PHP exited, not just that it did.
+export class PhpCommandError extends Error {
+	constructor(
+		message: string,
+		readonly exitCode: number | null,
+		readonly stdout: string,
+		readonly stderr: string
+	) {
+		super( message );
+		this.name = 'PhpCommandError';
+	}
+}
+
+function appendBounded( buffer: string, chunk: string ): string {
+	const combined = buffer + chunk;
+	return combined.length > MAX_CAPTURED_OUTPUT_CHARS
+		? combined.slice( combined.length - MAX_CAPTURED_OUTPUT_CHARS )
+		: combined;
+}
 
 // Makes a PHP child a process-group leader on POSIX so its subtree can be signalled via the
 // negative PID. On Windows we reap with `taskkill /T` instead, so a new group isn't needed.
@@ -32,6 +57,20 @@ type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
 };
 
+function formatCommandOutputTail( label: string, output: string ): string | undefined {
+	const trimmedOutput = output.trim();
+	if ( ! trimmedOutput ) {
+		return undefined;
+	}
+
+	const maxLength = 4_000;
+	const tail =
+		trimmedOutput.length > maxLength
+			? trimmedOutput.slice( trimmedOutput.length - maxLength )
+			: trimmedOutput;
+	return `${ label }:\n${ tail }`;
+}
+
 export function spawnPhpProcess(
 	args: string[],
 	{
@@ -56,7 +95,7 @@ export function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
+		env: withoutOversizedEnvValues( env ? { ...process.env, ...env } : process.env ),
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 		detached,
@@ -165,20 +204,18 @@ export async function runPhpCommand(
 		} );
 		const reportActivity = () => process.send?.( { topic: 'activity' } );
 
+		// `capture` callers parse the whole stdout; other modes keep a tail only to explain a failure.
+		const capturing = options.mode === 'capture';
 		let stdout = '';
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stdout += chunk.toString();
-			}
+			stdout = capturing ? stdout + chunk.toString() : appendBounded( stdout, chunk.toString() );
 		} );
 
 		let stderr = '';
 		phpScriptProcess.stderr?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stderr += chunk.toString();
-			}
+			stderr = capturing ? stderr + chunk.toString() : appendBounded( stderr, chunk.toString() );
 		} );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
@@ -190,7 +227,16 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new Error( `PHP command failed (code: ${ code })` ) );
+			const outputDetails = [
+				formatCommandOutputTail( 'PHP stdout', stdout ),
+				formatCommandOutputTail( 'PHP stderr', stderr ),
+			]
+				.filter( Boolean )
+				.join( '\n\n' );
+			const message = outputDetails
+				? `PHP command failed (code: ${ code })\n\n${ outputDetails }`
+				: `PHP command failed (code: ${ code })`;
+			reject( new PhpCommandError( message, code, stdout, stderr ) );
 		} );
 	} );
 }

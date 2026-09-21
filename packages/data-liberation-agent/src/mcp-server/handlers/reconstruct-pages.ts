@@ -18,8 +18,6 @@
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, renameSync, readdirSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import type { PaletteToken } from '../../lib/replicate/footer-color.js';
 import type { FontFamilyToken } from '@automattic/blocks-engine/theme';
 import { extractFullFromSavedHtml, extractFullFromUrl, rewriteThroughMediaMap } from '../../lib/replicate/section-extract.js';
@@ -61,8 +59,7 @@ import { planPageTemplates, reconcileReplicaTemplates, mergeCustomTemplates, var
 import { patchWxrTemplatesFile, type WxrTemplatePatchInput } from '../../lib/replicate/wxr-template-patch.js';
 import { auditStyleUsage } from '../../lib/replicate/style-audit.js';
 import { buildPageTemplate } from '../../lib/replicate/reconstruct-pages.js';
-
-const execFileAsync = promisify(execFile);
+import { studioExecFileAsync } from '../../lib/studio-cli.js';
 
 function writeJsonArtifact(path: string, data: unknown): void {
   const tmp = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
@@ -130,7 +127,7 @@ async function updatePagePostContent(
 ): Promise<{ contentOk: boolean; id: string; backedUp: boolean }> {
   const wpOpts = { timeout: 120_000, maxBuffer: 50 * 1024 * 1024 };
   const wp = (extra: string[]) =>
-    execFileAsync('studio', ['wp', '--path', studioSitePath, ...extra], wpOpts);
+    studioExecFileAsync(['wp', '--path', studioSitePath, ...extra], wpOpts);
   let id = '';
   let backedUp = false;
   try {
@@ -336,7 +333,7 @@ export const reconstructPagesHandler: Handler = async (args, ctx) => {
   let jetpackWarning: string | undefined;
   if ([...specsByPage.values()].some((specs) => specs.some((s) => s.forms?.length))) {
     const wpExec: ExecFn = (sitePath, wpArgs) =>
-      execFileAsync('studio', ['wp', '--path', sitePath, ...wpArgs], { timeout: 300_000, maxBuffer: 16 * 1024 * 1024 }).then(
+      studioExecFileAsync(['wp', '--path', sitePath, ...wpArgs], { timeout: 300_000, maxBuffer: 16 * 1024 * 1024 }).then(
         (o) => o.stdout,
       );
     const ensured = await ensurePlugin(studioSitePath, 'jetpack', wpExec);

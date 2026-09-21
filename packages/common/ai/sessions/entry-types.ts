@@ -4,6 +4,7 @@
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { StudioChatImageAttachment } from '../chat-images';
+import type { StudioVisualAnnotationSummary } from '../visual-annotations';
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -29,11 +30,13 @@ export interface StudioSiteSelectedData {
 
 export interface StudioToolProgressData {
 	message: string;
+	toolCallId?: string;
 }
 
 export interface StudioAgentQuestionData {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	selectedLabel?: string;
 }
 
@@ -41,10 +44,15 @@ export type StudioTurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted'
 
 export interface StudioTurnClosedData {
 	status: StudioTurnStatus;
+	// Raw error text for `status: 'error'` turns, so the transcript can
+	// render an in-flow failure marker after reload. Absent on older entries.
+	errorMessage?: string;
 }
 
+// `provider` marks an explicit user pin; the CLI's per-turn records carry
+// only the model so a fallback run never rewrites the pin.
 export interface StudioSessionContextData {
-	provider: string;
+	provider?: string;
 	model: string;
 }
 
@@ -76,6 +84,7 @@ export interface StudioUserPromptData {
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
 	attachments?: StudioChatAttachmentSummary[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface StudioMessageEditedData {

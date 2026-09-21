@@ -10,6 +10,31 @@ session_save_path($session_dir);
 // Enable development environment to display detailed error messages.
 $cfg['environment'] = 'development';
 
+// Use phpMyAdmin's bundled Bootstrap theme consistently in Studio.
+$cfg['ThemeDefault'] = 'bootstrap';
+$cfg['ThemeManager'] = false;
+unset($_COOKIE['pma_theme']);
+
+// Keep the embedded database view compact and favor readable text actions over
+// phpMyAdmin's repeated icon and text presentation.
+$cfg['NavigationWidth'] = 0;
+$cfg['TabsMode'] = 'text';
+$cfg['ActionLinksMode'] = 'text';
+$cfg['RowActionType'] = 'text';
+$cfg['TableNavigationLinksMode'] = 'text';
+$cfg['ShowStats'] = false;
+$cfg['ShowColumnComments'] = false;
+$cfg['UserprefsDisallow'] = [
+    'ThemeDefault',
+    'NavigationWidth',
+    'TabsMode',
+    'ActionLinksMode',
+    'RowActionType',
+    'TableNavigationLinksMode',
+    'ShowStats',
+    'ShowColumnComments',
+];
+
 // Playground-specific configuration.
 $cfg['CheckConfigurationPermissions'] = false;
 $cfg['VersionCheck'] = false;

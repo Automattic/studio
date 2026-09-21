@@ -1,15 +1,12 @@
-import interpolateComponents from '@automattic/interpolate-components';
+import buildingBlocksIllustration from '@studio/common/assets/whats-new/building-blocks.svg';
+import designPickerIllustration from '@studio/common/assets/whats-new/design-picker.svg';
+import modelTiersIllustration from '@studio/common/assets/whats-new/model-tiers.svg';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
-import nativePhpIllustration from 'src/modules/whats-new/assets/native-php-illustration.svg';
-import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
-import studioCodeIllustration from 'src/modules/whats-new/assets/studio-code-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -51,51 +48,26 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: studioCodeIllustration,
-			title: __( 'Studio Code helps you get it done' ),
+			image: modelTiersIllustration,
+			title: __( 'Fast, Balanced, or Strong' ),
 			description: __(
-				'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
+				'Model names are gone. Pick the speed and depth the job needs instead — and get more done with your AI credits, because Fast handles everyday changes at a fraction of the cost.'
+			),
+		},
+		{
+			image: designPickerIllustration,
+			title: __( 'Pick your design before a line of code' ),
+			description: __(
+				'Start a site with a short brief, then choose from four looks and four layouts drawn as real previews. The one you pick becomes your design system, so everything built later stays in keeping with it.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},
 		{
-			image: nativePhpIllustration,
-			title: __( 'Faster local sites with native PHP' ),
+			image: buildingBlocksIllustration,
+			title: __( 'Sites you can keep editing yourself' ),
 			description: __(
-				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
+				'Studio Code now styles with theme settings and block styles instead of custom CSS, so you can adjust colors, fonts, and sections right in the Site Editor.'
 			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
-		},
-		{
-			image: darkModeIllustration,
-			title: __( 'Dark mode is here' ),
-			description: __(
-				'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
-			),
-		},
-		{
-			image: phpMyAdminIllustration,
-			title: __( 'Manage your database with phpMyAdmin' ),
-			description: __(
-				"Studio now includes phpMyAdmin, giving you a visual interface to manage your site's database. Access it from the Overview tab."
-			),
-		},
-		{
-			image: cliIllustration,
-			title: __( 'WP-CLI support and CLI site management' ),
-			description: interpolateComponents( {
-				mixedString: sprintf(
-					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-					__(
-						'Easily install the %s CLI to run WP-CLI commands from your terminal and create, start, stop, or update your sites.'
-					),
-					'{{code}}studio{{/code}}'
-				),
-				components: {
-					code: <code />,
-				},
-			} ),
-			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
 	];
 

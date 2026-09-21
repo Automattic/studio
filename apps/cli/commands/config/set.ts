@@ -1,4 +1,4 @@
-import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -24,11 +24,13 @@ import {
 	siteRuntimeFromMode,
 	type SiteMode,
 } from '@studio/common/lib/site-runtime';
+import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import {
-	getWordPressVersionUrl,
-	isValidWordPressVersion,
-	isWordPressVersionAtLeast,
-} from '@studio/common/lib/wordpress-version-utils';
+	getWpEnvironmentType,
+	wpEnvironmentTypeSchema,
+	WP_ENVIRONMENT_TYPES,
+	type WpEnvironmentType,
+} from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -44,13 +46,14 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { setupCustomDomain } from 'cli/lib/site-utils';
-import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -70,9 +73,19 @@ export interface SetCommandOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+	scriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const validated = validateSetOptions( options );
+	return withSiteOperation( sitePath, 'settings', () => setSiteConfig( sitePath, validated ) );
+}
+
+// Runs before the operation is recorded, so an invalid edit fails without
+// touching the config file or briefly blocking the site. Returns the
+// options with `adminEmail` normalized (blank means "leave it alone").
+function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	const {
 		name,
 		domain,
@@ -86,6 +99,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		adminPassword,
 		debugLog,
 		debugDisplay,
+		scriptDebug,
+		environmentType,
 	} = options;
 	let { adminEmail } = options;
 
@@ -102,11 +117,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		adminPassword === undefined &&
 		adminEmail === undefined &&
 		debugLog === undefined &&
-		debugDisplay === undefined
+		debugDisplay === undefined &&
+		scriptDebug === undefined &&
+		environmentType === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			)
 		);
 	}
@@ -126,6 +143,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
 	}
 
+	// Static check, so it belongs out here with the rest. The runtime-specific
+	// PHP check further down needs the site record and has to stay inside.
+	if ( options.php !== undefined ) {
+		validateSupportedPhpVersion( options.php );
+	}
+
 	if ( adminEmail !== undefined ) {
 		if ( ! adminEmail.trim() ) {
 			adminEmail = undefined;
@@ -136,6 +159,28 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 		}
 	}
+
+	return { ...options, adminEmail };
+}
+
+async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Promise< void > {
+	const {
+		name,
+		domain,
+		https,
+		php,
+		wp,
+		runtime,
+		fileAccess,
+		xdebug,
+		adminUsername,
+		adminPassword,
+		adminEmail,
+		debugLog,
+		debugDisplay,
+		scriptDebug,
+		environmentType,
+	} = options;
 
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -204,6 +249,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const debugLogChanged = debugLog !== undefined && debugLog !== site.enableDebugLog;
 		const debugDisplayChanged =
 			debugDisplay !== undefined && debugDisplay !== site.enableDebugDisplay;
+		const scriptDebugChanged = scriptDebug !== undefined && scriptDebug !== site.enableScriptDebug;
+		const environmentTypeChanged =
+			environmentType !== undefined && environmentType !== getWpEnvironmentType( site );
 
 		const hasChanges =
 			nameChanged ||
@@ -216,7 +264,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			xdebugChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
-			debugDisplayChanged;
+			debugDisplayChanged ||
+			scriptDebugChanged ||
+			environmentTypeChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -234,6 +284,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
+			scriptDebugChanged,
+			environmentTypeChanged,
 		} );
 		const oldDomain = site.customDomain;
 
@@ -280,6 +332,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( debugDisplayChanged ) {
 				foundSite.enableDebugDisplay = debugDisplay;
+			}
+			if ( scriptDebugChanged ) {
+				foundSite.enableScriptDebug = scriptDebug;
+			}
+			if ( environmentTypeChanged ) {
+				foundSite.environmentType = environmentType;
 			}
 
 			await saveCliConfig( cliConfig );
@@ -388,26 +446,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'wp', {
 					type: 'string',
-					description: __( 'WordPress version' ),
-					coerce: ( value: string ) => {
-						if ( ! isValidWordPressVersion( value ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								__(
-									'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-								)
-							);
-						}
-						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
-							);
-						}
-						return value;
-					},
+					description: getWpVersionOptionDescription(),
+					coerce: coerceWpVersionOption,
 				} )
 				.option( 'runtime', {
 					type: 'string',
@@ -446,6 +486,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'debug-display', {
 					type: 'boolean',
 					description: __( 'Enable WP_DEBUG_DISPLAY' ),
+				} )
+				.option( 'script-debug', {
+					type: 'boolean',
+					description: __( 'Enable SCRIPT_DEBUG' ),
+				} )
+				.option( 'environment-type', {
+					type: 'string',
+					description: __( 'Set WP_ENVIRONMENT_TYPE' ),
+					choices: WP_ENVIRONMENT_TYPES,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -464,6 +513,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adminEmail: argv.adminEmail,
 					debugLog: argv.debugLog,
 					debugDisplay: argv.debugDisplay,
+					scriptDebug: argv.scriptDebug,
+					environmentType: wpEnvironmentTypeSchema.optional().parse( argv.environmentType ),
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

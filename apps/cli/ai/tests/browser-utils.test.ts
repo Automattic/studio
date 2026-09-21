@@ -1,5 +1,14 @@
+import { chromium } from 'playwright';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildChromiumLaunchAttempts, ensurePlaywrightChromiumInstalled } from '../browser-utils';
+import {
+	buildChromiumLaunchAttempts,
+	EditorPage,
+	ensurePlaywrightChromiumInstalled,
+} from '../browser-utils';
+
+vi.mock( 'playwright', () => ( {
+	chromium: { launch: vi.fn(), executablePath: () => process.execPath },
+} ) );
 
 describe( 'browser-utils', () => {
 	beforeEach( () => {
@@ -89,5 +98,17 @@ describe( 'browser-utils', () => {
 
 		expect( error ).toBeNull();
 		expect( installBrowser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'loads the block editor once for concurrent validations', async () => {
+		const page = { goto: vi.fn(), waitForFunction: vi.fn(), isClosed: () => false };
+		const newPage = vi.fn().mockResolvedValue( page );
+		vi.mocked( chromium.launch ).mockResolvedValue( { newPage, close: vi.fn() } as never );
+
+		const editor = new EditorPage( 'http://localhost:8881' );
+		const pages = await Promise.all( [ editor.getPage(), editor.getPage(), editor.getPage() ] );
+
+		expect( pages ).toEqual( [ page, page, page ] );
+		expect( newPage ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

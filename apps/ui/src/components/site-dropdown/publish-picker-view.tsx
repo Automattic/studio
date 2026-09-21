@@ -1,8 +1,11 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
@@ -20,8 +23,7 @@ type Props = {
 export function PublishPickerView( { site, onClose }: Props ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	// No `enabled` guard needed — this component only mounts when the picker
-	// view is active, which is the same gating condition.
+	const { data: authUser } = useAuthUser();
 	const pickableSites = usePickableWpcomSites();
 
 	const openExternal = ( url: string ) => {
@@ -29,17 +31,29 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	};
 
 	const handlePickSite = async ( pickedSite: SyncSite ) => {
+		const alreadyConnected =
+			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( site.id ) ) ?? [];
 		try {
 			await connector.connectWpcomSite( site.id, {
 				...pickedSite,
 				localSiteId: site.id,
 				syncSupport: 'already-connected',
 			} );
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+				success: true,
+				// Counted after this connect, so a first connection reports 1.
+				num_of_sites: alreadyConnected.filter( ( { id } ) => id !== pickedSite.id ).length + 1,
+			} );
 			await queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( site.id ),
 			} );
 			onClose();
 		} catch ( error ) {
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
+				success: false,
+				failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+				num_of_sites: alreadyConnected.length,
+			} );
 			console.error( 'Failed to connect WordPress.com site:', error );
 		}
 	};
@@ -47,6 +61,11 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	const handleCreateNew = () => {
 		const checkoutUrl = connector.getPublishCheckoutUrl( site );
 		if ( checkoutUrl ) {
+			// This checkout uses `section=publish-site` + `autoOpenPush`, matching
+			// Classic's Publish rather than its Create — so it reports as a publish.
+			// Emitted at the handoff, not at completion: the site coming back is a
+			// later `studio_sync_connect` from the listener below.
+			void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
 			// Desktop receives the new site via the wp-studio:// deep link; surfaces
 			// that can't (the local web server) opt into a server-side watch instead.
 			void connector.watchForPublishedSite?.( site.id );
@@ -70,33 +89,35 @@ export function PublishPickerView( { site, onClose }: Props ) {
 				/>
 				<span className={ styles.title }>{ __( 'Publish this site' ) }</span>
 			</div>
-			<div className={ styles.body }>
-				{ pickableSites.isLoading ? (
-					<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
-				) : pickableSites.data && pickableSites.data.length > 0 ? (
-					<ul className={ styles.list }>
-						{ pickableSites.data.map( ( candidate ) => (
-							<li key={ candidate.id }>
-								<button
-									type="button"
-									className={ styles.item }
-									onClick={ () => void handlePickSite( candidate ) }
-								>
-									<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
-									<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
-								</button>
-							</li>
-						) ) }
-					</ul>
-				) : (
-					<div className={ styles.status }>
-						{ __( 'No WordPress.com sites available to publish to.' ) }
-					</div>
-				) }
-			</div>
+			{ authUser ? (
+				<div className={ styles.body }>
+					{ pickableSites.isLoading ? (
+						<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
+					) : pickableSites.data && pickableSites.data.length > 0 ? (
+						<ul className={ styles.list }>
+							{ pickableSites.data.map( ( candidate ) => (
+								<li key={ candidate.id }>
+									<button
+										type="button"
+										className={ styles.item }
+										onClick={ () => void handlePickSite( candidate ) }
+									>
+										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
+										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
+									</button>
+								</li>
+							) ) }
+						</ul>
+					) : (
+						<div className={ styles.status }>
+							{ __( 'No WordPress.com sites available to publish to.' ) }
+						</div>
+					) }
+				</div>
+			) : null }
 			<button type="button" className={ styles.create } onClick={ handleCreateNew }>
 				<Icon icon={ plus } size={ 16 } />
-				<span>{ __( 'Create a new WordPress.com site…' ) }</span>
+				<span>{ __( 'Create a new WordPress.com site' ) }</span>
 			</button>
 		</div>
 	);

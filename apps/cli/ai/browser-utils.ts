@@ -206,6 +206,7 @@ async function getPageDiagnostics( page: Page ): Promise< string > {
  */
 export class EditorPage {
 	private page: Page | null = null;
+	private loading: Promise< Page > | null = null;
 	private readonly siteUrl: string;
 
 	constructor( siteUrl: string ) {
@@ -217,7 +218,12 @@ export class EditorPage {
 		if ( this.page && ! this.page.isClosed() ) {
 			return this.page;
 		}
+		// Concurrent auto-logins overwrite each other's session tokens, so share one load.
+		this.loading ??= this.load().finally( () => ( this.loading = null ) );
+		return this.loading;
+	}
 
+	private async load(): Promise< Page > {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( {
 			ignoreHTTPSErrors: true,

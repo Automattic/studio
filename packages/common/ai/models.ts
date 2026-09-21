@@ -1,7 +1,8 @@
+import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'openai';
+export type AiModelFamily = 'anthropic' | 'studio' | 'openai';
 
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
@@ -10,17 +11,30 @@ export interface AiModel {
 	label: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
+	/**
+	 * Whether the model accepts image input. Defaults to true. Set false for
+	 * text-only models so the runtime doesn't advertise vision they lack —
+	 * screenshot tool results are images.
+	 */
+	supportsImages?: boolean;
+	/**
+	 * Pickers disable the model unless purchased AI credits remain
+	 * (Automatticians exempt). UI gating only — the wpcom proxy enforces
+	 * access, and `isAiModelId` never consults this.
+	 */
+	requiresPaidAiCredits?: boolean;
 }
 
-// Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
-// excluded: their long reasoning turns can exceed the proxy/SDK timeout
-// window. (Routing is no longer a blocker — the OpenAI family now goes
-// through the proxy's `/v1/responses` path, which supports reasoning models
-// and function tools.)
+// The `studio` family are capability tiers, not concrete models: the wpcom
+// proxy's `studio-agent` lane resolves each alias to an upstream model
+// server-side, so the mapping can be retuned without a client release. The
+// `anthropic` family exists for the direct Anthropic · API key provider only.
 export const AI_MODELS = [
+	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
+	{ id: 'balanced', label: 'Balanced', family: 'studio', requiresPaidAiCredits: true },
+	{ id: 'strong', label: 'Strong', family: 'studio', requiresPaidAiCredits: true },
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
-	{ id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol', family: 'openai' },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
@@ -34,7 +48,10 @@ export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
  */
 export type SelectedModelId = AiModelId | ( string & {} );
 
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
+export const DEFAULT_MODEL: AiModelId = 'fast';
+// Accounts with purchased AI credits remaining default to the balanced tier
+// instead (see `getAiProviderDefaultModel`).
+export const PAID_DEFAULT_MODEL: AiModelId = 'balanced';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same
@@ -67,12 +84,31 @@ export function getAiModelFamily( id: SelectedModelId ): AiModelFamily {
 	return MODEL_BY_ID.get( id )?.family ?? 'openai';
 }
 
+// The tier labels are plain adjectives (unlike the Anthropic brand names), so
+// they go through i18n — as thunks, since module-level `__()` is banned.
+const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
+	fast: () => __( 'Fast' ),
+	balanced: () => __( 'Balanced' ),
+	strong: () => __( 'Strong' ),
+};
+
 /**
- * Human-readable label for a model. Unknown ids (e.g. a local model) have no
- * built-in label, so the id itself is shown.
+ * Human-readable label for a model. Unknown ids (e.g. a local model served
+ * through the `openai-compatible` provider) have no built-in label, so the id
+ * itself is shown.
  */
 export function getAiModelLabel( id: SelectedModelId ): string {
-	return MODEL_BY_ID.get( id )?.label ?? id;
+	return TRANSLATED_MODEL_LABELS[ id as AiModelId ]?.() ?? MODEL_BY_ID.get( id )?.label ?? id;
+}
+
+export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
+	return getAiModel( id ).requiresPaidAiCredits ?? false;
+}
+
+// Tolerates ids outside AI_MODELS (e.g. a local `openai-compatible` model) —
+// image support is the safe default.
+export function aiModelSupportsImages( id: SelectedModelId ): boolean {
+	return MODEL_BY_ID.get( id )?.supportsImages ?? true;
 }
 
 /**
@@ -96,22 +132,26 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 }
 
 /**
- * Derive the current model for a session from its pi entries.
- *
- * The most recently recorded model wins and is returned verbatim — including
- * ids that aren't in `AI_MODELS`, since the `openai-compatible` provider runs
- * arbitrary local models whose ids we must preserve across resume. The
- * recorded provider is restored alongside (see `resolveResumeSessionContext`),
- * so provider and model stay consistent; if a resumed provider can't serve the
- * recorded model, the provider-switch logic auto-corrects it. Sessions that
- * recorded no model — e.g. a brand-new session before the first turn runs —
- * fall back to `DEFAULT_MODEL`.
+ * The most recently recorded model, returned verbatim — including ids that
+ * aren't in `AI_MODELS`, since the `openai-compatible` provider runs arbitrary
+ * local models whose ids must survive resume. Undefined when the session never
+ * recorded one, so callers can apply their own default. Callers that can only
+ * use a built-in id narrow with `isAiModelId` / `providerServesModel`.
  */
-export function resolveSessionModel( entries: SessionEntry[] ): SelectedModelId {
+export function readRecordedSessionModel( entries: SessionEntry[] ): SelectedModelId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
-		if ( recordedModel === undefined ) continue;
-		return recordedModel;
+		if ( recordedModel !== undefined ) {
+			return recordedModel;
+		}
 	}
-	return DEFAULT_MODEL;
+	return undefined;
+}
+
+/** `readRecordedSessionModel` with a fallback for sessions without one. */
+export function resolveSessionModel(
+	entries: SessionEntry[],
+	defaultModel: AiModelId = DEFAULT_MODEL
+): SelectedModelId {
+	return readRecordedSessionModel( entries ) ?? defaultModel;
 }

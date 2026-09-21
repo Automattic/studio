@@ -1,5 +1,8 @@
-import fs from 'node:fs';
+import fs, { createWriteStream } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { __ } from '@wordpress/i18n';
 import {
 	createBlueprintTempDir,
@@ -7,6 +10,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { Readable } from 'node:stream';
 
 export interface ExtractedBlueprintBundle {
 	blueprintJson: BlueprintV1Declaration;
@@ -46,6 +50,21 @@ export async function extractBlueprintBundle(
 	} catch ( error ) {
 		await removeBlueprintTempDir( tempDir );
 		throw error;
+	}
+}
+
+export async function extractBlueprintUpload(
+	upload: Readable,
+	extract: ( filePath: string ) => Promise< ExtractedBlueprintBundle > = extractBlueprintBundle
+): Promise< ExtractedBlueprintBundle > {
+	const uploadTempDir = await mkdtemp( path.join( os.tmpdir(), 'studio-upload-' ) );
+	const filePath = path.join( uploadTempDir, 'blueprint.zip' );
+
+	try {
+		await pipeline( upload, createWriteStream( filePath ) );
+		return await extract( filePath );
+	} finally {
+		await rm( uploadTempDir, { recursive: true, force: true } );
 	}
 }
 

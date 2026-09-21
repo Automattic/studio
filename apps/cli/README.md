@@ -106,7 +106,7 @@ The Studio CLI allows you to import and export local backups.
 
 When exporting, choose either a full-site backup as a `.zip` or `.tar.gz` file, or a database-only backup as a `.sql` file.
 
-For imports, backup files from your WordPress.com site or from Jetpack’s Activity Log page are supported. So are `.wpress` files and `.zip` files from WordPress Playground or Local. For more details, see the [documentation](https://developer.wordpress.com/docs/developer-tools/studio/import-export/).
+For imports, backup files from your WordPress.com site or from Jetpack’s Activity Log page are supported. So are `.wpress` files and `.zip` files from WordPress Playground or Local, and WordPress export (WXR) `.xml` files produced by **Tools → Export**. For more details, see the [documentation](https://developer.wordpress.com/docs/developer-tools/studio/import-export/).
 
 ```bash
 studio export --path ~/Studio/my-site

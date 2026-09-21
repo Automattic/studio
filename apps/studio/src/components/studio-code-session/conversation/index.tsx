@@ -9,22 +9,36 @@ import {
 } from '@studio/common/ai/chat-artifacts';
 import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
 import {
+	isAiAccessRequiredError,
+	isAiBlockedError,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getFreeFormOptionDescription,
+	getFreeFormOptionLabel,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	findOwnFreeFormOptionLabel,
+	STOPPED_WITHOUT_ANSWER,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AiAccessRequiredNotice, AiBlockedNotice } from 'src/components/ai-access-required-notice';
+import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import { CopyButton } from '../copy-button';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -52,7 +66,8 @@ type RenderItem =
 			kind: 'agent-question';
 			key: string;
 			question: string;
-			options: Array< { label: string; description: string } >;
+			options: Array< { label: string; description: string; image?: string } >;
+			multiSelect?: boolean;
 			answer?: string;
 	  }
 	| {
@@ -60,7 +75,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -83,7 +99,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'present_design_options' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -224,6 +240,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				multiSelect: data.multiSelect,
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
@@ -255,6 +272,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
 				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
+				} );
 			}
 			return;
 		}
@@ -277,23 +300,24 @@ export function wasLastTurnInterrupted( entries: SessionEntry[] ): boolean {
 	return false;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
+export interface ActiveStep {
+	key: string | null;
+	progressMessage: string | null;
+}
+
+export function getActiveStep( entries: SessionEntry[] ): ActiveStep {
+	let progressMessage: string | null = null;
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			return { key: entry.id, progressMessage };
 		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
+		const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+		if ( progressMessage === null && data ) {
+			progressMessage = data.message;
 		}
 	}
-	return null;
+	return { key: null, progressMessage };
 }
 
 function UserTurn( {
@@ -599,39 +623,211 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 function AgentQuestion( {
 	question,
 	options,
+	multiSelect = false,
 	isInteractive,
 	pickedLabel,
+	freeFormActive,
 	onAnswer,
+	onChooseFreeForm,
 }: {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
+	freeFormActive: boolean;
 	onAnswer: ( label: string ) => void;
+	onChooseFreeForm: () => void;
 } ) {
+	const freeFormLabel = getFreeFormOptionLabel();
+	// An off-contract model writes its own escape hatch. Drive the composer from
+	// that one rather than appending a second, so either way the user types the
+	// answer instead of sending the label back as one.
+	const ownFreeFormLabel = isInteractive ? findOwnFreeFormOptionLabel( options ) : undefined;
+	const showFreeForm = isInteractive && ! ownFreeFormLabel;
+	const hasImages = options.some( ( option ) => option.image );
+	const [ draft, setDraft ] = useState< { pickedLabel?: string; labels: string[] } | null >( null );
+	const answeredLabels = multiSelect ? pickedLabel?.split( ', ' ) ?? [] : [ pickedLabel ];
+	const pickedLabels = draft && draft.pickedLabel === pickedLabel ? draft.labels : answeredLabels;
+	// A reply typed into the composer answers the question without matching any
+	// listed label, so no button lights up. Show it instead, or the answer the
+	// user gave leaves no trace in the transcript.
+	const typedAnswer = pickedLabels
+		.filter(
+			( label ) =>
+				label &&
+				// The stop marker is written by the app, not the user.
+				label !== STOPPED_WITHOUT_ANSWER &&
+				! options.some( ( option ) => option.label === label )
+		)
+		.join( ', ' );
+	const toggle = ( label: string ) =>
+		setDraft( {
+			pickedLabel,
+			labels: options
+				.map( ( option ) => option.label )
+				.filter( ( other ) => ( other === label ) !== pickedLabels.includes( other ) ),
+		} );
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
+			{ multiSelect ? (
+				<span className={ styles.questionOptionDescription }>
+					{ __( 'Select all that apply.' ) }
+				</span>
+			) : null }
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ul className={ styles.questionOptions } data-layout={ hasImages ? 'grid' : undefined }>
 					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
+						const isOwnFreeForm = option.label === ownFreeFormLabel;
+						const picked = isOwnFreeForm ? freeFormActive : pickedLabels.includes( option.label );
 						return (
 							<li key={ index }>
 								<button
 									type="button"
-									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ cx(
+										styles.questionOption,
+										isOwnFreeForm && styles.questionOptionFreeForm,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									onClick={
+										isOwnFreeForm
+											? onChooseFreeForm
+											: () => ( multiSelect ? toggle( option.label ) : onAnswer( option.label ) )
+									}
+									aria-pressed={ picked }
+									title={ isOwnFreeForm ? getFreeFormOptionDescription() : option.description }
+									data-has-image={ hasImages ? 'true' : undefined }
 								>
-									{ option.label }
+									{ hasImages ? <QuestionOptionImage path={ option.image } /> : null }
+									<span className={ styles.questionOptionCopy }>
+										<span>{ option.label }</span>
+										{ hasImages && option.description ? (
+											<span className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
 					} ) }
+					{ showFreeForm ? (
+						<li>
+							<button
+								type="button"
+								className={ cx(
+									styles.questionOption,
+									styles.questionOptionFreeForm,
+									freeFormActive && styles.questionOptionPicked
+								) }
+								onClick={ onChooseFreeForm }
+								aria-pressed={ freeFormActive }
+								title={ getFreeFormOptionDescription() }
+							>
+								{ freeFormLabel }
+							</button>
+						</li>
+					) : null }
 				</ul>
 			) : null }
+			{ typedAnswer ? (
+				<span
+					className={ cx(
+						styles.questionOption,
+						styles.questionOptionPicked,
+						styles.questionTypedAnswer
+					) }
+				>
+					{ typedAnswer }
+				</span>
+			) : null }
+			{ multiSelect && isInteractive ? (
+				<div>
+					<Button
+						variant="primary"
+						disabled={ pickedLabels.length === 0 }
+						onClick={ () => onAnswer( pickedLabels.join( ', ' ) ) }
+					>
+						{ __( 'Confirm' ) }
+					</Button>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+function QuestionOptionImage( { path }: { path: string | undefined } ) {
+	const [ src, setSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! path ) {
+			return;
+		}
+		let active = true;
+		setSrc( null );
+		setFailed( false );
+		readLocalMediaDataUrl( path )
+			.then( ( dataUrl ) => {
+				if ( active ) {
+					setSrc( dataUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ path ] );
+
+	if ( ! path || failed ) {
+		return (
+			<span className={ styles.questionOptionImageUnavailable } aria-hidden="true">
+				{ path ? __( 'Preview unavailable' ) : null }
+			</span>
+		);
+	}
+	if ( ! src ) {
+		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
+	}
+	return <img className={ styles.questionOptionImage } src={ src } alt="" />;
+}
+
+// In-flow marker for a turn that ended in an error. The proxy's quota
+// refusals get dedicated copy instead of the raw provider message: the
+// monthly usage cap shows the reset date once the quota query resolves, and
+// out-of-credits (STU-2236) points at buying credits — waiting doesn't fix
+// that one.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const isAccessRequired = isAiAccessRequiredError( message );
+	const { data: quota } = useGetStudioAssistantQuota( undefined, {
+		skip: ! isUsageCap && ! isAccessRequired,
+	} );
+
+	// Out of credits says nothing here: the purchase card has already taken
+	// the composer's place, and repeating it in the transcript is noise.
+	if ( isOutOfCreditsError( message ) ) {
+		return null;
+	}
+	let text: ReactNode;
+	if ( isAiBlockedError( message ) ) {
+		text = <AiBlockedNotice />;
+	} else if ( isAccessRequired ) {
+		text = <AiAccessRequiredNotice quota={ quota } />;
+	} else if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
 		</div>
 	);
 }
@@ -643,7 +839,9 @@ export function Conversation( {
 	pendingQuestions,
 	pendingAnswers,
 	answeredQuestions,
+	freeFormQuestion,
 	onAnswerQuestion,
+	onChooseFreeForm,
 	canEditLastUserMessage = false,
 	onEditUserMessage,
 }: {
@@ -653,16 +851,17 @@ export function Conversation( {
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
+	// Question whose "Something else" option is armed; its answer arrives from
+	// the composer rather than from an option click.
+	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onChooseFreeForm: ( question: string ) => void;
 	canEditLastUserMessage?: boolean;
 	onEditUserMessage?: ( entryId: string, text: string ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
+	const activeStep = useMemo( () => getActiveStep( entries ), [ entries ] );
 	// Only the most recent user prompt is offered for editing, and only once
 	// the run behind it has been stopped.
 	const lastUserTextKey = useMemo( () => {
@@ -739,13 +938,16 @@ export function Conversation( {
 								key={ item.key }
 								question={ item.question }
 								options={ item.options }
+								multiSelect={ item.multiSelect }
 								isInteractive={ pendingQuestions.has( item.question ) }
 								pickedLabel={
 									pendingAnswers[ item.question ] ??
 									answeredQuestions[ item.question ] ??
 									item.answer
 								}
+								freeFormActive={ freeFormQuestion === item.question }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+								onChooseFreeForm={ () => onChooseFreeForm( item.question ) }
 							/>
 						);
 					case 'chat-artifact':
@@ -756,6 +958,8 @@ export function Conversation( {
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}
@@ -763,7 +967,8 @@ export function Conversation( {
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
-				progressMessage={ progressMessage }
+				stepKey={ activeStep.key }
+				progressMessage={ isRunning ? activeStep.progressMessage : null }
 			/>
 		</div>
 	);

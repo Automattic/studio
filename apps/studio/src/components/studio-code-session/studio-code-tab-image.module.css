@@ -1,0 +1,46 @@
+.stack {
+	position: relative;
+	width: 280px;
+	height: 190px;
+}
+
+.message {
+	position: absolute;
+	right: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	border: 1px solid color-mix(in srgb, var(--color-frame-theme) 18%, var(--color-frame-border));
+	border-radius: 18px 18px 5px 18px;
+	background: color-mix(in srgb, var(--color-frame-theme) 14%, transparent);
+	box-shadow: 0 8px 24px color-mix(in srgb, var(--color-frame-text) 8%, transparent);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	color: var(--color-frame-text);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 20px;
+	white-space: nowrap;
+}
+
+.message:nth-child(1) {
+	bottom: 0;
+	z-index: 5;
+}
+
+.message:nth-child(2) {
+	bottom: 34px;
+	z-index: 4;
+}
+
+.message:nth-child(3) {
+	bottom: 68px;
+	z-index: 3;
+}
+
+.message:nth-child(4) {
+	bottom: 102px;
+	z-index: 2;
+}
+
+.message:nth-child(5) {
+	bottom: 136px;
+	z-index: 1;
+}

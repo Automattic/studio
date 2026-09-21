@@ -9,6 +9,8 @@ export interface SiteSettingChanges {
 	credentialsChanged?: boolean;
 	debugLogChanged?: boolean;
 	debugDisplayChanged?: boolean;
+	scriptDebugChanged?: boolean;
+	environmentTypeChanged?: boolean;
 }
 
 export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
@@ -23,6 +25,8 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		credentialsChanged,
 		debugLogChanged,
 		debugDisplayChanged,
+		scriptDebugChanged,
+		environmentTypeChanged,
 	} = changes;
 
 	return !! (
@@ -35,6 +39,8 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		xdebugChanged ||
 		credentialsChanged ||
 		debugLogChanged ||
-		debugDisplayChanged
+		debugDisplayChanged ||
+		scriptDebugChanged ||
+		environmentTypeChanged
 	);
 }

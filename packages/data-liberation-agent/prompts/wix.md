@@ -6,7 +6,7 @@ Copy everything below this line and paste it into your AI assistant (Claude, Cha
 
 I want to migrate my website from Wix to WordPress. My Wix site URL is: **[PASTE YOUR WIX URL HERE]**
 
-I have (or will create) a WordPress site. Please help me migrate using the playbook at https://github.com/Automattic/data-liberation-agent — read AGENTS.md first for full instructions.
+I have (or will create) a WordPress site. Please help me migrate using the playbook at https://github.com/Automattic/studio/tree/trunk/packages/data-liberation-agent — read AGENTS.md first for full instructions.
 
 Here's what I need you to do:
 

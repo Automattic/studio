@@ -21,8 +21,8 @@
 //
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { MediaStubStore } from '../src/lib/resume-state/index.js';
+import { studioExecFileSync } from '../src/lib/studio-cli.js';
 
 const [outputDir, studioSitePath] = process.argv.slice(2);
 if (!outputDir || !studioSitePath) {
@@ -84,11 +84,10 @@ echo "LOCALIZE_RESULT scanned=$scanned changed=$changed refsRewritten=$refs\\n";
 writeFileSync(join(hostDir, '_localize.php'), php);
 
 console.log(`Rewriting native post/page content in ${studioSitePath} …`);
-const out = execFileSync(
-  'studio',
+const out = studioExecFileSync(
   ['wp', '--path', resolve(studioSitePath), '--user=admin', 'eval-file',
    '/wordpress/wp-content/uploads/_carry-localize/_localize.php'],
-  { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  { maxBuffer: 64 * 1024 * 1024 },
 );
 const line = out.split('\n').find((l) => l.startsWith('LOCALIZE_RESULT')) ?? out.trim();
 console.log(line);

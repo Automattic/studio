@@ -4,7 +4,7 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { classifyUrl } from '../../lib/extraction/sitemap.js';
 import { runExtractionLoop } from '../shared.js';
 import { slugify } from '../../lib/url/index.js';
-import { launchBrowser } from '../../lib/browser-kit/index.js';
+import { createManagedBrowser } from '../../lib/browser-kit/index.js';
 import { WooProductCsvBuilder } from '../../lib/woo-csv/index.js';
 import type { WooProduct } from '../../lib/woo-csv/index.js';
 import type { SquarespaceInventory, SquarespaceAdapterOpts } from './types.js';
@@ -101,16 +101,8 @@ export async function extract(
   const sqOpts = opts as SquarespaceAdapterOpts;
   const delayMs = sqOpts.delay != null ? sqOpts.delay : 300;
 
-  // Launch browser lazily — only if a page needs DOM fallback
-  let browserSession: { page: unknown; close: () => Promise<void> } | null = null;
-
-  async function getBrowserPage(): Promise<unknown> {
-    if (!browserSession) {
-      const session = await launchBrowser({ cdpPort: sqOpts.cdpPort });
-      browserSession = { page: session.page, close: () => session.close() };
-    }
-    return browserSession.page;
-  }
+  // Lazy browser — launched only if a page needs DOM fallback.
+  const managedBrowser = createManagedBrowser({ cdpPort: sqOpts.cdpPort });
 
   const outputDir = sqOpts.outputDir || '';
   const csvBuilder = new WooProductCsvBuilder();
@@ -133,7 +125,10 @@ export async function extract(
       server: context.server,
       csvBuilder,
       onPageExtracted: sqOpts.onPageExtracted as never,
+      maxPageConcurrency: 1,
+      onExtractTimeout: () => managedBrowser.reset(),
       extractPage: async (url: string) => {
+        const lease = managedBrowser.openLease();
         const json = await fetchSqsJson(url);
 
         const item = json?.item;
@@ -158,7 +153,7 @@ export async function extract(
         if (isEmptyContent) {
           // Fall back to Playwright DOM extraction
           try {
-            const page = await getBrowserPage();
+            const { page } = await lease.acquire();
             const domResult = await extractDomContent(page, url);
             if (domResult.content) {
               body = domResult.content;
@@ -231,6 +226,6 @@ export async function extract(
 
     return result;
   } finally {
-    if (browserSession) await (browserSession as NonNullable<typeof browserSession>).close();
+    await managedBrowser.end();
   }
 }

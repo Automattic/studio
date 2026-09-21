@@ -95,7 +95,7 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^'])*)';/ );
+	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^\\'])*)';/ );
 	if ( ! match ) {
 		return null;
 	}
@@ -170,7 +170,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	muPlugins.push( {
 		filename: '0-tmp-fix-qm-plugin-sapi.php',
 		content: `<?php
-		// This is a temporary fix for a Query Manager plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
+		// This is a temporary fix for a Query Monitor plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
 		// See https://github.com/WordPress/wordpress-playground/pull/2424#issuecomment-3686951491
 		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)
 		define('QM_TESTS', true);
@@ -362,8 +362,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Configure auto-updates based on Studio settings
-	if ( ! options.isWpAutoUpdating ) {
+	// Only an explicit `false` disables auto-updates. Sites created before this
+	// option existed have no flag, and every other reader treats that as
+	// auto-updating — reading it as falsy here left them pinned for good while
+	// Settings showed "latest" (STU-2348).
+	if ( options.isWpAutoUpdating === false ) {
 		muPlugins.push( {
 			filename: '0-disable-auto-updates.php',
 			content: `<?php
@@ -586,10 +589,14 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
 
 					if ( $user ) {
-						if ( $has_password ) {
+						// Write only a changed password: wp_set_password() stores a new hash
+						// each time and WordPress derives auth cookies from it, so rewriting
+						// the same password logs the user out on every start. No user ID is
+						// passed: with one, older WordPress rehashes legacy hashes here.
+						if ( $has_password && ! wp_check_password( $_POST['password'], $user->user_pass ) ) {
 							wp_set_password( $_POST['password'], $user->ID );
 						}
-						if ( $provided_email ) {
+						if ( $provided_email && $provided_email !== $user->user_email ) {
 							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
 						}
 					} else {

@@ -20,9 +20,10 @@
  *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
- * anchored at *document* coordinates (viewport rect + scroll offset). They
- * scroll with the page automatically — no scroll listener, no rAF loop. The
- * popup uses `position: fixed` so it stays in the viewport.
+ * anchored at *document* coordinates (viewport rect + scroll offset), so they
+ * scroll with the page for free and are only re-measured on reflow. The popup
+ * and the annotation scrim use `position: fixed` to stay in the viewport; the
+ * scrim's hole is a document rect, so it is re-cut on scroll as well.
  */
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -39,7 +40,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 		);
 		return;
 	}
+	/* A stale instance can outlive its host element (the mount flag is per
+	 * document, its listeners are not), so retire it before taking over. */
+	if ( typeof window.__studioInspectorDispose === 'function' ) {
+		window.__studioInspectorDispose();
+	}
 	window.__studioInspectorMounted = true;
+	const teardown = new AbortController();
 
 	const BRIDGE_PREFIX = '` +
 	INSPECTOR_BRIDGE_PREFIX +
@@ -62,11 +69,36 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent || '' );
 	}
 
+	function isTextEntryTarget( el ) {
+		if ( ! el || el.nodeType !== 1 ) return false;
+		if ( el.isContentEditable ) return true;
+		const tag = el.tagName.toLowerCase();
+		return tag === 'input' || tag === 'textarea' || tag === 'select';
+	}
+
 	function getBrowserShortcutCommand( event ) {
-		if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) return null;
-		const hasPrimaryModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+		if ( event.defaultPrevented || event.repeat ) return null;
+		const apple = isApplePlatform();
+		if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+			/* Layout-independent back/forward aliases: the bracket chords need
+			 * Option/AltGr on many European layouts. Skipped while editing text
+			 * to keep native caret movement. */
+			const hasNavModifier = apple
+				? event.metaKey && ! event.ctrlKey && ! event.altKey
+				: event.altKey && ! event.ctrlKey && ! event.metaKey;
+			if ( ! hasNavModifier || event.shiftKey || isTextEntryTarget( event.target ) ) return null;
+			return event.key === 'ArrowLeft' ? 'back' : 'forward';
+		}
+		if ( event.altKey ) return null;
+		const hasPrimaryModifier = apple ? event.metaKey : event.ctrlKey;
 		if ( ! hasPrimaryModifier ) return null;
 		const key = event.key.toLowerCase();
+		/* The host owns full preview, but in that mode this page covers most of
+		 * the window — so the chord is caught here and forwarded back. */
+		if ( event.shiftKey ) {
+			if ( key === 'f' ) return 'full-preview';
+			return key === 'r' ? 'reload' : null;
+		}
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
 		if ( key === ']' ) return 'forward';
@@ -154,6 +186,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 	document.body.appendChild( host );
 	const root = host.attachShadow( { mode: 'open' } );
 
+	window.__studioInspectorDispose = () => {
+		teardown.abort();
+		host.remove();
+		delete window.__studioInspectorMounted;
+		delete window.__studioInspectorDispose;
+	};
+
 	const style = document.createElement( 'style' );
 	style.textContent = ` +
 	'`' +
@@ -162,14 +201,23 @@ export const INSPECTOR_PAGE_SCRIPT =
 		* { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 		.highlight {
 			position: absolute; pointer-events: none;
-			border: 2px solid #2563eb;
-			background: rgba(37,99,235,0.1);
+			border: 2px solid #7c3aed;
+			background: rgba(124,58,237,0.12);
 			border-radius: 2px;
+			z-index: 2;
+		}
+		/* Four viewport-fixed panels around the element being annotated,
+		   so the rest of the page dims and the selection reads as isolated.
+		   Sits above the markers, below the highlight and popup. */
+		.scrim {
+			position: fixed; pointer-events: none;
+			background: rgba(0,0,0,0.52);
+			z-index: 1;
 		}
 		.marker {
 			position: absolute; pointer-events: auto; cursor: pointer;
 			width: 22px; height: 22px;
-			background: #2563eb; color: #fff;
+			background: #7c3aed; color: #fff;
 			border: 2px solid #fff;
 			border-radius: 50%;
 			box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -177,8 +225,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 			display: inline-flex; align-items: center; justify-content: center;
 			transform: translate(-50%, -50%);
 		}
+		.marker.otherViewport { opacity: 0.55; border-style: dashed; }
 		.popup {
-			position: fixed; width: 320px;
+			position: fixed; width: min(320px, calc(100vw - 16px)); z-index: 3;
 			background: #1a1a1a; color: #fff;
 			border-radius: 12px;
 			box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
@@ -187,20 +236,50 @@ export const INSPECTOR_PAGE_SCRIPT =
 			display: flex; flex-direction: column; gap: 8px;
 		}
 		.popup .target {
+			display: flex; align-items: center; justify-content: space-between; gap: 8px;
 			font-size: 11px; color: rgba(255,255,255,0.5);
-			overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+			cursor: grab; user-select: none;
 		}
+		.popup .target.dragging { cursor: grabbing; }
+		.popup .target .element {
+			flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		}
+		.popup .layers {
+			display: inline-flex; align-items: center; flex: none; gap: 2px;
+			padding: 1px;
+			border: 1px solid rgba(255,255,255,0.14);
+			border-radius: 7px;
+		}
+		.popup .layers button {
+			width: 18px; height: 18px; padding: 0 0 2px; border-radius: 5px;
+			display: inline-flex; align-items: center; justify-content: center;
+			background: transparent; color: rgba(255,255,255,0.6);
+			font-size: 15px; line-height: 1;
+		}
+		.popup .layers button:hover:not([disabled]) { background: rgba(255,255,255,0.1); color: #fff; }
+		.popup .layers button[disabled] { opacity: 0.35; cursor: default; }
+		.popup .layers .count {
+			min-width: 24px; text-align: center; font-size: 10px;
+			color: rgba(255,255,255,0.5);
+		}
+		.popup .target .element code {
+			font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgba(255,255,255,0.7);
+		}
+		.popup .target .viewport { flex: 0 0 auto; white-space: nowrap; }
 		.popup textarea {
 			width: 100%; min-height: 72px; resize: vertical;
 			background: rgba(255,255,255,0.05); color: #fff;
 			border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
 			padding: 8px; font: 13px/1.4 inherit; outline: none;
 		}
-		.popup textarea:focus { border-color: #2563eb; }
-		.popup .actions { display: flex; justify-content: flex-end; gap: 6px; }
+		.popup textarea:focus { border-color: #7c3aed; }
+		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
+		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
+		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
+		   second line instead of the row overflowing visibly. */
 		.popup button {
-			padding: 6px 12px; border-radius: 16px; border: none;
-			font: 600 12px/1 inherit; cursor: pointer;
+			padding: 6px 8px; border-radius: 16px; border: none;
+			font: 600 11px/1 inherit; white-space: nowrap; cursor: pointer;
 		}
 		.popup .delete { background: transparent; color: rgba(255,255,255,0.5); margin-right: auto; }
 		.popup .delete:hover { color: #ef4444; }
@@ -208,6 +287,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
+		.popup .submit { background: #7c3aed; color: #fff; }
+		.popup .submit:hover:not([disabled]) { background: #6d28d9; }
+		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
 	` +
 	'`' +
 	String.raw`;
@@ -224,11 +306,65 @@ export const INSPECTOR_PAGE_SCRIPT =
 		: [];
 
 	const markerNodes = new Map(); /* id -> marker element */
+	const scrimNodes = [];
 	let highlightNode = null;
+	let highlightEl = null;
 	let popupNode = null;
+	let scrollLock = null;
+
+	/* Lock page scrolling while a note is open so the highlight and popup
+	 * stay put over the element being described. */
+	function syncScrollLock() {
+		if ( activePopup && ! scrollLock ) {
+			scrollLock = {
+				documentOverflow: document.documentElement.style.overflow,
+				bodyOverflow: document.body.style.overflow,
+			};
+			document.documentElement.style.overflow = 'hidden';
+			document.body.style.overflow = 'hidden';
+		} else if ( ! activePopup && scrollLock ) {
+			document.documentElement.style.overflow = scrollLock.documentOverflow;
+			document.body.style.overflow = scrollLock.bodyOverflow;
+			scrollLock = null;
+		}
+	}
+	teardown.signal.addEventListener( 'abort', () => {
+		activePopup = null;
+		syncScrollLock();
+	} );
+
+	/* Width of the viewport a note was made in vs. now. Beyond this the pin
+	 * is drawn muted so it reads as "from another viewport". */
+	const OTHER_VIEWPORT_TOLERANCE = 48;
+
+	function resolveAnnotationElement( ann ) {
+		if ( ! ann || ! ann.selector ) return null;
+		try {
+			return document.querySelector( ann.selector );
+		} catch {
+			return null;
+		}
+	}
+
+	function positionMarker( marker, ann ) {
+		/* Re-measure from the live element when it can be found: the page
+		 * reflows when the viewport changes, and a rect captured at save
+		 * time would leave the pin stranded. Fall back to the saved rect. */
+		const el = resolveAnnotationElement( ann );
+		const box = el
+			? documentRect( el )
+			: ann.documentRect || ann.boundingBox || { left: 0, top: 0, width: 0, height: 0 };
+		marker.style.left = box.left + box.width + 'px';
+		marker.style.top = box.top + 'px';
+		const madeAt = ann.viewport && ann.viewport.width;
+		const other = !! madeAt && Math.abs( madeAt - window.innerWidth ) > OTHER_VIEWPORT_TOLERANCE;
+		marker.classList.toggle( 'otherViewport', other );
+		marker.title = other ? ann.comment + ' (' + madeAt + 'px wide)' : ann.comment;
+	}
 
 	function persistAnnotations() {
 		window.__studioInspectorState = annotations;
+		send( { type: 'annotations-updated', annotations: annotations.slice() } );
 	}
 
 	function sendState() {
@@ -236,10 +372,12 @@ export const INSPECTOR_PAGE_SCRIPT =
 			type: 'state',
 			isPicking,
 			annotationCount: annotations.length,
+			hasUnsavedDraft: hasDraft(),
 		} );
 	}
 
 	function syncMarkers() {
+		const currentPath = window.location.pathname + window.location.search;
 		const ids = new Set( annotations.map( ( a ) => a.id ) );
 		for ( const [ id, marker ] of markerNodes ) {
 			if ( ! ids.has( id ) ) {
@@ -248,7 +386,18 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 		}
 		annotations.forEach( ( ann, idx ) => {
+			/* Only render markers for annotations made on the current page.
+			 * Annotations from other pages are preserved for submission but
+			 * their document-coordinate positions would be meaningless here. */
+			const onCurrentPage = ! ann.path || ann.path === currentPath;
 			let marker = markerNodes.get( ann.id );
+			if ( ! onCurrentPage ) {
+				if ( marker ) {
+					marker.remove();
+					markerNodes.delete( ann.id );
+				}
+				return;
+			}
 			if ( ! marker ) {
 				marker = document.createElement( 'div' );
 				marker.className = 'marker';
@@ -257,34 +406,122 @@ export const INSPECTOR_PAGE_SCRIPT =
 					const current = annotations.find( ( a ) => a.id === ann.id );
 					if ( current ) openPopupForAnnotation( current );
 				} );
-				/* Use the document-coord rect captured at save time so the
-				 * marker's position is fixed in document space and scrolls
-				 * with the page. No per-scroll repositioning needed. */
-				const box = ann.documentRect || ann.boundingBox || { left: 0, top: 0, width: 0, height: 0 };
-				marker.style.left = ( box.left + box.width ) + 'px';
-				marker.style.top = box.top + 'px';
 				root.appendChild( marker );
 				markerNodes.set( ann.id, marker );
 			}
 			marker.textContent = String( idx + 1 );
-			marker.title = ann.comment;
+			positionMarker( marker, ann );
 		} );
+	}
+
+	/* Markers and the highlight live in document coordinates, which follow
+	 * scrolling for free but not reflow. Re-measure everything after the
+	 * viewport changes (responsive presets, pane resizes) so pins stay on
+	 * their elements and a highlight sized for a wide layout can't stretch
+	 * a narrow one. */
+	let relayoutFrame = 0;
+	function relayout() {
+		if ( relayoutFrame ) return;
+		relayoutFrame = requestAnimationFrame( () => {
+			relayoutFrame = 0;
+			annotations.forEach( ( ann ) => {
+				const marker = markerNodes.get( ann.id );
+				if ( marker ) positionMarker( marker, ann );
+			} );
+			if ( highlightNode ) {
+				placeHighlight( highlightRect() );
+			}
+			if ( popupNode && activePopup ) {
+				positionPopup( popupNode, activePopup );
+			}
+			syncScrim();
+		} );
+	}
+	window.addEventListener( 'resize', relayout, { signal: teardown.signal } );
+	/* The scrim is viewport-fixed while its hole is a document rect, so it
+	 * has to be re-cut on every scroll, not just on reflow. */
+	window.addEventListener( 'scroll', syncScrim, { capture: true, signal: teardown.signal } );
+	const reflowObserver =
+		typeof ResizeObserver === 'function' ? new ResizeObserver( relayout ) : null;
+	if ( reflowObserver ) reflowObserver.observe( document.documentElement );
+	teardown.signal.addEventListener( 'abort', () => {
+		if ( reflowObserver ) reflowObserver.disconnect();
+		if ( relayoutFrame ) cancelAnimationFrame( relayoutFrame );
+	} );
+
+	function placeHighlight( r ) {
+		if ( ! r ) return;
+		highlightNode.style.left = r.left + 'px';
+		highlightNode.style.top = r.top + 'px';
+		highlightNode.style.width = r.width + 'px';
+		highlightNode.style.height = r.height + 'px';
+	}
+
+	/* While a note is open the outline tracks the popup's target (which the
+	 * layer picker can change); otherwise it follows the hovered element. */
+	function highlightRect() {
+		if ( activePopup ) return resolveTargetRect( activePopup.target );
+		return highlightEl ? documentRect( highlightEl ) : null;
 	}
 
 	function showHighlight( el ) {
 		if ( highlightNode ) {
 			highlightNode.remove();
 			highlightNode = null;
+			highlightEl = null;
 		}
-		if ( ! el || ! isPicking ) return;
-		const r = documentRect( el );
+		if ( ! isPicking ) return;
+		highlightEl = el;
+		const rect = highlightRect();
+		if ( ! rect ) return;
 		highlightNode = document.createElement( 'div' );
 		highlightNode.className = 'highlight';
-		highlightNode.style.left = r.left + 'px';
-		highlightNode.style.top = r.top + 'px';
-		highlightNode.style.width = r.width + 'px';
-		highlightNode.style.height = r.height + 'px';
+		placeHighlight( rect );
 		root.appendChild( highlightNode );
+	}
+
+	function resolveTargetRect( target ) {
+		let el = null;
+		try {
+			el = target.selector ? document.querySelector( target.selector ) : null;
+		} catch {}
+		return el ? documentRect( el ) : target.documentRect || target.boundingBox || null;
+	}
+
+	function syncScrim() {
+		const rect = activePopup ? resolveTargetRect( activePopup.target ) : null;
+		/* A saved note whose element is gone falls back to the rect captured at
+		 * save time, which can be empty. Cutting a zero-size hole would dim the
+		 * whole page with nothing left clear, so skip the scrim instead. */
+		if ( ! rect || rect.width <= 0 || rect.height <= 0 ) {
+			scrimNodes.splice( 0 ).forEach( ( node ) => node.remove() );
+			return;
+		}
+		while ( scrimNodes.length < 4 ) {
+			const node = document.createElement( 'div' );
+			node.className = 'scrim';
+			root.appendChild( node );
+			scrimNodes.push( node );
+		}
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const left = Math.min( vw, Math.max( 0, rect.left - window.scrollX ) );
+		const top = Math.min( vh, Math.max( 0, rect.top - window.scrollY ) );
+		const right = Math.min( vw, Math.max( left, rect.left + rect.width - window.scrollX ) );
+		const bottom = Math.min( vh, Math.max( top, rect.top + rect.height - window.scrollY ) );
+		const panels = [
+			{ left: 0, top: 0, width: vw, height: top },
+			{ left: 0, top: bottom, width: vw, height: vh - bottom },
+			{ left: 0, top, width: left, height: bottom - top },
+			{ left: right, top, width: vw - right, height: bottom - top },
+		];
+		scrimNodes.forEach( ( node, index ) => {
+			const panel = panels[ index ];
+			node.style.left = panel.left + 'px';
+			node.style.top = panel.top + 'px';
+			node.style.width = panel.width + 'px';
+			node.style.height = panel.height + 'px';
+		} );
 	}
 
 	function showPopup() {
@@ -299,7 +536,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function render() {
+		syncScrollLock();
 		syncMarkers();
+		syncScrim();
 		showHighlight( hoveredEl );
 		showPopup();
 		sendState();
@@ -313,13 +552,57 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
+	function commitActivePopup() {
+		if ( ! activePopup ) return true;
+		const state = activePopup;
+		const trimmed = ( state.comment || '' ).trim();
+		if ( ! trimmed ) return false;
+		if ( state.id ) {
+			annotations = annotations.map( ( annotation ) =>
+				annotation.id === state.id
+					? Object.assign( {}, annotation, { comment: trimmed, updatedAt: Date.now() } )
+					: annotation
+			);
+		} else {
+			annotations = annotations.concat( [
+				{
+					id: uid(),
+					comment: trimmed,
+					selector: state.target.selector,
+					tag: state.target.tag,
+					classes: state.target.classes,
+					nearbyText: state.target.nearbyText,
+					boundingBox: state.target.boundingBox,
+					documentRect: state.target.documentRect,
+					computedStyles: state.target.computedStyles,
+					viewport: { width: window.innerWidth, height: window.innerHeight },
+					path: window.location.pathname + window.location.search,
+					url: window.location.href,
+					timestamp: Date.now(),
+				},
+			] );
+		}
+		persistAnnotations();
+		return true;
+	}
+
+	function hasDraft() {
+		return !! ( activePopup && ( activePopup.comment || '' ).trim() );
+	}
+
 	function submitAnnotations() {
-		if ( annotations.length === 0 ) {
+		if ( annotations.length === 0 && ! hasDraft() ) {
 			sendState();
 			return;
 		}
-		const sent = annotations.slice();
-		send( { type: 'done', annotations: sent } );
+		/* An untouched popup is a draft the user never filled in — drop it
+		 * rather than blocking the notes they did save. */
+		if ( hasDraft() ) {
+			commitActivePopup();
+		} else {
+			activePopup = null;
+		}
+		send( { type: 'done', annotations: annotations.slice() } );
 		annotations = [];
 		activePopup = null;
 		isPicking = false;
@@ -328,66 +611,131 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
-	window.addEventListener( COMMAND_EVENT, ( event ) => {
-		const command = event.detail || {};
-		if ( command.type === 'toggle-picking' ) {
-			togglePicking();
+	function cancelAnnotations() {
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
+	window.addEventListener(
+		COMMAND_EVENT,
+		( event ) => {
+			const command = event.detail || {};
+			if ( command.type === 'cancel' ) {
+				cancelAnnotations();
+				return;
+			}
+			if ( command.type === 'toggle-picking' ) {
+				togglePicking();
+				return;
+			}
+			if ( command.type === 'submit' ) {
+				submitAnnotations();
+				return;
+			}
+			if ( command.type === 'report-state' ) {
+				sendState();
+			}
+		},
+		{ signal: teardown.signal }
+	);
+
+	function popupWidth( popup ) {
+		return popup.offsetWidth || Math.min( 320, window.innerWidth - 16 );
+	}
+
+	function clampToViewport( popup, pos ) {
+		const height = popup.offsetHeight || 200;
+		return {
+			left: Math.min(
+				Math.max( 8, pos.left ),
+				Math.max( 8, window.innerWidth - popupWidth( popup ) - 8 )
+			),
+			top: Math.min( Math.max( 8, pos.top ), Math.max( 8, window.innerHeight - height - 8 ) ),
+		};
+	}
+
+	function applyPosition( popup, pos ) {
+		popup.style.left = pos.left + 'px';
+		popup.style.top = pos.top + 'px';
+		popup.style.transform = '';
+	}
+
+	/* Position the popup in viewport coords (it's \`position: fixed\`). Re-run
+	 * on relayout. \`popupPosition\` is set only by a drag and holds the spot
+	 * the user chose: it is clamped for display, so a pane that shrinks can't
+	 * strand the note out of reach, but kept unclamped so widening the pane
+	 * gives the note back. Any other note anchors under its element, or
+	 * centers if the element can't be located. */
+	function positionPopup( popup, state ) {
+		if ( state.popupPosition ) {
+			applyPosition( popup, clampToViewport( popup, state.popupPosition ) );
 			return;
 		}
-		if ( command.type === 'submit' ) {
-			submitAnnotations();
+		const el = resolveAnnotationElement( state.target );
+		if ( ! el ) {
+			popup.style.left = '50%';
+			popup.style.top = '50%';
+			popup.style.transform = 'translate(-50%, -50%)';
 			return;
 		}
-		if ( command.type === 'report-state' ) {
-			sendState();
+		const r = el.getBoundingClientRect();
+		const gap = 12;
+		let top = r.bottom + gap;
+		if ( top + 200 > window.innerHeight ) {
+			top = r.top - 200 - gap;
 		}
-	} );
+		applyPosition(
+			popup,
+			clampToViewport( popup, { left: r.left + r.width / 2 - popupWidth( popup ) / 2, top } )
+		);
+	}
 
 	function buildPopup( state ) {
 		const popup = document.createElement( 'div' );
 		popup.className = 'popup';
 
-		/* Position the popup near the element using viewport coords (it's
-		 * \`position: fixed\` so it stays in the viewport). Falls back to
-		 * centre if the element can't be located. */
-		let el = null;
-		try {
-			el = state.target.selector ? document.querySelector( state.target.selector ) : null;
-		} catch {}
-		if ( el ) {
-			const r = el.getBoundingClientRect();
-			const popupWidth = 320;
-			const gap = 12;
-			const left = Math.min(
-				Math.max( 8, r.left + r.width / 2 - popupWidth / 2 ),
-				window.innerWidth - popupWidth - 8
-			);
-			let top = r.bottom + gap;
-			if ( top + 200 > window.innerHeight ) {
-				top = Math.max( 8, r.top - 200 - gap );
-			}
-			popup.style.left = left + 'px';
-			popup.style.top = top + 'px';
-		} else {
-			popup.style.left = '50%';
-			popup.style.top = '50%';
-			popup.style.transform = 'translate(-50%, -50%)';
-		}
+		positionPopup( popup, state );
 
 		const target = document.createElement( 'div' );
 		target.className = 'target';
-		target.textContent =
-			state.target.tag +
-			( state.target.nearbyText ? ' — ' + state.target.nearbyText : '' );
+		makeDraggable( popup, target, state );
+		const element = document.createElement( 'span' );
+		element.className = 'element';
+		const tagCode = document.createElement( 'code' );
+		const classes = state.target.classes || [];
+		tagCode.textContent = '<' + state.target.tag + '>';
+		/* Class lists are often long; keep the line for the content and show
+		 * the full opening tag on hover instead. */
+		tagCode.title =
+			'<' + state.target.tag + ( classes.length ? ' class="' + classes.join( ' ' ) + '"' : '' ) + '>';
+		element.appendChild( tagCode );
+		if ( state.target.nearbyText ) {
+			element.appendChild( document.createTextNode( ' ' + state.target.nearbyText ) );
+		}
+		element.title = state.target.nearbyText || '';
+		target.appendChild( element );
+
+		/* A saved note keeps the viewport it was made in; a new one reports
+		 * the current one, which is what gets stamped on save. */
+		const vp = state.viewport || { width: window.innerWidth, height: window.innerHeight };
+		const viewportSpan = document.createElement( 'span' );
+		viewportSpan.className = 'viewport';
+		viewportSpan.textContent = vp.width + '×' + vp.height;
+		viewportSpan.title = 'Viewport when annotated';
+		target.appendChild( viewportSpan );
+		if ( state.layers && state.layers.length > 1 ) {
+			target.appendChild( buildLayerControls( state ) );
+		}
 		popup.appendChild( target );
 
+		state.comment = state.comment || '';
 		const ta = document.createElement( 'textarea' );
 		ta.placeholder = 'What should change about this element?';
-		ta.value = state.comment || '';
-		ta.addEventListener( 'input', () => {
-			state.comment = ta.value;
-			save.disabled = ! state.comment.trim();
-		} );
+		ta.value = state.comment;
 		popup.appendChild( ta );
 		setTimeout( () => ta.focus(), 0 );
 
@@ -409,12 +757,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const closePopup = () => {
 			activePopup = null;
-			/* Picking does NOT auto-resume after save/cancel. Auto-resume was
-			 * convenient for chaining annotations but it silently blocks every
-			 * link click in the page (the picking handler calls
-			 * preventDefault), making the preview feel broken. The user
-			 * re-enters picking mode via the Annotate button. */
-			isPicking = false;
 			hoveredEl = null;
 			persistAnnotations();
 			render();
@@ -429,36 +771,47 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const save = document.createElement( 'button' );
 		save.className = 'save';
 		save.textContent = state.id ? 'Update' : 'Save';
-		save.disabled = ! ( state.comment && state.comment.trim() );
 		save.addEventListener( 'click', () => {
-			const trimmed = ( state.comment || '' ).trim();
-			if ( ! trimmed ) return;
-			if ( state.id ) {
-				annotations = annotations.map( ( a ) =>
-					a.id === state.id
-						? Object.assign( {}, a, { comment: trimmed, updatedAt: Date.now() } )
-						: a
-				);
-			} else {
-				annotations = annotations.concat( [
-					{
-						id: uid(),
-						comment: trimmed,
-						selector: state.target.selector,
-						tag: state.target.tag,
-						nearbyText: state.target.nearbyText,
-						boundingBox: state.target.boundingBox,
-						documentRect: state.target.documentRect,
-						computedStyles: state.target.computedStyles,
-						pathname: window.location.pathname,
-						url: window.location.href,
-						timestamp: Date.now(),
-					},
-				] );
-			}
+			if ( ! commitActivePopup() ) return;
 			closePopup();
 		} );
 		actions.appendChild( save );
+
+		const submit = document.createElement( 'button' );
+		submit.className = 'submit';
+		submit.textContent = 'Send to chat';
+		submit.addEventListener( 'click', submitAnnotations );
+		actions.appendChild( submit );
+
+		function syncActions() {
+			save.disabled = ! state.comment.trim();
+			/* Sending stays available while notes are already saved, even if
+			 * this popup is an untouched draft — submit discards it. */
+			submit.disabled = save.disabled && annotations.length === 0;
+		}
+		syncActions();
+
+		ta.addEventListener( 'input', () => {
+			state.comment = ta.value;
+			syncActions();
+			sendState();
+		} );
+		ta.addEventListener( 'keydown', ( event ) => {
+			if ( event.key !== 'Enter' || event.isComposing || event.keyCode === 229 ) return;
+			if ( event.metaKey || event.ctrlKey ) {
+				event.preventDefault();
+				const start = ta.selectionStart;
+				const end = ta.selectionEnd;
+				ta.value = ta.value.slice( 0, start ) + '\n' + ta.value.slice( end );
+				state.comment = ta.value;
+				ta.setSelectionRange( start + 1, start + 1 );
+				syncActions();
+				return;
+			}
+			if ( event.shiftKey ) return;
+			event.preventDefault();
+			save.click();
+		} );
 
 		popup.appendChild( actions );
 
@@ -468,15 +821,126 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return popup;
 	}
 
+	/* ‹ 2/5 › — step through the elements stacked under the click point.
+	 * Changing the target re-renders the popup, which keeps its comment;
+	 * the outline, scrim hole and element line move to the chosen layer.
+	 * ‹ walks toward the front of the stack and › deeper into it, so the
+	 * counter reads left to right. The ends don't wrap: wrapping would jump
+	 * from the frontmost element to the backmost while the button says
+	 * "in front of this one". */
+	function buildLayerControls( state ) {
+		const controls = document.createElement( 'span' );
+		controls.className = 'layers';
+		const total = state.layers.length;
+		const change = ( offset ) => {
+			const index = state.targetIndex + offset;
+			if ( index < 0 || index >= total ) return;
+			state.targetIndex = index;
+			state.target = targetAt( state, index );
+			render();
+		};
+		const front = document.createElement( 'button' );
+		front.type = 'button';
+		front.textContent = '‹';
+		front.title = 'Select the element in front of this one';
+		front.setAttribute( 'aria-label', front.title );
+		front.disabled = state.targetIndex <= 0;
+		front.addEventListener( 'click', () => change( -1 ) );
+		const count = document.createElement( 'span' );
+		count.className = 'count';
+		count.textContent = state.targetIndex + 1 + '/' + total;
+		const back = document.createElement( 'button' );
+		back.type = 'button';
+		back.textContent = '›';
+		back.title = 'Select the element behind this one';
+		back.setAttribute( 'aria-label', back.title );
+		back.disabled = state.targetIndex >= total - 1;
+		back.addEventListener( 'click', () => change( 1 ) );
+		controls.append( front, count, back );
+		return controls;
+	}
+
+	/* Drag the popup by its target row. Movement is applied as a transform
+	 * during the drag and folded into the stored position on release, so a
+	 * re-render mid-drag can't snap it back. */
+	function makeDraggable( popup, handle, state ) {
+		handle.addEventListener( 'mousedown', ( event ) => {
+			if ( event.button !== 0 || event.target.closest( 'button' ) ) return;
+			event.preventDefault();
+			/* Start from where the popup actually sits: an anchored note has no
+			 * stored position, and a dragged one may be rendered clamped. */
+			const origin = popup.getBoundingClientRect();
+			const startX = event.clientX;
+			const startY = event.clientY;
+			const startLeft = origin.left;
+			const startTop = origin.top;
+			let next = { left: startLeft, top: startTop };
+			let frame = null;
+			let didDrag = false;
+			handle.classList.add( 'dragging' );
+			const move = ( e ) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if ( Math.abs( e.clientX - startX ) > 2 || Math.abs( e.clientY - startY ) > 2 ) {
+					didDrag = true;
+				}
+				next = clampToViewport( popup, {
+					left: startLeft + e.clientX - startX,
+					top: startTop + e.clientY - startY,
+				} );
+				if ( frame !== null ) return;
+				frame = requestAnimationFrame( () => {
+					frame = null;
+					popup.style.transform =
+						'translate(' + ( next.left - startLeft ) + 'px, ' + ( next.top - startTop ) + 'px)';
+				} );
+			};
+			const stop = () => {
+				if ( frame !== null ) cancelAnimationFrame( frame );
+				frame = null;
+				handle.classList.remove( 'dragging' );
+				window.removeEventListener( 'mousemove', move, true );
+				window.removeEventListener( 'mouseup', stop, true );
+				window.removeEventListener( 'blur', stop, true );
+				/* A click on the header is not a move: leave the note anchored. */
+				if ( ! didDrag ) {
+					popup.style.transform = '';
+					return;
+				}
+				state.popupPosition = next;
+				applyPosition( popup, next );
+				/* Swallow the click that ends the drag so the page (and our
+				 * own picker) doesn't treat it as a selection. */
+				const suppress = ( e ) => {
+					e.preventDefault();
+					e.stopPropagation();
+				};
+				window.addEventListener( 'click', suppress, {
+					capture: true,
+					once: true,
+					signal: teardown.signal,
+				} );
+				setTimeout( () => window.removeEventListener( 'click', suppress, true ), 0 );
+			};
+			window.addEventListener( 'mousemove', move, true );
+			window.addEventListener( 'mouseup', stop, true );
+			window.addEventListener( 'blur', stop, true );
+		} );
+	}
+
+	/* Editing an existing note leaves picking mode alone: markers stay
+	 * clickable when picking is off, and silently switching it on would
+	 * swallow every subsequent link click in the page. */
 	function openPopupForAnnotation( ann ) {
-		isPicking = false;
 		hoveredEl = null;
 		activePopup = {
 			id: ann.id,
 			comment: ann.comment,
+			viewport: ann.viewport,
 			target: {
 				selector: ann.selector,
 				tag: ann.tag,
+				classes: ann.classes,
 				nearbyText: ann.nearbyText,
 				boundingBox: ann.boundingBox,
 				documentRect: ann.documentRect,
@@ -487,21 +951,92 @@ export const INSPECTOR_PAGE_SCRIPT =
 		render();
 	}
 
-	function openPopupForElement( el ) {
+	function targetForElement( el ) {
 		const viewport = el.getBoundingClientRect();
-		isPicking = false;
+		return {
+			selector: buildSelector( el ),
+			tag: el.tagName.toLowerCase(),
+			classes: Array.from( el.classList || [] ).filter( ( c ) => ! c.startsWith( '__studio-' ) ),
+			nearbyText: nearbyText( el ),
+			boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
+			documentRect: documentRect( el ),
+			computedStyles: pickComputedStyles( el ),
+		};
+	}
+
+	/* Everything stacked under the click point, front to back: the hit
+	 * element, then the rest of the hit-test stack, then (bounded) any other
+	 * element whose box contains the point — this catches things behind a
+	 * pointer-events:none overlay or a full-bleed wrapper. */
+	function elementsAtPoint( initial, clientX, clientY ) {
+		const MAX_CANDIDATES = 30;
+		const MAX_FALLBACK_ELEMENTS = 5000;
+		const MAX_FALLBACK_MS = 20;
+		const candidates = [];
+		const seen = new Set();
+		const add = ( el ) => {
+			if ( candidates.length >= MAX_CANDIDATES || ! el || seen.has( el ) || isOurElement( el ) )
+				return;
+			if ( el === document.documentElement || el === document.body ) return;
+			const rect = el.getBoundingClientRect();
+			if ( rect.width <= 0 || rect.height <= 0 ) return;
+			const style = window.getComputedStyle( el );
+			if ( style.display === 'none' || style.visibility === 'hidden' ) return;
+			seen.add( el );
+			candidates.push( el );
+		};
+		add( initial );
+		if ( typeof document.elementsFromPoint === 'function' ) {
+			document.elementsFromPoint( clientX, clientY ).forEach( add );
+		}
+		const behind = [];
+		const startedAt = performance.now();
+		let scanned = 0;
+		for ( const el of document.querySelectorAll( 'body *' ) ) {
+			scanned += 1;
+			if (
+				scanned > MAX_FALLBACK_ELEMENTS ||
+				( scanned % 50 === 0 && performance.now() - startedAt > MAX_FALLBACK_MS )
+			) {
+				break;
+			}
+			if ( seen.has( el ) || isOurElement( el ) ) continue;
+			const rect = el.getBoundingClientRect();
+			if (
+				rect.width > 0 &&
+				rect.height > 0 &&
+				clientX >= rect.left &&
+				clientX <= rect.right &&
+				clientY >= rect.top &&
+				clientY <= rect.bottom
+			) {
+				behind.push( { el, area: rect.width * rect.height } );
+			}
+		}
+		behind.sort( ( a, b ) => a.area - b.area ).forEach( ( item ) => add( item.el ) );
+		return candidates;
+	}
+
+	/* Describing an element is expensive — \`nearbyText\` reads \`innerText\`,
+	 * which forces layout over the whole subtree — and the stack can hold
+	 * 30 of them, so only the layer actually on screen is ever built. */
+	function targetAt( state, index ) {
+		if ( ! state.targetCache[ index ] ) {
+			state.targetCache[ index ] = targetForElement( state.layers[ index ] );
+		}
+		return state.targetCache[ index ];
+	}
+
+	function openPopupForElement( el, clientX, clientY ) {
+		const elements = elementsAtPoint( el, clientX, clientY );
 		activePopup = {
 			fromPicker: true,
 			comment: '',
-			target: {
-				selector: buildSelector( el ),
-				tag: el.tagName.toLowerCase(),
-				nearbyText: nearbyText( el ),
-				boundingBox: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
-				documentRect: documentRect( el ),
-				computedStyles: pickComputedStyles( el ),
-			},
+			layers: elements.length ? elements : [ el ],
+			targetCache: [],
+			targetIndex: 0,
 		};
+		activePopup.target = targetAt( activePopup, 0 );
 		persistAnnotations();
 		render();
 	}
@@ -513,13 +1048,11 @@ export const INSPECTOR_PAGE_SCRIPT =
 	/* ------------------------------------------------------------------
 	 * Picking interactions. Only the highlight is updated on mousemove —
 	 * markers are document-anchored and don't move with mouse position.
-	 * No scroll/resize listeners: markers and highlight live in document
-	 * coordinates and follow the page naturally.
 	 * ---------------------------------------------------------------- */
 	document.addEventListener(
 		'mousemove',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) {
 				if ( hoveredEl !== null ) {
 					hoveredEl = null;
@@ -532,19 +1065,19 @@ export const INSPECTOR_PAGE_SCRIPT =
 				showHighlight( hoveredEl );
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
 		'click',
 		( e ) => {
-			if ( ! isPicking ) return;
+			if ( ! isPicking || activePopup ) return;
 			if ( isOurElement( e.target ) ) return;
 			e.preventDefault();
 			e.stopPropagation();
-			openPopupForElement( e.target );
+			openPopupForElement( e.target, e.clientX, e.clientY );
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	document.addEventListener(
@@ -559,17 +1092,19 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 			if ( e.key !== 'Escape' ) return;
 			if ( activePopup ) {
+				e.preventDefault();
+				e.stopPropagation();
 				activePopup = null;
 				persistAnnotations();
+				sendState();
 				render();
 			} else if ( isPicking ) {
-				isPicking = false;
-				hoveredEl = null;
-				persistAnnotations();
-				render();
+				e.preventDefault();
+				e.stopPropagation();
+				send( { type: 'cancel-requested' } );
 			}
 		},
-		true
+		{ capture: true, signal: teardown.signal }
 	);
 
 	render();

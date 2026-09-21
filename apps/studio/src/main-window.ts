@@ -11,13 +11,17 @@ import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
+	AGENTIC_TITLEBAR_HEIGHT,
 	DEFAULT_WIDTH,
+	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
 	MAIN_MIN_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
+import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -31,21 +35,10 @@ import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
-type StudioUiMode = 'default' | 'agentic';
 
 interface RendererLocation {
 	url: string;
 	filePath?: string;
-}
-
-let agenticUiEnabled = false;
-
-export function setAgenticUiEnabled( enabled: boolean ): void {
-	agenticUiEnabled = enabled;
-}
-
-export function getPreferredStudioUiMode(): StudioUiMode {
-	return agenticUiEnabled ? 'agentic' : 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -100,6 +93,17 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 
 export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
 	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+	// Switching renderers changes the floor. Growing it (agentic → default)
+	// also widens a window that is already below the new minimum.
+	const minWidth = getMinWindowWidth();
+	window.setMinimumSize( minWidth, MAIN_MIN_HEIGHT );
+	const [ width, height ] = window.getSize();
+	if ( width < minWidth ) {
+		window.setSize( minWidth, height, true );
+	}
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
+	}
 }
 
 export function getCurrentRendererUrl(): string {
@@ -146,8 +150,14 @@ function initializePortFinder( sites: SiteDetails[] ) {
 	} );
 }
 
+// Each renderer has its own floor, so the window can't be dragged narrower
+// than whichever one is on screen.
+function getMinWindowWidth(): number {
+	return getPreferredStudioUiMode() === 'agentic' ? AGENTIC_MIN_WIDTH : MAIN_MIN_WIDTH;
+}
+
 function isValidWindowBounds( bounds: WindowBounds ): boolean {
-	if ( bounds.width < MAIN_MIN_WIDTH || bounds.height < MAIN_MIN_HEIGHT ) {
+	if ( bounds.width < getMinWindowWidth() || bounds.height < MAIN_MIN_HEIGHT ) {
 		return false;
 	}
 
@@ -177,7 +187,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
-		minWidth: MAIN_MIN_WIDTH,
+		minWidth: getMinWindowWidth(),
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
@@ -200,7 +210,24 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow = new BrowserWindow( windowOptions );
 
-	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+	if ( process.platform === 'win32' || process.platform === 'linux' ) {
+		const updateTitleBarOverlay = () => {
+			if ( mainWindow && ! mainWindow.isDestroyed() ) {
+				mainWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
+			}
+		};
+		nativeTheme.on( 'updated', updateTitleBarOverlay );
+		mainWindow.on( 'closed', () => nativeTheme.removeListener( 'updated', updateTitleBarOverlay ) );
+	}
+
+	const mainWebContents = mainWindow.webContents;
+	mainWebContents.on( 'before-input-event', ( event, input ) => {
+		const zoomCommand = getAppZoomCommand( input );
+		if ( zoomCommand ) {
+			event.preventDefault();
+			applyAppZoomCommand( mainWebContents, zoomCommand );
+			return;
+		}
 		if ( isToggleSidebarShortcut( input ) ) {
 			event.preventDefault();
 			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
@@ -214,12 +241,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
-	// Open the DevTools if the user had it open last time they used the app.
-	// During development the dev tools default to open.
-	void loadUserData().then( ( userData ) => {
-		setupDevTools( mainWindow, userData.devToolsOpen );
-		initializePortFinder( SiteServer.getAllDetails() );
-	} );
+	initializePortFinder( SiteServer.getAllDetails() );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateAppdata( { devToolsOpen: true } );
@@ -230,6 +252,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	} );
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
+		// Attaching DevTools before the first load commits leaves the sandboxed renderer without its
+		// preload script, so the UI boots to a blank screen with no `window.ipcApi`.
+		// Open the DevTools if the user had it open last time they used the app.
+		// During development the dev tools default to open.
+		setupDevTools( mainWindow, userData.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
@@ -275,6 +302,44 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
+// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
+export function getFrameTitleBarOverlayOptions() {
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#2f2f2f' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
+}
+
+export type WindowControlsSurface = 'chrome' | 'content';
+
+// The agentic UI's controls sit in the chrome gap above the content frame,
+// except while a full-window page (settings, site creation) covers that chrome.
+// Those two surfaces are opposite shades in light mode, so the renderer tells us
+// which one is showing; remembering it here keeps a later theme change from
+// repainting the controls for the wrong one.
+let agenticControlsSurface: WindowControlsSurface = 'chrome';
+
+export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
+	agenticControlsSurface = surface;
+}
+
+export function getTitleBarOverlayOptions() {
+	if ( getPreferredStudioUiMode() !== 'agentic' ) {
+		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
+	}
+	const isDark = nativeTheme.shouldUseDarkColors;
+	// Chrome is dark in both schemes; the content surface tracks
+	// `--wpds-color-background-surface-neutral`.
+	const onChrome = agenticControlsSurface === 'chrome';
+	return {
+		color: onChrome ? ( isDark ? '#161616' : '#1e1e1e' ) : isDark ? '#1e1e1e' : '#fcfcfc',
+		symbolColor: onChrome || isDark ? '#e0e0e0' : '#1e1e1e',
+		height: AGENTIC_TITLEBAR_HEIGHT,
+	};
+}
+
 function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	switch ( process.platform ) {
 		case 'darwin':
@@ -288,11 +353,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
-				titleBarOverlay: {
-					color: 'rgba(30, 30, 30, 1)',
-					symbolColor: 'white',
-					height: WINDOWS_TITLEBAR_HEIGHT,
-				},
+				titleBarOverlay: getTitleBarOverlayOptions(),
 				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
 			};
 
@@ -328,6 +389,25 @@ export function getMainWindow() {
 				console.error( 'Failed to create main window:', error );
 			} );
 	} );
+}
+
+/**
+ * Returns the existing main window if one is open and alive, or null.
+ * Unlike getMainWindow(), this never creates a new window.
+ */
+export function getExistingMainWindow(): BrowserWindow | null {
+	if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.webContents.isDestroyed() ) {
+		return mainWindow;
+	}
+	const windows = BrowserWindow.getAllWindows();
+	if ( windows.length > 0 ) {
+		const focused = BrowserWindow.getFocusedWindow();
+		const win = focused || windows[ 0 ];
+		if ( ! win.isDestroyed() && ! win.webContents.isDestroyed() ) {
+			return win;
+		}
+	}
+	return null;
 }
 
 /**

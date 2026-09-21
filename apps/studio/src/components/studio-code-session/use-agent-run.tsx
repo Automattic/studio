@@ -1,5 +1,15 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import {
+	getAgentEndFailure,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import {
+	formatOutOfCreditsNotice,
+	formatUsageCapNotice,
+} from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -14,6 +24,8 @@ import {
 } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch } from 'src/stores';
+import { wpcomApi } from 'src/stores/wpcom-api';
 import { SESSIONS_QUERY_KEY } from './use-session';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -36,7 +48,7 @@ function shortEntryId(): string {
 
 export interface PendingQuestion {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 }
 
 export interface QueuedPrompt {
@@ -84,6 +96,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	clearQuestionAnswer: ( question: string ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -129,6 +142,7 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
+	| { type: 'question_answer_cleared'; question: string }
 	| { type: 'batch_dispatched'; answers: Record< string, string > }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
@@ -175,12 +189,16 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition, and the answered-question map so picked
-			// options stay highlighted in history. Everything else resets.
+			// survive the transition, the answered-question map so picked
+			// options stay highlighted in history, and any turn error —
+			// `run.exited` lags the error event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
 				answeredQuestions: state.answeredQuestions,
+				error: state.error,
+				usageCapReached: state.usageCapReached,
 			};
 		case 'interrupt_requested':
 			return {
@@ -204,6 +222,10 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
+		case 'question_answer_cleared': {
+			const { [ action.question ]: _cleared, ...rest } = state.pendingAnswers;
+			return { ...state, pendingAnswers: rest };
+		}
 		case 'batch_dispatched':
 			return {
 				...state,
@@ -255,12 +277,14 @@ interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	clearQuestionAnswer: ( sessionId: string, question: string ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
 
 export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const queryClient = useQueryClient();
+	const storeDispatch = useAppDispatch();
 	const [ states, dispatch ] = useReducer( storeReducer, {} );
 	const statesRef = useRef< StatesBySession >( states );
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
@@ -349,13 +373,20 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				case 'error': {
 					const isUsageCap = isUsageCapError( event.message );
-					const message = isUsageCap
-						? __( 'You\u2019ve reached your AI usage limit. Try again later.' )
-						: event.message;
+					// Out of credits (STU-2236) rides the same non-blocking banner
+					// as the cap, with its own copy: buying credits is the fix, not
+					// waiting for the monthly reset.
+					const isOutOfCredits = isOutOfCreditsError( event.message );
+					let message = event.message;
+					if ( isOutOfCredits ) {
+						message = formatOutOfCreditsNotice();
+					} else if ( isUsageCap ) {
+						message = formatUsageCapNotice();
+					}
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',
 						message,
-						usageCapReached: isUsageCap,
+						usageCapReached: isUsageCap || isOutOfCredits,
 					} );
 					return;
 				}
@@ -384,14 +415,42 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					// The finished run consumed AI credits; refresh the balance shown
+					// in the composer and in Settings → Usage. Without this the
+					// cached quota keeps reporting the pre-run figure, so a run that
+					// ended by exhausting the credits leaves the composer in place
+					// until something else invalidates the tag — in practice, a
+					// restart.
+					storeDispatch( wpcomApi.util.invalidateTags( [ 'StudioAssistantQuota' ] ) );
 					// Refetch to replace optimistic entries with disk-backed ones.
 					void queryClient.invalidateQueries( {
 						queryKey: SESSIONS_QUERY_KEY,
 					} );
 					return;
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
@@ -423,22 +482,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								),
 							] );
 						}
+					} else if ( inner.type === 'tool_execution_update' ) {
+						const progress = getStudioToolProgress( inner.partialResult );
+						if ( progress?.message.trim() ) {
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								{
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.tool_progress',
+									data: { message: progress.message, toolCallId: inner.toolCallId },
+								} as SessionEntry,
+							] );
+						}
 					}
 					return;
 				}
-				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
-					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
@@ -464,7 +525,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 									parentId: null,
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
-									data: { question: q.question, options: q.options },
+									data: q,
 								} ) as SessionEntry
 						),
 					] );
@@ -475,7 +536,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		},
-		[ dispatchSession, queryClient, updateCache ]
+		[ dispatchSession, queryClient, storeDispatch, updateCache ]
 	);
 
 	useIpcListener( 'ai-agent-event', handleAgentEvent );
@@ -534,12 +595,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				const rawMessage = err instanceof Error ? err.message : String( err );
 				const isUsageCap = isUsageCapError( rawMessage );
-				const message = isUsageCap
-					? __(
-							'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
-					  )
-					: rawMessage;
-				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
+				const isOutOfCredits = isOutOfCreditsError( rawMessage );
+				let message = rawMessage;
+				if ( isOutOfCredits ) {
+					message = formatOutOfCreditsNotice();
+				} else if ( isUsageCap ) {
+					message = formatUsageCapNotice();
+				}
+				dispatchSession( sessionId, {
+					type: 'error_set',
+					message,
+					usageCapReached: isUsageCap || isOutOfCredits,
+				} );
 				throw err;
 			}
 		},
@@ -551,6 +618,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const state = statesRef.current[ sessionId ] ?? initialState;
 			if ( state.phase === 'idle' ) {
 				return;
+			}
+			// A run blocked on `ask_user` is killed mid-call, so settle the call
+			// first. Without a result the model treats the question UI as broken
+			// and falls back to prose for the rest of the session.
+			if ( state.runId && state.pendingQuestions.length > 0 ) {
+				const answers = { ...state.pendingAnswers };
+				for ( const pending of state.pendingQuestions ) {
+					if ( typeof answers[ pending.question ] !== 'string' ) {
+						answers[ pending.question ] = STOPPED_WITHOUT_ANSWER;
+					}
+				}
+				await getIpcApi().answerAiAgentQuestion( state.runId, answers );
 			}
 			const interruptedRunId = state.runId;
 			if ( interruptedRunId ) {
@@ -610,6 +689,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ dispatchSession ]
 	);
 
+	// Arming a free-form reply retracts the pick it replaces, so the batch stays
+	// open until the typed answer lands.
+	const clearQuestionAnswer = useCallback(
+		( sessionId: string, question: string ) => {
+			dispatchSession( sessionId, { type: 'question_answer_cleared', question } );
+		},
+		[ dispatchSession ]
+	);
+
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			states,
@@ -617,8 +705,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			clearQuestionAnswer,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, states ]
+		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, states ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -636,6 +725,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		clearQuestionAnswer: clearRunQuestionAnswer,
 	} = store;
 	const state = sessionId ? states[ sessionId ] ?? initialState : initialState;
 	const {
@@ -727,6 +817,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const clearQuestionAnswer = useCallback(
+		( question: string ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			clearRunQuestionAnswer( sessionId, question );
+		},
+		[ clearRunQuestionAnswer, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -751,6 +851,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	};
 }

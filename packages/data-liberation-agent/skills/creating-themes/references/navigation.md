@@ -139,7 +139,7 @@ Based on the Twenty Twenty-Five default header pattern:
 
 ### Landing page header with explicit anchor links
 
-For landing pages where navigation points to page sections instead of WordPress pages:
+For landing pages where navigation points to page sections instead of WordPress pages. The header part renders on every template (posts, archives, search, 404), so anchor URLs must be home-relative (`/#features`) — a bare `#features` resolves against the current URL and breaks everywhere except the front page:
 
 ```html
 <!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"1.5rem","bottom":"1.5rem","left":"2rem","right":"2rem"}}},"layout":{"type":"flex","justifyContent":"space-between","flexWrap":"nowrap"}} -->
@@ -148,10 +148,10 @@ For landing pages where navigation points to page sections instead of WordPress 
   <!-- wp:site-title {"level":0} /-->
 
   <!-- wp:navigation {"overlayMenu":"mobile","overlayBackgroundColor":"contrast","overlayTextColor":"base","layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"2rem"}}} -->
-  <!-- wp:navigation-link {"label":"Features","url":"#features"} /-->
-  <!-- wp:navigation-link {"label":"Pricing","url":"#pricing"} /-->
-  <!-- wp:navigation-link {"label":"About","url":"#about"} /-->
-  <!-- wp:navigation-link {"label":"Contact","url":"#contact"} /-->
+  <!-- wp:navigation-link {"label":"Features","url":"/#features"} /-->
+  <!-- wp:navigation-link {"label":"Pricing","url":"/#pricing"} /-->
+  <!-- wp:navigation-link {"label":"About","url":"/#about"} /-->
+  <!-- wp:navigation-link {"label":"Contact","url":"/#contact"} /-->
   <!-- /wp:navigation -->
 
 </div>

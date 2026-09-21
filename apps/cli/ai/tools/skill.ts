@@ -1,4 +1,5 @@
 import { Type } from 'typebox';
+import { renderDesignCatalogIndex } from 'cli/ai/design-catalog';
 import { findSkill, loadSkills } from 'cli/ai/skills';
 import { defineTool } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
@@ -25,7 +26,7 @@ export function createSkillTool(): AgentTool< TSchema > | null {
 				throw new Error( `Unknown skill: ${ args.name }` );
 			}
 			return {
-				content: [ { type: 'text' as const, text: skill.body } ],
+				content: [ { type: 'text' as const, text: renderDesignCatalogIndex( skill.body ) } ],
 			};
 		}
 	);

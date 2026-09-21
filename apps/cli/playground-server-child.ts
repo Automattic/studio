@@ -25,6 +25,7 @@ import {
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import {
@@ -54,6 +55,7 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { buildWpCliPhpArgv } from 'cli/lib/wp-cli-php-ini';
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
@@ -291,6 +293,10 @@ async function getBaseRunCLIArgs(
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
+		// feed the WP_DEBUG expression above.
+		SCRIPT_DEBUG: config.enableScriptDebug ?? false,
+		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ),
 	};
 
 	let blueprintBundle: BlueprintBundle | undefined;
@@ -429,12 +435,6 @@ const startServer = wrapWithStartingPromise(
 
 			const args = await getBaseRunCLIArgs( 'server', config );
 
-			// Playground CLI's runCLI() has a top-level .catch() that calls
-			// process.exit(1) instead of re-throwing. If a non-fatal error
-			// happens (e.g. a background worker exit race), this kills the
-			// entire child process. The daemon will restart it, but the
-			// error message is lost. Filed upstream:
-			// https://github.com/WordPress/wordpress-playground/issues/3520
 			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();
@@ -556,12 +556,9 @@ const runWpCliCommand = sequential(
 
 		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
-		const response = await server.playground.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			`--path=${ await server.playground.documentRoot }`,
-			...rewrittenArgs,
-		] );
+		const response = await server.playground.cli(
+			buildWpCliPhpArgv( '/tmp/wp-cli.phar', await server.playground.documentRoot, rewrittenArgs )
+		);
 
 		return {
 			stdout: await response.stdoutText,
@@ -698,6 +695,17 @@ async function ipcMessageHandler( packet: unknown ) {
 		delete abortControllers[ validMessage.messageId ];
 	}
 }
+
+// A PHP WASM worker hitting a fatal error can surface as a stray unhandled rejection in addition to
+// the runCLI() rejection that startServer already handles. Log instead of letting it crash the child,
+// so the clean error-reporting path runs and the PHP error reaches the main process for recovery.
+process.on( 'uncaughtException', ( error ) => {
+	errorToConsole( 'Uncaught exception in child process:', error );
+} );
+
+process.on( 'unhandledRejection', ( reason ) => {
+	errorToConsole( 'Unhandled rejection in child process:', reason );
+} );
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

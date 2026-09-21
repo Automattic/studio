@@ -18,6 +18,10 @@ Please see our [security policy](./SECURITY.md).
 
 If you find a bug or have a feature request, please [open an issue](https://github.com/Automattic/studio/issues/new/choose).
 
+### Translations
+
+Studio is translated using [GlotPress](https://translate.wordpress.com/projects/studio/). To correct an existing translation or help translate Studio into your language, submit your suggestions there.
+
 ### Code Contributions
 
 For information on setting up your development environment for contributing code, see the [Code Contributions](./docs/code-contributions.md).

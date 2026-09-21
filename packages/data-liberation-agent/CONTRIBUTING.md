@@ -24,8 +24,8 @@ This repo improves through real-world migration experience. Every migration surf
 
 ```bash
 # Fork via GitHub UI or gh CLI, then:
-git clone https://github.com/YOUR-USERNAME/data-liberation-agent.git
-cd data-liberation-agent
+git clone https://github.com/YOUR-USERNAME/studio.git
+cd studio/packages/data-liberation-agent
 git checkout -b improvement/short-description-of-what-you-found
 ```
 

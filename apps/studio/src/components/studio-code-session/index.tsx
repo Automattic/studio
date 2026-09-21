@@ -1,13 +1,20 @@
-import { DEFAULT_MODEL, isAiModelId, resolveSessionModel } from '@studio/common/ai/models';
+import {
+	getEffectiveSessionProvider,
+	resolveSessionModelForProvider,
+} from '@studio/common/ai/providers';
 import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import {
+	getStudioCodeAiAccessState,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
-import { privateApis } from '@wordpress/theme';
+import { ThemeProvider } from '@wordpress/theme';
 import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
 	useCallback,
@@ -19,18 +26,24 @@ import {
 	type Ref,
 	type UIEvent,
 } from 'react';
+import { OutOfCreditsNotice } from 'src/components/ai-access-required-notice';
+import { AiCreditsPurchasedNotice } from 'src/components/ai-credits-purchased-notice';
+import { AiCreditsThresholdNotice } from 'src/components/ai-credits-threshold-notice';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIsOutOfAiCredits } from 'src/hooks/use-is-out-of-ai-credits';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+import { AccessRequirements } from './access-requirements';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation, wasLastTurnInterrupted } from './conversation';
-import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
@@ -45,8 +58,6 @@ import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
-
-const { ThemeProvider } = unlock( privateApis );
 
 interface SessionFrameProps {
 	header?: ReactNode;
@@ -82,6 +93,23 @@ function SessionFrame( {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function SessionLoadingFrame() {
+	return (
+		<SessionFrame
+			header={ <div className={ styles.header } /> }
+			composer={
+				<div className={ styles.classicColumn }>
+					<ComposerSkeleton />
+				</div>
+			}
+		>
+			<div className={ styles.loading } role="status" aria-live="polite">
+				<Spinner className={ styles.loadingSpinner } />
+			</div>
+		</SessionFrame>
 	);
 }
 
@@ -140,7 +168,7 @@ function NoAuth() {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								authenticate( 'assistant_tab' );
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }
@@ -165,7 +193,7 @@ function NoAuth() {
 									if ( isOffline ) {
 										return;
 									}
-									getIpcApi().authenticate( true );
+									getIpcApi().authenticate( true, 'assistant_tab' );
 								} }
 							>
 								{ __( 'Create a free account' ) }
@@ -234,6 +262,9 @@ function EmptyConversation( {
 
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
+	// Out of credits replaces the composer: there is nothing to type into
+	// until the account buys more, so the offer takes the input's place.
+	const isOutOfCredits = useIsOutOfAiCredits();
 	const { data, isLoading } = useSession( sessionId );
 	const startNewChat = useCallback( () => void newSession(), [ newSession ] );
 	const {
@@ -259,21 +290,73 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
-	// The desktop model picker only offers built-in models; narrow a session's
-	// recorded model (which may be an arbitrary local id from a CLI-created
-	// `openai-compatible` session) back to a known id for the picker.
+	const { isAuthenticated } = useAuth();
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
+	const aiSettings = useAiSettings();
+	// A fresh wpcom session defaults to balanced when purchased credits
+	// remain, fast otherwise.
 	const currentModel = useMemo( () => {
-		const recorded = resolveSessionModel( data?.entries ?? [] );
-		return isAiModelId( recorded ) ? recorded : DEFAULT_MODEL;
-	}, [ data?.entries ] );
+		const entries = data?.entries ?? [];
+		return resolveSessionModelForProvider(
+			entries,
+			getEffectiveSessionProvider( entries, aiSettings ),
+			{ hasPaidAiCredits: hasPaidAiCredits( quota ) }
+		);
+	}, [ data?.entries, aiSettings, quota ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// Which question the user chose to answer in their own words. Derived, so a
+	// stale prompt can't outlive the batch it belongs to.
+	const [ armedFreeFormQuestion, setArmedFreeFormQuestion ] = useState< string | null >( null );
+	const freeFormQuestion =
+		armedFreeFormQuestion && pendingQuestionTexts.has( armedFreeFormQuestion )
+			? armedFreeFormQuestion
+			: null;
+	const [ composerFocusRequestId, setComposerFocusRequestId ] = useState( 0 );
+	const chooseFreeFormAnswer = useCallback(
+		( question: string ) => {
+			// Retract any option already picked for this question: the typed reply
+			// replaces it, and leaving it in place would dispatch the stale pick.
+			clearQuestionAnswer( question );
+			setArmedFreeFormQuestion( question );
+			setComposerFocusRequestId( ( id ) => id + 1 );
+		},
+		[ clearQuestionAnswer ]
+	);
+	// Picking a listed option supersedes an armed free-form reply for that same
+	// question. Answering a *different* one leaves the arming alone, and
+	// arming again after picking still works, so a pick stays changeable.
+	const answerQuestionFromOption = useCallback(
+		( question: string, label: string ) => {
+			setArmedFreeFormQuestion( ( armed ) => ( armed === question ? null : armed ) );
+			answerQuestion( question, label );
+		},
+		[ answerQuestion ]
+	);
+	// The batch blocks the run until every question has an answer, so a reply
+	// belongs to the one the agent is still waiting on — the armed question when
+	// the user picked one, otherwise the next unanswered in order.
+	const targetQuestion =
+		freeFormQuestion ??
+		pendingQuestions.find( ( q ) => typeof pendingAnswers[ q.question ] !== 'string' )?.question ??
+		null;
+	const answerTargetQuestion = useCallback(
+		( answer: string ) => {
+			if ( ! targetQuestion ) {
+				return;
+			}
+			setArmedFreeFormQuestion( null );
+			answerQuestion( targetQuestion, answer );
+		},
+		[ answerQuestion, targetQuestion ]
+	);
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
@@ -358,25 +441,21 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	// disappearing and reappearing mid-prompt.
 	let body: ReactNode;
 	if ( ! sessionId || isLoading ) {
-		body = (
-			<SessionFrame
-				header={ <div className={ styles.header } /> }
-				composer={
-					<div className={ styles.classicColumn }>
-						<ComposerSkeleton />
-					</div>
-				}
-			>
-				<div className={ styles.loading } role="status" aria-live="polite">
-					<Spinner className={ styles.loadingSpinner } />
-				</div>
-			</SessionFrame>
-		);
+		body = <SessionLoadingFrame />;
 	} else if ( ! data ) {
 		body = (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
+			<div className="p-8 flex flex-col max-w-3xl">
+				<div className="a8c-subtitle mb-1">{ __( 'Session not found' ) }</div>
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
+					{ __(
+						'This conversation is no longer available. Start a new one to keep building with Studio Code.'
+					) }
+				</div>
+				<div className="mt-6">
+					<Button variant="primary" onClick={ handleNewConversation }>
+						{ __( 'Start a new conversation' ) }
+					</Button>
+				</div>
 			</div>
 		);
 	} else {
@@ -404,21 +483,30 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				composer={
 					<div className={ styles.classicColumn }>
 						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
-						<Composer
-							busy={ composerBusy }
-							isInterrupting={ isInterrupting }
-							error={ usageCapReached ? null : runError }
-							usageCapMessage={ usageCapReached ? runError : null }
-							model={ currentModel }
-							onSend={ sendMessage }
-							onInterrupt={ interrupt }
-							sessionId={ sessionId }
-							entries={ data.entries }
-							ownerSiteId={ selectedSite.id }
-							onSwitchSession={ setSessionId }
-							draftPrompt={ promptDraft }
-							previewPrompt={ previewPrompt }
-						/>
+						<AiCreditsThresholdNotice />
+						<AiCreditsPurchasedNotice />
+						{ isOutOfCredits ? (
+							<OutOfCreditsNotice />
+						) : (
+							<Composer
+								busy={ composerBusy }
+								awaitingAnswer={ pendingQuestions.length > 0 }
+								focusRequestId={ composerFocusRequestId }
+								isInterrupting={ isInterrupting }
+								error={ usageCapReached ? null : runError }
+								usageCapMessage={ usageCapReached ? runError : null }
+								model={ currentModel }
+								onSend={ sendMessage }
+								onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
+								onInterrupt={ interrupt }
+								sessionId={ sessionId }
+								entries={ data.entries }
+								ownerSiteId={ selectedSite.id }
+								onSwitchSession={ setSessionId }
+								draftPrompt={ promptDraft }
+								previewPrompt={ previewPrompt }
+							/>
+						) }
 					</div>
 				}
 			>
@@ -437,7 +525,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
-							onAnswerQuestion={ answerQuestion }
+							freeFormQuestion={ freeFormQuestion }
+							onAnswerQuestion={ answerQuestionFromOption }
+							onChooseFreeForm={ chooseFreeFormAnswer }
 							canEditLastUserMessage={ canEditLastUserMessage }
 							onEditUserMessage={ editAndResendMessage }
 						/>
@@ -461,9 +551,34 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { isAuthenticated } = useAuth();
+	const {
+		data: quota,
+		isLoading: isQuotaLoading,
+		isFetching: isQuotaFetching,
+		refetch: refetchQuota,
+	} = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuth />;
+	}
+
+	if ( isQuotaLoading ) {
+		return <SessionLoadingFrame />;
+	}
+
+	// Fail open when the quota is unavailable (offline, error, older server) —
+	// the WordPress.com proxy enforces the same gate server-side.
+	if (
+		quota &&
+		( getStudioCodeAiAccessState( quota ) !== 'available' || ! quota.hasPaymentMethod )
+	) {
+		return (
+			<AccessRequirements
+				quota={ quota }
+				isRechecking={ isQuotaFetching }
+				onRecheck={ refetchQuota }
+			/>
+		);
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;
@@ -472,7 +587,7 @@ function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
 export function StudioCodeSession( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<QueryClientProvider client={ queryClient }>
-			<ThemeProvider density="compact">
+			<ThemeProvider>
 				<AgentRunProvider>
 					<SessionGate selectedSite={ selectedSite } />
 				</AgentRunProvider>

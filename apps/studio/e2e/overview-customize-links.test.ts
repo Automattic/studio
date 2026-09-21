@@ -199,8 +199,8 @@ test.describe( 'Overview customize links', () => {
 			const redirectUrl = await openShortcut( page, 'phpMyAdmin' );
 			expect( redirectUrl ).toContain( '/phpmyadmin/' );
 
-			// phpMyAdmin renders a table of database tables
-			await expect( page.locator( '#pma_navigation' ) ).toBeVisible( { timeout: 120_000 } );
+			// phpMyAdmin renders its main content after the shortcut opens.
+			await expect( page.locator( '#page_content' ) ).toBeVisible( { timeout: 120_000 } );
 		} );
 	} );
 } );

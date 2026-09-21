@@ -45,7 +45,9 @@ beforeEach( async () => {
 		getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( { terminals: [], editors: [] } ),
 		isStudioCliInstalled: vi.fn().mockResolvedValue( false ),
 		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/sites' ),
+		getAnalyticsEnabled: vi.fn().mockResolvedValue( true ),
 		// Save path.
+		saveAnalyticsEnabled: vi.fn().mockResolvedValue( undefined ),
 		saveUserLocale: vi.fn().mockResolvedValue( undefined ),
 		setDefaultLocaleData: vi.fn().mockResolvedValue( undefined ),
 		resetDefaultLocaleData: vi.fn().mockResolvedValue( undefined ),

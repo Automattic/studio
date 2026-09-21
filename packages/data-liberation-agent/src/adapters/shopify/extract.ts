@@ -8,9 +8,11 @@ import {
 } from '../../lib/extraction/shopify-graphql.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { runExtractionLoop } from '../shared.js';
+import { createManagedBrowser } from '../../lib/browser-kit/index.js';
 import { slugify } from '../../lib/url/index.js';
 import { extractMeta, extractHeading, IMAGE_EXTENSIONS } from '../../lib/html-extract/index.js';
 import { WooProductCsvBuilder } from '../../lib/woo-csv/index.js';
+import type { WooProduct } from '../../lib/woo-csv/index.js';
 import type { ShopifyAdapterOpts, ShopifyInventory, ShopifyArticle, ShopifyPage, ShopifyProductJson } from './types.js';
 import { fetchShopifyJson } from './http.js';
 import {
@@ -204,20 +206,12 @@ export async function extract(
     inv.urls.filter((u) => u.type === 'product').map((u) => u.url)
   );
 
-  // Lazy-init browser session for CDP/headed fallback on 403s
-  let browserSession: { page: unknown; close: () => Promise<void> } | null = null;
-  async function getBrowserPage(): Promise<unknown> {
-    if (!browserSession) {
-      const { launchBrowser } = await import('../../lib/browser-kit/index.js');
-      // Prefer user-provided CDP port; otherwise auto-launch headed Chromium
-      // (headed bypasses Cloudflare bot detection that blocks headless)
-      const session = await launchBrowser(
-        shopifyOpts.cdpPort ? { cdpPort: shopifyOpts.cdpPort } : { headed: true }
-      );
-      browserSession = { page: session.page, close: () => session.close() };
-    }
-    return browserSession.page;
-  }
+  // Lazy browser for the CDP/headed fallback on 403s. Prefer a user-provided
+  // CDP port; otherwise auto-launch headed Chromium (headed bypasses
+  // Cloudflare bot detection that blocks headless).
+  const managedBrowser = createManagedBrowser(
+    shopifyOpts.cdpPort ? { cdpPort: shopifyOpts.cdpPort } : { headed: true }
+  );
 
   let result;
   try {
@@ -236,7 +230,13 @@ export async function extract(
     csvBuilder,
     session,
     onPageExtracted: shopifyOpts.onPageExtracted as never,
+    maxPageConcurrency: 1,
+    onExtractTimeout: () => managedBrowser.reset(),
     extractPage: async (url: string) => {
+      const lease = managedBrowser.openLease();
+      // Buffered until the end of this call: a watchdog-abandoned extraction
+      // must not leave rows in the shared CSV builder.
+      const pendingProducts: WooProduct[] = [];
       // Tier 1: Try JSON API — append .json to URL
       let title = '';
       let content = '';
@@ -266,11 +266,7 @@ export async function extract(
             // Product JSON found — add to CSV builder for WooCommerce export
             detectedType = 'product';
             const { parent, variations } = shopifyProductToWoo(product, url);
-            csvBuilder.addProduct(parent);
-            for (const variation of variations) {
-              csvBuilder.addProduct(variation);
-            }
-            hasProducts = true;
+            pendingProducts.push(parent, ...variations);
             productHandled = true;
 
             // Collect JSON metadata — but DON'T set jsonSuccess so we
@@ -349,7 +345,7 @@ export async function extract(
         // Uses CDP if cdpPort provided, otherwise auto-launches headed Chromium
         if (needsBrowser && !html) {
           try {
-            const page = await getBrowserPage() as import('playwright').Page;
+            const page = (await lease.acquire()).page as import('playwright').Page;
             await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
             html = await page.content();
           } catch {
@@ -365,8 +361,7 @@ export async function extract(
             const wooProduct = extractProductFromHtml(html, url);
             if (wooProduct) {
               detectedType = 'product';
-              csvBuilder.addProduct(wooProduct);
-              hasProducts = true;
+              pendingProducts.push(wooProduct);
             }
           }
 
@@ -421,6 +416,14 @@ export async function extract(
       // isProduct is computed above but TypeScript needs the variable used to avoid unused-var warnings
       void isProduct;
 
+      if (!lease.isValid()) {
+        throw new Error(`extraction abandoned by watchdog: ${url}`);
+      }
+      if (pendingProducts.length > 0) {
+        for (const p of pendingProducts) csvBuilder.addProduct(p);
+        hasProducts = true;
+      }
+
       return {
         title,
         slug: slugify(url),
@@ -460,6 +463,6 @@ export async function extract(
     }
     throw err;
   } finally {
-    if (browserSession) await (browserSession as { close: () => Promise<void> }).close();
+    await managedBrowser.end();
   }
 }

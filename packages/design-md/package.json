@@ -1,0 +1,15 @@
+{
+	"name": "@studio/design-md",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Parse a DESIGN.md design spec and turn its tokens into a WordPress theme.json",
+	"exports": "./index.ts",
+	"scripts": {
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"yaml": "^2.9.0"
+	}
+}

@@ -31,6 +31,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { MediaStubStore, type MediaStub } from '../resume-state/index.js';
 import { ensurePlugin, type ExecFn } from '../preview/ensure-plugin.js';
+import { studioExecFileAsync } from '../studio-cli.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -574,8 +575,13 @@ function studioSitePathForWpRoot(wpRoot: string): string {
 }
 
 function defaultExec(file: string, args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
-  return execFileAsync(file, args as string[], { timeout: 300_000, maxBuffer: 50 * 1024 * 1024 })
-    .then(({ stdout, stderr }) => ({ stdout: String(stdout), stderr: String(stderr) }));
+  const opts = { timeout: 300_000, maxBuffer: 50 * 1024 * 1024 };
+  // 'studio' resolves via studio-cli (Windows .cmd shims can't be spawned
+  // directly — STU-2020); an overridden _studioBin path spawns as-is.
+  const run = file === 'studio'
+    ? studioExecFileAsync(args as string[], opts)
+    : execFileAsync(file, args as string[], opts);
+  return run.then(({ stdout, stderr }) => ({ stdout: String(stdout), stderr: String(stderr) }));
 }
 
 function formatExecError(err: unknown): string {

@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
+import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import {
 	readSharedConfig,
 	saveSharedConfig,
@@ -15,6 +16,7 @@ import {
 	deleteSharedSession,
 	readAuthToken,
 	getCurrentUserId,
+	getOrCreateAnalyticsInstallId,
 	SharedConfigVersionMismatchError,
 } from '@studio/common/lib/shared-config';
 import {
@@ -204,31 +206,31 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true },
+							abc123: { archived: true },
 						},
 					} )
 				)
 			);
 
 			await expect( readSharedSessions() ).resolves.toEqual( {
-				abc123: { starred: true },
+				abc123: { archived: true },
 			} );
-			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { starred: true } );
+			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { archived: true } );
 			await expect( readSharedSession( 'missing' ) ).resolves.toBeUndefined();
 		} );
 
 		it( 'updates session metadata in place', async () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
-			await expect( updateSharedSession( 'abc123', { starred: true } ) ).resolves.toEqual( {
-				starred: true,
+			await expect( updateSharedSession( 'abc123', { archived: true } ) ).resolves.toEqual( {
+				archived: true,
 			} );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( {
 				version: 1,
 				sessions: {
-					abc123: { starred: true },
+					abc123: { archived: true },
 				},
 			} );
 		} );
@@ -239,17 +241,14 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true, archived: true },
+							abc123: { archived: true },
 						},
 					} )
 				)
 			);
 
 			await expect(
-				updateSharedSession( 'abc123', {
-					starred: false,
-					archived: undefined,
-				} )
+				updateSharedSession( 'abc123', { archived: undefined } )
 			).resolves.toBeUndefined();
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
@@ -349,6 +348,58 @@ describe( 'Shared Config', () => {
 
 			const userId = await getCurrentUserId();
 			expect( userId ).toBeNull();
+		} );
+	} );
+
+	describe( 'getOrCreateAnalyticsInstallId', () => {
+		// Back readFile/writeFile with an in-memory store so a write is visible to a later read, and
+		// record the order of lock/write/unlock so we can assert the mint happens inside the lock.
+		function useInMemoryConfig( initial: Partial< SharedConfig > = {} ): { calls: string[] } {
+			let stored = JSON.stringify( { version: 1, ...initial } );
+			const calls: string[] = [];
+			vi.mocked( readFile ).mockImplementation( async () => Buffer.from( stored ) );
+			vi.mocked( writeFile ).mockImplementation( async ( _path, content ) => {
+				calls.push( 'write' );
+				stored = content as string;
+			} );
+			vi.mocked( lockFileAsync ).mockImplementation( async () => {
+				calls.push( 'lock' );
+			} );
+			vi.mocked( unlockFileAsync ).mockImplementation( async () => {
+				calls.push( 'unlock' );
+			} );
+			return { calls };
+		}
+
+		it( 'returns the existing id without minting a new one', async () => {
+			useInMemoryConfig( { analyticsInstallId: 'existing-id' } );
+
+			const id = await getOrCreateAnalyticsInstallId();
+
+			expect( id ).toBe( 'existing-id' );
+			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+
+		it( 'mints and persists an id when absent', async () => {
+			useInMemoryConfig();
+
+			const id = await getOrCreateAnalyticsInstallId();
+
+			expect( id ).toBeTruthy();
+			expect( writeFile ).toHaveBeenCalledTimes( 1 );
+			// A subsequent read returns the same persisted id.
+			expect( await getOrCreateAnalyticsInstallId() ).toBe( id );
+		} );
+
+		it( 'mints inside the lock so concurrent callers cannot double-mint', async () => {
+			// Real mutual exclusion comes from the lockfile; here we assert the ordering that makes it
+			// safe — the write happens between lock and unlock, and the value is re-read after locking
+			// (so a caller that blocked on the lock sees an id another process just persisted).
+			const { calls } = useInMemoryConfig();
+
+			await getOrCreateAnalyticsInstallId();
+
+			expect( calls ).toEqual( [ 'lock', 'write', 'unlock' ] );
 		} );
 	} );
 } );

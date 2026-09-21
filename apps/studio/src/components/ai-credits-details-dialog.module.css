@@ -1,0 +1,38 @@
+.details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	color: var(--color-frame-text);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.details p,
+.section ul {
+	margin: 0;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.section h3 {
+	margin: 0;
+	color: var(--color-frame-text);
+	font-weight: 600;
+}
+
+.section ul {
+	padding-inline-start: var(--wpds-dimension-padding-lg);
+}
+
+.section li + li {
+	margin-block-start: var(--wpds-dimension-padding-xs);
+}
+
+.link {
+	color: var(--color-frame-theme);
+	text-decoration: underline;
+	text-wrap: wrap;
+}

@@ -4,10 +4,26 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { DEFAULT_MODEL, resolveSessionModel, type SelectedModelId } from '@studio/common/ai/models';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import {
+	getAiModelFamily,
+	readRecordedSessionModel,
+	type AiModelId,
+	type SelectedModelId,
+} from '@studio/common/ai/models';
+import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import {
+	buildSkillInvocationPrompt,
+	resolveSkillFromPrompt,
+} from '@studio/common/ai/slash-commands';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -21,9 +37,14 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
-import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import {
+	AI_PROVIDERS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderDefinition,
+	type AiProviderDefinition,
+	type AiProviderId,
+} from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
@@ -33,16 +54,21 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
-import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import {
+	getTracksOrigin,
+	recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksEventName,
+} from 'cli/lib/tracks';
+import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
@@ -50,6 +76,8 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
@@ -63,6 +91,21 @@ function appendStudioEntry< T extends StudioCustomEntryType >(
 	data: StudioCustomEntryDataMap[ T ]
 ): string {
 	return sm.appendCustomEntry( customType, data );
+}
+
+// Awaited rather than fire-and-forget so JSON mode, which exits right after a turn, doesn't drop the
+// event — the wrapper does async work before the request is even issued. Errors are swallowed: one
+// call sits on the turn's critical path and the other in a `finally`, where a rejection would mask
+// the turn's own error.
+async function recordChatTracksEvent(
+	event: TracksEventName,
+	props: TracksProps
+): Promise< void > {
+	try {
+		await recordTracksEvent( event, props );
+	} catch {
+		// A lost analytics event must never break the chat.
+	}
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -80,12 +123,32 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-async function readAllStdin(): Promise< string > {
-	const chunks: Buffer[] = [];
-	for await ( const chunk of process.stdin ) {
-		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
-	}
-	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
+// Caps the quota lookup behind the wpcom default model, so a hung endpoint
+// can't block the first turn — the free-tier default is the safe floor.
+const QUOTA_FETCH_TIMEOUT_MS = 3_000;
+
+// Dynamic-model providers (openai-compatible) have no usable static default —
+// theirs comes from the configured endpoint. Everyone else uses the static one.
+async function resolveProviderDefaultModel(
+	definition: AiProviderDefinition
+): Promise< SelectedModelId > {
+	const dynamicDefault = await definition.resolveDefaultModel?.();
+	return dynamicDefault ?? definition.defaultModel;
+}
+
+async function resolveWpcomDefaultModel(): Promise< AiModelId > {
+	const token = await readAuthToken();
+	const quota = token
+		? await Promise.race( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				new Promise< null >( ( resolve ) => {
+					setTimeout( () => resolve( null ), QUOTA_FETCH_TIMEOUT_MS ).unref();
+				} ),
+		  ] )
+		: null;
+	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
+		hasPaidAiCredits: hasPaidAiCredits( quota ),
+	} );
 }
 
 export async function runCommand( options: {
@@ -94,6 +157,7 @@ export async function runCommand( options: {
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
+	initialVisualAnnotations?: StudioVisualAnnotationSummary[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -111,22 +175,42 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
-	let currentModel: SelectedModelId = resumeContext.model ?? DEFAULT_MODEL;
-	// Reconcile the model with the active provider. This matters most for
-	// openai-compatible, whose model must come from the configured endpoint —
-	// the DEFAULT_MODEL fallback is an Anthropic id it can't serve. Mirrors the
-	// auto-correct in switchProvider, but for the initial (non-switch) load.
-	{
-		const initialDefinition = getAiProviderDefinition( currentProvider );
-		if ( ! initialDefinition.supportsModel( currentModel ) ) {
-			const dynamicDefault = initialDefinition.resolveDefaultModel
-				? await initialDefinition.resolveDefaultModel()
-				: undefined;
-			currentModel = dynamicDefault ?? initialDefinition.defaultModel;
-		}
+	// A pin whose provider can't run (e.g. its key was removed) falls back to
+	// WordPress.com for this run only; the pin stays so a restored key revives it.
+	if (
+		resumeContext.provider &&
+		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
+		! ( await isAiProviderReady( resumeContext.provider ) )
+	) {
+		currentProvider = DEFAULT_AI_PROVIDER;
 	}
+	// The recorded model only sticks when the provider still serves it — old
+	// wpcom sessions snap to the provider default instead.
+	const initialDefinition = getAiProviderDefinition( currentProvider );
+	const recordedModel =
+		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
+			? resumeContext.model
+			: undefined;
+	let currentModel: SelectedModelId =
+		recordedModel ?? ( await resolveProviderDefaultModel( initialDefinition ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
+
+	// The wpcom default is quota-dependent; resolved in the background so
+	// startup never waits on the network. Turns await the resolution, and it
+	// only applies while nothing else picked a model.
+	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
+	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
+		.then( ( model ) => {
+			wpcomDefaultModel = model;
+			if ( quotaDefaultApplicable && currentProvider === DEFAULT_AI_PROVIDER ) {
+				currentModel = model;
+				ui.currentModel = model;
+			}
+		} )
+		// Awaited by every turn — a failed lookup must not poison them.
+		.catch( () => {} );
 	if ( options.activeSite ) {
 		ui.activeSite = {
 			id: options.activeSite.id,
@@ -164,8 +248,17 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						currentModel = resolveSessionModel( sm.getEntries() );
-						ui.currentModel = currentModel;
+						// Adopt the recorded model only when the provider still
+						// serves it; otherwise keep the (quota-based) default.
+						const sessionModel = readRecordedSessionModel( sm.getEntries() );
+						if (
+							sessionModel &&
+							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
+						) {
+							quotaDefaultApplicable = false;
+							currentModel = sessionModel;
+							ui.currentModel = currentModel;
+						}
 						break;
 					}
 				} catch {
@@ -199,7 +292,18 @@ export async function runCommand( options: {
 		};
 	}
 
+	// Omits `provider` on purpose: an entry carrying one is a user pin
+	// (persistProviderPin), and a per-turn write would overwrite it with the
+	// effective provider.
 	async function persistSessionContext(): Promise< void > {
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', {
+				model: currentModel,
+			} )
+		);
+	}
+
+	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
 				provider: currentProvider,
@@ -207,12 +311,6 @@ export async function runCommand( options: {
 			} )
 		);
 	}
-
-	setProgressCallback( ( message, update ) => {
-		ui.setLoaderMessage( message, update );
-		if ( ! message.trim() ) return;
-		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
-	} );
 
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
@@ -285,25 +383,28 @@ export async function runCommand( options: {
 	}
 
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+		// The pin written below carries the model, so the quota-based default
+		// must be final first — otherwise an early switch durably records the
+		// static fallback for a paid account.
+		await wpcomDefaultModelResolution;
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 
 		// Auto-correct model when the provider change leaves it unsupported
-		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
-		// selected). Fall back to the provider's default.
+		// (e.g. switching from wpcom → anthropic-api-key while a tier is
+		// selected). Fall back to the provider's default — the quota-based one
+		// for WordPress.com.
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
-			// Dynamic-model providers (openai-compatible) resolve their default
-			// from the configured endpoint; others use the static default.
-			const dynamicDefault = definition.resolveDefaultModel
-				? await definition.resolveDefaultModel()
-				: undefined;
-			currentModel = dynamicDefault ?? definition.defaultModel;
+			currentModel =
+				currentProvider === DEFAULT_AI_PROVIDER
+					? wpcomDefaultModel
+					: await resolveProviderDefaultModel( definition );
 			ui.currentModel = currentModel;
 		}
 
 		await saveSelectedAiProvider( currentProvider );
-		await persistSessionContext();
+		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(
@@ -354,12 +455,14 @@ export async function runCommand( options: {
 		}
 	}
 
-	const config = await readCliConfig();
-	let showCapabilitiesOnConnect = ! config.aiProvider;
+	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
 
-	// Studio Code Desktop defaults to WordPress.com provider.
+	// Studio Code Desktop defaults to WordPress.com provider — unless the
+	// session is pinned, which must survive the run untouched.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
-		await switchProvider( 'wpcom', false );
+		if ( ! resumeContext.provider ) {
+			await switchProvider( 'wpcom', false );
+		}
 		showCapabilitiesOnConnect = false;
 	}
 
@@ -443,7 +546,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! config.anthropicApiKey ) {
+	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
@@ -457,7 +560,9 @@ export async function runCommand( options: {
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
 						description: option.description,
+						...( option.image ? { image: option.image } : {} ),
 					} ) ),
+					multiSelect: question.multiSelect,
 				} )
 			);
 		}
@@ -484,8 +589,11 @@ export async function runCommand( options: {
 		prompt: string,
 		displayMessage = prompt,
 		images: StudioChatImage[] = [],
-		files: StudioChatFileAttachment[] = []
+		files: StudioChatFileAttachment[] = [],
+		visualAnnotations?: StudioVisualAnnotationSummary[]
 	): Promise< { status: TurnStatus; sessionId: string } > {
+		// The quota-based default must land before the turn captures its model.
+		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
@@ -522,12 +630,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with
@@ -545,6 +649,24 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
+		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
+		// the provider, model and outcome together. `channel` separates them.
+		const tracksProps = {
+			...getTracksOrigin(),
+			...getAiTracksIdentity( sessionId ),
+			provider: currentProvider,
+			model: currentModel,
+			model_family: getAiModelFamily( currentModel ),
+		};
+		const turnStartedAt = Date.now();
+		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, {
+			...tracksProps,
+			// Raw prompt, before site context is prepended. Only ever a catalog name.
+			ability_name: resolveSkillFromPrompt( prompt ),
+			has_images: images.length > 0,
+			has_files: files.length > 0,
+		} );
+
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
@@ -552,10 +674,11 @@ export async function runCommand( options: {
 				source: 'prompt',
 				sitePath: site?.path,
 				attachments: buildChatAttachmentSummaries( images, files ),
+				visualAnnotations,
 			} )
 		);
 
-		const turnState: { status: TurnStatus } = { status: 'interrupted' };
+		const turnState: { status: TurnStatus; errorMessage?: string } = { status: 'interrupted' };
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
@@ -568,7 +691,9 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );
@@ -577,6 +702,7 @@ export async function runCommand( options: {
 				} else {
 					turnState.status = result.success ? 'success' : 'error';
 				}
+				turnState.errorMessage = getAgentEndFailure( event )?.message || undefined;
 			},
 		} );
 
@@ -603,8 +729,19 @@ export async function runCommand( options: {
 			await consumeAgentTurnResult;
 		} finally {
 			await append( ( s ) =>
-				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+				appendStudioEntry( s, 'studio.turn_closed', {
+					status: turnState.status,
+					...( turnState.status === 'error' && turnState.errorMessage
+						? { errorMessage: turnState.errorMessage }
+						: {} ),
+				} )
 			);
+			// No `errorMessage`: raw error text can embed paths and site names.
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, {
+				...tracksProps,
+				outcome: turnState.status,
+				duration_ms: Date.now() - turnStartedAt,
+			} );
 			ui.endAgentTurn();
 		}
 
@@ -623,7 +760,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
@@ -648,7 +786,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 		} catch ( error ) {
 			handleAgentTurnError( error );
@@ -666,6 +805,8 @@ export async function runCommand( options: {
 		},
 		set currentModel( value ) {
 			currentModel = value;
+			// An explicit pick wins over the pending quota-based default.
+			quotaDefaultApplicable = false;
 		},
 		get currentProvider() {
 			return currentProvider;
@@ -702,28 +843,16 @@ export async function runCommand( options: {
 		},
 	};
 
-	// Surface remote-session daemon status in the editor's bottom bar. Cheap
-	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL.
-	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
-
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			// Match exact-prompt by default (preserves the legacy behavior where
-			// `/clear foo` falls through to the AI agent). Commands that opt into
-			// arguments via `getArgumentCompletions` get first-token matching so
-			// inputs like `/remote-session start` route to the right handler.
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			// Match the exact prompt: `/clear foo` falls through to the AI agent
+			// rather than running `/clear`.
 			const cmd = trimmedPrompt.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) =>
-						c.getArgumentCompletions
-							? `/${ c.name }` === firstToken
-							: `/${ c.name }` === trimmedPrompt
-				  )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === trimmedPrompt )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
@@ -751,7 +880,6 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
-		stopDaemonStatusPolling();
 		ui.stop();
 		process.exit( 0 );
 	}
@@ -762,7 +890,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
-			let chain = yargs
+			const chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -791,18 +919,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'JSON-encoded permission response for a paused session' ),
 				} );
 
-			// `--message-from-stdin` is the headless turn entry point used by the
-			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden so it doesn't clutter `--help` for direct callers.
-			chain = chain.option( 'message-from-stdin', {
-				type: 'boolean',
-				hidden: true,
-				default: false,
-				description: __( 'Read the initial message from stdin (for headless drivers)' ),
-			} );
-
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -816,22 +934,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					messageFromStdin?: boolean;
 				};
 
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
-				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
-					initialMessage = await readAllStdin();
-					if ( ! initialMessage ) {
-						process.stderr.write(
-							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
-						);
-						process.exitCode = 1;
-						return;
-					}
-				}
+				const initialMessage = typedArgv.message;
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<

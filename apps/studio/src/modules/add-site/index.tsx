@@ -4,10 +4,7 @@ import {
 	MINIMUM_WORDPRESS_VERSION,
 } from '@studio/common/constants';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
-import {
-	BlueprintPreferredVersions,
-	BlueprintValidationWarning,
-} from '@studio/common/lib/blueprint-validation';
+import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { SyncSite } from '@studio/common/types/sync';
 import { speak } from '@wordpress/a11y';
@@ -287,7 +284,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	const handleFileBlueprintSelect = useCallback(
-		( blueprint: Blueprint, _warnings?: BlueprintValidationWarning[] ) => {
+		( blueprint: Blueprint ) => {
 			handleBlueprintFormValues( blueprint );
 			goTo( '/new/create' );
 		},

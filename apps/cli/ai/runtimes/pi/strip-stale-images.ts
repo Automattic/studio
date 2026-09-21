@@ -6,24 +6,20 @@ import type { Context, Message } from '@earendil-works/pi-ai';
  */
 export const STALE_IMAGE_PLACEHOLDER_TEXT = '[image removed from older turn to save context]';
 
-function messageContainsImage( message: Message ): boolean {
-	if ( message.role !== 'user' && message.role !== 'toolResult' ) {
-		return false;
-	}
-	const content = message.content;
-	if ( typeof content === 'string' ) {
-		return false;
-	}
-	return content.some( ( block ) => block.type === 'image' );
-}
+/** Keeps requests well under the wpcom AI proxy's body limit, enforced with an empty 400. */
+export const MAX_IMAGE_HISTORY_BYTES = 6 * 1024 * 1024;
 
-function findLastImageMessageIndex( messages: Message[] ): number {
-	for ( let i = messages.length - 1; i >= 0; i-- ) {
-		if ( messageContainsImage( messages[ i ] ) ) {
-			return i;
-		}
+function imageBytes( message: Message ): number {
+	if (
+		( message.role !== 'user' && message.role !== 'toolResult' ) ||
+		typeof message.content === 'string'
+	) {
+		return 0;
 	}
-	return -1;
+	return message.content.reduce(
+		( total, block ) => ( block.type === 'image' ? total + block.data.length : total ),
+		0
+	);
 }
 
 function stripImagesFromMessage( message: Message ): Message {
@@ -41,39 +37,26 @@ function stripImagesFromMessage( message: Message ): Message {
 }
 
 /**
- * Return a new {@link Context} where every message except the most recent
- * image-bearing one has its `image` content blocks replaced with a short
- * placeholder. Compaction in pi-coding-agent keeps a window of recent turns
- * verbatim, so without this pass every accumulated screenshot stays in
- * history and bloats the request body until the wpcom AI proxy rejects it
- * with HTTP 400 (no body).
- *
- * The most recent image-bearing message is left untouched so the model can
- * still "see" what it just captured. Earlier images are assumed to have
- * already been analyzed and don't need to be re-sent.
+ * Replace older images with a placeholder once the image history exceeds
+ * `maxBytes`, always keeping the newest. Dropping only the oldest keeps earlier
+ * messages identical between requests, so the prompt cache survives.
  */
-export function stripStaleImagesFromContext( ctx: Context ): Context {
-	const messages = ctx.messages;
-	const lastImageIdx = findLastImageMessageIndex( messages );
-	if ( lastImageIdx <= 0 ) {
-		return ctx;
-	}
-
-	let mutated = false;
-	const transformed = messages.map( ( message, index ) => {
-		if ( index >= lastImageIdx ) {
-			return message;
+export function stripStaleImagesFromContext(
+	ctx: Context,
+	maxBytes = MAX_IMAGE_HISTORY_BYTES
+): Context {
+	let keptBytes = 0;
+	for ( let index = ctx.messages.length - 1; index >= 0; index-- ) {
+		const bytes = imageBytes( ctx.messages[ index ] );
+		if ( keptBytes > 0 && keptBytes + bytes > maxBytes ) {
+			return {
+				...ctx,
+				messages: ctx.messages.map( ( message, messageIndex ) =>
+					messageIndex <= index ? stripImagesFromMessage( message ) : message
+				),
+			};
 		}
-		if ( ! messageContainsImage( message ) ) {
-			return message;
-		}
-		mutated = true;
-		return stripImagesFromMessage( message );
-	} );
-
-	if ( ! mutated ) {
-		return ctx;
+		keptBytes += bytes;
 	}
-
-	return { ...ctx, messages: transformed };
+	return ctx;
 }

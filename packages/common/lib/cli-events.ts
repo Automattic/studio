@@ -7,7 +7,9 @@
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
+import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
 /**
@@ -31,9 +33,14 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	enableScriptDebug: z.boolean().optional(),
+	environmentType: wpEnvironmentTypeSchema.optional(),
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
+	// The in-flight Studio operation holding the site, if any. The UI disables
+	// the actions it blocks, so it stays correct even when the agent started it.
+	operation: siteOperationSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;
@@ -50,6 +57,11 @@ export enum SITE_EVENTS {
 	CREATED = 'site-created',
 	UPDATED = 'site-updated',
 	DELETED = 'site-deleted',
+	// An operation was claimed or released. Deliberately not `UPDATED`: that one
+	// asserts whether the site is running and consumers treat it as
+	// authoritative, which this event knows nothing about. Reusing it here is
+	// what broke the startup performance metric.
+	OPERATIONS_CHANGED = 'site-operations-changed',
 }
 
 export enum AUTH_EVENTS {

@@ -1,49 +1,48 @@
 import { password } from '@inquirer/prompts';
+import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
 import {
-	AI_MODELS,
 	DEFAULT_MODEL,
-	type AiModelFamily,
+	isAiModelId,
 	type AiModelId,
 	type SelectedModelId,
 } from '@studio/common/ai/models';
+import {
+	AI_PROVIDER_IDS,
+	DEFAULT_AI_PROVIDER,
+	getAiProviderModels,
+	type AiProviderId,
+} from '@studio/common/ai/providers';
+import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import {
 	discoverOpenAiCompatibleModels,
 	resolveOpenAiCompatibleContextWindow,
 } from 'cli/ai/openai-compatible';
-import {
-	getActiveOpenAiCompatibleEndpoint,
-	readCliConfig,
-	updateCliConfigWithPartial,
-} from 'cli/lib/cli-config/core';
+import { getActiveOpenAiCompatibleEndpoint } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS = {
+export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
 	'openai-compatible': 'OpenAI-compatible',
-} as const;
+};
 
-export type AiProviderId = keyof typeof AI_PROVIDERS;
+export type { AiProviderId };
+export { DEFAULT_AI_PROVIDER };
+// Fallback order when the configured provider is unavailable; declaration
+// order of the canonical id list.
+export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 
 // Fallback context window for a local model whose window can't be discovered.
 const DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192;
 
-export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
-	'wpcom',
-	'anthropic-api-key',
-	'openai-compatible',
-];
-
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
-// The wpcom AI proxy maps feature slugs to upstream providers. Historically
-// `studio-assistant` was wired for OpenAI (OPENAI_TOKEN); when Claude support
-// landed a parallel `studio-assistant-anthropic` slug was added. Keep using
-// the existing slugs so no server-side allowlist change is required.
-const WPCOM_AI_FEATURE_HEADER_ANTHROPIC = 'studio-assistant-anthropic';
-const WPCOM_AI_FEATURE_HEADER_OPENAI = 'studio-assistant';
+// The wpcom AI proxy maps feature slugs to upstream providers. The
+// `studio-agent` lane accepts the capability-tier aliases (fast / balanced /
+// strong) on the Chat Completions path and resolves each to an upstream
+// model server-side.
+const WPCOM_AI_FEATURE_HEADER = 'studio-agent';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
@@ -52,14 +51,9 @@ export interface ResolveAiEnvironmentOptions {
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
-	/**
-	 * Which model families this provider can service. `wpcom` relays both
-	 * Anthropic and OpenAI wire formats through the same proxy; direct-API
-	 * providers are restricted to their own family. `availableModels` and
-	 * `defaultModel` are derived from this and kept on the definition so
-	 * callers don't have to filter AI_MODELS themselves.
-	 */
-	readonly supportedModelFamilies: readonly AiModelFamily[];
+	// Derived from the provider's model families (see
+	// `@studio/common/ai/providers`), kept on the definition so callers don't
+	// have to filter AI_MODELS themselves.
 	readonly availableModels: readonly AiModelId[];
 	readonly defaultModel: SelectedModelId;
 	supportsModel( model: SelectedModelId ): boolean;
@@ -81,17 +75,12 @@ export interface AiProviderDefinition {
 	resolveDefaultModel?: () => Promise< SelectedModelId | undefined >;
 }
 
-/**
- * Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
- * declared `supportedModelFamilies` so each provider literal below only has to
- * state its family allowlist.
- */
+// Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
+// provider id's model families.
 function defineProvider(
 	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
 ): AiProviderDefinition {
-	const availableModels: AiModelId[] = AI_MODELS.filter( ( model ) =>
-		partial.supportedModelFamilies.includes( model.family )
-	).map( ( model ) => model.id );
+	const availableModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
 	return {
 		...partial,
 		availableModels,
@@ -105,33 +94,40 @@ function defineProvider(
 async function resolveAnthropicApiKey( options?: {
 	force?: boolean;
 } ): Promise< string | undefined > {
-	const { anthropicApiKey: savedKey } = await readCliConfig();
+	const savedKey = await readAnthropicApiKey();
 	if ( savedKey && ! options?.force ) {
-		return savedKey;
+		// Re-prompt only when Anthropic definitively rejects the saved key;
+		// an unreachable API must not lock the user out of their provider.
+		const validation = await validateAnthropicApiKey( savedKey );
+		if ( validation.status !== 'invalid' ) {
+			return savedKey;
+		}
 	}
 
 	const apiKey = await password( {
 		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
 		mask: '*',
-		validate: ( value ) => {
-			if ( ! value.trim() ) {
+		validate: async ( value ) => {
+			const trimmed = value.trim();
+			if ( ! trimmed ) {
 				return __( 'API key is required' );
 			}
-			return true;
+			const validation = await validateAnthropicApiKey( trimmed );
+			return validation.status === 'invalid' ? validation.message : true;
 		},
 	} );
 
-	await updateCliConfigWithPartial( { anthropicApiKey: apiKey } );
-	return apiKey;
+	const trimmedKey = apiKey.trim();
+	await persistAnthropicApiKey( trimmedKey );
+	return trimmedKey;
 }
 
-function buildAnthropicCustomHeaders( headers: Record< string, string > ): string {
-	return Object.entries( headers )
-		.map( ( [ name, value ] ) => `${ name }: ${ value }` )
-		.join( '\n' );
+export function getStudioUserAgent(): string {
+	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
+	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
 }
 
-function getWpcomAiGatewayBaseUrl(): string {
+export function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
 }
@@ -158,7 +154,9 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.ANTHROPIC_CUSTOM_HEADERS;
 	delete env.OPENAI_API_KEY;
 	delete env.OPENAI_BASE_URL;
-	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
+	delete env.STUDIO_WPCOM_API_KEY;
+	delete env.STUDIO_WPCOM_BASE_URL;
+	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
 	delete env.STUDIO_OPENAI_COMPLETIONS;
 	delete env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW;
 
@@ -181,7 +179,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	wpcom: defineProvider( {
 		id: 'wpcom',
 		autoFallbackWhenUnavailable: true,
-		supportedModelFamilies: [ 'anthropic', 'openai' ],
 		isVisible: async () => true,
 		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
 		prepare: async () => {
@@ -200,31 +197,21 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
 
-			// Anthropic messages path through the WP.com AI gateway.
-			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
-			env.ANTHROPIC_AUTH_TOKEN = accessToken;
-			const anthropicHeaders: Record< string, string > = {
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_ANTHROPIC,
+			// The studio capability tiers speak the OpenAI Chat Completions
+			// dialect, so the base URL carries the /v1 prefix (the request path
+			// becomes /v1/chat/completions). The vars are Studio-namespaced
+			// because this family has no direct-API provider — nothing but this
+			// function should be able to satisfy it.
+			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
+			env.STUDIO_WPCOM_API_KEY = accessToken;
+			const headers: Record< string, string > = {
+				'User-Agent': getStudioUserAgent(),
+				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			};
 			if ( options?.sessionId ) {
-				anthropicHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+				headers[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}
-			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
-
-			// OpenAI Responses path. The wpcom proxy accepts the same bearer token and
-			// dispatches to the right upstream based on the request path.
-			// The OpenAI SDK expects baseURL to include /v1 (like the real
-			// OpenAI API), so the request path becomes /v1/responses —
-			// mirroring the Anthropic path's /v1/messages.
-			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
-			env.OPENAI_API_KEY = accessToken;
-			const openaiHeaders: Record< string, string > = {
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER_OPENAI,
-			};
-			if ( options?.sessionId ) {
-				openaiHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
-			}
-			env.STUDIO_OPENAI_DEFAULT_HEADERS = JSON.stringify( openaiHeaders );
+			env.STUDIO_WPCOM_DEFAULT_HEADERS = JSON.stringify( headers );
 
 			return env;
 		},
@@ -232,17 +219,15 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 	'anthropic-api-key': defineProvider( {
 		id: 'anthropic-api-key',
 		autoFallbackWhenUnavailable: false,
-		supportedModelFamilies: [ 'anthropic' ],
 		isVisible: async () => true,
 		isReady: async () => {
-			const { anthropicApiKey } = await readCliConfig();
-			return Boolean( anthropicApiKey );
+			return Boolean( await readAnthropicApiKey() );
 		},
 		prepare: async ( options ) => {
 			await resolveAnthropicApiKey( options );
 		},
 		resolveEnv: async () => {
-			const { anthropicApiKey: apiKey } = await readCliConfig();
+			const apiKey = await readAnthropicApiKey();
 			if ( ! apiKey ) {
 				throw new LoggerError(
 					__(
@@ -256,19 +241,18 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			return env;
 		},
 	} ),
+	// Declared literally rather than through `defineProvider`: its models come
+	// from the endpoint at runtime, so the built-in catalog can't fill these in.
+	// Routes through the pi `openai` family (OPENAI_* credentials); the runtime
+	// switches to the chat/completions wire flavor via the env markers set in
+	// resolveEnv below.
 	'openai-compatible': {
 		id: 'openai-compatible',
 		autoFallbackWhenUnavailable: false,
-		// Routes through the pi `openai` family (OPENAI_* credentials); the
-		// runtime switches to the chat/completions wire flavor via the env
-		// markers set in resolveEnv below.
-		supportedModelFamilies: [ 'openai' ],
-		// Models are discovered from the endpoint, not the built-in catalog.
 		availableModels: [],
 		defaultModel: DEFAULT_MODEL,
 		// Owns any id that isn't a built-in model (i.e. a local endpoint model).
-		supportsModel: ( model ) =>
-			! ( AI_MODELS as readonly { id: string }[] ).some( ( m ) => m.id === model ),
+		supportsModel: ( model ) => ! isAiModelId( model ),
 		isVisible: async () => true,
 		isReady: async () => {
 			const endpoint = await getActiveOpenAiCompatibleEndpoint();

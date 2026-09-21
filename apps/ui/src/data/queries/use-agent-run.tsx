@@ -1,4 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
+import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -12,7 +15,9 @@ import {
 	type PropsWithChildren,
 } from 'react';
 import { useConnector } from '@/data/core';
+import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { useIsOutOfAiCredits } from '@/hooks/use-is-out-of-ai-credits';
 import type {
 	AgentEvent,
 	AgentRunEvent,
@@ -21,6 +26,7 @@ import type {
 	StudioChatFileAttachment,
 	StudioChatImage,
 	StudioCustomEntry,
+	StudioVisualAnnotationSummary,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -36,9 +42,9 @@ function shortEntryId(): string {
 	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
-export interface PendingQuestion {
+interface PendingQuestion {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
 }
 
 export interface QueuedPrompt {
@@ -47,15 +53,17 @@ export interface QueuedPrompt {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
-export interface LiveAgentEvents {
+interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;
@@ -79,6 +87,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	clearQuestionAnswer: ( question: string ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -87,6 +96,7 @@ export interface LiveAgentEvents {
 // `winding_down` means the turn completed, but the subprocess is still draining.
 // `idle` means no active run.
 type RunPhase = 'idle' | 'starting' | 'running' | 'winding_down';
+export type SiteAgentActivity = 'idle' | 'working' | 'pending-question';
 
 interface State {
 	phase: RunPhase;
@@ -120,11 +130,19 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
+	| { type: 'question_answer_cleared'; question: string }
 	| { type: 'batch_dispatched' }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
 	| { type: 'queue_clear' };
+
+function resolveRunStartedAt( state: State, runId: string, startedAt: number ): number {
+	if ( state.phase === 'starting' || state.runId === runId ) {
+		return state.startedAt ?? startedAt;
+	}
+	return startedAt;
+}
 
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
@@ -133,7 +151,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: action.interrupting,
 			};
@@ -151,7 +169,7 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: 'running',
 				runId: action.runId,
-				startedAt: action.startedAt,
+				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
 				error: null,
 				isInterrupting: false,
 			};
@@ -166,8 +184,14 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition. Everything else resets.
-			return { ...initialState, queuedPrompts: state.queuedPrompts };
+			// survive the transition, and any transport error — `run.exited`
+			// lags the `error` event and must not wipe the banner before the
+			// user can read it. Everything else resets.
+			return {
+				...initialState,
+				queuedPrompts: state.queuedPrompts,
+				error: state.error,
+			};
 		case 'interrupt_requested':
 			return {
 				...state,
@@ -188,6 +212,10 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
+		case 'question_answer_cleared': {
+			const { [ action.question ]: _cleared, ...rest } = state.pendingAnswers;
+			return { ...state, pendingAnswers: rest };
+		}
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
 		case 'queue_append':
@@ -266,6 +294,7 @@ interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	clearQuestionAnswer: ( sessionId: string, question: string ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -387,17 +416,45 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
+					// The finished run consumed AI credits; refresh the balance shown
+					// in the composer and in Settings → Usage.
+					void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
-						void queryClient.invalidateQueries( {
-							queryKey: SESSIONS_QUERY_KEY,
-						} );
+						// `cancelRefetch: false` so a run ending as its site is deleted
+						// can't cancel the redirect route's in-flight fetch (which would
+						// throw a CancelledError into the router's error boundary).
+						void queryClient.invalidateQueries(
+							{ queryKey: SESSIONS_QUERY_KEY },
+							{ cancelRefetch: false }
+						);
 					}
 					return;
 				}
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
@@ -429,22 +486,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 								),
 							] );
 						}
+					} else if ( inner.type === 'tool_execution_update' ) {
+						const progress = getStudioToolProgress( inner.partialResult );
+						if ( progress?.message.trim() ) {
+							updateCache( payload.sessionId, ( entries ) => [
+								...entries,
+								{
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.tool_progress',
+									data: { message: progress.message, toolCallId: inner.toolCallId },
+								} as SessionEntry,
+							] );
+						}
 					}
 					return;
 				}
-				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
-					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
@@ -470,7 +529,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 									parentId: null,
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
-									data: { question: q.question, options: q.options },
+									data: q,
 								} ) as SessionEntry
 						),
 					] );
@@ -488,6 +547,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const displayMessage = options.displayMessage ?? prompt;
 			const images = options.images ?? [];
 			const files = options.files ?? [];
+			const visualAnnotations = options.visualAnnotations;
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
@@ -501,6 +561,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					text: displayMessage,
 					source: 'prompt',
 					attachments: buildChatAttachmentSummaries( images, files ),
+					visualAnnotations,
 				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
@@ -512,6 +573,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					displayMessage,
 					images,
 					files,
+					visualAnnotations,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -550,6 +612,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( state.phase === 'idle' ) {
 				return;
 			}
+			// A run blocked on `ask_user` is killed mid-call, so settle the call
+			// first. Without a result the model treats the question UI as broken
+			// and falls back to prose for the rest of the session.
+			if ( state.runId && state.pendingQuestions.length > 0 ) {
+				const answers = { ...state.pendingAnswers };
+				for ( const pending of state.pendingQuestions ) {
+					if ( typeof answers[ pending.question ] !== 'string' ) {
+						answers[ pending.question ] = STOPPED_WITHOUT_ANSWER;
+					}
+				}
+				await connector.answerAgentQuestion( state.runId, answers );
+			}
 			const interruptedRunId = state.runId;
 			if ( interruptedRunId ) {
 				ignoredRunIdsRef.current.add( interruptedRunId );
@@ -586,12 +660,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
-	const answerQuestion = useCallback(
-		( sessionId: string, question: string, answer: string ) => {
-			const state = stateStore.getState()[ sessionId ] ?? initialState;
-			if ( ! state.runId ) {
-				return;
-			}
+	// The transcript reads the highlight straight off the cached entry, so a pick
+	// and its retraction both have to land there as well as in the reducer.
+	const setCachedSelectedLabel = useCallback(
+		( sessionId: string, question: string, answer: string | undefined ) => {
 			updateCache( sessionId, ( entries ) => {
 				let targetIndex = -1;
 				for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
@@ -622,6 +694,34 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} as SessionEntry;
 				} );
 			} );
+		},
+		[ updateCache ]
+	);
+
+	// Arming a free-form reply retracts the pick it replaces, so the batch stays
+	// open until the typed answer lands.
+	const clearQuestionAnswer = useCallback(
+		( sessionId: string, question: string ) => {
+			setCachedSelectedLabel( sessionId, question, undefined );
+			dispatchSession( sessionId, { type: 'question_answer_cleared', question } );
+		},
+		[ dispatchSession, setCachedSelectedLabel ]
+	);
+
+	const answerQuestion = useCallback(
+		( sessionId: string, question: string, answer: string ) => {
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
+			if ( ! state.runId ) {
+				return;
+			}
+			// Only a real selection lights up an option. A typed reply renders as a
+			// message instead, so recording it here would show it twice.
+			const isListedOption = state.pendingQuestions
+				.find( ( pending ) => pending.question === question )
+				?.options.some( ( option ) => option.label === answer );
+			if ( isListedOption ) {
+				setCachedSelectedLabel( sessionId, question, answer );
+			}
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -633,7 +733,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore, updateCache ]
+		[ connector, dispatchSession, setCachedSelectedLabel, stateStore ]
 	);
 
 	const value = useMemo< AgentRunStore >(
@@ -643,8 +743,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			clearQuestionAnswer,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
+		[ answerQuestion, clearQuestionAnswer, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -662,6 +763,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		clearQuestionAnswer: clearRunQuestionAnswer,
 	} = store;
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
@@ -678,6 +780,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		queuedPrompts,
 	} = state;
 
+	const isOutOfCredits = useIsOutOfAiCredits();
+
 	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
 	// re-fire on every queue/phase change; without this guard a second render
 	// between the async start-call and `send_start` could kick off a duplicate
@@ -688,7 +792,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	// success, shift; on failure, drop the whole queue so a broken backend
 	// doesn't cascade errors.
 	useEffect( () => {
-		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 ) {
+		// Holding rather than clearing: a balance spent mid-run leaves the queued
+		// prompt visible and it dispatches on its own once a top-up refreshes the
+		// quota, instead of being silently dropped or sent to a certain rejection.
+		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 || isOutOfCredits ) {
 			return;
 		}
 		if ( dispatchingQueuedRef.current ) {
@@ -703,6 +810,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					displayMessage: next.displayMessage,
 					images: next.images,
 					files: next.files,
+					visualAnnotations: next.visualAnnotations,
 				} );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -710,7 +818,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				dispatchingQueuedRef.current = false;
 			}
 		} )();
-	}, [ dispatchSession, phase, queuedPrompts, sessionId, startRun ] );
+	}, [ dispatchSession, isOutOfCredits, phase, queuedPrompts, sessionId, startRun ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string, options: SendMessageOptions = {} ) => {
@@ -729,6 +837,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						displayMessage: options.displayMessage,
 						images: options.images,
 						files: options.files,
+						visualAnnotations: options.visualAnnotations,
 					},
 				} );
 				return;
@@ -755,6 +864,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const clearQuestionAnswer = useCallback(
+		( question: string ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			clearRunQuestionAnswer( sessionId, question );
+		},
+		[ clearRunQuestionAnswer, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -777,40 +896,38 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		clearQuestionAnswer,
 		removeQueuedPrompt,
 	};
 }
 
 /**
- * Read-only counterpart to `useAgentRun` that returns just whether the given
- * session's assistant is actively generating (`isRunning` semantics: the
- * `starting`/`running` phases). Unlike `useAgentRun`, it registers no effects
- * and exposes no actions, so it is safe to call many times — e.g. once per
- * sidebar row — without re-triggering the queue auto-dispatch effect.
+ * Aggregate read-only activity for a site row. Pending questions outrank
+ * active work because they need the user's attention; otherwise any
+ * starting/running session makes the site read as working.
  */
-export function useIsSessionRunning( sessionId: string | undefined ): boolean {
+export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity {
 	const store = useContext( AgentRunContext );
 	if ( ! store ) {
-		throw new Error( 'useIsSessionRunning must be used within AgentRunProvider' );
-	}
-	// Boolean snapshot: rows only re-render when their own flag flips.
-	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const phase = sessionId ? store.stateStore.getState()[ sessionId ]?.phase : undefined;
-		return phase === 'starting' || phase === 'running';
-	} );
-}
-
-export function useSessionHasPendingQuestion( sessionId: string | undefined ): boolean {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useSessionHasPendingQuestion must be used within AgentRunProvider' );
+		throw new Error( 'useSiteAgentActivity must be used within AgentRunProvider' );
 	}
 	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const state = sessionId ? store.stateStore.getState()[ sessionId ] : undefined;
-		return (
-			state?.pendingQuestions.some(
+		let hasWorkingSession = false;
+		for ( const sessionId of sessionIds ) {
+			const state = store.stateStore.getState()[ sessionId ];
+			if ( ! state ) {
+				continue;
+			}
+			const hasPendingQuestion = state.pendingQuestions.some(
 				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-			) ?? false
-		);
+			);
+			if ( hasPendingQuestion ) {
+				return 'pending-question';
+			}
+			if ( state.phase === 'starting' || state.phase === 'running' ) {
+				hasWorkingSession = true;
+			}
+		}
+		return hasWorkingSession ? 'working' : 'idle';
 	} );
 }

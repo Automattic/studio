@@ -7,6 +7,7 @@ import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { Logger } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -16,7 +17,7 @@ export const createSiteTool = defineTool(
 	{
 		name: Type.String( { description: 'The name for the new site (e.g., "My Coffee Shop")' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const slug = args.name
 				.toLowerCase()
@@ -27,17 +28,21 @@ export const createSiteTool = defineTool(
 			}
 			const sitePath = path.join( STUDIO_SITES_ROOT, slug );
 
-			await runCreateSiteCommand( sitePath, {
-				name: args.name,
-				wpVersion: 'latest',
-				phpVersion: DEFAULT_PHP_VERSION,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
-				enableHttps: false,
-				noStart: false,
-				skipBrowser: true,
-				skipLogDetails: true,
-			} );
+			await runCreateSiteCommand(
+				sitePath,
+				{
+					name: args.name,
+					wpVersion: 'latest',
+					phpVersion: DEFAULT_PHP_VERSION,
+					runtime: SITE_RUNTIME_NATIVE_PHP,
+					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					enableHttps: false,
+					noStart: false,
+					skipBrowser: true,
+					skipLogDetails: true,
+				},
+				new Logger( { onProgress: context.onProgress } )
+			);
 
 			const site = await resolveSite( args.name );
 			const url = getSiteUrl( site );
@@ -82,5 +87,6 @@ export const createSiteTool = defineTool(
 				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Create a new WordPress site (name only — handles everything automatically)' }
 );

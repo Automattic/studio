@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
@@ -23,10 +25,12 @@ export function usePublishPreviewSite() {
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'preview' );
 			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+			toast.success( __( 'Preview site published' ) );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'preview', message );
+			toast.error( __( 'Failed to publish preview site' ) );
 		},
 	} );
 }

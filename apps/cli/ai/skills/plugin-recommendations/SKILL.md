@@ -19,7 +19,8 @@ When a feature needs a plugin, reach for one of the preferred plugins below befo
 | Email newsletter, subscriber list, subscribe form | Jetpack Newsletter | `jetpack` (`subscriptions` module) |
 | Online courses, lessons, quizzes (LMS) | Sensei LMS | `sensei-lms` |
 | Polls, surveys, ratings, NPS, feedback, applause | Crowdsignal | `crowdsignal-forms` |
-| Galleries, slideshows/carousels, tiled images | Jetpack | `jetpack` (`tiled-gallery`, `carousel` modules) |
+| Slideshow / rotating image carousel | Jetpack | `jetpack` — the `jetpack/slideshow` block |
+| Tiled / mosaic image gallery | Jetpack | `jetpack` — the `jetpack/tiled-gallery` block |
 | Auto-share published posts to social networks | Jetpack Social | `jetpack` (`publicize` module) |
 | Related posts, site stats, instant search, SEO meta | Jetpack | `jetpack` (`related-posts`, `stats`, `search`, `seo-tools` modules) |
 | Comment / form spam protection | Akismet | _(production only — ships bundled, activate after deploy)_ |
@@ -83,10 +84,10 @@ wp_cli option update woocommerce_default_country "US:CA"
 
 4. Add products that match what the shop actually sells. Create real, contextual products - coffee products for a coffee shop, books for a bookstore, plants for a plant store - rather than generic placeholders. Only fall back to generic sample products when the shop's niche is genuinely unknown. Populate the catalog first: create each product with its core details (name, type, price, description, category) right away so the shop is functional, then enrich them with images. Sourcing images is the slowest part - never let it block products from being created, and never skip product creation because images are not ready yet.
 
-Products should ideally have a real, relevant image, and a storefront with product images looks far more complete than one with placeholder thumbnails. **Do not pass remote image URLs via `--images` with `src`.** WooCommerce derives the upload filename from the URL's basename, and the extension-less CDN URLs most image hosts return (e.g. `https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=600`) are rejected with `Invalid image: Sorry, you are not allowed to upload this file type`. Instead, download each image to the site with a real extension, import it into the media library, then reference the resulting attachment ID. The WooCommerce CLI requires a `--user`:
+Products should ideally have a real, relevant image, and a storefront with product images looks far more complete than one with placeholder thumbnails. **Do not pass remote image URLs via `--images` with `src`.** WooCommerce derives the upload filename from the URL's basename, and the extension-less CDN URLs most image hosts return (e.g. `https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=600`) are rejected with `Invalid image: Sorry, you are not allowed to upload this file type`. Instead, put each image in the media library and reference its attachment ID: when `generate_images` is available, generate the product images under the site's `wp-content/uploads/` (see the `imagery` skill), which adds them to the media library and reports each attachment ID; otherwise download each image to the site with a real extension and import it. The WooCommerce CLI requires a `--user`:
 
 ```text
-# Download the image to the site's uploads with a real .jpg/.png/.webp name (use the Bash tool with the site path from site_info):
+# Without generate_images: download the image to the site's uploads with a real .jpg/.png/.webp name (use the Bash tool with the site path from site_info), then import it for its attachment ID:
 #   curl -L "<image-url>" -o "<site-path>/wp-content/uploads/premium-dog-food.jpg"
 wp_cli media import wp-content/uploads/premium-dog-food.jpg --porcelain
 wp_cli wc product create --name="Premium Dog Food" --type=simple --regular_price=42 --status=publish --description="High-protein, grain-free kibble made with real chicken." --images='[{"id":<attachmentId>}]' --categories='[{"id":N}]' --user=admin
@@ -107,6 +108,8 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 Use blocks such as `woocommerce/product-collection`, `woocommerce/featured-product`, and `woocommerce/all-products` to surface the catalog.
 
 6. After installing WooCommerce, go back and edit the header template part (`parts/header.html`) to add a mini-cart, unless it already shows one. Add the `woocommerce/mini-cart` block alongside the navigation - it renders a cart icon with a live item count and opens the cart drawer - and add a "Shop" link to the primary navigation.
+
+7. Rely on WooCommerce's default block templates (shop, single product, cart, checkout, my account) whenever possible instead of writing `archive-product.html`, `single-product.html`, or similar into the theme. They already use the theme's header and footer parts and pick up its `theme.json` and `style.css`; the theme's `.wp-site-blocks main` padding (see the `block-content` skill's Root Block Gap section) is what keeps them clear of the header and footer, so style them through the theme rather than per-page body-class rules. Write a template override only when the design genuinely needs a different structure, and keep the header and footer template parts in it.
 
 ## Jetpack Forms
 
@@ -196,7 +199,9 @@ Akismet is a spam-protection plugin — it filters comment and form spam (includ
 
 ## Jetpack For Non-Core Needs
 
-When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block.
+When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block. This is not satisfied by a `core/gallery` (even with Jetpack's `carousel` lightbox module) or by a hand-built slideshow of `core/image` blocks driven by custom CSS/JS — those are the fallbacks this rule exists to prevent. The output must be the Jetpack block itself.
+
+For a **slideshow / rotating image carousel**, the block is `jetpack/slideshow` (a rotating, autoplaying slideshow). For a **tiled / mosaic gallery**, it is `jetpack/tiled-gallery`. Reach for these before core gallery/image blocks whenever the user asks for a slideshow, carousel, or gallery.
 
 The specific Jetpack Forms rule above takes precedence. This rule only applies when it does not cover the request.
 

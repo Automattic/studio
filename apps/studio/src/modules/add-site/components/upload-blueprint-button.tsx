@@ -1,4 +1,4 @@
-import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
+import { prepareBlueprint } from '@studio/common/lib/blueprint-selection';
 import { Button as WpButton } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -58,34 +58,23 @@ export function UploadBlueprintButton( {
 				return;
 			}
 
-			const meta = blueprintJson as {
-				version?: number;
-				meta?: { title?: string; description?: string };
-			};
-
-			if ( meta.version === 2 ) {
-				onError( __( 'Blueprint v2 format is not supported yet. Please use v1.' ) );
+			const prepared = await prepareBlueprint( blueprintJson, {
+				fallbackTitle: file.name.replace( /\.(json|zip)$/i, '' ),
+				validate: ( candidate ) =>
+					getIpcApi().validateBlueprint( candidate as Blueprint[ 'blueprint' ] ),
+			} );
+			if ( ! prepared.valid ) {
+				onError( prepared.error );
 				return;
 			}
 
-			const validation = await getIpcApi().validateBlueprint( blueprintJson );
-			if ( ! validation.valid ) {
-				onError( validation.error || __( 'Invalid Blueprint format' ) );
-				return;
-			}
-
-			const baseName = file.name.replace( /\.(json|zip)$/, '' );
 			const fileBlueprint: Blueprint = {
 				slug: `file:${ file.name }`,
-				title: meta.meta?.title || baseName,
-				excerpt:
-					meta.meta?.description ||
-					generateDefaultBlueprintDescription(
-						blueprintJson as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
-					),
+				title: prepared.title,
+				excerpt: prepared.excerpt,
 				image: '',
 				playground_url: '',
-				blueprint: blueprintJson,
+				blueprint: prepared.blueprint as Blueprint[ 'blueprint' ],
 				filePath,
 			};
 

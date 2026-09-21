@@ -24,7 +24,7 @@ export const exportSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const mode = args.mode ?? 'full';
@@ -36,8 +36,10 @@ export const exportSiteTool = defineTool(
 				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
 			}
 
-			const result = await captureCommandOutput( () =>
-				runExportCommand( site.path, exportFile, mode )
+			const result = await captureCommandOutput(
+				( logger ) =>
+					runExportCommand( site.path, exportFile, mode, false, undefined, false, false, logger ),
+				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
 
@@ -51,5 +53,9 @@ export const exportSiteTool = defineTool(
 				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.',
 	}
 );

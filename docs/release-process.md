@@ -13,6 +13,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Creates `release/<version>` branch from `trunk`
 - Extracts translatable strings and commits them to the release branch (a wpcom cron imports them to GlotPress via a backmerge PR)
 - Generates draft release notes from merged PRs and commits them to the release branch
+- Copies `trunk`'s branch protection onto the release branch — same required CI checks and reviews, and no deletions or force-pushes — so the branch survives until the release ships. `wpmobilebot` keeps pushing to it directly (`trunk`'s protection does not enforce admins), while everyone else goes through PRs.
 - Creates a backmerge PR from the release branch into `trunk`
 
 ### 2. Beta Releases
@@ -46,6 +47,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 - Publishes the draft GitHub release (which creates the corresponding GitHub tag too)
 - Creates a backmerge PR from `release/<version>` into `trunk`
+- Removes the branch protection from `release/<version>` and deletes the branch
 
 ### 6. Post-Release (manual)
 

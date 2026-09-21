@@ -11,6 +11,9 @@ import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
 	sendWpCliCommand,
@@ -26,9 +29,16 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {
+	resetSqliteJournalModeToRollback: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	updateSiteLatestCliPid: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/tracks', async ( importActual ) => {
+	const actual = await importActual< typeof import('cli/lib/tracks') >();
+	return { ...actual, recordTracksEvent: vi.fn() };
+} );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
@@ -68,6 +78,7 @@ describe( 'WordPress Server Manager', () => {
 		vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
 		vi.mocked( daemonClient.getDaemonBus ).mockResolvedValue( mockBus as DaemonBus );
 		vi.mocked( daemonClient.sendMessageToProcess ).mockReturnValue( Promise.resolve() );
+		vi.mocked( daemonClient.listProcesses ).mockResolvedValue( [ mockProcessDescription ] );
 	} );
 
 	afterEach( () => {
@@ -222,6 +233,30 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
+		it( 'should convert the SQLite database out of WAL mode before starting Playground', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_PLAYGROUND },
+				mockLogger
+			);
+
+			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
+				mockSiteData.path
+			);
+		} );
+
+		it( 'should leave the SQLite journal mode alone when starting native PHP', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
+				mockLogger
+			);
+
+			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).not.toHaveBeenCalled();
+		} );
+
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {
 			setupIpcMocks();
 
@@ -297,6 +332,40 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
 
 			expect( vi.mocked( recordSiteRuntimeUsage ) ).not.toHaveBeenCalled();
+		} );
+
+		it( 'records a successful site-start Tracks event with timing and running-site count', async () => {
+			setupIpcMocks();
+			vi.mocked( daemonClient.listProcesses ).mockResolvedValue( [
+				mockProcessDescription,
+				{ ...mockProcessDescription, name: 'studio-site-other', pmId: 6 },
+			] );
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_START,
+				expect.objectContaining( {
+					success: true,
+					running_site_count: 2,
+					time_ms: expect.any( Number ),
+				} )
+			);
+		} );
+
+		it( 'records a failed site-start Tracks event with a classified reason', async () => {
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'start timed out' ) );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_START,
+				expect.objectContaining( {
+					success: false,
+					failure_reason: 'timeout',
+					time_ms: expect.any( Number ),
+				} )
+			);
 		} );
 
 		it( 'should handle start process failure', async () => {
@@ -540,6 +609,36 @@ describe( 'WordPress Server Manager', () => {
 			await promise;
 
 			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should wait for the process to exit after falling back to `stopProcess`', async () => {
+			const onlineProcess: ProcessDescription = {
+				name: 'studio-site-test-site-id',
+				pmId: 1,
+				status: 'online',
+				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
+			};
+
+			// Still listed as online for the first polls after the SIGKILL, then gone.
+			vi.mocked( daemonClient.isProcessRunning )
+				.mockResolvedValueOnce( onlineProcess )
+				.mockResolvedValueOnce( onlineProcess )
+				.mockResolvedValueOnce( onlineProcess )
+				.mockResolvedValue( undefined );
+
+			vi.mocked( daemonClient.sendMessageToProcess ).mockRejectedValue(
+				new Error( 'Failed to send stop message' )
+			);
+			vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
+
+			await stopWordPressServer( 'test-site-id' );
+
+			expect( vi.mocked( daemonClient.stopProcess ) ).toHaveBeenCalledWith(
+				'studio-site-test-site-id'
+			);
+			// The initial running check plus the polls that observed the process going away.
+			expect( vi.mocked( daemonClient.isProcessRunning ).mock.calls.length ).toBeGreaterThan( 1 );
 		} );
 
 		it( 'should propagate errors from fallback `stopProcess` call', async () => {

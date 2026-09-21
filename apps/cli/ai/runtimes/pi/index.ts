@@ -55,6 +55,7 @@ import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
+import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -64,6 +65,7 @@ import {
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { StudioToolResultDetails } from 'cli/ai/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -259,6 +261,7 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
+		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -326,13 +329,15 @@ async function createStudioAgentSession(
 					chatArtifactsEnabled,
 					runtime,
 					userInstructions,
-					imageGenerationEnabled,
 					visionEnabled,
 					tools: tools.map( toolPromptContribution ),
 			  }
 	);
 
-	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
+	const pendingWork = getPendingWork( config.session );
+	const toolDefinitions = tools.map( ( tool ) =>
+		toToolDefinition( tool, payloadGuardState, pendingWork )
+	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
@@ -574,7 +579,8 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 
 function toToolDefinition(
 	tool: AgentToolAny,
-	payloadGuardState: StudioToolPayloadGuardState
+	payloadGuardState: StudioToolPayloadGuardState,
+	pendingWork: PendingWork
 ): ToolDefinition {
 	return {
 		name: tool.name,
@@ -594,7 +600,19 @@ function toToolDefinition(
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
 			}
-			return tool.execute( toolCallId, params, signal, onUpdate );
+			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
+				await pendingWork.settle();
+			}
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			const details = result.details as StudioToolResultDetails | undefined;
+			if ( details?.pending ) {
+				pendingWork.add( details.pending );
+				delete details.pending;
+			}
+			const reports = pendingWork.takeReports();
+			return reports
+				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
+				: result;
 		},
 	};
 }

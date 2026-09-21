@@ -1,12 +1,14 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
 import {
 	LAYOUT_BASELINE_SCHEMA,
 	VISUAL_PARITY_COMPILER_REPORT_PATH,
 	VISUAL_PARITY_STAGE,
 	VISUAL_PARITY_VIEWPORT,
+	buildVisualParityValidationArtifacts,
 	loadCapturedRoutes,
 	loadCapturedSectionPages,
 	routeForCapturedPage,
@@ -16,6 +18,39 @@ import {
 	type VisualParityArtifacts,
 	type VisualParityEvaluation,
 } from 'cli/lib/visual-parity';
+
+vi.mock( 'cli/ai/browser-utils', () => ( {
+	launchChromiumWithInstall: vi.fn(),
+} ) );
+
+// A minimal stand-in for the Playwright `Browser`/`Page` that `buildVisualParityValidationArtifacts`
+// drives, so the routing fix can be proven against the real orchestration function without a real
+// browser. `evaluate()` is dispatched by inspecting the callback body, since that's the only
+// signal available for which of the three page-context probes (readiness signature, lazy-load
+// scroll, section/landmark extraction) is being run.
+function createFakeBrowser( routeStatuses: Record< string, number >, visitedPaths: string[] ) {
+	const newPage = async () => ( {
+		goto: async ( url: string ) => {
+			visitedPaths.push( new URL( url ).pathname );
+			const status = routeStatuses[ new URL( url ).pathname ] ?? 200;
+			return { status: () => status };
+		},
+		waitForLoadState: async () => undefined,
+		waitForTimeout: async () => undefined,
+		evaluate: async ( fn: ( ...args: unknown[] ) => unknown ) => {
+			const source = fn.toString();
+			if ( source.includes( 'nodeCount' ) ) {
+				return { nodeCount: 1, imageCount: 0, completeImageCount: 0, height: 100 };
+			}
+			if ( source.includes( 'scrollTo' ) ) {
+				return undefined;
+			}
+			return { viewport: VISUAL_PARITY_VIEWPORT, page_height: 100, sections: [], landmarks: [] };
+		},
+		close: async () => undefined,
+	} );
+	return { newPage, close: async () => undefined };
+}
 
 function requiredLayoutBaselinePaths( prefix: string, pageCount: number ): string[] {
 	const paths = [
@@ -410,5 +445,101 @@ describe( 'routeForCapturedPage', () => {
 			'/social-kit'
 		);
 		expect( routeForCapturedPage( 'index', undefined, routes ) ).toBe( '/' );
+	} );
+
+	it( 'maps a captured route with a document extension to the permalink WordPress publishes, not the raw exported path', () => {
+		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-visual-parity-routes-' ) );
+		const sectionsDir = path.join( tmpDir, 'sections' );
+		fs.mkdirSync( sectionsDir );
+		fs.writeFileSync(
+			path.join( tmpDir, 'capture-receipt.json' ),
+			JSON.stringify( {
+				websiteRoot: 'website',
+				routes: [
+					{ url: 'https://example.com/', path: 'website/index.html' },
+					{ url: 'https://example.com/day-13.html', path: 'website/day-13.html' },
+				],
+			} )
+		);
+
+		const routes = loadCapturedRoutes( sectionsDir );
+
+		// The entry/index route maps to the site root, not `/index.html/`.
+		expect( routeForCapturedPage( 'index', 'https://example.com/', routes ) ).toBe( '/' );
+		// A `.html` route maps to the imported permalink WordPress actually publishes
+		// (`post_name` drops the extension), not `/day-13.html/`.
+		expect( routeForCapturedPage( 'day-13', 'https://example.com/day-13.html', routes ) ).toBe(
+			'/day-13/'
+		);
+	} );
+} );
+
+describe( 'buildVisualParityValidationArtifacts', () => {
+	let tmpDir: string | undefined;
+
+	afterEach( () => {
+		vi.mocked( launchChromiumWithInstall ).mockReset();
+		if ( tmpDir ) {
+			fs.rmSync( tmpDir, { recursive: true, force: true } );
+			tmpDir = undefined;
+		}
+	} );
+
+	it( 'probes the imported permalink for a `.html` route and still reports a page that genuinely did not import', async () => {
+		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-visual-parity-build-' ) );
+		const sectionsDir = path.join( tmpDir, 'sections' );
+		fs.mkdirSync( sectionsDir );
+		fs.writeFileSync(
+			path.join( tmpDir, 'capture-receipt.json' ),
+			JSON.stringify( {
+				websiteRoot: 'website',
+				routes: [
+					{ url: 'https://example.com/', path: 'website/index.html' },
+					{ url: 'https://example.com/day-13.html', path: 'website/day-13.html' },
+					{ url: 'https://example.com/day-99.html', path: 'website/day-99.html' },
+				],
+			} )
+		);
+		for ( const [ name, sourceUrl ] of [
+			[ 'index.json', 'https://example.com/' ],
+			[ 'day-13.json', 'https://example.com/day-13.html' ],
+			[ 'day-99.json', 'https://example.com/day-99.html' ],
+		] as const ) {
+			fs.writeFileSync(
+				path.join( sectionsDir, name ),
+				JSON.stringify( {
+					sourceUrl,
+					viewport: VISUAL_PARITY_VIEWPORT,
+					sections: [],
+					landmarks: [],
+				} )
+			);
+		}
+
+		const visitedPaths: string[] = [];
+		// `/day-99/` is the corrected permalink for a page that genuinely never imported —
+		// the fix must not paper over that by making every lookup succeed.
+		vi.mocked( launchChromiumWithInstall ).mockResolvedValue(
+			createFakeBrowser(
+				{ '/': 200, '/day-13/': 200, '/day-99/': 404 },
+				visitedPaths
+			) as unknown as Awaited< ReturnType< typeof launchChromiumWithInstall > >
+		);
+
+		const artifacts = await buildVisualParityValidationArtifacts( {
+			sectionsDir,
+			importedOrigin: 'http://localhost:8890',
+			logger: { warn: () => undefined },
+		} );
+
+		expect( visitedPaths ).toContain( '/day-13/' );
+		expect( visitedPaths ).not.toContain( '/day-13.html/' );
+
+		const importedIds = artifacts.imported_render?.pages.map( ( page ) => page.id ) ?? [];
+		expect( importedIds ).toEqual( expect.arrayContaining( [ 'index', 'day-13' ] ) );
+		expect( importedIds ).not.toContain( 'day-99' );
+
+		const sourceIds = artifacts.source_reports.layout_baseline.pages.map( ( page ) => page.id );
+		expect( sourceIds ).toEqual( expect.arrayContaining( [ 'index', 'day-13', 'day-99' ] ) );
 	} );
 } );

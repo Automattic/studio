@@ -342,11 +342,35 @@ function normalizePageId( value: string ): string {
 	return [ '', 'index', 'home', 'homepage' ].includes( normalized ) ? 'index' : normalized;
 }
 
-// Maps each captured source URL to the route its exported document occupies under `website/`,
-// as recorded by the DLA capture receipt beside `sections/`. The imported site is rooted at
-// that export, not at the source URL: a source hosted under a subpath
+// WordPress derives a page's slug from its exported filename, dropping the document
+// extension (`day-13.html` -> post_name `day-13`), so the permalink it publishes is never
+// the raw exported path. Studio has no cheaper way to learn that slug: the Static Site
+// Importer only returns a compact summary on its terminal WP-CLI receipt, and the
+// per-page permalink table it writes lives in the generated theme's `import-report.json`,
+// which is unreadable from Node for PHP-WASM/Playground sites (see the top-of-file
+// comment). So this mirrors WordPress's own derivation instead of reading it back: strip a
+// trailing document extension from the last path segment, and collapse an `index` document
+// (at any depth, e.g. `day-13/index.html`) onto its directory route.
+function documentPathToPermalink( relativePath: string ): string {
+	const segments = relativePath.split( '/' ).filter( Boolean );
+	if ( segments.length === 0 ) {
+		return '/';
+	}
+	const slug = segments[ segments.length - 1 ].replace( /\.[^./]+$/, '' );
+	if ( slug === '' || slug.toLowerCase() === 'index' ) {
+		segments.pop();
+	} else {
+		segments[ segments.length - 1 ] = slug;
+	}
+	return segments.length > 0 ? `/${ segments.join( '/' ) }/` : '/';
+}
+
+// Maps each captured source URL to the permalink its exported document publishes under
+// `website/`, as recorded by the DLA capture receipt beside `sections/`. The imported site is
+// rooted at that export, not at the source URL: a source hosted under a subpath
 // (`https://user.wixsite.com/my-site`) exports its homepage to `website/index.html`, so the
-// imported homepage lives at `/`, not `/my-site`.
+// imported homepage lives at `/`, not `/my-site` — and a source whose routes carry a document
+// extension (`day-13.html`) publishes at `/day-13/`, not `/day-13.html/`.
 export function loadCapturedRoutes( sectionsDir: string ): Map< string, string > {
 	const routes = new Map< string, string >();
 	try {
@@ -363,8 +387,7 @@ export function loadCapturedRoutes( sectionsDir: string ): Map< string, string >
 			if ( ! exportedPath.startsWith( prefix ) ) {
 				continue;
 			}
-			const relative = exportedPath.slice( prefix.length ).replace( /(^|\/)index\.html?$/, '' );
-			routes.set( route.url, relative ? `/${ relative }/` : '/' );
+			routes.set( route.url, documentPathToPermalink( exportedPath.slice( prefix.length ) ) );
 		}
 	} catch {
 		// No readable receipt: callers fall back to the source URL's own path.

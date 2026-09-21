@@ -585,6 +585,126 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
+		it( 'refuses a capture whose entry route failed', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-entry-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Stub</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					entrypoint: 'website/index.html',
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{ code: 'route_capture_failed', url: 'https://example.com/', reason: 'HTTP 503' },
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							runCli: async () => ( {
+								exitCode: 0,
+								signal: null,
+								stdout: `Site: ${ websiteDir }\n`,
+								stderr: '',
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const websiteDir = path.join( capturePath, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{
+							code: 'route_capture_failed',
+							url: 'https://example.com/contact',
+							reason: 'HTTP 500',
+						},
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 1 },
+				} )
+			);
+			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							runCli: async () => ( {
+								exitCode: 0,
+								signal: null,
+								stdout: `Site: ${ websiteDir }\n`,
+								stderr: '',
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( process.exitCode ).toBeUndefined();
+				expect( runBlueprint ).toHaveBeenCalled();
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'captured 13 of 14 routes' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( true );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'bundles a local Static Site Importer zip until Blueprint execution finishes', async () => {
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-source-test-' ) );
 			const pluginDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ssi-plugin-' ) );

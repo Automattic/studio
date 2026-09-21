@@ -72,7 +72,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { liberateWebsite } from 'cli/lib/data-liberation-client';
+import { liberateWebsite, type PartialCaptureReport } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getBundledVisualParityEvalScriptPath,
@@ -133,6 +133,7 @@ const STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE = 'visual-parity-input.json';
 const STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE = 'visual-parity-output.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
+const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
 // JSON compiler-evidence sidecars written next to `website/`. Copied into the
 // staged importer source and named in `metadata.reports` so SSI keeps them at
 // the artifact root instead of prefixing `website/`. Large capture directories
@@ -307,6 +308,39 @@ function isDataLiberationCaptureRoot( directory: string ): boolean {
 	} catch {
 		return false;
 	}
+}
+
+// A partial capture still imports, so the routes it dropped have to stay discoverable after
+// the terminal output is gone: the message names each one, and the caller keeps the capture
+// directory the diagnostics live in instead of deleting it with the rest of the source.
+function partialCaptureWarning( report: PartialCaptureReport ): string {
+	const lines = [
+		sprintf(
+			/* translators: 1: captured route count, 2: discovered route count, 3: failed route count */
+			__(
+				'Data Liberation captured %1$d of %2$d routes. %3$d failed and are missing from the import.'
+			),
+			Math.max( report.routesDiscovered - report.routesFailed, 0 ),
+			report.routesDiscovered,
+			report.routesFailed
+		),
+		...report.failedRoutes
+			.slice( 0, PARTIAL_CAPTURE_REPORTED_ROUTES )
+			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
+	];
+	const unlisted = report.failedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
+	if ( unlisted > 0 ) {
+		/* translators: %d: number of failed routes not listed individually */
+		lines.push( sprintf( __( '  …and %d more.' ), unlisted ) );
+	}
+	lines.push(
+		sprintf(
+			/* translators: %s: path to the retained capture diagnostics file */
+			__( 'The capture was kept for review: %s' ),
+			report.diagnosticsPath
+		)
+	);
+	return lines.join( '\n' );
 }
 
 function collectArtifactRootReports(
@@ -1880,6 +1914,7 @@ export const registerCommand = (
 				let importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				let liberationOutputDir: string | undefined;
+				let capturedPartially = false;
 				if ( sourceUrl ) {
 					if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 						throw new LoggerError(
@@ -1907,6 +1942,10 @@ export const registerCommand = (
 									lastProgressAt = now;
 									defaultLogger.reportProgress( message );
 								}
+							},
+							onPartialCapture: ( report ) => {
+								capturedPartially = true;
+								defaultLogger.reportWarning( partialCaptureWarning( report ) );
 							},
 						}
 					);
@@ -1950,7 +1989,7 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource && ! capturedPartially ) {
 						await fs.promises
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );

@@ -6,8 +6,43 @@ import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 
 const captureReceiptSchema = z.object( {
 	schema: z.literal( 'data-liberation/capture-receipt/v1' ),
-	summary: z.object( { routesFailed: z.number().int().nonnegative() } ),
+	entrypoint: z.string().optional(),
+	source: z.object( { url: z.string().optional() } ).optional(),
+	discoveryDiagnostics: z
+		.array( z.object( { code: z.string(), url: z.string(), reason: z.string() } ) )
+		.optional(),
+	summary: z.object( {
+		routesDiscovered: z.number().int().nonnegative().optional(),
+		routesFailed: z.number().int().nonnegative(),
+	} ),
 } );
+
+// On any real source an occasional route fails for reasons the pipeline does not control:
+// a source-side error, a timeout, a gated page. Dropping the whole import for those costs
+// the user every route that did capture, so a capture that kept nearly all of its routes is
+// imported and the missing ones are reported. Past this share the result is too incomplete
+// to be worth creating, and the entry route is never tradeable: a site with no home page is
+// not a usable outcome.
+const MAX_FAILED_ROUTE_RATIO = 0.1;
+
+export type PartialCaptureReport = {
+	routesDiscovered: number;
+	routesFailed: number;
+	failedRoutes: Array< { url: string; reason: string } >;
+	diagnosticsPath: string;
+};
+
+function routeIdentity( url: string ): string {
+	try {
+		const route = new URL( url );
+		route.hash = '';
+		route.search = '';
+		route.pathname = route.pathname.replace( /\/$/, '' ) || '/';
+		return route.href;
+	} catch {
+		return url;
+	}
+}
 
 type DataLiberationCliResult = {
 	exitCode: number | null;
@@ -23,6 +58,7 @@ export type RunDataLiberationCli = (
 
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
+	onPartialCapture?: ( report: PartialCaptureReport ) => void;
 	runCli?: RunDataLiberationCli;
 };
 
@@ -129,24 +165,43 @@ export async function liberateWebsite(
 		throw new Error( 'Data Liberation reported an invalid website directory.' );
 	}
 
-	const receiptPath = path.join( websiteDir, '..', 'capture-receipt.json' );
-	let routesFailed: number;
+	const captureRoot = path.dirname( websiteDir );
+	const receiptPath = path.join( captureRoot, 'capture-receipt.json' );
+	let receipt: z.infer< typeof captureReceiptSchema >;
 	try {
-		const receipt = captureReceiptSchema.parse(
-			JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) )
-		);
-		routesFailed = receipt.summary.routesFailed;
+		receipt = captureReceiptSchema.parse( JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) ) );
 	} catch {
 		throw new Error( `Data Liberation did not provide a valid capture receipt: ${ receiptPath }` );
 	}
+
+	const routesFailed = receipt.summary.routesFailed;
 	if ( routesFailed > 0 ) {
-		throw new Error(
-			`Data Liberation reported ${ routesFailed } capture failures. Review ${ path.join(
-				websiteDir,
-				'..',
-				'diagnostics.json'
-			) } before importing.`
-		);
+		const diagnosticsPath = path.join( captureRoot, 'diagnostics.json' );
+		const routesDiscovered = receipt.summary.routesDiscovered ?? 0;
+		const failedRoutes = ( receipt.discoveryDiagnostics ?? [] )
+			.filter( ( diagnostic ) => diagnostic.code === 'route_capture_failed' )
+			.map( ( { url, reason } ) => ( { url, reason } ) );
+		const entrypointPath = receipt.entrypoint
+			? path.resolve( captureRoot, receipt.entrypoint )
+			: path.join( websiteDir, 'index.html' );
+		const entryRoute = routeIdentity( receipt.source?.url ?? parsed.href );
+		if (
+			! fs.existsSync( entrypointPath ) ||
+			failedRoutes.some( ( route ) => routeIdentity( route.url ) === entryRoute )
+		) {
+			throw new Error(
+				`Data Liberation could not capture the entry route ${ entryRoute }. Review ${ diagnosticsPath } before importing.`
+			);
+		}
+		if ( routesDiscovered <= 0 || routesFailed / routesDiscovered > MAX_FAILED_ROUTE_RATIO ) {
+			throw new Error(
+				`Data Liberation captured ${ Math.max(
+					routesDiscovered - routesFailed,
+					0
+				) } of ${ routesDiscovered } routes and reported ${ routesFailed } capture failures. Review ${ diagnosticsPath } before importing.`
+			);
+		}
+		options.onPartialCapture?.( { routesDiscovered, routesFailed, failedRoutes, diagnosticsPath } );
 	}
 
 	return websiteDir;

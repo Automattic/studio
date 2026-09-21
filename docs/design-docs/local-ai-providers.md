@@ -138,4 +138,6 @@ Manual:
 npm run cli:build && node apps/cli/dist/cli/main.mjs
 ```
 
-`/openai-config` against a small-context endpoint (e.g. Apfel at `http://localhost:11435/v1`, model `apple-foundationmodel`, ~4K window): confirm `/model` lists the endpoint's models, a normal chat works, and a long conversation keeps responding rather than erroring at the context limit — i.e. pi's native compaction fires at the discovered window. Against a larger endpoint (e.g. a vLLM server, ~64K window) everyday chats are untouched.
+`/openai-config` against a small-context endpoint (e.g. Apfel at `http://localhost:11435/v1`, model `apple-foundationmodel`, ~4K window): confirm `/model` lists the endpoint's models with their discovered context windows, and that the first turn fails with `context_length_exceeded` — the expected outcome below the ~5K floor above, not a regression.
+
+Against a model with a usable window (e.g. a 32K–64K model on vLLM or Ollama): confirm a normal chat works and a long conversation keeps responding rather than erroring at the context limit — i.e. pi's native compaction fires at the discovered window. Screenshots are not offered on a local model: an id outside the built-in catalog is assumed text-only, so `take_screenshot` isn't registered.

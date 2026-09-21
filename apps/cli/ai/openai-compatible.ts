@@ -28,7 +28,10 @@ function authHeaders( apiKey?: string ): Record< string, string > {
 }
 
 function readContextWindow( entry: Record< string, unknown > ): number | undefined {
-	const candidate = entry.context_window ?? entry.max_model_len ?? entry.max_context_length;
+	// Each server names this differently: vLLM `max_model_len`, LiteLLM and
+	// OpenRouter `context_length`, others `context_window` / `max_context_length`.
+	const candidate =
+		entry.context_window ?? entry.max_model_len ?? entry.max_context_length ?? entry.context_length;
 	return typeof candidate === 'number' && candidate > 0 ? candidate : undefined;
 }
 
@@ -50,8 +53,13 @@ export async function discoverOpenAiCompatibleModels(
 		if ( ! response.ok ) {
 			return [];
 		}
-		const body = ( await response.json() ) as { data?: Record< string, unknown >[] };
-		const entries = Array.isArray( body?.data ) ? body.data : [];
+		// The spec shape is `{ data: [...] }`, but some minimal servers reply
+		// with a bare array.
+		const body = ( await response.json() ) as
+			| { data?: Record< string, unknown >[] }
+			| Record< string, unknown >[];
+		const list = Array.isArray( body ) ? body : body?.data;
+		const entries = Array.isArray( list ) ? list : [];
 		return entries
 			.filter( ( entry ) => typeof entry?.id === 'string' )
 			.map( ( entry ) => ( {

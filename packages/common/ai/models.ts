@@ -12,7 +12,8 @@ export interface AiModel {
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
 	/**
-	 * Whether the model accepts image input. Defaults to true. Set false for
+	 * Whether the model accepts image input. Defaults to true for built-in
+	 * models (ids outside this catalog default to false). Set false for
 	 * text-only models so the runtime doesn't advertise vision they lack —
 	 * screenshot tool results are images.
 	 */
@@ -105,10 +106,13 @@ export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
 	return getAiModel( id ).requiresPaidAiCredits ?? false;
 }
 
-// Tolerates ids outside AI_MODELS (e.g. a local `openai-compatible` model) —
-// image support is the safe default.
+// Tolerates ids outside AI_MODELS (e.g. a local `openai-compatible` model).
+// Those are assumed text-only: most local models reject an image content block
+// outright, so advertising a screenshot tool would make every call 400. A
+// built-in model that doesn't say otherwise still takes images.
 export function aiModelSupportsImages( id: SelectedModelId ): boolean {
-	return MODEL_BY_ID.get( id )?.supportsImages ?? true;
+	const model = MODEL_BY_ID.get( id );
+	return model ? model.supportsImages ?? true : false;
 }
 
 /**

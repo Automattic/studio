@@ -349,9 +349,16 @@ export function Composer( {
 	// Only offer models the conversation's provider can serve. The paid tiers
 	// are listed but disabled for accounts without purchased credits.
 	const aiSettings = useAiSettings();
-	const visibleModels = getAiProviderModels(
-		getEffectiveSessionProvider( entries ?? [], aiSettings )
-	);
+	const sessionProvider = getEffectiveSessionProvider( entries ?? [], aiSettings );
+	const visibleModels = getAiProviderModels( sessionProvider );
+	// Short badge so the pill names what the conversation actually runs on
+	// rather than showing a bare model name for every provider.
+	let providerPillPrefix: string | null = null;
+	if ( sessionProvider === 'anthropic-api-key' ) {
+		providerPillPrefix = __( 'API' );
+	} else if ( sessionProvider === 'openai-compatible' ) {
+		providerPillPrefix = __( 'Local' );
+	}
 	const { isAuthenticated, user } = useAuth();
 	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 	// The paid tiers unlock with purchased credits; Automatticians are exempt.
@@ -808,7 +815,17 @@ export function Composer( {
 											className={ styles.pill }
 											aria-label={ __( 'Select model' ) }
 										>
-											<span>{ getAiModelLabel( model ) }</span>
+											<span>
+												{ providerPillPrefix ? (
+													<>
+														<strong className={ styles.pillProviderPrefix }>
+															{ providerPillPrefix }
+														</strong>
+														{ ' · ' }
+													</>
+												) : null }
+												{ getAiModelLabel( model ) }
+											</span>
 											<Icon icon={ chevronDownSmall } size={ 16 } />
 										</button>
 									}

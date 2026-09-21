@@ -3,6 +3,7 @@ import {
 	aiModelRequiresPaidCredits,
 	getAiModelFamily,
 	getAiModelLabel,
+	type AiModelFamily,
 	type AiModelId,
 	type SelectedModelId,
 } from '@studio/common/ai/models';
@@ -77,6 +78,27 @@ function isPromptAbortError( error: unknown ): boolean {
 	return (
 		error instanceof Error &&
 		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
+	);
+}
+
+/**
+ * Anthropic and OpenAI models run on different runtimes, and each runtime keeps
+ * its own session store — a session id minted by one won't resolve in the other
+ * ("No conversation found"). Anything that moves the conversation across
+ * families has to start it fresh.
+ */
+async function clearSessionAcrossFamilies(
+	ctx: SlashCommandContext,
+	previousFamily: AiModelFamily
+): Promise< void > {
+	if ( getAiModelFamily( ctx.currentModel ) === previousFamily ) {
+		return;
+	}
+	await ctx.clearSession();
+	ctx.ui.showInfo(
+		__(
+			"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+		)
 	);
 }
 
@@ -254,6 +276,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Configure a local OpenAI-compatible endpoint (base URL, key, model)' ),
 		handler: async ( _prompt, ctx ) => {
 			const existing = await getActiveOpenAiCompatibleEndpoint();
+			const previousFamily = getAiModelFamily( ctx.currentModel );
 			// Interactive prompts need the raw terminal, so pause the chat UI —
 			// same pattern as /login.
 			ctx.ui.stop();
@@ -267,11 +290,15 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				).trim();
 				const apiKeyInput = (
 					await password( {
-						message: __( 'API key, if required (leave blank if none):' ),
+						message: existing?.apiKey
+							? __( 'API key (leave blank to keep the saved one, "-" to remove it):' )
+							: __( 'API key, if required (leave blank if none):' ),
 						mask: '*',
 					} )
 				).trim();
-				const apiKey = apiKeyInput || undefined;
+				// Blank keeps what's saved: the prompt can't show a masked default,
+				// so treating blank as "clear it" silently breaks the next request.
+				const apiKey = apiKeyInput === '-' ? undefined : apiKeyInput || existing?.apiKey;
 
 				// Discover the endpoint's models so the user picks a real one.
 				const models = await discoverOpenAiCompatibleModels( baseUrl, apiKey );
@@ -292,12 +319,11 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						} ) ),
 					} );
 				} else {
-					ctx.ui.showInfo(
-						__( "Couldn't list models from the endpoint; enter a model id manually." )
-					);
+					// The chat UI is stopped here, so its showInfo would never be
+					// seen — the explanation has to ride along on the prompt itself.
 					selectedModel = (
 						await input( {
-							message: __( 'Model id:' ),
+							message: __( "Couldn't list models from the endpoint. Model id:" ),
 							default: existing?.selectedModel,
 							validate: ( value ) => ( value.trim() ? true : __( 'Model id is required' ) ),
 						} )
@@ -322,6 +348,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			ctx.ui.start();
 			ctx.ui.showInfo( __( 'OpenAI-compatible endpoint updated.' ) );
 			await ctx.switchProvider( 'openai-compatible' );
+			await clearSessionAcrossFamilies( ctx, previousFamily );
 			if ( ctx.showCapabilitiesOnConnect ) {
 				ctx.showCapabilitiesOnConnect = false;
 				ctx.ui.showCapabilities();
@@ -440,7 +467,19 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						  )
 						: getAiModelLabel( id );
 				labelToId.set( label, id );
-				return { label, description: id };
+				// A dynamic model's label is already its id, so repeating it as the
+				// description wastes the line — show its context window instead.
+				const contextWindow = dynamicModels?.find( ( model ) => model.id === id )?.contextWindow;
+				return {
+					label,
+					description: contextWindow
+						? sprintf(
+								/* translators: %s: context window in tokens */
+								__( '%s-token context' ),
+								contextWindow.toLocaleString()
+						  )
+						: id,
+				};
 			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
@@ -460,23 +499,13 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				}
 			}
 			if ( newModel && newModel !== ctx.currentModel ) {
-				// Switching to a model in a different family (Anthropic ↔ OpenAI)
-				// hands the next turn off to a different runtime. Each runtime keeps
-				// its own session store, so the existing session id from the previous
-				// runtime won't resolve there ("No conversation found"). Clear the
-				// session before the model swap so the new runtime starts fresh.
-				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
-				if ( familyChanged ) {
-					await ctx.clearSession();
-					ctx.ui.showInfo(
-						__(
-							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-						)
-					);
-				}
-
+				const previousFamily = getAiModelFamily( ctx.currentModel );
+				// Swap the model first: a cross-family clear re-renders the
+				// welcome banner and records a session context, both of which
+				// should already name the model the next turn will use.
 				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
+				await clearSessionAcrossFamilies( ctx, previousFamily );
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
@@ -517,16 +546,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
-					// Providers don't share a model family, so a switch is the
-					// same runtime handoff as a cross-family /model switch.
-					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
-						await ctx.clearSession();
-						ctx.ui.showInfo(
-							__(
-								"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-							)
-						);
-					}
+					await clearSessionAcrossFamilies( ctx, previousFamily );
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ctx.ui.showInfo(

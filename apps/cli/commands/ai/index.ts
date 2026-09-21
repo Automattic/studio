@@ -424,6 +424,7 @@ export async function runCommand( options: {
 		}
 
 		const previousProvider = currentProvider;
+		const previousFamily = getAiModelFamily( currentModel );
 		await switchProvider( fallbackProvider, false );
 		ui.showInfo(
 			sprintf(
@@ -433,6 +434,17 @@ export async function runCommand( options: {
 				AI_PROVIDERS[ currentProvider ]
 			)
 		);
+		// The fallback provider can land on a different model family, whose
+		// runtime keeps its own session store — the current session id wouldn't
+		// resolve there.
+		if ( getAiModelFamily( currentModel ) !== previousFamily ) {
+			await clearSession();
+			ui.showInfo(
+				__(
+					"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+				)
+			);
+		}
 	}
 
 	function handleAgentTurnError( error: unknown ): void {
@@ -802,6 +814,29 @@ export async function runCommand( options: {
 		throw new Error( 'Interactive mode requires AiChatUI adapter' );
 	}
 
+	// Declared past the `AiChatUI` guard above, as an arrow function so the
+	// narrowing survives into the closure.
+	const clearSession = async (): Promise< void > => {
+		session = await createStudioSession();
+		ui.clearTranscript();
+		ui.showWelcome();
+		ui.showInfo( __( 'Conversation cleared' ) );
+		await persistSessionContext();
+		const site = ui.activeSite;
+		if ( site ) {
+			await append( ( sm ) =>
+				appendStudioEntry( sm, 'studio.site_selected', {
+					siteName: site.name,
+					sitePath: site.path,
+					siteId: site.id,
+					remote: site.remote,
+					url: site.url,
+					wpcomSiteId: site.wpcomSiteId,
+				} )
+			);
+		}
+	};
+
 	const slashCommandContext: SlashCommandContext = {
 		ui,
 		get currentModel() {
@@ -825,26 +860,7 @@ export async function runCommand( options: {
 		prepareProviderSelection,
 		maybeAutoSwitchProvider,
 		persistSessionContext,
-		async clearSession() {
-			session = await createStudioSession();
-			ui.clearTranscript();
-			ui.showWelcome();
-			ui.showInfo( __( 'Conversation cleared' ) );
-			await persistSessionContext();
-			const site = ui.activeSite;
-			if ( site ) {
-				await append( ( sm ) =>
-					appendStudioEntry( sm, 'studio.site_selected', {
-						siteName: site.name,
-						sitePath: site.path,
-						siteId: site.id,
-						remote: site.remote,
-						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
-					} )
-				);
-			}
-		},
+		clearSession,
 	};
 
 	// --- Main loop ---

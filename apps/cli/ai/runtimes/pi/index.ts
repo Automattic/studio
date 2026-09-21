@@ -439,6 +439,18 @@ function buildModel(
 			reasoning: false,
 			contextWindow,
 			maxTokens,
+			// pi infers `compat` from provider + base URL, and an unknown URL
+			// under `provider: 'openai'` reads as OpenAI itself — so requests
+			// would carry `store`, the `developer` role, strict-mode schemas and
+			// `max_completion_tokens`, all of which local servers (vLLM,
+			// llama.cpp, Ollama, LM Studio) reject or ignore.
+			compat: {
+				supportsStore: false,
+				supportsDeveloperRole: false,
+				supportsReasoningEffort: false,
+				supportsStrictMode: false,
+				maxTokensField: 'max_tokens',
+			},
 		};
 	}
 

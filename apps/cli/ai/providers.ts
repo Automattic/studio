@@ -246,7 +246,12 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 		id: 'openai-compatible',
 		autoFallbackWhenUnavailable: false,
 		availableModels: [],
-		defaultModel: DEFAULT_MODEL,
+		// Placeholder for an endpoint that hasn't been configured yet (the real
+		// default comes from `resolveDefaultModel`). It has to stay outside the
+		// built-in catalog: a catalog id would fail this provider's own
+		// `supportsModel`, and route the turn to the `studio` family — which
+		// then blames a missing WordPress.com login instead of the endpoint.
+		defaultModel: 'local',
 		// Owns any id that isn't a built-in model (i.e. a local endpoint model).
 		supportsModel: ( model ) => ! isAiModelId( model ),
 		isVisible: async () => true,

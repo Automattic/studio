@@ -36,7 +36,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { liberateWebsite } from 'cli/lib/data-liberation-client';
+import { compareLiberatedCapture, liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
@@ -49,12 +49,6 @@ import {
 } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import {
-	LAYOUT_BASELINE_SCHEMA,
-	buildVisualParityValidationArtifacts,
-	toVisualParityOraclePayload,
-	type CapturedSectionPage,
-} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
@@ -107,12 +101,15 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
-vi.mock( 'cli/lib/visual-parity', async () => {
-	const actual =
-		await vi.importActual< typeof import('cli/lib/visual-parity') >( 'cli/lib/visual-parity' );
+vi.mock( 'cli/lib/data-liberation-client', async () => {
+	const actual = await vi.importActual< typeof import('cli/lib/data-liberation-client') >(
+		'cli/lib/data-liberation-client'
+	);
 	return {
 		...actual,
-		buildVisualParityValidationArtifacts: vi.fn(),
+		// `liberateWebsite` stays real: its own tests exercise it directly with an injected
+		// `runCli`. Only the compare gate is mocked here, the same way SSI's WP-CLI calls are.
+		compareLiberatedCapture: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
@@ -254,7 +251,11 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
-		vi.mocked( buildVisualParityValidationArtifacts ).mockReset();
+		vi.mocked( compareLiberatedCapture ).mockReset().mockResolvedValue( {
+			pass: true,
+			report:
+				'Passed: 0 route(s) checked offline, 0 of 0 compared to source, against https://example.com/\n',
+		} );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -955,23 +956,13 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).not.toHaveProperty( 'entrypoint' );
 		} );
 
-		it( 'resolves Data Liberation sections/ from a website/ import source', () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-sections-source-' ) );
+		it( 'resolves the Data Liberation capture directory from a website/ import source', () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-source-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
-			const sectionsDir = path.join( captureDir, 'sections' );
 			fsMkdirSyncSpy.mockRestore();
 			fs.mkdirSync( websiteDir );
-			fs.mkdirSync( sectionsDir );
 			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync(
-				path.join( sectionsDir, 'index.json' ),
-				JSON.stringify( {
-					sourceUrl: 'https://example.com/',
-					viewport: { width: 1440, height: 900 },
-					sections: [ { sectionIndex: 0, top: 80, height: 640, headings: [ 'Home' ] } ],
-				} )
-			);
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
@@ -986,7 +977,11 @@ describe( 'CLI: studio create', () => {
 				'https://example.com/static-site-importer.zip'
 			);
 
-			expect( blueprint.staticSiteImport.sectionsPath ).toBe( sectionsDir );
+			// `data-liberation compare` resolves either the capture root or its `website/`
+			// directory on its own (see `resolveDataLiberationCaptureDirectory` in create.ts),
+			// so Studio hands back the same directory it was given rather than the sections
+			// directory the old section-geometry measurement needed.
+			expect( blueprint.staticSiteImport.captureDirectory ).toBe( websiteDir );
 			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
 				true
 			);
@@ -1966,208 +1961,71 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		const capturedParityPage: CapturedSectionPage = {
-			sourceUrl: 'https://example.com/',
-			viewport: { width: 1440, height: 900 },
-			sections: [
-				{
-					sectionIndex: 0,
-					selector: 'section.hero',
-					top: 80,
-					height: 640,
-					headings: [ 'Hello' ],
-					headingSizes: [ 48 ],
-					images: [],
-				},
-			],
-			landmarks: [ { role: 'main', tag: 'main', top: 80, height: 640, mediaCount: 0 } ],
-		};
-
-		const createParityCaptureBlueprint = () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-parity-run-' ) );
+		const createCaptureBlueprint = () => {
+			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-compare-run-' ) );
 			const websiteDir = path.join( captureDir, 'website' );
-			const sectionsDir = path.join( captureDir, 'sections' );
 			fsMkdirSyncSpy.mockRestore();
 			fs.mkdirSync( websiteDir );
-			fs.mkdirSync( sectionsDir );
 			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
 			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync(
-				path.join( sectionsDir, 'index.json' ),
-				JSON.stringify( capturedParityPage )
-			);
 			fs.writeFileSync(
 				path.join( captureDir, 'capture-receipt.json' ),
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					websiteRoot: 'website',
+					source: { url: 'https://example.com/' },
 				} )
 			);
 			return buildCreateFromSourceBlueprint(
 				websiteDir,
-				'Parity Site',
+				'Captured Site',
 				'https://example.com/static-site-importer.zip'
 			);
 		};
 
-		it( 'feeds layout-baseline measurements into SSI visual-parity-eval.php', async () => {
-			const blueprint = createParityCaptureBlueprint();
-			const importedPage: CapturedSectionPage = {
-				...capturedParityPage,
-				sections: [
-					{
-						...( capturedParityPage.sections?.[ 0 ] as Record< string, unknown > ),
-						height: 400,
-					},
-				],
-			};
-			const payload = toVisualParityOraclePayload(
-				{ index: capturedParityPage },
-				{ index: importedPage }
-			);
-			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue( payload );
-
-			const written = new Map< string, string >();
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( ( filePath, data ) => {
-				written.set( String( filePath ), String( data ) );
+		it( 'fails the import when data-liberation compare disagrees with the source', async () => {
+			const blueprint = createCaptureBlueprint();
+			const compareReport =
+				'/ 1600px FAIL: text 12 chars !== source 40\n' +
+				'Failed 1 source check(s) and 0 offline finding(s): 1 route(s) checked offline, ' +
+				'1 of 1 compared to source, against https://example.com/\n';
+			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
+				pass: false,
+				report: compareReport,
 			} );
-			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
-			const actualExists = fs.existsSync.bind( fs );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
-				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
-					return true;
-				}
-				return actualExists( filePath );
-			} );
-			const actualRead = fs.readFileSync.bind( fs );
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
-				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
-					return JSON.stringify( {
-						status: 'failed',
-						reason: 'Imported section geometry disagrees with the layout baseline.',
-						disagreements: [
-							{
-								page: 'index',
-								section: 0,
-								code: 'section_height',
-								message: 'Section height disagrees with the layout baseline.',
-							},
-						],
-						visual_parity_artifacts: {
-							schema: 'static-site-importer/visual-parity-artifacts/v1',
-							status: 'pending',
-							artifacts: {
-								browser_render: {
-									status: 'captured',
-									kind: 'browser_render_evidence',
-									ref: { artifact_name: 'imported-layout-baseline.json' },
-								},
-								visual_diff: {
-									status: 'captured',
-									kind: 'visual_diff',
-									ref: { artifact_name: 'visual-diff.json' },
-								},
-							},
-						},
-					} );
-				}
-				return actualRead( filePath, options );
-			} );
-
-			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
-				if ( args[ 0 ] === 'static-site-importer' ) {
-					return mockWpCli( {
-						stdout: JSON.stringify( {
-							schema: 'static-site-importer/import-cli-receipt/v1',
-							status: 'completed',
-							response: {
-								success: true,
-								result: {
-									theme_dir: `${ mockSitePath }/wp-content/themes/parity-theme`,
-									import_report_summary: {
-										status: 'completed',
-										quality_pass: true,
-										fail_import: false,
-										fallback_count: 0,
-									},
-								},
-							},
-						} ),
-					} );
-				}
-				return mockWpCli();
-			} );
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
-			).rejects.toThrow( /visual parity validation.*section_height/ );
-
-			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					importedOrigin: `http://localhost:${ mockPort }`,
-					sectionsDir: blueprint.staticSiteImport.sectionsPath,
-				} )
-			);
-			const inputEntry = [ ...written.entries() ].find( ( [ filePath ] ) =>
-				filePath.endsWith( 'visual-parity-input.json' )
-			);
-			expect( inputEntry ).toBeDefined();
-			const envelope = JSON.parse( inputEntry?.[ 1 ] ?? '{}' );
-			expect( envelope.visual_parity ).toEqual( payload );
-			expect( envelope.visual_parity.schema ).toBe( LAYOUT_BASELINE_SCHEMA );
-			expect( envelope.visual_parity.source_reports.layout_baseline.schema ).toBe(
-				LAYOUT_BASELINE_SCHEMA
-			);
-			expect(
-				envelope.visual_parity.source_reports.layout_baseline.pages[ 0 ].sections[ 0 ].height
-			).toBe( 640 );
-			expect( envelope.visual_parity.imported_render.pages[ 0 ].sections[ 0 ].height ).toBe( 400 );
-
-			const evalCall = vi
-				.mocked( runWpCliCommandWithMessaging )
-				.mock.calls.find( ( call ) => call[ 1 ][ 0 ] === 'eval-file' );
-			expect( evalCall?.[ 1 ].slice( 0, 4 ) ).toEqual( [
-				'eval-file',
-				'.studio-import/visual-parity-eval.php',
-				'.studio-import/visual-parity-input.json',
-				'.studio-import/visual-parity-output.json',
-			] );
-			expect( String( evalCall?.[ 1 ][ 4 ] ?? '' ).replace( /\\/g, '/' ) ).toMatch(
-				/wp-content\/themes\/parity-theme\/import-report\.json$/
-			);
-		} );
-
-		it( 'still runs visual parity when SSI quality validation already failed', async () => {
-			const blueprint = createParityCaptureBlueprint();
-			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue(
-				toVisualParityOraclePayload( { index: capturedParityPage }, { index: capturedParityPage } )
-			);
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
 			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
-			const actualExists = fs.existsSync.bind( fs );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
-				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
-					return true;
-				}
-				return actualExists( filePath );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
+			).rejects.toThrow( /data-liberation compare[\s\S]*Failed 1 source check/ );
+
+			// Studio hands DLA the same capture directory it resolved while staging the
+			// import — the directory `data-liberation compare` itself knows how to read,
+			// not a re-derived geometry payload.
+			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
+				blueprint.staticSiteImport.captureDirectory,
+				expect.objectContaining( { onProgress: expect.any( Function ) } )
+			);
+			// The verdict DLA printed is relayed verbatim, not summarized or re-derived.
+			expect( printedOutput() ).toContain( compareReport.trim() );
+		} );
+
+		it( 'still runs data-liberation compare when SSI quality validation already failed', async () => {
+			const blueprint = createCaptureBlueprint();
+			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
+				pass: true,
+				report:
+					'Passed: 1 route(s) checked offline, 1 of 1 compared to source, against https://example.com/\n',
 			} );
-			const actualRead = fs.readFileSync.bind( fs );
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
-				if ( String( filePath ).endsWith( 'visual-parity-output.json' ) ) {
-					return JSON.stringify( {
-						status: 'passed',
-						reason: 'Imported section geometry matches the layout baseline within tolerances.',
-						disagreements: [],
-					} );
-				}
-				return actualRead( filePath, options );
-			} );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
 			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
 				if ( args[ 0 ] === 'static-site-importer' ) {
 					return mockWpCli( {
@@ -2193,27 +2051,24 @@ describe( 'CLI: studio create', () => {
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
 			).rejects.toThrow( /failed quality validation.*core_html_block/ );
-			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalled();
-			expect(
-				vi
-					.mocked( runWpCliCommandWithMessaging )
-					.mock.calls.some( ( call ) => call[ 1 ][ 0 ] === 'eval-file' )
-			).toBe( true );
+			// A compare verdict is most valuable on a broken import, so it still ran even
+			// though the (unrelated) SSI quality gate is what ultimately fails the import.
+			expect( compareLiberatedCapture ).toHaveBeenCalled();
 		} );
 
-		it( 'still runs visual parity when resuming an existing site without a persisted URL', async () => {
-			// `SiteData.url` is only ever set in memory during the *first* `create` run
-			// (see the assignment right before `startWordPressServer()` below); it is never
-			// written back to the on-disk CLI config. Resuming an import — the CLI's own
-			// documented recovery path after any failure ("Re-run the same command to resume
-			// the import.") — loads the site straight from `readCliConfig()`, so `site.url` is
-			// `undefined` on every resume, exactly like `mockExistingSite` here.
-			const blueprint = createParityCaptureBlueprint();
-			const resumePort = 8883;
+		it( 'still runs data-liberation compare when resuming an existing site', async () => {
+			// `SiteData.url` is only ever set in memory during the *first* `create` run (see
+			// the assignment right before `startWordPressServer()` in create.ts); it is never
+			// written back to the on-disk CLI config, so it is `undefined` on every resumed
+			// `create` — the CLI's own documented recovery path after a failure. The old
+			// section-geometry gate read `site.url` directly and so silently skipped on every
+			// resume (see 4ecbcc965 / aff1e33fa); `captureDirectory` is resolved from the
+			// source path instead, so this proves the replacement does not repeat that bug.
+			const blueprint = createCaptureBlueprint();
 			const existingSite = {
 				...mockExistingSite,
 				path: mockSitePath,
-				port: resumePort,
+				port: 8883,
 				running: true,
 			};
 			expect( existingSite.url ).toBeUndefined();
@@ -2225,87 +2080,40 @@ describe( 'CLI: studio create', () => {
 			createPathExistsMock( true );
 			vi.mocked( isEmptyDir ).mockResolvedValue( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-			vi.mocked( buildVisualParityValidationArtifacts ).mockResolvedValue(
-				toVisualParityOraclePayload( { index: capturedParityPage }, { index: capturedParityPage } )
-			);
+			const compareReport =
+				'Failed 1 source check(s) and 0 offline finding(s): 1 route(s) checked offline, ' +
+				'1 of 1 compared to source, against https://example.com/\n';
+			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
+				pass: false,
+				report: compareReport,
+			} );
 
 			const requestPath = path.join( mockSitePath, '.studio-import', 'request.json' );
 			const stagedSourcePath = path.join( mockSitePath, '.studio-import', 'source' );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
-				const value = String( filePath );
-				if ( value === requestPath || value === stagedSourcePath ) {
-					return true;
-				}
-				return value.endsWith( 'visual-parity-output.json' );
-			} );
-			const actualReadFileSync = fs.readFileSync.bind( fs );
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath, options ) => {
-				const value = String( filePath );
-				if ( value === requestPath ) {
+			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+				[ requestPath, stagedSourcePath ].includes( String( filePath ) )
+			);
+			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
+				if ( String( filePath ) === requestPath ) {
 					return blueprint.staticSiteImport.request;
 				}
-				if ( value.endsWith( 'visual-parity-output.json' ) ) {
-					// The oracle genuinely disagrees with the layout baseline — this is the real
-					// `my-site-2--accessibility-statement` disagreement shape from the R4 rebuild.
-					return JSON.stringify( {
-						status: 'failed',
-						reason: 'Imported section geometry disagrees with the layout baseline.',
-						disagreements: [
-							{
-								page: 'index',
-								section: 0,
-								code: 'section_height',
-								message: 'Section height disagrees with the layout baseline.',
-							},
-						],
-					} );
-				}
-				return actualReadFileSync( filePath, options );
-			} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
-				if ( args[ 0 ] === 'static-site-importer' ) {
-					return mockWpCli( {
-						stdout: JSON.stringify( {
-							schema: 'static-site-importer/import-cli-receipt/v1',
-							status: 'completed',
-							response: {
-								success: true,
-								result: {
-									theme_dir: `${ mockSitePath }/wp-content/themes/parity-theme`,
-									import_report_summary: {
-										status: 'completed',
-										quality_pass: true,
-										fail_import: false,
-										fallback_count: 0,
-									},
-								},
-							},
-						} ),
-					} );
-				}
-				return mockWpCli();
+				throw new Error( `unexpected read: ${ String( filePath ) }` );
 			} );
 
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).rejects.toThrow( /visual parity validation.*section_height/ );
+			).rejects.toThrow( /data-liberation compare[\s\S]*Failed 1 source check/ );
 
-			// The oracle genuinely disagreed — a resumed import must not silently accept content
-			// that would have failed the same gate on a fresh `create`.
-			expect( buildVisualParityValidationArtifacts ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					importedOrigin: `http://localhost:${ resumePort }`,
-					sectionsDir: blueprint.staticSiteImport.sectionsPath,
-				} )
+			// DLA genuinely disagreed — a resumed import must not silently accept content that
+			// would have failed the same gate on a fresh `create`, and it must do so without
+			// consulting the (unset) site URL.
+			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
+				blueprint.staticSiteImport.captureDirectory,
+				expect.objectContaining( { onProgress: expect.any( Function ) } )
 			);
-			expect(
-				vi
-					.mocked( runWpCliCommandWithMessaging )
-					.mock.calls.some( ( call ) => call[ 1 ][ 0 ] === 'eval-file' )
-			).toBe( true );
 		} );
 
 		it( 'reports the structured raw HTML quality failure instead of fallback blocks', async () => {

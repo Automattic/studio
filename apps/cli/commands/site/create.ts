@@ -72,10 +72,13 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { liberateWebsite, type PartialCaptureReport } from 'cli/lib/data-liberation-client';
+import {
+	compareLiberatedCapture,
+	liberateWebsite,
+	type PartialCaptureReport,
+} from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
-	getBundledVisualParityEvalScriptPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
@@ -98,11 +101,6 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
-import {
-	buildVisualParityValidationArtifacts,
-	visualParityGateFailure,
-	type VisualParityEvaluation,
-} from 'cli/lib/visual-parity';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {
 	CLI_AUTO_UPDATE_WP_VERSION,
@@ -128,9 +126,6 @@ const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
-const STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE = 'visual-parity-eval.php';
-const STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE = 'visual-parity-input.json';
-const STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE = 'visual-parity-output.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
 const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
@@ -163,7 +158,7 @@ type StaticSiteImporterSource = {
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
 	stagedReportFiles?: Array< { name: string; from: string } >;
-	sectionsPath?: string;
+	captureDirectory?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -185,7 +180,7 @@ export type CreateCommandOptions = {
 			bundlePath?: string;
 			sourcePath?: string;
 			reportFiles?: Array< { name: string; from: string } >;
-			sectionsPath?: string;
+			captureDirectory?: string;
 		};
 	};
 	adminUsername?: string;
@@ -272,26 +267,20 @@ function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
-// Data Liberation writes a `sections/*.json` per-page geometry record alongside `website/`
-// (sibling to `capture-receipt.json`). `sourcePath` may already be that capture root, or (in
-// the real `--from <url>` flow) the `website/` directory `liberateWebsite()` returns directly
-// — so this checks both the given directory and its parent for the receipt, matching however
-// `resolveDataLiberationWebsiteRoot` ends up locating it. Returns `undefined` (rather than
-// throwing) when no DLA capture is present, since this data is optional: visual parity simply
-// stays unmeasured, exactly like today, for any non-DLA import source.
-function resolveDataLiberationSectionsDir( sourcePath: string ): string | undefined {
-	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
-		const receiptPath = path.join( candidateRoot, 'capture-receipt.json' );
-		const sectionsDir = path.join( candidateRoot, 'sections' );
-		if (
-			fs.existsSync( receiptPath ) &&
-			fs.existsSync( sectionsDir ) &&
-			fs.statSync( sectionsDir ).isDirectory()
-		) {
-			return sectionsDir;
-		}
-	}
-	return undefined;
+// `sourcePath` may already be the DLA capture root (containing `capture-receipt.json` and a
+// nested `website/`), or — in the real `--from <url>` flow — the `website/` directory
+// `liberateWebsite()` returns directly, one level below the receipt. `data-liberation
+// compare` resolves both shapes itself (`resolveCheckDirectory` in DLA's
+// `lib/fidelity/check.ts` checks the given directory, then its parent), so this only has to
+// confirm a receipt is reachable from one of the two and hand back whichever directory the
+// caller already has — not resolve it to a single canonical shape. Returns `undefined`
+// (rather than throwing) when no DLA capture is present: `data-liberation compare` simply
+// does not run for any other import source, exactly like today.
+function resolveDataLiberationCaptureDirectory( sourcePath: string ): string | undefined {
+	const hasCapture = [ sourcePath, path.dirname( sourcePath ) ].some( ( candidateRoot ) =>
+		isDataLiberationCaptureRoot( candidateRoot )
+	);
+	return hasCapture ? sourcePath : undefined;
 }
 
 function isDataLiberationCaptureRoot( directory: string ): boolean {
@@ -348,7 +337,7 @@ function collectArtifactRootReports(
 ): Array< { name: string; from: string } > {
 	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
 	// live on the capture root, one directory up — the same parent lookup
-	// `resolveDataLiberationSectionsDir` already performs.
+	// `resolveDataLiberationCaptureDirectory` already performs.
 	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
 		if (
 			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
@@ -403,7 +392,7 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			payload: {},
 			stagedSourcePath,
 			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
-			sectionsPath: resolveDataLiberationSectionsDir( sourcePath ),
+			captureDirectory: resolveDataLiberationCaptureDirectory( sourcePath ),
 		};
 	}
 
@@ -549,7 +538,7 @@ export function buildCreateFromSourceBlueprint(
 		bundlePath?: string;
 		sourcePath?: string;
 		reportFiles?: Array< { name: string; from: string } >;
-		sectionsPath?: string;
+		captureDirectory?: string;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -597,7 +586,7 @@ export function buildCreateFromSourceBlueprint(
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
 			reportFiles: source.stagedReportFiles,
-			sectionsPath: source.sectionsPath,
+			captureDirectory: source.captureDirectory,
 		},
 	};
 }
@@ -700,23 +689,6 @@ function staticSiteImportResult(
 	return response as Record< string, unknown >;
 }
 
-function themeImportReportPath(
-	site: SiteData,
-	receipt: Record< string, unknown > | undefined
-): string | undefined {
-	const result = staticSiteImportResult( receipt );
-	const themeDir = result?.theme_dir;
-	if ( typeof themeDir !== 'string' || ! themeDir.trim() ) {
-		return undefined;
-	}
-	const reportPath = path.join( themeDir, 'import-report.json' );
-	const relative = path.relative( site.path, reportPath );
-	if ( relative && ! relative.startsWith( '..' ) && ! path.isAbsolute( relative ) ) {
-		return relative.split( path.sep ).join( '/' );
-	}
-	return reportPath.split( path.sep ).join( '/' );
-}
-
 function staticSiteImportQualityFailure(
 	receipt: Record< string, unknown > | undefined
 ): string | undefined {
@@ -787,33 +759,30 @@ function staticSiteImportQualityFailure(
 	);
 }
 
-// Measures captured-vs-imported section geometry and evaluates it through SSI's own oracle
-// class (`Static_Site_Importer_Visual_Parity_Oracle`). Returns a human-readable failure
-// detail when the oracle reports a disagreement, or when Studio sent a real payload and the
-// oracle answers `not_verified` (a contract bug). `undefined` when the check passed or itself
-// could not run — a failure to *measure* never surfaces as an import failure.
-async function runVisualParityCheck(
-	site: SiteData,
-	siteUrl: string,
-	sectionsPath: string,
-	logger: Logger< LoggerAction >,
-	reportPath?: string
+// Runs DLA's own fidelity gate — `data-liberation compare`, the same command
+// `packages/data-liberation-agent`'s own docs point at for verifying a capture — against the
+// capture directory Studio imported from, and relays its verdict. Studio does not re-measure
+// fidelity itself; DLA already owns readiness, geometry, and the comparison (see
+// `compareLiberatedCapture` in `cli/lib/data-liberation-client.ts`). Returns the verdict text
+// as a failure detail when the gate disagrees; `undefined` when it passed or could not run at
+// all — a failure to *run* the check never surfaces as an import failure.
+async function runDataLiberationCompareCheck(
+	captureDirectory: string,
+	logger: Logger< LoggerAction >
 ): Promise< string | undefined > {
 	logger.reportStart(
 		LoggerAction.IMPORT_SITE,
-		__( 'Measuring imported pages for visual parity…' )
+		__( 'Comparing the capture against its source with data-liberation compare…' )
 	);
-	let artifacts;
+	let result;
 	try {
-		artifacts = await buildVisualParityValidationArtifacts( {
-			sectionsDir: sectionsPath,
-			importedOrigin: siteUrl,
-			logger: { warn: ( message ) => logger.reportWarning( message ) },
+		result = await compareLiberatedCapture( captureDirectory, {
+			onProgress: ( message ) => logger.reportProgress( message ),
 		} );
 	} catch ( error ) {
 		logger.reportError(
 			new LoggerError(
-				__( 'Visual parity check could not run. Import quality was not affected.' ),
+				__( 'data-liberation compare could not run. Import quality was not affected.' ),
 				error
 			),
 			false
@@ -821,71 +790,19 @@ async function runVisualParityCheck(
 		return undefined;
 	}
 
-	const importDir = path.join( site.path, STATIC_SITE_IMPORT_DIR );
-	const inputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE );
-	const outputPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE );
-	const scriptPath = path.join( importDir, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE );
-	fs.mkdirSync( importDir, { recursive: true } );
-	fs.writeFileSync( inputPath, JSON.stringify( { visual_parity: artifacts }, null, 2 ) );
-	fs.copyFileSync( getBundledVisualParityEvalScriptPath(), scriptPath );
-
-	const evalArgs = [
-		'eval-file',
-		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_SCRIPT_FILE ),
-		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_INPUT_FILE ),
-		path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_VISUAL_PARITY_OUTPUT_FILE ),
-	];
-	if ( reportPath ) {
-		evalArgs.push( reportPath );
+	if ( result.report ) {
+		console.log( result.report );
 	}
-	const result = await runWpCli( site, evalArgs );
-	if ( result.exitCode !== 0 || ! fs.existsSync( outputPath ) ) {
-		logger.reportError(
-			new LoggerError(
-				__( 'Visual parity check could not run. Import quality was not affected.' ),
-				new Error( wpCliFailureDetail( result ) )
-			),
-			false
-		);
+
+	if ( result.pass ) {
+		logger.reportSuccess( __( 'data-liberation compare passed' ) );
 		return undefined;
 	}
-
-	let evaluation: VisualParityEvaluation;
-	try {
-		evaluation = JSON.parse( fs.readFileSync( outputPath, 'utf-8' ) );
-	} catch ( error ) {
-		logger.reportError(
-			new LoggerError(
-				__( 'Visual parity check produced an unreadable result. Import quality was not affected.' ),
-				error
-			),
-			false
-		);
-		return undefined;
-	}
-
-	if ( evaluation.visual_parity_artifacts ) {
-		console.log(
-			JSON.stringify( { visual_parity_artifacts: evaluation.visual_parity_artifacts }, null, 2 )
-		);
-	}
-
-	const failure = visualParityGateFailure( artifacts, evaluation );
-	if ( failure ) {
-		logger.reportError(
-			new LoggerError( __( 'Visual parity disagreed with the layout baseline.' ) ),
-			false
-		);
-		return failure;
-	}
-	if ( artifacts.status === 'ready' && evaluation.status === 'passed' ) {
-		logger.reportSuccess( __( 'Visual parity matched the layout baseline' ) );
-	} else {
-		logger.reportWarning(
-			evaluation.reason || __( 'Visual parity could not be verified against the layout baseline.' )
-		);
-	}
-	return undefined;
+	logger.reportError(
+		new LoggerError( __( 'data-liberation compare found fidelity issues.' ) ),
+		false
+	);
+	return result.report || __( 'data-liberation compare failed.' );
 }
 
 async function runStaticSiteImport(
@@ -895,7 +812,7 @@ async function runStaticSiteImport(
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger,
 	reportFiles: Array< { name: string; from: string } > = [],
-	sectionsPath?: string
+	captureDirectory?: string
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -961,32 +878,20 @@ async function runStaticSiteImport(
 	}
 	const qualityFailure = staticSiteImportQualityFailure( receipt );
 
-	// Section geometry can only be measured once the imported content is actually live on
-	// this running site, so it happens here — after materialization, before the plugin (and
-	// its visual-parity oracle class) is removed — rather than as part of the request above.
-	// See `cli/lib/visual-parity.ts` for how Studio builds `source_reports.layout_baseline`
-	// and `imported_render`. Run even when other quality gates already failed: parity
-	// evidence is most valuable on a broken import.
-	//
-	// Use `getSiteUrl()`, not the raw `site.url` field: `url` is only ever populated in
-	// memory on a fresh `create` run (set on `siteDetails` right before this function is
-	// called) and is never written back to the persisted CLI config. Reading `site.url`
-	// directly made this check silently `undefined`, and therefore skipped, on every
-	// resumed import — the CLI's own documented recovery path after a failure — so a
-	// resume could accept content that would have failed this same gate on a fresh run.
-	const siteUrl = getSiteUrl( site );
-	if ( sectionsPath && siteUrl ) {
-		const parityFailure = await runVisualParityCheck(
-			site,
-			siteUrl,
-			sectionsPath,
-			logger,
-			themeImportReportPath( site, receipt )
-		);
-		if ( parityFailure ) {
+	// `captureDirectory` is resolved from the source path afresh on every `create` run —
+	// fresh or resumed — inside `resolveStaticSiteImporterSource`, not read back from
+	// persisted site state the way an earlier version of this gate read `site.url` (only
+	// ever set in memory on a fresh run, so the gate silently skipped on every resumed
+	// import; see 4ecbcc965 / aff1e33fa). Gating on it alone keeps that same guarantee — a
+	// resumed import still gets a verdict — without needing the site's own URL at all: DLA
+	// compares the capture to its live source, not to this running site. Run even when other
+	// quality gates already failed: a compare verdict is most valuable on a broken import.
+	if ( captureDirectory ) {
+		const compareFailure = await runDataLiberationCompareCheck( captureDirectory, logger );
+		if ( compareFailure ) {
 			throw new LoggerError(
-				__( 'Static site import failed visual parity validation' ),
-				new Error( parityFailure )
+				__( 'Static site import failed data-liberation compare' ),
+				new Error( compareFailure )
 			);
 		}
 	}
@@ -1176,7 +1081,7 @@ export async function runCommand(
 					true,
 					logger,
 					staticSiteImport.reportFiles,
-					staticSiteImport.sectionsPath
+					staticSiteImport.captureDirectory
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
@@ -1378,7 +1283,7 @@ export async function runCommand(
 						false,
 						logger,
 						staticSiteImport.reportFiles,
-						staticSiteImport.sectionsPath
+						staticSiteImport.captureDirectory
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -1434,7 +1339,7 @@ export async function runCommand(
 							false,
 							logger,
 							staticSiteImport.reportFiles,
-							staticSiteImport.sectionsPath
+							staticSiteImport.captureDirectory
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}

@@ -62,6 +62,18 @@ type LiberateWebsiteOptions = {
 	runCli?: RunDataLiberationCli;
 };
 
+export type CaptureCompareResult = {
+	/** Whether both of DLA's own fidelity tiers passed. */
+	pass: boolean;
+	/** The human-readable verdict `data-liberation compare` printed to stdout. */
+	report: string;
+};
+
+type CompareLiberatedCaptureOptions = {
+	onProgress?: ( message: string ) => void;
+	runCli?: RunDataLiberationCli;
+};
+
 export function getDataLiberationCliPath(): string {
 	return path.join( import.meta.dirname, 'data-liberation-agent', 'dist', 'cli.js' );
 }
@@ -224,4 +236,31 @@ export async function liberateWebsite(
 	options.onPartialCapture?.( { routesDiscovered, droppedRoutes, diagnosticsPath } );
 
 	return websiteDir;
+}
+
+// Verifies a Data Liberation capture against its live source with DLA's own fidelity gate
+// (`src/lib/fidelity/`), the same measurement `data-liberation compare` runs standalone.
+// `directory` is a capture root or its `website/` directory — DLA's own `compare` resolves
+// either shape, so callers do not need to know which one they have (see
+// `resolveCheckDirectory` in DLA's `lib/fidelity/check.ts`). The verdict, not a re-derived
+// one: Studio decides *when* to run this and what a failure means for the import, but never
+// re-measures fidelity itself.
+export async function compareLiberatedCapture(
+	directory: string,
+	options: CompareLiberatedCaptureOptions = {}
+): Promise< CaptureCompareResult > {
+	const result = await ( options.runCli ?? runDataLiberationCli )(
+		[ 'compare', directory ],
+		options.onProgress
+	);
+	if ( result.signal ) {
+		throw new Error( `Data Liberation compare was terminated by ${ result.signal }.` );
+	}
+	// `compare`'s verdict lines go to stdout; `[compare] ...` progress ticks go to stderr (see
+	// `onProgress` above and `src/ui/compare.ts` upstream).
+	const report = result.stdout.trim() || result.stderr.trim();
+	if ( ! report ) {
+		throw new Error( 'Data Liberation compare produced no output.' );
+	}
+	return { pass: result.exitCode === 0, report };
 }

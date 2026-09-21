@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getDataLiberationCliPath, liberateWebsite } from '../data-liberation-client';
+import {
+	compareLiberatedCapture,
+	getDataLiberationCliPath,
+	liberateWebsite,
+} from '../data-liberation-client';
 
 const tempDirs: string[] = [];
 
@@ -343,5 +347,69 @@ describe( 'Data Liberation CLI', () => {
 			liberateWebsite( 'file:///tmp/index.html', '/tmp/capture', { runCli } )
 		).rejects.toThrow( 'HTTP or HTTPS' );
 		expect( runCli ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'compareLiberatedCapture', () => {
+	it( 'invokes `compare <dir>` and reports a passing verdict', async () => {
+		const runCli = vi.fn().mockResolvedValue( {
+			exitCode: 0,
+			signal: null,
+			stdout:
+				'self-consistency ok across 1 route(s)\nPassed: 1 route(s), against https://example.com/\n',
+			stderr: '[compare] / @ 1600px\n',
+		} );
+		const onProgress = vi.fn();
+
+		await expect(
+			compareLiberatedCapture( '/tmp/capture', { runCli, onProgress } )
+		).resolves.toEqual( {
+			pass: true,
+			report:
+				'self-consistency ok across 1 route(s)\nPassed: 1 route(s), against https://example.com/',
+		} );
+		expect( runCli ).toHaveBeenCalledWith( [ 'compare', '/tmp/capture' ], onProgress );
+	} );
+
+	// DLA's own exit code is the pass/fail signal — stdout content is a report to relay to
+	// the user, not something this client re-derives a verdict from.
+	it( 'reports a failing verdict from a non-zero exit code', async () => {
+		const runCli = vi.fn().mockResolvedValue( {
+			exitCode: 1,
+			signal: null,
+			stdout: 'Failed 1 source check(s): 1 route(s), against https://example.com/\n',
+			stderr: '',
+		} );
+
+		await expect( compareLiberatedCapture( '/tmp/capture', { runCli } ) ).resolves.toEqual( {
+			pass: false,
+			report: 'Failed 1 source check(s): 1 route(s), against https://example.com/',
+		} );
+	} );
+
+	it( 'reports the signal that terminated the CLI', async () => {
+		const runCli = vi.fn().mockResolvedValue( {
+			exitCode: null,
+			signal: 'SIGTERM',
+			stdout: '',
+			stderr: '[compare] / @ 1600px',
+		} );
+
+		await expect( compareLiberatedCapture( '/tmp/capture', { runCli } ) ).rejects.toThrow(
+			'terminated by SIGTERM'
+		);
+	} );
+
+	it( 'rejects a run that produced no output at all', async () => {
+		const runCli = vi.fn().mockResolvedValue( {
+			exitCode: 1,
+			signal: null,
+			stdout: '',
+			stderr: '',
+		} );
+
+		await expect( compareLiberatedCapture( '/tmp/capture', { runCli } ) ).rejects.toThrow(
+			'produced no output'
+		);
 	} );
 } );

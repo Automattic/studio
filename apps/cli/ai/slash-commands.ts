@@ -82,10 +82,10 @@ function isPromptAbortError( error: unknown ): boolean {
 }
 
 /**
- * Anthropic and OpenAI models run on different runtimes, and each runtime keeps
- * its own session store — a session id minted by one won't resolve in the other
- * ("No conversation found"). Anything that moves the conversation across
- * families has to start it fresh.
+ * A conversation's recorded turns carry one provider's shapes — Anthropic
+ * thinking blocks and tool_use ids, or OpenAI reasoning items. Rather than
+ * replay those to an endpoint speaking the other protocol and rely on every
+ * historical entry translating cleanly, a switch across families starts fresh.
  */
 async function clearSessionAcrossFamilies(
 	ctx: SlashCommandContext,

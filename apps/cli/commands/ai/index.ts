@@ -434,9 +434,8 @@ export async function runCommand( options: {
 				AI_PROVIDERS[ currentProvider ]
 			)
 		);
-		// The fallback provider can land on a different model family, whose
-		// runtime keeps its own session store — the current session id wouldn't
-		// resolve there.
+		// The fallback provider can land on a different model family, which the
+		// recorded turns weren't shaped for — see `clearSessionAcrossFamilies`.
 		if ( getAiModelFamily( currentModel ) !== previousFamily ) {
 			await clearSession();
 			ui.showInfo(

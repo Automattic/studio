@@ -36,6 +36,7 @@ Studio ships a fixed model catalog (`AI_MODELS` in `packages/common/ai/models.ts
 
 - `SelectedModelId = AiModelId | ( string & {} )` — the type used wherever a *selected* model id is held (`currentModel`, session context, the pi turn config). It accepts any string while preserving autocomplete for the built-in ids.
 - `getAiModelFamily()` / `getAiModelLabel()` tolerate unknown ids: family defaults to `'openai'` (local endpoints speak OpenAI), and the label falls back to the id itself.
+- `aiModelSupportsImages()` treats unknown ids as text-only (`false`), ensuring vision tools (`take_screenshot`) are not registered for models that cannot consume images.
 - The `openai-compatible` provider implements two dynamic hooks on `AiProviderDefinition`: `listDynamicModels()` (used by `/model` to show the endpoint's live models instead of the catalog) and `resolveDefaultModel()` (used when switching to the provider — the saved selection, or the first discovered model).
 
 ## The app UIs display it but don't offer it
@@ -77,9 +78,15 @@ It lives in `shared.json` rather than the CLI-owned `cli.json` even though only 
 writes it today: Desktop can't write `cli.json`, so an app-side editor would have meant a
 config migration later. Placing it here costs nothing now and leaves that door open.
 
+In the interactive `/openai-config` command:
+
+- When prompted for an API key, pressing Enter retains an already configured key (since masked prompts cannot reveal existing values), while typing `-` clears the key.
+- Discovered models are listed with their context windows, as `qwen3.6-27b (65,536-token context)` here and as a `65,536-token context` description under the bare id in `/model`.
+- If discovery fails (e.g. the server does not support model listing), it falls back gracefully to a manual model ID prompt rather than failing.
+
 ## Discovery (`openai-compatible.ts`)
 
-`discoverOpenAiCompatibleModels( baseUrl, apiKey )` does a `GET {baseUrl}/models` (short timeout, `Bearer` auth when a key is set) and returns `{ id, contextWindow? }[]`, reading the context window from whichever field the server uses: `context_window` (Apfel), `max_model_len` (vLLM), or `max_context_length`. It never throws — an unreachable or unexpected endpoint yields `[]`, so discovery failure degrades gracefully. `resolveOpenAiCompatibleContextWindow()` prefers an explicit override, else the discovered value for the selected model.
+`discoverOpenAiCompatibleModels( baseUrl, apiKey )` does a `GET {baseUrl}/models` (short timeout, `Bearer` auth when a key is set) and returns `{ id, contextWindow? }[]`, reading the context window from whichever field the server uses: `context_window` (Apfel), `max_model_len` (vLLM), `context_length` (LiteLLM, OpenRouter), or `max_context_length`. Minimal servers returning either a standard `{ data: [...] }` object or a bare `[...]` array are supported. It never throws — an unreachable or unexpected endpoint yields `[]`, so discovery failure degrades gracefully. `resolveOpenAiCompatibleContextWindow()` prefers an explicit override, else the discovered value for the selected model.
 
 ## Runtime wiring (`runtimes/pi/index.ts`)
 
@@ -95,6 +102,24 @@ The `openai` model family belongs to this provider alone: the built-in tiers rid
 the endpoint, with `reasoning: false` and the discovered `contextWindow` (falling back to
 `DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192`). Output tokens are scaled under the
 window to avoid pi clamping them to an invalid value on small local windows.
+
+pi infers `compat` options from provider and base URL. Because an arbitrary URL under `provider: 'openai'` looks like OpenAI cloud to pi, requests would otherwise include options like `store`, `developer` role, strict-mode schemas, and `max_completion_tokens`. Local inference servers (vLLM, llama.cpp, Ollama, LM Studio) reject or fail on these. `buildModel` therefore passes an explicit `compat` block:
+
+```typescript
+compat: {
+	supportsStore: false,
+	supportsDeveloperRole: false,
+	supportsReasoningEffort: false,
+	supportsStrictMode: false,
+	maxTokensField: 'max_tokens',
+}
+```
+
+## Cross-family session clearing
+
+A conversation's recorded turns carry one provider's shapes — Anthropic thinking blocks and tool_use ids, or OpenAI reasoning items. Anything that moves a conversation across model families (`openai` vs `anthropic` or `studio`) therefore starts it fresh rather than replaying those entries to an endpoint speaking the other protocol: `/openai-config`, `/model` and `/provider` all go through `clearSessionAcrossFamilies` (`slash-commands.ts`), and the automatic fallback on logout does the same in `maybeAutoSwitchProvider`.
+
+Older comments explained this as each runtime keeping its own session store, so a session id minted by one wouldn't resolve in the other. That predates #3337, which unified the CLI on the single pi runtime — there is one session store now. The clearing is kept as the conservative choice, not because the id would fail to resolve.
 
 ## Compaction is pi's job
 

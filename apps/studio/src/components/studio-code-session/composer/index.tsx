@@ -63,7 +63,7 @@ import {
 } from './use-composer-attachments';
 import { useSlashCommands } from './use-slash-commands';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { AiModelId } from '@studio/common/ai/models';
+import type { AiModelId, SelectedModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 /**
@@ -97,7 +97,7 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	usageCapMessage?: string | null;
-	model: AiModelId;
+	model: SelectedModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
@@ -814,16 +814,22 @@ export function Composer( {
 									}
 								/>
 								<Menu.Popup side="top" align="end">
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
-									>
-										{ visibleModels.map( ( { id } ) => (
-											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
-												{ getAiModelLabel( id ) }
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
+									{ visibleModels.length > 0 ? (
+										<Menu.RadioGroup
+											value={ model }
+											onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
+										>
+											{ visibleModels.map( ( { id } ) => (
+												<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
+													{ getAiModelLabel( id ) }
+												</Menu.RadioItem>
+											) ) }
+										</Menu.RadioGroup>
+									) : (
+										// The endpoint's models are configured through the CLI, so
+										// show what's running instead of an empty menu.
+										<Menu.Item disabled>{ getAiModelLabel( model ) }</Menu.Item>
+									) }
 									{ hasLockedModels ? (
 										<>
 											<Menu.Separator />

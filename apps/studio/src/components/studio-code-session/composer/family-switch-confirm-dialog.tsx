@@ -3,7 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import buttonDefense from '../wp-ui-button-defense.module.css';
 import dialogDefense from '../wp-ui-dialog-defense.module.css';
-import type { AiModelId } from '@studio/common/ai/models';
+import type { AiModelId, SelectedModelId } from '@studio/common/ai/models';
 
 /**
  * Confirmation prompt shown when the user picks a model from a different
@@ -22,7 +22,7 @@ export function FamilySwitchConfirmDialog( {
 	onCancel,
 	onConfirm,
 }: {
-	currentModel: AiModelId;
+	currentModel: SelectedModelId;
 	pendingModel: AiModelId | null;
 	inFlight: boolean;
 	onCancel: () => void;

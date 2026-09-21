@@ -95,14 +95,21 @@ export function getAiProviderDefaultModel(
 /**
  * `resolveSessionModel` constrained to what the provider can serve: a
  * recorded model it no longer offers snaps to the provider's default.
+ *
+ * A provider whose models come from a runtime endpoint (`openai-compatible`)
+ * has no built-in catalog to check against, so its recorded model is kept
+ * verbatim — snapping it would misreport what the session actually runs on.
  */
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: AiProviderId,
 	options?: { hasPaidAiCredits?: boolean }
-): AiModelId {
+): SelectedModelId {
 	const defaultModel = getAiProviderDefaultModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );
+	if ( getAiProviderModels( provider ).length === 0 ) {
+		return model;
+	}
 	return providerServesModel( provider, model ) ? model : defaultModel;
 }
 
@@ -127,17 +134,31 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
- * then the saved global selection. Without a saved Anthropic key the pin is
- * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ * then the saved global selection.
+ *
+ * Only `anthropic-api-key` is dropped when its key is missing — every agent
+ * turn runs inside the CLI (see `runStudioAgentTurn`), so a pin the UI can't
+ * configure, such as `openai-compatible`, still runs and must be reported
+ * honestly rather than silently reading back as WordPress.com.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
 	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
 ): AiProviderId {
-	if ( ! settings?.hasAnthropicApiKey ) {
+	const effective = resolveSessionProvider( entries ) ?? settings?.provider ?? DEFAULT_AI_PROVIDER;
+	if ( effective === 'anthropic-api-key' && ! settings?.hasAnthropicApiKey ) {
 		return DEFAULT_AI_PROVIDER;
 	}
-	return resolveSessionProvider( entries ) ?? settings.provider;
+	return effective;
+}
+
+/**
+ * Whether the desktop/browser pickers can offer this provider. `openai-compatible`
+ * is configured through CLI slash commands against a local endpoint, so the UI
+ * displays it but never offers it as a choice.
+ */
+export function isUiSelectableProvider( provider: AiProviderId ): boolean {
+	return UI_AI_PROVIDER_IDS.includes( provider );
 }
 
 /**

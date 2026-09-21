@@ -8,6 +8,7 @@ import {
 } from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
 	type AiProviderId,
@@ -22,11 +23,8 @@ import {
 import { getActiveOpenAiCompatibleEndpoint } from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS: Record< AiProviderId, string > = {
-	wpcom: 'WordPress.com',
-	'anthropic-api-key': 'Anthropic · API key',
-	'openai-compatible': 'OpenAI-compatible',
-};
+// Labels live in @studio/common so the CLI and the UI can't drift apart.
+export { AI_PROVIDER_LABELS as AI_PROVIDERS };
 
 export type { AiProviderId };
 export { DEFAULT_AI_PROVIDER };

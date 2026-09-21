@@ -4,7 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
-import type { AiModelId } from '@/data/core';
+import type { AiModelId, SelectedModelId } from '@/data/core';
 
 /**
  * Confirmation prompt shown when the user picks a model from a different
@@ -23,7 +23,7 @@ export function FamilySwitchConfirmDialog( {
 	onCancel,
 	onConfirm,
 }: {
-	currentModel: AiModelId;
+	currentModel: SelectedModelId;
 	pendingModel: AiModelId | null;
 	inFlight: boolean;
 	onCancel: () => void;

@@ -6,11 +6,6 @@ import path from 'path';
 // SQLite-compatible drop-ins are preserved.
 const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
 
-// Journal mode for every Studio SQLite connection, via the driver's
-// SQLITE_JOURNAL_MODE constant. The driver defaults to WAL, whose `-shm` lock
-// index breaks when several processes open one site's database at once.
-export const STUDIO_SQLITE_JOURNAL_MODE = 'DELETE';
-
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;

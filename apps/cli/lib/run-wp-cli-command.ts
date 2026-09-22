@@ -24,7 +24,6 @@ import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 } from '@studio/common/lib/site-runtime';
-import { STUDIO_SQLITE_JOURNAL_MODE } from '@studio/common/lib/sqlite-integration';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import {
@@ -388,9 +387,6 @@ export async function runWpCliCommand(
 		// Fallback for sites where DB_NAME was stripped from wp-config.php.
 		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
 		php.defineConstant( 'DB_NAME', 'wordpress' );
-
-		// Shares the database with a possibly-running site server.
-		php.defineConstant( 'SQLITE_JOURNAL_MODE', STUDIO_SQLITE_JOURNAL_MODE );
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( site.path ) );

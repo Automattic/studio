@@ -311,8 +311,11 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
-	// SQLITE_JOURNAL_MODE only governs connections opened from here on, so
-	// repair databases an older build already left in WAL.
+	// The SQLite driver leaves the database in WAL mode, whose shared-memory
+	// index is backed by file locks that fail when several processes open one
+	// site's database at once. Convert it back before the server touches the
+	// file — subprocesses (a WP-CLI process per table during an export) hit this
+	// on both runtimes, not just under PHP-WASM's emulated locks.
 	await resetSqliteJournalModeToRollback( site.path );
 
 	await clearStudioErrorLog( site );

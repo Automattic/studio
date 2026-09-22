@@ -33,12 +33,6 @@ describe( 'ensureWpConfig', () => {
 		expect( constants.WP_ENVIRONMENT_TYPE ).toBe( 'local' );
 	} );
 
-	it( 'pins the SQLite journal mode so subprocesses never reopen the database in WAL', async () => {
-		const constants = await getWrittenConstants();
-
-		expect( constants.SQLITE_JOURNAL_MODE ).toBe( 'DELETE' );
-	} );
-
 	it( 'writes SCRIPT_DEBUG when script debug is enabled', async () => {
 		const constants = await getWrittenConstants( { enableScriptDebug: true } );
 

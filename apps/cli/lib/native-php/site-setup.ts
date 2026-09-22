@@ -8,7 +8,6 @@ import {
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
 import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
-import { STUDIO_SQLITE_JOURNAL_MODE } from '@studio/common/lib/sqlite-integration';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
@@ -22,10 +21,7 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'wp-config-transformer.php'
 );
 
-const DEFAULT_WP_CONFIG_CONSTANTS = {
-	DB_NAME: 'wordpress',
-	SQLITE_JOURNAL_MODE: STUDIO_SQLITE_JOURNAL_MODE,
-} as const;
+const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 

@@ -24,6 +24,7 @@ import {
 } from '@studio/common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
+import { STUDIO_SQLITE_JOURNAL_MODE } from '@studio/common/lib/sqlite-integration';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { BlueprintBundle } from '@wp-playground/blueprints';
@@ -290,6 +291,7 @@ async function getBaseRunCLIArgs(
 		// Fallback for sites where DB_NAME was stripped from wp-config.php.
 		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
 		DB_NAME: 'wordpress',
+		SQLITE_JOURNAL_MODE: STUDIO_SQLITE_JOURNAL_MODE,
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

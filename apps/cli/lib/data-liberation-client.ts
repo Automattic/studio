@@ -31,13 +31,14 @@ export type CaptureCompareResult = {
 	report: string;
 };
 
-async function loadEngineWithBrowser( loadEngine: LoadEngine ): Promise< CaptureEngine > {
+// The release engine drives a real browser, so it is only loaded once Chromium is present.
+async function loadEngineWithBrowser(): Promise< CaptureEngine > {
 	const { chromium } = await import( 'playwright' );
 	const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
 	if ( browserProblem ) {
 		throw new Error( browserProblem );
 	}
-	return loadEngine();
+	return loadCaptureEngine();
 }
 
 function captureDirectoryName( url: URL ): string {
@@ -61,7 +62,7 @@ export async function liberateWebsite(
 		throw new Error( 'Source URLs must use HTTP or HTTPS.' );
 	}
 
-	const engine = await loadEngineWithBrowser( options.loadEngine ?? loadCaptureEngine );
+	const engine = await ( options.loadEngine ?? loadEngineWithBrowser )();
 	const outputDir = path.join( path.resolve( outputBase ), captureDirectoryName( parsed ) );
 	fs.mkdirSync( outputDir, { recursive: true } );
 	options.onProgress?.( `Data Liberation ${ engine.version }` );
@@ -113,7 +114,7 @@ export async function compareLiberatedCapture(
 	directory: string,
 	options: { onProgress?: ( message: string ) => void; loadEngine?: LoadEngine } = {}
 ): Promise< CaptureCompareResult > {
-	const engine = await loadEngineWithBrowser( options.loadEngine ?? loadCaptureEngine );
+	const engine = await ( options.loadEngine ?? loadEngineWithBrowser )();
 	const report = await engine.checkFidelity( {
 		directory,
 		sampleSize: FIDELITY_ROUTE_SAMPLE,

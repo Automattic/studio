@@ -72,17 +72,14 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import {
-	compareLiberatedCapture,
-	liberateWebsite,
-	type PartialCaptureReport,
-} from 'cli/lib/data-liberation-client';
+import { compareLiberatedCapture, liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import {
@@ -111,24 +108,15 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
-// The HTML importer vendors blocks-engine php-transformer inside this zip, so pinning the
-// plugin pins the whole runtime. To run against an unreleased transformer, build a paired
-// zip with the importer's
-// `npm run build:dev-package -- --blocks-engine-path <path>` and pass it to
-// `--static-site-importer-path`.
-//
-// Keep this at or above v1.9.6. Rerunning a staged request is how this command resumes an
-// interrupted import, and only importers from that release on discover the retained run
-// workspace the previous attempt left behind (Automattic/static-site-importer#1524). Pinned
-// below it, every interruption silently recompiles the whole site from zero.
-const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
-	'https://github.com/Automattic/static-site-importer/releases/download/v1.12.0/static-site-importer-html-site-import.zip';
+// Without an explicit importer, `--from` installs the newest Static Site Importer release, the
+// same one the WordPress.com static-site import installs (see `cli/lib/import-runtime`). The
+// release vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
+// from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA = 'data-liberation/capture-receipt/v1';
-const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
 // JSON compiler-evidence sidecars written next to `website/`. Copied into the
 // staged importer source and named in `metadata.reports` so SSI keeps them at
 // the artifact root instead of prefixing `website/`. Large capture directories
@@ -299,38 +287,6 @@ function isDataLiberationCaptureRoot( directory: string ): boolean {
 	}
 }
 
-// A partial capture still imports, so the routes it dropped have to stay discoverable after
-// the terminal output is gone: the message names each one, and the caller keeps the capture
-// directory the diagnostics live in instead of deleting it with the rest of the source.
-function partialCaptureWarning( report: PartialCaptureReport ): string {
-	const lines = [
-		sprintf(
-			/* translators: 1: dropped route count, 2: discovered route count */
-			__(
-				'Data Liberation could not capture %1$d of %2$d routes. They are missing from the imported site:'
-			),
-			report.droppedRoutes.length,
-			report.routesDiscovered
-		),
-		...report.droppedRoutes
-			.slice( 0, PARTIAL_CAPTURE_REPORTED_ROUTES )
-			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
-	];
-	const unlisted = report.droppedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
-	if ( unlisted > 0 ) {
-		/* translators: %d: number of failed routes not listed individually */
-		lines.push( sprintf( __( '  …and %d more.' ), unlisted ) );
-	}
-	lines.push(
-		sprintf(
-			/* translators: %s: path to the retained capture diagnostics file */
-			__( 'The capture was kept for review: %s' ),
-			report.diagnosticsPath
-		)
-	);
-	return lines.join( '\n' );
-}
-
 function collectArtifactRootReports(
 	sourcePath: string,
 	websiteRoot: string
@@ -483,28 +439,15 @@ function buildStaticSiteImporterRequest(
 		site_title: siteName,
 		activate: true,
 		overwrite: true,
-		client_script_policy: 'isolated_preview',
-		client_script_isolated: true,
-		client_script_provenance: {
-			ref: `studio-create-from:sha256:${ crypto
-				.createHash( 'sha256' )
-				.update( JSON.stringify( requestSource ) )
-				.digest( 'hex' ) }`,
-		},
+		remove_default_content: true,
+		materialize_dependencies: true,
 		source_metadata: {
 			source: 'studio-create-from',
 			source_path: originalSourceUrl ?? source.path,
 		},
-		fail_on_quality: true,
-		write_theme_report_artifacts: true,
-		require_proven_dynamic_client_assets: true,
-		seed_entities: true,
-		materialize_dependencies: true,
 		source: requestSource,
+		theme_materialization: themeMaterialization === 'classic' ? 'classic' : 'block',
 	};
-	if ( themeMaterialization === 'block' || themeMaterialization === 'classic' ) {
-		request.theme_materialization = themeMaterialization;
-	}
 	return request;
 }
 
@@ -528,7 +471,7 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
-	staticSiteImporterPlugin: StaticSiteImporterPlugin = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+	staticSiteImporterPlugin: StaticSiteImporterPlugin,
 	originalSourceUrl?: string
 ): {
 	contents: BlueprintV1Declaration;
@@ -589,6 +532,70 @@ export function buildCreateFromSourceBlueprint(
 			captureDirectory: source.captureDirectory,
 		},
 	};
+}
+
+/**
+ * Turn a `--from` source into the blueprint that imports it. A URL is first captured with the
+ * newest Data Liberation release into the sibling `<site>-source` directory; every source is
+ * then imported with the newest Static Site Importer release unless an importer is given. This
+ * is the same pipeline the WordPress.com static-site import runs.
+ */
+export async function prepareSourceImport(
+	source: string,
+	sitePath: string,
+	siteName: string,
+	logger: Logger< LoggerAction >,
+	options: {
+		staticSiteImporter?: StaticSiteImporterPlugin;
+		liberate?: typeof liberateWebsite;
+	} = {}
+): Promise< {
+	blueprint: ReturnType< typeof buildCreateFromSourceBlueprint >;
+	liberationOutputDir?: string;
+	compareCommand?: string;
+} > {
+	const sourceUrl = isUrl( source ) ? source : undefined;
+	let importSource = source;
+	let liberationOutputDir: string | undefined;
+	let compareCommand: string | undefined;
+	if ( sourceUrl ) {
+		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
+			throw new LoggerError(
+				__(
+					'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
+				)
+			);
+		}
+		let lastProgressAt = 0;
+		liberationOutputDir = path.join(
+			path.dirname( sitePath ),
+			`${ path.basename( sitePath ) }-source`
+		);
+		logger.reportStart(
+			LoggerAction.IMPORT_SITE,
+			__( 'Preparing source website with Data Liberation…' )
+		);
+		importSource = await ( options.liberate ?? liberateWebsite )( sourceUrl, liberationOutputDir, {
+			onProgress: ( message ) => {
+				const now = Date.now();
+				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+					lastProgressAt = now;
+					logger.reportProgress( message );
+				}
+			},
+			onCompareCommand: ( command ) => {
+				compareCommand = command;
+			},
+		} );
+		logger.reportSuccess( __( 'Source website prepared' ) );
+	}
+	const blueprint = buildCreateFromSourceBlueprint(
+		importSource,
+		siteName,
+		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
+		sourceUrl
+	);
+	return { blueprint, liberationOutputDir, compareCommand };
 }
 
 export function staticSiteImportProgressMessage(
@@ -709,13 +716,11 @@ function staticSiteImportQualityFailure(
 	}
 	const counts = ( quality as Record< string, unknown > ).counts;
 	const {
-		status,
-		quality_pass: qualityPass,
 		fail_import: failImport,
 		fallback_count: fallbackCount,
 		failure_reasons: failureReasons,
 	} = quality as Record< string, unknown >;
-	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
+	if ( failImport !== true ) {
 		return undefined;
 	}
 	const failures = Array.isArray( failureReasons )
@@ -759,50 +764,36 @@ function staticSiteImportQualityFailure(
 	);
 }
 
-// Runs DLA's own fidelity gate — `data-liberation compare`, the same command
-// `packages/data-liberation-agent`'s own docs point at for verifying a capture — against the
-// capture directory Studio imported from, and relays its verdict. Studio does not re-measure
-// fidelity itself; DLA already owns readiness, geometry, and the comparison (see
-// `compareLiberatedCapture` in `cli/lib/data-liberation-client.ts`). Returns the verdict text
-// as a failure detail when the gate disagrees; `undefined` when it passed or could not run at
-// all — a failure to *run* the check never surfaces as an import failure.
-async function runDataLiberationCompareCheck(
+// Measures the capture against its live source with Data Liberation's own fidelity check and
+// reports the result. Like the WordPress.com static-site import, this is evidence about the
+// capture, never a gate: a disagreement or a failure to run it does not fail the import.
+async function reportDataLiberationFidelity(
 	captureDirectory: string,
 	logger: Logger< LoggerAction >
-): Promise< string | undefined > {
+): Promise< void > {
 	logger.reportStart(
 		LoggerAction.IMPORT_SITE,
-		__( 'Comparing the capture against its source with data-liberation compare…' )
+		__( 'Comparing the capture against its source with Data Liberation…' )
 	);
-	let result;
 	try {
-		result = await compareLiberatedCapture( captureDirectory, {
+		const result = await compareLiberatedCapture( captureDirectory, {
 			onProgress: ( message ) => logger.reportProgress( message ),
 		} );
+		if ( result.pass ) {
+			logger.reportSuccess( sprintf( __( 'Fidelity check passed: %s' ), result.report ) );
+		} else {
+			logger.reportWarning(
+				sprintf( __( 'Fidelity check found differences: %s' ), result.report )
+			);
+		}
 	} catch ( error ) {
-		logger.reportError(
-			new LoggerError(
-				__( 'data-liberation compare could not run. Import quality was not affected.' ),
-				error
-			),
-			false
+		logger.reportWarning(
+			sprintf(
+				__( 'The fidelity check could not run: %s' ),
+				error instanceof Error ? error.message : String( error )
+			)
 		);
-		return undefined;
 	}
-
-	if ( result.report ) {
-		console.log( result.report );
-	}
-
-	if ( result.pass ) {
-		logger.reportSuccess( __( 'data-liberation compare passed' ) );
-		return undefined;
-	}
-	logger.reportError(
-		new LoggerError( __( 'data-liberation compare found fidelity issues.' ) ),
-		false
-	);
-	return result.report || __( 'data-liberation compare failed.' );
 }
 
 async function runStaticSiteImport(
@@ -887,13 +878,7 @@ async function runStaticSiteImport(
 	// compares the capture to its live source, not to this running site. Run even when other
 	// quality gates already failed: a compare verdict is most valuable on a broken import.
 	if ( captureDirectory ) {
-		const compareFailure = await runDataLiberationCompareCheck( captureDirectory, logger );
-		if ( compareFailure ) {
-			throw new LoggerError(
-				__( 'Static site import failed data-liberation compare' ),
-				new Error( compareFailure )
-			);
-		}
+		await reportDataLiberationFidelity( captureDirectory, logger );
 	}
 
 	if ( qualityFailure ) {
@@ -1537,7 +1522,7 @@ export const registerCommand = (
 				.option( 'static-site-importer-url', {
 					type: 'string',
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
-					defaultDescription: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+					defaultDescription: __( 'the newest Static Site Importer release' ),
 					conflicts: 'static-site-importer-path',
 				} )
 				.option( 'static-site-importer-path', {
@@ -1823,56 +1808,26 @@ export const registerCommand = (
 			};
 
 			try {
-				let importSource = argv.from;
+				const importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				let liberationOutputDir: string | undefined;
-				let capturedPartially = false;
-				if ( sourceUrl ) {
-					if ( ! ( await isSqliteIntegrationAvailable() ) ) {
-						throw new LoggerError(
-							__(
-								'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'
-							)
-						);
-					}
-					let lastProgressAt = 0;
-					liberationOutputDir = path.join(
-						path.dirname( sitePath ),
-						`${ path.basename( sitePath ) }-source`
-					);
-					defaultLogger.reportStart(
-						LoggerAction.IMPORT_SITE,
-						__( 'Preparing source website with Data Liberation…' )
-					);
-					importSource = await ( dependencies.liberate ?? liberateWebsite )(
-						sourceUrl,
-						liberationOutputDir,
+				let compareCommand: string | undefined;
+				if ( importSource ) {
+					const prepared = await prepareSourceImport(
+						importSource,
+						sitePath,
+						siteName || __( 'Imported Site' ),
+						defaultLogger,
 						{
-							onProgress: ( message ) => {
-								const now = Date.now();
-								if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-									lastProgressAt = now;
-									defaultLogger.reportProgress( message );
-								}
-							},
-							onPartialCapture: ( report ) => {
-								capturedPartially = true;
-								defaultLogger.reportWarning( partialCaptureWarning( report ) );
-							},
+							staticSiteImporter: argv.staticSiteImporterPath
+								? { path: argv.staticSiteImporterPath }
+								: argv.staticSiteImporterUrl,
+							liberate: dependencies.liberate,
 						}
 					);
-					defaultLogger.reportSuccess( __( 'Source website prepared' ) );
-				}
-
-				if ( importSource ) {
-					config.blueprint = buildCreateFromSourceBlueprint(
-						importSource,
-						siteName || __( 'Imported Site' ),
-						argv.staticSiteImporterPath
-							? { path: argv.staticSiteImporterPath }
-							: argv.staticSiteImporterUrl ?? DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
-						sourceUrl
-					);
+					config.blueprint = prepared.blueprint;
+					liberationOutputDir = prepared.liberationOutputDir;
+					compareCommand = prepared.compareCommand;
 				} else if ( argv.blueprint ) {
 					if ( isUrl( argv.blueprint ) ) {
 						config.blueprint = {
@@ -1901,10 +1856,18 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir && ! argv.keepSource && ! capturedPartially ) {
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
 						await fs.promises
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );
+					} else if ( compareCommand ) {
+						console.log(
+							sprintf(
+								/* translators: %s: command that measures the kept capture against its source */
+								__( 'Measure the kept capture against its live source with:\n  %s' ),
+								compareCommand
+							)
+						);
 					}
 				} finally {
 					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;

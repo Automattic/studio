@@ -1,8 +1,0 @@
-# The main-branch distribution bundles must rebuild byte-identically.
-# Newlines inside template
-# literals end up in the bundle bytes, so a CRLF checkout would build bundles
-# that differ from CI's LF build. Pin LF for everything in this package.
-* text=auto eol=lf
-
-# Release automation owns generated bundles on main. Feature branches keep
-# their merge-base bundles; CI builds fresh output for verification only.

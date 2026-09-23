@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
@@ -40,14 +40,6 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
-const dataLiberationSourcePath = resolve(
-	__dirname,
-	'..',
-	'..',
-	'packages',
-	'data-liberation-agent'
-);
-
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
 // separately (`npm run build:local --workspace=apps/ui`); absent in API-only
@@ -81,83 +73,6 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// Copy the fresh data-liberation-agent/dist into dist/cli/data-liberation-agent.
-function copyDataLiberationEngine( outDir: string ) {
-	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
-	const captureBundlePath = resolve(
-		dataLiberationSourcePath,
-		'dist',
-		'capture-engine.bundle.mjs'
-	);
-	const cliPath = resolve( dataLiberationSourcePath, 'dist', 'cli.js' );
-	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
-	if ( ! existsSync( serverBundlePath ) || ! existsSync( captureBundlePath ) ) {
-		throw new Error(
-			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
-				'Run `npm -w data-liberation run build` and commit the updated artifacts.'
-		);
-	}
-
-	execSync( 'npx tsc -p tsconfig.json && node scripts/copy-runtime-assets.mjs', {
-		cwd: dataLiberationSourcePath,
-		stdio: 'inherit',
-	} );
-
-	if ( ! existsSync( cliPath ) ) {
-		throw new Error(
-			'Data Liberation CLI is not compiled. Run `npm -w data-liberation run build` and try again.'
-		);
-	}
-
-	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
-	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
-	cpSync( resolve( dataLiberationSourcePath, 'dist' ), resolve( engineOutDir, 'dist' ), {
-		recursive: true,
-	} );
-	copyFileSync(
-		resolve( dataLiberationSourcePath, 'package.json' ),
-		resolve( engineOutDir, 'package.json' )
-	);
-	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
-		recursive: true,
-	} );
-
-	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
-	// Ship the launcher plus the self-contained driver bundles it falls back to
-	// when no dev dependencies resolve next to it (dist/scripts/).
-	if ( existsSync( scriptsDistPath ) ) {
-		cpSync( scriptsDistPath, resolve( engineOutDir, 'dist', 'scripts' ), {
-			recursive: true,
-		} );
-	}
-	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
-	copyFileSync(
-		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),
-		resolve( engineOutDir, 'scripts', 'run.mjs' )
-	);
-
-	// The bundle resolves vendored runtime assets (.php helpers run via
-	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
-	// engine's original src/ module paths — see the import.meta.url rewrite in
-	// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
-	// those files (and nothing else) under src/.
-	const copyRuntimeAssets = ( srcDir: string, destDir: string ) => {
-		for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
-			const from = resolve( srcDir, entry.name );
-			if ( entry.isDirectory() ) {
-				if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
-					continue;
-				}
-				copyRuntimeAssets( from, resolve( destDir, entry.name ) );
-			} else if ( /\.(php|json)$/.test( entry.name ) ) {
-				mkdirSync( destDir, { recursive: true } );
-				copyFileSync( from, resolve( destDir, entry.name ) );
-			}
-		}
-	};
-	copyRuntimeAssets( resolve( dataLiberationSourcePath, 'src' ), resolve( engineOutDir, 'src' ) );
-}
-
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
@@ -182,8 +97,6 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
-
-				copyDataLiberationEngine( outDir );
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

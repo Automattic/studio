@@ -108,10 +108,27 @@ vi.mock( 'cli/lib/data-liberation-client', async () => {
 	return {
 		...actual,
 		// `liberateWebsite` stays real: its own tests exercise it directly with an injected
-		// `runCli`. Only the compare gate is mocked here, the same way SSI's WP-CLI calls are.
+		// engine. Only the fidelity check is mocked here, the same way SSI's WP-CLI calls are.
 		compareLiberatedCapture: vi.fn(),
 	};
 } );
+const { staticSiteImporterFixture } = vi.hoisted( () => {
+	const nodeFs = require( 'node:fs' ) as typeof import('node:fs');
+
+	const nodePath = require( 'node:path' ) as typeof import('node:path');
+
+	const nodeOs = require( 'node:os' ) as typeof import('node:os');
+	const directory = nodeFs.mkdtempSync( nodePath.join( nodeOs.tmpdir(), 'studio-ssi-release-' ) );
+	const zip = nodePath.join( directory, 'static-site-importer-html-site-import.zip' );
+	nodeFs.writeFileSync( zip, 'release zip' );
+	return { staticSiteImporterFixture: zip };
+} );
+vi.mock( 'cli/lib/import-runtime', () => ( {
+	resolveStaticSiteImporterPlugin: vi
+		.fn()
+		.mockResolvedValue( { path: staticSiteImporterFixture, version: '1.14.6' } ),
+	loadCaptureEngine: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -558,11 +575,20 @@ describe( 'CLI: studio create', () => {
 					liberate: ( url, outputBase, options ) =>
 						liberateWebsite( url, outputBase, {
 							...options,
-							runCli: async () => ( {
-								exitCode: 0,
-								signal: null,
-								stdout: `Site: ${ websiteDir }\n`,
-								stderr: '',
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 13,
+										routesCaptured: 10,
+										routesSkipped: 0,
+										routesFailed: 6,
+									},
+								} ),
+								checkFidelity: vi.fn(),
 							} ),
 						} ),
 				}
@@ -581,126 +607,6 @@ describe( 'CLI: studio create', () => {
 				expect( runBlueprint ).not.toHaveBeenCalled();
 				expect( fs.existsSync( websiteDir ) ).toBe( true );
 				expect( fs.existsSync( sitePath ) ).toBe( false );
-			} finally {
-				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
-			}
-		} );
-
-		it( 'refuses a capture whose entry route failed', async () => {
-			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-entry-capture-' ) );
-			const sitePath = path.join( siteRoot, 'site' );
-			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
-			await fs.promises.mkdir( websiteDir, { recursive: true } );
-			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Stub</main>' );
-			await fs.promises.writeFile(
-				path.join( websiteDir, '..', 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
-					entrypoint: 'website/index.html',
-					source: { url: 'https://example.com/' },
-					discoveryDiagnostics: [
-						{ code: 'route_capture_failed', url: 'https://example.com/', reason: 'HTTP 503' },
-					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
-				} )
-			);
-			const parser = registerCommand(
-				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
-				{
-					liberate: ( url, outputBase, options ) =>
-						liberateWebsite( url, outputBase, {
-							...options,
-							runCli: async () => ( {
-								exitCode: 0,
-								signal: null,
-								stdout: `Site: ${ websiteDir }\n`,
-								stderr: '',
-							} ),
-						} ),
-				}
-			).exitProcess( false );
-
-			try {
-				await parser.parseAsync( [
-					'create',
-					'--from',
-					'https://example.com',
-					'--name',
-					'Import',
-				] );
-				expect( process.exitCode ).toBe( 1 );
-				expect( runBlueprint ).not.toHaveBeenCalled();
-				expect( fs.existsSync( websiteDir ) ).toBe( true );
-				expect( fs.existsSync( sitePath ) ).toBe( false );
-			} finally {
-				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
-			}
-		} );
-
-		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
-			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
-			const sitePath = path.join( siteRoot, 'site' );
-			const capturePath = `${ sitePath }-source`;
-			const websiteDir = path.join( capturePath, 'example.com', 'website' );
-			await fs.promises.mkdir( websiteDir, { recursive: true } );
-			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			await fs.promises.writeFile(
-				path.join( websiteDir, '..', 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
-					websiteRoot: 'website',
-					entrypoint: 'website/index.html',
-					source: { url: 'https://example.com/' },
-					discoveryDiagnostics: [
-						{
-							code: 'route_capture_failed',
-							url: 'https://example.com/contact',
-							reason: 'HTTP 500',
-						},
-					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
-				} )
-			);
-			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
-			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			const parser = registerCommand(
-				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
-				{
-					liberate: ( url, outputBase, options ) =>
-						liberateWebsite( url, outputBase, {
-							...options,
-							runCli: async () => ( {
-								exitCode: 0,
-								signal: null,
-								stdout: `Site: ${ websiteDir }\n`,
-								stderr: '',
-							} ),
-						} ),
-				}
-			).exitProcess( false );
-
-			try {
-				await parser.parseAsync( [
-					'create',
-					'--from',
-					'https://example.com',
-					'--name',
-					'Import',
-					'--no-start',
-					'--skip-browser',
-				] );
-
-				expect( process.exitCode ).toBeUndefined();
-				expect( runBlueprint ).toHaveBeenCalled();
-				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'could not capture 1 of 14 routes' )
-				);
-				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
-				);
-				expect( fs.existsSync( capturePath ) ).toBe( true );
 			} finally {
 				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
 			}
@@ -787,12 +693,9 @@ describe( 'CLI: studio create', () => {
 				site_title: 'Captured Site',
 				activate: true,
 				overwrite: true,
-				fail_on_quality: true,
-				write_theme_report_artifacts: true,
-				require_proven_dynamic_client_assets: true,
-				seed_entities: true,
+				remove_default_content: true,
 				materialize_dependencies: true,
-				client_script_policy: 'isolated_preview',
+				theme_materialization: 'block',
 				source_metadata: {
 					source: 'studio-create-from',
 					source_path: 'https://example.com/',
@@ -814,7 +717,9 @@ describe( 'CLI: studio create', () => {
 						'https://example.com/'
 					).staticSiteImport.request
 				)
-			).toMatchObject( { operation: 'apply', fail_on_quality: true } );
+			).toMatchObject( { operation: 'apply', theme_materialization: 'block' } );
+			expect( request ).not.toHaveProperty( 'fail_on_quality' );
+			expect( request ).not.toHaveProperty( 'client_script_policy' );
 		} );
 
 		it( 'forwards artifact-declared classic materialization on the request', () => {
@@ -982,8 +887,8 @@ describe( 'CLI: studio create', () => {
 			// so Studio hands back the same directory it was given rather than the sections
 			// directory the old section-geometry measurement needed.
 			expect( blueprint.staticSiteImport.captureDirectory ).toBe( websiteDir );
-			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
-				true
+			expect( JSON.parse( blueprint.staticSiteImport.request ).theme_materialization ).toBe(
+				'block'
 			);
 		} );
 
@@ -1122,15 +1027,17 @@ describe( 'CLI: studio create', () => {
 
 		it( 'rejects sources outside the canonical importer contract', () => {
 			expect( () =>
-				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site' )
+				buildCreateFromSourceBlueprint( 'https://example.com/', 'Remote Site', {
+					path: '/unused.zip',
+				} )
 			).toThrow( 'must be rendered by Data Liberation' );
 
 			const sourceDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-figma-source-' ) );
 			const figmaPath = path.join( sourceDir, 'design.fig' );
 			fs.writeFileSync( figmaPath, 'figma' );
-			expect( () => buildCreateFromSourceBlueprint( figmaPath, 'Figma Site' ) ).toThrow(
-				'Figma files are not supported by the canonical Static Site Importer command.'
-			);
+			expect( () =>
+				buildCreateFromSourceBlueprint( figmaPath, 'Figma Site', { path: '/unused.zip' } )
+			).toThrow( 'Figma files are not supported by the canonical Static Site Importer command.' );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {
@@ -1983,7 +1890,7 @@ describe( 'CLI: studio create', () => {
 			);
 		};
 
-		it( 'fails the import when data-liberation compare disagrees with the source', async () => {
+		it( 'reports a fidelity disagreement without failing the import', async () => {
 			const blueprint = createCaptureBlueprint();
 			const compareReport =
 				'/ 1600px FAIL: text 12 chars !== source 40\n' +
@@ -1999,19 +1906,18 @@ describe( 'CLI: studio create', () => {
 			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
 			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
 
+			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
+
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
-			).rejects.toThrow( /data-liberation compare[\s\S]*Failed 1 source check/ );
+			).resolves.not.toThrow();
 
-			// Studio hands DLA the same capture directory it resolved while staging the
-			// import — the directory `data-liberation compare` itself knows how to read,
-			// not a re-derived geometry payload.
+			// Studio measures the same capture directory it resolved while staging the import.
 			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
 				blueprint.staticSiteImport.captureDirectory,
 				expect.objectContaining( { onProgress: expect.any( Function ) } )
 			);
-			// The verdict DLA printed is relayed verbatim, not summarized or re-derived.
-			expect( printedOutput() ).toContain( compareReport.trim() );
+			expect( reportWarning ).toHaveBeenCalledWith( expect.stringContaining( compareReport ) );
 		} );
 
 		it( 'still runs data-liberation compare when SSI quality validation already failed', async () => {
@@ -2105,11 +2011,9 @@ describe( 'CLI: studio create', () => {
 
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).rejects.toThrow( /data-liberation compare[\s\S]*Failed 1 source check/ );
+			).resolves.not.toThrow();
 
-			// DLA genuinely disagreed — a resumed import must not silently accept content that
-			// would have failed the same gate on a fresh `create`, and it must do so without
-			// consulting the (unset) site URL.
+			// A resumed import is measured too, without consulting the (unset) site URL.
 			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
 				blueprint.staticSiteImport.captureDirectory,
 				expect.objectContaining( { onProgress: expect.any( Function ) } )

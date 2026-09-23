@@ -27,7 +27,7 @@ export const SEGMENT_STYLE_ATTRIBUTE = 'data-dla-fluid-rules';
 /** Attribute pattern used by the exporter to recognize those blocks. */
 export const FLUID_RULES_STYLE_ATTRIBUTE = /\bdata-dla-fluid-rules\b/i;
 /** Only geometry that a runtime plausibly derives from viewport width. */
-const LEARNABLE_PROPERTIES = [ 'width', 'height', 'top', 'font-size' ] as const;
+const LEARNABLE_PROPERTIES = [ 'width', 'height', 'top', 'font-size', 'padding-top' ] as const;
 
 export type LearnableProperty = ( typeof LEARNABLE_PROPERTIES )[ number ];
 
@@ -82,9 +82,9 @@ export async function learnAndApplyFluidGeometry(
 		( { attribute } ) => {
 			let index = 0;
 			for ( const element of document.querySelectorAll< HTMLElement >( '[style]' ) ) {
-				// Only elements a runtime sized in pixels are candidates.
-				const style = element.getAttribute( 'style' ) ?? '';
-				const carriesPixelSize = /\b(?:width|height|font-size)\s*:\s*\d/.test( style );
+			// Only elements a runtime sized in pixels are candidates.
+			const style = element.getAttribute( 'style' ) ?? '';
+			const carriesPixelSize = /\b(?:width|height|font-size|padding-top)\s*:\s*\d/.test( style );
 				const carriesCapturedAnchorTop =
 					element.hasAttribute( 'data-dla-anchor-target' ) && /\btop\s*:\s*\d/.test( style );
 				if ( ! carriesPixelSize && ! carriesCapturedAnchorTop ) continue;
@@ -115,7 +115,13 @@ export async function learnAndApplyFluidGeometry(
 			}
 			window.scrollTo( 0, 0 );
 		} );
-		await page.waitForTimeout( 250 );
+		// The copy renders at rest — what a reader at the top of the page
+		// sees — so the samples must be taken there too. Scroll-linked chrome
+		// (a header that shrinks once the page has been scrolled) re-expands
+		// on the way back to the top on its own schedule; a fixed delay either
+		// races it or wastes time. Wait for the geometry actually being
+		// measured to go quiet instead.
+		await waitForRestGeometry( page, ID_ATTRIBUTE );
 
 		const measured = await page.evaluate(
 			( { attribute, properties } ) =>
@@ -132,12 +138,15 @@ export async function learnAndApplyFluidGeometry(
 						// and container-query units assume the exported copy
 						// reflows the parent box the way the source did — which a
 						// canvas/grid layout frozen into static flow does not.
+						// `padding-top` is excluded as well: its percentage
+						// resolves against the containing block's width, which
+						// the sweep does not observe on the vertical axis.
 						containers[ property ] =
-								parent && property !== 'top' && property !== 'font-size'
-								? property === 'width'
-									? parent.clientWidth
-									: parent.clientHeight
-								: null;
+							parent && property !== 'top' && property !== 'font-size' && property !== 'padding-top'
+							? property === 'width'
+								? parent.clientWidth
+								: parent.clientHeight
+							: null;
 					}
 					for ( const property of properties ) {
 						if ( property === 'top' && ! element.hasAttribute( 'data-dla-anchor-target' ) ) {
@@ -349,4 +358,33 @@ export async function learnAndApplyFluidGeometry(
 		canvasFloor,
 		byKind,
 	};
+}
+
+/**
+ * Wait until the runtime stops rewriting the inline styles being measured.
+ *
+ * Scroll-linked chrome (a header that shrinks once the page is scrolled)
+ * re-expands after the sweep returns to the top on the source's own schedule,
+ * and the runtime rewrites the geometry that depends on it as it goes.
+ * Sampling mid-transition teaches the fitter the scrolled state, which is not
+ * the state the copy renders. Watch exactly what is sampled: four consecutive
+ * identical reads, one second apart in total, count as rest. The bound keeps a
+ * perpetually animating page from stalling the sweep.
+ */
+async function waitForRestGeometry( page: Page, attribute: string ): Promise< void > {
+	await page.evaluate( async ( { attribute } ) => {
+		const snapshot = () =>
+			[ ...document.querySelectorAll( `[${ attribute }]` ) ]
+				.map( ( element ) => element.getAttribute( 'style' ) ?? '' )
+				.join( '\n' );
+		const deadline = Date.now() + 3500;
+		let previous = snapshot();
+		let quiet = 0;
+		while ( Date.now() < deadline && quiet < 4 ) {
+			await new Promise( ( resolve ) => setTimeout( resolve, 250 ) );
+			const current = snapshot();
+			quiet = current === previous ? quiet + 1 : 0;
+			previous = current;
+		}
+	}, { attribute } );
 }

@@ -1,6 +1,6 @@
 {
   "name": "data-liberation",
-  "version": "0.4.19",
+  "version": "0.4.20",
   "description": "Liberate any website into a complete, portable HTML site",
   "type": "module",
   "main": "./dist/capture-engine.bundle.mjs",

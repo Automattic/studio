@@ -226,4 +226,74 @@ describe( 'learnAndApplyFluidGeometry', () => {
 		expect( Math.abs( fontSize - 0.2434 * 983 ) ).toBeLessThanOrEqual( 2 );
 		await page.close();
 	}, 20_000 );
+
+	it( 'learns a runtime-written header offset as media-scoped padding rules', async () => {
+		// A fixed header's clearance is written onto the first section as
+		// inline pixels: mobile padding is 12vw of chrome plus 37.5px of
+		// header content; desktop is chrome content the sweep cannot formula
+		// (given here exactly as the live site reported it at the sampled
+		// widths). The learned rules must reproduce both regimes and leave
+		// the unfittable desktop tail at the value it observed.
+		const page = await browser.newPage( { viewport: { width: 1440, height: 900 } } );
+		// The site also offsets the section from a more specific author rule
+		// reading a runtime variable that is only measured at load, as real
+		// platforms do. The runtime's inline pixels outranked that rule; the
+		// learned rules replace them, so they must outrank it too — or the
+		// copy silently ships the variable's frozen capture-width value.
+		await page.setContent( `
+			<style>:root { --header-height: 79.0469px; }
+			main .sections .page-section:first-child { padding-top: var(--header-height, 100px); }</style>
+			<main><div class="sections"><section id="first-section" class="page-section" style="min-height: 1vh; padding-top: 79.0469px"></section></div></main>
+			<script>
+				const desktop = { 1024: 61.8438, 1280: 72.375, 1440: 79.0469, 1920: 88.8281 };
+				const update = () => {
+					const width = innerWidth;
+					const pad = width < 800
+						? width * 0.12 + 37.5
+						: width <= 1024 ? desktop[1024]
+						: width <= 1280 ? desktop[1024] + (width - 1024) / 256 * (desktop[1280] - desktop[1024])
+						: width <= 1440 ? desktop[1280] + (width - 1280) / 160 * (desktop[1440] - desktop[1280])
+						: desktop[1440] + (width - 1440) / 480 * (desktop[1920] - desktop[1440]);
+					document.getElementById('first-section').style.paddingTop = pad + 'px';
+				};
+				addEventListener('resize', update);
+				update();
+			</script>
+		` );
+
+		await learnAndApplyFluidGeometry( page, {
+			widths: [ 390, 600, 768, 1024, 1280, 1440, 1920 ],
+			settleMs: 50,
+		} );
+
+		const style = await page.locator( 'style[data-dla-fluid-rules]' ).textContent();
+		expect( style ).toContain( '@media (max-width:1023px)' );
+		expect( style ).toContain( 'calc(12vw + 37.5px)' );
+		expect( style ).toContain( '@media (min-width:1024px) and (max-width:1919px)' );
+		expect( style ).toContain( '@media (min-width:1920px)' );
+		expect( await page.locator( '#first-section' ).getAttribute( 'data-dla-fluid-segment' ) ).toBeTruthy();
+		expect( await page.locator( '#first-section' ).getAttribute( 'style' ) ).not.toContain( 'padding-top' );
+
+		// A late runtime write must not put inline pixels back above the rules.
+		await page.setViewportSize( { width: 1000, height: 900 } );
+		await page.waitForTimeout( 120 );
+		expect( await page.locator( '#first-section' ).getAttribute( 'style' ) ).not.toContain( 'padding-top' );
+
+		// The mobile regime reproduces the source's clearance at 390.
+		await page.setViewportSize( { width: 390, height: 900 } );
+		await page.waitForTimeout( 80 );
+		const mobilePadding = await page
+			.locator( '#first-section' )
+			.evaluate( ( element ) => parseFloat( getComputedStyle( element ).paddingTop ) );
+		expect( Math.abs( mobilePadding - 84.3 ) ).toBeLessThanOrEqual( 1 );
+
+		// The sampled desktop answer stays exact at the capture width.
+		await page.setViewportSize( { width: 1440, height: 900 } );
+		await page.waitForTimeout( 80 );
+		const desktopPadding = await page
+			.locator( '#first-section' )
+			.evaluate( ( element ) => parseFloat( getComputedStyle( element ).paddingTop ) );
+		expect( Math.abs( desktopPadding - 79.0469 ) ).toBeLessThanOrEqual( 1 );
+		await page.close();
+	}, 20_000 );
 } );

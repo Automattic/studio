@@ -10,6 +10,22 @@ import {
 const at = ( pairs: Array< [ number, number ] > ) =>
 	pairs.map( ( [ viewport, value ] ) => ( { viewport, value } ) );
 
+// The Squarespace fixed-header offset, measured across the sweep ladder:
+// mobile is affine in the viewport, desktop is chrome content no viewport
+// formula expresses. Neither regime's rule may claim the other's widths
+// globally — a mobile line claimed at 1440 would invent ~209px of padding
+// where the source shows 79px. The honest carrier is the segmented model,
+// so the segment shortcuts must report the breakpoint instead.
+const headerOffset = at( [
+	[ 390, 84.2969 ],
+	[ 600, 109.5156 ],
+	[ 768, 129.1563 ],
+	[ 1024, 61.8438 ],
+	[ 1280, 72.375 ],
+	[ 1440, 79.0469 ],
+	[ 1920, 88.8281 ],
+] );
+
 describe( 'learnFluidModel', () => {
 	it( 'learns the floored model observed on a real Wix site', () => {
 		// Measured from www.roeeby.com: full-bleed image, runtime-written widths.
@@ -92,6 +108,44 @@ describe( 'learnFluidModel', () => {
 			] )
 		);
 		expect( model.kind ).toBe( 'proportional' );
+	} );
+
+	it( 'learns an affine relationship the simpler fits cannot express', () => {
+		// Measured from quinn-fluid-demo.squarespace.com: the runtime writes the
+		// first section's padding-top as the fixed header's height, which on
+		// mobile is a 12vw chrome padding plus ~37.5px of header content.
+		const model = learnFluidModel(
+			at( [
+				[ 390, 84.3 ],
+				[ 600, 109.5 ],
+				[ 768, 129.66 ],
+			] )
+		);
+		expect( model ).toMatchObject( { kind: 'affine', css: 'calc(12vw + 37.5px)' } );
+	} );
+
+	it( 'rejects a line that would predict negative or inverted geometry', () => {
+		// A decreasing series has no positive slope, and an outlier pulls the
+		// least-squares intercept negative: either would extrapolate geometry
+		// the source never showed below the sampled range.
+		expect(
+			learnFluidModel(
+				at( [
+					[ 600, 300 ],
+					[ 800, 250 ],
+					[ 1200, 200 ],
+				] )
+			).kind
+		).toBe( 'breakpoint' );
+		expect(
+			learnFluidModel(
+				at( [
+					[ 390, 83.5 ],
+					[ 600, 128.5 ],
+					[ 1024, 500 ],
+				] )
+			).kind
+		).toBe( 'breakpoint' );
 	} );
 
 	it( 'reports a breakpoint when no single relationship fits', () => {
@@ -189,6 +243,50 @@ describe( 'learnWidestFluidModel', () => {
 				] )
 			).kind
 		).toBe( 'breakpoint' );
+	} );
+
+	it( 'keeps an affine regime out of the global segment shortcuts', () => {
+		expect( learnFluidModel( headerOffset ).kind ).toBe( 'breakpoint' );
+		expect( learnWidestFluidModel( headerOffset ).kind ).toBe( 'breakpoint' );
+	} );
+
+	it( 'closes an agreeing unfittable tail with the constant it observed', () => {
+		const segmented = learnSegmentedFluidModel( headerOffset );
+		expect( segmented ).not.toBeNull();
+		const [ mobile, desktop, tail ] = segmented!.segments;
+		expect( mobile ).toMatchObject( { minWidth: null, maxWidth: 1023 } );
+		expect( mobile.model.kind ).toBe( 'affine' );
+		expect( desktop ).toMatchObject( { minWidth: 1024, maxWidth: 1919 } );
+		expect( desktop.model.kind ).toBe( 'affine' );
+		expect( tail ).toMatchObject( { minWidth: 1920, maxWidth: null } );
+		expect( tail.model ).toMatchObject( { kind: 'constant', css: '89px' } );
+	} );
+
+	it( 'reproduces the header offset within a pixel through its segmented rules', () => {
+		const segmented = learnSegmentedFluidModel( headerOffset )!;
+		const predict = ( viewport: number ) => {
+			const segment = segmented.segments.find(
+				( candidate ) =>
+					( candidate.minWidth === null || viewport >= candidate.minWidth ) &&
+					( candidate.maxWidth === null || viewport <= candidate.maxWidth )
+			);
+			expect( segment ).toBeDefined();
+			const model = segment!.model;
+			if ( model.kind === 'constant' ) return model.value;
+			const slope = Number( model.css.match( /([\d.]+)vw/ )![ 1 ] ) / 100;
+			const intercept = Number( model.css.match( /([\d.]+)px/ )![ 1 ] );
+			return slope * viewport + intercept;
+		};
+		for ( const [ viewport, value ] of [
+			[ 390, 84.2969 ],
+			[ 600, 109.5156 ],
+			[ 768, 129.1563 ],
+			[ 1024, 61.8438 ],
+			[ 1280, 72.375 ],
+			[ 1440, 79.0469 ],
+		] ) {
+			expect( Math.abs( predict( viewport ) - value ) ).toBeLessThanOrEqual( 1 );
+		}
 	} );
 } );
 
@@ -308,7 +406,15 @@ describe( 'learnSegmentedFluidModel', () => {
 	it( 'emits nested media rules', () => {
 		const segmented = learnSegmentedFluidModel( scaledHeadline )!;
 		const css = segmentedCss( '[data-dla-fluid-segment="0"]', 'font-size', segmented.segments );
-		expect( css ).toContain( '@media (max-width:767px) {\n[data-dla-fluid-segment="0"] { font-size: 21.42vw; }\n}' );
-		expect( css ).toContain( '@media (min-width:768px) {\n[data-dla-fluid-segment="0"] { font-size: min(355.4px, 23.38vw); }\n}' );
+		expect( css ).toContain( '@media (max-width:767px) {\n[data-dla-fluid-segment="0"] { font-size: 21.42vw !important; }\n}' );
+		expect( css ).toContain( '@media (min-width:768px) {\n[data-dla-fluid-segment="0"] { font-size: min(355.4px, 23.38vw) !important; }\n}' );
+	} );
+
+	it( 'emits the frozen tail as a media-scoped constant', () => {
+		const segmented = learnSegmentedFluidModel( headerOffset )!;
+		const css = segmentedCss( '[data-dla-fluid-segment="7"]', 'padding-top', segmented.segments );
+		expect( css ).toContain( '@media (max-width:1023px) {\n[data-dla-fluid-segment="7"] { padding-top: calc(11.87vw + 38.08px) !important; }\n}' );
+		expect( css ).toContain( '@media (min-width:1024px) and (max-width:1919px) {\n[data-dla-fluid-segment="7"] { padding-top: calc(4.13vw + 19.5px) !important; }\n}' );
+		expect( css ).toContain( '@media (min-width:1920px) {\n[data-dla-fluid-segment="7"] { padding-top: 89px !important; }\n}' );
 	} );
 } );

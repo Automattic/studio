@@ -36,6 +36,8 @@ export type FluidModel =
 	| { kind: 'floored'; css: string; ratio: number; floor: number }
 	/** Scales with the viewport but never above a ceiling. */
 	| { kind: 'capped'; css: string; ratio: number; cap: number }
+	/** Scales with the viewport plus a fixed offset: calc(a*vw + b px). */
+	| { kind: 'affine'; css: string; slope: number; intercept: number }
 	/** No single relationship fits; the source changes behavior at a width. */
 	| { kind: 'breakpoint'; samples: GeometrySample[] };
 
@@ -141,9 +143,54 @@ export function learnFluidModel( samples: readonly GeometrySample[] ): FluidMode
 		};
 	}
 
+	// Affine: viewport-proportional growth plus a fixed offset — the shape of
+	// geometry that composes a fluid term with a constant one (a header offset
+	// is padding that scales with the screen plus fixed chrome content).
+	// Tried after every simpler relationship and held to a physically sane
+	// line: a non-positive slope or a negative intercept would predict
+	// inverted or negative geometry below the sampled range.
+	const line = leastSquaresLine( ordered );
+	if (
+		line &&
+		line.slope > 0 &&
+		line.intercept >= 0 &&
+		fits( ordered, ( viewport ) => line.slope * viewport + line.intercept )
+	) {
+		return {
+			kind: 'affine',
+			css: `calc(${ round( line.slope * 100 ) }vw + ${ round( line.intercept ) }px)`,
+			slope: line.slope,
+			intercept: line.intercept,
+		};
+	}
+
 	// Nothing single-valued fits, so the source genuinely changes behavior
 	// across this range. That failure is the breakpoint signal.
 	return { kind: 'breakpoint', samples: ordered };
+}
+
+/**
+ * Least-squares line through the observations, or null when degenerate.
+ *
+ * The fit itself is only a candidate: callers decide whether a line is a
+ * plausible description of the source.
+ */
+function leastSquaresLine(
+	ordered: readonly GeometrySample[]
+): { slope: number; intercept: number } | null {
+	const count = ordered.length;
+	if ( count < 2 ) return null;
+	const meanViewport = ordered.reduce( ( sum, sample ) => sum + sample.viewport, 0 ) / count;
+	const meanValue = ordered.reduce( ( sum, sample ) => sum + sample.value, 0 ) / count;
+	let squaredSpread = 0;
+	let covariance = 0;
+	for ( const sample of ordered ) {
+		squaredSpread += ( sample.viewport - meanViewport ) ** 2;
+		covariance += ( sample.viewport - meanViewport ) * ( sample.value - meanValue );
+	}
+	if ( squaredSpread === 0 ) return null;
+	const slope = covariance / squaredSpread;
+	return { slope, intercept: meanValue - slope * meanViewport };
 }
 
 /**
@@ -152,6 +199,12 @@ export function learnFluidModel( samples: readonly GeometrySample[] ): FluidMode
  * Capture serializes desktop and mobile documents separately. A mobile rule in
  * the width sweep must not prevent the desktop document from retaining the
  * relationship it consistently follows above that breakpoint.
+ *
+ * An affine fit is never returned from the segment shortcuts: its slope and
+ * offset describe one regime, and extrapolating that line across an unsampled
+ * other regime invents geometry the source never showed. When a segment only
+ * fits affinely, the honest carrier is a media-scoped segmented model, which
+ * this function signals by reporting the breakpoint.
  */
 export function learnWidestFluidModel( samples: readonly GeometrySample[] ): FluidModel {
 	const wholeRange = learnFluidModel( samples );
@@ -161,7 +214,7 @@ export function learnWidestFluidModel( samples: readonly GeometrySample[] ): Flu
 	if ( widestBreakpoint === undefined ) return wholeRange;
 	const widestSegment = wholeRange.samples.filter( ( sample ) => sample.viewport >= widestBreakpoint );
 	const widestModel = learnFluidModel( widestSegment );
-	if ( widestModel.kind !== 'breakpoint' ) return widestModel;
+	if ( widestModel.kind !== 'breakpoint' && widestModel.kind !== 'affine' ) return widestModel;
 
 	// A capped value at the last sampled width leaves only one observation in the
 	// final segment. Prefer the preceding stable relationship over freezing the
@@ -169,7 +222,9 @@ export function learnWidestFluidModel( samples: readonly GeometrySample[] ): Flu
 	// samples on both sides of that breakpoint.
 	const precedingSegment = wholeRange.samples.filter( ( sample ) => sample.viewport < widestBreakpoint );
 	const precedingModel = learnFluidModel( precedingSegment );
-	return precedingModel.kind === 'breakpoint' ? wholeRange : precedingModel;
+	return precedingModel.kind === 'breakpoint' || precedingModel.kind === 'affine'
+		? wholeRange
+		: precedingModel;
 }
 
 /** Widths where the observed relationship changes, derived from a bad fit. */
@@ -236,7 +291,8 @@ function viewportModelForRun( run: readonly GeometrySample[] ): ViewportFluidMod
 		model.kind === 'constant' ||
 		model.kind === 'proportional' ||
 		model.kind === 'floored' ||
-		model.kind === 'capped'
+		model.kind === 'capped' ||
+		model.kind === 'affine'
 	) {
 		return model;
 	}
@@ -252,6 +308,13 @@ function viewportModelForRun( run: readonly GeometrySample[] ): ViewportFluidMod
  * whole-range fit classifies the element as unmodelled. When the observations
  * split into consecutive runs that each fit a viewport-expressible model, the
  * piecewise result is the honest description — each regime says what it saw.
+ *
+ * A trailing stretch that fits no model closes the segmentation with a
+ * constant when its own samples agree with each other: the constant
+ * reproduces within tolerance what a frozen copy already showed on that
+ * stretch, so it can only match or beat freezing, never guess past the
+ * observations. A disagreeing tail is noise or an outlier, and refusing the
+ * whole split stays the honest outcome.
  *
  * Returns null unless every sample is covered by such a run, so callers can
  * fall back to freezing rather than ship a partial guess.
@@ -277,8 +340,25 @@ export function learnSegmentedFluidModel(
 				break;
 			}
 		}
-		// An uncovered sample would ship as a guess; refuse the whole split.
-		if ( matched === null ) return null;
+		if ( matched === null ) {
+			// An unfittable remainder closes as the constant it observed — but
+			// only when those observations agree with each other; otherwise an
+			// outlier would ship a confident wrong value for its whole stretch.
+			const tail = usable.slice( start );
+			const values = tail.map( ( sample ) => sample.value );
+			if ( Math.max( ...values ) - Math.min( ...values ) > TOLERANCE_PX ) return null;
+			const sorted = [ ...values ].sort( ( a, b ) => a - b );
+			runs.push( {
+				model: {
+					kind: 'constant',
+					css: `${ round( sorted[ Math.floor( sorted.length / 2 ) ]!, 0 ) }px`,
+					value: sorted[ Math.floor( sorted.length / 2 ) ]!,
+				},
+				start,
+				end: usable.length,
+			} );
+			break;
+		}
 		runs.push( { model: matched.model, start, end: matched.end } );
 		start = matched.end;
 	}
@@ -325,7 +405,11 @@ export function segmentedCss(
 			const conditions: string[] = [];
 			if ( segment.minWidth !== null ) conditions.push( `(min-width:${ segment.minWidth }px)` );
 			if ( segment.maxWidth !== null ) conditions.push( `(max-width:${ segment.maxWidth }px)` );
-			const declaration = `${ selector } { ${ property }: ${ segment.model.css }; }`;
+			// These rules stand in for the runtime's inline declaration, which
+			// outranked every normal author rule. `!important` keeps that
+			// precedence; without it a more specific author selector (a
+			// `var()` fallback, say) silently wins at every width.
+			const declaration = `${ selector } { ${ property }: ${ segment.model.css } !important; }`;
 			if ( conditions.length === 0 ) return declaration;
 			return `@media ${ conditions.join( ' and ' ) } {\n${ declaration }\n}`;
 		} )

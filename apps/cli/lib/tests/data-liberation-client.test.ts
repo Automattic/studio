@@ -64,22 +64,23 @@ describe( 'liberateWebsite', () => {
 		expect( progress[ 0 ] ).toBe( 'Data Liberation 9.9.9' );
 	} );
 
-	it( 'reports the compare command for the kept capture', async () => {
+	it( 'builds the command that compares a site against the original', async () => {
 		const outputBase = tempRoot();
-		const onCompareCommand = vi.fn();
+		let build: ( ( siteUrl: string ) => string ) | undefined;
 
 		await liberateWebsite( 'https://example.com/', outputBase, {
 			loadEngine: async () => engine(),
-			onCompareCommand,
+			onCompareCommand: ( command ) => {
+				build = command;
+			},
 		} );
 
-		expect( onCompareCommand ).toHaveBeenCalledWith(
+		expect( build?.( 'http://localhost:8881' ) ).toBe(
 			`npx --yes --package=https://example.com/data-liberation-9.9.9.tgz data-liberation compare ${ JSON.stringify(
 				path.join( outputBase, 'example.com' )
-			) }`
+			) } --candidate http://localhost:8881`
 		);
 	} );
-
 	it( 'refuses a capture that failed on any route', async () => {
 		const loaded = engine( {
 			captureWebsite: vi.fn( async ( { outputDir } ) => ( {

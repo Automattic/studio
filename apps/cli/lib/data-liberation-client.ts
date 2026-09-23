@@ -12,16 +12,19 @@ type LoadEngine = () => Promise< CaptureEngine >;
 
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
-	/** Called with the command that re-runs the fidelity check on this capture. */
-	onCompareCommand?: ( command: string ) => void;
+	/** Called with a builder for the command that compares a site against the original. */
+	onCompareCommand?: ( command: ( siteUrl: string ) => string ) => void;
 	loadEngine?: LoadEngine;
 };
 
-/** The Data Liberation CLI command that measures `captureRoot` against its live source. */
-export function compareCommand( packageUrl: string, captureRoot: string ): string {
+/**
+ * The Data Liberation CLI command that compares the site at `siteUrl`, route by route, against
+ * the original source recorded in `captureRoot`.
+ */
+export function compareCommand( packageUrl: string, captureRoot: string, siteUrl: string ): string {
 	return `npx --yes --package=${ packageUrl } data-liberation compare ${ JSON.stringify(
 		captureRoot
-	) }`;
+	) } --candidate ${ siteUrl }`;
 }
 
 export type CaptureCompareResult = {
@@ -101,7 +104,9 @@ export async function liberateWebsite(
 	if ( ! fs.existsSync( websiteDir ) || ! fs.statSync( websiteDir ).isDirectory() ) {
 		throw new Error( 'Data Liberation completed without writing a website directory.' );
 	}
-	options.onCompareCommand?.( compareCommand( engine.packageUrl, outputDir ) );
+	options.onCompareCommand?.( ( siteUrl ) =>
+		compareCommand( engine.packageUrl, outputDir, siteUrl )
+	);
 	return websiteDir;
 }
 

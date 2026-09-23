@@ -551,12 +551,12 @@ export async function prepareSourceImport(
 ): Promise< {
 	blueprint: ReturnType< typeof buildCreateFromSourceBlueprint >;
 	liberationOutputDir?: string;
-	compareCommand?: string;
+	compareCommand?: ( siteUrl: string ) => string;
 } > {
 	const sourceUrl = isUrl( source ) ? source : undefined;
 	let importSource = source;
 	let liberationOutputDir: string | undefined;
-	let compareCommand: string | undefined;
+	let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
 	if ( sourceUrl ) {
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
@@ -1809,7 +1809,7 @@ export const registerCommand = (
 				const importSource = argv.from;
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				let liberationOutputDir: string | undefined;
-				let compareCommand: string | undefined;
+				let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
 				if ( importSource ) {
 					const prepared = await prepareSourceImport(
 						importSource,
@@ -1859,13 +1859,18 @@ export const registerCommand = (
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );
 					} else if ( compareCommand ) {
-						console.log(
-							sprintf(
-								/* translators: %s: command that compares the kept copy with the original site */
-								__( 'Compare the copy with the original site:\n  %s' ),
-								compareCommand
-							)
+						const site = ( await readCliConfig() ).sites.find(
+							( candidate ) => candidate.path === sitePath
 						);
+						if ( site ) {
+							console.log(
+								sprintf(
+									/* translators: %s: command that compares the new site with the original site */
+									__( 'Compare the new site with the original, page by page:\n  %s' ),
+									compareCommand( getSiteUrl( site ) )
+								)
+							);
+						}
 					}
 				} finally {
 					const bundlePath = config.blueprint?.staticSiteImport?.bundlePath;

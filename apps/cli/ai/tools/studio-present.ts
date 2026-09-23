@@ -61,7 +61,8 @@ export const studioPresentTool = defineTool(
 			],
 			studioArtifacts: widgets,
 		};
-	}
+	},
+	{ promptSnippet: 'Show one or more Studio desks widgets as inline visual artifacts.' }
 );
 
 function validateWidgets( widgets: unknown ): StudioChatArtifactWidgetDraft[] {

@@ -104,13 +104,19 @@
 	background-color: var(--wpds-color-foreground-interactive-brand);
 }
 
-/* Bottom-left of the main area. The 46px min-height and the negative bottom
-   offset both match the session view's `panelFooterControls` so the toggle
-   lines up vertically with the chat-history/new-chat buttons — keep the two
-   in sync. */
+/* Bottom-left of the main area, sitting in the content panel's own footer
+   band beside the chat controls. The 46px min-height and the negative bottom
+   offset both match the session view's `panelFooterControls`; the frame inset
+   makes up the rest, since that strip is positioned inside the inset panel
+   while this one is positioned against `.main` — keep the three in sync. */
 .floatingToggle {
+	/* Cleared to 0 while the frame is flush (see `.floatingToggleFramed`);
+	   12px gap + the frame's 1px border. Keep in sync with --panel-frame-gap
+	   in preview-split-frame. */
+	--floating-toggle-frame-inset: 0px;
+
 	position: absolute;
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	bottom: calc(var(--floating-toggle-frame-inset) - var(--wpds-dimension-padding-sm));
 	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
@@ -123,6 +129,14 @@
 
 .floatingToggle button {
 	-webkit-app-region: no-drag;
+}
+
+/* While the sidebar is open the content panel sits inside its inset frame, so
+   the toggle has to rise by that inset to share the panel's footer band with
+   the chat controls. Collapsed, the frame goes flush (see
+   preview-split-frame's `.rootFrameless`) and the inset drops out. */
+.floatingToggleFramed {
+	--floating-toggle-frame-inset: calc(12px + var(--wpds-border-width-xs));
 }
 
 /* With no traffic lights to clear — non-macOS, the browser, or macOS
@@ -160,6 +174,13 @@
 
 .sidebarToasts {
 	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* The shelf root stays mounted as the aria-live region even with nothing to
+   show, so an empty shelf must add no space between the beta bubble and the
+   Settings row. */
+.sidebarToasts:empty {
+	padding: 0;
 }
 
 /* --app-main-composer-height is published on the document by the session

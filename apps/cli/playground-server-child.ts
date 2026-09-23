@@ -25,6 +25,7 @@ import {
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import {
@@ -54,6 +55,7 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { buildWpCliPhpArgv } from 'cli/lib/wp-cli-php-ini';
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
@@ -291,6 +293,10 @@ async function getBaseRunCLIArgs(
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
+		// feed the WP_DEBUG expression above.
+		SCRIPT_DEBUG: config.enableScriptDebug ?? false,
+		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ),
 	};
 
 	let blueprintBundle: BlueprintBundle | undefined;
@@ -550,12 +556,9 @@ const runWpCliCommand = sequential(
 
 		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
-		const response = await server.playground.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			`--path=${ await server.playground.documentRoot }`,
-			...rewrittenArgs,
-		] );
+		const response = await server.playground.cli(
+			buildWpCliPhpArgv( '/tmp/wp-cli.phar', await server.playground.documentRoot, rewrittenArgs )
+		);
 
 		return {
 			stdout: await response.stdoutText,

@@ -57,12 +57,12 @@
 		transparent
 	);
 	--site-dropdown-menu-hover: var(--site-dropdown-menu-surface-active);
-	/* Brand fg flips with the theme while this surface is theme-inverted, so
-	   derive a link blue from the constant brand fill instead: periwinkle on
-	   the dark surface, royal navy on the light one. */
+	/* Literal brand blue, not the wpds token: that one resolves through
+	   --wp-admin-theme-color and would follow the theme while this surface
+	   stays near-black. */
 	--site-dropdown-menu-brand: color-mix(
 		in srgb,
-		var(--wpds-color-background-interactive-brand-strong, #3858e9) 65%,
+		#3858e9 50%,
 		var(--site-dropdown-menu-foreground)
 	);
 	--wpds-color-background-surface-neutral: var(--site-dropdown-menu-surface-subtle);

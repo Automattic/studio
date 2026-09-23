@@ -337,6 +337,17 @@
 	cursor: default;
 }
 
+/* Dashed border sets the appended free-form escape hatch apart from the
+   options the agent actually offered. */
+.questionOptionFreeForm {
+	border-style: dashed;
+	color: var(--color-frame-text-secondary);
+}
+
+.questionOptionFreeForm.questionOptionPicked {
+	border-style: solid;
+}
+
 /* Keep the picked option fully legible even when disabled, so the user
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,

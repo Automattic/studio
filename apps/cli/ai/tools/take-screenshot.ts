@@ -62,11 +62,11 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 		'take_screenshot',
 		'Takes a full-page screenshot of a URL. ' +
 			( visionEnabled
-				? 'Returns the screenshot as an image that you can analyze visually. '
+				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
 			'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
-			'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
+			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 			'Use this to verify the site looks correct after building it. ' +
 			'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
@@ -103,6 +103,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							format: 'jpeg',
 							offset: args.offset,
 							colorScheme,
+							forModel: visionEnabled,
 						} );
 						const screenshotFile = await saveScreenshotFile( capture.buffer, {
 							viewportType,
@@ -122,6 +123,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 							colorScheme,
 							path: screenshotFile.path,
 							buffer: capture.buffer,
+							modelImage: capture.modelImage,
 							documentHeight: capture.documentHeight,
 							capturedHeight: capture.capturedHeight,
 							offset: capture.offset,
@@ -151,13 +153,16 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 				const describeCapture = ( capture: ( typeof captures )[ number ] ): string => {
 					const captureEnd = capture.offset + capture.capturedHeight;
 					const label = getCaptureLabel( capture );
+					const shown = capture.modelImage
+						? `, shown at ${ capture.modelImage.width }x${ capture.modelImage.height }`
+						: '';
 					if ( capture.clipped ) {
-						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
+						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown }. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
 					}
 					if ( capture.offset > 0 ) {
-						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page (end of page).`;
+						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown } (end of page).`;
 					}
-					return `${ label }: captured full page (${ capture.documentHeight }px tall).`;
+					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
 				// The saved path lets the agent reuse a capture as a file — e.g. copying
 				// the final desktop capture to a scaffolded theme's screenshot.jpg.
@@ -181,7 +186,7 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 						...( visionEnabled
 							? captures.map( ( capture ) => ( {
 									type: 'image' as const,
-									data: capture.buffer.toString( 'base64' ),
+									data: ( capture.modelImage?.buffer ?? capture.buffer ).toString( 'base64' ),
 									mimeType: capture.mimeType,
 							  } ) )
 							: [] ),
@@ -195,6 +200,12 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 					`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 				);
 			}
+		},
+		{
+			settlesPendingWork: true,
+			promptSnippet: visionEnabled
+				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
+				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.',
 		}
 	);
 }

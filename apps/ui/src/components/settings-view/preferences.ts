@@ -27,7 +27,7 @@ export interface PreferencesFormData {
 // The saved locale can be any string the main process resolved (including ones
 // outside our catalog). Clamp to a SupportedLocale so form controls always have
 // a valid option selected.
-export function resolveFormLocale( locale: string | undefined ): SupportedLocale {
+function resolveFormLocale( locale: string | undefined ): SupportedLocale {
 	return isSupportedLocale( locale ) ? locale : 'en';
 }
 

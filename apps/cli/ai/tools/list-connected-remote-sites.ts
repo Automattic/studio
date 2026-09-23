@@ -37,5 +37,9 @@ export const listConnectedRemoteSitesTool = defineTool(
 				}`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.',
 	}
 );

@@ -165,6 +165,7 @@ export const baseConfig = defineConfig( {
 		alias: {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
+			'@studio/design-md': resolve( __dirname, '../../packages/design-md/index.ts' ),
 			// The `studio ui` local server (apps/local) is bundled into the CLI
 			// from source, the same way `@studio/common` is.
 			'@studio/local': resolve( __dirname, '../local/src' ),

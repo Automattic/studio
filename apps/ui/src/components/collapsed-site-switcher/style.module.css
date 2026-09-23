@@ -44,11 +44,8 @@
 	padding-block-end: var(--wpds-dimension-padding-sm);
 }
 
-/* Same fix as .headerClose in settings-view/style.module.css: this popup
-   portals outside the [data-ui-mode='classic'] container, so the global
-   compact-density rule in index.css that shrinks default-24px icons to
-   16px doesn't reach here — the icons render at their unshrunk native
-   size instead of matching the expanded sidebar. */
+/* Same as .headerClose in settings-view/style.module.css: keep the icons at
+   the compact 16px size so they match the expanded sidebar. */
 .surface svg {
 	width: 16px;
 	height: 16px;

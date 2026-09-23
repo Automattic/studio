@@ -31,8 +31,8 @@ export function OpenInMenu( { site }: { site: SiteDetails } ) {
 						>
 							<span className={ styles.triggerLabel }>{ __( 'Open in…' ) }</span>
 							<span className={ styles.triggerLabelCompact }>{ __( 'Open…' ) }</span>
-							{ /* data-keep-size opts out of the classic-UI rule that
-							     forces svgs to 16px, letting the chevron render small. */ }
+							{ /* data-keep-size opts out of the global rule that forces svgs
+							     to 16px, letting the chevron render small. */ }
 							<Icon icon={ chevronDown } size={ 12 } className={ styles.chevron } data-keep-size />
 						</Tooltip.Trigger>
 					}

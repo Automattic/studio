@@ -82,7 +82,7 @@ const LINKS = {
 	...A8C_LINKS,
 } as const satisfies Record< string, TranslatedLink >;
 
-export type DocsLinkKey = keyof typeof LINKS;
+type DocsLinkKey = keyof typeof LINKS;
 
 /**
  * Returns the link for the given locale if it exists, otherwise, returns the English link.

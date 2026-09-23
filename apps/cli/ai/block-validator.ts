@@ -43,9 +43,10 @@ function getEditorPage( siteUrl: string ): EditorPage {
  * real browser.
  *
  * Navigates to `post-new.php` (which loads wp.blocks with all registered
- * blocks — core + plugins) and runs `wp.blocks.validateBlock()` for each
- * parsed block. This is the same save-function comparison the Gutenberg
- * editor performs on load.
+ * blocks — core + plugins) and parses the content with `wp.blocks.parse()`,
+ * reusing the parser's per-block verdict — the same save-function comparison
+ * the Gutenberg editor performs on load. `wp.blocks.validateBlock()` is only
+ * called on older WordPress versions whose parser does not report one.
  */
 export async function validateBlocks(
 	content: string,
@@ -117,7 +118,16 @@ export async function validateBlocks(
 							`Block type "${ block.name }" is not registered. ` +
 								'It may require a plugin that is not active.'
 						);
-					} else {
+					} else if ( typeof block.isValid === 'boolean' ) {
+						// The parser already ran the save-function comparison. Reuse its
+						// verdict: it knows about blocks like core/html whose save returns
+						// null and whose content lives in the raw inner HTML, which a
+						// second validateBlock() call would wrongly flag as invalid.
+						isValid = block.isValid;
+						if ( ! isValid ) {
+							issues = extractIssues( block.validationIssues || [] );
+						}
+					} else if ( typeof wpBlocks.validateBlock === 'function' ) {
 						// validateBlock performs the save-function comparison.
 						// Handle both return formats:
 						//   WP 6.3+: { isValid: boolean, validationIssues: Array }
@@ -135,18 +145,18 @@ export async function validateBlocks(
 								issues = extractIssues( validationResult.validationIssues || [] );
 							}
 						}
+					}
 
-						if ( ! isValid ) {
-							// Re-render expected HTML including inner blocks for comparison
-							try {
-								expectedContent = wpBlocks.getSaveContent(
-									blockType,
-									block.attributes,
-									block.innerBlocks
-								);
-							} catch {
-								// If re-rendering fails, skip expected content
-							}
+					if ( blockType && ! isValid ) {
+						// Re-render expected HTML including inner blocks for comparison
+						try {
+							expectedContent = wpBlocks.getSaveContent(
+								blockType,
+								block.attributes,
+								block.innerBlocks
+							);
+						} catch {
+							// If re-rendering fails, skip expected content
 						}
 					}
 
@@ -194,6 +204,13 @@ export async function validateBlocks(
 				const fixedInnerBlocks = Array.isArray( block.innerBlocks )
 					? block.innerBlocks.map( normalizeBlock )
 					: [];
+
+				// Re-creating a block the parser accepted can only lose content —
+				// createBlock() drops the raw inner HTML of core/html, whose save
+				// returns null — so keep it as parsed and only fix its children.
+				if ( block.isValid === true ) {
+					return { ...block, innerBlocks: fixedInnerBlocks };
+				}
 
 				try {
 					return wpBlocks.createBlock(

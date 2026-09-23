@@ -1,6 +1,44 @@
 Unreleased
 ==========
 
+1.22.0
+=====
+* Studio Code now lets you pick your site's design before it builds: four looks, then four layouts previewed in the look you chose, each shown as a rendered sneak peek with real imagery. Your pick is saved as `DESIGN.md` at the site root, which later sessions and other coding agents follow #4813, #4833, #4780, #4804, #4839, #4841, #4855, #4832, #4849
+* Replaced the WordPress.com model picker's vendor names with three capability tiers — Fast, Balanced and Strong — so you choose by what you need rather than by model name #4727
+* Added a "What should we create?" brief to site creation in the Agentic UI, which opens the new site's chat with your brief already sent #4836
+* Studio Code: You can now answer the agent's questions by typing in the prompt box, and questions can accept multiple selections #4831, #4689, #4830
+* AI credits: Added usage warnings at 80% and 90%, and a confirmation toast when you return from checkout #4722, #4714, #4745
+* Reworked the signed-out Studio Code screen into a feature carousel with animated demos #4767
+* Agentic UI: Restored the PHP runtime and file access settings, so switching a site between Native and Sandbox no longer needs Studio Classic or the CLI #4845
+* Agentic UI: Rebuilt the site preview with a browser-style toolbar — an editable address field with recent addresses, and back, forward and refresh with right-click history menus #4746
+* Agentic UI: Added a preview zoom option, and made Cmd/Ctrl +, − and 0 scale the interface even when the preview has focus #4775, #4573
+* Agentic UI: Made sidebar notices legible at a glance and added a recent notifications dialog #4777
+* Improved preview annotations: the page dims around the element you're describing, the note can be dragged aside, and you can step through the elements stacked under your click #4825, #4827, #4826
+* Agentic UI: Moved the sidebar toggle to a fixed spot in the chat panel instead of it jumping between the two #4861
+* Added SCRIPT_DEBUG and WP_ENVIRONMENT_TYPE toggles to a site's Debugging settings #4344
+* Fixed WordPress auto-updates being silently off on sites created before the setting existed, while Settings showed them as on #4715
+* Fixed a site failing to start after renaming its admin user without setting a password #4821
+* Fixed sites failing to boot when their SQLite database was left in WAL mode #4819
+* Fixed site startup failing on Windows with an unexplained "PHP error during startup" #4848
+* Fixed importing `.wpress` backups with entries of 2 GiB or more, and added clear errors for truncated archives #4797
+* Added support for importing plain `.tar` backups, including archives whose extension no longer matches their contents #4838
+* Fixed the "new way to build in Studio" nudge being unclickable on Windows #4818
+* Fixed the Agentic UI opening the most recent chat scrolled to the top after a cold start #4823
+* Fixed the sync dialog following the OS color scheme instead of the app's Appearance setting #4871
+* Fixed the Copy button on notices doing nothing in the Desktop app #4866
+* Pointed the Antigravity editor option at Antigravity IDE, which had been non-functional since Google split the product #4820
+* Fixed phpMyAdmin and wp-admin not auto-logging in from the sidebar's site menu #4869
+* Agentic UI: Fixed sidebar button alignment, footer spacing, and colors that ignored the Light/Dark setting #4765, #4822, #4870
+* Studio Code: Made the agent build sites more reliably — theme templates are validated as they're written, `validate_blocks` accepts site-relative paths and stops flagging valid SVG and script blocks, and blank themes scaffold without a stray parent #4801, #4854, #4853, #4789, #4763
+* Studio Code: Made builds faster and cheaper by batching file edits per turn and sending smaller screenshots without breaking the prompt cache #4858, #4868
+* Studio Code: Stopped asking whether to create a new site unless your prompt names a different one, and kept `take_screenshot` available to models that can't see images #4812, #4803
+* Studio Code: Cleared tool progress once a call ends and rotated the thinking label per step #4814
+* Removed Dolly, the beta Telegram bridge for driving a `studio code` session from a chat app #4798
+* Updated the bundled SQLite database integration to v3.0.2, and WordPress Playground and PHP-WASM to 3.1.53 #4815, #4800, #4742, #4741
+* Added Tracks analytics for the design options Studio Code proposes and which ones you pick #4842
+* Updated multiple dependencies and resolved fixable Dependabot alerts #4806, #4810, #4793, #4835, #4844, #4816, #4817, #4847
+* Misc and maintenance improvements #4795, #4799, #4850, #4859, #4860, #4862
+
 1.21.0
 =====
 * Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI's end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal #4681, #4758, #4712, #4695

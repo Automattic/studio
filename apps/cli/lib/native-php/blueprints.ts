@@ -4,6 +4,7 @@ import {
 	createBlueprintTempDir,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { PhpCommandError, runPhpCommand } from './php-process';
@@ -109,6 +110,10 @@ export async function runBlueprint(
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
+		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
+		// feed the WP_DEBUG expression above.
+		SCRIPT_DEBUG: config.enableScriptDebug ?? false,
+		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ),
 	};
 
 	blueprint.contents.constants = {

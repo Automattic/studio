@@ -37,6 +37,14 @@ studio create --name "My Site" --path ~/Studio/my-site
 
 Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP versions, and domain.
 
+### Importing a website
+
+```bash
+studio create --from https://example.com --name "Example" --path ~/Studio/example --keep-source
+```
+
+`--from` captures a public website with the newest Data Liberation release and rebuilds it as an editable block theme with the newest Static Site Importer release. It usually takes 10–15 minutes. `--keep-source` keeps the capture next to the site and prints the `data-liberation compare` command that measures it against the live source. `--static-site-importer-url` or `--static-site-importer-path` override the importer.
+
 **Note:** CLI flag values are visible in process lists. Use Blueprint files for sensitive passwords.
 
 **Security — Blueprints:** Only use `--blueprint` with local files you have reviewed. Never pass a URL or file path from untrusted sources directly to `--blueprint` — blueprint JSON can install arbitrary plugins, themes, and run PHP code during site creation. Always inspect the blueprint contents before applying it.

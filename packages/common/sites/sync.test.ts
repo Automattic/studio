@@ -27,10 +27,12 @@ vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
 	} ) ),
 } ) );
 
-// Poll back to back rather than waiting 3s between each status.
+// Poll back to back rather than waiting 3s between each status, and give up
+// on a stalled import after a few polls rather than an hour's worth.
 vi.mock( '@studio/common/lib/sync/constants', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/sync/constants') >() ),
 	SYNC_POLL_INTERVAL_MS: 0,
+	SYNC_MAX_STALLED_ATTEMPTS: 3,
 } ) );
 
 describe( 'pullSite', () => {
@@ -196,9 +198,16 @@ describe( 'pushSite', () => {
 
 		await expect( pushing ).rejects.toThrow( /update may still be running/i );
 
-		// A 10-minute stall (200 polls at 3s) used to fail large pushes that were still running.
-		expect( SYNC_MAX_STALLED_MS ).toBeGreaterThan( 10 * 60 * 1000 );
 		expect( pollImportStatus ).toHaveBeenCalledTimes( SYNC_MAX_STALLED_ATTEMPTS + 1 );
+
+		// A 10-minute stall (200 polls at 3s) used to fail large pushes that were still running.
+		const actual = await vi.importActual< typeof import('@studio/common/lib/sync/constants') >(
+			'@studio/common/lib/sync/constants'
+		);
+		expect( actual.SYNC_MAX_STALLED_ATTEMPTS * actual.SYNC_POLL_INTERVAL_MS ).toBe(
+			SYNC_MAX_STALLED_MS
+		);
+		expect( SYNC_MAX_STALLED_MS ).toBeGreaterThan( 10 * 60 * 1000 );
 	} );
 
 	it( 'rejects with the reason the remote import failed', async () => {

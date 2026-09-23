@@ -197,7 +197,7 @@ ${ getStudioWidgetPromptManifest() }`
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
-IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
+IMPORTANT: Manage WordPress sites with your Studio tools, or with the \`studio\` CLI when a task needs a CLI-only option such as \`studio create --from\`. Both handle server management, database setup, and WordPress provisioning. Run WP-CLI commands through the wp_cli tool.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 IMPORTANT: For any generated content for the site, these principles are mandatory:
 

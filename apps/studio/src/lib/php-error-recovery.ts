@@ -2,6 +2,8 @@ import http from 'http';
 import { watch as watchPaths, FSWatcher } from 'chokidar';
 import type { SiteServer } from 'src/site-server';
 
+const WATCH_POLL_INTERVAL_MS = 2000;
+
 const activeRecoveries = new Map<
 	string,
 	{
@@ -111,10 +113,15 @@ export async function startErrorRecovery(
 	let retrying = false;
 	// chokidar instead of fs.watch({ recursive: true }), which is not reliably supported on Linux
 	// (Studio ships a Linux build). chokidar v4+ dropped globs, so filter for `.php` on the path.
+	// Polling is required: chokidar 5 has no FSEvents backend, and one fs.watch per file exhausts
+	// the main process's descriptors on a large site, breaking all later spawns with EBADF.
 	const watcher = watchPaths( path, {
 		ignoreInitial: true,
 		persistent: true,
 		ignorePermissionErrors: true,
+		usePolling: true,
+		interval: WATCH_POLL_INTERVAL_MS,
+		binaryInterval: WATCH_POLL_INTERVAL_MS,
 		ignored: ( entryPath: string ) => /[\\/](node_modules|\.git)([\\/]|$)/.test( entryPath ),
 	} );
 	watcher.on( 'error', ( error ) => {

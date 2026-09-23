@@ -13,7 +13,7 @@ Set expectations up front: the import gets most of the way there, and you will t
 
 Ask for the website's address if the user has not given one. It must be a public address starting with `https://`. Let them know this usually takes 10 to 15 minutes, and that you will tell them when it is ready.
 
-Importing a website is the one case where you create a site with the Studio CLI through Bash instead of `site_create`, because `site_create` cannot import:
+Import it with the Studio CLI:
 
 ```bash
 studio create --from <url> --name "<site name>" --path ~/Studio/<slug> --keep-source --skip-browser

@@ -8,6 +8,7 @@ import {
 	checkFidelity,
 	checkWidthsFor,
 	evidenceSlug,
+	externalRequestHost,
 	resolveCheckDirectory,
 	routeSourceMap,
 } from './check.js';
@@ -110,6 +111,21 @@ describe( 'routeSourceMap', () => {
 describe( 'checkWidthsFor', () => {
 	it( 'drops widths the sweep already sampled', () => {
 		expect( checkWidthsFor( [ 1440, 1600, 1920 ] ) ).toEqual( [ 1728 ] );
+	} );
+} );
+
+describe( 'externalRequestHost', () => {
+	it( 'ignores browser-local and non-network request schemes', () => {
+		expect( externalRequestHost( 'about:blank', 'http://127.0.0.1:3000' ) ).toBeNull();
+		expect( externalRequestHost( 'data:text/plain,ok', 'http://127.0.0.1:3000' ) ).toBeNull();
+		expect( externalRequestHost( 'file:///tmp/font.woff2', 'http://127.0.0.1:3000' ) ).toBeNull();
+	} );
+
+	it( 'reports only a host for an external network request', () => {
+		expect( externalRequestHost( 'http://127.0.0.1:3000/assets/app.css', 'http://127.0.0.1:3000' ) ).toBeNull();
+		expect( externalRequestHost( 'https://cdn.example.test/font.woff2', 'http://127.0.0.1:3000' ) ).toBe(
+			'cdn.example.test'
+		);
 	} );
 } );
 

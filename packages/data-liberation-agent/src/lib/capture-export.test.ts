@@ -2667,6 +2667,50 @@ if ( existsSync( ${ JSON.stringify( join( outputDir, '.capture-export-html' ) ) 
 		] ) );
 	} );
 
+	it( 'hoists styles when base markup cannot change URL resolution', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-inert-base-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots' ] ) mkdirSync( join( outputDir, path ), { recursive: true } );
+		const bases = [ '<base>', '<base target="_blank">', '<base href="">', '<base href="   ">', '<base href= >', '<base href=\'\t\'>', '<basefont href="https://example.com/">' ];
+		const css = '<style>.shared{color:red}</style>';
+		const entries: Record< string, { html: string } > = {};
+		for ( const [ index, base ] of bases.entries() ) {
+			const slug = `page-${ index }`;
+			writeFileSync( join( outputDir, 'html', `${ slug }.html` ), `<html><head>${ base }${ css }</head><body><p class="shared">${ index }</p></body></html>` );
+			entries[ index === 0 ? 'https://example.com/' : `https://example.com/${ slug }` ] = { html: `html/${ slug }.html` };
+		}
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( { version: 1, entries } ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( html ).toContain( 'capture-' );
+		expect( diagnostics.styleHoist.diagnosticCounts.document_base ?? 0 ).toBe( 0 );
+	} );
+
+	it( 'keeps styles inline for non-empty quoted and unquoted base href values', () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-effective-base-' ) );
+		dirs.push( outputDir );
+		for ( const path of [ 'html', 'screenshots' ] ) mkdirSync( join( outputDir, path ), { recursive: true } );
+		const bases = [ '<base href=\'https://cdn.example/\'>', '<base href=https://cdn.example/>' ];
+		const css = '<style>.shared{color:red}</style>';
+		const entries: Record< string, { html: string } > = {};
+		for ( const [ index, base ] of bases.entries() ) {
+			const slug = `page-${ index }`;
+			writeFileSync( join( outputDir, 'html', `${ slug }.html` ), `<html><head>${ base }${ css }</head><body><p class="shared">${ index }</p></body></html>` );
+			entries[ index === 0 ? 'https://example.com/' : `https://example.com/${ slug }` ] = { html: `html/${ slug }.html` };
+		}
+		writeFileSync( join( outputDir, 'screenshots', 'manifest.json' ), JSON.stringify( { version: 1, entries } ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl: 'https://example.com/', platform: 'fake', summary: {}, failures: [] } );
+
+		const html = readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' );
+		const diagnostics = JSON.parse( readFileSync( join( outputDir, 'diagnostics.json' ), 'utf8' ) );
+		expect( html ).toContain( '<style>.shared{color:red}</style>' );
+		expect( diagnostics.styleHoist.diagnosticCounts.document_base ).toBe( 2 );
+	} );
+
 	it( 'hoists only CSS URLs whose new stylesheet base preserves their semantics', () => {
 		const outputDir = mkdtempSync( join( tmpdir(), 'dla-style-hoist-url-kinds-' ) );
 		dirs.push( outputDir );

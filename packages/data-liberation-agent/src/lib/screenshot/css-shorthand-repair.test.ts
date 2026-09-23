@@ -83,3 +83,30 @@ describe( 'repairShorthandVarCollapse', () => {
 		expect( result ).toContain( 'font-weight: ;' );
 	} );
 } );
+
+describe( 'CSS_SHORTHAND_REPAIR_FACTORY_SOURCE', () => {
+	// The browser receives this factory as text. Build it the way the shipped
+	// runtime bundle does (minified) and run it with no module scope around it:
+	// any helper it reaches by a module-level name is then undefined, which is
+	// how every page of a matching site failed to capture in the bundle.
+	it( 'repairs from a minified build with no module scope', async () => {
+		const { build } = await import( 'esbuild' );
+		const { fileURLToPath } = await import( 'node:url' );
+		const result = await build( {
+			entryPoints: [ fileURLToPath( new URL( './css-shorthand-repair.ts', import.meta.url ) ) ],
+			bundle: true,
+			minify: true,
+			format: 'esm',
+			platform: 'node',
+			write: false,
+		} );
+		const moduleUrl = `data:text/javascript;base64,${ Buffer.from( result.outputFiles[ 0 ].text ).toString( 'base64' ) }`;
+		const { CSS_SHORTHAND_REPAIR_FACTORY_SOURCE: minified } = await import( moduleUrl );
+		const repair = new Function( 'return (' + minified.factorySrc + ')' )()();
+
+		// Nested @media exercises the recursive path through the rule splitter.
+		const live = '@media (min-width: 1px) { .foo { font-weight: ; font-family: ; color: red; } }';
+		const original = '@media (min-width: 1px) { .foo { font: var(--x); color: red; } }';
+		expect( repair( live, original ) ).toContain( '.foo { font: var(--x); color: red; }' );
+	} );
+} );

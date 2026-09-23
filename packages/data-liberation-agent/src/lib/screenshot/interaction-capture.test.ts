@@ -93,6 +93,41 @@ describe( 'captureTriggeredDialogs', () => {
 	);
 
 	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
+		'preserves a generic combobox listbox selection and keyboard dismissal offline',
+		async () => {
+			const browser = await chromium.launch( { headless: true } );
+			const page = await browser.newPage();
+			try {
+				await page.setContent( `<!doctype html><form><button id="country" role="combobox" aria-expanded="false">Select country</button></form><script>country.onclick=()=>{country.setAttribute('aria-expanded','true');const box=document.createElement('div');box.id='countries';box.setAttribute('role','listbox');box.innerHTML='<div role="option">Canada</div><div role="option">Ghana</div>';document.body.append(box)};</script>` );
+				const report = await captureTriggeredDialogs( page, 'https://example.test/registration/' );
+				const state = report.states.find( ( candidate ) => candidate.status === 'captured' );
+				expect( state?.dialog?.role ).toBe( 'listbox' );
+				const portable = wireCapturedDialogs(
+					'<!doctype html><html><head></head><body><form><button id="country" role="combobox" aria-expanded="false">Select country</button></form></body></html>',
+					report.states
+				);
+				await page.setContent( portable );
+				await page.locator( '#country' ).click();
+				expect( await page.getByRole( 'option' ).count() ).toBe( 2 );
+				await page.getByRole( 'option', { name: 'Ghana' } ).click();
+				expect( await page.locator( '#country' ).textContent() ).toBe( 'Ghana' );
+				expect( await page.locator( '#country' ).getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+				await page.locator( '#country' ).click();
+				await page.keyboard.press( 'Escape' );
+				expect( await page.locator( '#country' ).getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+				await page.locator( '#country' ).focus();
+				await page.keyboard.press( 'ArrowDown' );
+				await page.keyboard.press( 'ArrowDown' );
+				await page.keyboard.press( 'Enter' );
+				expect( await page.locator( '#country' ).textContent() ).toBe( 'Ghana' );
+			} finally {
+				await browser.close();
+			}
+		},
+		30_000
+	);
+
+	it.skipIf( process.env.SKIP_BROWSER_TESTS )(
 		'captures a listbox opened by an aria-haspopup=listbox trigger',
 		async () => {
 			const browser = await chromium.launch( { headless: true } );
@@ -134,12 +169,10 @@ describe( 'captureTriggeredDialogs', () => {
 					report.states
 				);
 				await page.setContent( portable );
-				await page.locator( 'details.dla-disclosure summary' ).click();
+				await page.locator( 'button[aria-haspopup="listbox"]' ).click();
 				expect(
 					await page
-						.locator( 'details.dla-disclosure[open] [role="dialog"] [role="option"]' )
-						.filter( { hasText: 'Canada +1' } )
-						.isVisible()
+						.getByRole( 'option', { name: 'Canada +1' } ).isVisible()
 				).toBe( true );
 			} finally {
 				await browser.close();

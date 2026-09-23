@@ -12,6 +12,10 @@ dist/*
 !dist/mcp-server.bundle.mjs
 !dist/capture-engine.bundle.mjs
 !dist/scripts/
+# Release packaging output: `npm pack` tarballs and Homeboy's release build
+# directory. Left untracked they fail the next release's working-tree preflight.
+*.tgz
+build/
 docs/plans/
 docs/superpowers/
 qa-screenshots/
@@ -22,9 +26,6 @@ qa-screenshots/
 .worktrees/
 .tmp-test/
 TODOS.md
-# Local discovery log — see CONTRIBUTING.md; intentionally not committed
-DISCOVERIES.md
-
 # Streaming compose-then-install scratch dir
 .tmp-compose/
 

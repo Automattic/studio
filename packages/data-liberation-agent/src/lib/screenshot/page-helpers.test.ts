@@ -195,6 +195,113 @@ describe('triggerLazyLoad', () => {
     expect(image).toEqual({ complete: true, naturalWidth: 10 });
     await page.close();
   });
+
+  // Regression coverage for the stale-`total` scroll-reveal bug: a document
+  // whose height grows as it is scrolled (lazy images, an IntersectionObserver
+  // reveal that adds an "in" class) must have every element revealed, the same
+  // way, every time — not whatever fraction the sweep happened to reach before
+  // it fell behind the growing page. Fictional content only (no source-site
+  // data): plain `<figure>` stubs that grow from a small placeholder to full
+  // size and gain the "in" class once an IntersectionObserver reports them
+  // entering the viewport, after a short async delay standing in for a real
+  // image fetch.
+  function growingRevealFixture(count: number, delayMs: number): string {
+    const figures = Array.from(
+      { length: count },
+      (_, i) => `<figure class="reveal" data-idx="${i}"></figure>`,
+    ).join('\n');
+    return `<!doctype html><html><head><style>
+      body { margin: 0; }
+      figure.reveal { height: 30px; margin: 0; opacity: 0; transform: translateY(22px); }
+      figure.reveal.in { height: 300px; opacity: 1; transform: none; }
+    </style></head><body>
+      ${figures}
+      <script>
+        const io = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            io.unobserve(entry.target);
+            // Stand-in for an async image fetch: the reveal (and the height
+            // growth it carries) lands some time AFTER the element enters the
+            // viewport, not synchronously with the scroll step that found it.
+            setTimeout(() => entry.target.classList.add('in'), ${delayMs});
+          }
+        }, { threshold: 0.01 });
+        document.querySelectorAll('figure.reveal').forEach((el) => io.observe(el));
+      </script>
+    </body></html>`;
+  }
+
+  const countRevealed = (page: import('playwright').Page) =>
+    page.locator('figure.reveal.in').count();
+  const countFigures = (page: import('playwright').Page) =>
+    page.locator('figure.reveal').count();
+
+  it('reveals every element even though the document grows as it scrolls', async () => {
+    const page = await browser.newPage();
+    await page.setContent(growingRevealFixture(50, 60));
+    await triggerLazyLoad(page as never);
+    expect(await countFigures(page)).toBe(50);
+    expect(await countRevealed(page)).toBe(50);
+    await page.close();
+  });
+
+  it('is stable across repeated captures of the same growing document', async () => {
+    // Same fixture, captured fresh three times with a different (jittered)
+    // per-element delay each run — standing in for real network variance
+    // between two captures of the same source. Every run must reveal
+    // everything; a stale-height sweep would reveal a different, timing-
+    // dependent subset each time.
+    for (let run = 0; run < 3; run++) {
+      const page = await browser.newPage();
+      const jitter = 40 + run * 35;
+      await page.setContent(growingRevealFixture(40, jitter));
+      await triggerLazyLoad(page as never);
+      expect(await countFigures(page)).toBe(40);
+      expect(await countRevealed(page)).toBe(40);
+      await page.close();
+    }
+  }, 30_000);
+
+  it('terminates on a page that grows without bound (infinite scroll)', async () => {
+    // A sentinel at the bottom that appends more content every time it is
+    // observed never lets the document finish growing. triggerLazyLoad must
+    // still return — bounded by its internal settle budget — rather than
+    // scrolling forever.
+    const page = await browser.newPage();
+    await page.setContent(`<!doctype html><html><body>
+      <div id="container"></div>
+      <div id="sentinel" style="height:1px"></div>
+      <script>
+        let n = 0;
+        const container = document.getElementById('container');
+        const sentinel = document.getElementById('sentinel');
+        function addBatch(count) {
+          for (let i = 0; i < count; i++) {
+            const el = document.createElement('div');
+            el.style.height = '40px';
+            el.textContent = 'item ' + (n++);
+            container.appendChild(el);
+          }
+        }
+        addBatch(20);
+        const io = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) addBatch(10);
+          }
+        });
+        io.observe(sentinel);
+      </script>
+    </body></html>`);
+
+    const started = Date.now();
+    await expect(triggerLazyLoad(page as never)).resolves.toBeUndefined();
+    const elapsed = Date.now() - started;
+    // Internal settle budget is ~20s; give generous headroom above that
+    // without allowing it to degrade into an unbounded wait.
+    expect(elapsed).toBeLessThan(28_000);
+    await page.close();
+  }, 30_000);
 });
 
 describe('waitForRenderIdle', () => {

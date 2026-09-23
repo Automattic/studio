@@ -154,3 +154,61 @@ describe( 'checkMotion', () => {
 		).toEqual( {} );
 	} );
 } );
+
+describe( 'checkImageGeometry with content identity', () => {
+	// A CDN can serve one asset under several basenames across pages and
+	// device variants, and localization preserves whichever name it saw. The
+	// copy below renders every picture in its true position, but three
+	// equal-size thumbnails carry drifted keys — exactly what a blog-masonry
+	// row looks like after localization.
+	const driftedSource = [
+		image( 'image-asset', 71, 4233, 234, 158 ),
+		image( '05', 561, 4233, 234, 158 ),
+		image( 'image-asset', 1296, 4233, 234, 158 ),
+	];
+	const driftedCopy = [
+		image( '04', 72, 4229, 234, 158 ),
+		image( 'image-asset', 561, 4229, 234, 158 ),
+		image( 'image-asset', 1295, 4229, 234, 158 ),
+	];
+
+	it( 'pairs drifted keys by pixel content instead of nearest equal-size guess', () => {
+		const source = driftedSource.map( ( img, index ) => ( { ...img, contentHash: `hash${ index }` } ) );
+		const copy = driftedCopy.map( ( img, index ) => ( { ...img, contentHash: `hash${ index }` } ) );
+		expect(
+			checkImageGeometry( observation( { images: source } ), observation( { images: copy } ) )
+		).toEqual( {} );
+	} );
+
+	it( 'still fails a genuinely moved image when the content matches', () => {
+		const source = driftedSource.map( ( img, index ) => ( { ...img, contentHash: `hash${ index }` } ) );
+		// The first thumbnail really did move to the second column.
+		const copy = driftedCopy.map( ( img, index ) => ( { ...img, contentHash: `hash${ ( index + 1 ) % 3 }` } ) );
+		const result = checkImageGeometry( observation( { images: source } ), observation( { images: copy } ) );
+		expect( result.failures?.length ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'keeps the key-only failure when hashes are unavailable', () => {
+		// Without content identity the drifted keys are unresolvable: the
+		// nearest equal-key guess reports the phantom move. That is the
+		// honest outcome when bytes could not be read — the hash tier is
+		// what disambiguates.
+		expect(
+			checkImageGeometry( observation( { images: driftedSource } ), observation( { images: driftedCopy } ) ).failures?.length
+		).toBeGreaterThan( 0 );
+	} );
+
+	it( 'keeps repeated same-content images matched to their own positions', () => {
+		const source = [
+			image( 'tile', 0, 100, 400, 300 ),
+			image( 'tile', 0, 900, 400, 300 ),
+		].map( ( img ) => ( { ...img, contentHash: 'same' } ) );
+		const copy = [
+			image( 'renamed', 2, 902, 400, 300 ),
+			image( 'renamed', 2, 102, 400, 300 ),
+		].map( ( img ) => ( { ...img, contentHash: 'same' } ) );
+		expect(
+			checkImageGeometry( observation( { images: source } ), observation( { images: copy } ) )
+		).toEqual( {} );
+	} );
+} );

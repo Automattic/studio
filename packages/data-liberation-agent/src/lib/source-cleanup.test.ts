@@ -247,6 +247,29 @@ it('removes an unknown builder badge from its authoring offer and vendor provena
   } finally { await browser.close(); }
 }, 30_000);
 
+it('removes a fixed trial badge and provider credit text without removing owner content', async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.setContent(`<!doctype html><html><head><style>
+      #trial{position:fixed;right:0;bottom:0;width:220px;height:52px}
+    </style></head><body>
+      <main><h1>Owner portfolio</h1><p>Contact owner@example.com</p></main>
+      <p>Made with Squarespace</p>
+      <a id="trial" href="https://www.squarespace.com/templates/example"><img alt="Squarespace"><span>Create A Site Like This</span><span>Free trial. Instant access.</span></a>
+    </body></html>`);
+    const report = await applySourceCleanup(page, cleanupPolicy([
+      { id: 'squarespace-credit-text', category: 'source-attribution', selector: 'body', creditText: 'Squarespace' },
+    ]));
+    expect(await page.locator('#trial').count()).toBe(0);
+    expect(await page.locator('main').innerText()).toContain('Owner portfolio');
+    expect(await page.locator('body').innerText()).not.toContain('Made with Squarespace');
+    expect(report.failures).toEqual([]);
+    expect(report.records.some((record) => record.rule === 'builder-chrome')).toBe(true);
+    expect(report.records.some((record) => record.rule === 'squarespace-credit-text')).toBe(true);
+  } finally { await browser.close(); }
+}, 20_000);
+
 it('reports invalid rules rather than silently certifying cleanup', async () => {
   const browser = await chromium.launch();
   try {

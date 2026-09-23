@@ -16,6 +16,3 @@
 - [ ] Real Wix site (describe briefly, no personal info needed)
 - [ ] Scripts run without errors
 - [ ] Output looks correct
-
-## Discovery log
-- [ ] Entry added to DISCOVERIES.md

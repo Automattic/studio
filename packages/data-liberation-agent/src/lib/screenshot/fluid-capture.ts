@@ -10,7 +10,9 @@
 import {
 	breakpointsFrom,
 	learnFluidModel,
+	learnSegmentedFluidModel,
 	learnWidestFluidModel,
+	segmentedCss,
 	type FluidModel,
 	type GeometrySample,
 } from './fluid-model.js';
@@ -18,8 +20,14 @@ import type { Page } from 'playwright';
 
 /** Marks elements across viewport changes; removed before serialization. */
 const ID_ATTRIBUTE = 'data-dla-fluid-id';
+/** Keys segmented stylesheet rules to their element; survives serialization. */
+const SEGMENT_ATTRIBUTE = 'data-dla-fluid-segment';
+/** Marks the stylesheet block carrying segmented rules as capture-owned. */
+export const SEGMENT_STYLE_ATTRIBUTE = 'data-dla-fluid-rules';
+/** Attribute pattern used by the exporter to recognize those blocks. */
+export const FLUID_RULES_STYLE_ATTRIBUTE = /\bdata-dla-fluid-rules\b/i;
 /** Only geometry that a runtime plausibly derives from viewport width. */
-const LEARNABLE_PROPERTIES = [ 'width', 'height', 'top' ] as const;
+const LEARNABLE_PROPERTIES = [ 'width', 'height', 'top', 'font-size' ] as const;
 
 export type LearnableProperty = ( typeof LEARNABLE_PROPERTIES )[ number ];
 
@@ -47,8 +55,13 @@ export interface FluidLearningResult {
 	byKind: Record< string, number >;
 }
 
-/** Default ladder: narrow, canvas, and wide, spanning common real viewports. */
-export const DEFAULT_SWEEP_WIDTHS = [ 768, 1024, 1280, 1440, 1920 ];
+/** Default ladder: mobile, canvas, and wide, spanning common real viewports.
+ *
+ * The mobile widths matter: a source that obeys one rule above its mobile
+ * breakpoint and another below it (container share changes, different clamp)
+ * is unmodelled — or worse, mis-modelled — when every sample sits above the
+ * switch. */
+export const DEFAULT_SWEEP_WIDTHS = [ 390, 600, 768, 1024, 1280, 1440, 1920 ];
 
 /**
  * Observe inline geometry across widths, fit a model per element and property,
@@ -71,7 +84,7 @@ export async function learnAndApplyFluidGeometry(
 			for ( const element of document.querySelectorAll< HTMLElement >( '[style]' ) ) {
 				// Only elements a runtime sized in pixels are candidates.
 				const style = element.getAttribute( 'style' ) ?? '';
-				const carriesPixelSize = /\b(?:width|height)\s*:\s*\d/.test( style );
+				const carriesPixelSize = /\b(?:width|height|font-size)\s*:\s*\d/.test( style );
 				const carriesCapturedAnchorTop =
 					element.hasAttribute( 'data-dla-anchor-target' ) && /\btop\s*:\s*\d/.test( style );
 				if ( ! carriesPixelSize && ! carriesCapturedAnchorTop ) continue;
@@ -114,8 +127,13 @@ export async function learnAndApplyFluidGeometry(
 					for ( const property of properties ) {
 						// `top` is a position against a containing block, not a
 						// share of a parent's box, so it has no container fit.
+						// `font-size` is excluded too: CSS resolves a font
+						// percentage against the parent font size, not its width,
+						// and container-query units assume the exported copy
+						// reflows the parent box the way the source did — which a
+						// canvas/grid layout frozen into static flow does not.
 						containers[ property ] =
-							parent && property !== 'top'
+								parent && property !== 'top' && property !== 'font-size'
 								? property === 'width'
 									? parent.clientWidth
 									: parent.clientHeight
@@ -162,7 +180,14 @@ export async function learnAndApplyFluidGeometry(
 		options.onProgress?.( width, measured.length );
 	}
 
-	const learned: Array< { id: string; property: string; css: string; fallbackCss: string | null } > = [];
+	const learned: Array< {
+		id: string;
+		property: string;
+		css: string;
+		fallbackCss: string | null;
+		/** Media-scoped rules replace the inline declaration entirely. */
+		segmentedCss: string | null;
+	} > = [];
 	const byKind: Record< string, number > = {};
 	const breakpoints = new Set< number >();
 	let canvasFloor: number | null = null;
@@ -175,6 +200,32 @@ export async function learnAndApplyFluidGeometry(
 		byKind[ model.kind ] = ( byKind[ model.kind ] ?? 0 ) + 1;
 		if ( wholeRangeModel.kind === 'breakpoint' ) {
 			for ( const width of breakpointsFrom( wholeRangeModel.samples ) ) breakpoints.add( width );
+		}
+		// A single relationship may fit no single stretch of the sampled range
+		// yet still be recoverable piecewise: sources routinely obey one rule
+		// above their mobile breakpoint and another below it. Where every
+		// segment fits a viewport-expressible model, ship media-scoped rules
+		// instead of freezing.
+		const segmented =
+			model.kind === 'breakpoint' ? learnSegmentedFluidModel( samples ) : null;
+		if ( segmented !== null ) {
+			byKind[ model.kind ] = Math.max( 0, ( byKind[ model.kind ] ?? 0 ) - 1 );
+			byKind.segmented = ( byKind.segmented ?? 0 ) + 1;
+			for ( const segment of segmented.segments ) {
+				if ( segment.minWidth !== null ) breakpoints.add( segment.minWidth );
+			}
+			learned.push( {
+				id,
+				property,
+				css: '',
+				fallbackCss: null,
+				segmentedCss: segmentedCss(
+					`[${ SEGMENT_ATTRIBUTE }="${ id }"]`,
+					property,
+					segmented.segments
+				),
+			} );
+			continue;
 		}
 		if ( model.kind === 'breakpoint' ) {
 			// Leaving the frozen value is the honest outcome: a wrong formula
@@ -199,7 +250,7 @@ export async function learnAndApplyFluidGeometry(
 		// when its scripts are removed. A viewport fit keeps a learned height
 		// definite in the static document instead of collapsing to 0px.
 		const css = property === 'height' && fallbackCss !== null ? fallbackCss : model.css;
-		learned.push( { id, property, css, fallbackCss } );
+		learned.push( { id, property, css, fallbackCss, segmentedCss: null } );
 	}
 
 	// Restore the capture viewport BEFORE writing the learned CSS. Returning to
@@ -209,11 +260,19 @@ export async function learnAndApplyFluidGeometry(
 	await page.waitForTimeout( settleMs );
 
 	const reverted = await page.evaluate(
-		( { attribute, entries } ) => {
+		( { attribute, segmentAttribute, entries } ) => {
 			let revertedCount = 0;
 			for ( const entry of entries ) {
 				const element = document.querySelector< HTMLElement >( `[${ attribute }="${ entry.id }"]` );
 				if ( ! element ) continue;
+				if ( entry.segmentedCss !== null ) {
+					// The rules live in a stylesheet keyed by the persistent
+					// attribute, so the runtime's inline pixels must go — an
+					// inline declaration would outrank them at every width.
+					element.setAttribute( segmentAttribute, entry.id );
+					element.style.removeProperty( entry.property );
+					continue;
+				}
 				const axis = entry.property === 'height' ? 'height' : 'width';
 				const before = element.getBoundingClientRect()[ axis ];
 				element.style.setProperty( entry.property, entry.css );
@@ -225,12 +284,49 @@ export async function learnAndApplyFluidGeometry(
 				const after = element.getBoundingClientRect()[ axis ];
 				if ( after > 1 || before <= 1 ) continue;
 				element.style.setProperty( entry.property, entry.fallbackCss );
+				entry.css = entry.fallbackCss;
 				revertedCount++;
 			}
+			// A source resize callback can still mutate inline styles after learning
+			// completes. Keep the learned declaration authoritative until serialization;
+			// this observer itself is not part of the exported document.
+			const authoritative = entries.flatMap( ( entry ) => {
+				const element = document.querySelector< HTMLElement >( `[${ attribute }="${ entry.id }"]` );
+				return element ? [ { element, property: entry.property, css: entry.css, segmented: entry.segmentedCss !== null } ] : [];
+			} );
+			const observer = new MutationObserver( () => {
+				for ( const entry of authoritative ) {
+					const current = entry.element.style.getPropertyValue( entry.property );
+					if ( entry.segmented ) {
+						// The stylesheet rule is the declaration; any inline pixels
+						// the runtime rewrites would outrank it.
+						if ( current !== '' ) entry.element.style.removeProperty( entry.property );
+						continue;
+					}
+					if ( current === entry.css ) continue;
+					entry.element.style.setProperty( entry.property, entry.css );
+				}
+			} );
+			observer.observe( document.documentElement, { subtree: true, attributes: true, attributeFilter: [ 'style' ] } );
 			return revertedCount;
 		},
-		{ attribute: ID_ATTRIBUTE, entries: learned }
+		{ attribute: ID_ATTRIBUTE, segmentAttribute: SEGMENT_ATTRIBUTE, entries: learned }
 	);
+
+	const segmentedRules = learned
+		.map( ( entry ) => entry.segmentedCss )
+		.filter( ( css ): css is string => css !== null );
+	if ( segmentedRules.length > 0 ) {
+		await page.evaluate(
+			( { styleAttribute, rules } ) => {
+				const style = document.createElement( 'style' );
+				style.setAttribute( styleAttribute, '' );
+				style.textContent = rules.join( '\n' );
+				document.head.appendChild( style );
+			},
+			{ styleAttribute: SEGMENT_STYLE_ATTRIBUTE, rules: segmentedRules }
+		);
+	}
 
 	await page.evaluate(
 		( { attribute } ) => {

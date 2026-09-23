@@ -1,11 +1,26 @@
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as cheerio from 'cheerio';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exportWebsiteCapture } from '../capture-export.js';
-import { CapturedResourceStore } from './resource-capture.js';
+import {
+	CAPTURED_RESOURCE_TIMEOUT_CEILING_MS,
+	CAPTURED_RESOURCE_TIMEOUT_MS,
+	CapturedResourceStore,
+	MAX_CAPTURED_RESOURCE_TOTAL_BYTES,
+	MAX_CAPTURED_VIDEO_RESOURCE_BYTES,
+	resourceTimeoutMs,
+} from './resource-capture.js';
 
 const dirs: string[] = [];
 
@@ -153,7 +168,11 @@ describe( 'CapturedResourceStore', () => {
 		expect( manifest.failures ).toEqual( [
 			{ url: 'https://example.com/styles/site.css', error: 'HTTP 404' },
 		] );
-		expect( fetchMedia ).toHaveBeenCalledWith( 'https://example.com/_videos/hero' );
+		expect( fetchMedia ).toHaveBeenCalledWith(
+			'https://example.com/_videos/hero',
+			expect.any( Number ),
+			expect.any( Number )
+		);
 		expect( readFileSync( join( outputDir, 'resources', '_runtimes', 'site.js' ), 'utf8' ) ).toBe(
 			'export const site = true;'
 		);
@@ -163,6 +182,145 @@ describe( 'CapturedResourceStore', () => {
 		expect( readFileSync( join( outputDir, 'resources', '_videos', 'hero.mp4' ), 'utf8' ) ).toBe(
 			'video'
 		);
+	} );
+
+	it( 'derives the local path and manifest key from the originally-requested url when a same-origin response redirects to a variant path', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resource-redirect-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ) );
+		mkdirSync( join( outputDir, 'screenshots' ) );
+		const sourceUrl = 'https://example.com/';
+		const imageUrl = 'https://example.com/img/a.jpg';
+		const redirectedUrl = `${ imageUrl };variant`;
+		const html = '<html><body><img src="/img/a.jpg"></body></html>';
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), html );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries: { [ sourceUrl ]: { html: 'html/homepage.html' } } } )
+		);
+
+		const page = new EventEmitter();
+		const store = new CapturedResourceStore( outputDir, sourceUrl );
+		store.observe( page as never );
+
+		// A redirected browser fetch fires TWO 'response' events: the redirect
+		// hop itself (status 307, url() is the ORIGINAL requested url) and the
+		// terminal response (status 200, url() is the REDIRECT TARGET) whose
+		// Request is linked back to the original via redirectedFrom().
+		const originalRequest = {
+			resourceType: () => 'image',
+			method: () => 'GET',
+			redirectedFrom: () => null,
+			url: () => imageUrl,
+		};
+		const redirectedRequest = {
+			resourceType: () => 'image',
+			method: () => 'GET',
+			redirectedFrom: () => originalRequest,
+			url: () => redirectedUrl,
+		};
+		page.emit( 'response', {
+			url: () => imageUrl,
+			status: () => 307,
+			headers: () => ( { location: redirectedUrl } ),
+			body: vi.fn(),
+			request: () => originalRequest,
+		} );
+		page.emit( 'response', {
+			url: () => redirectedUrl,
+			status: () => 200,
+			headers: () => ( { 'content-type': 'image/jpeg' } ),
+			body: vi.fn().mockResolvedValue( Buffer.from( 'jpeg bytes' ) ),
+			request: () => redirectedRequest,
+		} );
+		await store.settle( page as never );
+		await store.flush();
+
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		// Stored under the ORIGINALLY REQUESTED path, not the redirect target's
+		// (which would otherwise double the extension: `a.jpg;variant.jpg`).
+		expect( manifest.resources[ imageUrl ] ).toEqual( {
+			path: 'resources/img/a.jpg',
+			contentType: 'image/jpeg',
+		} );
+		expect( manifest.resources[ redirectedUrl ] ).toBeUndefined();
+		// The redirect hop is a transport detail, not a failed capture.
+		expect( manifest.failures ).toEqual( [] );
+		expect( readFileSync( join( outputDir, 'resources', 'img', 'a.jpg' ), 'utf8' ) ).toBe(
+			'jpeg bytes'
+		);
+
+		exportWebsiteCapture( { outputDir, sourceUrl, platform: 'generic', summary: {}, failures: [] } );
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		const src = $( 'img' ).attr( 'src' )!;
+		expect( src ).toBe( '/img/a.jpg' );
+		expect( readFileSync( join( outputDir, 'website', src ), 'utf8' ) ).toBe( 'jpeg bytes' );
+	} );
+
+	it( 'does not let a same-origin redirect response block the DOM-dependency capture that follows for the same url', async () => {
+		const outputDir = mkdtempSync( join( tmpdir(), 'dla-resource-redirect-poster-' ) );
+		dirs.push( outputDir );
+		mkdirSync( join( outputDir, 'html' ) );
+		mkdirSync( join( outputDir, 'screenshots' ) );
+		const sourceUrl = 'https://example.com/';
+		const posterUrl = 'https://example.com/photos/day12/clip.jpg';
+		const redirectedUrl = `${ posterUrl };variant`;
+		const html = `<html><body><video poster="${ posterUrl }" preload="none"></video></body></html>`;
+		writeFileSync( join( outputDir, 'html', 'homepage.html' ), html );
+		writeFileSync(
+			join( outputDir, 'screenshots', 'manifest.json' ),
+			JSON.stringify( { version: 1, entries: { [ sourceUrl ]: { html: 'html/homepage.html' } } } )
+		);
+		const page = new EventEmitter();
+		const fetchMedia = vi.fn( async ( url: string ) => ( {
+			finalUrl: url,
+			status: 200,
+			headers: new Headers( { 'content-type': 'image/jpeg' } ),
+			body: Buffer.from( 'poster bytes' ),
+		} ) );
+		const store = new CapturedResourceStore( outputDir, sourceUrl, fetchMedia );
+		store.observe( page as never );
+
+		// The browser's OWN (native) fetch of the poster attribute hits the
+		// redirect first — the ordering a real page load produces before the
+		// DOM-dependency scan below ever runs. Before the fix, capturing this
+		// redirect hop under the poster's (correctly original) url claimed the
+		// dedupe entry the scan below needs, permanently blocking it.
+		const originalRequest = {
+			resourceType: () => 'image',
+			method: () => 'GET',
+			redirectedFrom: () => null,
+			url: () => posterUrl,
+		};
+		page.emit( 'response', {
+			url: () => posterUrl,
+			status: () => 307,
+			headers: () => ( { location: redirectedUrl } ),
+			body: vi.fn(),
+			request: () => originalRequest,
+		} );
+		await store.settle( page as never );
+
+		await store.captureDomDependencies( html, sourceUrl );
+		await store.flush();
+
+		const manifest = JSON.parse(
+			readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+		);
+		expect( manifest.resources[ posterUrl ] ).toMatchObject( { contentType: 'image/jpeg' } );
+		expect( manifest.failures ).toEqual( [] );
+		expect( fetchMedia ).toHaveBeenCalledWith( posterUrl, expect.any( Number ), expect.any( Number ) );
+
+		exportWebsiteCapture( { outputDir, sourceUrl, platform: 'generic', summary: {}, failures: [] } );
+		const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+		const poster = $( 'video' ).attr( 'poster' )!;
+		// A real localized image, not the transparent-gif stub a genuinely
+		// unfetchable poster still degrades to (covered separately below).
+		expect( poster ).not.toMatch( /^data:image\/gif;base64,/ );
+		expect( poster ).toMatch( /^\// );
+		expect( readFileSync( join( outputDir, 'website', poster ), 'utf8' ) ).toBe( 'poster bytes' );
 	} );
 
 	it( 'records media fetches that exceed the capture bound', async () => {
@@ -175,6 +333,7 @@ describe( 'CapturedResourceStore', () => {
 		store.observe( page as never );
 		page.emit( 'response', {
 			url: () => 'https://example.com/_videos/oversized',
+			status: () => 200,
 			request: () => ( { resourceType: () => 'media' } ),
 		} );
 
@@ -599,7 +758,8 @@ describe( 'CapturedResourceStore', () => {
 		const fetchMedia = vi.fn( async ( url: string ) => ( {
 			finalUrl: url,
 			status: url === 'https://cdn.example/site.woff2' ? 200 : 404,
-			headers: new Headers( { 'content-type': 'woff2' } ),
+			// Typekit and other CDNs commonly use the legacy application/* MIME.
+			headers: new Headers( { 'content-type': 'application/font-woff2' } ),
 			body: Buffer.from( 'font' ),
 		} ) );
 		const store = new CapturedResourceStore( outputDir, 'https://example.com/', fetchMedia );
@@ -623,7 +783,11 @@ describe( 'CapturedResourceStore', () => {
 			''
 		);
 		expect( fetchMedia ).toHaveBeenCalledOnce();
-		expect( fetchMedia ).toHaveBeenCalledWith( 'https://cdn.example/site.woff2' );
+		expect( fetchMedia ).toHaveBeenCalledWith(
+			'https://cdn.example/site.woff2',
+			expect.any( Number ),
+			expect.any( Number )
+		);
 		expect( diagnostics.resourceFailures ).toEqual( [] );
 		expect( diagnostics.unresolvedDependencies ).toEqual( [] );
 		expect( resourceManifest.resources[ 'https://cdn.example/site.woff2' ].contentType ).toBe(
@@ -657,5 +821,200 @@ describe( 'CapturedResourceStore', () => {
 		expect( manifest.failures ).toContainEqual(
 			expect.objectContaining( { url: fontUrl, error: 'render dependency response body is empty' } )
 		);
+	} );
+
+	describe( 'video/audio resource limits', () => {
+		it( 'captures video far larger than the old flat 10 MB per-resource cap, and shrinks the per-resource ceiling as the aggregate budget is consumed', async () => {
+			const outputDir = mkdtempSync( join( tmpdir(), 'dla-video-budget-' ) );
+			dirs.push( outputDir );
+			mkdirSync( join( outputDir, 'html' ) );
+			mkdirSync( join( outputDir, 'screenshots' ) );
+			const sourceUrl = 'https://example.com/';
+			const videoA = 'https://example.com/media/a.mp4';
+			const videoB = 'https://example.com/media/b.mp4';
+			const videoC = 'https://example.com/media/c.mp4';
+			const html = `<html><body>
+				<video id="a" src="/media/a.mp4"></video>
+				<video id="b" src="/media/b.mp4"></video>
+				<video id="c" src="/media/c.mp4"></video>
+			</body></html>`;
+			writeFileSync( join( outputDir, 'html', 'homepage.html' ), html );
+			writeFileSync(
+				join( outputDir, 'screenshots', 'manifest.json' ),
+				JSON.stringify( { version: 1, entries: { [ sourceUrl ]: { html: 'html/homepage.html' } } } )
+			);
+
+			// A and B are each already bigger than the OLD flat 10 MB cap that used
+			// to reject every video. C's DECLARED size (60 MB) fits comfortably
+			// under the wide video ceiling (100 MB) on its own — it is only
+			// rejected because, by the time it is captured, A and B have already
+			// consumed 200 MB of the run's 256 MB aggregate budget, leaving 56 MB.
+			const declaredSizes: Record< string, number > = {
+				[ videoA ]: MAX_CAPTURED_VIDEO_RESOURCE_BYTES,
+				[ videoB ]: MAX_CAPTURED_VIDEO_RESOURCE_BYTES,
+				[ videoC ]: 60 * 1024 * 1024,
+			};
+			// Mirrors safeFetch's own contract (enforced for real in production —
+			// see safe-fetch.ts's Content-Length precheck and streamed byte
+			// counter): it never returns more bytes than the `maxBytes` it was
+			// asked to enforce.
+			const fetchMedia = vi.fn( async ( url: string, maxBytes: number ) => {
+				const size = declaredSizes[ url ];
+				if ( size === undefined ) {
+					return { finalUrl: url, status: 404, headers: new Headers(), body: Buffer.alloc( 0 ) };
+				}
+				if ( size > maxBytes ) {
+					throw new Error( `response body exceeds max ${ maxBytes } bytes (streamed)` );
+				}
+				return {
+					finalUrl: url,
+					status: 200,
+					headers: new Headers( { 'content-type': 'video/mp4' } ),
+					body: Buffer.alloc( size ),
+				};
+			} );
+			const store = new CapturedResourceStore( outputDir, sourceUrl, fetchMedia );
+
+			// Sequential, not concurrent — DOM_RESOURCE_CONCURRENCY would otherwise
+			// let all three race for budget in the same batch, making which one(s)
+			// get rejected nondeterministic.
+			await store.captureDomDependencies( `<video src="${ videoA }"></video>`, sourceUrl );
+			await store.captureDomDependencies( `<video src="${ videoB }"></video>`, sourceUrl );
+			await store.captureDomDependencies( `<video src="${ videoC }"></video>`, sourceUrl );
+			await store.flush();
+
+			const maxBytesByUrl = new Map(
+				fetchMedia.mock.calls.map( ( [ url, maxBytes ] ) => [ url, maxBytes ] )
+			);
+			// The run starts with the full 256 MB free, so A and B each get the
+			// full 100 MB video ceiling — far above the old flat 10 MB cap.
+			expect( maxBytesByUrl.get( videoA ) ).toBe( MAX_CAPTURED_VIDEO_RESOURCE_BYTES );
+			expect( maxBytesByUrl.get( videoB ) ).toBe( MAX_CAPTURED_VIDEO_RESOURCE_BYTES );
+			// C's ceiling is bounded by what's LEFT of the aggregate budget
+			// (256 - 100 - 100 = 56 MB), not the flat 100 MB video ceiling — the
+			// per-resource limit cooperates with the aggregate cap instead of
+			// racing past it.
+			expect( maxBytesByUrl.get( videoC ) ).toBe(
+				MAX_CAPTURED_RESOURCE_TOTAL_BYTES - 2 * MAX_CAPTURED_VIDEO_RESOURCE_BYTES
+			);
+
+			const manifest = JSON.parse(
+				readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+			);
+			// A and B — each far bigger than the old flat 10 MB cap — are captured.
+			expect( manifest.resources[ videoA ] ).toMatchObject( { contentType: 'video/mp4' } );
+			expect( manifest.resources[ videoB ] ).toMatchObject( { contentType: 'video/mp4' } );
+			expect( statSync( join( outputDir, manifest.resources[ videoA ].path ) ).size ).toBe(
+				MAX_CAPTURED_VIDEO_RESOURCE_BYTES
+			);
+			// C genuinely exceeds what's left of the run's budget: the aggregate
+			// cap still cannot be exceeded, and the rejection is recorded, not
+			// silent.
+			expect( manifest.resources[ videoC ] ).toBeUndefined();
+			expect( manifest.failures ).toContainEqual( expect.objectContaining( { url: videoC } ) );
+
+			// The rejected video degrades the way PR #320 established: its
+			// resolved source url survives as external evidence rather than an
+			// emptied/broken attribute.
+			exportWebsiteCapture( { outputDir, sourceUrl, platform: 'generic', summary: {}, failures: [] } );
+			const $ = cheerio.load( readFileSync( join( outputDir, 'website', 'index.html' ), 'utf8' ) );
+			expect( $( '#a' ).attr( 'src' ) ).toMatch( /^\// );
+			expect( $( '#b' ).attr( 'src' ) ).toMatch( /^\// );
+			expect( $( '#c' ).attr( 'src' ) ).toBe( videoC );
+		} );
+
+		it( 'rejects a resource beyond the aggregate budget even if a misbehaving fetch ignores its assigned ceiling', async () => {
+			// Defense in depth: `resourceByteCeiling` bounds what a resource is
+			// ASKED for, but `reserveBytes` is the backstop that still catches an
+			// aggregate overrun if a fetch (real or, here, a test double) ever
+			// returns more than it was asked for.
+			const outputDir = mkdtempSync( join( tmpdir(), 'dla-video-overrun-' ) );
+			dirs.push( outputDir );
+			const url = 'https://example.com/media/big.mp4';
+			const store = new CapturedResourceStore( outputDir, 'https://example.com/', async () => ( {
+				finalUrl: url,
+				status: 200,
+				headers: new Headers( { 'content-type': 'video/mp4' } ),
+				body: Buffer.alloc( MAX_CAPTURED_RESOURCE_TOTAL_BYTES + 1024 ),
+			} ) );
+
+			await store.captureDomDependencies( `<video src="${ url }"></video>`, 'https://example.com/' );
+			await store.flush();
+
+			const manifest = JSON.parse(
+				readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+			);
+			expect( manifest.resources[ url ] ).toBeUndefined();
+			expect( manifest.failures ).toContainEqual( {
+				url,
+				error: `captured resource bytes exceed aggregate max ${ MAX_CAPTURED_RESOURCE_TOTAL_BYTES }`,
+			} );
+		} );
+
+		it( 'scales the resource body read timeout with the declared size, and still terminates', async () => {
+			vi.useFakeTimers();
+			const outputDir = mkdtempSync( join( tmpdir(), 'dla-resources-' ) );
+			dirs.push( outputDir );
+			const page = new EventEmitter();
+			const store = new CapturedResourceStore( outputDir, 'https://example.com/' );
+			store.observe( page as never );
+			// 30 MB at the assumed 2 MB/s floor throughput scales to a 15s
+			// deadline — longer than the flat 10s a small resource keeps (covered
+			// by the unrelated "does not settle" case above), shorter than the
+			// 90s hard ceiling.
+			const declaredBytes = 30 * 1024 * 1024;
+			page.emit( 'response', {
+				url: () => 'https://example.com/videos/pending.mp4',
+				status: () => 200,
+				headers: () => ( {
+					'content-type': 'video/mp4',
+					'content-length': String( declaredBytes ),
+				} ),
+				body: vi.fn( () => new Promise< Buffer >( () => {} ) ),
+				// A JS video player streaming through fetch()/XHR rather than a
+				// <video> element — resourceType 'fetch', not 'media' — is exactly
+				// the case whose Content-Type (not resourceType) must decide the
+				// scaled ceiling.
+				request: () => ( { resourceType: () => 'fetch' } ),
+			} );
+
+			const settled = store.settle( page as never );
+			await vi.advanceTimersByTimeAsync( 15_000 );
+			await settled;
+			await store.flush();
+
+			const manifest = JSON.parse(
+				readFileSync( join( outputDir, 'resources', 'manifest.json' ), 'utf8' )
+			);
+			expect( manifest.resources ).toEqual( {} );
+			expect( manifest.failures ).toEqual( [
+				{
+					url: 'https://example.com/videos/pending.mp4',
+					error: 'resource body timed out after 15000ms',
+				},
+			] );
+		} );
+	} );
+
+	describe( 'resourceTimeoutMs', () => {
+		it( 'floors small/unknown sizes at the flat default', () => {
+			expect( resourceTimeoutMs( Number.NaN ) ).toBe( CAPTURED_RESOURCE_TIMEOUT_MS );
+			expect( resourceTimeoutMs( 0 ) ).toBe( CAPTURED_RESOURCE_TIMEOUT_MS );
+			// The existing 10 MB image/font/script cap resolves to exactly the
+			// previous flat 10s timeout at the assumed 2 MB/s floor throughput —
+			// default behaviour for those types is unchanged by this scaling.
+			expect( resourceTimeoutMs( 10 * 1024 * 1024 ) ).toBe( CAPTURED_RESOURCE_TIMEOUT_MS );
+		} );
+
+		it( 'scales up for a larger expected size', () => {
+			expect( resourceTimeoutMs( 30 * 1024 * 1024 ) ).toBe( 15_000 );
+			expect( resourceTimeoutMs( MAX_CAPTURED_VIDEO_RESOURCE_BYTES ) ).toBe( 50_000 );
+		} );
+
+		it( 'never exceeds the hard ceiling regardless of size', () => {
+			expect( resourceTimeoutMs( 10 * 1024 * 1024 * 1024 ) ).toBe(
+				CAPTURED_RESOURCE_TIMEOUT_CEILING_MS
+			);
+		} );
 	} );
 } );

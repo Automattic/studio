@@ -19,11 +19,12 @@ export interface CapturedDialogInteraction {
 	 * Distinguishes an in-page disclosure/accordion panel (content restored in
 	 * place, before HTML serialization — see `hydrateDisclosureContent`) from a
 	 * runtime-created popup/menu dialog (wired post-hoc by `wireCapturedDialogs`
-	 * into a synthetic `<details>` overlay) and from a selectable set whose
-	 * members drive one shared region (`selectable-set`). Omitted/`'dialog'`
+	 * into a synthetic `<details>` overlay), from a selectable set whose
+	 * members drive one shared region (`selectable-set`), and from a choice group
+	 * whose members change their own attributes or styles (`choice-group`). Omitted/`'dialog'`
 	 * preserves the pre-existing shape for callers that predate this field.
 	 */
-	kind?: 'dialog' | 'disclosure' | 'selectable-set';
+	kind?: 'dialog' | 'disclosure' | 'selectable-set' | 'choice-group';
 	trigger: {
 		selector: string;
 		tag: string;
@@ -54,6 +55,44 @@ export interface CapturedDialogInteraction {
 		selector: string;
 		size: number;
 		index: number;
+	};
+	/**
+	 * Present on captured `kind: 'choice-group'` states. This is observed
+	 * evidence, not a guessed form-value model: absent source values and
+	 * selection semantics are represented as `null`.
+	 */
+	choiceGroup?: {
+		group: {
+			selector: string;
+			tag: string;
+			id?: string;
+			label?: string;
+			labelSelector?: string;
+			formSelector?: string;
+		};
+		choices: Array< {
+			index: number;
+			selector: string;
+			tag: string;
+			id?: string;
+			role?: string;
+			label?: string;
+			value: string | null;
+		} >;
+		transition: {
+			selectedIndex: number;
+			selected: Array< boolean | null >;
+			html: string;
+			htmlBytes: number;
+			htmlTruncated: boolean;
+		};
+		/** Replay is emitted only when bounded histories show activation-determined transitions. */
+		replay: 'activation-determined' | 'unsupported';
+		replayReason?: string;
+		/** Whether source actions restored the live group without replacing its nodes. */
+		restoration: 'verified' | 'unverified';
+		/** Partial drives are evidence only and cannot be replayed as complete groups. */
+		coverage: 'complete' | 'partial';
 	};
 	error?: string;
 }
@@ -159,7 +198,7 @@ export async function captureTriggeredDialogs(
 		};
 		const candidates = Array.from(
 			document.querySelectorAll(
-				'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup],button'
+				'button[aria-haspopup],a[aria-haspopup],[role="button"][aria-haspopup],[role="combobox"],button'
 			)
 		).filter( ( element ) => {
 			if ( element.getAttribute( 'aria-disabled' ) === 'true' ) return false;
@@ -182,7 +221,7 @@ export async function captureTriggeredDialogs(
 				if ( href && href !== '#' && ! href.startsWith( '#' ) && ! hasBinding ) return false;
 				return true;
 			}
-			return element.tagName === 'BUTTON' && /\bmenu\b/i.test( name );
+			return element.getAttribute( 'role' ) === 'combobox' || ( element.tagName === 'BUTTON' && /\bmenu\b/i.test( name ) );
 		} );
 
 		return candidates.slice( 0, limit ).map( ( element, index ) => {
@@ -652,13 +691,28 @@ async function describeInterceptingElement(
 async function activateTrigger( page: Page, probeSelector: string ): Promise< void > {
 	const locator = page.locator( probeSelector ).first();
 	await locator.scrollIntoViewIfNeeded( { timeout: DIALOG_WAIT_MS } ).catch( () => undefined );
-	if ( ! ( await describeInterceptingElement( page, probeSelector ) ) ) {
-		try {
-			await locator.click( { timeout: DIALOG_WAIT_MS } );
-			return;
-		} catch {
-			/* Coordinate click failed; fall through to a node-targeted click. */
+	await page.evaluate( () => {
+		const preventSubmit = ( event: Event ) => event.preventDefault();
+		document.addEventListener( 'submit', preventSubmit, true );
+		( document as Document & { __dlaPreventSubmit?: EventListener } ).__dlaPreventSubmit = preventSubmit;
+	} );
+	try {
+		if ( ! ( await describeInterceptingElement( page, probeSelector ) ) ) {
+			try {
+				await locator.click( { timeout: DIALOG_WAIT_MS } );
+				return;
+			} catch {
+				/* Coordinate click failed; fall through to a node-targeted click. */
+			}
 		}
+		await locator.evaluate( ( element ) => ( element as HTMLElement ).click() );
+	} finally {
+		await page.evaluate( () => {
+			const documentWithListener = document as Document & { __dlaPreventSubmit?: EventListener };
+			if ( documentWithListener.__dlaPreventSubmit ) {
+				document.removeEventListener( 'submit', documentWithListener.__dlaPreventSubmit, true );
+				delete documentWithListener.__dlaPreventSubmit;
+			}
+		} );
 	}
-	await locator.evaluate( ( element ) => ( element as HTMLElement ).click() );
 }

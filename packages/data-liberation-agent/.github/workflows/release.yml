@@ -57,6 +57,7 @@ jobs:
           extension: nodejs
           component: data-liberation-agent
           commands: release
-          # Distribution currently uses committed bundles and GitHub tags.
-          # npm publishing/release assets are a separate tracked change (#296).
+          # The GitHub Release carries the `npm pack` tarball as its asset
+          # (homeboy.json binds the nodejs packager). This package is not
+          # published to the npm registry; homeboy.json also disables it.
           release-skip-publish: 'true'

@@ -34,6 +34,7 @@ import {
 	type InteractionStatesReport,
 } from './screenshot/interaction-capture.js';
 import { SCROLL_STATES_SCHEMA, type ScrollStatesReport } from './screenshot/scroll-state-capture.js';
+import { FLUID_RULES_STYLE_ATTRIBUTE } from './screenshot/fluid-capture.js';
 import { isAudioLink, type CapturedResourceManifest } from './screenshot/resource-capture.js';
 import { isSourcePromotion } from './source-cleanup.js';
 
@@ -999,10 +1000,16 @@ function assembleResponsiveHtml(
 		);
 }
 
+/**
+ * Stylesheet content visible to the responsive assembly. Style blocks the
+ * capture generated itself (fluid learning rules) are not source styles: the
+ * collapse compares what the source served to each viewport, and viewport
+ * scoping must never narrow a rule that carries its own media conditions.
+ */
 function styleBlocks( html: string ): string[] {
-	return [ ...html.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) ].map( ( match ) =>
-		match[ 1 ].trim()
-	);
+	return [ ...html.matchAll( /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi ) ]
+		.filter( ( match ) => ! FLUID_RULES_STYLE_ATTRIBUTE.test( match[ 1 ] ) )
+		.map( ( match ) => match[ 2 ].trim() );
 }
 
 /**
@@ -1105,6 +1112,17 @@ function cssReferenceReason( css: string ): StyleHoistReason | undefined {
 	if ( ! foundUrl && /url\s*\(/i.test( css ) ) return 'invalid_css_url';
 }
 
+function hasEffectiveBase( html: string ): boolean {
+	for ( const match of html.matchAll( /<base\b[^>]*>/gi ) ) {
+		const attributes = /\s+([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]*)))?/g;
+		let attribute: RegExpExecArray | null;
+		while ( ( attribute = attributes.exec( match[ 0 ] ) ) !== null ) {
+			if ( attribute[ 1 ].toLowerCase() === 'href' && ( attribute[ 2 ] ?? attribute[ 3 ] ?? attribute[ 4 ] ?? '' ).trim() !== '' ) return true;
+		}
+	}
+	return false;
+}
+
 function capturedStyleHoistContext( html: string ): StyleHoistContext {
 	const styleReasons: Array< StyleHoistReason | undefined > = [];
 	for ( const match of html.matchAll( /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi ) )
@@ -1112,7 +1130,7 @@ function capturedStyleHoistContext( html: string ): StyleHoistContext {
 	return {
 		// These deliberately broad scans only disable hoisting. Avoid building a second
 		// DOM for every captured document, which exceeds the constrained export heap.
-		hasBase: /<base\b/i.test( html ),
+		hasBase: hasEffectiveBase( html ),
 		hasContentSecurityPolicy:
 			/<meta\b(?=[^>]*\bhttp-equiv\b)[^>]*\bcontent-security-policy\b/i.test( html ),
 		styleReasons,
@@ -1180,7 +1198,11 @@ function scopedStyles(
 ): string {
 	return html.replace(
 		/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
-		( _match, attributes: string, css: string ) => {
+		( match, attributes: string, css: string ) => {
+			// Capture-generated rules carry their own media conditions and are
+			// width-independent by construction; narrowing them to one side of
+			// the switch would strand the other regime's rule.
+			if ( FLUID_RULES_STYLE_ATTRIBUTE.test( attributes ) ) return match;
 			if ( skip.has( css.trim() ) ) return `<style${ attributes }>${ css }</style>`;
 			const existingMedia = /\bmedia\s*=\s*(["'])(.*?)\1/i.exec( attributes );
 			if ( ! existingMedia ) return `<style${ attributes } media="${ media }">${ css }</style>`;
@@ -1493,6 +1515,14 @@ function portableResourcePath( path: string, contentType: string ): string | und
 			'font/ttf': '.ttf',
 			'font/woff': '.woff',
 			'font/woff2': '.woff2',
+			'application/font-otf': '.otf',
+			'application/font-ttf': '.ttf',
+			'application/font-woff': '.woff',
+			'application/font-woff2': '.woff2',
+			'application/x-font-otf': '.otf',
+			'application/x-font-ttf': '.ttf',
+			'application/x-font-woff': '.woff',
+			'application/x-font-woff2': '.woff2',
 			'image/avif': '.avif',
 			'image/gif': '.gif',
 			'image/jpeg': '.jpg',
@@ -2977,7 +3007,9 @@ export function exportWebsiteCapture( options: ExportCaptureOptions ): string {
 		click_failed_count: interactionStates.filter( ( state ) => state.status === 'click-failed' )
 			.length,
 		truncated_count: interactionStates.filter(
-			( state ) => state.status === 'captured' && state.dialog?.htmlTruncated
+			( state ) =>
+				state.status === 'captured' &&
+				( state.dialog?.htmlTruncated || state.choiceGroup?.transition.htmlTruncated )
 		).length,
 		initial_dialog_count: initialDialogs.length,
 		initial_captured_count: initialDialogs.filter( ( state ) => state.status === 'captured' ).length,

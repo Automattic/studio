@@ -158,6 +158,34 @@ describe('interaction + wait helpers (Phase 1/2, browser)', () => {
     await page.close();
   });
 
+  // Force-opening an exported dialog disclosure overlays the document with its
+  // fixed panel and flips the toggle the interactivity probe later measures —
+  // a working menu reported as dead. A collapsed dialog is interactive state,
+  // not hidden page content.
+  it('leaves dialog-bearing disclosures closed for interactivity probing', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <details class="dla-disclosure">
+        <summary data-dla-disclosure-label="Open Menu">Menu</summary>
+        <div class="dla-dialog" role="dialog" aria-modal="true"><nav>Home</nav></div>
+      </details>
+      <details><summary>Ordinary</summary><p>Content</p></details>
+    `);
+    await expandCollapsedContent(page);
+    expect(await page.evaluate(() => document.querySelector<HTMLDetailsElement>('details.dla-disclosure')?.open)).toBe(false);
+    expect(await page.evaluate(() => document.querySelector<HTMLDetailsElement>('details:not(.dla-disclosure)')?.open)).toBe(true);
+    // The probe toggle still works: the summary opens and closes its panel.
+    expect(
+      await page.evaluate(() => {
+        const details = document.querySelector<HTMLDetailsElement>('details.dla-disclosure');
+        const summary = details?.querySelector('summary');
+        summary?.click();
+        return details?.open ?? false;
+      })
+    ).toBe(true);
+    await page.close();
+  });
+
   it('expands in-page disclosures without activating navigation menus or links', async () => {
     const page = await browser.newPage();
     await page.setContent(`

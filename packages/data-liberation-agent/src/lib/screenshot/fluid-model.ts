@@ -34,6 +34,8 @@ export type FluidModel =
 	| { kind: 'proportional'; css: string; ratio: number }
 	/** Scales with the viewport but never below a floor. */
 	| { kind: 'floored'; css: string; ratio: number; floor: number }
+	/** Scales with the viewport but never above a ceiling. */
+	| { kind: 'capped'; css: string; ratio: number; cap: number }
 	/** No single relationship fits; the source changes behavior at a width. */
 	| { kind: 'breakpoint'; samples: GeometrySample[] };
 
@@ -124,6 +126,21 @@ export function learnFluidModel( samples: readonly GeometrySample[] ): FluidMode
 		};
 	}
 
+	// Capped: proportional up to a ceiling. The mirror of the floored idiom —
+	// display type that grows with the viewport only until a maximum size. The
+	// slope comes from the steepest observation because capped samples report a
+	// flattened ratio; the ceiling then absorbs everything above the switch.
+	const cap = max;
+	const cappedRatio = Math.max( ...ordered.map( ( sample ) => sample.value / sample.viewport ) );
+	if ( fits( ordered, ( viewport ) => Math.min( cap, cappedRatio * viewport ) ) ) {
+		return {
+			kind: 'capped',
+			css: `min(${ round( cap ) }px, ${ round( cappedRatio * 100 ) }vw)`,
+			ratio: cappedRatio,
+			cap: round( cap ),
+		};
+	}
+
 	// Nothing single-valued fits, so the source genuinely changes behavior
 	// across this range. That failure is the breakpoint signal.
 	return { kind: 'breakpoint', samples: ordered };
@@ -144,7 +161,15 @@ export function learnWidestFluidModel( samples: readonly GeometrySample[] ): Flu
 	if ( widestBreakpoint === undefined ) return wholeRange;
 	const widestSegment = wholeRange.samples.filter( ( sample ) => sample.viewport >= widestBreakpoint );
 	const widestModel = learnFluidModel( widestSegment );
-	return widestModel.kind === 'breakpoint' ? wholeRange : widestModel;
+	if ( widestModel.kind !== 'breakpoint' ) return widestModel;
+
+	// A capped value at the last sampled width leaves only one observation in the
+	// final segment. Prefer the preceding stable relationship over freezing the
+	// whole document; a later sweep can still teach the cap when it has enough
+	// samples on both sides of that breakpoint.
+	const precedingSegment = wholeRange.samples.filter( ( sample ) => sample.viewport < widestBreakpoint );
+	const precedingModel = learnFluidModel( precedingSegment );
+	return precedingModel.kind === 'breakpoint' ? wholeRange : precedingModel;
 }
 
 /** Widths where the observed relationship changes, derived from a bad fit. */
@@ -161,4 +186,148 @@ export function breakpointsFrom( samples: readonly GeometrySample[] ): number[] 
 		if ( Math.abs( currentRatio - previousRatio ) > 0.02 ) breakpoints.push( current.viewport );
 	}
 	return breakpoints;
+}
+
+// ---------------------------------------------------------------------------
+// Piecewise models
+// ---------------------------------------------------------------------------
+
+export interface FluidModelSegment {
+	/** The relationship holding on this stretch of widths. */
+	model: ViewportFluidModel;
+	/** Inclusive lower bound of the stretch, null when it extends indefinitely. */
+	minWidth: number | null;
+	/** Inclusive upper bound of the stretch, null when it extends indefinitely. */
+	maxWidth: number | null;
+}
+
+export interface SegmentedFluidModel {
+	kind: 'segmented';
+	segments: FluidModelSegment[];
+}
+
+/** A relationship expressible from the viewport alone — no container premise. */
+export type ViewportFluidModel = Exclude< FluidModel, { kind: 'breakpoint' } >;
+
+/**
+ * Fit one viewport-expressible relationship to a run of observations.
+ *
+ * Segments are held to viewport-expressible kinds on purpose: a segmented rule
+ * ships into a stylesheet and must keep predicting the source once the runtime
+ * is gone. A container-relative fit depends on the exported copy reflowing the
+ * parent box exactly as the source did, which a layout frozen into static flow
+ * cannot promise — a viewport fit carries no such assumption.
+ */
+function viewportModelForRun( run: readonly GeometrySample[] ): ViewportFluidModel | null {
+	if ( run.length < 2 ) return null;
+	if ( run.length === 2 ) {
+		const [ first, second ] = run;
+		if ( Math.abs( second.value - first.value ) <= TOLERANCE_PX ) {
+			return { kind: 'constant', css: `${ round( ( first.value + second.value ) / 2, 0 ) }px`, value: first.value };
+		}
+		const ratio = second.value / second.viewport;
+		if ( fits( run, ( viewport ) => ratio * viewport ) ) {
+			return { kind: 'proportional', css: `${ round( ratio * 100 ) }vw`, ratio };
+		}
+		return null;
+	}
+	const model = learnFluidModel( run );
+	if (
+		model.kind === 'constant' ||
+		model.kind === 'proportional' ||
+		model.kind === 'floored' ||
+		model.kind === 'capped'
+	) {
+		return model;
+	}
+	return null;
+}
+
+/**
+ * Recover the source's behavior as one rule per regime.
+ *
+ * Sources routinely obey one rule above their mobile breakpoint and another
+ * below it: the container a headline fills is 96% of a desktop viewport but
+ * 88% of a phone, so no single vw expression reproduces both regimes and the
+ * whole-range fit classifies the element as unmodelled. When the observations
+ * split into consecutive runs that each fit a viewport-expressible model, the
+ * piecewise result is the honest description — each regime says what it saw.
+ *
+ * Returns null unless every sample is covered by such a run, so callers can
+ * fall back to freezing rather than ship a partial guess.
+ */
+export function learnSegmentedFluidModel(
+	samples: readonly GeometrySample[]
+): SegmentedFluidModel | null {
+	const usable = samples
+		.filter( ( sample ) => Number.isFinite( sample.value ) && Number.isFinite( sample.viewport ) )
+		.sort( ( a, b ) => a.viewport - b.viewport );
+	// Two regimes with two observations each is the least evidence that
+	// distinguishes a genuine regime change from pixel noise.
+	if ( usable.length < 4 ) return null;
+
+	const runs: Array< { model: ViewportFluidModel; start: number; end: number } > = [];
+	let start = 0;
+	while ( start < usable.length ) {
+		let matched: { model: ViewportFluidModel; end: number } | null = null;
+		for ( let end = usable.length; end > start + 1; end-- ) {
+			const model = viewportModelForRun( usable.slice( start, end ) );
+			if ( model !== null ) {
+				matched = { model, end };
+				break;
+			}
+		}
+		// An uncovered sample would ship as a guess; refuse the whole split.
+		if ( matched === null ) return null;
+		runs.push( { model: matched.model, start, end: matched.end } );
+		start = matched.end;
+	}
+
+	// Adjacent runs that learned the same expression are one regime.
+	const merged: Array< { model: ViewportFluidModel; start: number; end: number } > = [];
+	for ( const run of runs ) {
+		const previous = merged[ merged.length - 1 ];
+		if ( previous && previous.model.css === run.model.css ) {
+			previous.end = run.end;
+			continue;
+		}
+		merged.push( { ...run } );
+	}
+	if ( merged.length < 2 ) return null;
+
+	const segments: FluidModelSegment[] = merged.map( ( run, index ) => ( {
+		model: run.model,
+		minWidth: index === 0 ? null : usable[ run.start ]!.viewport,
+		maxWidth: null,
+	} ) );
+	for ( let index = 0; index < segments.length - 1; index++ ) {
+		segments[ index ]!.maxWidth = segments[ index + 1 ]!.minWidth! - 1;
+	}
+	return { kind: 'segmented', segments };
+}
+
+/**
+ * Express a segmented model as media-scoped stylesheet rules.
+ *
+ * An inline declaration cannot branch on viewport width, so the rules target
+ * a stable attribute instead. The boundary sits on the first width where the
+ * new regime was observed: stylesheets conventionally switch at the breakpoint
+ * where the desktop rule begins, and every sampled width is governed by a rule
+ * fitted to it.
+ */
+export function segmentedCss(
+	selector: string,
+	property: string,
+	segments: readonly FluidModelSegment[]
+): string {
+	return segments
+		.map( ( segment ) => {
+			const conditions: string[] = [];
+			if ( segment.minWidth !== null ) conditions.push( `(min-width:${ segment.minWidth }px)` );
+			if ( segment.maxWidth !== null ) conditions.push( `(max-width:${ segment.maxWidth }px)` );
+			const declaration = `${ selector } { ${ property }: ${ segment.model.css }; }`;
+			if ( conditions.length === 0 ) return declaration;
+			return `@media ${ conditions.join( ' and ' ) } {\n${ declaration }\n}`;
+		} )
+		.join( '\n' );
 }

@@ -29,6 +29,14 @@ Browser operations require separately provisioned **Playwright and Chromium**. P
 
 Use a tested immutable DLA revision and provision browser dependencies during environment construction. A dependency pin baked into an existing environment must be rebuilt to receive a newer bundle.
 
+### Release asset
+
+Each GitHub Release attaches the package's `npm pack` tarball, **`data-liberation-<version>.tgz`**. It contains exactly the published package files, including `dist/capture-engine.bundle.mjs` and the `src/` runtime assets its modules resolve relative to themselves. Consumers pin a release by URL and digest instead of cloning a commit:
+
+- Resolve the newest stable release with `GET /repos/Automattic/data-liberation-agent/releases/latest` and select the `.tgz` asset. GitHub reports its SHA-256 in the asset's `digest` field (`sha256:<hex>`).
+- Download `browser_download_url`, verify it against that digest, and extract with `tar -xzf <asset> --strip-components=1` so `dist/capture-engine.bundle.mjs` lands at the root of the target directory.
+- Provision Playwright beside it as described above; the tarball does not include dependencies.
+
 ## Operations and failure behavior
 
 | Operation | Inputs | Result and failure contract |

@@ -7,7 +7,7 @@ import { wixAdapter } from '../../src/adapters/wix/index.js';
 //
 // It verifies that Wix's internal APIs haven't changed in ways
 // that break our extraction. If this fails, update the adapter
-// and add a DISCOVERIES.md entry.
+// and document the finding in the relevant change.
 
 const TEST_URL = 'https://www.wix.com/blog';
 

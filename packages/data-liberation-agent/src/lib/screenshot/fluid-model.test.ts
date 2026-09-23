@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { breakpointsFrom, learnFluidModel, learnWidestFluidModel } from './fluid-model.js';
+import {
+	breakpointsFrom,
+	learnFluidModel,
+	learnSegmentedFluidModel,
+	learnWidestFluidModel,
+	segmentedCss,
+} from './fluid-model.js';
 
 const at = ( pairs: Array< [ number, number ] > ) =>
 	pairs.map( ( [ viewport, value ] ) => ( { viewport, value } ) );
@@ -56,6 +62,25 @@ describe( 'learnFluidModel', () => {
 			] )
 		);
 		expect( model ).toMatchObject( { kind: 'proportional', css: '50vw', ratio: 0.5 } );
+	} );
+
+	it( 'learns the capped display type observed on a real Squarespace site', () => {
+		// Measured from quinn-fluid-demo.squarespace.com: runtime-written
+		// font-size that grows with the viewport until a 355.3px ceiling.
+		const model = learnFluidModel(
+			at( [
+				[ 768, 179.4 ],
+				[ 1024, 239.5 ],
+				[ 1280, 299.2 ],
+				[ 1440, 336.6 ],
+				[ 1920, 355.3 ],
+			] )
+		);
+		expect( model ).toMatchObject( {
+			kind: 'capped',
+			css: 'min(355.3px, 23.39vw)',
+			cap: 355.3,
+		} );
 	} );
 
 	it( 'tolerates sub-pixel rounding rather than failing the fit', () => {
@@ -191,5 +216,99 @@ describe( 'breakpointsFrom', () => {
 				] )
 			)
 		).toEqual( [] );
+	} );
+} );
+
+describe( 'learnSegmentedFluidModel', () => {
+	// Measured from quinn-fluid-demo.squarespace.com: the "PORTFOLIO" headline
+	// is scaled text the runtime sizes to fill its container, and the container
+	// is 88% of a phone viewport but 96% of a desktop one, saturating at 1459px
+	// on the site canvas. No single expression reproduces both regimes.
+	const scaledHeadline = at( [
+		[ 390, 83.5 ],
+		[ 600, 128.5 ],
+		[ 768, 179.4 ],
+		[ 1024, 239.3 ],
+		[ 1280, 299.2 ],
+		[ 1440, 336.6 ],
+		[ 1600, 355.4 ],
+		[ 1728, 355.4 ],
+		[ 1920, 355.4 ],
+	] );
+
+	it( 'fits one rule per regime for the Squarespace scaled headline', () => {
+		expect( learnFluidModel( scaledHeadline ).kind ).toBe( 'breakpoint' );
+		const segmented = learnSegmentedFluidModel( scaledHeadline );
+		expect( segmented ).not.toBeNull();
+		expect( segmented!.segments ).toHaveLength( 2 );
+		const [ mobile, desktop ] = segmented!.segments;
+		expect( mobile ).toMatchObject( { minWidth: null, maxWidth: 767 } );
+		expect( mobile.model ).toMatchObject( { kind: 'proportional', css: '21.42vw' } );
+		expect( desktop ).toMatchObject( { minWidth: 768, maxWidth: null } );
+		expect( desktop.model ).toMatchObject( { kind: 'capped', css: 'min(355.4px, 23.38vw)' } );
+	} );
+
+	it( 'renders every sampled width within tolerance through its rules', () => {
+		const segmented = learnSegmentedFluidModel( scaledHeadline )!;
+		const predict = ( viewport: number ) => {
+			const segment = segmented.segments.find(
+				( candidate ) =>
+					( candidate.minWidth === null || viewport >= candidate.minWidth ) &&
+					( candidate.maxWidth === null || viewport <= candidate.maxWidth )
+			);
+			expect( segment ).toBeDefined();
+			const ratio = Number( segment!.model.css.match( /([\d.]+)vw/ )![ 1 ] ) / 100;
+			const cap = segment!.model.kind === 'capped' ? segment!.model.cap : Infinity;
+			return Math.min( cap, ratio * viewport );
+		};
+		for ( const [ viewport, value ] of [
+			[ 390, 83.5 ],
+			[ 600, 128.5 ],
+			[ 768, 179.4 ],
+			[ 1024, 239.3 ],
+			[ 1280, 299.2 ],
+			[ 1440, 336.6 ],
+			[ 1600, 355.4 ],
+			[ 1728, 355.4 ],
+			[ 1920, 355.4 ],
+		] ) {
+			expect( Math.abs( predict( viewport ) - value ) ).toBeLessThanOrEqual( 2 );
+		}
+	} );
+
+	it( 'refuses a split when a sample fits no regime', () => {
+		// The 1024 observation obeys no rule its neighbours share, so the
+		// honest outcome is no model rather than a partial guess.
+		expect(
+			learnSegmentedFluidModel(
+				at( [
+					[ 390, 83.5 ],
+					[ 600, 128.5 ],
+					[ 1024, 500 ],
+					[ 1280, 299.2 ],
+					[ 1440, 336.6 ],
+				] )
+			)
+		).toBeNull();
+	} );
+
+	it( 'does not split when a single relationship already fits', () => {
+		expect(
+			learnSegmentedFluidModel(
+				at( [
+					[ 390, 100 ],
+					[ 600, 200 ],
+					[ 768, 300 ],
+					[ 1024, 400 ],
+				] )
+			)
+		).toBeNull();
+	} );
+
+	it( 'emits nested media rules', () => {
+		const segmented = learnSegmentedFluidModel( scaledHeadline )!;
+		const css = segmentedCss( '[data-dla-fluid-segment="0"]', 'font-size', segmented.segments );
+		expect( css ).toContain( '@media (max-width:767px) {\n[data-dla-fluid-segment="0"] { font-size: 21.42vw; }\n}' );
+		expect( css ).toContain( '@media (min-width:768px) {\n[data-dla-fluid-segment="0"] { font-size: min(355.4px, 23.38vw); }\n}' );
 	} );
 } );

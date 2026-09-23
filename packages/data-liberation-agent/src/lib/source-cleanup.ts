@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 
-export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v5';
+export const CLEANUP_SCHEMA = 'data-liberation/source-cleanup/v6';
 export interface CleanupRule {
   id: string;
   category: 'advertisement' | 'source-attribution';
@@ -33,7 +33,7 @@ const PROMOTION_PATTERNS = {
 /** An offer to open this page in the tool that produced it, addressed to whoever
  * is looking at it — the shape every builder badge shares regardless of vendor. */
 const BUILDER_CHROME_PATTERNS = {
-  affordance: '\\b(?:edit|made|built|created|designed|generated)\\s+(?:with|on|by|using)\\b',
+  affordance: '\\b(?:edit|made|built|created|designed|generated)\\s+(?:with|on|by|using)\\b|\\bcreate\\s+(?:a|your own)\\s+(?:unique\\s+)?site\\b|\\bfree\\s+trial\\b',
 };
 
 /** Shared recognition for live cleanup, overlay classification and old exports. */
@@ -86,7 +86,7 @@ export function cleanupPolicy(rules: CleanupRule[] = []): CleanupPolicy {
 export function providerCreditRules(id: string, hosts: string[], brand: string): CleanupRule[] {
   return [
     { id: `${id}-credit`, category: 'source-attribution', selector: 'a[href]', hosts, credit: true },
-    { id: `${id}-credit-text`, category: 'source-attribution', selector: 'footer,[role="contentinfo"]', creditText: brand },
+    { id: `${id}-credit-text`, category: 'source-attribution', selector: 'footer,[role="contentinfo"],body', creditText: brand },
   ];
 }
 
@@ -109,6 +109,15 @@ export function validateCleanupPolicy(value: unknown): asserts value is CleanupP
 /** This function is serialized into the page. All policy and mechanics live
  * here so live capture and comparison use identical removal/reflow behavior. */
 export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
+  // Polyfill tsx/esbuild's __name helper inside the page (mirrors screenshotter)
+  // — page.evaluate closures serialized under tsx carry __name() instrumentation
+  // that the built bundle does not emit.
+  const globalWithName = globalThis as typeof globalThis & {
+    __name?: ( fn: unknown ) => unknown;
+  };
+  if ( typeof globalWithName.__name === 'undefined' ) {
+    globalWithName.__name = ( fn ) => fn;
+  }
   type State = { report: CleanupReport; observer: MutationObserver; sweep: () => void };
   const host = window as unknown as { __dlaCleanup?: State };
   host.__dlaCleanup?.observer.disconnect();
@@ -310,7 +319,7 @@ export function installCleanupInPage(policy: CleanupPolicy): CleanupReport {
         if (report.removed >= 1000) { report.truncated = true; report.residual++; return; }
         if (rule.creditText) {
           const brand = rule.creditText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const expression = new RegExp(`(?:proudly\\s+)?(?:${powered}|built (?:with|on|by)|created (?:with|using)|website by)\\s+${brand}(?:\\.com)?\\b[.!]?`, 'gi');
+          const expression = new RegExp(`(?:proudly\\s+)?(?:${powered}|made\\s+with|built (?:with|on|by)|created (?:with|using)|website by)\\s+${brand}(?:\\.com)?\\b[.!]?`, 'gi');
           const walker = document.createTreeWalker(match, NodeFilter.SHOW_TEXT);
           const nodes: Array<{ node: Node; start: number; text: string }> = [];
           let content = '';

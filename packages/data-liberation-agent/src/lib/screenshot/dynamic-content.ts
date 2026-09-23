@@ -90,6 +90,11 @@ export async function expandCollapsedContent(page: Page): Promise<void> {
       };
 
       document.querySelectorAll('details:not([open])').forEach((d) => {
+        // A details whose panel is a dialog is an interactive disclosure, not
+        // collapsed page content: force-opening it overlays the document with
+        // a fixed panel and flips the very toggle a later interactivity probe
+        // measures, so a working menu reports as dead.
+        if (d.querySelector('[role="dialog"],[aria-modal="true"]')) return;
         (d as HTMLDetailsElement).open = true;
       });
 

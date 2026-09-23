@@ -15,6 +15,85 @@ Homeboy does not backfill history: the `0.2.1` and `0.2.2` entries below
 predate Homeboy adoption and were written by hand from their tag messages.
 Everything from the next release onward is Homeboy-generated.
 
+## [0.4.19] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- match compared images by pixel content when their URL names drift
+
+## [0.4.18] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- learn a rule per viewport regime when one relationship spans a breakpoint
+
+## [0.4.17] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- keep the shorthand repair factory self-contained under minification
+
+## [0.4.16] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- Squarespace capture fidelity (fonts, fluid text, provider chrome, compare readiness)
+
+## [0.4.15] - 2026-09-22
+
+### Changed
+- attach the npm pack tarball to each GitHub Release
+
+## [0.4.14] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- preserve icon-only choice transitions
+
+## [0.4.13] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- make fidelity observations stable across serialization
+
+## [0.4.12] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- scale video/audio capture limits with the aggregate resource budget
+- preserve portable combobox interactions
+
+## [0.4.11] - 2026-09-22
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- hoist repeated styles when base markup cannot change URL resolution
+
+## [0.4.10] - 2026-09-21
+
+### Changed
+- regenerate plugin bundles
+
+### Fixed
+- derive a redirected resource's local path and manifest key from the requested url
+- settle scroll-reveal capture on documents that grow while scrolling
+
 ## [0.4.9] - 2026-09-21
 
 ### Changed

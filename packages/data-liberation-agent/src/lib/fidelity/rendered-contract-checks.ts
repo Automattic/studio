@@ -1,4 +1,5 @@
 import type { FidelityCheckResult } from './checks.js';
+import { matchRenderedImages } from './score.js';
 import type { LayoutObservation, RenderedImage, RenderedTextStyle } from './score.js';
 
 export const IMAGE_POSITION_TOLERANCE_PX = 8;
@@ -7,49 +8,11 @@ export const TYPOGRAPHY_METRIC_TOLERANCE_PX = 1;
 export const TYPOGRAPHY_COVERAGE_FLOOR = 0.8;
 export const MOTION_COVERAGE_FLOOR = 0.8;
 
-interface ImagePair {
-	source: RenderedImage;
-	candidate: RenderedImage;
-}
-
-function imageDistance( source: RenderedImage, candidate: RenderedImage ): number {
-	return (
-		Math.abs( source.x - candidate.x ) +
-		Math.abs( source.y - candidate.y ) +
-		Math.abs( source.width - candidate.width ) +
-		Math.abs( source.height - candidate.height )
-	);
-}
-
-/** Match repeated images by identity and nearest geometry rather than array order. */
-function matchedImages( source: RenderedImage[], candidate: RenderedImage[] ): ImagePair[] {
-	const available = new Map< string, RenderedImage[] >();
-	for ( const image of candidate ) {
-		const group = available.get( image.key ) ?? [];
-		group.push( image );
-		available.set( image.key, group );
-	}
-
-	const pairs: ImagePair[] = [];
-	for ( const image of source ) {
-		const group = available.get( image.key );
-		if ( ! group?.length ) continue;
-		let nearest = 0;
-		for ( let index = 1; index < group.length; index++ ) {
-			if ( imageDistance( image, group[ index ] ) < imageDistance( image, group[ nearest ] ) ) {
-				nearest = index;
-			}
-		}
-		pairs.push( { source: image, candidate: group.splice( nearest, 1 )[ 0 ] } );
-	}
-	return pairs;
-}
-
 export function checkImageGeometry(
 	source: LayoutObservation,
 	candidate: LayoutObservation
 ): FidelityCheckResult {
-	const moved = matchedImages( source.images, candidate.images ).filter( ( pair ) => {
+	const moved = matchRenderedImages( source.images, candidate.images ).filter( ( pair ) => {
 		const { source: left, candidate: right } = pair;
 		return (
 			Math.abs( left.x - right.x ) > IMAGE_POSITION_TOLERANCE_PX ||

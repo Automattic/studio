@@ -1180,6 +1180,12 @@ function mergeInteractionReports(
 			identity,
 			Number.POSITIVE_INFINITY
 		),
+		...mergeCapturedEvidence(
+			previous.states.filter( ofKind( 'choice-group' ) ),
+			latest.states.filter( ofKind( 'choice-group' ) ),
+			identity,
+			Number.POSITIVE_INFINITY
+		),
 	];
 	const initialDialogs = mergeCapturedEvidence(
 		previous.initialDialogs ?? [],

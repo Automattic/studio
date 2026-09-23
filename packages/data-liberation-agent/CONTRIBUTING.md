@@ -51,28 +51,7 @@ npx tsx src/cli.ts verify ./output/<site-dir>
 
 If you can't test against a real site, note that in the PR and explain what you observed.
 
-### 3. Add to DISCOVERIES.md
-
-This is required. DISCOVERIES.md is a local, untracked log (gitignored — it is not committed to the repo); create it at the package root if it doesn't exist yet. Add a new entry at the top in this format:
-
-```markdown
-## YYYY-MM-DD — Short title
-
-**Found by:** [AI assistant name or "human contributor"]
-**During:** [brief context — e.g. "migrating a 200-post Squarespace blog"]
-**Type:** [API endpoint | content type | bug fix | performance | platform quirk]
-
-### What I found
-[1-3 sentences describing the discovery]
-
-### How it works
-[Technical detail — endpoint URL, data structure, code snippet, etc.]
-
-### Why it's better than the previous approach
-[What problem this solves or what limitation it overcomes]
-```
-
-### 4. Submit the PR
+### 3. Submit the PR
 
 ```bash
 git restore --source=HEAD --staged --worktree -- dist
@@ -91,13 +70,11 @@ gh pr create --title "discovery: short description" --body "$(cat <<'EOF'
 - [ ] Tests pass (`npx vitest run`)
 - [ ] Output looks correct
 
-## Discovery log entry added to DISCOVERIES.md
-- [x] Yes
 EOF
 )"
 ```
 
-### 5. What happens next
+### 4. What happens next
 
 A maintainer (human or AI with repo access) will review the PR. If the discovery is valid and the code is correct, it gets merged. No bureaucracy.
 

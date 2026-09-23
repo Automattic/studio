@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import * as cheerio from 'cheerio';
 import { sourceSessionCookieHeader } from '../browser-kit/browser-kit.js';
-import { safeFetch, type SafeFetchResult } from '../media-fetch/safe-fetch.js';
-import type { Page, Response } from 'playwright';
+import { MAX_REDIRECTS, safeFetch, type SafeFetchResult } from '../media-fetch/safe-fetch.js';
+import type { Page, Request, Response } from 'playwright';
 
 const CAPTURED_RESOURCE_TYPES = new Set( [
 	'script',
@@ -23,12 +23,73 @@ const REPLAY_RESPONSE_HEADERS = new Set( [
 	'cross-origin-resource-policy',
 	'timing-allow-origin',
 ] );
+// Tuned for the common case — images, fonts, stylesheets, scripts. Video/audio
+// get their own, much wider ceiling below: a flat 10 MB cap rejects ordinary
+// web video outright regardless of how much of the run's aggregate budget
+// (MAX_CAPTURED_RESOURCE_TOTAL_BYTES) is actually free.
 const MAX_CAPTURED_RESOURCE_BYTES = 10 * 1024 * 1024;
-const MAX_CAPTURED_RESOURCE_TOTAL_BYTES = 256 * 1024 * 1024;
-const CAPTURED_RESOURCE_TIMEOUT_MS = 10_000;
+// Deliberately much larger than the default, but still bounded — and further
+// capped by whatever remains of the aggregate budget (see
+// `resourceByteCeiling`), so one big video can eat a large share of a run but
+// never exceed it. Raising the flat constant for every type would relax the
+// image/font/script cap too; scoping the wider ceiling to video/audio keeps
+// those tuned as before.
+// Exported so tests can assert against the real values instead of duplicating
+// (and risking drift from) the constants below.
+export const MAX_CAPTURED_VIDEO_RESOURCE_BYTES = 100 * 1024 * 1024;
+export const MAX_CAPTURED_RESOURCE_TOTAL_BYTES = 256 * 1024 * 1024;
+export const CAPTURED_RESOURCE_TIMEOUT_MS = 10_000;
+// Hard ceiling on a single resource's read timeout, however large it is
+// allowed to be — a stalled connection must not hang a capture run
+// indefinitely just because the resource was permitted a wide byte ceiling.
+export const CAPTURED_RESOURCE_TIMEOUT_CEILING_MS = 90_000;
+// Conservative assumed minimum throughput used to scale a resource's read
+// timeout with the bytes it may need to transfer. This only sets an UPPER
+// bound on patience — a fast response still returns as soon as it arrives.
+// At 2 MB/s the existing 10 MB image/font/script cap still resolves to
+// exactly the previous flat 10s floor, so default behaviour is unchanged;
+// a resource permitted the video ceiling gets proportionally more time.
+const ASSUMED_MIN_THROUGHPUT_BYTES_PER_MS = ( 2 * 1024 * 1024 ) / 1000;
 const MAX_DOM_RESOURCE_DEPENDENCIES = 256;
 const MAX_DOM_RESOURCE_CAPTURE_MS = 120_000;
 const DOM_RESOURCE_CONCURRENCY = 8;
+
+/**
+ * Scale a resource body's read timeout with how many bytes it may need to
+ * transfer, floored at {@link CAPTURED_RESOURCE_TIMEOUT_MS} and capped at
+ * {@link CAPTURED_RESOURCE_TIMEOUT_CEILING_MS}. `expectedBytes` is the
+ * declared Content-Length when known, else the byte ceiling that was applied
+ * (the largest this resource is allowed to be, and so the longest a genuine
+ * download of it could take).
+ */
+export function resourceTimeoutMs( expectedBytes: number ): number {
+	if ( ! Number.isFinite( expectedBytes ) || expectedBytes <= 0 ) return CAPTURED_RESOURCE_TIMEOUT_MS;
+	const scaled = Math.ceil( expectedBytes / ASSUMED_MIN_THROUGHPUT_BYTES_PER_MS );
+	return Math.min( CAPTURED_RESOURCE_TIMEOUT_CEILING_MS, Math.max( CAPTURED_RESOURCE_TIMEOUT_MS, scaled ) );
+}
+
+const VIDEO_AUDIO_EXTENSION_RE =
+	/\.(?:mp4|m4v|mov|webm|ogv|mkv|avi|mpg|mpeg|mp3|m4a|aac|wav|flac|ogg)(?:[?#]|$)/i;
+
+/**
+ * Best-effort, generic (extension-only — no hostnames, no platform-specific
+ * paths) "this is a video/audio resource" signal, used BEFORE a fetch starts
+ * — when the response's real Content-Type isn't known yet — to pick a
+ * per-resource byte ceiling appropriate to the resource kind instead of the
+ * flat limit tuned for images.
+ */
+function looksLikeVideoOrAudioUrl( url: string | URL ): boolean {
+	try {
+		const pathname = typeof url === 'string' ? new URL( url ).pathname : url.pathname;
+		return VIDEO_AUDIO_EXTENSION_RE.test( pathname );
+	} catch {
+		return false;
+	}
+}
+
+function isVideoOrAudioContentType( contentType: string ): boolean {
+	return /^(?:video|audio)\//i.test( contentType );
+}
 
 export interface CapturedResourceEntry {
 	path: string;
@@ -93,18 +154,18 @@ function replayableResponseMetadata(
 	};
 }
 
-async function responseBodyWithTimeout( response: Response ): Promise< Buffer > {
+async function responseBodyWithTimeout(
+	response: Response,
+	timeoutMs: number = CAPTURED_RESOURCE_TIMEOUT_MS
+): Promise< Buffer > {
 	let timeout: ReturnType< typeof setTimeout > | undefined;
 	try {
 		return await Promise.race( [
 			response.body(),
 			new Promise< never >( ( _, reject ) => {
 				timeout = setTimeout(
-					() =>
-						reject(
-							new Error( `resource body timed out after ${ CAPTURED_RESOURCE_TIMEOUT_MS }ms` )
-						),
-					CAPTURED_RESOURCE_TIMEOUT_MS
+					() => reject( new Error( `resource body timed out after ${ timeoutMs }ms` ) ),
+					timeoutMs
 				);
 			} ),
 		] );
@@ -116,6 +177,31 @@ async function responseBodyWithTimeout( response: Response ): Promise< Buffer > 
 function pathWithin( root: string, candidate: string ): boolean {
 	const rel = relative( resolve( root ), resolve( candidate ) );
 	return rel === '' || ( ! rel.startsWith( `..${ sep }` ) && rel !== '..' );
+}
+
+/**
+ * A redirected request's own `url()` is the POST-redirect target: the server
+ * responded with a redirect and Playwright created a NEW Request for the
+ * target, linked back via `redirectedFrom()`. The document only ever
+ * referenced the FIRST url in that chain — that is the identity a rewrite
+ * must match and the local path must derive from, not a transport detail
+ * like a session-gated origin's private-variant path. Walk back to it,
+ * bounded by the same redirect cap safeFetch enforces; fall back to
+ * `fallback` if the request has no redirect chain (the common case) or a
+ * hop's url is unparseable.
+ */
+function originRequestUrl( request: Request, fallback: URL ): URL {
+	let current = request;
+	for ( let hop = 0; hop < MAX_REDIRECTS; hop++ ) {
+		const previous = current.redirectedFrom?.();
+		if ( ! previous ) break;
+		current = previous;
+	}
+	try {
+		return new URL( current.url() );
+	} catch {
+		return fallback;
+	}
 }
 
 function resourcePath( url: URL, contentType = '', sourceOrigin?: string ): string {
@@ -183,7 +269,18 @@ function srcsetReferences( srcset: string ): string[] {
 }
 
 function canonicalContentType( contentType: string ): string {
-	return contentType.trim().toLowerCase() === 'woff2' ? 'font/woff2' : contentType;
+	const normalized = contentType.trim().toLowerCase();
+	return {
+		woff2: 'font/woff2',
+		'application/font-woff2': 'font/woff2',
+		'application/x-font-woff2': 'font/woff2',
+		'application/font-woff': 'font/woff',
+		'application/x-font-woff': 'font/woff',
+		'application/font-ttf': 'font/ttf',
+		'application/x-font-ttf': 'font/ttf',
+		'application/font-otf': 'font/otf',
+		'application/x-font-otf': 'font/otf',
+	}[ normalized ] ?? contentType;
 }
 
 export function isAudioLink( reference: string, documentUrl: string ): boolean {
@@ -208,7 +305,15 @@ export class CapturedResourceStore {
 		string,
 		{ path: string; contentType: string }
 	>();
-	private readonly fetchMedia: ( url: string ) => Promise< SafeFetchResult >;
+	// The caller (below) decides maxBytes/timeoutMs PER CALL — a resource-kind
+	// and remaining-budget aware ceiling (see `resourceByteCeiling`), not a
+	// single constant baked into this function — so this seam stays a thin
+	// forward to `safeFetch` with whatever bound was chosen for that resource.
+	private readonly fetchMedia: (
+		url: string,
+		maxBytes: number,
+		timeoutMs: number
+	) => Promise< SafeFetchResult >;
 	private replayDir?: string;
 	private replayBytes = 0;
 	private capturedBytes = 0;
@@ -223,10 +328,14 @@ export class CapturedResourceStore {
 		// the browser that holds the session. Without it every such asset
 		// 403s, which used to surface as "never captured" rather than an
 		// authentication failure.
-		fetchMedia: ( url: string ) => Promise< SafeFetchResult > = ( url ) =>
+		fetchMedia: (
+			url: string,
+			maxBytes: number,
+			timeoutMs: number
+		) => Promise< SafeFetchResult > = ( url, maxBytes, timeoutMs ) =>
 			safeFetch( url, {
-				maxBytes: MAX_CAPTURED_RESOURCE_BYTES,
-				timeoutMs: 10_000,
+				maxBytes,
+				timeoutMs,
 				headersForOrigin: async ( origin ) => {
 					const cookie = await sourceSessionCookieHeader( origin );
 					return cookie ? { cookie } : undefined;
@@ -390,6 +499,16 @@ export class CapturedResourceStore {
 		const resourceType = request.resourceType();
 		if ( ! CAPTURED_RESOURCE_TYPES.has( resourceType ) ) return Promise.resolve();
 
+		// A 3xx response is a transport hop, not a completed resource: Playwright
+		// fires a SEPARATE 'response' event (with its own Request) for the
+		// redirect target, so this one contributes nothing to capture. Recording
+		// it here would both log a misleading "HTTP 3xx" failure for an asset
+		// that succeeds one hop later, AND — since a redirect response's own
+		// url() IS the pre-redirect requested url — claim the dedupe/manifest
+		// key that the terminal response below needs to write under, which
+		// would silently block that later, successful capture.
+		if ( response.status() >= 300 && response.status() < 400 ) return Promise.resolve();
+
 		let resourceUrl: URL;
 		try {
 			resourceUrl = new URL( response.url() );
@@ -408,11 +527,15 @@ export class CapturedResourceStore {
 			return Promise.resolve();
 		}
 
-		const url = resourceUrl.href;
+		// Identity for the dedupe key, manifest key, and local path is the
+		// ORIGINALLY requested url — what the document references — not
+		// wherever a redirect ultimately resolved it to.
+		const requestedUrl = originRequestUrl( request, resourceUrl );
+		const url = requestedUrl.href;
 		const existing = this.captures.get( url );
 		if ( existing ) return existing;
 
-		const capture = this.captureResponse( response, resourceUrl, resourceType ).catch(
+		const capture = this.captureResponse( response, requestedUrl, resourceType ).catch(
 			( error: unknown ) => {
 				this.manifest.failures.push( {
 					url,
@@ -465,7 +588,13 @@ export class CapturedResourceStore {
 		const existing = this.captures.get( url );
 		if ( existing ) return existing;
 		const capture = ( async () => {
-			const fetched = await this.fetchMedia( url );
+			// The real Content-Type isn't known until the fetch responds, so the
+			// wider video/audio ceiling (when warranted) is decided from the url
+			// alone here — `safeFetch` enforces `maxBytes` DURING the fetch, so
+			// this can't be deferred to a post-fetch check the way the
+			// browser-observed path below can.
+			const byteCeiling = this.resourceByteCeiling( looksLikeVideoOrAudioUrl( url ) );
+			const fetched = await this.fetchMedia( url, byteCeiling, resourceTimeoutMs( byteCeiling ) );
 			if ( fetched.status < 200 || fetched.status >= 300 )
 				throw new Error( `HTTP ${ fetched.status }` );
 			const contentType = canonicalContentType( fetched.headers.get( 'content-type' ) ?? '' );
@@ -508,49 +637,92 @@ export class CapturedResourceStore {
 		return capture;
 	}
 
+	/**
+	 * @param requestedUrl The url the document referenced — the ORIGINAL
+	 *   pre-redirect url when `response` resolved through one or more
+	 *   redirects (see {@link originRequestUrl}). Identity (manifest key,
+	 *   local path) derives from this; `response` still supplies the actual
+	 *   fetched bytes/headers for a non-`media` resourceType.
+	 */
 	private async captureResponse(
 		response: Response,
-		resourceUrl: URL,
+		requestedUrl: URL,
 		resourceType: string
 	): Promise< void > {
-		const fetched =
-			resourceType === 'media' ? await this.fetchMedia( resourceUrl.href ) : undefined;
+		// Playwright's own resourceType already tells us 'media' (<video>/
+		// <audio> element loads) is audio/video before fetching anything, so
+		// the wider ceiling can be picked up front for that path. Every other
+		// resourceType (including 'fetch' — some players stream video chunks
+		// through fetch()/XHR rather than a <video> element) only reveals
+		// whether it's really audio/video once its Content-Type header is read
+		// below, which happens before any body is read either way.
+		const isMedia = resourceType === 'media';
+		const mediaByteCeiling = this.resourceByteCeiling( isMedia );
+		const fetched = isMedia
+			? await this.fetchMedia(
+					requestedUrl.href,
+					mediaByteCeiling,
+					resourceTimeoutMs( mediaByteCeiling )
+			  )
+			: undefined;
 		const status = fetched?.status ?? response.status();
 		if ( status < 200 || status >= 300 ) throw new Error( `HTTP ${ status }` );
 		const headers = fetched ? Object.fromEntries( fetched.headers.entries() ) : response.headers();
 		const contentType = canonicalContentType( headers[ 'content-type' ] ?? '' );
+		const byteCeiling = fetched
+			? mediaByteCeiling
+			: this.resourceByteCeiling( isVideoOrAudioContentType( contentType ) );
 		const declaredBytes = Number( headers[ 'content-length' ] );
-		if ( Number.isFinite( declaredBytes ) && declaredBytes > MAX_CAPTURED_RESOURCE_BYTES ) {
-			throw new Error(
-				`resource body ${ declaredBytes } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`
-			);
+		if ( Number.isFinite( declaredBytes ) && declaredBytes > byteCeiling ) {
+			throw new Error( `resource body ${ declaredBytes } bytes exceeds max ${ byteCeiling }` );
 		}
-		const relativePath = resourcePath( resourceUrl, contentType, this.origin );
+		const relativePath = resourcePath( requestedUrl, contentType, this.origin );
 		const destination = resolve( this.resourceDir, relativePath );
 		if ( ! pathWithin( this.resourceDir, destination ) ) {
 			throw new Error( 'resource path escapes the capture directory' );
 		}
-		const body = fetched?.body ?? ( await responseBodyWithTimeout( response ) );
+		const body =
+			fetched?.body ??
+			( await responseBodyWithTimeout(
+				response,
+				resourceTimeoutMs( Number.isFinite( declaredBytes ) ? declaredBytes : byteCeiling )
+			) );
 		// A 200 with no bytes is not a usable asset; record it as a failed
 		// dependency rather than a resource that silently renders as nothing.
 		if ( body.length === 0 ) {
 			throw new Error( 'render dependency response body is empty' );
 		}
-		if ( body.length > MAX_CAPTURED_RESOURCE_BYTES ) {
-			throw new Error(
-				`resource body ${ body.length } bytes exceeds max ${ MAX_CAPTURED_RESOURCE_BYTES }`
-			);
+		if ( body.length > byteCeiling ) {
+			throw new Error( `resource body ${ body.length } bytes exceeds max ${ byteCeiling }` );
 		}
 		this.reserveBytes( body.length );
 		mkdirSync( dirname( destination ), { recursive: true } );
 		writeFileSync( destination, body );
-		this.manifest.resources[ resourceUrl.href ] = {
+		this.manifest.resources[ requestedUrl.href ] = {
 			path: `resources/${ relativePath.replace( /\\/g, '/' ) }`,
 			contentType,
 		};
-		this.replayResources.set( resourceUrl.href, { path: destination, contentType } );
+		this.replayResources.set( requestedUrl.href, { path: destination, contentType } );
 		const replayMetadata = replayableResponseMetadata( headers );
-		if ( replayMetadata ) this.replayMetadata.set( resourceUrl.href, replayMetadata );
+		if ( replayMetadata ) this.replayMetadata.set( requestedUrl.href, replayMetadata );
+	}
+
+	/**
+	 * The byte ceiling for a single resource capture. Video/audio get a much
+	 * wider ceiling than the flat limit tuned for images — but never wider
+	 * than what remains of the run's aggregate resource budget
+	 * ({@link MAX_CAPTURED_RESOURCE_TOTAL_BYTES}) AT THE TIME IT IS CALLED, so
+	 * a single large asset cannot request more than the run has left. This is
+	 * a snapshot, not a reservation — concurrent captures can still both read
+	 * the same "remaining" figure before either writes, so `reserveBytes`
+	 * below remains the authoritative backstop that the aggregate is never
+	 * exceeded on disk, exactly as it was before this per-resource ceiling
+	 * existed.
+	 */
+	private resourceByteCeiling( isVideoLike: boolean ): number {
+		const typeCeiling = isVideoLike ? MAX_CAPTURED_VIDEO_RESOURCE_BYTES : MAX_CAPTURED_RESOURCE_BYTES;
+		const remaining = Math.max( 0, MAX_CAPTURED_RESOURCE_TOTAL_BYTES - this.capturedBytes );
+		return Math.min( typeCeiling, remaining );
 	}
 
 	private reserveBytes( bytes: number ): void {

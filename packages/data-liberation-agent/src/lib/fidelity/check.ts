@@ -10,15 +10,16 @@ import type { Page } from 'playwright';
 import { sourceContextOptions } from '../browser-kit/browser-kit.js';
 import { startStaticServer } from '../replicate/local-site/static-server.js';
 import { DEFAULT_SWEEP_WIDTHS } from '../screenshot/fluid-capture.js';
+import { triggerLazyLoad, waitForStable } from '../screenshot/page-helpers.js';
 import { applySourceCleanup, readSourceCleanup, validateCleanupPolicy, type CleanupPolicy, type CleanupReport } from '../source-cleanup.js';
 import { runFidelityChecks } from './checks.js';
+import { probeDialogs } from './dialog-probe.js';
 import { writePixelEvidence } from './evidence.js';
 import { checkSelfConsistency, type SelfConsistencyReport } from './self-consistency.js';
 import {
 	scoreReport,
 	scoreViewport,
 	normalizeImageKey,
-	type DialogProbe,
 	type HashTarget,
 	type LayoutObservation,
 	type ViewportScore,
@@ -198,6 +199,18 @@ export function checkWidthsFor( sampled: number[] = DEFAULT_SWEEP_WIDTHS ): numb
 	return DEFAULT_CHECK_WIDTHS.filter( ( width ) => ! sampled.includes( width ) );
 }
 
+/** Return a real network host requested by a local copy, or null for browser-local schemes. */
+export function externalRequestHost( href: string, localOrigin: string | null ): string | null {
+	if ( ! localOrigin || href.startsWith( 'data:' ) || href.startsWith( 'blob:' ) ) return null;
+	try {
+		const url = new URL( href );
+		if ( url.origin === localOrigin || ! [ 'http:', 'https:', 'ws:', 'wss:' ].includes( url.protocol ) ) return null;
+		return url.host || null;
+	} catch {
+		return null;
+	}
+}
+
 async function observePage(
 	page: Page,
 	url: string,
@@ -208,24 +221,65 @@ async function observePage(
 ): Promise< LayoutObservation > {
 	const external = new Set< string >();
 	const onRequest = ( request: { url: () => string } ): void => {
-		if ( ! localOrigin ) return;
-		const href = request.url();
-		if ( href.startsWith( 'data:' ) || href.startsWith( 'blob:' ) || href.startsWith( localOrigin ) ) return;
-		try {
-			external.add( new URL( href ).host );
-		} catch {
-			/* ignore unparseable */
-		}
+		const host = externalRequestHost( request.url(), localOrigin );
+		if ( host ) external.add( host );
 	};
 	page.on( 'request', onRequest );
 	try {
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 60_000 } ).catch( () => {} );
-		await page.waitForTimeout( settleMs );
+		await waitForStable( page, settleMs );
 		if (cleanup) {
 			const report = await applySourceCleanup(page, cleanup);
 			if (localOrigin && report.removed) throw new Error('Liberated artifact retains advertising or source attribution');
 		}
+		// Decode lazy media and return from a controlled scroll before measuring.
+		// Scroll-linked animations are otherwise observed mid-flight, while the
+		// source runtime may still be holding the same element at rest.
+		await triggerLazyLoad( page );
 		const measured = await page.evaluate( async ( clickUnresolved: boolean ) => {
+			// Perceptual identity for one image: fetch the bytes (cache-warm —
+			// the page just rendered them), decode locally, downscale to 8x8
+			// grayscale, threshold at the mean. Fetching keeps this
+			// cross-origin safe where canvas reads of the element would taint;
+			// any failure leaves null and the key-only matcher covers it.
+			const hashCache = new Map< string, Promise< string | null > >();
+			const contentHashFor = ( src: string ): Promise< string | null > => {
+				const cached = hashCache.get( src );
+				if ( cached ) return cached;
+				const pending = ( async () => {
+					try {
+						if ( ! src || src.startsWith( 'data:' ) || src.startsWith( 'blob:' ) ) return null;
+						const response = await fetch( src, { mode: 'cors', credentials: 'omit' } );
+						if ( ! response.ok ) return null;
+						const bitmap = await createImageBitmap( await response.blob() );
+						const side = 8;
+						const canvas = new OffscreenCanvas( side, side );
+						const context = canvas.getContext( '2d', { willReadFrequently: true } )!;
+						context.drawImage( bitmap, 0, 0, side, side );
+						bitmap.close();
+						const { data } = context.getImageData( 0, 0, side, side );
+						const grays: number[] = [];
+						for ( let offset = 0; offset < data.length; offset += 4 ) {
+							grays.push( 0.299 * data[ offset ] + 0.587 * data[ offset + 1 ] + 0.114 * data[ offset + 2 ] );
+						}
+						const mean = grays.reduce( ( sum, value ) => sum + value, 0 ) / grays.length;
+						let value = '';
+						for ( let nibble = 0; nibble < grays.length; nibble += 4 ) {
+							let bits = 0;
+							for ( let bit = 0; bit < 4; bit++ ) {
+								bits = ( bits << 1 ) | ( grays[ nibble + bit ] >= mean ? 1 : 0 );
+							}
+							value += bits.toString( 16 );
+						}
+						return value;
+					} catch {
+						return null;
+					}
+				} )();
+				hashCache.set( src, pending );
+				return pending;
+			};
+
 			// Images that occupy real layout space at this viewport: wider and
 			// taller than 50px (the same floor as widestImage) and not
 			// visibility:hidden, so tracking pixels and hidden decorations add
@@ -233,20 +287,23 @@ async function observePage(
 			// slides are transparent yet still hold the slideshow's layout
 			// box, and a copy that drops them all is exactly the regression
 			// the image-count gate exists to catch.
-			const images = [ ...document.querySelectorAll< HTMLImageElement >( 'img' ) ]
-				.map( ( image ) => ( {
-					rect: image.getBoundingClientRect(),
-					src: image.currentSrc || image.getAttribute( 'src' ) || '',
-					hidden: getComputedStyle( image ).visibility === 'hidden',
-				} ) )
-				.filter( ( { rect, hidden } ) => ! hidden && rect.width > 50 && rect.height > 50 )
-				.map( ( { rect, src } ) => ( {
-					key: src,
-					x: Math.round( rect.x ),
-					y: Math.round( rect.y ),
-					width: Math.round( rect.width ),
-					height: Math.round( rect.height ),
-				} ) );
+			const images = await Promise.all(
+				[ ...document.querySelectorAll< HTMLImageElement >( 'img' ) ]
+					.map( ( image ) => ( {
+						rect: image.getBoundingClientRect(),
+						src: image.currentSrc || image.getAttribute( 'src' ) || '',
+						hidden: getComputedStyle( image ).visibility === 'hidden',
+					} ) )
+					.filter( ( { rect, hidden } ) => ! hidden && rect.width > 50 && rect.height > 50 )
+					.map( async ( { rect, src } ) => ( {
+						key: src,
+						x: Math.round( rect.x ),
+						y: Math.round( rect.y ),
+						width: Math.round( rect.width ),
+						height: Math.round( rect.height ),
+						contentHash: await contentHashFor( src ),
+					} ) )
+			);
 
 			const typography: Array< {
 				key: string;
@@ -261,13 +318,24 @@ async function observePage(
 			const canvas = document.createElement( 'canvas' );
 			const context = canvas.getContext( '2d' );
 			const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+			const measuredParents = new Set< Element >();
 			let textNode: Node | null;
 			while ( typography.length < 120 && ( textNode = walker.nextNode() ) ) {
 				const parent = textNode.parentElement;
-				const text = ( textNode.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				if (
+					parent &&
+					parent.childNodes.length > 1 &&
+					[ ...parent.childNodes ].every( ( node ) => node.nodeType === Node.TEXT_NODE )
+				) {
+					if ( measuredParents.has( parent ) ) continue;
+					measuredParents.add( parent );
+				}
+				const text = ( parent && measuredParents.has( parent ) ? parent.textContent : textNode.textContent ?? '' )
+					.replace( /\s+/g, ' ' )
+					.trim();
 				if ( ! parent || ! text || parent.closest( 'script,style,noscript,template' ) ) continue;
 				const range = document.createRange();
-				range.selectNodeContents( textNode );
+				range.selectNodeContents( parent && measuredParents.has( parent ) ? parent : textNode );
 				const rect = range.getBoundingClientRect();
 				const style = getComputedStyle( parent );
 				if (
@@ -447,52 +515,7 @@ async function observePage(
 			}
 		}
 
-		const dialogs = ( await page.evaluate( `(async () => {
-			const isShown = (element) => {
-				const rect = element.getBoundingClientRect();
-				const style = getComputedStyle(element);
-				return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
-			};
-			const openCount = () =>
-				[...document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog[open]')].filter(isShown).length;
-			const triggers = [...document.querySelectorAll('button,a[aria-haspopup],summary,[aria-expanded]')]
-				.filter((element) => {
-					if (!isShown(element)) return false;
-					if (element.getAttribute('aria-disabled') === 'true') return false;
-					const href = element.tagName === 'A' ? (element.getAttribute('href') || '').trim() : '';
-					if (href && href !== '#' && !href.startsWith('#')) return false;
-					if (element.tagName === 'SUMMARY') return true;
-					if (element.hasAttribute('aria-expanded')) return true;
-					const popup = (element.getAttribute('aria-haspopup') || '').toLowerCase();
-					if (['dialog', 'menu', 'true'].includes(popup)) return true;
-					const label = (element.getAttribute('aria-label') || element.innerText || '').toLowerCase();
-					return element.tagName === 'BUTTON' && /\\bmenu\\b/.test(label);
-				})
-				.slice(0, 8);
-			const probes = [];
-			for (const trigger of triggers) {
-				const label = (trigger.getAttribute('aria-label') || trigger.innerText || 'dialog').replace(/\\s+/g, ' ').trim().slice(0, 40);
-				const before = openCount();
-				const expanded = trigger.getAttribute('aria-expanded') === 'true';
-				const bodyClass = document.body.className;
-				const hidden = [...document.querySelectorAll('[aria-hidden="true"]')];
-				trigger.click();
-				await new Promise((resolve) => setTimeout(resolve, 400));
-				const details = trigger.closest('details');
-				const revealed = hidden.some((element) => element.getAttribute('aria-hidden') !== 'true');
-				const opened =
-					openCount() > before ||
-					(trigger.getAttribute('aria-expanded') === 'true' && !expanded) ||
-					Boolean(details && details.open) ||
-					revealed ||
-					document.body.className !== bodyClass;
-				probes.push({ label: label || 'dialog', opened });
-				document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-				if (details && details.open) details.open = false;
-				await new Promise((resolve) => setTimeout(resolve, 150));
-			}
-			return probes;
-		})()` ) ) as DialogProbe[];
+		const dialogs = await probeDialogs( page );
 
 		return {
 			viewport,

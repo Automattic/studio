@@ -3,6 +3,12 @@
   "name": "Data Liberation Agent",
   "source_path": ".",
   "changelog_target": "CHANGELOG.md",
+  "extensions": {
+    "nodejs": {}
+  },
+  "release": {
+    "publish": false
+  },
   "version_targets": [
     { "file": "package.json", "pattern": "\"version\": \"([0-9.]+)\"" },
     { "file": ".claude-plugin/plugin.json", "pattern": "\"version\": \"([0-9.]+)\"" },

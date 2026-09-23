@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { MediaStubStore, toRootRelativeUploadUrl } from './media-stubs.js';
 
-// cwd-local tmp dir per CLAUDE.md guidance (no os.tmpdir, no output/ reads).
+// Use a cwd-local tmp dir (no os.tmpdir, no output/ reads).
 const TMP_ROOT = join(process.cwd(), '.tmp-test', 'media-stubs');
 
 function setup(name: string): string {

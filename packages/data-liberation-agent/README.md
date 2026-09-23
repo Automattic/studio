@@ -149,7 +149,6 @@ The server exposes the same four verbs as tools — `inspect`, `liberate`, `comp
 
 - [Platform API — custom platforms](/docs/platform-api.md)
 - [Wix authenticated content endpoints](/docs/wix-content-endpoints.md) — the load-bearing content endpoints behind Wix's editor and dashboard auth
-- [Discoveries](./DISCOVERIES.md) — findings from real runs
 
 ## Related
 

@@ -267,10 +267,11 @@ export async function waitForRenderIdle(
 }
 
 /**
- * Scroll from top to bottom in 500px increments with 200ms between steps, wait
- * for render-affecting requests to become quiet, then RESTORE the top scroll
- * state and let the resulting transitions settle. Triggers lazy-loaded images
- * so the subsequent screenshot captures actual content instead of placeholders.
+ * Scroll from top to bottom in 500px increments with 200ms between steps,
+ * repeating the sweep until the page stops growing, wait for render-affecting
+ * requests to become quiet, then RESTORE the top scroll state and let the
+ * resulting transitions settle. Triggers lazy-loaded images so the subsequent
+ * screenshot captures actual content instead of placeholders.
  *
  * Restoring the top state matters for scroll-reactive sticky headers: the
  * scroll-through above fades/hides them, and a bare `scrollTo(0, 0)` does NOT
@@ -288,29 +289,68 @@ export async function waitForRenderIdle(
  * 400ms after scrollTo(0,0)+dispatch — the glide finished DURING the
  * screenshot (after-snap: y 0, h:84), so scroll-reactive chrome captured
  * nondeterministically (32 css px header ghost on the replica side).
+ *
+ * The sweep re-reads `scrollHeight` on every step rather than sampling it once
+ * up front. A page with `loading="lazy"` images or an IntersectionObserver
+ * reveal (fade/slide-in sections) GROWS as the sweep passes it — a height
+ * sampled before the first step is stale by the last one, so a single pass to
+ * a fixed target leaves the newly-added tail off-screen, its reveal never
+ * fires, and it serializes in whatever hidden/placeholder state it started in.
+ * Worse, that tail differs run to run with exactly when the growth lands
+ * relative to the steps, so the SAME document produced a different reveal
+ * count on different runs. Reaching the bottom is also not enough on its own:
+ * `waitForImages` below can decode an image that is itself what a reveal
+ * observer at the tail was waiting on, growing the page again with nothing
+ * left to scroll it into view. `settleScroll` alternates a sweep with an image
+ * wait and repeats until a round changes nothing, bounded by round count and
+ * wall-clock time so a page that grows forever (true infinite scroll) still
+ * terminates rather than capturing forever.
  */
 export async function triggerLazyLoad(page: Page, requireNetworkIdle: boolean = false): Promise<void> {
   try {
-    const scroll = () =>
-      page.evaluate(async () => {
-        const step = 500;
-        const pauseMs = 200;
-        const total = document.documentElement.scrollHeight;
-        for (let y = 0; y < total; y += step) {
-          window.scrollTo({ top: y, left: 0, behavior: 'instant' });
-          await new Promise((r) => setTimeout(r, pauseMs));
-        }
-        window.scrollTo({ top: total, left: 0, behavior: 'instant' });
-      });
+    // One page.evaluate call per sweep, given the time it's still allowed to
+    // run: `maxMs` here is the REMAINING settle budget, not a fixed per-sweep
+    // allowance, so a page that never stops growing can't spend the full
+    // per-sweep cap on every one of `settleScroll`'s rounds and blow past the
+    // overall budget by a multiple of it.
+    const sweepToBottom = (maxMs: number) =>
+      page.evaluate(
+        async ({ step, pauseMs, maxMs }) => {
+          const started = Date.now();
+          let y = window.scrollY;
+          let total = document.documentElement.scrollHeight;
+          while (y < total && Date.now() - started < maxMs) {
+            y = Math.min(y + step, total);
+            window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+            await new Promise((r) => setTimeout(r, pauseMs));
+            total = document.documentElement.scrollHeight;
+          }
+          window.scrollTo({ top: total, left: 0, behavior: 'instant' });
+          return total;
+        },
+        { step: 500, pauseMs: 200, maxMs },
+      );
+    const settleScroll = async () => {
+      const deadline = Date.now() + 20_000;
+      let previousHeight = -1;
+      for (let round = 0; round < 10; round++) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        const height = await sweepToBottom(remaining);
+        await waitForImages(page);
+        if (height === previousHeight) break;
+        previousHeight = height;
+      }
+    };
     if ( requireNetworkIdle ) {
-      await scroll();
+      await settleScroll();
       try {
         await page.waitForLoadState( 'networkidle', { timeout: 5_000 } );
       } catch {
         /* best-effort hydration window for the responsive geometry sweep */
       }
     } else {
-      await waitForRenderIdle(page, scroll);
+      await waitForRenderIdle(page, settleScroll);
     }
     // Dynamic / JS-app content: expand statically-collapsed sections, then wait for known
     // content widgets (reviews / FAQ apps) to populate — so the snapshot captures real

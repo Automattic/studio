@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { chromium } from 'playwright';
 import { wireCapturedDialogs } from './static-dialogs.js';
 import type { CapturedDialogInteraction } from './screenshot/interaction-capture.js';
 
@@ -239,6 +240,89 @@ describe( 'wireCapturedDialogs', () => {
 		expect( html ).not.toContain( 'dla-disclosure' );
 	} );
 
+	it( 'replays observed choice-group transitions offline, including keyboard activation', async () => {
+		const choice = ( index: number, selected: number ) =>
+			`<div id="rating"><label id="rating-label">Rating</label><div class="choices">${ [ 0, 1, 2 ]
+				.map( ( choiceIndex ) => `<button type="button" data-dla-choice-index="${ choiceIndex }"><svg class="${ choiceIndex <= selected ? 'filled' : 'empty' }"></svg></button>` )
+				.join( '' ) }</div></div>`;
+		const states: CapturedDialogInteraction[] = [ 0, 1, 2 ].map( ( index ) => ( {
+			status: 'captured',
+			kind: 'choice-group',
+			trigger: {
+				selector: `#rating button:nth-of-type(${ index + 1 })`,
+				tag: 'button',
+				ariaHaspopup: '',
+				dataBindings: {},
+			},
+			set: { selector: '#choices', size: 3, index },
+			choiceGroup: {
+				group: {
+					selector: '#rating',
+					tag: 'div',
+					id: 'rating',
+					label: 'Rating',
+					labelSelector: '#rating-label',
+				},
+				choices: [ 0, 1, 2 ].map( ( choiceIndex ) => ( {
+					index: choiceIndex,
+					selector: `#rating button:nth-of-type(${ choiceIndex + 1 })`,
+					tag: 'button',
+					value: null,
+				} ) ),
+				transition: {
+					selectedIndex: index,
+					selected: [ null, null, null ],
+					html: choice( index, index ),
+					htmlBytes: choice( index, index ).length,
+					htmlTruncated: false,
+				},
+				replay: 'activation-determined',
+				restoration: 'verified',
+				coverage: 'complete',
+			},
+		} ) );
+		const html = wireCapturedDialogs(
+			'<html><head></head><body><div id="rating"><label id="rating-label">Rating</label><div class="choices"><button type="button"><svg class="filled"></svg></button><button type="button"><svg class="filled"></svg></button><button type="button"><svg class="filled"></svg></button></div></div></body></html>',
+			states
+		);
+		expect( html ).toContain( 'data-dla-choice-runtime' );
+		expect( html ).toContain( 'data-dla-choice-group="0"' );
+		expect( html ).toContain( 'Rating' );
+
+		const browser = await chromium.launch( { headless: true } );
+		try {
+			const page = await browser.newPage();
+			await page.setContent( html );
+			const buttons = page.locator( '#rating button' );
+			await buttons.nth( 0 ).click();
+			expect( await page.locator( '#rating svg' ).evaluateAll( ( svgs ) => svgs.map( ( svg ) => svg.getAttribute( 'class' ) ) ) ).toEqual( [ 'filled', 'empty', 'empty' ] );
+			await buttons.nth( 2 ).focus();
+			await page.keyboard.press( 'Enter' );
+			expect( await page.locator( '#rating svg' ).evaluateAll( ( svgs ) => svgs.map( ( svg ) => svg.getAttribute( 'class' ) ) ) ).toEqual( [ 'filled', 'filled', 'filled' ] );
+		} finally {
+			await browser.close();
+		}
+	}, 30_000 );
+
+	it( 'does not wire a choice group whose repeated activation is history-dependent', () => {
+		const input = '<html><head></head><body><div id="history"><button>A</button><button>B</button></div></body></html>';
+		const state: CapturedDialogInteraction = {
+			status: 'captured',
+			kind: 'choice-group',
+			trigger: { selector: '#history button', tag: 'button', ariaHaspopup: '', dataBindings: {} },
+			choiceGroup: {
+				group: { selector: '#history', tag: 'div', id: 'history' },
+				choices: [ 0, 1 ].map( ( index ) => ( { index, selector: `#history button:nth-of-type(${ index + 1 })`, tag: 'button', value: null } ) ),
+				transition: { selectedIndex: 0, selected: [ null, null ], html: '<div id="history"><button data-dla-choice-index="0">A</button><button data-dla-choice-index="1">B</button></div>', htmlBytes: 115, htmlTruncated: false },
+				replay: 'unsupported',
+				replayReason: 'repeated activation was history-dependent',
+				restoration: 'verified',
+				coverage: 'complete',
+			},
+		};
+		expect( wireCapturedDialogs( input, [ state ] ) ).toBe( input );
+	} );
+
 	it( 'wires a listbox popup onto every matching country-code trigger', () => {
 		const html = wireCapturedDialogs(
 			'<html><head></head><body><button aria-label="Phone. Phone. Select a country code" aria-haspopup="listbox">CA</button><button aria-label="Phone. Phone. Select a country code">CA</button></body></html>',
@@ -264,8 +348,9 @@ describe( 'wireCapturedDialogs', () => {
 				},
 			]
 		);
-		expect( html.match( /<details class="dla-disclosure">/g ) ).toHaveLength( 2 );
+		expect( html.match( /data-dla-listbox-trigger=/g ) ).toHaveLength( 2 );
 		expect( html ).toContain( 'role="option"' );
 		expect( html ).toContain( 'Canada +1' );
+		expect( html ).toContain( 'data-dla-listbox-runtime' );
 	} );
 } );

@@ -6,10 +6,9 @@ unpublished products, contacts, members, form submissions, bookings,
 blog drafts and full Ricos source, full-resolution media originals,
 and hidden / password-protected pages.
 
-This is a content reference. For Wix's auth scheme, window globals,
-and infrastructure endpoints (account, premium status, feature flags,
-etc.), see the 2026-03-31 *Wix Dashboard API reverse engineering via
-CDP* entry in [`DISCOVERIES.md`](../DISCOVERIES.md).
+This is a content reference. It does not document Wix's auth scheme,
+window globals, or infrastructure endpoints such as account, premium
+status, and feature flags.
 
 URLs are stable in shape across 2024–2026. Wix versions routes
 constantly (`v1` → `v2` → `v4`) and A/B-routes the same call through

@@ -20,6 +20,14 @@ export interface RenderedImage {
 	y: number;
 	width: number;
 	height: number;
+	/**
+	 * Perceptual hash of the rendered pixels (8x8 mean-threshold), when the
+	 * bytes could be fetched and decoded. URLs are not always identity: a CDN
+	 * can serve one asset under several basenames across pages and device
+	 * variants, and localization preserves whichever name it saw, so the key
+	 * can drift while the picture stays the same.
+	 */
+	contentHash?: string | null;
 }
 
 /** Computed typography for one visible text run. The text key survives DOM
@@ -145,17 +153,91 @@ export function normalizeImageKey( src: string ): string {
  * are not the caller's problem: additions do not fail this gate.
  */
 function missingRenderedImages( source: RenderedImage[], copy: RenderedImage[] ): RenderedImage[] {
-	const available = new Map< string, number >();
+	const paired = new Set( matchRenderedImages( source, copy ).map( ( pair ) => pair.source ) );
+	return source.filter( ( image ) => ! paired.has( image ) );
+}
+
+interface ImagePair {
+	source: RenderedImage;
+	candidate: RenderedImage;
+}
+
+function imageDistance( source: RenderedImage, candidate: RenderedImage ): number {
+	return (
+		Math.abs( source.x - candidate.x ) +
+		Math.abs( source.y - candidate.y ) +
+		Math.abs( source.width - candidate.width ) +
+		Math.abs( source.height - candidate.height )
+	);
+}
+
+/**
+ * Pair each source image with the copy image that renders the same picture.
+ *
+ * Two identities are available and neither subsumes the other:
+ *
+ * - **Content.** The perceptual hash survives every renaming, but it is only
+ *   present when both sides' bytes could be fetched and decoded.
+ * - **URL key.** `normalizeImageKey` folds basenames, but a CDN can serve one
+ *   asset under several names across pages and device variants, so the key
+ *   can drift while the picture stays the same.
+ *
+ * Content is tried first — it is the stronger claim — and the URL key covers
+ * whatever the hashes missed. Within a tier the nearest geometry wins, the
+ * same discipline the key-only matcher always used. A copy image is consumed
+ * by at most one pair, so a page rendering the same asset twice must render
+ * it twice.
+ */
+export function matchRenderedImages( source: RenderedImage[], copy: RenderedImage[] ): ImagePair[] {
+	const pairs: ImagePair[] = [];
+	const paired = new Set< RenderedImage >();
+
+	const nearestIn = ( group: RenderedImage[], image: RenderedImage ): RenderedImage | null => {
+		if ( group.length === 0 ) return null;
+		let nearest = 0;
+		for ( let index = 1; index < group.length; index++ ) {
+			if ( imageDistance( image, group[ index ] ) < imageDistance( image, group[ nearest ] ) ) {
+				nearest = index;
+			}
+		}
+		return group.splice( nearest, 1 )[ 0 ]!;
+	};
+
+	// Tier 1: same picture, whatever it is called on each side.
+	if ( source.some( ( image ) => image.contentHash ) ) {
+		const byHash = new Map< string, RenderedImage[] >();
+		for ( const image of copy ) {
+			if ( ! image.contentHash ) continue;
+			const group = byHash.get( image.contentHash ) ?? [];
+			group.push( image );
+			byHash.set( image.contentHash, group );
+		}
+		for ( const image of source ) {
+			if ( ! image.contentHash ) continue;
+			const candidate = nearestIn( byHash.get( image.contentHash ) ?? [], image );
+			if ( ! candidate ) continue;
+			paired.add( candidate );
+			pairs.push( { source: image, candidate } );
+		}
+	}
+
+	// Tier 2: same folded basename, for images whose bytes could not be read.
+	const available = new Map< string, RenderedImage[] >();
 	for ( const image of copy ) {
-		available.set( image.key, ( available.get( image.key ) ?? 0 ) + 1 );
+		if ( paired.has( image ) ) continue;
+		const group = available.get( image.key ) ?? [];
+		group.push( image );
+		available.set( image.key, group );
 	}
-	const missing: RenderedImage[] = [];
 	for ( const image of source ) {
-		const left = available.get( image.key ) ?? 0;
-		if ( left > 0 ) available.set( image.key, left - 1 );
-		else missing.push( image );
+		if ( pairs.some( ( pair ) => pair.source === image ) ) continue;
+		const candidate = nearestIn( available.get( image.key ) ?? [], image );
+		if ( ! candidate ) continue;
+		paired.add( candidate );
+		pairs.push( { source: image, candidate } );
 	}
-	return missing;
+
+	return pairs;
 }
 
 export function scoreViewport(

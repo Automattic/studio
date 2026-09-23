@@ -683,6 +683,144 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBe( 1 );
 		} );
 
+		it( 'refuses a capture whose entry route failed', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-entry-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const websiteDir = path.join( `${ sitePath }-source`, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Stub</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					entrypoint: 'website/index.html',
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{ code: 'route_capture_failed', url: 'https://example.com/', reason: 'HTTP 503' },
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+				} )
+			);
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 14,
+										routesCaptured: 12,
+										routesSkipped: 0,
+										routesFailed: 2,
+									},
+								} ),
+								checkFidelity: vi.fn(),
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+				] );
+				expect( process.exitCode ).toBe( 1 );
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( fs.existsSync( websiteDir ) ).toBe( true );
+				expect( fs.existsSync( sitePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const capturePath = `${ sitePath }-source`;
+			const websiteDir = path.join( capturePath, 'example.com', 'website' );
+			await fs.promises.mkdir( websiteDir, { recursive: true } );
+			await fs.promises.writeFile( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
+			await fs.promises.writeFile(
+				path.join( websiteDir, '..', 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
+					source: { url: 'https://example.com/' },
+					discoveryDiagnostics: [
+						{
+							code: 'route_capture_failed',
+							url: 'https://example.com/contact',
+							reason: 'HTTP 500',
+						},
+					],
+					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+				} )
+			);
+			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{
+					liberate: ( url, outputBase, options ) =>
+						liberateWebsite( url, outputBase, {
+							...options,
+							loadEngine: async () => ( {
+								version: '9.9.9',
+								packageUrl: 'https://example.com/data-liberation-9.9.9.tgz',
+								captureWebsite: async ( { outputDir } ) => ( {
+									captureReceiptPath: path.join( outputDir, 'capture-receipt.json' ),
+									outputDir,
+									summary: {
+										routesDiscovered: 14,
+										routesCaptured: 12,
+										routesSkipped: 0,
+										routesFailed: 2,
+									},
+								} ),
+								checkFidelity: vi.fn(),
+							} ),
+						} ),
+				}
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Import',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( process.exitCode ).toBeUndefined();
+				expect( runBlueprint ).toHaveBeenCalled();
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'could not capture 1 of 14 routes' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+				);
+				expect( fs.existsSync( capturePath ) ).toBe( true );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'stages the canonical Static Site Importer request', () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			const request = JSON.parse( blueprint.staticSiteImport.request );
@@ -693,9 +831,12 @@ describe( 'CLI: studio create', () => {
 				site_title: 'Captured Site',
 				activate: true,
 				overwrite: true,
-				remove_default_content: true,
+				fail_on_quality: true,
+				write_theme_report_artifacts: true,
+				require_proven_dynamic_client_assets: true,
+				seed_entities: true,
 				materialize_dependencies: true,
-				theme_materialization: 'block',
+				client_script_policy: 'isolated_preview',
 				source_metadata: {
 					source: 'studio-create-from',
 					source_path: 'https://example.com/',
@@ -717,9 +858,7 @@ describe( 'CLI: studio create', () => {
 						'https://example.com/'
 					).staticSiteImport.request
 				)
-			).toMatchObject( { operation: 'apply', theme_materialization: 'block' } );
-			expect( request ).not.toHaveProperty( 'fail_on_quality' );
-			expect( request ).not.toHaveProperty( 'client_script_policy' );
+			).toMatchObject( { operation: 'apply', fail_on_quality: true } );
 		} );
 
 		it( 'forwards artifact-declared classic materialization on the request', () => {
@@ -887,8 +1026,8 @@ describe( 'CLI: studio create', () => {
 			// so Studio hands back the same directory it was given rather than the sections
 			// directory the old section-geometry measurement needed.
 			expect( blueprint.staticSiteImport.captureDirectory ).toBe( websiteDir );
-			expect( JSON.parse( blueprint.staticSiteImport.request ).theme_materialization ).toBe(
-				'block'
+			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
+				true
 			);
 		} );
 

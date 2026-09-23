@@ -81,7 +81,7 @@ describe( 'liberateWebsite', () => {
 			) } --candidate http://localhost:8881`
 		);
 	} );
-	it( 'refuses a capture that failed on any route', async () => {
+	it( 'refuses a partial capture that has no capture receipt', async () => {
 		const loaded = engine( {
 			captureWebsite: vi.fn( async ( { outputDir } ) => ( {
 				captureReceiptPath: '',
@@ -92,9 +92,8 @@ describe( 'liberateWebsite', () => {
 
 		await expect(
 			liberateWebsite( 'https://example.com/', tempRoot(), { loadEngine: async () => loaded } )
-		).rejects.toThrow( /failed on 1 of 8 page\(s\); only 7 captured/ );
+		).rejects.toThrow( /did not provide a valid capture receipt/ );
 	} );
-
 	it( 'refuses a capture without a usable route summary', async () => {
 		const loaded = engine( {
 			captureWebsite: vi.fn( async ( { outputDir } ) => ( {

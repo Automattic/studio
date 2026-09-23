@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { z } from 'zod';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 import { loadCaptureEngine, type CaptureEngine } from 'cli/lib/import-runtime';
 
@@ -10,10 +11,46 @@ const FIDELITY_ROUTE_SAMPLE = 2;
 
 type LoadEngine = () => Promise< CaptureEngine >;
 
+const captureReceiptSchema = z.object( {
+	entrypoint: z.string().optional(),
+	source: z.object( { url: z.string().optional() } ).optional(),
+	discoveryDiagnostics: z
+		.array( z.object( { code: z.string(), url: z.string(), reason: z.string() } ) )
+		.optional(),
+} );
+
+// On any real source an occasional route fails for reasons the pipeline does not control:
+// a source-side error, a timeout, a gated page. Dropping the whole import for those costs
+// the user every route that did capture, so a capture that kept nearly all of its routes is
+// imported and the missing ones are reported. Past this share the result is too incomplete
+// to be worth creating, and the entry route is never tradeable: a site with no home page is
+// not a usable outcome.
+const MAX_DROPPED_ROUTE_RATIO = 0.1;
+const ROUTE_CAPTURE_FAILED = 'route_capture_failed';
+
+export type PartialCaptureReport = {
+	routesDiscovered: number;
+	droppedRoutes: Array< { url: string; reason: string } >;
+	diagnosticsPath: string;
+};
+
+// The same page reaches the receipt spelled several ways: as http and https when the source
+// redirects, with and without a trailing slash. A query string is not noise here, though --
+// without pretty permalinks it is what selects the page.
+function routeIdentity( url: string ): string {
+	try {
+		const route = new URL( url );
+		return `${ route.host }${ route.pathname.replace( /\/$/, '' ) || '/' }${ route.search }`;
+	} catch {
+		return url;
+	}
+}
+
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
 	/** Called with a builder for the command that compares a site against the original. */
 	onCompareCommand?: ( command: ( siteUrl: string ) => string ) => void;
+	onPartialCapture?: ( report: PartialCaptureReport ) => void;
 	loadEngine?: LoadEngine;
 };
 
@@ -52,8 +89,8 @@ function captureDirectoryName( url: URL ): string {
  * Capture `url` with the newest Data Liberation release and return the
  * portable `website/` directory it wrote.
  *
- * A capture that failed on any route is not imported: the engine resolves even when routes failed, and building from it
- * would silently ship a site with missing pages.
+ * A capture that lost a few routes is still imported and the missing routes are reported; see
+ * `checkPartialCapture`.
  */
 export async function liberateWebsite(
 	url: string,
@@ -90,14 +127,7 @@ export async function liberateWebsite(
 		);
 	}
 	if ( failed > 0 ) {
-		throw new Error(
-			`Data Liberation failed on ${ failed } of ${
-				result.summary.routesDiscovered
-			} page(s); only ${ result.summary.routesCaptured } captured. Review ${ path.join(
-				outputDir,
-				'diagnostics.json'
-			) }.`
-		);
+		checkPartialCapture( parsed.href, outputDir, result.summary.routesDiscovered, options );
 	}
 
 	const websiteDir = path.join( outputDir, 'website' );
@@ -108,6 +138,62 @@ export async function liberateWebsite(
 		compareCommand( engine.packageUrl, outputDir, siteUrl )
 	);
 	return websiteDir;
+}
+
+/**
+ * A capture that lost a few routes is still imported, with the missing routes reported; one
+ * that lost its entry route, more than a small share of routes, or its per-route diagnostics
+ * is refused. `summary.routesFailed` counts failure records rather than routes -- one dead
+ * route fails once per captured viewport -- so only the receipt's per-route diagnostics can
+ * name the routes that produced no page.
+ */
+function checkPartialCapture(
+	url: string,
+	outputDir: string,
+	routesDiscovered: number,
+	options: LiberateWebsiteOptions
+): void {
+	const diagnosticsPath = path.join( outputDir, 'diagnostics.json' );
+	const receiptPath = path.join( outputDir, 'capture-receipt.json' );
+	let receipt: z.infer< typeof captureReceiptSchema >;
+	try {
+		receipt = captureReceiptSchema.parse( JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) ) );
+	} catch {
+		throw new Error( `Data Liberation did not provide a valid capture receipt: ${ receiptPath }` );
+	}
+	if ( ! receipt.discoveryDiagnostics ) {
+		throw new Error(
+			`Data Liberation reported capture failures without per-route diagnostics. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+	const droppedRoutes = receipt.discoveryDiagnostics
+		.filter( ( diagnostic ) => diagnostic.code === ROUTE_CAPTURE_FAILED )
+		.map( ( { url: droppedUrl, reason } ) => ( { url: droppedUrl, reason } ) );
+	if ( droppedRoutes.length === 0 ) {
+		return;
+	}
+	const entryRoute = receipt.source?.url ?? url;
+	const entryRouteIdentity = routeIdentity( entryRoute );
+	const entrypointPath = receipt.entrypoint && path.resolve( outputDir, receipt.entrypoint );
+	if (
+		( entrypointPath && ! fs.existsSync( entrypointPath ) ) ||
+		droppedRoutes.some( ( route ) => routeIdentity( route.url ) === entryRouteIdentity )
+	) {
+		throw new Error(
+			`Data Liberation could not capture the entry route ${ entryRoute }. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+	if ( ! ( routesDiscovered > 0 ) ) {
+		throw new Error(
+			`Data Liberation did not report how many routes it discovered. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+	if ( droppedRoutes.length / routesDiscovered > MAX_DROPPED_ROUTE_RATIO ) {
+		throw new Error(
+			`Data Liberation could not capture ${ droppedRoutes.length } of ${ routesDiscovered } routes. Review ${ diagnosticsPath } before importing.`
+		);
+	}
+	options.onPartialCapture?.( { routesDiscovered, droppedRoutes, diagnosticsPath } );
 }
 
 /**

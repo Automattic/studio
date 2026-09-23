@@ -72,7 +72,11 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { compareLiberatedCapture, liberateWebsite } from 'cli/lib/data-liberation-client';
+import {
+	compareLiberatedCapture,
+	liberateWebsite,
+	type PartialCaptureReport,
+} from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -112,6 +116,7 @@ const defaultLogger = new Logger< LoggerAction >();
 // `cli/lib/import-runtime`), which vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
 // from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
 const SSI_PLUGIN_SLUG = 'static-site-importer';
+const PARTIAL_CAPTURE_REPORTED_ROUTES = 10;
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
 const STATIC_SITE_IMPORT_REQUEST_FILE = 'request.json';
 const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
@@ -439,15 +444,28 @@ function buildStaticSiteImporterRequest(
 		site_title: siteName,
 		activate: true,
 		overwrite: true,
-		remove_default_content: true,
-		materialize_dependencies: true,
+		client_script_policy: 'isolated_preview',
+		client_script_isolated: true,
+		client_script_provenance: {
+			ref: `studio-create-from:sha256:${ crypto
+				.createHash( 'sha256' )
+				.update( JSON.stringify( requestSource ) )
+				.digest( 'hex' ) }`,
+		},
 		source_metadata: {
 			source: 'studio-create-from',
 			source_path: originalSourceUrl ?? source.path,
 		},
+		fail_on_quality: true,
+		write_theme_report_artifacts: true,
+		require_proven_dynamic_client_assets: true,
+		seed_entities: true,
+		materialize_dependencies: true,
 		source: requestSource,
-		theme_materialization: themeMaterialization === 'classic' ? 'classic' : 'block',
 	};
+	if ( themeMaterialization === 'block' || themeMaterialization === 'classic' ) {
+		request.theme_materialization = themeMaterialization;
+	}
 	return request;
 }
 
@@ -534,6 +552,38 @@ export function buildCreateFromSourceBlueprint(
 	};
 }
 
+// A partial capture still imports, so the routes it dropped have to stay discoverable after
+// the terminal output is gone: the message names each one, and the caller keeps the capture
+// directory the diagnostics live in instead of deleting it with the rest of the source.
+function partialCaptureWarning( report: PartialCaptureReport ): string {
+	const lines = [
+		sprintf(
+			/* translators: 1: dropped route count, 2: discovered route count */
+			__(
+				'Data Liberation could not capture %1$d of %2$d routes. They are missing from the imported site:'
+			),
+			report.droppedRoutes.length,
+			report.routesDiscovered
+		),
+		...report.droppedRoutes
+			.slice( 0, PARTIAL_CAPTURE_REPORTED_ROUTES )
+			.map( ( route ) => `  - ${ route.url }: ${ route.reason }` ),
+	];
+	const unlisted = report.droppedRoutes.length - PARTIAL_CAPTURE_REPORTED_ROUTES;
+	if ( unlisted > 0 ) {
+		/* translators: %d: number of failed routes not listed individually */
+		lines.push( sprintf( __( '  …and %d more.' ), unlisted ) );
+	}
+	lines.push(
+		sprintf(
+			/* translators: %s: path to the retained capture diagnostics file */
+			__( 'The capture was kept for review: %s' ),
+			report.diagnosticsPath
+		)
+	);
+	return lines.join( '\n' );
+}
+
 /**
  * Turn a `--from` source into the blueprint that imports it. A URL is first captured with the
  * newest Data Liberation release into the sibling `<site>-source` directory; every source is
@@ -552,11 +602,13 @@ export async function prepareSourceImport(
 	blueprint: ReturnType< typeof buildCreateFromSourceBlueprint >;
 	liberationOutputDir?: string;
 	compareCommand?: ( siteUrl: string ) => string;
+	capturedPartially: boolean;
 } > {
 	const sourceUrl = isUrl( source ) ? source : undefined;
 	let importSource = source;
 	let liberationOutputDir: string | undefined;
 	let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
+	let capturedPartially = false;
 	if ( sourceUrl ) {
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
@@ -585,6 +637,10 @@ export async function prepareSourceImport(
 			onCompareCommand: ( command ) => {
 				compareCommand = command;
 			},
+			onPartialCapture: ( report ) => {
+				capturedPartially = true;
+				logger.reportWarning( partialCaptureWarning( report ) );
+			},
 		} );
 		logger.reportSuccess( __( 'Source website prepared' ) );
 	}
@@ -594,7 +650,7 @@ export async function prepareSourceImport(
 		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
 		sourceUrl
 	);
-	return { blueprint, liberationOutputDir, compareCommand };
+	return { blueprint, liberationOutputDir, compareCommand, capturedPartially };
 }
 
 export function staticSiteImportProgressMessage(
@@ -715,11 +771,13 @@ function staticSiteImportQualityFailure(
 	}
 	const counts = ( quality as Record< string, unknown > ).counts;
 	const {
+		status,
+		quality_pass: qualityPass,
 		fail_import: failImport,
 		fallback_count: fallbackCount,
 		failure_reasons: failureReasons,
 	} = quality as Record< string, unknown >;
-	if ( failImport !== true ) {
+	if ( status !== 'failed' && qualityPass !== false && failImport !== true ) {
 		return undefined;
 	}
 	const failures = Array.isArray( failureReasons )
@@ -1810,6 +1868,7 @@ export const registerCommand = (
 				const sourceUrl = importSource && isUrl( importSource ) ? importSource : undefined;
 				let liberationOutputDir: string | undefined;
 				let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
+				let capturedPartially = false;
 				if ( importSource ) {
 					const prepared = await prepareSourceImport(
 						importSource,
@@ -1826,6 +1885,7 @@ export const registerCommand = (
 					config.blueprint = prepared.blueprint;
 					liberationOutputDir = prepared.liberationOutputDir;
 					compareCommand = prepared.compareCommand;
+					capturedPartially = prepared.capturedPartially;
 				} else if ( argv.blueprint ) {
 					if ( isUrl( argv.blueprint ) ) {
 						config.blueprint = {
@@ -1854,7 +1914,7 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir && ! argv.keepSource ) {
+					if ( sourceUrl && liberationOutputDir && ! argv.keepSource && ! capturedPartially ) {
 						await fs.promises
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );

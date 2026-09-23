@@ -31,10 +31,10 @@ describe( 'site preview inspector sessions', () => {
 
 		expect( root.querySelector( '.save' ) ).toHaveAttribute(
 			'data-tooltip',
-			'Add this note and keep annotating.'
+			'Save this note and keep annotating.'
 		);
-		expect( root.querySelector( '.save' ) ).toHaveTextContent( 'Add note' );
-		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send 1 note' );
+		expect( root.querySelector( '.save' ) ).toHaveTextContent( 'Save' );
+		expect( root.querySelector( '.submit' ) ).toHaveTextContent( 'Send to chat' );
 		expect( root.querySelector( '.submit' ) ).toHaveAttribute(
 			'data-tooltip',
 			'Send all notes to chat and finish annotating.'

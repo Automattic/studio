@@ -1,6 +1,6 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	aspectRatio,
 	check,
@@ -843,14 +843,16 @@ function PreviewAnnotationControls( {
 } ) {
 	const [ cancelDialogOpen, setCancelDialogOpen ] = useState( false );
 	const toggleLabel = isPicking ? __( 'Cancel annotation' ) : __( 'Annotate' );
-	const submitLabel =
-		annotationCount === 1
-			? __( 'Send 1 note' )
-			: sprintf(
-					/* translators: %d is the number of annotation notes waiting to be sent. */
-					__( 'Send %d notes' ),
-					annotationCount
-			  );
+	const submitLabel = __( 'Send notes to chat' );
+	const submitDescription = sprintf(
+		/* translators: %d is the number of annotation notes waiting to be sent. */
+		_n(
+			'%d note waiting. Sending finishes annotating.',
+			'%d notes waiting. Sending finishes annotating.',
+			annotationCount
+		),
+		annotationCount
+	);
 	const hasPending = annotationCount > 0;
 	const handledCancelRequestId = useRef( cancelRequestId );
 	const requestCancel = useCallback( () => {
@@ -915,6 +917,7 @@ function PreviewAnnotationControls( {
 						className={ styles.annotationSubmit }
 						disabled={ disabled }
 						aria-label={ submitLabel }
+						aria-description={ submitDescription }
 						onClick={ () => onCommand( 'submit' ) }
 					>
 						{ submitLabel }

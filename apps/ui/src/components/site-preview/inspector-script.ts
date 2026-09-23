@@ -274,7 +274,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}
 		.popup textarea:focus { border-color: #7c3aed; }
 		.popup .actions { display: flex; justify-content: flex-end; gap: 4px; }
-		/* Sized so Delete/Cancel/Update/Send notes all fit one row of the
+		/* Sized so Delete/Cancel/Update/Send to chat all fit one row of the
 		   320px popup; nowrap keeps a tight fit from wrapping a label onto a
 		   second line instead of the row overflowing visibly. */
 		.popup button {
@@ -848,9 +848,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const save = document.createElement( 'button' );
 		save.className = 'save';
-		save.textContent = state.id ? 'Update note' : 'Add note';
+		save.textContent = state.id ? 'Update' : 'Save';
 		if ( ! state.id ) {
-			attachTooltip( save, 'Add this note and keep annotating.' );
+			attachTooltip( save, 'Save this note and keep annotating.' );
 		}
 		save.addEventListener( 'click', () => {
 			if ( ! commitActivePopup() ) return;
@@ -860,16 +860,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 
 		const submit = document.createElement( 'button' );
 		submit.className = 'submit';
+		submit.textContent = 'Send to chat';
 		attachTooltip( submit, 'Send all notes to chat and finish annotating.' );
 		submit.addEventListener( 'click', submitAnnotations );
 		actions.appendChild( submit );
 
 		function syncActions() {
 			save.disabled = ! state.comment.trim();
-			const sendCount = annotations.length + ( ! state.id && state.comment.trim() ? 1 : 0 );
-			const displayedCount = Math.max( 1, sendCount );
-			submit.textContent =
-				'Send ' + displayedCount + ( displayedCount === 1 ? ' note' : ' notes' );
 			/* Sending stays available while notes are already saved, even if
 			 * this popup is an untouched draft — submit discards it. */
 			submit.disabled = save.disabled && annotations.length === 0;

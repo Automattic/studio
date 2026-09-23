@@ -1,50 +1,43 @@
 ---
 name: liberate
-description: Import an existing website (Wix, Squarespace, Webflow, Shopify, GoDaddy, Hostinger, HubSpot, Weebly, or any public site) into a new Studio WordPress site as an editable block theme, then measure how faithfully it was captured. Invoke when the user wants to migrate, import, liberate, or rebuild a website from a URL.
+description: Move an existing website (Wix, Squarespace, Webflow, Shopify, GoDaddy, Hostinger, HubSpot, Weebly, or any public site) into a new Studio WordPress site, then work with the user to make it look and work like the original. Invoke when the user wants to migrate, import, move, liberate, or rebuild a website from a URL.
 ---
 
-# Liberate a website into Studio
+# Move a website into Studio
 
-Studio imports a website in two stages: Data Liberation captures the site as a portable copy, then the Static Site Importer rebuilds it as a native block theme. `studio create --from` installs the newest release of each on every run. Everything below uses the CLI through Bash.
+The user is usually not technical. Speak plainly, keep them informed, and never ask them to run commands or read logs. You run everything.
 
-## 1. Import
+## 1. Bring the site over
 
-Ask for the website URL if the user has not given one; it must be a public `https://` URL. Tell the user an import usually takes 10–15 minutes.
+Ask for the website's address if the user has not given one. It must be a public address starting with `https://`. Let them know this usually takes 10 to 15 minutes, and that you will tell them when it is ready.
 
 ```bash
 studio create --from <url> --name "<site name>" --path ~/Studio/<slug> --keep-source --skip-browser
 ```
 
-`--keep-source` keeps the capture in the sibling `~/Studio/<slug>-source` directory so it can be measured afterwards. Run the command with a timeout of at least 20 minutes. It prints progress, a fidelity summary, the site URL and admin credentials, and, because the capture was kept, the exact `data-liberation compare` command for the next step.
+Run it with a timeout of at least 20 minutes. `--keep-source` keeps a copy of the original next to the new site so you can compare against it later.
 
-If a page fails to capture, the import stops rather than building a site with missing pages; share the reported pages and suggest a retry. If the importer rejects the result, share its failure detail. Do not hand-build the site as a substitute.
+If the import stops because some pages could not be copied, tell the user which pages, explain that the original site may have been briefly unavailable, and offer to try again.
 
-## 2. Measure the capture
+## 2. Show the user their new site
 
-Run the `data-liberation compare` command that `studio create` printed. It checks every captured route offline and compares a sample of routes against the live source at widths the capture never sampled:
+When the import finishes, open the new site and share its address and login details. Take screenshots of the home page and one or two other key pages, alongside the same pages on the original site, so the user can see the result for themselves.
 
-```bash
-npx --yes --package=<data-liberation release tarball> data-liberation compare ~/Studio/<slug>-source/<host>
-```
+## 3. Fix what looks different, together
 
-If it reports that a browser is missing, install it once with the same package, then run compare again:
+Ask the user what looks wrong or is missing. At the same time, compare the new site against the original yourself, page by page, on both a wide screen and a phone-sized screen. Look for:
 
-```bash
-npx --yes --package=<data-liberation release tarball> playwright install chromium
-```
+- missing or moved text, images, and sections
+- wrong fonts, sizes, or colors
+- navigation or buttons that do not work
+- anything that looks broken on a phone
 
-`compare` exits 0 when every check passes. Otherwise its output lists each failing route and width with the measured difference (text, geometry, images, typography).
+To check whether the original was copied faithfully, you can also run the comparison command that `studio create` printed. It reports pages and screen sizes where the copy differs from the original.
 
-## 3. Iterate
+Fix each difference on the new site itself. Edit its pages and its theme using block editor blocks, so the user can keep editing everything in the WordPress editor afterwards. Avoid raw HTML blocks and custom code the user cannot edit.
 
-Compare measures the capture against the live source; it is evidence, not a pass or fail on the WordPress site. Use it to decide what to look at:
+After each fix, take a fresh screenshot, show the user, and ask whether it looks right. Keep going, one change at a time, until the user is happy.
 
-- **Failures that point at the source**, such as a transient HTTP error, a page behind a login, or content that changed since capture: re-run step 1, then compare again.
-- **Failures in the capture itself**: report the exact compare lines to the user. Improving capture fidelity is a Data Liberation change, not a site edit.
-- **Differences between the capture and the WordPress site**: open the site and the kept capture side by side, take screenshots, and fix them in the generated block theme and pages so the site stays editable in the block editor.
+## 4. Wrap up
 
-Repeat compare after each change until it passes or the remaining differences are understood and reported.
-
-## Report
-
-Share the site URL and credentials, how many pages were captured, the final compare result, and anything flagged for the user's attention.
+Summarize what was brought over, what you changed together, and anything that still differs from the original. Point the user to the WordPress editor for future changes.

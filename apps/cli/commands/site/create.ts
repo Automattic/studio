@@ -1861,8 +1861,8 @@ export const registerCommand = (
 					} else if ( compareCommand ) {
 						console.log(
 							sprintf(
-								/* translators: %s: command that measures the kept capture against its source */
-								__( 'Measure the kept capture against its live source with:\n  %s' ),
+								/* translators: %s: command that compares the kept copy with the original site */
+								__( 'Compare the copy with the original site:\n  %s' ),
 								compareCommand
 							)
 						);

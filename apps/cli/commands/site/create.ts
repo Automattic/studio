@@ -108,9 +108,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
-// Without an explicit importer, `--from` installs the newest Static Site Importer release, the
-// same one the WordPress.com static-site import installs (see `cli/lib/import-runtime`). The
-// release vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
+// Without an explicit importer, `--from` installs the newest Static Site Importer release (see
+// `cli/lib/import-runtime`), which vendors the matching Blocks Engine. To run an unreleased build, pass a paired zip
 // from the importer's `npm run build:dev-package` to `--static-site-importer-path`.
 const SSI_PLUGIN_SLUG = 'static-site-importer';
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
@@ -537,8 +536,7 @@ export function buildCreateFromSourceBlueprint(
 /**
  * Turn a `--from` source into the blueprint that imports it. A URL is first captured with the
  * newest Data Liberation release into the sibling `<site>-source` directory; every source is
- * then imported with the newest Static Site Importer release unless an importer is given. This
- * is the same pipeline the WordPress.com static-site import runs.
+ * then imported with the newest Static Site Importer release unless an importer is given.
  */
 export async function prepareSourceImport(
 	source: string,
@@ -765,8 +763,7 @@ function staticSiteImportQualityFailure(
 }
 
 // Measures the capture against its live source with Data Liberation's own fidelity check and
-// reports the result. Like the WordPress.com static-site import, this is evidence about the
-// capture, never a gate: a disagreement or a failure to run it does not fail the import.
+// reports the result. This is evidence about the capture, never a gate: a disagreement or a failure to run it does not fail the import.
 async function reportDataLiberationFidelity(
 	captureDirectory: string,
 	logger: Logger< LoggerAction >

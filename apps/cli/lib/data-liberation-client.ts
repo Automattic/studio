@@ -3,9 +3,9 @@ import path from 'node:path';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 import { loadCaptureEngine, type CaptureEngine } from 'cli/lib/import-runtime';
 
-// Routes the fidelity check compares against the live source, matching the
-// WordPress.com static-site import. Each costs several browser round trips at
-// more than one width, so it is a sample; the report says what was measured.
+// Routes the fidelity check compares against the live source. Each costs several
+// browser round trips at more than one width, so it is a sample; the report says
+// what was measured.
 const FIDELITY_ROUTE_SAMPLE = 2;
 
 type LoadEngine = () => Promise< CaptureEngine >;
@@ -48,8 +48,7 @@ function captureDirectoryName( url: URL ): string {
  * Capture `url` with the newest Data Liberation release and return the
  * portable `website/` directory it wrote.
  *
- * Like the WordPress.com import, a capture that failed on any route is not
- * imported: the engine resolves even when routes failed, and building from it
+ * A capture that failed on any route is not imported: the engine resolves even when routes failed, and building from it
  * would silently ship a site with missing pages.
  */
 export async function liberateWebsite(
@@ -108,7 +107,7 @@ export async function liberateWebsite(
 /**
  * Measure a capture against its live source with Data Liberation's own
  * fidelity check. The result is evidence about the capture, never a gate on
- * the import: the WordPress.com import records it the same way.
+ * the import.
  */
 export async function compareLiberatedCapture(
 	directory: string,

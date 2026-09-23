@@ -5,7 +5,7 @@ description: Import an existing website (Wix, Squarespace, Webflow, Shopify, GoD
 
 # Liberate a website into Studio
 
-Studio imports a website with the same pipeline as the WordPress.com static-site import: Data Liberation captures the site as a portable copy, then the Static Site Importer rebuilds it as a native block theme. `studio create --from` installs the newest release of each on every run. Everything below uses the CLI through Bash.
+Studio imports a website in two stages: Data Liberation captures the site as a portable copy, then the Static Site Importer rebuilds it as a native block theme. `studio create --from` installs the newest release of each on every run. Everything below uses the CLI through Bash.
 
 ## 1. Import
 

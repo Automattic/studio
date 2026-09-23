@@ -10,9 +10,8 @@ import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import * as tar from 'tar';
 
 /**
- * The import pipeline behind `studio create --from` runs the same releases the
- * WordPress.com static-site import runs: the newest stable Data Liberation
- * engine and Static Site Importer, resolved at launch and verified against the
+ * The import pipeline behind `studio create --from` runs the newest stable
+ * Data Liberation engine and Static Site Importer, resolved at launch and verified against the
  * SHA-256 digest GitHub publishes for each release asset. Shipping either
  * project therefore changes Studio's imports without a Studio release.
  */

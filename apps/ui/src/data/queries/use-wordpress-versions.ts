@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const WORDPRESS_VERSIONS_QUERY_KEY = [ 'wordpress-versions' ] as const;
+const WORDPRESS_VERSIONS_QUERY_KEY = [ 'wordpress-versions' ] as const;
 export const WP_VERSION_QUERY_KEY = [ 'wp-version' ] as const;
 
 export function useWordPressVersions() {

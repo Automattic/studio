@@ -1,3 +1,4 @@
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,6 +49,8 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 				<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 				<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
 				<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+				<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
+				<button onClick={ () => void run.interrupt() }>Stop</button>
 			</>
 		);
 	}
@@ -65,11 +68,20 @@ function renderWithAgentRun( queryClient: QueryClient ) {
 
 describe( 'useAgentRun queued handoff', () => {
 	let agentListener: ( event: AgentRunEvent ) => void;
-	let connector: Pick< Connector, 'continueSession' | 'getActiveAgentRuns' | 'onAgentEvent' >;
+	let connector: Pick<
+		Connector,
+		| 'continueSession'
+		| 'getActiveAgentRuns'
+		| 'onAgentEvent'
+		| 'interruptAgentRun'
+		| 'answerAgentQuestion'
+	>;
 
 	beforeEach( () => {
 		connector = {
 			continueSession: vi.fn().mockResolvedValue( { runId: 'run-next' } ),
+			interruptAgentRun: vi.fn().mockResolvedValue( undefined ),
+			answerAgentQuestion: vi.fn().mockResolvedValue( undefined ),
 			getActiveAgentRuns: vi.fn().mockResolvedValue( [] ),
 			onAgentEvent: vi.fn( ( listener ) => {
 				agentListener = listener;
@@ -186,6 +198,105 @@ describe( 'useAgentRun queued handoff', () => {
 
 		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'idle' ) );
 		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'closes a blocked question batch before it interrupts', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [
+						{ question: 'Q1', options: [ { label: 'A1', description: '' } ] },
+						{ question: 'Q2', options: [ { label: 'A2', description: '' } ] },
+					],
+				},
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		// A call killed without a result reads to the model as a broken tool, so
+		// the picks so far go through and the rest are marked as unanswered.
+		await waitFor( () =>
+			expect( connector.answerAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				Q1: 'A1',
+				Q2: STOPPED_WITHOUT_ANSWER,
+			} )
+		);
+		expect( vi.mocked( connector.answerAgentQuestion ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			vi.mocked( connector.interruptAgentRun ).mock.invocationCallOrder[ 0 ]
+		);
+	} );
+
+	it( 'interrupts without answering anything when no questions are open', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+
+		await waitFor( () => expect( connector.interruptAgentRun ).toHaveBeenCalledWith( 'run-old' ) );
+		expect( connector.answerAgentQuestion ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves a running turn alone when no questions are pending', async () => {
+		const queryClient = createQueryClient();
+		queryClient.setQueryData< LoadedAiSession >(
+			[ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			createLoadedSession()
+		);
+
+		renderWithAgentRun( queryClient );
+
+		await waitFor( () => expect( connector.onAgentEvent ).toHaveBeenCalled() );
+
+		act( () => {
+			agentListener( {
+				sessionId: 'session-1',
+				runId: 'run-old',
+				event: { type: 'run.started', timestamp: '2026-06-24T12:00:00.000Z' },
+			} );
+		} );
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+
+		await waitFor( () => expect( screen.getByTestId( 'phase' ) ).toHaveTextContent( 'active' ) );
+		expect( connector.interruptAgentRun ).not.toHaveBeenCalled();
+		expect( connector.answerAgentQuestion ).not.toHaveBeenCalled();
 	} );
 
 	it( 'still invalidates when a run ends without a queued follow-up', async () => {

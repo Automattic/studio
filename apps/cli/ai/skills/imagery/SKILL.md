@@ -10,18 +10,13 @@ Use this skill whenever a design calls for images — hero/cover backgrounds, fe
 
 ## Workflow
 
-1. **Plan all imagery first.** While planning a page or theme, list every image it needs: filename, subject, placement, aspect ratio. Generate images BEFORE writing the markup that references them, so markup always points at real files.
-2. **Pick the destination per image:**
-   - **Theme imagery** (part of the theme's design: hero/cover backgrounds in templates or template parts, section background bands): write to `<site>/wp-content/themes/<theme-slug>/assets/images/<name>.jpg` and reference it in markup as `/wp-content/themes/<theme-slug>/assets/images/<name>.jpg`.
-   - **Site-specific content imagery** (images inside page/post content: products, team photos, gallery items, feature illustrations): generate to a staging path like `<site>/wp-content/uploads/studio-generated/<name>.jpg`, then import into the media library and use the attachment:
-     ```
-     wp_cli media import wp-content/uploads/studio-generated/<name>.jpg --porcelain   → <id>
-     wp_cli post list --post_type=attachment --post__in=<id> --field=guid             → URL
-     ```
-     Use the returned URL as the `src` and the id in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`). Delete the staging file afterwards.
-3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The design-options call below is separate and does not count as the page's batch.
+1. **Plan all imagery first.** While planning a page or theme, list every image it needs: filename, subject, placement, aspect ratio. Call `generate_images` BEFORE writing the markup that references them: it returns each image's path, attachment ID, and URL at once and generates the images in the background, so write the markup right away.
+2. **Pick the destination by where the image is shown**: the file that holds its markup decides, not what the image depicts.
+   - **Content imagery**: every image shown by page or post content, including a page's hero or cover, section images, products, team photos, and galleries. Write to `<site>/wp-content/uploads/<name>.jpg`. The tool adds every image under `wp-content/uploads/` to the media library and reports its attachment ID and URL: use the URL as the `src` and the ID in the block attrs (e.g. `wp:image {"id":<id>,"sizeSlug":"large"}`).
+   - **Theme imagery**: only images shown by theme files, meaning a template, a template part such as the header or footer, or `style.css`. Write to `<site>/wp-content/themes/<theme-slug>/assets/images/<name>.jpg` and reference it in markup as `/wp-content/themes/<theme-slug>/assets/images/<name>.jpg`. It stays in the theme and never goes into the media library.
+   One call can mix both: each image goes where its path says. A one-page site builds its sections in the page content, so its images, hero included, are content imagery.
+3. **Batch aggressively.** One `generate_images` call per page (or per site for small sites) with every image in the `images` array — generation is concurrent server-side. Never one call per image. The site's set from the design steps below is the first batch: use it before generating anything else.
 4. **Write real alt text.** Generated images are content: give every `<img>` a short, descriptive alt in the markup (what the image shows, for a person who cannot see it). Never leave a spec string or an empty alt on a content image; cover backgrounds keep an empty alt (decorative).
-5. **Verify.** After applying markup, use take_screenshot to confirm the images render, fill their slots, and keep overlaid text legible.
 
 ## Writing the spec fields
 
@@ -65,13 +60,11 @@ A full-bleed cover BACKGROUND must be `landscape` or `ultrawide` — never squar
 
 ## Images for design options
 
-When the user is about to pick a look (see the `site-spec` skill), each look's board gets at most one generated image, all in one `generate_images` call:
+The look is picked on one image and the layout on a set, both from the `site-spec` skill's design steps:
 
-- **Same scene for every option**: one subject and composition for the site's first screen, written once and repeated per image in `landscape`, so the user compares looks rather than photo content.
-- **Per-image `imageGrade`**: the one case where each image carries its own grade — derived from that option's artistic direction (its Imagery line), so a Noir option gets a Noir photograph and a Playful one a Playful photograph. Leave the call-wide `imageGrade` out. The picked look's image then serves the layout sneak peeks and a single slot of the build; every other image the site needs still gets the normal batch above, with the picked look's grade as the call-wide `imageGrade` so the series reads as one.
-- **Skip an option whose direction rejects photography** (its Imagery line says none, or type-only): that board shows a pattern instead.
-- **Paths**: `<site>/wp-content/uploads/studio-generated/option-<n>.jpg`, passed as that option's `image`.
-- **A failed or unavailable image** is not a blocker: that board shows a pattern instead.
+- **The look image**: before the look options, one `generate_images` call with a single image, the site's first-screen scene in `landscape`, at `<site>/wp-content/uploads/<scene>.jpg`, with the call-wide `imageGrade` left out and a neutral, versatile grade in `pageContext` ("natural light, true color, moderate contrast"). Pass the path it reports as each look's `image`. Every look's board shows this same photo under that look's `imagery` treatment from its `DESIGN.md` draft, so the user compares looks rather than photo content. A direction that rejects photography (its Imagery line says none, or type-only) passes no image: its board shows a pattern.
+- **The site's set**: once `DESIGN.md` is written, one `generate_images` call with 3–4 images in the picked look, with its Imagery section as the call-wide `imageGrade` and its `style` if it is not photographic: the first-screen scene again plus distinct supporting subjects (a detail, a place or a person, a product), each in the aspect ratio of the slot it is most likely to fill, at `<site>/wp-content/uploads/<name>.jpg`. The set is content imagery: the layout sneak peeks use the paths it reports, and the build starts from its attachment IDs and URLs. When a template or template part needs one of its images, copy that file into the theme's `assets/images` and reference the copy. Generate more only for slots the set cannot fill, with the same `imageGrade`. The look image is in the media library too, for a look its treatment reproduced.
+- **A failed or unavailable image** is not a blocker: the board shows a pattern, and a sneak-peek slot a solid color shape.
 
 ## No decorative or transparent images
 
@@ -85,3 +78,4 @@ For `wp:cover` backgrounds, set the same image URL on BOTH the block's `url` att
 
 - **Safety-filtered image**: rewrite that image's subject to avoid the flagged element and call `generate_images` again for just that image. One retry; if it fails again, treat as a permanent failure.
 - **Permanent failure**: adapt the layout to work without that image (a color/gradient background, a text-led card). NEVER substitute an unrelated image, source an image from a web URL, or leave a reference to a file that does not exist.
+- Failures arrive after the call returns, with a later tool result; `take_screenshot`, `inspect_design`, and `present_design_options` wait for the images.

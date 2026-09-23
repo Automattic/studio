@@ -11,11 +11,9 @@ export type GuideIllustrationId =
 	| 'preview'
 	| 'overview'
 	// What's New.
-	| 'studio-code'
-	| 'native-php'
-	| 'dark-mode'
-	| 'phpmyadmin'
-	| 'cli';
+	| 'design-picker'
+	| 'model-tiers'
+	| 'building-blocks';
 
 export interface GuidePage {
 	illustration: GuideIllustrationId;

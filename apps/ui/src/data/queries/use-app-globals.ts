@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const APP_GLOBALS_QUERY_KEY = [ 'app-globals' ] as const;
+const APP_GLOBALS_QUERY_KEY = [ 'app-globals' ] as const;
 
 export function useAppGlobals() {
 	const connector = useConnector();

@@ -23,6 +23,7 @@ import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
+const OPEN_IN_FILE_MANAGER = /^Open in (Finder|File Explorer|File manager)$/;
 let paramsMock: { sessionId?: string; siteId?: string } = {};
 let pathnameMock = '/';
 
@@ -127,6 +128,7 @@ describe( 'SiteList', () => {
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			openSiteUrl: vi.fn().mockResolvedValue( undefined ),
 			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
 			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
 			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
@@ -215,35 +217,56 @@ describe( 'SiteList', () => {
 		expect( navigateMock ).not.toHaveBeenCalled();
 		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Duplicate site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Open folder' ) ).toBeInTheDocument();
+		expect( screen.getByText( OPEN_IN_FILE_MANAGER ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
 	} );
 
-	it( 'records a Tracks event when opening the site folder from the menu', async () => {
+	it( 'opens the site folder through the connector and records a Tracks event', async () => {
 		render( <SiteList /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-		fireEvent.click( await screen.findByText( 'Open folder' ) );
+		fireEvent.click( await screen.findByText( OPEN_IN_FILE_MANAGER ) );
 
+		expect( useConnectorMock().openSiteFolder ).toHaveBeenCalledWith( 'stopped-site' );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
 	} );
 
-	it( 'records external-browser Tracks events for phpMyAdmin and WP admin', async () => {
+	it( 'opens phpMyAdmin and WP admin through the host so the session is kept', async () => {
 		render( <SiteList /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open phpMyAdmin' ) );
+		fireEvent.click( await screen.findByText( 'Open in phpMyAdmin' ) );
 
 		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
 		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
 
+		expect( useConnectorMock().openSiteUrl ).toHaveBeenCalledWith(
+			'running-site',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+		expect( useConnectorMock().openSiteUrl ).toHaveBeenCalledWith( 'running-site', '/wp-admin/' );
+		expect( useConnectorMock().openExternalUrl ).not.toHaveBeenCalled();
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
 		} );
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
 			browser: 'external',
 		} );
+	} );
+
+	it( 'disables the browser-only destinations while the site is stopped', async () => {
+		render( <SiteList /> );
+
+		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
+
+		expect( await screen.findByText( 'Open in Browser' ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByText( 'Open in phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'Open WP admin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( OPEN_IN_FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
 	} );
 
 	it( 'opens site settings from the site actions menu', async () => {
@@ -889,13 +912,6 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'names the configured editor and terminal in the site actions', async () => {
-		const openSiteInEditor = vi.fn( () => Promise.resolve() );
-		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor,
-			openSiteInTerminal: vi.fn(),
-		} as unknown as ReturnType< typeof useConnector > );
 		useUserPreferencesMock.mockReturnValue( {
 			data: {
 				editor: 'zed',
@@ -918,30 +934,7 @@ describe( 'SiteList', () => {
 		expect( screen.getByText( 'Open in Terminal' ) ).toBeInTheDocument();
 
 		fireEvent.click( editorItem );
-		expect( openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
-	} );
-
-	it( 'hides the editor and terminal actions when unset', async () => {
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: null,
-				terminal: null,
-				colorScheme: 'system',
-				locale: undefined,
-				analyticsEnabled: true,
-				defaultSiteDirectory: '',
-				studioCliInstalled: false,
-				studioCliExternallyManaged: false,
-				agenticFeaturesEnabled: true,
-			},
-		} );
-
-		render( <SiteList /> );
-
-		fireEvent.contextMenu( screen.getByText( 'Stopped Site' ) );
-
-		await screen.findByText( 'Open folder' );
-		expect( screen.queryByText( /Open in / ) ).not.toBeInTheDocument();
+		expect( useConnectorMock().openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
 	} );
 } );
 

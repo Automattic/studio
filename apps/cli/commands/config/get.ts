@@ -2,6 +2,7 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
@@ -43,6 +44,8 @@ function getConfigEntries( site: SiteData ): ConfigEntry[] {
 		{ key: 'admin-email', value: site.adminEmail },
 		{ key: 'debug-log', value: site.enableDebugLog ?? false },
 		{ key: 'debug-display', value: site.enableDebugDisplay ?? false },
+		{ key: 'script-debug', value: site.enableScriptDebug ?? false },
+		{ key: 'environment-type', value: getWpEnvironmentType( site ) },
 	];
 }
 

@@ -1,5 +1,6 @@
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteMode } from '@studio/common/lib/site-runtime';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 
 /** Options accepted by the CLI `site set` command. */
 export interface EditSiteOptions {
@@ -18,6 +19,8 @@ export interface EditSiteOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+	scriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 }
 
 /**
@@ -65,6 +68,12 @@ export function buildSiteSetArgs( options: EditSiteOptions ): string[] {
 	}
 	if ( options.debugDisplay !== undefined ) {
 		args.push( options.debugDisplay ? '--debug-display' : '--no-debug-display' );
+	}
+	if ( options.scriptDebug !== undefined ) {
+		args.push( options.scriptDebug ? '--script-debug' : '--no-script-debug' );
+	}
+	if ( options.environmentType !== undefined ) {
+		args.push( '--environment-type', options.environmentType );
 	}
 
 	return args;

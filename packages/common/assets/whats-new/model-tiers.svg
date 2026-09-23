@@ -1,0 +1,57 @@
+<svg width="360" height="195" viewBox="0 0 560 384" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="560" height="384" fill="black"/>
+<rect opacity="0.3" width="560" height="384" fill="url(#model_tiers_dot_grid)"/>
+<defs>
+<pattern id="model_tiers_dot_grid" width="28" height="28" patternUnits="userSpaceOnUse">
+<rect x="26" y="25" width="3" height="3" rx="1.5" fill="white"/>
+</pattern>
+<linearGradient id="model_tiers_accent" x1="150" y1="150" x2="240" y2="270" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3858E9"/>
+<stop offset="1" stop-color="#069E08"/>
+</linearGradient>
+<filter id="model_tiers_glow" x="-30%" y="-40%" width="160%" height="180%">
+<feGaussianBlur stdDeviation="9"/>
+</filter>
+</defs>
+
+<!-- Model picker menu, open, with the three capability tiers. -->
+<g transform="translate(140 68)">
+<rect x="-6" y="-6" width="292" height="248" rx="22" fill="#3858E9" opacity="0.13" filter="url(#model_tiers_glow)"/>
+<rect x="0" y="0" width="280" height="236" rx="16" fill="#1A1A1A"/>
+<rect x="0.6" y="0.6" width="278.8" height="234.8" rx="15.4" stroke="white" stroke-opacity="0.16" stroke-width="1.2"/>
+
+<text x="22" y="34" fill="#8C8C8C" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" letter-spacing="0.06em">MODEL</text>
+
+<!-- Fast — selected. -->
+<rect x="12" y="50" width="256" height="52" rx="11" fill="white" fill-opacity="0.05"/>
+<rect x="12.7" y="50.7" width="254.6" height="50.6" rx="10.3" stroke="url(#model_tiers_accent)" stroke-width="1.4"/>
+<text x="30" y="74" fill="white" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="500">Fast</text>
+<text x="30" y="91" fill="#8C8C8C" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11.5">Everyday changes</text>
+<path d="M232 74.5l5.6 5.6 11-11.6" stroke="url(#model_tiers_accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<g opacity="0.9">
+<rect x="228" y="88" width="7" height="5" rx="2.5" fill="url(#model_tiers_accent)"/>
+<rect x="238" y="88" width="7" height="5" rx="2.5" fill="white" fill-opacity="0.18"/>
+<rect x="248" y="88" width="7" height="5" rx="2.5" fill="white" fill-opacity="0.18"/>
+</g>
+
+<!-- Balanced. -->
+<rect x="12" y="110" width="256" height="52" rx="11" fill="white" fill-opacity="0.02"/>
+<text x="30" y="134" fill="#DBDBDB" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="500">Balanced</text>
+<text x="30" y="151" fill="#6E6E6E" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11.5">Bigger builds</text>
+<g opacity="0.75">
+<rect x="228" y="148" width="7" height="5" rx="2.5" fill="#DBDBDB"/>
+<rect x="238" y="148" width="7" height="5" rx="2.5" fill="#DBDBDB"/>
+<rect x="248" y="148" width="7" height="5" rx="2.5" fill="white" fill-opacity="0.18"/>
+</g>
+
+<!-- Strong. -->
+<rect x="12" y="170" width="256" height="52" rx="11" fill="white" fill-opacity="0.02"/>
+<text x="30" y="194" fill="#DBDBDB" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="500">Strong</text>
+<text x="30" y="211" fill="#6E6E6E" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11.5">The hardest work</text>
+<g opacity="0.75">
+<rect x="228" y="208" width="7" height="5" rx="2.5" fill="#DBDBDB"/>
+<rect x="238" y="208" width="7" height="5" rx="2.5" fill="#DBDBDB"/>
+<rect x="248" y="208" width="7" height="5" rx="2.5" fill="#DBDBDB"/>
+</g>
+</g>
+</svg>

@@ -16,7 +16,7 @@ const STORAGE_PARTS = [
 	{ key: 'other', label: __( 'Other' ), className: styles.storageOther },
 ] as const;
 
-export function formatBytes( bytes: number ): string {
+function formatBytes( bytes: number ): string {
 	if ( bytes === 0 ) {
 		return '0 MB';
 	}

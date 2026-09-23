@@ -44,6 +44,7 @@ import {
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	installSkillToSite,
@@ -96,6 +97,7 @@ import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
@@ -419,6 +421,7 @@ export async function continueAiSession(
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
+		visualAnnotations?: unknown;
 	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
@@ -428,12 +431,14 @@ export async function continueAiSession(
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
+	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
 		images,
 		files,
+		visualAnnotations,
 		webContents: event.sender,
 	} );
 }
@@ -1010,6 +1015,14 @@ export async function updateSite(
 
 	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
 		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
+	}
+
+	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
+		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
+	}
+
+	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
+		options.environmentType = getWpEnvironmentType( updatedSite );
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;
@@ -2600,8 +2613,9 @@ async function sendDebuggerCommand< T >(
 // Simulates a viewport for the preview webview via the CDP device-metrics
 // override that DevTools device mode is built on: the guest lays out at
 // `width`×`height` CSS px and Chromium scales the rendered result by `scale`
-// to fit the webview, remapping input coordinates to match. `null` returns
-// the guest to the webview's natural size.
+// (down to fit the webview, or up for a zoomed preview), remapping input
+// coordinates to match. `null` returns the guest to the webview's natural
+// size.
 export async function setWebviewViewport(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
@@ -2616,8 +2630,9 @@ export async function setWebviewViewport(
 	const { width, height, scale, mobile } = viewport;
 	const isValidDimension = ( value: number ) =>
 		Number.isInteger( value ) && value > 0 && value <= 10000;
+	// Capped at Chromium's own zoom ceiling.
 	const isValidScale =
-		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 5;
 	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
 		throw new Error( 'Unsupported webview viewport.' );
 	}

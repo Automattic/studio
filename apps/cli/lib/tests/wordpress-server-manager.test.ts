@@ -246,7 +246,7 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should leave the SQLite journal mode alone when starting native PHP', async () => {
+		it( 'should convert the SQLite database out of WAL mode before starting native PHP', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer(
@@ -254,7 +254,9 @@ describe( 'WordPress Server Manager', () => {
 				mockLogger
 			);
 
-			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
+				mockSiteData.path
+			);
 		} );
 
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {

@@ -26,5 +26,6 @@ export const startSiteTool = defineTool(
 				`Failed to start site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ promptSnippet: 'Start a stopped site' }
 );

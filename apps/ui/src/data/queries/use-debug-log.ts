@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const debugLogExistsQueryKey = ( siteId: string ) => [ 'debug-log-exists', siteId ] as const;
+const debugLogExistsQueryKey = ( siteId: string ) => [ 'debug-log-exists', siteId ] as const;
 
 /**
  * Whether the site has a `wp-content/debug.log` yet. WordPress writes it lazily

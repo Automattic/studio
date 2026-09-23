@@ -33,6 +33,7 @@ import {
 	useSiteOperation,
 	useStartSite,
 } from '@/data/queries/use-sites';
+import { useAppZoomFactor } from '@/hooks/use-app-zoom-factor';
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -63,7 +64,6 @@ import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
 import type { CSSProperties } from 'react';
 
-export type { Annotation } from './types';
 export { getPathFromPreviewUrl } from './address-bar';
 
 interface SitePreviewProps {
@@ -194,6 +194,13 @@ const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
 // the side-by-side comparison of the desktop and mobile presets.
 type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
 
+// How large the natural (fit-to-pane) view renders its page, in device px
+// per page CSS px — browser zoom, for the preview alone. Simulated presets
+// always fit the pane, so it doesn't apply to them.
+export type PreviewZoom = number;
+
+export const PREVIEW_ZOOM_LEVELS = [ 0.5, 0.75, 1, 1.25, 1.5, 2 ] as const;
+
 // The split view reuses the desktop and mobile presets for its two panes.
 const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
 const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
@@ -237,7 +244,7 @@ const PREVIEW_PANE_PADDING = 16;
 // and its rendering is scaled by `scale` to fit the preview pane. `mobile`
 // makes the emulation report a mobile device, so meta-viewport handling and
 // responsive behavior match a real phone.
-export interface PreviewViewport {
+interface PreviewViewport {
 	width: number;
 	height: number;
 	scale: number;
@@ -248,10 +255,15 @@ export interface PreviewViewport {
  * The viewport to simulate for a preset inside a pane of the given size:
  * the preset's exact dimensions, scaled down (never up) to fit both axes,
  * like a device frame.
+ *
+ * The pane is measured in the host document's CSS px, which the app's zoom
+ * scales; the preset is in device px, which it doesn't. `zoomFactor` converts
+ * the pane so a preset keeps its real size whatever the UI is scaled to.
  */
 export function getSimulatedViewport(
 	preset: { width: number; height: number; mobile?: boolean } | null,
-	pane: { width: number; height: number } | null
+	pane: { width: number; height: number } | null,
+	zoomFactor = 1
 ): PreviewViewport | null {
 	if ( ! preset || ! pane || pane.width <= 0 || pane.height <= 0 ) {
 		return null;
@@ -259,8 +271,46 @@ export function getSimulatedViewport(
 	return {
 		width: preset.width,
 		height: preset.height,
-		scale: Math.min( 1, pane.width / preset.width, pane.height / preset.height ),
+		scale: Math.min(
+			1,
+			( pane.width * zoomFactor ) / preset.width,
+			( pane.height * zoomFactor ) / preset.height
+		),
 		mobile: Boolean( preset.mobile ),
+	};
+}
+
+/**
+ * The viewport to simulate for the natural (fit-to-pane) view at a zoom
+ * other than 100%: the page lays out at the pane's device size divided by
+ * the zoom and renders back up to fill it — browser zoom in emulation terms,
+ * which keeps the guest itself at 1:1. Null at 100%, where the pane shows as is.
+ */
+export function getZoomedPaneViewport(
+	pane: { width: number; height: number } | null,
+	zoomFactor: number,
+	zoom: PreviewZoom
+): PreviewViewport | null {
+	if ( zoom === 1 || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+		return null;
+	}
+	return {
+		width: Math.max( 1, Math.round( ( pane.width * zoomFactor ) / zoom ) ),
+		height: Math.max( 1, Math.round( ( pane.height * zoomFactor ) / zoom ) ),
+		scale: zoom,
+		mobile: false,
+	};
+}
+
+// The box a simulated viewport occupies in the host document, in its CSS px:
+// the scaled device size, brought back through the app's zoom.
+export function getFrameSize(
+	viewport: PreviewViewport,
+	zoomFactor = 1
+): { width: number; height: number } {
+	return {
+		width: ( viewport.width * viewport.scale ) / zoomFactor,
+		height: ( viewport.height * viewport.scale ) / zoomFactor,
 	};
 }
 
@@ -421,29 +471,35 @@ function createPreviewSurface( path: string, reloadNonce: number ): PreviewSurfa
 
 // Sizing for the frame around a surface: the preset's exact scaled box (the
 // emulation paints it edge to edge), or nothing when the surface fills its layer.
-function getFrameStyle( viewport: PreviewViewport | null ): CSSProperties | undefined {
+function getFrameStyle(
+	viewport: PreviewViewport | null,
+	zoomFactor: number
+): CSSProperties | undefined {
 	if ( ! viewport ) {
 		return undefined;
 	}
-	return {
-		flex: '0 0 auto',
-		width: viewport.width * viewport.scale,
-		height: viewport.height * viewport.scale,
-	};
+	return { flex: '0 0 auto', ...getFrameSize( viewport, zoomFactor ) };
 }
 
 // The iframe fallback has no device emulation, so scaling is a CSS transform
 // instead: lay out at full size, scale down to fit; the frame clips the
 // transform's leftover layout box.
-function getIframeStyle( viewport: PreviewViewport | null ): CSSProperties | undefined {
-	if ( ! viewport || viewport.scale === 1 ) {
+function getIframeStyle(
+	viewport: PreviewViewport | null,
+	zoomFactor: number
+): CSSProperties | undefined {
+	if ( ! viewport ) {
+		return undefined;
+	}
+	const scale = viewport.scale / zoomFactor;
+	if ( scale === 1 ) {
 		return undefined;
 	}
 	return {
 		flex: '0 0 auto',
 		width: viewport.width,
 		height: viewport.height,
-		transform: `scale(${ viewport.scale })`,
+		transform: `scale(${ scale })`,
 		transformOrigin: 'top left',
 	};
 }
@@ -595,6 +651,8 @@ function PreviewResponsiveControls( {
 	viewportControlsDisabled,
 	mobileOrientation,
 	onMobileOrientationChange,
+	previewZoom,
+	onPreviewZoomChange,
 }: {
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
@@ -603,6 +661,8 @@ function PreviewResponsiveControls( {
 	viewportControlsDisabled: boolean;
 	mobileOrientation: MobileOrientation;
 	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
+	previewZoom: PreviewZoom;
+	onPreviewZoomChange: ( zoom: PreviewZoom ) => void;
 } ) {
 	const viewportLabels: Record< ViewportMode, string > = {
 		fit: __( 'Responsive' ),
@@ -712,6 +772,32 @@ function PreviewResponsiveControls( {
 						</Menu.Item>
 					</Menu.Group>
 				</Menu.Group>
+				{ viewportMode === 'fit' ? (
+					// Zoom belongs to the natural view alone: a preset is already a
+					// device frame scaled to fit, so it takes the group's place in
+					// the menu, the way the phone frame brings its orientation.
+					<>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Zoom' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ String( previewZoom ) }
+								onValueChange={ ( next ) => onPreviewZoomChange( Number( next ) ) }
+								disabled={ viewportControlsDisabled }
+							>
+								{ PREVIEW_ZOOM_LEVELS.map( ( level ) => (
+									<Menu.RadioItem key={ level } value={ String( level ) }>
+										{ sprintf(
+											/* translators: %d: zoom level as a percentage */
+											__( '%d%%' ),
+											level * 100
+										) }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Group>
+					</>
+				) : null }
 				{ viewportMode === 'mobile' || viewportMode === 'split' ? (
 					<>
 						<Menu.Separator />
@@ -1060,6 +1146,7 @@ export function SitePreview( {
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
 	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	const [ previewZoom, setPreviewZoom ] = useState< PreviewZoom >( 1 );
 	const [ annotationCancelRequestId, setAnnotationCancelRequestId ] = useState( 0 );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
@@ -1070,6 +1157,9 @@ export function SitePreview( {
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
+	// The app's zoom scales the host document's CSS px but not the device
+	// sizes the presets simulate, so the pane math converts between the two.
+	const zoomFactor = useAppZoomFactor();
 	// Presets are module constants, so this stays referentially stable per
 	// mode + orientation.
 	const activePreset = getActivePreset( viewportMode, mobileOrientation );
@@ -1094,11 +1184,18 @@ export function SitePreview( {
 			return null;
 		}
 		const preset = getMobilePreset( mobileOrientation );
-		return getSimulatedViewport( preset, {
-			width: Math.max( 160, Math.min( preset.width, Math.round( simulatedPaneSize.width / 2 ) ) ),
-			height: Math.max( 120, simulatedPaneSize.height - PREVIEW_PANE_PADDING * 2 ),
-		} );
-	}, [ mobileOrientation, simulatedPaneSize, splitPreview ] );
+		return getSimulatedViewport(
+			preset,
+			{
+				width: Math.max(
+					160,
+					Math.min( preset.width / zoomFactor, Math.round( simulatedPaneSize.width / 2 ) )
+				),
+				height: Math.max( 120, simulatedPaneSize.height - PREVIEW_PANE_PADDING * 2 ),
+			},
+			zoomFactor
+		);
+	}, [ mobileOrientation, simulatedPaneSize, splitPreview, zoomFactor ] );
 	// In split mode the desktop simulation fits the space left beside the
 	// rendered mobile frame, including its pane padding. This keeps the page
 	// at the desktop breakpoint even when the comparison itself is narrow.
@@ -1107,19 +1204,26 @@ export function SitePreview( {
 			return simulatedPaneSize;
 		}
 		const mobilePaneWidth =
-			splitMobileViewport.width * splitMobileViewport.scale + PREVIEW_PANE_PADDING * 2;
+			getFrameSize( splitMobileViewport, zoomFactor ).width + PREVIEW_PANE_PADDING * 2;
 		return {
 			width: Math.max( 1, simulatedPaneSize.width - mobilePaneWidth ),
 			height: simulatedPaneSize.height,
 		};
-	}, [ simulatedPaneSize, splitMobileViewport, splitPreview ] );
+	}, [ simulatedPaneSize, splitMobileViewport, splitPreview, zoomFactor ] );
 	// The viewport a responsive surface simulates. No emulation while the site
 	// is stopped: the empty state renders in the plain pane, and the chosen mode
 	// re-applies on start.
-	const previewViewport = useMemo(
-		() => ( canPreview ? getSimulatedViewport( activePreset, primaryPaneSize ) : null ),
-		[ activePreset, canPreview, primaryPaneSize ]
-	);
+	// A preset fits the pane; only the natural view carries the zoom, which
+	// waits for the preview to return to it.
+	const previewViewport = useMemo( () => {
+		if ( ! canPreview ) {
+			return null;
+		}
+		if ( activePreset ) {
+			return getSimulatedViewport( activePreset, primaryPaneSize, zoomFactor );
+		}
+		return getZoomedPaneViewport( paneSize, zoomFactor, previewZoom );
+	}, [ activePreset, canPreview, paneSize, previewZoom, primaryPaneSize, zoomFactor ] );
 
 	const patchSurface = useCallback(
 		( key: PreviewSurfaceKey, patch: Partial< PreviewSurfaceState > ) => {
@@ -1299,7 +1403,7 @@ export function SitePreview( {
 	// Per-site viewport memory (session-lived, like the parent's per-site
 	// path memory): returning to a site restores its last responsive mode.
 	const viewportBySiteRef = useRef<
-		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation } >
+		Record< string, { mode?: ViewportMode; orientation?: MobileOrientation; zoom?: PreviewZoom } >
 	>( {} );
 	const handleViewportModeChange = useCallback(
 		( mode: ViewportMode ) => {
@@ -1318,11 +1422,19 @@ export function SitePreview( {
 		},
 		[ site.id ]
 	);
+	const handlePreviewZoomChange = useCallback(
+		( zoom: PreviewZoom ) => {
+			setPreviewZoom( zoom );
+			viewportBySiteRef.current[ site.id ] = { ...viewportBySiteRef.current[ site.id ], zoom };
+		},
+		[ site.id ]
+	);
 
 	useEffect( () => {
 		const remembered = viewportBySiteRef.current[ site.id ];
 		setViewportMode( remembered?.mode ?? 'fit' );
 		setMobileOrientation( remembered?.orientation ?? 'portrait' );
+		setPreviewZoom( remembered?.zoom ?? 1 );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to
@@ -1490,6 +1602,8 @@ export function SitePreview( {
 							viewportControlsDisabled={ ! isResponsiveSurface( activeSurfaceKey ) }
 							mobileOrientation={ mobileOrientation }
 							onMobileOrientationChange={ handleMobileOrientationChange }
+							previewZoom={ previewZoom }
+							onPreviewZoomChange={ handlePreviewZoomChange }
 						/>
 					) : null }
 					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
@@ -1541,18 +1655,21 @@ export function SitePreview( {
 							}
 							const active = key === activeSurfaceKey;
 							const viewport = isResponsiveSurface( key ) ? previewViewport : null;
+							// The natural view zoomed still fills its layer; only a preset
+							// gets the floating device frame.
+							const frame = activePreset ? viewport : null;
 							const surfaceUrl = `${ siteUrl }${ surface.path }`;
 							return (
 								<div
 									key={ key }
 									className={ clsx(
 										styles.realmLayer,
-										viewport && styles.realmLayerSimulated,
+										frame && styles.realmLayerSimulated,
 										! active && styles.realmLayerHidden
 									) }
 									inert={ active ? undefined : true }
 								>
-									{ viewport ? (
+									{ frame ? (
 										<div className={ styles.viewportGrid } aria-hidden="true">
 											<DotGrid
 												spacing={ 32 }
@@ -1564,8 +1681,8 @@ export function SitePreview( {
 										</div>
 									) : null }
 									<div
-										className={ clsx( styles.surfaceFrame, viewport && styles.deviceFrame ) }
-										style={ getFrameStyle( viewport ) }
+										className={ clsx( styles.surfaceFrame, frame && styles.deviceFrame ) }
+										style={ getFrameStyle( frame, zoomFactor ) }
 									>
 										{ canUseWebview ? (
 											<WebviewSurface
@@ -1597,7 +1714,7 @@ export function SitePreview( {
 													surface.browserCommand?.type === 'reload' ? surface.browserCommand.id : 0
 												}` }
 												className={ styles.iframe }
-												style={ getIframeStyle( viewport ) }
+												style={ getIframeStyle( viewport, zoomFactor ) }
 												src={ surfaceUrl }
 												title={ site.name }
 												onLoad={ ( event ) => {
@@ -1622,11 +1739,7 @@ export function SitePreview( {
 										<div className={ styles.splitMobilePane }>
 											<div
 												className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
-												style={ {
-													flex: '0 0 auto',
-													width: splitMobileViewport.width * splitMobileViewport.scale,
-													height: splitMobileViewport.height * splitMobileViewport.scale,
-												} }
+												style={ getFrameStyle( splitMobileViewport, zoomFactor ) }
 											>
 												{ canUseWebview ? (
 													<WebviewSurface
@@ -1646,7 +1759,7 @@ export function SitePreview( {
 													<iframe
 														key={ `${ surfaceUrl }#${ surface.reloadNonce }` }
 														className={ styles.iframe }
-														style={ getIframeStyle( splitMobileViewport ) }
+														style={ getIframeStyle( splitMobileViewport, zoomFactor ) }
 														src={ surfaceUrl }
 														title={ sprintf(
 															/* translators: %s: site name */

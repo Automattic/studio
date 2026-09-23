@@ -39,9 +39,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 2px dashed var(--wpds-color-stroke-interactive-brand, #3858e9);
-	background: var(--wpds-color-background-surface-neutral-strong, #fff);
-	color: var(--wpds-color-foreground-content-neutral, #1e1e1e);
+	border: 2px dashed var(--wpds-color-stroke-interactive-brand);
+	background: var(--wpds-color-background-surface-neutral-strong);
+	color: var(--wpds-color-foreground-content-neutral);
 	font-size: 1.25rem;
 	font-weight: 600;
 	pointer-events: none;

@@ -7,13 +7,19 @@ import { startLocalServer, type LocalServer } from '../index';
 let server: LocalServer;
 let configDir: string;
 let sessionsRoot: string;
+let siteRoot: string;
 let outsideDir: string;
 
 beforeEach( async () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-media-config-' ) );
 	sessionsRoot = mkdtempSync( path.join( os.tmpdir(), 'studio-media-sessions-' ) );
+	siteRoot = mkdtempSync( path.join( os.tmpdir(), 'studio-media-site-' ) );
 	outsideDir = mkdtempSync( path.join( os.tmpdir(), 'studio-media-outside-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
+	writeFileSync(
+		path.join( configDir, 'cli.json' ),
+		JSON.stringify( { sites: [ { id: 'site', path: siteRoot } ] } )
+	);
 	server = await startLocalServer( {
 		cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),
 		sessionsRoot,
@@ -25,7 +31,7 @@ beforeEach( async () => {
 afterEach( async () => {
 	await server.close();
 	delete process.env.DEV_CONFIG_DIR;
-	for ( const dir of [ configDir, sessionsRoot, outsideDir ] ) {
+	for ( const dir of [ configDir, sessionsRoot, siteRoot, outsideDir ] ) {
 		rmSync( dir, { recursive: true, force: true } );
 	}
 } );
@@ -49,17 +55,39 @@ describe( 'GET /api/media/read', () => {
 		);
 	} );
 
-	it( 'refuses anything but raster images under the sessions root, symlinks resolved', async () => {
+	it( 'serves a generated image inside a registered site', async () => {
+		const uploads = path.join( siteRoot, 'wp-content', 'uploads', '2026', '09' );
+		mkdirSync( uploads, { recursive: true } );
+		const image = path.join( uploads, 'hero.jpg' );
+		writeFileSync( image, Buffer.from( [ 0xff, 0xd8, 0xff ] ) );
+
+		const response = await read( image );
+
+		expect( response.status ).toBe( 200 );
+		expect( response.headers.get( 'content-type' ) ).toBe( 'image/jpeg' );
+		expect( Buffer.from( await response.arrayBuffer() ) ).toEqual(
+			Buffer.from( [ 0xff, 0xd8, 0xff ] )
+		);
+	} );
+
+	it( 'refuses anything but raster images under the sessions root or a site, symlinks resolved', async () => {
 		const secret = path.join( outsideDir, 'secret.png' );
 		writeFileSync( secret, 'nope' );
-		const link = path.join( sessionsRoot, 'link.png' );
-		symlinkSync( secret, link );
+		const sessionLink = path.join( sessionsRoot, 'link.png' );
+		symlinkSync( secret, sessionLink );
+		const siteLink = path.join( siteRoot, 'wp-content', 'uploads', 'link.png' );
+		mkdirSync( path.dirname( siteLink ), { recursive: true } );
+		symlinkSync( secret, siteLink );
 
-		expect( ( await read( secret ) ).status ).toBe( 404 );
-		expect( ( await read( link ) ).status ).toBe( 404 );
-		expect(
-			( await read( path.join( sessionsRoot, '..', path.basename( outsideDir ), 'secret.png' ) ) )
-				.status
-		).toBe( 404 );
+		expect( ( await read( path.join( siteRoot, 'wp-config.php' ) ) ).status ).toBe( 400 );
+		for ( const requested of [
+			secret,
+			sessionLink,
+			siteLink,
+			[ sessionsRoot, '..', path.basename( outsideDir ), 'secret.png' ].join( path.sep ),
+			[ siteRoot, '..', path.basename( outsideDir ), 'secret.png' ].join( path.sep ),
+		] ) {
+			expect( ( await read( requested ) ).status, requested ).toBe( 404 );
+		}
 	} );
 } );

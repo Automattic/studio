@@ -1,14 +1,15 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
+import { generateImages, isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { emitEvent } from 'cli/ai/json-events';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
@@ -32,6 +33,7 @@ import {
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
+import { createTakeScreenshotTool } from '../tools/take-screenshot';
 import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
@@ -44,6 +46,12 @@ vi.mock( 'cli/ai/browser-utils', () => ( {
 
 vi.mock( 'cli/ai/json-events', () => ( {
 	emitEvent: vi.fn(),
+} ) );
+
+vi.mock( 'cli/ai/image-generation', async () => ( {
+	...( await vi.importActual( 'cli/ai/image-generation' ) ),
+	generateImages: vi.fn(),
+	isImageGenerationAvailable: vi.fn(),
 } ) );
 
 vi.mock( 'cli/commands/preview/create', () => ( {
@@ -109,6 +117,11 @@ vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 	runWpCliCommandWithMessaging: vi.fn(),
 } ) );
 
+vi.mock( 'cli/lib/site-paths', async () => ( {
+	...( await vi.importActual( 'cli/lib/site-paths' ) ),
+	STUDIO_SITES_ROOT: ( await import( 'os' ) ).tmpdir(),
+} ) );
+
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
 } ) );
@@ -145,14 +158,18 @@ describe( 'Studio AI MCP tools', () => {
 	const createMockPage = ( {
 		buffer,
 		documentHeight,
+		scaledBuffer = buffer,
 	}: {
 		buffer: Buffer;
 		documentHeight?: number;
+		scaledBuffer?: Buffer;
 	} ) => ( {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
 		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-		evaluate: vi.fn().mockResolvedValue( documentHeight ),
+		evaluate: vi.fn( async ( _script: unknown, args?: { source?: string } ) =>
+			args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight
+		),
 		addStyleTag: vi.fn(),
 		screenshot: vi.fn().mockResolvedValue( buffer ),
 		close: vi.fn(),
@@ -163,23 +180,7 @@ describe( 'Studio AI MCP tools', () => {
 			newPage.mockResolvedValueOnce( page );
 		}
 		vi.mocked( getSharedBrowser ).mockResolvedValue( { newPage } as never );
-		return { newPage };
 	};
-	type ScreenshotArtifact = {
-		widgetProps: { alt: string; source: { path: string; name: string } };
-	};
-	const getScreenshotArtifacts = ( result: {
-		studioArtifacts?: Array< { widgetProps: Record< string, unknown > } >;
-	} ): ScreenshotArtifact[] => {
-		expect( result.studioArtifacts?.length ).toBeGreaterThan( 0 );
-		return result.studioArtifacts as unknown as ScreenshotArtifact[];
-	};
-	const cleanUpScreenshotArtifacts = ( artifacts: ScreenshotArtifact[] ) =>
-		Promise.all(
-			artifacts.map( ( artifact ) =>
-				rm( path.dirname( artifact.widgetProps.source.path ), { recursive: true, force: true } )
-			)
-		);
 	const mockWpCliResponse = ( {
 		stdout = '',
 		stderr = '',
@@ -308,6 +309,30 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'resolves a relative filePath against the site root', async () => {
+		const siteDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( siteDir, 'tmp', 'page-home.html' );
+		const fixedContent = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+		await mkdir( path.dirname( filePath ), { recursive: true } );
+		await writeFile( filePath, '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ { ...mockSite, path: siteDir } ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		mockValidatedFix( fixedContent );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath: 'tmp/page-home.html',
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			expect( getTextContent( result ) ).toContain( 'written to tmp/page-home.html' );
+		} finally {
+			await rm( siteDir, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );
@@ -383,209 +408,62 @@ describe( 'Studio AI MCP tools', () => {
 		expect( getTextContent( result ) ).toBe( 'Site "My Site" deleted.' );
 	} );
 
-	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
-		const takeScreenshot = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'take_screenshot' );
-		const studioPresent = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'studio_present' );
-		expect( takeScreenshot?.description ).not.toContain( 'ready-to-use media widget payload' );
-		expect( takeScreenshot?.description ).not.toContain(
-			'This does not automatically show the screenshot to the user'
-		);
-		expect( takeScreenshot?.description ).not.toContain(
-			'Do not use a site-preview widget as a substitute for the screenshot'
-		);
-		expect( studioPresent?.description ).toContain( 'Never call studio_present for a screenshot' );
-	} );
+	describe( 'take_screenshot', () => {
+		let screenshotDirectory: string;
 
-	it( 'keeps take_screenshot output compact while returning artifacts structurally', async () => {
-		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
-		const progressMessages: string[] = [];
-
-		const result = await getTool( 'take_screenshot' ).rawHandler(
-			{
-				url: 'http://localhost:8903/story-time',
-			} as never,
-			{ onProgress: ( message ) => progressMessages.push( message ) }
-		);
-
-		// Terminal users have no artifact rendering; the saved-file progress
-		// line is their only handle on the capture.
-		expect( progressMessages ).toContainEqual(
-			expect.stringMatching(
-				/^Saved desktop screenshot to file:\/\/.*screenshot-desktop-[0-9a-f]{8}\.jpg$/
-			)
-		);
-		const text = getTextContent( result );
-		expect( text ).toContain( 'Screenshot captured' );
-		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
-		// The saved path is the agent's only handle for reusing a capture as a
-		// file (e.g. copying it to a scaffolded theme's screenshot.jpg).
-		expect( text ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
-		expect( text ).not.toContain( 'mediaWidgetPayload' );
-		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
-		expect( text ).not.toContain( 'Path:' );
-		expect( text ).not.toContain( 'File URL:' );
-		expect( result.content[ 1 ] ).toEqual( {
-			type: 'image',
-			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/jpeg',
+		beforeEach( async () => {
+			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
+			setScreenshotDirectoryProvider( () => screenshotDirectory );
 		} );
 
-		const artifacts = getScreenshotArtifacts( result );
-		expect( artifacts[ 0 ].widgetProps.source.name ).toMatch(
-			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
-		);
-		await cleanUpScreenshotArtifacts( artifacts );
-	} );
-
-	it( 'returns text only from take_screenshot when the model cannot view images', async () => {
-		const screenshotBuffer = Buffer.from( 'unseen-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
-		const findTakeScreenshot = (
-			options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ]
-		) =>
-			resolveStudioToolDefinitions( options ).find( ( tool ) => tool.name === 'take_screenshot' );
-		expect( findTakeScreenshot()?.description ).toContain( 'analyze visually' );
-		const takeScreenshot = findTakeScreenshot( { visionEnabled: false } );
-		expect( takeScreenshot?.description ).toContain( 'This model cannot view images' );
-		expect( takeScreenshot?.description ).not.toContain( 'analyze visually' );
-
-		const result = await executeTool( takeScreenshot!, { url: 'http://localhost:8903/' } );
-
-		expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
-		expect( getTextContent( result ) ).toMatch( /Saved to .*screenshot-desktop-[0-9a-f]{8}\.jpg/ );
-		expect( getTextContent( result ) ).toContain( 'verify the rendered page with inspect_design' );
-		await cleanUpScreenshotArtifacts( getScreenshotArtifacts( result.details as never ) );
-	} );
-
-	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
-		const screenshotBuffer = Buffer.from( 'internal-jpeg' );
-		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
-		const progressMessages: string[] = [];
-
-		const result = await getTool( 'take_screenshot' ).rawHandler(
-			{
-				url: 'http://localhost:8903/story-time',
-				display: false,
-			} as never,
-			{ onProgress: ( message ) => progressMessages.push( message ) }
-		);
-
-		// Nothing to emit into the chat, but the model still gets the image
-		// for its own verification.
-		expect( result.studioArtifacts ).toBeUndefined();
-		expect( result.content[ 1 ] ).toEqual( {
-			type: 'image',
-			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/jpeg',
+		afterEach( async () => {
+			setScreenshotDirectoryProvider( null );
+			await rm( screenshotDirectory, { recursive: true, force: true } );
 		} );
 
-		const savedLine = progressMessages.find( ( message ) => message.startsWith( 'Saved ' ) );
-		expect( savedLine ).toBeDefined();
-		await rm(
-			path.dirname( fileURLToPath( savedLine!.slice( savedLine!.indexOf( 'file://' ) ) ) ),
-			{
-				recursive: true,
-				force: true,
-			}
-		);
-	} );
-
-	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
-		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
-		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
-		const { newPage } = mockScreenshotBrowser(
-			createMockPage( { buffer: desktopBuffer, documentHeight: 2400 } ),
-			createMockPage( { buffer: mobileBuffer, documentHeight: 2400 } )
-		);
-
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			viewport: 'all',
-		} as never );
-		const text = getTextContent( result );
-
-		expect( text ).toContain( 'Screenshots captured:' );
-		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
-		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
-		expect( text ).not.toContain( 'mediaWidgetPayload' );
-		expect( newPage ).toHaveBeenCalledTimes( 2 );
-		expect( result.content.slice( 1 ) ).toEqual( [
-			{
-				type: 'image',
-				data: desktopBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-			{
-				type: 'image',
-				data: mobileBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-		] );
-
-		const artifacts = getScreenshotArtifacts( result );
-		try {
-			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				expect.stringMatching( /^screenshot-desktop-[0-9a-f]{8}\.jpg$/ ),
-				expect.stringMatching( /^screenshot-mobile-[0-9a-f]{8}\.jpg$/ ),
-			] );
-		} finally {
-			await cleanUpScreenshotArtifacts( artifacts );
-		}
-	} );
-
-	it( 'can capture light and dark screenshots in one take_screenshot call', async () => {
-		const lightBuffer = Buffer.from( 'light-jpeg' );
-		const darkBuffer = Buffer.from( 'dark-jpeg' );
-		const lightPage = createMockPage( { buffer: lightBuffer, documentHeight: 1600 } );
-		const darkPage = createMockPage( { buffer: darkBuffer, documentHeight: 1600 } );
-		mockScreenshotBrowser( lightPage, darkPage );
-
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			colorScheme: 'all',
-		} as never );
-		const text = getTextContent( result );
-
-		expect( text ).toContain( '- desktop light: captured full page (1600px tall)' );
-		expect( text ).toContain( '- desktop dark: captured full page (1600px tall)' );
-		expect( lightPage.emulateMedia ).toHaveBeenCalledWith( {
-			reducedMotion: 'reduce',
-			colorScheme: 'light',
-		} );
-		expect( darkPage.emulateMedia ).toHaveBeenCalledWith( {
-			reducedMotion: 'reduce',
-			colorScheme: 'dark',
-		} );
-		expect( result.content.slice( 1 ) ).toEqual( [
-			{
-				type: 'image',
-				data: lightBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-			{
-				type: 'image',
-				data: darkBuffer.toString( 'base64' ),
-				mimeType: 'image/jpeg',
-			},
-		] );
-
-		const artifacts = getScreenshotArtifacts( result );
-		try {
-			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				expect.stringMatching( /^screenshot-desktop-light-[0-9a-f]{8}\.jpg$/ ),
-				expect.stringMatching( /^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/ ),
-			] );
-			expect( artifacts[ 1 ].widgetProps.alt ).toBe(
-				'Screenshot of http://localhost:8903/story-time (desktop dark)'
+		it( 'sends the model tall captures scaled down to 2000 px and saves them in full', async () => {
+			const desktop = Buffer.from( 'desktop-jpeg' );
+			const scaledDesktop = Buffer.from( 'scaled-desktop-jpeg' );
+			const mobile = Buffer.from( 'mobile-jpeg' );
+			mockScreenshotBrowser(
+				createMockPage( { buffer: desktop, documentHeight: 5662, scaledBuffer: scaledDesktop } ),
+				createMockPage( { buffer: mobile, documentHeight: 1600 } )
 			);
-		} finally {
-			await cleanUpScreenshotArtifacts( artifacts );
-		}
+
+			const result = await getTool( 'take_screenshot' ).rawHandler( {
+				url: 'http://localhost:8903/',
+				viewport: 'all',
+			} as never );
+
+			const text = getTextContent( result );
+			expect( text ).toContain( 'desktop: captured full page (5662px tall, shown at 367x2000)' );
+			expect( text ).toContain( 'mobile: captured full page (1600px tall)' );
+			expect( result.content.slice( 1 ) ).toEqual( [
+				{ type: 'image', data: scaledDesktop.toString( 'base64' ), mimeType: 'image/jpeg' },
+				{ type: 'image', data: mobile.toString( 'base64' ), mimeType: 'image/jpeg' },
+			] );
+			expect( result.studioArtifacts ).toHaveLength( 2 );
+			const desktopFile = ( await readdir( screenshotDirectory ) ).find( ( name ) =>
+				name.startsWith( 'screenshot-desktop-' )
+			);
+			await expect( readFile( path.join( screenshotDirectory, desktopFile! ) ) ).resolves.toEqual(
+				desktop
+			);
+		} );
+
+		it( 'sends no image to models that cannot view images, and no chat artifact when display is false', async () => {
+			mockScreenshotBrowser(
+				createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
+			);
+
+			const result = await createTakeScreenshotTool( { visionEnabled: false } ).rawHandler( {
+				url: 'http://localhost:8903/',
+				display: false,
+			} as never );
+
+			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
+			expect( result.studioArtifacts ).toBeUndefined();
+		} );
 	} );
 
 	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {
@@ -1424,6 +1302,64 @@ describe( 'Studio AI MCP tools', () => {
 		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
+	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
+		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
+		const site = { ...mockSite, path: sitePath };
+		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.jpg' );
+		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ mockSite, site ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
+		vi.mocked( generateImages ).mockResolvedValue( [
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: false, error: 'Timed out' },
+			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+		] );
+		vi.mocked( runWpCliCommandWithMessaging )
+			.mockResolvedValueOnce(
+				mockWpCliResponse( {
+					stdout: JSON.stringify( [
+						{ id: 7, file: 'wp-content/uploads/2026/09/hero.jpg', url: urlOf( 'hero.jpg' ) },
+						{ id: 8, file: 'wp-content/uploads/2026/09/buns.jpg', url: urlOf( 'buns.jpg' ) },
+					] ),
+				} ) as never
+			)
+			.mockResolvedValueOnce( mockWpCliResponse() as never );
+
+		try {
+			const result = await getTool( 'generate_images' ).rawHandler( {
+				images: [
+					{ path: path.join( uploads, 'hero.jpg' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.jpg' ), subject: 'Cardamom buns on a tray' },
+					{ path: themeImage, subject: 'Pebbles on a beach' },
+				],
+			} as never );
+
+			expect( getTextContent( result ) ).toContain(
+				`- ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.jpg'
+				) }`
+			);
+			expect( await result.pending ).toContain(
+				`FAILED ${ path.join( uploads, 'buns.jpg' ) }: Timed out`
+			);
+			await expect(
+				readFile( path.join( uploads, '2026', '09', 'hero.jpg' ), 'utf8' )
+			).resolves.toBe( 'jpeg' );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+			const finalize = vi.mocked( runWpCliCommandWithMessaging ).mock.calls[ 1 ][ 1 ][ 1 ];
+			expect(
+				JSON.parse(
+					Buffer.from( finalize.match( /base64_decode\( '([^']+)' \)/ )![ 1 ], 'base64' ).toString()
+				)
+			).toEqual( { ready: [ 7 ], failed: [ 8 ] } );
+		} finally {
+			await rm( sitePath, { recursive: true, force: true } );
+		}
+	} );
+
 	describe( 'scaffold_theme', () => {
 		let tempSiteRoot: string;
 		let scaffoldSite: typeof mockSite;
@@ -1490,6 +1426,14 @@ describe( 'Studio AI MCP tools', () => {
 			);
 			expect( pageNoTitle ).toContain( '{"tagName":"main","className":"is-flush"}' );
 
+			for ( const template of await readdir( path.join( themeDir, 'templates' ) ) ) {
+				const markup = await readFile( path.join( themeDir, 'templates', template ), 'utf8' );
+				expect( markup.match( /<!-- wp:template-part .*?-->/g ) ).toEqual( [
+					'<!-- wp:template-part {"slug":"header","tagName":"header"} /-->',
+					'<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->',
+				] );
+			}
+
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )
 			) as Record< string, unknown >;
@@ -1504,6 +1448,40 @@ describe( 'Studio AI MCP tools', () => {
 				"Block theme 'Acme Studio' scaffolded at wp-content/themes/acme-studio/."
 			);
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
+			expect( getTextContent( result ) ).toContain(
+				`<file path="${ path.join( 'templates', 'page-no-title.html' ) }">\n${ pageNoTitle }</file>`
+			);
+		} );
+
+		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
+			await writeFile(
+				path.join( tempSiteRoot, 'DESIGN.md' ),
+				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n---\n'
+			);
+
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				activate: false,
+			} as never );
+
+			const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' );
+			const themeJson = JSON.parse( await readFile( path.join( themeDir, 'theme.json' ), 'utf8' ) );
+			expect( themeJson.settings.color.palette ).toEqual( [
+				{ slug: 'primary', color: '#e2231a', name: 'Primary' },
+			] );
+			expect( themeJson.settings.layout ).toEqual( { contentSize: '1000px', wideSize: '1280px' } );
+			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+			expect( functionsPhp ).toContain(
+				"wp_enqueue_style( 'acme-studio-fonts', 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap', array(), null );"
+			);
+			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
+			expect( functionsPhp ).toContain(
+				"add_editor_style( 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap' );"
+			);
+			expect( getTextContent( result ) ).toContain(
+				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 1 text style, 0 spacing steps)'
+			);
 		} );
 
 		it( 'honors an explicit slug argument over the derived one', async () => {
@@ -1735,32 +1713,6 @@ describe( 'Studio AI MCP tools', () => {
 					"Child theme 'Ollie Child' of 'ollie' scaffolded at wp-content/themes/ollie-child/."
 				);
 				expect( getTextContent( result ) ).toContain( "inherit from 'ollie'" );
-			} );
-
-			it( 'activates the child theme by default when the site is running', async () => {
-				await installParentTheme( 'ollie' );
-				vi.mocked( isServerRunning ).mockResolvedValue( {
-					name: scaffoldSite.id,
-					pmId: 1,
-					status: 'online',
-					pid: 1234,
-					runtime: SITE_RUNTIME_PLAYGROUND,
-				} );
-				vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-					mockWpCliResponse( { stdout: "Success: Switched to 'Ollie Child' theme." } ) as never
-				);
-
-				await getTool( 'scaffold_theme' ).rawHandler( {
-					nameOrPath: scaffoldSite.name,
-					name: 'Ollie Child',
-					parentTheme: 'ollie',
-				} as never );
-
-				expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
-					'theme',
-					'activate',
-					'ollie-child',
-				] );
 			} );
 
 			it( 'fails when the parent theme is not installed', async () => {

@@ -290,6 +290,24 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .submit { background: #7c3aed; color: #fff; }
 		.popup .submit:hover:not([disabled]) { background: #6d28d9; }
 		.popup .submit[disabled] { opacity: 0.4; cursor: default; }
+		.popup button[data-tooltip] { position: relative; }
+		.popup button[data-tooltip]::after {
+			position: absolute; z-index: 5; pointer-events: none;
+			visibility: hidden;
+		}
+		.popup button[data-tooltip]::after {
+			content: attr(data-tooltip); left: var(--tooltip-left, 0px); bottom: calc(100% + 4px);
+			width: max-content; max-width: min(320px, calc(100vw - 16px));
+			padding: 4px 8px; border: none; border-radius: 4px;
+			/* Match the reversed @wordpress/ui tooltip variables used by Studio
+			   in dark mode so the tooltip separates from this dark surface. */
+			background: #fff; color: #000;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 2px 3px rgba(0,0,0,0.04),
+				0 6px 6px rgba(0,0,0,0.03), 0 8px 8px rgba(0,0,0,0.02);
+			font-size: 12px; font-weight: 400; line-height: 1.4;
+			white-space: normal; text-align: start;
+		}
+		.popup button.tooltip-open::after { visibility: visible; }
 	` +
 	'`' +
 	String.raw`;
@@ -310,6 +328,64 @@ export const INSPECTOR_PAGE_SCRIPT =
 	let highlightNode = null;
 	let highlightEl = null;
 	let popupNode = null;
+	let tooltipTimer = 0;
+	let tooltipButton = null;
+	let tooltipWarmUntil = 0;
+
+	function hideTooltip() {
+		clearTimeout( tooltipTimer );
+		if ( tooltipButton ) {
+			if ( tooltipButton.classList.contains( 'tooltip-open' ) ) {
+				tooltipWarmUntil = Date.now() + 400;
+			}
+			tooltipButton.classList.remove( 'tooltip-open' );
+			tooltipButton = null;
+		}
+	}
+
+	function attachTooltip( button, text ) {
+		button.dataset.tooltip = text;
+		button.setAttribute( 'aria-description', text );
+		const open = ( immediate ) => {
+			hideTooltip();
+			if ( button.disabled ) return;
+			const measurement = document.createElement( 'span' );
+			measurement.textContent = text;
+			measurement.style.cssText =
+				'position:fixed;visibility:hidden;width:max-content;max-width:min(320px,calc(100vw - 16px));padding:4px 8px;font-size:12px;font-weight:400;line-height:1.4;';
+			root.appendChild( measurement );
+			const width = measurement.getBoundingClientRect().width;
+			measurement.remove();
+			const rect = button.getBoundingClientRect();
+			const left = Math.min(
+				Math.max( 8, rect.left + ( rect.width - width ) / 2 ),
+				window.innerWidth - width - 8
+			);
+			button.style.setProperty( '--tooltip-left', left - rect.left + 'px' );
+			tooltipButton = button;
+			const delay = immediate || Date.now() < tooltipWarmUntil ? 0 : 600;
+			if ( ! delay ) {
+				button.classList.add( 'tooltip-open' );
+			} else {
+				tooltipTimer = setTimeout( () => button.classList.add( 'tooltip-open' ), delay );
+			}
+		};
+		button.addEventListener( 'mouseenter', () => open( false ) );
+		button.addEventListener( 'mousemove', () => {
+			if ( ! button.classList.contains( 'tooltip-open' ) ) open( false );
+		} );
+		button.addEventListener( 'mouseleave', hideTooltip );
+		button.addEventListener( 'focus', () => {
+			if ( button.matches( ':focus-visible' ) ) open( true );
+		} );
+		button.addEventListener( 'blur', hideTooltip );
+		button.addEventListener( 'click', hideTooltip );
+		button.addEventListener( 'keydown', ( event ) => {
+			if ( event.key === 'Escape' ) hideTooltip();
+		} );
+	}
+	teardown.signal.addEventListener( 'abort', hideTooltip );
+
 	let scrollLock = null;
 
 	/* Lock page scrolling while a note is open so the highlight and popup
@@ -525,6 +601,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 	}
 
 	function showPopup() {
+		hideTooltip();
 		if ( popupNode ) {
 			popupNode.remove();
 			popupNode = null;
@@ -638,6 +715,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 			if ( command.type === 'report-state' ) {
 				sendState();
+				return;
 			}
 		},
 		{ signal: teardown.signal }
@@ -771,6 +849,9 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const save = document.createElement( 'button' );
 		save.className = 'save';
 		save.textContent = state.id ? 'Update' : 'Save';
+		if ( ! state.id ) {
+			attachTooltip( save, 'Save this note and keep annotating.' );
+		}
 		save.addEventListener( 'click', () => {
 			if ( ! commitActivePopup() ) return;
 			closePopup();
@@ -780,6 +861,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		const submit = document.createElement( 'button' );
 		submit.className = 'submit';
 		submit.textContent = 'Send to chat';
+		attachTooltip( submit, 'Send all notes to chat and finish annotating.' );
 		submit.addEventListener( 'click', submitAnnotations );
 		actions.appendChild( submit );
 

@@ -70,9 +70,12 @@ export function AiCreditsControl() {
 	} );
 	// Fetched with the composer so the priced amounts are cached before the
 	// menu opens and "Add AI credits" knows whether it has a choice to offer.
-	const { data: pricing } = useGetStudioAssistantTopUpPricing( undefined, {
-		skip: ! isAuthenticated,
-	} );
+	const { data: pricing } = useGetStudioAssistantTopUpPricing(
+		{ locale },
+		{
+			skip: ! isAuthenticated,
+		}
+	);
 
 	// The server includes the per-pool balances only when AI credits are
 	// enabled for the account (STU-2235); without them the composer keeps its

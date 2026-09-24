@@ -3,6 +3,7 @@ import http from 'http';
 import os from 'os';
 import nodePath from 'path';
 import nock from 'nock';
+import { vi } from 'vitest';
 import {
 	isInErrorRecovery,
 	isPhpUserError,
@@ -41,6 +42,14 @@ function httpGet( port: number ): Promise< { status?: number; body: string } > {
 			} )
 			.on( 'error', reject );
 	} );
+}
+
+function activeHandleNames(): string[] {
+	return ( process as unknown as { _getActiveHandles: () => unknown[] } )
+		._getActiveHandles()
+		.map(
+			( handle ) => ( handle as { constructor?: { name?: string } } )?.constructor?.name ?? ''
+		);
 }
 
 describe( 'isPhpUserError', () => {
@@ -103,6 +112,51 @@ describe( 'parsePhpError', () => {
 	test( 'falls back to a generic message when nothing matches', () => {
 		expect( parsePhpError( 'nothing useful here' ) ).toBe( 'PHP error during startup' );
 	} );
+} );
+
+describe( 'error recovery watcher', () => {
+	test( 'watches without holding file descriptors, and still detects a nested PHP change', async () => {
+		const port = await getFreePort();
+		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-watch-' ) );
+		// Plugin PHP sits several levels down, so the watcher has to recurse to reach it.
+		const pluginDir = nodePath.join( dir, 'wp-content', 'plugins', 'example' );
+		fs.mkdirSync( pluginDir, { recursive: true } );
+		const pluginFile = nodePath.join( pluginDir, 'example.php' );
+		fs.writeFileSync( pluginFile, '<?php // broken' );
+
+		let startCalls = 0;
+		const siteServer = {
+			details: { id: 'watch-site', port, path: dir } as {
+				id: string;
+				port: number;
+				path: string;
+				running?: boolean;
+				url?: string;
+			},
+			server: {} as { url?: string },
+			inErrorRecovery: false,
+			start: async () => {
+				startCalls++;
+			},
+		};
+
+		try {
+			await startErrorRecovery( siteServer as never, 'Fatal error: boom', () => ( {} ) );
+			// startErrorRecovery does not await the initial scan; without this the assertion below
+			// samples an empty set and passes even against a descriptor-backed watcher.
+			await vi.waitFor( () => expect( activeHandleNames() ).toContain( 'StatWatcher' ), {
+				timeout: 10000,
+				interval: 100,
+			} );
+			expect( activeHandleNames() ).not.toContain( 'FSWatcher' );
+
+			fs.writeFileSync( pluginFile, '<?php // fixed' );
+			await vi.waitFor( () => expect( startCalls ).toBe( 1 ), { timeout: 15000, interval: 250 } );
+		} finally {
+			await stopErrorRecovery( 'watch-site' );
+			fs.rmSync( dir, { recursive: true, force: true } );
+		}
+	}, 30000 );
 } );
 
 describe( 'error recovery port lifecycle', () => {

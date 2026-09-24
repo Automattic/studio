@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 
 const TOP_UP_PRICING_QUERY_KEY = [ 'top-up-pricing' ] as const;
 
@@ -12,11 +13,13 @@ const TOP_UP_PRICING_QUERY_KEY = [ 'top-up-pricing' ] as const;
 export function useStudioAssistantTopUpPricing( { enabled = true }: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
 	const { data: authUser } = useAuthUser();
+	const locale = useUserLocale();
 	const query = useQuery( {
 		// Prices are per-account (currency), so an account switch must never
-		// reuse the previous account's cached row.
-		queryKey: [ ...TOP_UP_PRICING_QUERY_KEY, authUser?.id ],
-		queryFn: () => connector.getStudioAssistantTopUpPricing(),
+		// reuse the previous account's cached row. The store formats them for
+		// the UI locale, so a language switch refetches too.
+		queryKey: [ ...TOP_UP_PRICING_QUERY_KEY, authUser?.id, locale ],
+		queryFn: () => connector.getStudioAssistantTopUpPricing( locale ),
 		enabled: enabled && !! authUser,
 		// A price list changes on the order of releases, not sessions.
 		staleTime: 60 * 60 * 1000,

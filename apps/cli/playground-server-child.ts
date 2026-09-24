@@ -55,6 +55,7 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { buildWpCliPhpArgv } from 'cli/lib/wp-cli-php-ini';
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
@@ -555,12 +556,9 @@ const runWpCliCommand = sequential(
 
 		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
-		const response = await server.playground.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			`--path=${ await server.playground.documentRoot }`,
-			...rewrittenArgs,
-		] );
+		const response = await server.playground.cli(
+			buildWpCliPhpArgv( '/tmp/wp-cli.phar', await server.playground.documentRoot, rewrittenArgs )
+		);
 
 		return {
 			stdout: await response.stdoutText,

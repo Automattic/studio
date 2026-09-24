@@ -312,7 +312,12 @@ async function runPush(
 
 		if ( ! importFinished ) {
 			throw new LoggerError(
-				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name ),
+				sprintf(
+					__(
+						'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
+					),
+					remoteSite.name
+				),
 				undefined,
 				'timeout'
 			);

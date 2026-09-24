@@ -53,9 +53,6 @@
 			"entry": ["translations/index.ts", "globals.ts"],
 			"project": "**/*.ts"
 		},
-		"packages/data-liberation-agent": {
-			"project": "src/**/*.{ts,tsx}"
-		},
 		"tools/eslint-plugin-studio": {
 			"project": "**/*.{js,ts}"
 		}

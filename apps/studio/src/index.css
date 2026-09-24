@@ -144,12 +144,6 @@ body:lang( ckb ) [class*='components-'] {
 	-webkit-app-region: no-drag;
 }
 
-/* A @wordpress/ui dialog backdrop covers the title bar, whose drag region would
-   otherwise swallow clicks there instead of dismissing the dialog. */
-[data-testid='dialog-backdrop'] {
-	-webkit-app-region: no-drag;
-}
-
 h1,
 h2,
 h3,

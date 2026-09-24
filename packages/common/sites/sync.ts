@@ -175,9 +175,11 @@ async function waitForImport( ctx: PushSiteContext, remoteSiteId: number ): Prom
 	}
 
 	// The remote reports its own timeouts as a `failed` status, so reaching here
-	// means it went quiet rather than gave up. Bail instead of polling forever.
+	// means it went quiet rather than gave up — the import may still finish.
 	throw new Error(
-		__( 'The live site stopped reporting progress. Check the site and try again.' )
+		__(
+			'The live site stopped reporting progress, but the update may still be running. Check the live site before pushing again.'
+		)
 	);
 }
 

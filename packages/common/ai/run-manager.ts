@@ -11,6 +11,7 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
+import { getJspiExecArgv, JSPI_FLAG } from '@studio/common/lib/jspi';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
@@ -101,7 +102,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 	const {
 		cliBinary,
 		nodeBinary,
-		execArgv = [ '--experimental-wasm-jspi' ],
+		execArgv = nodeBinary ? [ JSPI_FLAG ] : getJspiExecArgv(),
 		surface,
 		getTracksOrigin,
 	} = config;

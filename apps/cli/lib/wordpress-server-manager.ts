@@ -311,13 +311,12 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
-	// The SQLite driver leaves the database in WAL mode, which PHP-WASM reopens
-	// unreliably on Windows because its emulated file locks back WAL's shared
-	// memory. Convert it back before the server touches the file; native PHP
-	// uses real OS locks and is left alone.
-	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
-		await resetSqliteJournalModeToRollback( site.path );
-	}
+	// The SQLite driver leaves the database in WAL mode, whose shared-memory
+	// index is backed by file locks that fail when several processes open one
+	// site's database at once. Convert it back before the server touches the
+	// file — subprocesses (a WP-CLI process per table during an export) hit this
+	// on both runtimes, not just under PHP-WASM's emulated locks.
+	await resetSqliteJournalModeToRollback( site.path );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(

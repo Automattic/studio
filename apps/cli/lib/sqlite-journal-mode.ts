@@ -20,10 +20,12 @@ import path from 'path';
  * WordPress then crashes further into boot with "Cannot escape data without an
  * active database connection".
  *
- * Native PHP is unaffected: it uses the platform's own SQLite against real OS
- * locks, with no emulation layer in between. Node's built-in SQLite is native
- * for the same reason, so it can checkpoint the WAL here and rewrite the header
- * back to rollback mode, leaving a database Playground can reliably reopen.
+ * Native PHP has no emulation layer, but still shares one database between
+ * processes — an export runs a WP-CLI process per table while the site server
+ * keeps serving — so it contends for the same `-shm` index and is converted too.
+ *
+ * Node's built-in SQLite is native, so it can checkpoint the WAL here and
+ * rewrite the header back to rollback mode.
  */
 export async function resetSqliteJournalModeToRollback( sitePath: string ): Promise< void > {
 	const dbPath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );

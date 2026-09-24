@@ -25,7 +25,7 @@ Run it with a timeout of at least 20 minutes. For an address, `--keep-source` ke
 
 If a few pages could not be copied, the import still finishes without them and lists them with the reason each one failed; tell the user which pages are missing. The import stops instead when the home page could not be copied, or more than one page in ten; report the reason it printed rather than guessing at one.
 
-If the import stops after the site was created, the site is kept and `studio create` says so. Re-running the same command continues that import instead of starting a new site; it copies the original again first. If it stops before the site was created, re-running starts over.
+If the import stops after the site was created, the site is kept and `studio create` says so. Re-running the same command continues that import from the copy it already made, instead of starting a new site or copying the original again. If it stops before the site was created, re-running starts over.
 
 ## 2. Find what came out differently
 

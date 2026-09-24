@@ -307,12 +307,17 @@ function bundledPlaywrightRoot(): string {
 	return path.dirname( require.resolve( 'playwright/package.json' ) );
 }
 
-/** Install (once per version) and load the newest Data Liberation capture engine. */
-export async function loadCaptureEngine(): Promise< CaptureEngine > {
-	const asset = await resolveLatestReleaseAsset(
+/** The newest Data Liberation release package. */
+export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
+	return resolveLatestReleaseAsset(
 		DATA_LIBERATION_REPO,
 		( name, version ) => name === `data-liberation-${ version }.tgz`
 	);
+}
+
+/** Install (once per version) and load the newest Data Liberation capture engine. */
+export async function loadCaptureEngine(): Promise< CaptureEngine > {
+	const asset = await resolveCaptureEngineAsset();
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
 	const bundlePath = path.join( engineRoot, 'dist', 'capture-engine.bundle.mjs' );
 	const isCompleteEngine = ( directory: string ) =>

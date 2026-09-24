@@ -72,7 +72,12 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { liberateWebsite, type PartialCaptureReport } from 'cli/lib/data-liberation-client';
+import {
+	captureCompareCommand,
+	captureRootFor,
+	liberateWebsite,
+	type PartialCaptureReport,
+} from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -479,6 +484,22 @@ export function buildCreateFromSourceBlueprint(
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
 	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
+	return importerBlueprint( staticSiteImporterPlugin, {
+		request: `${ JSON.stringify( request, null, 2 ) }\n`,
+		sourcePath: source.stagedSourcePath,
+		reportFiles: source.stagedReportFiles,
+	} );
+}
+
+/** The blueprint that installs the importer, carrying the import it will run. */
+function importerBlueprint(
+	staticSiteImporterPlugin: StaticSiteImporterPlugin,
+	staticSiteImport: {
+		request: string;
+		sourcePath?: string;
+		reportFiles?: Array< { name: string; from: string } >;
+	}
+): ReturnType< typeof buildCreateFromSourceBlueprint > {
 	const tempDir = createBlueprintTempDirSync();
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const pluginData =
@@ -517,12 +538,7 @@ export function buildCreateFromSourceBlueprint(
 	return {
 		contents: blueprint,
 		uri: blueprintPath,
-		staticSiteImport: {
-			request: `${ JSON.stringify( request, null, 2 ) }\n`,
-			bundlePath: tempDir,
-			sourcePath: source.stagedSourcePath,
-			reportFiles: source.stagedReportFiles,
-		},
+		staticSiteImport: { ...staticSiteImport, bundlePath: tempDir },
 	};
 }
 
@@ -583,6 +599,27 @@ export async function prepareSourceImport(
 	let liberationOutputDir: string | undefined;
 	let compareCommand: ( ( siteUrl: string ) => string ) | undefined;
 	let capturedPartially = false;
+	const resumable = sourceUrl ? stagedUrlImport( sitePath, sourceUrl ) : undefined;
+	if ( sourceUrl && resumable ) {
+		// Re-running the command after a failed import resumes it. The staged request already
+		// names its capture, so the source is not captured again.
+		logger.reportSuccess( __( 'Resuming the staged import; the source is not captured again' ) );
+		const blueprint = importerBlueprint(
+			options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
+			{ request: resumable, sourcePath: staticSiteImportSourcePath( sitePath ) }
+		);
+		const keptCapture = captureRootFor(
+			sourceUrl,
+			path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-source` )
+		);
+		return {
+			blueprint,
+			compareCommand: fs.existsSync( keptCapture )
+				? await captureCompareCommand( keptCapture ).catch( () => undefined )
+				: undefined,
+			capturedPartially: false,
+		};
+	}
 	if ( sourceUrl ) {
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
@@ -639,6 +676,23 @@ export function staticSiteImportProgressMessage(
 		return sprintf( __( 'Static site import… %d sec elapsed' ), elapsedSeconds );
 	}
 	return sprintf( __( 'Finalization… %d sec elapsed' ), elapsedSeconds );
+}
+
+/**
+ * The request of an unfinished import of `sourceUrl` staged in `sitePath`, if there is one.
+ * Its staged source travels with it, so resuming needs neither the original capture nor a new one.
+ */
+function stagedUrlImport( sitePath: string, sourceUrl: string ): string | undefined {
+	try {
+		const request = fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' );
+		const staged = JSON.parse( request ) as { source_metadata?: { source_path?: unknown } };
+		return staged.source_metadata?.source_path === sourceUrl &&
+			fs.existsSync( staticSiteImportSourcePath( sitePath ) )
+			? request
+			: undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function staticSiteImportRequestPath( sitePath: string ): string {

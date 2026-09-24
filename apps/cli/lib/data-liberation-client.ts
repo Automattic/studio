@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
-import { loadCaptureEngine, type CaptureEngine } from 'cli/lib/import-runtime';
+import {
+	loadCaptureEngine,
+	resolveCaptureEngineAsset,
+	type CaptureEngine,
+} from 'cli/lib/import-runtime';
 
 type LoadEngine = () => Promise< CaptureEngine >;
 
@@ -75,8 +79,18 @@ async function loadEngineWithBrowser(): Promise< CaptureEngine > {
 	return loadCaptureEngine();
 }
 
-function captureDirectoryName( url: URL ): string {
-	return url.hostname.replace( /[^a-z0-9.-]/gi, '-' ) || 'site';
+/** Where `liberateWebsite` writes the capture of `url` inside `outputBase`. */
+export function captureRootFor( url: string, outputBase: string ): string {
+	const hostname = new URL( url ).hostname.replace( /[^a-z0-9.-]/gi, '-' ) || 'site';
+	return path.join( path.resolve( outputBase ), hostname );
+}
+
+/** The compare command for an existing capture, using the newest Data Liberation release. */
+export async function captureCompareCommand(
+	captureRoot: string
+): Promise< ( siteUrl: string ) => string > {
+	const { url } = await resolveCaptureEngineAsset();
+	return ( siteUrl ) => compareCommand( url, captureRoot, siteUrl );
 }
 
 /**
@@ -97,7 +111,7 @@ export async function liberateWebsite(
 	}
 
 	const engine = await ( options.loadEngine ?? loadEngineWithBrowser )();
-	const outputDir = path.join( path.resolve( outputBase ), captureDirectoryName( parsed ) );
+	const outputDir = captureRootFor( parsed.href, outputBase );
 	fs.mkdirSync( outputDir, { recursive: true } );
 	options.onProgress?.( `Data Liberation ${ engine.version }` );
 	const result = await engine.captureWebsite( {

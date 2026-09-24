@@ -51,7 +51,12 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { buildCreateFromSourceBlueprint, registerCommand, runCommand } from '../create';
+import {
+	buildCreateFromSourceBlueprint,
+	prepareSourceImport,
+	registerCommand,
+	runCommand,
+} from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -496,6 +501,46 @@ describe( 'CLI: studio create', () => {
 					{ recursive: true, errorOnExist: true, force: false }
 				);
 				expect( fs.existsSync( capturePath ) ).toBe( false );
+			} finally {
+				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
+			}
+		} );
+
+		it( 'resumes a staged URL import without capturing the source again', async () => {
+			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
+			const sitePath = path.join( siteRoot, 'site' );
+			const staged = path.join( sitePath, '.studio-import' );
+			const request = `${ JSON.stringify( {
+				source_metadata: { source: 'studio-create-from', source_path: 'https://example.com' },
+			} ) }\n`;
+			await fs.promises.mkdir( path.join( staged, 'source' ), { recursive: true } );
+			await fs.promises.writeFile( path.join( staged, 'source', 'index.html' ), '<main>Hi</main>' );
+			// A staged URL capture carries its receipt next to the page files.
+			await fs.promises.writeFile(
+				path.join( staged, 'source', 'capture-receipt.json' ),
+				JSON.stringify( { schema: 'data-liberation/capture-receipt/v1', websiteRoot: 'website' } )
+			);
+			await fs.promises.writeFile( path.join( staged, 'request.json' ), request );
+			const liberate = vi.fn();
+
+			try {
+				const resumed = await prepareSourceImport(
+					'https://example.com',
+					sitePath,
+					'Liberated Site',
+					new Logger(),
+					{ staticSiteImporter: 'https://example.com/ssi.zip', liberate }
+				);
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( resumed.blueprint.staticSiteImport.request ).toBe( request );
+
+				// A different source at the same path is a new import, not a resume.
+				await expect(
+					prepareSourceImport( 'https://other.example', sitePath, 'Other', new Logger(), {
+						staticSiteImporter: 'https://example.com/ssi.zip',
+						liberate: liberate.mockRejectedValue( new Error( 'captured' ) ),
+					} )
+				).rejects.toThrow( 'captured' );
 			} finally {
 				await fs.promises.rm( siteRoot, { recursive: true, force: true } );
 			}

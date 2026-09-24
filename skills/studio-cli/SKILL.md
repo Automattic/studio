@@ -47,7 +47,7 @@ studio create --from https://example.com --name "Example" --path ~/Studio/exampl
 
 - `--keep-source` (URL only) keeps the capture in a sibling `<path>-source` directory and prints a `data-liberation compare … --candidate <site URL>` command that compares the running site with the original, page by page.
 - A capture that lost a few pages still imports and lists them; one missing its home page, or more than 10% of its pages, stops the import.
-- If the import fails after the site was created, the site is kept; re-running the same command resumes it (a URL is captured again first).
+- If the import fails after the site was created, the site is kept; re-running the same command resumes it from the staged copy without capturing the source again.
 - `--static-site-importer-url` or `--static-site-importer-path` override the importer, for example with an unreleased build.
 
 **Note:** CLI flag values are visible in process lists. Use Blueprint files for sensitive passwords.

@@ -37,6 +37,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -317,6 +318,7 @@ export async function startWordPressServer(
 	// file — subprocesses (a WP-CLI process per table during an export) hit this
 	// on both runtimes, not just under PHP-WASM's emulated locks.
 	await resetSqliteJournalModeToRollback( site.path );
+	await replaceMysql8OnlyCollations( site.path );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(

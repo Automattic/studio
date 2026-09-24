@@ -11,6 +11,7 @@ import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -28,6 +29,9 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 } ) );
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sqlite-collations', () => ( {
+	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {
 	resetSqliteJournalModeToRollback: vi.fn().mockResolvedValue( undefined ),
@@ -257,6 +261,14 @@ describe( 'WordPress Server Manager', () => {
 			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
 				mockSiteData.path
 			);
+		} );
+
+		it( 'should replace MySQL 8-only collations before starting the server', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledWith( mockSiteData.path );
 		} );
 
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {

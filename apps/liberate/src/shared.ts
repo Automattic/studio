@@ -2,17 +2,14 @@
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed';
 
-export const STEPS = [ 'scan', 'content', 'look', 'package' ] as const;
+export const STEPS = [ 'scan', 'capture', 'import', 'package' ] as const;
 export type Step = ( typeof STEPS )[ number ];
 
 export interface JobCounts {
 	pages: number;
-	posts: number;
-	media: number;
-	products: number;
 }
 
-export type FileKind = 'site' | 'content';
+export type FileKind = 'site';
 
 /** What the API exposes about a job. */
 export interface JobView {
@@ -32,8 +29,8 @@ export interface JobView {
 	/** 1-based position in the queue while queued. */
 	queuePosition?: number;
 	counts?: JobCounts;
-	/** True when the site had more pages than the per-job cap. */
-	truncated?: boolean;
+	/** Set when the copy finished with known gaps. */
+	warning?: string;
 	error?: string;
 	/** Sizes in bytes of the downloadable files. */
 	files?: Partial< Record< FileKind, number > >;
@@ -42,7 +39,6 @@ export interface JobView {
 }
 
 export interface PublicConfig {
-	maxPages: number;
 	retentionHours: number;
 	turnstileSiteKey?: string;
 	/** Jobs are simulated and the downloads are placeholders. */

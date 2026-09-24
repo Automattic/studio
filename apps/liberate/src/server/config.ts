@@ -1,15 +1,12 @@
 import path from 'node:path';
 
 export const APP_ROOT = path.resolve( import.meta.dirname, '../..' );
-const REPO_ROOT = path.resolve( APP_ROOT, '../..' );
 
 export interface Config {
 	port: number;
 	production: boolean;
 	/** Persistent storage: job files and the Studio CLI's own state. */
 	dataDir: string;
-	/** Crawl at most this many URLs per site. */
-	maxPages: number;
 	concurrency: number;
 	maxQueued: number;
 	timeoutMs: number;
@@ -20,8 +17,8 @@ export interface Config {
 	turnstile?: { siteKey: string; secretKey: string };
 	/** Simulate jobs instead of running the real pipeline (UI development). */
 	fakePipeline: boolean;
-	/** Data-liberation CLI entry point, run through tsx. */
-	dlaCli: string;
+	/** The Studio CLI: a command on PATH, or the path to its entry point. */
+	studioCli: string;
 }
 
 export function loadConfig( env: NodeJS.ProcessEnv = process.env ): Config {
@@ -41,7 +38,6 @@ export function loadConfig( env: NodeJS.ProcessEnv = process.env ): Config {
 				// Keep simulated jobs and their placeholder downloads apart from real ones.
 				path.join( APP_ROOT, fakePipeline ? '.data/simulated' : '.data' )
 		),
-		maxPages: Math.max( 1, number( 'LIBERATE_MAX_PAGES', 100 ) ),
 		concurrency: Math.max( 1, number( 'LIBERATE_CONCURRENCY', 1 ) ),
 		maxQueued: number( 'LIBERATE_MAX_QUEUED', 20 ),
 		timeoutMs: number( 'LIBERATE_TIMEOUT_MINUTES', 60 ) * 60_000,
@@ -54,6 +50,6 @@ export function loadConfig( env: NodeJS.ProcessEnv = process.env ): Config {
 				? { siteKey: turnstileSiteKey, secretKey: turnstileSecretKey }
 				: undefined,
 		fakePipeline,
-		dlaCli: path.join( REPO_ROOT, 'packages/data-liberation-agent/src/cli.ts' ),
+		studioCli: env.STUDIO_CLI?.trim() || 'studio',
 	};
 }

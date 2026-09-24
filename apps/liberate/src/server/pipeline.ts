@@ -1,20 +1,23 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { ZipArchive } from 'archiver';
-import { platformName, type JobCounts } from '../shared.ts';
+import { platformName } from '../shared.ts';
 import { UserError } from './guards.ts';
 import type { Config } from './config.ts';
-import type { JobProgress, JobResult, Runner } from './jobs.ts';
+import type { JobProgress, Runner } from './jobs.ts';
 
 type Log = ( event: string, data: Record< string, unknown > ) => void;
 
-const TSX_CLI = createRequire( import.meta.url ).resolve( 'tsx/cli' );
 const EGRESS_GUARD = path.join( import.meta.dirname, 'network.mjs' );
+
+/** A progress message the Studio CLI sends over its IPC channel. */
+interface CliMessage {
+	status?: string;
+	message?: string;
+}
 
 interface RunOutput {
 	code: number;
@@ -23,32 +26,43 @@ interface RunOutput {
 	output: string;
 }
 
+interface RunOptions {
+	env: NodeJS.ProcessEnv;
+	signal: AbortSignal;
+	/** Opens an IPC channel, which makes the CLI report progress instead of drawing spinners. */
+	onMessage?: ( message: CliMessage ) => void;
+}
+
 /** Run a command in its own process group, so aborting also stops everything it spawned. */
-function run(
-	command: string,
-	args: string[],
-	options: { env: NodeJS.ProcessEnv; signal: AbortSignal; logFile?: string }
-): Promise< RunOutput > {
-	const { env, signal, logFile } = options;
+function run( command: string[], args: string[], options: RunOptions ): Promise< RunOutput > {
+	const { env, signal, onMessage } = options;
 	return new Promise( ( resolve, reject ) => {
 		signal.throwIfAborted();
-		const child = spawn( command, args, {
+		const child = spawn( command[ 0 ], [ ...command.slice( 1 ), ...args ], {
 			env,
 			detached: true,
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			stdio: [ 'ignore', 'pipe', 'pipe', onMessage ? 'ipc' : 'ignore' ],
 		} );
-		const log = logFile ? fs.createWriteStream( logFile, { flags: 'a' } ) : undefined;
 		let stdout = '';
 		let output = '';
-		child.stdout.on( 'data', ( chunk: Buffer ) => {
-			log?.write( chunk );
+		child.stdout!.on( 'data', ( chunk: Buffer ) => {
 			stdout = ( stdout + chunk ).slice( -1_000_000 );
 			output = ( output + chunk ).slice( -8_000 );
 		} );
-		child.stderr.on( 'data', ( chunk: Buffer ) => {
-			log?.write( chunk );
+		child.stderr!.on( 'data', ( chunk: Buffer ) => {
 			output = ( output + chunk ).slice( -8_000 );
 		} );
+		if ( onMessage ) {
+			child.on( 'message', ( message ) => {
+				const { status, message: text } = message as CliMessage;
+				// Over an IPC channel the CLI reports failures as messages rather than on stderr,
+				// so they only reach the log from here.
+				if ( status === 'fail' || status === 'warning' ) {
+					output = ( output + `${ status }: ${ text }\n` ).slice( -8_000 );
+				}
+				onMessage( message as CliMessage );
+			} );
+		}
 		const kill = ( sig: NodeJS.Signals ) => {
 			try {
 				process.kill( -child.pid!, sig );
@@ -64,7 +78,6 @@ function run(
 		child.on( 'error', reject );
 		child.on( 'close', ( code ) => {
 			signal.removeEventListener( 'abort', onAbort );
-			log?.end();
 			if ( signal.aborted ) {
 				reject( signal.reason );
 			} else {
@@ -74,21 +87,14 @@ function run(
 	} );
 }
 
-async function expectSuccess( result: Promise< RunOutput >, what: string ) {
-	const { code, output } = await result;
-	if ( code !== 0 ) {
-		throw new Error( `${ what } exited with ${ code }: ${ output.slice( -2_000 ) }` );
-	}
-}
-
 /**
- * Environment for data-liberation and the Studio CLI: Studio state lives on the
- * data volume, isolated from any Studio install on the same machine.
+ * Environment for the Studio CLI: its state lives on the data volume, isolated
+ * from any Studio install on the same machine.
  */
 function studioEnv( config: Config ): NodeJS.ProcessEnv {
 	const key = createHash( 'sha256' ).update( config.dataDir ).digest( 'hex' ).slice( 0, 8 );
-	// The Studio daemon and tsx create Unix sockets in these directories, and socket paths
-	// can't exceed 104 bytes on macOS, so they live under the short system temp directory.
+	// The Studio daemon creates Unix sockets in these directories, and socket paths can't
+	// exceed 104 bytes on macOS, so they live under the short system temp directory.
 	const runDir = path.join( os.tmpdir(), `liberate-${ key }` );
 	return {
 		...process.env,
@@ -98,28 +104,63 @@ function studioEnv( config: Config ): NodeJS.ProcessEnv {
 		TMPDIR: path.join( runDir, 'tmp' ),
 		CI: '1',
 		NO_COLOR: '1',
-		DLA_AGENT_CLI: 'none',
-		// Only agent-composed pages need the block fixer, which npm-installs itself on first use.
-		DLA_BLOCK_FIXER: '0',
+		// The container runs as root, and WP-CLI refuses to run as root without this.
+		WP_CLI_ALLOW_ROOT: '1',
 		LIBERATE_EGRESS_GUARD: '1',
-		NODE_OPTIONS: `${ process.env.NODE_OPTIONS ?? '' } --import="${ EGRESS_GUARD }"`.trim(),
+		// Where `localhost` resolves to ::1 first, as it does in the container, a Studio site's
+		// server binds IPv6 only while everything that talks to it asks for 127.0.0.1, and the
+		// site never comes up.
+		NODE_OPTIONS: `${
+			process.env.NODE_OPTIONS ?? ''
+		} --dns-result-order=ipv4first --import="${ EGRESS_GUARD }"`.trim(),
 	};
 }
 
-const studio = ( env: NodeJS.ProcessEnv, args: string[], signal: AbortSignal ) =>
-	run( 'studio', args, { env, signal } );
+/** A JavaScript entry point needs the current Node; a plain command is run as it is. */
+function studioCommand( config: Config ): string[] {
+	return /\.(mjs|js)$/.test( config.studioCli )
+		? [ process.execPath, config.studioCli ]
+		: [ config.studioCli ];
+}
+
+const studio = (
+	config: Config,
+	env: NodeJS.ProcessEnv,
+	args: string[],
+	signal: AbortSignal,
+	onMessage?: ( message: CliMessage ) => void
+) => run( studioCommand( config ), args, { env, signal, onMessage } );
+
+async function expectSuccess( result: Promise< RunOutput >, what: string ) {
+	const { code, output } = await result;
+	if ( code !== 0 ) {
+		throw new Error( `${ what } exited with ${ code }: ${ output.slice( -2_000 ) }` );
+	}
+}
+
+interface StudioSite {
+	path: string;
+	url: string;
+	running: boolean;
+}
+
+async function listSites( config: Config, env: NodeJS.ProcessEnv, signal: AbortSignal ) {
+	const { stdout } = await studio( config, env, [ 'site', 'list', '--format', 'json' ], signal );
+	const json = stdout.split( '\n' ).find( ( line ) => line.startsWith( '[' ) );
+	return ( json ? JSON.parse( json ) : [] ) as StudioSite[];
+}
 
 /** Stop and unregister the Studio sites whose path matches, leaving their files alone. */
-async function forgetSites( env: NodeJS.ProcessEnv, matches: ( sitePath: string ) => boolean ) {
-	const signal = AbortSignal.timeout( 120_000 );
-	const { stdout } = await studio( env, [ 'site', 'list', '--format', 'json' ], signal );
-	const json = stdout.split( '\n' ).find( ( line ) => line.startsWith( '[' ) );
-	const sites = ( json ? JSON.parse( json ) : [] ) as { path: string; running: boolean }[];
-	for ( const site of sites.filter( ( { path: sitePath } ) => matches( sitePath ) ) ) {
-		if ( site.running ) {
-			await studio( env, [ 'site', 'stop', '--path', site.path ], signal );
+async function forgetSites( config: Config, env: NodeJS.ProcessEnv, prefix: string ) {
+	const signal = AbortSignal.timeout( 180_000 );
+	for ( const site of await listSites( config, env, signal ) ) {
+		if ( ! path.resolve( site.path ).startsWith( prefix ) ) {
+			continue;
 		}
-		await studio( env, [ 'site', 'delete', site.path, '--no-files' ], signal );
+		if ( site.running ) {
+			await studio( config, env, [ 'site', 'stop', '--path', site.path ], signal );
+		}
+		await studio( config, env, [ 'site', 'delete', site.path, '--no-files' ], signal );
 	}
 }
 
@@ -142,26 +183,14 @@ export async function prepareStudio( config: Config ) {
 			}
 		} );
 	// Sites left over from jobs interrupted by a crash or a deploy.
-	await forgetSites( env, () => true );
-}
-
-interface Summary {
-	siteName?: string;
-	discovered?: number;
-	/** URLs that will be copied: the discovered ones, up to the page cap. */
-	total?: number;
-	installed: number;
-	counts: JobCounts;
-	site?: { path: string; url: string };
-	lookDone: boolean;
-	noAdapter: boolean;
+	await forgetSites( config, env, path.resolve( config.dataDir ) );
 }
 
 const GENERIC_TITLE = /^(home|home ?page|welcome|index|untitled|imported site)$/i;
 
 /**
- * The site's name from the title data-liberation found, which can be a page
- * title like "Home | Acme Coffee". Undefined when there's no usable name.
+ * The site's name from its WordPress title, which can be a page title like
+ * "Home | Acme Coffee". Undefined when there's no usable name.
  */
 export function siteNameFrom( title: unknown ): string | undefined {
 	if ( typeof title !== 'string' ) {
@@ -174,237 +203,121 @@ export function siteNameFrom( title: unknown ): string | undefined {
 	return name && name.length <= 40 ? name : undefined;
 }
 
-/** Summarize data-liberation's `watch.log`, the only machine-readable progress it writes. */
-export function summarizeWatchLog( log: string, maxPages: number ): Summary {
-	const summary: Summary = {
-		installed: 0,
-		counts: { pages: 0, posts: 0, media: 0, products: 0 },
-		lookDone: false,
-		noAdapter: false,
-	};
-	const archetypes = new Map< string, unknown >();
-	const installed = new Set< string >();
-	for ( const line of log.split( '\n' ) ) {
-		let entry: Record< string, unknown >;
-		try {
-			entry = JSON.parse( line );
-		} catch {
-			continue;
-		}
-		const url = String( entry.url );
-		switch ( entry.event ) {
-			case 'discovered':
-				summary.discovered = Number( entry.count ) || 0;
-				summary.total = Math.min( summary.discovered, maxPages );
-				break;
-			case 'no-adapter':
-				summary.noAdapter = true;
-				break;
-			case 'site-options-updated':
-				summary.siteName = siteNameFrom( entry.title );
-				break;
-			case 'preview-pre-started':
-				summary.site = { path: String( entry.sitePath ), url };
-				break;
-			case 'post-queued':
-				archetypes.set( url, entry.archetype );
-				break;
-			case 'post-installed':
-				if ( ! entry.error && ! installed.has( url ) ) {
-					installed.add( url );
-					const type = archetypes.get( url );
-					summary.counts[ type === 'post' ? 'posts' : type === 'product' ? 'products' : 'pages' ]++;
-				}
-				break;
-			case 'media-installed':
-			case 'css-media-installed':
-				summary.counts.media = Math.max( summary.counts.media, Number( entry.installed ) || 0 );
-				break;
-			case 'design-theme-installed':
-			case 'design-theme-install-failed':
-				summary.lookDone = true;
-				break;
-		}
-	}
-	summary.installed = installed.size;
-	return summary;
-}
-
-export function progressOf( summary: Summary ): JobProgress {
-	const { discovered, total, installed, counts } = summary;
-	if ( total === undefined ) {
-		return { step: 'scan', progress: 0.03, detail: 'Looking at your site…' };
-	}
-	if ( installed < total && ! summary.lookDone ) {
-		const found =
-			discovered! > total
-				? `Found ${ discovered } pages. Copying the first ${ total }…`
-				: `Found ${ total } pages. Copying them…`;
+/**
+ * Turn one of the Studio CLI's progress messages into job progress. Capture messages
+ * carry their own counts (`[liberate] 3/21 <url>`); the rest name a phase.
+ */
+export function progressFrom( message: string ): JobProgress | undefined {
+	const captured = message.match( /^\[liberate] (\d+)\/(\d+)/ );
+	if ( captured ) {
+		const [ , done, total ] = captured.map( Number );
 		return {
-			step: 'content',
-			progress: 0.08 + ( 0.72 * installed ) / total,
-			detail: installed ? `Copied ${ installed } of ${ total } pages` : found,
-			counts,
+			step: 'capture',
+			progress: 0.08 + ( 0.5 * done ) / Math.max( 1, total ),
+			detail: `Copied ${ done } of ${ total } pages`,
+			counts: { pages: done },
 		};
 	}
-	return { step: 'look', progress: 0.84, detail: 'Recreating the look…', counts };
+	if ( /^\[liberate] (finalizing|complete)/.test( message ) ) {
+		return { step: 'capture', progress: 0.6, detail: 'Finishing the copy…' };
+	}
+	if (
+		/^\[liberate]/.test( message ) ||
+		/^(Preparing source website|Data Liberation)/.test( message )
+	) {
+		return { step: 'scan', progress: 0.05, detail: 'Looking at your site…' };
+	}
+	if ( /^Static site import/.test( message ) ) {
+		return { step: 'import', progress: 0.68, detail: 'Rebuilding it as WordPress…' };
+	}
+	if ( /^Finalization/.test( message ) ) {
+		return { step: 'import', progress: 0.78, detail: 'Finishing the WordPress site…' };
+	}
+	return undefined;
 }
 
-const readme = ( url: string, hasProducts: boolean ) =>
-	[
-		`Your content from ${ url }, liberated by liberate.sh.`,
-		'',
-		'content.xml     Pages, posts and menus in the WordPress export format (WXR).',
-		'media/          Copies of your images and files.',
-		'redirects.json  Your old addresses, mapped to the new WordPress ones.',
-		...( hasProducts ? [ 'products.csv    Your products, ready for WooCommerce.' ] : [] ),
-		'',
-		'Import it into any WordPress site, including free WordPress.com sites:',
-		'',
-		'1. In your dashboard, go to Tools > Import > WordPress.',
-		'2. Upload content.xml and tick "Download and import file attachments".',
-		'   Images are fetched from your old site, so import before you close it.',
-		'3. Imported pages and posts start as drafts, so you can review them first.',
-		...( hasProducts
-			? [ '4. Install WooCommerce, go to Products > Import and upload products.csv.' ]
-			: [] ),
-		'',
-		`The full site, design included, is in ${ new URL( url ).hostname }-wordpress.zip.`,
-		'',
-	].join( '\n' );
-
-async function writeZip( target: string, fill: ( archive: ZipArchive ) => void ) {
-	const archive = new ZipArchive( { zlib: { level: 6 } } );
-	const output = fs.createWriteStream( target );
-	const done = new Promise< void >( ( resolve, reject ) => {
-		output.on( 'close', () => resolve() );
-		output.on( 'error', reject );
-		archive.on( 'error', reject );
-	} );
-	archive.pipe( output );
-	fill( archive );
-	await archive.finalize();
-	await done;
-}
-
-/** Zip the portable content: WXR, media, redirects and products. */
-function zipContent( outDir: string, target: string, url: string ) {
-	const has = ( name: string ) => fs.existsSync( path.join( outDir, name ) );
-	return writeZip( target, ( archive ) => {
-		archive.append( readme( url, has( 'products.csv' ) ), { name: 'README.txt' } );
-		archive.file( path.join( outDir, 'output.wxr' ), { name: 'content.xml' } );
-		for ( const [ source, name ] of [
-			[ 'redirect-map.json', 'redirects.json' ],
-			[ 'products.csv', 'products.csv' ],
-		] ) {
-			if ( has( source ) ) {
-				archive.file( path.join( outDir, source ), { name } );
-			}
-		}
-		if ( has( 'media' ) ) {
-			archive.directory( path.join( outDir, 'media' ), 'media' );
-		}
-	} );
-}
-
-const fileSize = ( file: string ) => fs.statSync( file ).size;
-
-function readText( file: string ) {
+/** What the capture recorded about the source site: its own title and platform. */
+export function readCapture( sourceDir: string ): { title?: string; platform?: string } {
 	try {
-		return fs.readFileSync( file, 'utf8' );
+		const [ file ] = fs.globSync( path.join( sourceDir, '*', 'capture-receipt.json' ) );
+		const receipt = JSON.parse( fs.readFileSync( file, 'utf8' ) );
+		return { title: receipt.title, platform: platformName( receipt.source?.platform ) };
 	} catch {
-		return '';
+		return {};
 	}
 }
+
+const QUALITY_WARNING =
+	'Parts of this site didn’t convert cleanly, so some pages may be missing pieces.';
 
 export function createPipeline( config: Config, log: Log ): Runner {
 	const env = studioEnv( config );
 
 	return async ( job, { workDir, filesDir, signal, report } ) => {
-		const outBase = path.join( workDir, 'out' );
 		const sitesDir = path.join( workDir, 'sites' );
-		let outDir: string | undefined;
-		let platform: string | undefined;
-		// data-liberation writes into a single sub-directory named after the site.
-		const read = () => {
-			if ( ! outDir ) {
-				const entry = fs
-					.readdirSync( outBase, { withFileTypes: true } )
-					.find( ( dirent ) => dirent.isDirectory() );
-				outDir = entry && path.join( outBase, entry.name );
-			}
-			if ( ! outDir ) {
-				return undefined;
-			}
-			try {
-				platform ??= JSON.parse( readText( path.join( outDir, 'session.json' ) ) ).adapter;
-			} catch {
-				// Not written yet.
-			}
-			return summarizeWatchLog( readText( path.join( outDir, 'watch.log' ) ), config.maxPages );
-		};
+		const slug =
+			job.host
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-|-$/g, '' )
+				.slice( 0, 40 ) || 'site';
+		const sitePath = path.join( sitesDir, slug );
+		await fs.promises.mkdir( sitesDir, { recursive: true } );
 
-		await fs.promises.mkdir( outBase, { recursive: true } );
+		let pages = 0;
 		report( { step: 'scan', progress: 0.02, detail: 'Looking at your site…' } );
-		const timer = setInterval( () => {
-			try {
-				const summary = read();
-				if ( summary ) {
-					report( {
-						platform: platformName( platform ),
-						siteName: summary.siteName,
-						...progressOf( summary ),
-					} );
-				}
-			} catch {
-				// Files mid-write; the next tick will catch up.
-			}
-		}, 2_000 );
-
 		try {
-			const liberation = await run(
-				process.execPath,
+			const created = await studio(
+				config,
+				env,
 				[
-					TSX_CLI,
-					config.dlaCli,
+					'site',
+					'create',
+					'--name',
+					slug,
+					'--path',
+					sitePath,
+					'--from',
 					job.url,
-					'--non-interactive',
-					'--no-agent',
-					'--limit',
-					String( config.maxPages ),
-					'--output',
-					outBase,
+					// The capture is the only place the site's own name and platform are recorded.
+					'--keep-source',
+					'--skip-browser',
+					'--skip-log-details',
 				],
-				{
-					env: { ...env, DLA_OUTPUT_DIR: outBase, STUDIO_SITES_DIR: sitesDir },
-					signal,
-					logFile: path.join( workDir, 'liberation.log' ),
+				signal,
+				( message ) => {
+					const progress = progressFrom( String( message.message ?? '' ) );
+					if ( progress ) {
+						pages = progress.counts?.pages ?? pages;
+						report( progress );
+					}
 				}
 			);
-			clearInterval( timer );
 
-			const summary = read();
-			if ( summary?.noAdapter || summary?.discovered === 0 ) {
-				throw new UserError( 'We couldn’t find any pages to copy on this site.' );
+			const site = ( await listSites( config, env, signal ) ).find(
+				( candidate ) => path.resolve( candidate.path ) === path.resolve( sitePath )
+			);
+			if ( ! site ) {
+				log( 'create_failed', {
+					id: job.id,
+					code: created.code,
+					output: created.output.slice( -2_000 ),
+				} );
+				throw /could not capture|unsupported|no routes|could not resolve/i.test( created.output )
+					? new UserError( 'We couldn’t copy this site. It may block automated visits.' )
+					: new Error( `studio site create exited with ${ created.code }` );
 			}
-			// Exit code 0 doesn't mean success: failures only show up in watch.log.
-			if ( liberation.code !== 0 || ! summary?.site || ! outDir ) {
-				throw new Error(
-					`Liberation failed (exit ${ liberation.code }): ${ liberation.output.slice( -2_000 ) }`
-				);
-			}
-			if ( ! summary.installed ) {
-				throw new UserError( 'We couldn’t copy any pages from this site.' );
+			// The importer's quality gate can reject a site that is still worth having, so the
+			// job continues with a warning rather than losing everything it captured.
+			const warning = created.code === 0 ? undefined : QUALITY_WARNING;
+			if ( warning ) {
+				log( 'import_warning', { id: job.id, output: created.output.slice( -2_000 ) } );
 			}
 
-			report( {
-				step: 'package',
-				progress: 0.9,
-				detail: 'Packing your WordPress site…',
-				counts: summary.counts,
-			} );
-			const site = summary.site;
-			await studio( env, [ 'site', 'stop', '--path', site.path ], signal );
+			report( { step: 'package', progress: 0.85, detail: 'Packing your WordPress site…' } );
+			const capture = readCapture( `${ sitePath }-source` );
+			await studio( config, env, [ 'site', 'stop', '--path', sitePath ], signal );
+
 			// Point the backup at the site's real address instead of the temporary local one.
 			const origin = new URL( job.url ).origin;
 			for ( const [ from, to ] of [
@@ -413,11 +326,12 @@ export function createPipeline( config: Config, log: Log ): Runner {
 			] ) {
 				await expectSuccess(
 					studio(
+						config,
 						env,
 						[
 							'wp',
 							'--path',
-							site.path,
+							sitePath,
 							'search-replace',
 							from,
 							to,
@@ -430,34 +344,31 @@ export function createPipeline( config: Config, log: Log ): Runner {
 					'search-replace'
 				);
 			}
+
+			// The importer leaves its working data and a per-run report behind: hundreds of
+			// megabytes that only make the download bigger.
+			for ( const debris of [
+				path.join( sitePath, 'wp-content', 'static-site-importer' ),
+				...fs.globSync( path.join( sitePath, 'wp-content', 'themes', '*', 'import-report.json' ) ),
+			] ) {
+				await fs.promises.rm( debris, { recursive: true, force: true } );
+			}
+
 			const siteZip = path.join( filesDir, 'site.zip' );
 			await expectSuccess(
-				studio( env, [ 'export', siteZip, '--path', site.path, '--mode', 'full' ], signal ),
+				studio( config, env, [ 'export', siteZip, '--path', sitePath, '--mode', 'full' ], signal ),
 				'studio export'
 			);
 
-			report( { progress: 0.97, detail: 'Packing your content…' } );
-			const contentZip = path.join( filesDir, 'content.zip' );
-			await zipContent( outDir, contentZip, job.url );
-
 			return {
-				siteName: summary.siteName,
-				platform: platformName( platform ),
-				counts: summary.counts,
-				truncated: ( summary.discovered ?? 0 ) > config.maxPages,
-				files: { site: fileSize( siteZip ), content: fileSize( contentZip ) },
+				siteName: siteNameFrom( capture.title ),
+				platform: capture.platform,
+				counts: { pages },
+				warning,
+				files: { site: fs.statSync( siteZip ).size },
 			};
-		} catch ( error ) {
-			if ( ! signal.aborted && ! ( error instanceof UserError ) ) {
-				log( 'liberation_log', {
-					id: job.id,
-					watchLog: outDir ? readText( path.join( outDir, 'watch.log' ) ).slice( -4_000 ) : '',
-				} );
-			}
-			throw error;
 		} finally {
-			clearInterval( timer );
-			await forgetSites( env, ( sitePath ) => sitePath.startsWith( sitesDir ) ).catch( ( error ) =>
+			await forgetSites( config, env, path.resolve( sitesDir ) ).catch( ( error ) =>
 				log( 'studio_cleanup_failed', { id: job.id, error: String( error ) } )
 			);
 		}
@@ -466,49 +377,29 @@ export function createPipeline( config: Config, log: Log ): Runner {
 
 /**
  * Simulated jobs, for working on the UI without crawling real sites. Hosts
- * containing "fail" fail after the scan, and the downloads are placeholders.
+ * containing "fail" fail after the scan, and the download is a placeholder.
  */
 export const fakePipeline: Runner = async ( job, { filesDir, signal, report } ) => {
-	const summary: Summary = {
-		discovered: 24,
-		total: 24,
-		installed: 0,
-		counts: { pages: 0, posts: 0, media: 0, products: 0 },
-		lookDone: false,
-		noAdapter: false,
-	};
 	const label = job.host.replace( /^www\./, '' ).split( '.' )[ 0 ];
 	const siteName = label.charAt( 0 ).toUpperCase() + label.slice( 1 );
 	report( { step: 'scan', progress: 0.02, detail: 'Looking at your site…' } );
 	await sleep( 2_500, undefined, { signal } );
 	if ( job.host.includes( 'fail' ) ) {
-		throw new UserError( 'We couldn’t find any pages to copy on this site.' );
+		throw new UserError( 'We couldn’t copy this site. It may block automated visits.' );
 	}
-	for ( let installed = 0; installed <= 24; installed++ ) {
-		Object.assign( summary, { installed } );
-		summary.counts = {
-			pages: Math.min( installed, 9 ),
-			posts: Math.max( 0, installed - 9 ),
-			media: installed * 3,
-			products: 0,
-		};
-		report( { platform: 'Wix', siteName, ...progressOf( summary ) } );
+	for ( let done = 1; done <= 21; done++ ) {
+		report( { siteName, ...progressFrom( `[liberate] ${ done }/21 ${ job.url }` )! } );
 		await sleep( 400, undefined, { signal } );
 	}
-	report( progressOf( { ...summary, lookDone: true } ) );
-	await sleep( 2_000, undefined, { signal } );
-	report( { step: 'package', progress: 0.9, detail: 'Packing your WordPress site…' } );
-	await sleep( 2_000, undefined, { signal } );
-	const files: JobResult[ 'files' ] = {};
-	for ( const kind of [ 'site', 'content' ] as const ) {
-		const target = path.join( filesDir, `${ kind }.zip` );
-		await writeZip( target, ( archive ) =>
-			archive.append(
-				`A placeholder from a simulated liberate.sh run (LIBERATE_FAKE_PIPELINE=1) for ${ job.url }.\nIt is not a WordPress site: run the real pipeline to get one.\n`,
-				{ name: 'SIMULATED.txt' }
-			)
-		);
-		files[ kind ] = fileSize( target );
+	for ( const message of [ 'Static site import… 12 sec elapsed', 'Finalization… 3 sec elapsed' ] ) {
+		report( progressFrom( message )! );
+		await sleep( 1_500, undefined, { signal } );
 	}
-	return { siteName, platform: 'Wix', counts: summary.counts, truncated: false, files };
+	report( { step: 'package', progress: 0.85, detail: 'Packing your WordPress site…' } );
+	const target = path.join( filesDir, 'site.zip' );
+	await fs.promises.writeFile(
+		target,
+		`A placeholder from a simulated liberate.sh run (LIBERATE_FAKE_PIPELINE=1) for ${ job.url }.\n`
+	);
+	return { siteName, counts: { pages: 21 }, files: { site: fs.statSync( target ).size } };
 };

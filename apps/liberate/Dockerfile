@@ -17,27 +17,46 @@ RUN cd /src \
 	&& find . -name package.json -not -path '*/node_modules/*' -exec cp --parents {} /app \; \
 	&& cp package-lock.json /app/
 
+# The Studio CLI is built from this repository rather than installed from npm, so the
+# service always runs the same code as the branch it was deployed from.
+FROM base AS build
+COPY --from=manifests /app ./
+RUN npm ci --include=dev --include-workspace-root \
+	--workspace wp-studio --workspace @studio/liberate --ignore-scripts
+COPY tsconfig.base.json ./
+COPY scripts scripts
+# Checked in, unlike the rest of `wp-files`, and the native PHP runtime runs Blueprints with it.
+COPY wp-files/blueprints/blueprints.phar wp-files/blueprints/
+COPY packages packages
+COPY apps/local apps/local
+COPY apps/cli apps/cli
+# WordPress, WP-CLI and the SQLite integration ship inside the CLI bundle.
+RUN node --experimental-strip-types scripts/download-wp-server-files.ts
+RUN npm run build --workspace wp-studio
+# The PHP binary the sites run on, bundled so the first job doesn't wait for a download. The
+# script only warns when the download fails, and an image without PHP cannot run a site.
+RUN STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED=1 node --experimental-strip-types \
+	scripts/download-php-binary.ts --install-root apps/cli/dist/php-bin
+COPY apps/liberate apps/liberate
+RUN npm run build --workspace @studio/liberate
+
 FROM base
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends tini \
 	&& rm -rf /var/lib/apt/lists/*
 
-# The Studio CLI runs each liberated site with WordPress Playground, then exports it.
-ARG STUDIO_CLI_VERSION=1.21.0
-RUN npm install --global wp-studio@${STUDIO_CLI_VERSION} && npm cache clean --force
-
 COPY --from=manifests /app ./
-RUN npm ci --workspace @studio/liberate --workspace data-liberation --include=dev --ignore-scripts \
+RUN npm ci --omit=dev --workspace wp-studio --workspace @studio/liberate --ignore-scripts \
 	&& npm cache clean --force
-# Headless Chromium and its system libraries, for data-liberation's crawler.
+# Headless Chromium and its system libraries, for the Data Liberation crawler.
 RUN npx playwright install --with-deps --only-shell chromium
 
-COPY tsconfig.base.json ./
-COPY packages/data-liberation-agent packages/data-liberation-agent
-COPY apps/liberate apps/liberate
-RUN npm run build --workspace @studio/liberate
+COPY --from=build /app/apps/cli/dist apps/cli/dist
+COPY --from=build /app/apps/liberate/dist apps/liberate/dist
+COPY apps/liberate/src apps/liberate/src
 
-ENV PORT=8080
+ENV STUDIO_CLI=/app/apps/cli/dist/cli/main.mjs \
+	PORT=8080
 EXPOSE 8080
 ENTRYPOINT [ "tini", "--" ]
 CMD [ "node", "apps/liberate/src/server/index.ts" ]

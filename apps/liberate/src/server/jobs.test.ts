@@ -7,9 +7,8 @@ import type { JobView } from '../shared.ts';
 
 const RESULT: JobResult = {
 	platform: 'Wix',
-	counts: { pages: 3, posts: 2, media: 10, products: 0 },
-	truncated: false,
-	files: { site: 100, content: 50 },
+	counts: { pages: 3 },
+	files: { site: 100 },
 };
 
 /** Never finishes on its own; fails once aborted. */
@@ -57,7 +56,7 @@ describe( 'JobQueue', () => {
 		const order: string[] = [];
 		const queue = makeQueue( async ( job, { report } ) => {
 			order.push( job.host );
-			report( { step: 'content', progress: 0.5 } );
+			report( { step: 'capture', progress: 0.5 } );
 			return RESULT;
 		} );
 		await queue.load();

@@ -24,15 +24,12 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"archiver": "^8.0.0",
 		"express": "^4.22.0",
-		"express-rate-limit": "^8.5.2",
-		"tsx": "^4.19.0"
+		"express-rate-limit": "^8.5.2"
 	},
 	"devDependencies": {
 		"@fontsource-variable/bricolage-grotesque": "^5.3.0",
 		"@fontsource/dm-mono": "^5.3.0",
-		"@types/archiver": "^8.0.0",
 		"@types/express": "^4.17.23",
 		"vite": "^8.2.1"
 	}

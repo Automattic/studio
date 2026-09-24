@@ -20,7 +20,6 @@ interface AppOptions {
 
 const FILE_NAMES: Record< FileKind, ( host: string ) => string > = {
 	site: ( host ) => `${ host }-wordpress.zip`,
-	content: ( host ) => `${ host }-content.zip`,
 };
 
 const CSP = [
@@ -77,7 +76,6 @@ export async function createApp( {
 
 	api.get( '/config', ( _req, res ) => {
 		const body: PublicConfig = {
-			maxPages: config.maxPages,
 			retentionHours: Math.round( config.retentionMs / 3_600_000 ),
 			turnstileSiteKey: config.turnstile?.siteKey,
 			simulated: config.fakePipeline || undefined,

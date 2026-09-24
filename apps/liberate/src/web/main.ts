@@ -25,12 +25,12 @@ const stage = document.getElementById( 'stage' )!;
 const reducedMotion = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 const STEP_LABELS: Record< Step, string > = {
 	scan: 'scan',
-	content: 'content',
-	look: 'look',
+	capture: 'copy',
+	import: 'rebuild',
 	package: 'zip',
 };
 
-let config: PublicConfig = { maxPages: 100, retentionHours: 24 };
+let config: PublicConfig = { retentionHours: 24 };
 let teardown = () => {};
 
 const escape = ( text: string ) =>
@@ -85,10 +85,8 @@ function showForm( prefill: string ) {
 			<p class="error" role="alert"></p>
 		</form>
 		<p class="fine">
-			Pages, posts, images, products and the look, packed into a WordPress site you own.
-			Free for sites up to ${ config.maxPages } pages. Your files are deleted after ${
-				config.retentionHours
-			} hours.
+			Your pages, images and the look, packed into a WordPress site you own. It’s free, and
+			your files are deleted after ${ config.retentionHours } hours.
 		</p>`;
 
 	const word = stage.querySelector( '.x' )!;
@@ -273,20 +271,11 @@ function updateProgress( job: JobView ) {
 }
 
 function summarize( { counts, siteName, host }: JobView ) {
-	const parts = (
-		[
-			[ counts?.pages, 'page' ],
-			[ counts?.posts, 'post' ],
-			[ counts?.products, 'product' ],
-			[ counts?.media, 'image' ],
-		] as const
-	 )
-		.filter( ( [ count ] ) => count )
-		.map( ( [ count, noun ] ) => `${ count } ${ noun }${ count === 1 ? '' : 's' }` );
-	const list = new Intl.ListFormat( 'en', { type: 'conjunction' } ).format( parts );
+	const pages = counts?.pages;
+	const what = pages ? `${ pages } page${ pages === 1 ? '' : 's' }` : 'Your pages';
 	// When the headline shows the site's name, the address still says which site it was.
 	const from = siteName ? ` from ${ escape( host ) }` : '';
-	return `${ parts.length ? list : 'Your pages' }${ from }, plus the look.`;
+	return `${ what }${ from }, plus the look.`;
 }
 
 const megabytes = ( bytes = 0 ) => {
@@ -306,17 +295,10 @@ const done = ( job: JobView ) => `
 	${ job.platform ? `<p class="was" aria-hidden="true">${ strike( job.platform ) }</p>` : '' }
 	<h1 class="headline">${ siteHeading( job ) }<br>is free.</h1>
 	<p class="summary">${ summarize( job ) }</p>
-	${
-		job.truncated
-			? `<p class="note">Your site has more than ${ config.maxPages } pages, so we liberated the first ${ config.maxPages }.</p>`
-			: ''
-	}
+	${ job.warning ? `<p class="note">${ escape( job.warning ) }</p>` : '' }
 	<div class="actions">
 		<a class="button primary" href="/api/jobs/${ job.id }/files/site" download>
 			Download your site <small>.zip · ${ megabytes( job.files?.site ) }</small>
-		</a>
-		<a class="button" href="/api/jobs/${ job.id }/files/content" download>
-			Content only <small>${ megabytes( job.files?.content ) }</small>
 		</a>
 	</div>
 	<p class="hosts">

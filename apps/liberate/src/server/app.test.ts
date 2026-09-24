@@ -31,8 +31,7 @@ beforeEach( async () => {
 				finish = () => {
 					fs.writeFileSync( path.join( filesDir, 'site.zip' ), 'zip' );
 					resolve( {
-						counts: { pages: 1, posts: 0, media: 0, products: 0 },
-						truncated: false,
+						counts: { pages: 1 },
 						files: { site: 3 },
 					} );
 				};

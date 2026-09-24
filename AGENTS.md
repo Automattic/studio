@@ -42,7 +42,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
 **`/apps/ui`**: Agentic browser UI (`@studio/ui`). app/ (providers, router), components/, data/, hooks/, lib/. **Different stack from `apps/studio`** — React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`; no Redux, no Tailwind. Built per target: `build:local` / `build:hosted`.
 **`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
-**`/apps/liberate`**: liberate.sh, a standalone public web app (Express + vanilla TS, deployed on Railway) that turns any website into a downloadable WordPress site by running `packages/data-liberation-agent` and the Studio CLI. See its README.
+**`/apps/liberate`**: liberate.sh, a standalone public web app (Express + vanilla TS, deployed on Railway) that turns any website into a downloadable WordPress site by running `studio site create --from <url>`. See its README.
 **`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 

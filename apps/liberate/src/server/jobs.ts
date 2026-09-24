@@ -26,7 +26,7 @@ export interface JobResult {
 	siteName?: string;
 	platform?: string;
 	counts: JobCounts;
-	truncated: boolean;
+	warning?: string;
 	files: Partial< Record< FileKind, number > >;
 }
 
@@ -260,7 +260,7 @@ export class JobQueue extends EventEmitter {
 				host: job.host,
 				ms: job.finishedAt! - job.startedAt!,
 				...result.counts,
-				truncated: result.truncated,
+				warning: result.warning,
 			} );
 		} catch ( error ) {
 			if ( shutdown() ) {

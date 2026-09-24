@@ -1,5 +1,5 @@
-# The image only needs the workspace manifests, the lockfile, the shared tsconfig and the two
-# packages it runs.
+# The image only needs the workspace manifests, the lockfile, the shared tsconfig, and the
+# sources of the server and of the Studio CLI it runs.
 *
 !package.json
 !package-lock.json
@@ -7,8 +7,13 @@
 !apps/*/package.json
 !packages/*/package.json
 !tools/*/package.json
+!scripts
+!packages
+!apps/cli
+!apps/local
 !apps/liberate
-!packages/data-liberation-agent
 **/node_modules
 **/dist
+wp-files
+!wp-files/blueprints/blueprints.phar
 apps/liberate/.data

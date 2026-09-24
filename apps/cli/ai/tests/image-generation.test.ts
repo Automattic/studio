@@ -2,27 +2,38 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STUDIO_SITES_ROOT } from '../../lib/site-paths';
 import {
+	buildImageRequestBody,
 	composeImagePrompt,
 	fitToTokens,
 	ImageFilteredError,
 	interpretImageResponse,
-	resolveAspectRatio,
+	resolveImageSize,
 	TransientImageError,
 } from '../image-generation';
 import { resolveImageFilePath } from '../tools/generate-images';
 
-const JPEG_BASE64 = Buffer.from( [ 0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10 ] ).toString( 'base64' );
+const PNG_BASE64 = Buffer.from( [
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+] ).toString( 'base64' );
 
-function responseWith( parts: unknown[], extra: Record< string, unknown > = {} ): string {
-	return JSON.stringify( { candidates: [ { content: { parts }, ...extra } ] } );
-}
+describe( 'buildImageRequestBody', () => {
+	it( 'always sends the image alias at medium quality, one image, no streaming', () => {
+		expect( buildImageRequestBody( 'A lake', 'portrait' ) ).toEqual( {
+			model: 'image',
+			prompt: 'A lake',
+			quality: 'medium',
+			size: '1024x1536',
+		} );
+	} );
+} );
 
-describe( 'resolveAspectRatio', () => {
-	it( 'maps keywords and falls back to landscape', () => {
-		expect( resolveAspectRatio( 'square' ) ).toBe( '1:1' );
-		expect( resolveAspectRatio( 'card-portrait' ) ).toBe( '3:4' );
-		expect( resolveAspectRatio( undefined ) ).toBe( '16:9' );
-		expect( resolveAspectRatio( 'bogus' ) ).toBe( '16:9' );
+describe( 'resolveImageSize', () => {
+	it( 'maps landscape and portrait shapes to the route sizes, square otherwise', () => {
+		expect( resolveImageSize( 'ultrawide' ) ).toBe( '1536x1024' );
+		expect( resolveImageSize( 'card-landscape' ) ).toBe( '1536x1024' );
+		expect( resolveImageSize( 'card-portrait' ) ).toBe( '1024x1536' );
+		expect( resolveImageSize( 'square' ) ).toBe( '1024x1024' );
+		expect( resolveImageSize( undefined ) ).toBe( '1536x1024' );
 	} );
 } );
 
@@ -80,56 +91,53 @@ describe( 'interpretImageResponse', () => {
 		expect( () => interpretImageResponse( 'forbidden', 403 ) ).not.toThrow( TransientImageError );
 	} );
 
-	it( 'detects safety filtering from finish reasons and block reasons', () => {
+	it( 'detects moderation rejections as safety filtering', () => {
+		const blocked = JSON.stringify( {
+			error: { code: 'moderation_blocked', message: 'Rejected by the safety system' },
+		} );
+		expect( () => interpretImageResponse( blocked, 400 ) ).toThrow( ImageFilteredError );
 		expect( () =>
-			interpretImageResponse( responseWith( [], { finishReason: 'IMAGE_SAFETY' } ), 200 )
-		).toThrow( ImageFilteredError );
-		expect( () =>
-			interpretImageResponse(
-				JSON.stringify( { promptFeedback: { blockReason: 'PROHIBITED_CONTENT' } } ),
-				200
-			)
-		).toThrow( ImageFilteredError );
-		// Ordinary no-image finish reasons are permanent failures, not filtering.
-		expect( () =>
-			interpretImageResponse( responseWith( [], { finishReason: 'MAX_TOKENS' } ), 200 )
-		).toThrow( /no image data/ );
+			interpretImageResponse( JSON.stringify( { error: { code: 'invalid_value' } } ), 400 )
+		).not.toThrow( ImageFilteredError );
 	} );
 
-	it( 'extracts JPEG bytes, skipping text and thought parts', () => {
-		const raw = responseWith( [
-			{ text: 'here is your image' },
-			{ thought: true, inlineData: { data: JPEG_BASE64 } },
-			{ inlineData: { data: JPEG_BASE64, mimeType: 'image/jpeg' } },
-		] );
-		const bytes = interpretImageResponse( raw, 200 );
-		expect( bytes[ 0 ] ).toBe( 0xff );
-		expect( bytes[ 1 ] ).toBe( 0xd8 );
+	it( 'extracts PNG bytes from the first result', () => {
+		const bytes = interpretImageResponse(
+			JSON.stringify( { data: [ { b64_json: PNG_BASE64 } ] } ),
+			200
+		);
+		expect( bytes.toString( 'base64' ) ).toBe( PNG_BASE64 );
 	} );
 
-	it( 'rejects non-JPEG bytes so they are never written under a .jpg name', () => {
-		const pngBase64 = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a ] ).toString( 'base64' );
+	it( 'rejects a response without image data', () => {
+		expect( () => interpretImageResponse( JSON.stringify( { data: [] } ), 200 ) ).toThrow(
+			/no image data/
+		);
+	} );
+
+	it( 'rejects non-PNG bytes so they are never written under a .png name', () => {
+		const jpegBase64 = Buffer.from( [ 0xff, 0xd8, 0xff, 0xe0 ] ).toString( 'base64' );
 		expect( () =>
-			interpretImageResponse( responseWith( [ { inlineData: { data: pngBase64 } } ] ), 200 )
-		).toThrow( /not a JPEG/ );
+			interpretImageResponse( JSON.stringify( { data: [ { b64_json: jpegBase64 } ] } ), 200 )
+		).toThrow( /not a PNG/ );
 	} );
 } );
 
 describe( 'resolveImageFilePath', () => {
-	it( 'accepts .jpg paths inside the sites root', () => {
-		const target = path.join( STUDIO_SITES_ROOT, 'my-site', 'wp-content', 'a.jpg' );
+	it( 'accepts .png paths inside the sites root', () => {
+		const target = path.join( STUDIO_SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
 		expect( resolveImageFilePath( target ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {
 		expect( () =>
-			resolveImageFilePath( path.join( STUDIO_SITES_ROOT, '..', 'escape.jpg' ) )
+			resolveImageFilePath( path.join( STUDIO_SITES_ROOT, '..', 'escape.png' ) )
 		).toThrow( /inside the Studio sites directory/ );
 	} );
 
-	it( 'rejects non-JPEG extensions', () => {
-		expect( () => resolveImageFilePath( path.join( STUDIO_SITES_ROOT, 'a.png' ) ) ).toThrow(
-			/end in .jpg/
+	it( 'rejects non-PNG extensions', () => {
+		expect( () => resolveImageFilePath( path.join( STUDIO_SITES_ROOT, 'a.jpg' ) ) ).toThrow(
+			/end in .png/
 		);
 	} );
 } );

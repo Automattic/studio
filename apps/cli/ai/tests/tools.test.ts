@@ -1306,7 +1306,7 @@ describe( 'Studio AI MCP tools', () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
-		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.jpg' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite, site ],
@@ -1321,8 +1321,8 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce(
 				mockWpCliResponse( {
 					stdout: JSON.stringify( [
-						{ id: 7, file: 'wp-content/uploads/2026/09/hero.jpg', url: urlOf( 'hero.jpg' ) },
-						{ id: 8, file: 'wp-content/uploads/2026/09/buns.jpg', url: urlOf( 'buns.jpg' ) },
+						{ id: 7, file: 'wp-content/uploads/2026/09/hero.png', url: urlOf( 'hero.png' ) },
+						{ id: 8, file: 'wp-content/uploads/2026/09/buns.png', url: urlOf( 'buns.png' ) },
 					] ),
 				} ) as never
 			)
@@ -1331,22 +1331,22 @@ describe( 'Studio AI MCP tools', () => {
 		try {
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
-					{ path: path.join( uploads, 'hero.jpg' ), subject: 'A café counter at dawn' },
-					{ path: path.join( uploads, 'buns.jpg' ), subject: 'Cardamom buns on a tray' },
+					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },
 					{ path: themeImage, subject: 'Pebbles on a beach' },
 				],
 			} as never );
 
 			expect( getTextContent( result ) ).toContain(
-				`- ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
-					'hero.jpg'
+				`- ${ path.join( uploads, '2026', '09', 'hero.png' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.png'
 				) }`
 			);
 			expect( await result.pending ).toContain(
-				`FAILED ${ path.join( uploads, 'buns.jpg' ) }: Timed out`
+				`FAILED ${ path.join( uploads, 'buns.png' ) }: Timed out`
 			);
 			await expect(
-				readFile( path.join( uploads, '2026', '09', 'hero.jpg' ), 'utf8' )
+				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )
 			).resolves.toBe( 'jpeg' );
 			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
 			const finalize = vi.mocked( runWpCliCommandWithMessaging ).mock.calls[ 1 ][ 1 ][ 1 ];

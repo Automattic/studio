@@ -260,25 +260,51 @@ export function publishStagedInstall(
 }
 
 /**
- * Make the engine's external Playwright import resolve to the copy Studio
+ * Make the engine's external Playwright import resolve to the copy this Studio
  * ships, so the release bundle runs without its own dependency install.
+ *
+ * The runtime cache outlives any one Studio install: an update or a moved
+ * checkout leaves the link pointing at a Playwright that no longer exists. The
+ * link is re-pointed whenever it does not target this Studio's copy, and
+ * swapped in with a rename so a concurrent import never sees it missing.
  */
-function linkPlaywright( engineRoot: string ): void {
-	const require = createRequire( import.meta.url );
-	const playwrightRoot = path.dirname( require.resolve( 'playwright/package.json' ) );
+export function linkPlaywright(
+	engineRoot: string,
+	playwrightRoot = bundledPlaywrightRoot()
+): void {
 	const target = path.join( engineRoot, 'node_modules', 'playwright' );
-	if ( fs.existsSync( target ) ) {
+	let current: string | undefined;
+	try {
+		current = fs.readlinkSync( target );
+	} catch {
+		// Missing, or not a link.
+	}
+	if ( current && path.resolve( path.dirname( target ), current ) === playwrightRoot ) {
 		return;
 	}
 	fs.mkdirSync( path.dirname( target ), { recursive: true } );
+	const staged = `${ target }.link-${ uniqueSuffix() }`;
+	fs.symlinkSync( playwrightRoot, staged, os.platform() === 'win32' ? 'junction' : 'dir' );
 	try {
-		fs.symlinkSync( playwrightRoot, target, os.platform() === 'win32' ? 'junction' : 'dir' );
-	} catch ( error ) {
-		// A concurrent import linked it first.
-		if ( ( error as NodeJS.ErrnoException ).code !== 'EEXIST' ) {
-			throw error;
+		fs.renameSync( staged, target );
+	} catch {
+		// Windows cannot rename over an existing junction: remove the stale one first.
+		fs.rmSync( target, { recursive: false, force: true } );
+		try {
+			fs.renameSync( staged, target );
+		} catch ( error ) {
+			fs.rmSync( staged, { force: true } );
+			// A concurrent import may have linked it first; anything else is fatal.
+			if ( fs.readlinkSync( target ) !== playwrightRoot ) {
+				throw error;
+			}
 		}
 	}
+}
+
+function bundledPlaywrightRoot(): string {
+	const require = createRequire( import.meta.url );
+	return path.dirname( require.resolve( 'playwright/package.json' ) );
 }
 
 /** Install (once per version) and load the newest Data Liberation capture engine. */

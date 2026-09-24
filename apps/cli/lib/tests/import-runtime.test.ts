@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	downloadVerifiedAsset,
+	linkPlaywright,
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
@@ -255,5 +256,38 @@ describe( 'publishStagedInstall', () => {
 		publishStagedInstall( stage( 'a', 'A' ), target, isComplete );
 		expect( fs.readFileSync( path.join( target, 'bundle.mjs' ), 'utf8' ) ).toBe( 'A' );
 		expect( fs.readdirSync( directory ) ).toEqual( [ '0.5.3' ] );
+	} );
+} );
+
+describe( 'linkPlaywright', () => {
+	let directory: string;
+	beforeEach( () => {
+		directory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-runtime-' ) );
+	} );
+	afterEach( () => fs.rmSync( directory, { recursive: true, force: true } ) );
+
+	const target = () => path.join( directory, 'engine', 'node_modules', 'playwright' );
+	const playwright = ( name: string ) => {
+		const root = path.join( directory, name );
+		fs.mkdirSync( root );
+		return root;
+	};
+
+	it( "links the engine to this Studio's Playwright", () => {
+		const current = playwright( 'studio-a' );
+		linkPlaywright( path.join( directory, 'engine' ), current );
+		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
+	} );
+
+	it( 'repoints a link left by a Studio install that has since moved', () => {
+		const removed = playwright( 'studio-old' );
+		linkPlaywright( path.join( directory, 'engine' ), removed );
+		fs.rmSync( removed, { recursive: true } );
+		const current = playwright( 'studio-new' );
+
+		linkPlaywright( path.join( directory, 'engine' ), current );
+
+		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
+		expect( fs.readdirSync( path.dirname( target() ) ) ).toEqual( [ 'playwright' ] );
 	} );
 } );

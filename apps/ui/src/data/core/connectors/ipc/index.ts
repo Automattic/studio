@@ -551,9 +551,11 @@ export function createIpcConnector(): Connector {
 			return data === null ? null : studioAssistantQuotaSchema.parse( data );
 		},
 
-		async getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null > {
+		async getStudioAssistantTopUpPricing(
+			locale?: string
+		): Promise< StudioAssistantTopUpPricing | null > {
 			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			return token ? fetchStudioAssistantTopUpPricing( token.accessToken ) : null;
+			return token ? fetchStudioAssistantTopUpPricing( token.accessToken, locale ) : null;
 		},
 
 		async deleteAllSnapshots(): Promise< void > {

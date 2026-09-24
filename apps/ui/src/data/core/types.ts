@@ -284,7 +284,8 @@ export interface Connector {
 	// AI credit top-up options priced for the signed-in account. Resolves
 	// `null` when pricing can't be fetched (signed out, or the host has no
 	// pricing source) so callers can fall back to the single fixed top-up.
-	getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null >;
+	// Prices are formatted for `locale`.
+	getStudioAssistantTopUpPricing( locale?: string ): Promise< StudioAssistantTopUpPricing | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.

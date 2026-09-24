@@ -43,7 +43,12 @@ Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP ver
 studio create --from https://example.com --name "Example" --path ~/Studio/example --keep-source
 ```
 
-`--from` captures a public website with the newest Data Liberation release and rebuilds it as an editable block theme with the newest Static Site Importer release. It usually takes 10–15 minutes. `--keep-source` keeps the capture next to the site and prints the `data-liberation compare` command that measures it against the live source. `--static-site-importer-url` or `--static-site-importer-path` override the importer.
+`--from` takes a public URL, or a local folder or `.zip` of site files. A URL is first captured with the newest Data Liberation release; every source is then rebuilt as an editable block theme with the newest Static Site Importer release. Both are downloaded and checksum-verified on first use. Time depends on the number of pages, from a few minutes upward.
+
+- `--keep-source` (URL only) keeps the capture in a sibling `<path>-source` directory and prints a `data-liberation compare … --candidate <site URL>` command that compares the running site with the original, page by page.
+- A capture that lost a few pages still imports and lists them; one missing its home page, or more than 10% of its pages, stops the import.
+- If the import fails after the site was created, the site is kept; re-running the same command resumes it (a URL is captured again first).
+- `--static-site-importer-url` or `--static-site-importer-path` override the importer, for example with an unreleased build.
 
 **Note:** CLI flag values are visible in process lists. Use Blueprint files for sensitive passwords.
 

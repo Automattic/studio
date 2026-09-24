@@ -5,7 +5,9 @@ description: Liberate any website into a portable HTML copy and import it into W
 
 ## 1. Bring the site over
 
-Ask where the website lives if the user has not already provided a URL. It can be a public address starting with `https://`, or a folder or `.zip` of the site's files on this computer. Depending on the size of the website, this may take some time, so set expectations upfront. 
+Ask where the website lives if the user has not already provided a URL. It can be a public address starting with `https://`, or a folder or `.zip` of the site's files on this computer.
+
+For an address, the import has two stages: first Data Liberation copies every page of the original site, then Static Site Importer rebuilds that copy as a WordPress site. Copying takes longest and grows with the number of pages, so a small site takes a few minutes and a large one can take much longer. Tell the user what to expect.
 
 Import it with the Studio CLI. For a website address:
 
@@ -19,9 +21,11 @@ For a folder or `.zip` of website files, pass its path instead and leave out `--
 studio create --from <path> --name "<site name>" --path ~/Studio/<slug> --skip-browser
 ```
 
-Run it with a timeout of at least 20 minutes. For an address, `--keep-source` keeps a copy of the original next to the new site so the two can be compared.
+Run it with a timeout of at least 20 minutes. For an address, `--keep-source` keeps the copy of the original in a `<path>-source` folder next to the new site, which the comparison below uses.
 
-If the import stops because some pages could not be copied, tell the user which pages, explain that the original site may have been briefly unavailable, and offer to try again.
+If a few pages could not be copied, the import still finishes without them and lists them with the reason each one failed; tell the user which pages are missing. The import stops instead when the home page could not be copied, or more than one page in ten; report the reason it printed rather than guessing at one.
+
+If the import stops after the site was created, the site is kept and `studio create` says so. Re-running the same command continues that import instead of starting a new site; it copies the original again first. If it stops before the site was created, re-running starts over.
 
 ## 2. Find what came out differently
 

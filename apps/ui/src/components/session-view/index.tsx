@@ -47,6 +47,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { formatComposerTextQuote, watchComposerTextQuote } from '@/lib/composer-text-quote';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { AccessRequirements } from './access-requirements';
@@ -95,6 +96,7 @@ function SessionHeader( {
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
+	const windowControlsInset = useWindowControlsInset( 'content' );
 	if ( ! siteName ) {
 		return null;
 	}
@@ -105,6 +107,13 @@ function SessionHeader( {
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
+			style={
+				windowControlsInset > 0
+					? {
+							paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+					  }
+					: undefined
+			}
 		>
 			{ site ? (
 				<SiteDropdown

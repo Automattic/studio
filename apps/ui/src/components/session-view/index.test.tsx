@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useSession } from '@/data/queries/use-sessions';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { pendingPromptSlot } from '@/lib/pending-prompt';
 import { isScrolledAwayFromLatest, SessionView } from './index';
 import type { LoadedAiSession } from '@/data/core';
@@ -85,6 +86,10 @@ vi.mock( '@/hooks/use-session-ui', () => ( {
 	} ),
 	pathForSite: ( pathsBySiteId: Record< string, string >, siteId: string ) =>
 		pathsBySiteId[ siteId ] ?? '/',
+} ) );
+
+vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
+	useWindowControlsOverlay: () => ( { height: 32, controlsWidth: 138 } ),
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -216,6 +221,35 @@ describe( 'SessionView', () => {
 		render( <SessionView sessionId="session-1" /> );
 
 		expect( screen.getByTestId( 'open-in-menu' ) ).toHaveTextContent( 'Example Site' );
+	} );
+
+	it( 'moves the Open in control clear of the Windows/Linux window controls', () => {
+		sitesState.data = [
+			{ id: 'site-1', name: 'Example Site', path: '/Users/example/Studio/example-site' },
+		];
+		useSessionMock.mockReturnValue( {
+			data: {
+				summary: { id: 'session-1', ownerSiteId: 'site-1', ownerSiteName: 'Example Site' },
+				entries: [],
+			} as unknown as LoadedAiSession,
+			isLoading: false,
+			error: null,
+		} );
+
+		const { rerender } = render(
+			<WindowControlsCornerContext.Provider value>
+				<SessionView sessionId="session-1" />
+			</WindowControlsCornerContext.Provider>
+		);
+		const header = screen.getByTestId( 'open-in-menu' ).parentElement?.parentElement;
+		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+
+		rerender(
+			<WindowControlsCornerContext.Provider value={ false }>
+				<SessionView sessionId="session-1" />
+			</WindowControlsCornerContext.Provider>
+		);
+		expect( header?.style.paddingRight ).toBe( '' );
 	} );
 
 	it( 'redirects to the root instead of flashing the error when the session is gone', async () => {

@@ -1,17 +1,11 @@
 ---
 name: liberate
-description: Move an existing website (Wix, Squarespace, Webflow, Shopify, GoDaddy, Hostinger, HubSpot, Weebly, any public site, or a folder of website files) into a new Studio WordPress site, then work with the user to make it look and work like the original. Invoke when the user wants to migrate, import, move, liberate, or rebuild a website from a URL.
+description: Liberate any website into a portable HTML copy and import it into WordPress using the Studio CLI. Then work with the user to make sure it looks and function like the original. Use this when the user wants to migrate, import, move, liberate, or rebuild a website from a URL.
 ---
-
-# Move a website into Studio
-
-The user is usually not technical. Speak plainly, keep them informed, and never ask them to run commands or read logs. You run everything.
-
-Set expectations up front: the import gets most of the way there, and you will then fix what came out differently, together. A first import is rarely perfect.
 
 ## 1. Bring the site over
 
-Ask where the website is if the user has not said. It can be a public address starting with `https://`, or a folder or `.zip` of the site's files on this computer. Let them know an address usually takes 10 to 15 minutes, and that you will tell them when it is ready.
+Ask where the website lives if the user has not already provided a URL. It can be a public address starting with `https://`, or a folder or `.zip` of the site's files on this computer. Depending on the size of the website, this may take some time, so set expectations upfront. 
 
 Import it with the Studio CLI. For a website address:
 

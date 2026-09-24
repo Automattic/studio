@@ -653,6 +653,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	// Studio's browser UI previews sites in an iframe on another localhost port,
+	// which core's same-origin framing headers would block for wp-admin and login.
+	muPlugins.push( {
+		filename: '0-allow-localhost-framing.php',
+		content: `<?php
+		function studio_send_frame_options_header() {
+			remove_action( current_action(), 'send_frame_options_header' );
+			if ( ! headers_sent() ) {
+				header( "Content-Security-Policy: frame-ancestors 'self' http://localhost:* http://127.0.0.1:*" );
+			}
+		}
+		add_action( 'admin_init', 'studio_send_frame_options_header', 0 );
+		add_action( 'login_init', 'studio_send_frame_options_header', 0 );
+		`,
+	} );
+
 	// Auto-login functionality via dedicated endpoint
 	muPlugins.push( {
 		filename: '0-auto-login.php',

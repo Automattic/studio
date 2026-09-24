@@ -1,7 +1,10 @@
 import { DEPLOY_IGNORE_DEFAULTS } from '../deploy-ignore-defaults';
 
 export const SYNC_POLL_INTERVAL_MS = 3000;
-export const SYNC_MAX_STALLED_ATTEMPTS = 200;
+// Remote imports and backups can sit on one progress value for a long time on
+// large sites, and the remote reports its own timeouts as a `failed` status.
+export const SYNC_MAX_STALLED_MS = 60 * 60 * 1000;
+export const SYNC_MAX_STALLED_ATTEMPTS = SYNC_MAX_STALLED_MS / SYNC_POLL_INTERVAL_MS;
 export const SYNC_PUSH_SIZE_LIMIT_GB = 5;
 export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 5GB
 

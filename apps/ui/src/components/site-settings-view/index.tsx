@@ -1,6 +1,14 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_EMAIL,
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	encodePassword,
+} from '@studio/common/lib/passwords';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime } from '@studio/common/lib/site-runtime';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -16,11 +24,16 @@ import {
 	customDomainToggleField,
 	enableDebugDisplayField,
 	enableDebugLogField,
+	enableScriptDebugField,
 	enableXdebugField,
+	environmentTypeField,
+	fileAccessField,
+	phpRuntimeField,
 	phpVersionField,
 	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
+import { effectiveFileAccess } from '@/components/site-fields/runtime-control';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
@@ -37,6 +50,9 @@ import {
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
@@ -46,6 +62,8 @@ type TabId = 'overview' | 'general' | 'debugging';
 interface FormData {
 	name: string;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	// Empty string means "auto-update"; anything else pins the site to that
 	// version. Only forwarded on save when the user actually changed it.
 	wpVersion: string;
@@ -58,6 +76,8 @@ interface FormData {
 	enableXdebug: boolean;
 	enableDebugLog: boolean;
 	enableDebugDisplay: boolean;
+	enableScriptDebug: boolean;
+	environmentType: WpEnvironmentType;
 }
 
 function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
@@ -75,16 +95,20 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 	return {
 		name: site.name,
 		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
+		runtime: getSiteRuntime( site ),
+		fileAccess: getSiteFileAccess( site ),
 		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
-		adminUsername: site.adminUsername ?? 'admin',
-		adminPassword: decodePassword( site.adminPassword ?? '' ) || 'password',
-		adminEmail: site.adminEmail || 'admin@localhost.com',
+		adminUsername: site.adminUsername ?? DEFAULT_ADMIN_USERNAME,
+		adminPassword: decodeAdminPassword( site.adminPassword ),
+		adminEmail: site.adminEmail || DEFAULT_ADMIN_EMAIL,
 		enableXdebug: site.enableXdebug ?? false,
 		enableDebugLog: site.enableDebugLog ?? false,
 		enableDebugDisplay: site.enableDebugDisplay ?? false,
+		enableScriptDebug: site.enableScriptDebug ?? false,
+		environmentType: getWpEnvironmentType( site ),
 	};
 }
 
@@ -205,6 +229,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		() => [
 			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
+			phpRuntimeField< FormData >(),
+			fileAccessField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
 				currentVersion:
@@ -239,6 +265,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				),
 			},
 			enableDebugDisplayField< FormData >(),
+			enableScriptDebugField< FormData >(),
+			environmentTypeField< FormData >(),
 		],
 		[
 			data.wpVersion,
@@ -266,7 +294,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					id: 'phpEnvironment',
 					label: __( 'PHP environment' ),
 					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion' ],
+					children: [ 'phpVersion', 'runtime', 'fileAccess' ],
 				},
 				{
 					id: 'wordpressAdmin',
@@ -287,7 +315,13 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const debuggingForm = useMemo< Form >(
 		() => ( {
 			layout: { type: 'regular', labelPosition: 'top' },
-			fields: [ 'enableXdebug', 'enableDebugLog', 'enableDebugDisplay' ],
+			fields: [
+				'enableXdebug',
+				'enableDebugLog',
+				'enableDebugDisplay',
+				'enableScriptDebug',
+				'environmentType',
+			],
 		} ),
 		[]
 	);
@@ -344,6 +378,10 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			...site,
 			name: data.name,
 			phpVersion: data.phpVersion,
+			runtime: data.runtime,
+			// The sandbox can only reach the site directory, so never submit a
+			// stale `all-files` left over from a previous native run.
+			fileAccess: effectiveFileAccess( data ),
 			isWpAutoUpdating: ! wpPinned,
 			customDomain: usedCustomDomain,
 			enableHttps: !! usedCustomDomain && data.enableHttps,
@@ -353,6 +391,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableXdebug: data.enableXdebug,
 			enableDebugLog: data.enableDebugLog,
 			enableDebugDisplay: data.enableDebugDisplay,
+			enableScriptDebug: data.enableScriptDebug,
+			environmentType: data.environmentType,
 		};
 		// Only forward the version when the user actually changed it — same as
 		// the legacy settings modal — so unrelated saves of a pinned site don't

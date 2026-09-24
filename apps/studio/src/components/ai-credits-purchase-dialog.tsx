@@ -31,7 +31,7 @@ export function AiCreditsPurchaseDialog( {
 	onOpenChange: ( open: boolean ) => void;
 } ) {
 	const locale = useI18nLocale();
-	const { data: pricing } = useGetStudioAssistantTopUpPricing();
+	const { data: pricing } = useGetStudioAssistantTopUpPricing( { locale } );
 	const options = pricing?.options ?? [];
 	const [ selectedCredits, setSelectedCredits ] = useState< number | null >( null );
 

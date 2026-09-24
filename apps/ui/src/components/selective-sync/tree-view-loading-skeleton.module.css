@@ -1,0 +1,17 @@
+/* Replaces the legacy `skeleton-bg` utility from apps/studio/src/index.css,
+   which isn't part of the generated selective-sync.css sheet. */
+.placeholder {
+	animation: skeleton-pulse 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
+	background-image: linear-gradient(
+		to right,
+		var( --wpds-color-background-surface-neutral-strong ),
+		var( --wpds-color-background-interactive-neutral-weak-active ),
+		var( --wpds-color-background-surface-neutral-strong )
+	);
+}
+
+@keyframes skeleton-pulse {
+	50% {
+		opacity: 0.5;
+	}
+}

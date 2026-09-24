@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -13,13 +14,16 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -36,20 +40,11 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
+export type { StudioChatImage } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
-export type {
-	StudioCustomEntry,
-	StudioCustomEntryType,
-	StudioCustomEntryDataMap,
-	StudioSiteSelectedData,
-	StudioToolProgressData,
-	StudioAgentQuestionData,
-	StudioTurnClosedData,
-	StudioSessionContextData,
-	StudioUserPromptData,
-} from '@studio/common/ai/sessions/entry-types';
+export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type {
@@ -64,10 +59,7 @@ export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-set
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-export type {
-	StudioAssistantTopUpOption,
-	StudioAssistantTopUpPricing,
-} from '@studio/common/lib/studio-assistant-top-up-pricing';
+export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
@@ -94,6 +86,8 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from
@@ -103,6 +97,8 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	enableScriptDebug?: boolean;
+	environmentType?: WpEnvironmentType;
 	sortOrder?: number;
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
@@ -143,9 +139,6 @@ export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
-	// A native "Save As" dialog is available, so exports write to a chosen path.
-	// When false, exports are delivered to the browser as a download.
-	nativeSaveDialog: boolean;
 	// The host can open paths in OS apps (file manager, editor, terminal) and
 	// detect installed apps. True on the desktop and the local server (both on
 	// the user's machine); false when hosted remotely.
@@ -156,8 +149,8 @@ export interface ConnectorCapabilities {
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
 	// `readLocalMediaFile` can read media files from the host's disk (used to
-	// render local screenshot artifacts inline). Only the desktop IPC connector
-	// supports it; the browser connectors reject local file reads.
+	// render screenshots and generated images inline). The local server limits
+	// it to raster images in the sessions and site folders; hosted can't.
 	readLocalMedia: boolean;
 	// The host can read/write the user's global Studio Code instructions file
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
@@ -188,9 +181,7 @@ export interface Connector {
 	capabilities: ConnectorCapabilities;
 
 	// Auth
-	requiresAuth: boolean;
 	agenticRequiresAuth: boolean;
-	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
 	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
 	// connector can report it — the browser connectors have no Main process to record through.
@@ -223,9 +214,6 @@ export interface Connector {
 	// Persists the sidebar's manual site order (the same per-site `sortOrder`
 	// the legacy desktop sidebar uses).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
-	// Refreshes the cached WordPress Site Icon path after a site-level icon
-	// change. The renderer receives image bytes through getSites().
-	refreshSiteIcon( siteId: string ): Promise< void >;
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -296,7 +284,8 @@ export interface Connector {
 	// AI credit top-up options priced for the signed-in account. Resolves
 	// `null` when pricing can't be fetched (signed out, or the host has no
 	// pricing source) so callers can fall back to the single fixed top-up.
-	getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null >;
+	// Prices are formatted for `locale`.
+	getStudioAssistantTopUpPricing( locale?: string ): Promise< StudioAssistantTopUpPricing | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
@@ -388,7 +377,6 @@ export interface Connector {
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
-	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
 		patch: Pick< AiSessionSummary, 'archived' >
@@ -408,6 +396,7 @@ export interface Connector {
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
+			visualAnnotations?: StudioVisualAnnotationSummary[];
 		}
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
@@ -429,13 +418,6 @@ export interface Connector {
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
-
-	// Flip the session between acting on its owner site's local runtime vs.
-	// its linked WordPress.com live site. The owner site itself never changes.
-	setSessionEnvironment(
-		sessionId: string,
-		environment: 'local' | 'live'
-	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
 
 	// User preferences — editor, terminal, color scheme, locale. Fanned out to
 	// the granular main-process handlers inside the connector so the UI has a
@@ -467,10 +449,9 @@ export interface Connector {
 
 	// AI provider settings stored in the CLI config, gated by
 	// `capabilities.aiSettings`. Clearing the key (null) also falls back to
-	// WordPress.com; `setAiProvider` rejects when the Anthropic key can't be used.
+	// WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
-	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

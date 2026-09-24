@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAddAiCreditsUrl } from '@studio/common/lib/studio-assistant-quota';
 import {
+	fetchStudioAssistantTopUpPricing,
 	formatContinueForPriceLabel,
 	formatTopUpOptionCreditsLabel,
 	parseStudioAssistantTopUpPricing,
@@ -72,6 +73,38 @@ describe( 'parseStudioAssistantTopUpPricing', () => {
 		// An option missing its price is unusable too — the card has nothing
 		// to show and nothing to charge.
 		expect( parseStudioAssistantTopUpPricing( { options: [ { credits: 100000 } ] } ) ).toBeNull();
+	} );
+} );
+
+describe( 'fetchStudioAssistantTopUpPricing', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	function stubFetch() {
+		const fetchMock = vi.fn().mockResolvedValue( {
+			ok: true,
+			json: async () => gbpResponse,
+		} );
+		vi.stubGlobal( 'fetch', fetchMock );
+		return fetchMock;
+	}
+
+	it( 'asks the store to format prices for the UI locale', async () => {
+		const fetchMock = stubFetch();
+		await fetchStudioAssistantTopUpPricing( 'token', 'pt-br' );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/top-up-pricing?_locale=pt-br',
+			{ headers: { Authorization: 'Bearer token' } }
+		);
+	} );
+
+	it( 'leaves the locale to the store when none is known', async () => {
+		const fetchMock = stubFetch();
+		await fetchStudioAssistantTopUpPricing( 'token' );
+		expect( fetchMock.mock.calls[ 0 ][ 0 ] ).toBe(
+			'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/top-up-pricing'
+		);
 	} );
 } );
 

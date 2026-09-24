@@ -24,5 +24,6 @@ export const deletePreviewTool = defineTool(
 			'Failed to delete preview site',
 			context.onProgress
 		);
-	}
+	},
+	{ promptSnippet: 'Delete a preview site by hostname' }
 );

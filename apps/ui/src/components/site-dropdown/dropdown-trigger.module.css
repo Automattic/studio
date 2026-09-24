@@ -3,6 +3,10 @@
 	--site-menu-active-fill: var(--wpds-color-background-interactive-neutral-strong);
 	--site-menu-resting-fill: var(--wpds-color-background-interactive-neutral-strong-active);
 	--site-menu-foreground: var(--wpds-color-foreground-interactive-neutral-strong);
+	/* Brand fg flips with the theme while this surface is theme-inverted, so
+	   status colors use the constant brand fill instead. */
+	--site-menu-brand: var(--wpds-color-background-interactive-brand-strong);
+	--site-menu-on-brand: var(--wpds-color-foreground-interactive-brand-strong);
 	--wp-ui-button-background-color: var(--site-menu-resting-fill);
 	--wp-ui-button-background-color-active: var(--site-menu-active-fill);
 	--wp-ui-button-border-color: transparent;
@@ -67,6 +71,7 @@
 .site {
 	flex: 0 1 auto;
 	min-width: 0;
+	max-width: 100%;
 	color: var(--site-menu-foreground);
 	overflow: hidden;
 	font-weight: 600;
@@ -137,8 +142,8 @@
 }
 
 .statusBadge_live {
-	background: #2563eb;
-	color: #fff;
+	background: var(--site-menu-brand);
+	color: var(--site-menu-on-brand);
 }
 
 .statusBadge:not(.statusBadge_overlay).statusBadge_live {
@@ -146,8 +151,8 @@
 	height: 20px;
 	gap: 4px;
 	padding: 0 6px;
-	background: color-mix(in srgb, #2563eb 9%, transparent);
-	color: #2563eb;
+	background: color-mix(in srgb, var(--site-menu-brand) 9%, transparent);
+	color: var(--site-menu-brand);
 }
 
 .statusBadge_stopped {
@@ -156,7 +161,7 @@
 }
 
 .statusBadge_transitioning {
-	background: #2563eb;
+	background: var(--site-menu-brand);
 	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
@@ -176,11 +181,11 @@
 }
 
 .dot_transitioning {
-	background-color: #2563eb;
+	background-color: var(--site-menu-brand);
 }
 
 .dot_live {
-	background-color: #2563eb;
+	background-color: var(--site-menu-brand);
 }
 
 .pauseMark,

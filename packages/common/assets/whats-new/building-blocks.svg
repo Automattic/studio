@@ -1,0 +1,62 @@
+<svg width="360" height="195" viewBox="0 0 560 384" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="560" height="384" fill="black"/>
+<rect opacity="0.3" width="560" height="384" fill="url(#building_blocks_dot_grid)"/>
+<defs>
+<pattern id="building_blocks_dot_grid" width="28" height="28" patternUnits="userSpaceOnUse">
+<rect x="26" y="25" width="3" height="3" rx="1.5" fill="white"/>
+</pattern>
+<linearGradient id="building_blocks_accent" x1="150" y1="110" x2="330" y2="280" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3858E9"/>
+<stop offset="1" stop-color="#069E08"/>
+</linearGradient>
+<filter id="building_blocks_glow" x="-40%" y="-40%" width="180%" height="180%">
+<feGaussianBlur stdDeviation="9"/>
+</filter>
+</defs>
+
+<!-- A block selected in the editor, with its style controls alongside. -->
+<g transform="translate(72 86) scale(1.09)">
+
+<!-- Canvas. -->
+<rect x="0" y="0" width="236" height="200" rx="12" fill="#1A1A1A"/>
+<rect x="0.6" y="0.6" width="234.8" height="198.8" rx="11.4" stroke="white" stroke-opacity="0.16" stroke-width="1.2"/>
+<rect x="18" y="20" width="92" height="8" rx="4" fill="white" fill-opacity="0.2"/>
+
+<!-- The selected block. -->
+<rect x="-6" y="40" width="248" height="94" rx="14" fill="#3858E9" opacity="0.14" filter="url(#building_blocks_glow)"/>
+<rect x="18" y="46" width="200" height="82" rx="8" fill="white" fill-opacity="0.05"/>
+<rect x="18.8" y="46.8" width="198.4" height="80.4" rx="7.2" stroke="url(#building_blocks_accent)" stroke-width="1.6"/>
+<rect x="34" y="62" width="104" height="9" rx="4.5" fill="#DBDBDB" fill-opacity="0.9"/>
+<rect x="34" y="79" width="150" height="6" rx="3" fill="white" fill-opacity="0.24"/>
+<rect x="34" y="92" width="126" height="6" rx="3" fill="white" fill-opacity="0.24"/>
+<rect x="34" y="106" width="52" height="14" rx="7" fill="url(#building_blocks_accent)"/>
+
+<!-- Selection handles. -->
+<rect x="14" y="42" width="8" height="8" rx="2" fill="url(#building_blocks_accent)"/>
+<rect x="214" y="42" width="8" height="8" rx="2" fill="url(#building_blocks_accent)"/>
+<rect x="14" y="124" width="8" height="8" rx="2" fill="url(#building_blocks_accent)"/>
+<rect x="214" y="124" width="8" height="8" rx="2" fill="url(#building_blocks_accent)"/>
+
+<rect x="18" y="148" width="200" height="34" rx="8" fill="white" fill-opacity="0.03"/>
+
+<!-- Styles panel. -->
+<rect x="258" y="0" width="182" height="200" rx="12" fill="#1A1A1A"/>
+<rect x="258.6" y="0.6" width="180.8" height="198.8" rx="11.4" stroke="white" stroke-opacity="0.16" stroke-width="1.2"/>
+<text x="278" y="30" fill="#8C8C8C" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" letter-spacing="0.06em">STYLES</text>
+
+<text x="278" y="58" fill="#DBDBDB" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12">Color</text>
+<circle cx="284" cy="76" r="9" fill="url(#building_blocks_accent)"/>
+<circle cx="284" cy="76" r="11.5" stroke="white" stroke-opacity="0.55" stroke-width="1.3"/>
+<circle cx="310" cy="76" r="9" fill="#DBDBDB" fill-opacity="0.75"/>
+<circle cx="336" cy="76" r="9" fill="white" fill-opacity="0.22"/>
+<circle cx="362" cy="76" r="9" fill="white" fill-opacity="0.12"/>
+
+<text x="278" y="116" fill="#DBDBDB" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12">Typography</text>
+<rect x="278" y="128" width="142" height="20" rx="6" fill="white" fill-opacity="0.06"/>
+<rect x="288" y="135" width="46" height="6" rx="3" fill="#DBDBDB" fill-opacity="0.7"/>
+
+<text x="278" y="172" fill="#DBDBDB" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12">Spacing</text>
+<rect x="278" y="182" width="142" height="5" rx="2.5" fill="white" fill-opacity="0.14"/>
+<circle cx="336" cy="184.5" r="7" fill="#DBDBDB"/>
+</g>
+</svg>

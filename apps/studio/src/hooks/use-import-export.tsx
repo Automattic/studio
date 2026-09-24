@@ -356,7 +356,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				filters: [
 					{
 						name: 'Compressed Backup Files',
-						extensions: [ 'tar.gz', 'tzg', 'zip' ],
+						extensions: [ 'tar.gz', 'tgz', 'zip' ],
 					},
 				],
 			} );

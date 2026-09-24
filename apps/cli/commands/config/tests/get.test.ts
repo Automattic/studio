@@ -28,6 +28,8 @@ describe( 'CLI: studio config get', () => {
 		adminEmail: 'admin@example.com',
 		enableDebugLog: true,
 		enableDebugDisplay: false,
+		enableScriptDebug: true,
+		environmentType: 'development' as const,
 	};
 
 	beforeEach( () => {
@@ -147,6 +149,8 @@ describe( 'CLI: studio config get', () => {
 						'admin-email': 'admin@example.com',
 						'debug-log': true,
 						'debug-display': false,
+						'script-debug': true,
+						'environment-type': 'development',
 					},
 					null,
 					2
@@ -181,6 +185,8 @@ describe( 'CLI: studio config get', () => {
 						'admin-email': null,
 						'debug-log': false,
 						'debug-display': false,
+						'script-debug': false,
+						'environment-type': 'local',
 					},
 					null,
 					2

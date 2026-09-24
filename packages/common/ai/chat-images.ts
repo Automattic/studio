@@ -1,4 +1,5 @@
 import type { StudioChatFileAttachment } from './chat-files';
+import type { StudioVisualAnnotationSummary } from './visual-annotations';
 
 // Image types the model accepts as multimodal content blocks (matches the
 // Anthropic vision-supported set). Anything else is sent as a file path instead.
@@ -29,6 +30,7 @@ export interface StudioAiSessionInputPayload {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export const STUDIO_CHAT_MAX_IMAGES = 4;

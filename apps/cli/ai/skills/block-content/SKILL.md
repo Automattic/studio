@@ -72,7 +72,7 @@ This holds even when it looks harmless: inside a flex row an `inline-block` or `
 
 ## Root Block Gap
 
-WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
+WordPress inserts a `margin-block-start` equal to the block gap between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`:where(.wp-site-blocks) > *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
 
 - Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding, and `main` gets its padding back through the `.wp-site-blocks main` rule next to it so templates the theme does not author (plugin templates) still clear the header and footer. Keep both rules when editing the file.
 - When working in a theme without that reset, add the same rules to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
@@ -131,7 +131,7 @@ For `style.css`, start with custom properties and anchor comments only:
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
+Keep the skeleton under 2KB. Fill the anchors with as few `Edit` calls as the payload limit allows: one entry in `edits[]` per anchor, its `oldText` the anchor line and its `newText` the anchor plus the new styles, several entries per call and under ~8KB of new text per call. A typical `style.css` takes two or three such calls, never one call per anchor. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 
@@ -153,7 +153,7 @@ wp_cli post create --post_content=""
 <!-- section:cta -->
 ```
 
-3. Fill one anchor per `Edit` using editable blocks. Never wrap a section in `core/html`.
+3. Fill the anchors with editable blocks, several per `Edit` call: one `edits[]` entry per section, under ~8KB of new text per call. Never wrap a section in `core/html`.
 4. **Validate before applying (mandatory gate).** Once all anchors are filled, you MUST call `validate_blocks` with `filePath` pointing at `<site>/tmp/page-<slug>.html` and get a passing result — the core/html policy passes and editor validation reports all blocks valid. This is not optional and not a step you can defer to after `wp_cli eval`: the scratch file is block content, so it must be validated as a file while it still lives in a file. If validation reports invalid blocks, fix them in the file and call `validate_blocks` again until it passes. Never apply block content you have not validated.
 5. Apply the validated content once:
 

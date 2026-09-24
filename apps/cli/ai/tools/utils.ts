@@ -1,6 +1,7 @@
 import path from 'path';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { Logger, type ProgressCallback } from 'cli/logger';
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -25,6 +26,18 @@ export async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	}
 
 	return getSiteByFolder( nameOrPath );
+}
+
+// Callers connect to the daemon first, like runWpCliCommandWithMessaging requires.
+export async function runWpCli( site: SiteData, args: string[] ): Promise< string > {
+	await using command = await runWpCliCommandWithMessaging( site, args );
+	const exitCode = await command.response.exitCode;
+	const stdout = await command.response.stdoutText;
+	if ( exitCode !== 0 ) {
+		const detail = ( ( await command.response.stderrText ) || stdout ).trim();
+		throw new Error( `WP-CLI exited with code ${ exitCode }${ detail ? `: ${ detail }` : '' }` );
+	}
+	return stdout;
 }
 
 export function textResult( text: string ) {

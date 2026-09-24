@@ -174,6 +174,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			questions: questions.map( ( q ) => ( {
 				question: q.question,
 				options: q.options,
+				multiSelect: q.multiSelect,
 			} ) ),
 		} );
 

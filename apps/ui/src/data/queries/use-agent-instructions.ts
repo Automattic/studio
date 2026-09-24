@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 
-export const AGENT_INSTRUCTIONS_QUERY_KEY = [ 'agent-instructions' ] as const;
+const AGENT_INSTRUCTIONS_QUERY_KEY = [ 'agent-instructions' ] as const;
 
 export function useAgentInstructions() {
 	const connector = useConnector();

@@ -1,5 +1,6 @@
 import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
+import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
@@ -94,7 +95,7 @@ export function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
+		env: withoutOversizedEnvValues( env ? { ...process.env, ...env } : process.env ),
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 		detached,

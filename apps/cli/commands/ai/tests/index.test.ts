@@ -1,5 +1,6 @@
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
 import {
 	isAiProviderReady,
@@ -24,6 +25,11 @@ import { runCommand } from '../index';
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
+// The quota-based wpcom default must never hit the network in tests.
+vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/studio-assistant-quota') >() ),
+	fetchStudioAssistantQuota: vi.fn().mockResolvedValue( null ),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -42,7 +48,7 @@ vi.mock( 'cli/ai/providers', () => ( {
 	DEFAULT_AI_PROVIDER: 'wpcom',
 	getAiProviderDefinition: () => ( {
 		supportsModel: () => true,
-		defaultModel: 'claude-default',
+		defaultModel: 'claude-sonnet-5',
 	} ),
 } ) );
 vi.mock( '@studio/common/ai/settings-store', () => ( {
@@ -78,7 +84,10 @@ vi.mock( 'cli/ai/runtimes/pi', () => ( {
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
 vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/site-selection', () => ( { setLocalSiteSelectedCallback: vi.fn() } ) );
+vi.mock( 'cli/ai/site-selection', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/site-selection') >() ),
+	setLocalSiteSelectedCallback: vi.fn(),
+} ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -114,6 +123,31 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 		expect( runStudioAgentTurn ).toHaveBeenCalled();
 		expect( saveSelectedAiProvider ).toHaveBeenCalledTimes( 1 );
 		expect( saveSelectedAiProvider ).toHaveBeenCalledWith( 'wpcom' );
+	} );
+
+	it( 'waits for the quota-based default before pinning wpcom on first run', async () => {
+		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		( readAuthToken as Mock ).mockResolvedValue( { accessToken: 'wpcom-token' } );
+		( fetchStudioAssistantQuota as Mock ).mockImplementation(
+			() =>
+				new Promise( ( resolve ) =>
+					setTimeout( () => resolve( { purchasedRemaining: 100_000 } ), 10 )
+				)
+		);
+		const appendCustomEntry = vi.fn( ( _type: string, _data: { provider?: string } ) => 'id' );
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry,
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const pin = appendCustomEntry.mock.calls.find(
+			( [ type, data ] ) => type === 'studio.session_context' && data.provider !== undefined
+		);
+		expect( pin?.[ 1 ] ).toMatchObject( { provider: 'wpcom', model: 'balanced' } );
 	} );
 
 	it( 'does not override an already-configured provider', async () => {
@@ -343,7 +377,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props ).toMatchObject( {
 			outcome: 'interrupted',
 			provider: 'wpcom',
-			model_family: 'anthropic',
+			model_family: 'studio',
 			ai_session_id: 'session-id',
 			client: 'studio-code',
 		} );

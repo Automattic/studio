@@ -37,6 +37,14 @@ describe( 'siteNeedsRestart', () => {
 		expect( siteNeedsRestart( { xdebugChanged: true } ) ).toBe( true );
 	} );
 
+	it( 'returns true when script debug changed', () => {
+		expect( siteNeedsRestart( { scriptDebugChanged: true } ) ).toBe( true );
+	} );
+
+	it( 'returns true when environment type changed', () => {
+		expect( siteNeedsRestart( { environmentTypeChanged: true } ) ).toBe( true );
+	} );
+
 	it( 'returns true when multiple settings changed', () => {
 		expect(
 			siteNeedsRestart( {

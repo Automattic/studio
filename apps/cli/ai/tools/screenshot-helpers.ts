@@ -34,6 +34,10 @@ const MODEL_JPEG_QUALITY = 80;
  */
 export const MAX_IMAGE_DIMENSION_PX = 8000;
 
+// pi re-encodes larger tool images as much heavier PNGs, and Anthropic rejects
+// larger images in requests carrying more than 20 of them.
+const MODEL_IMAGE_MAX_EDGE_PX = 2000;
+
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
@@ -67,10 +71,48 @@ export async function applyScreenshotMediaEmulation(
 
 export interface ScreenshotCapture {
 	buffer: Buffer;
+	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
+	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
+	contentHeight: number;
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
+}
+
+/** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
+async function scaleForModel(
+	page: Page,
+	capture: Buffer,
+	width: number,
+	height: number
+): Promise< ScreenshotCapture[ 'modelImage' ] > {
+	const scale = MODEL_IMAGE_MAX_EDGE_PX / Math.max( width, height );
+	if ( scale >= 1 ) {
+		return undefined;
+	}
+	const size = { width: Math.round( width * scale ), height: Math.round( height * scale ) };
+	// Not a data: URL, which the site's Content-Security-Policy could block.
+	const base64 = await page.evaluate(
+		async ( { source, width, height, quality } ) => {
+			const bytes = Uint8Array.from( atob( source ), ( char ) => char.charCodeAt( 0 ) );
+			const bitmap = await createImageBitmap( new Blob( [ bytes ] ), {
+				resizeWidth: width,
+				resizeHeight: height,
+				resizeQuality: 'high',
+			} );
+			const canvas = new OffscreenCanvas( width, height );
+			canvas.getContext( '2d' )!.drawImage( bitmap, 0, 0 );
+			const jpeg = await canvas.convertToBlob( { type: 'image/jpeg', quality } );
+			let binary = '';
+			for ( const byte of new Uint8Array( await jpeg.arrayBuffer() ) ) {
+				binary += String.fromCharCode( byte );
+			}
+			return btoa( binary );
+		},
+		{ source: capture.toString( 'base64' ), ...size, quality: MODEL_JPEG_QUALITY / 100 }
+	);
+	return { buffer: Buffer.from( base64, 'base64' ), ...size };
 }
 
 /**
@@ -93,6 +135,7 @@ export async function captureScreenshotBuffer(
 		format?: ScreenshotFormat;
 		offset?: number;
 		colorScheme?: ScreenshotColorScheme;
+		forModel?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
@@ -178,10 +221,24 @@ export async function captureScreenshotBuffer(
 				: { type: 'png' as const };
 
 		if ( ! options.fullPage ) {
+			const contentHeight = await page.evaluate( () =>
+				Math.ceil(
+					Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
+						const rect = element.getBoundingClientRect();
+						return rect.width > 0 && rect.height > 0
+							? Math.max( bottom, rect.bottom + window.scrollY )
+							: bottom;
+					}, 0 )
+				)
+			);
 			const buffer = await page.screenshot( { ...formatOptions } );
 			return {
 				buffer: Buffer.from( buffer ),
+				modelImage: options.forModel
+					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
+					: undefined,
 				documentHeight: viewport.height,
+				contentHeight,
 				capturedHeight: viewport.height,
 				offset: 0,
 				clipped: false,
@@ -211,7 +268,11 @@ export async function captureScreenshotBuffer(
 		} );
 		return {
 			buffer: Buffer.from( buffer ),
+			modelImage: options.forModel
+				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
+				: undefined,
 			documentHeight,
+			contentHeight: documentHeight,
 			capturedHeight,
 			offset,
 			clipped: offset + capturedHeight < documentHeight,

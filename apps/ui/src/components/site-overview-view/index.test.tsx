@@ -637,6 +637,54 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
+	it( 'defaults the runtime and file access radios to the site values', () => {
+		renderView( 'general' );
+
+		// Sites predating the setting count as native with site-directory access.
+		expect( screen.getByRole( 'radio', { name: 'Native' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeEnabled();
+	} );
+
+	it( 'holds file access at the site directory under the sandbox runtime', () => {
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, runtime: 'playground', fileAccess: 'all-files' } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		expect( screen.getByRole( 'radio', { name: 'Sandbox' } ) ).toBeChecked();
+		// The sandbox can only reach the site directory, so the stored
+		// `all-files` is shown coerced rather than as a live selection.
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeDisabled();
+	} );
+
+	it( 'saves a runtime switch, coercing file access the sandbox cannot honor', () => {
+		const updateSiteMutate = vi.fn();
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, fileAccess: 'all-files' } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Sandbox' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( {
+					runtime: 'playground',
+					fileAccess: 'site-directory',
+				} ),
+			} ),
+			expect.anything()
+		);
+	} );
+
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
@@ -645,7 +693,8 @@ describe( 'SiteOverviewView', () => {
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
-		expect( screen.queryByRole( 'radio' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Automatic updates' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Select a version' } ) ).not.toBeInTheDocument();
 	} );
 
 	// Offline only blocks *changing* the version, so the field stays on the
@@ -795,7 +844,7 @@ describe( 'SiteOverviewView', () => {
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
 		);
 		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
-			browser: 'internal',
+			browser: 'external',
 		} );
 	} );
 

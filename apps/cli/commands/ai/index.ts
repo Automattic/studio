@@ -6,11 +6,11 @@ import {
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
-	DEFAULT_MODEL,
 	getAiModelFamily,
-	resolveSessionModel,
+	readRecordedSessionModel,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
 import {
@@ -19,6 +19,10 @@ import {
 } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	fetchStudioAssistantQuota,
+	hasPaidAiCredits,
+} from '@studio/common/lib/studio-assistant-quota';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -48,7 +52,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
+import { formatActiveSitePrefix, setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -70,6 +74,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 
@@ -116,12 +121,32 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+// Caps the quota lookup behind the wpcom default model, so a hung endpoint
+// can't block the first turn — the free-tier default is the safe floor.
+const QUOTA_FETCH_TIMEOUT_MS = 3_000;
+
+async function resolveWpcomDefaultModel(): Promise< AiModelId > {
+	const token = await readAuthToken();
+	const quota = token
+		? await Promise.race( [
+				fetchStudioAssistantQuota( token.accessToken ),
+				new Promise< null >( ( resolve ) => {
+					setTimeout( () => resolve( null ), QUOTA_FETCH_TIMEOUT_MS ).unref();
+				} ),
+		  ] )
+		: null;
+	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
+		hasPaidAiCredits: hasPaidAiCredits( quota ),
+	} );
+}
+
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
+	initialVisualAnnotations?: StudioVisualAnnotationSummary[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -148,9 +173,32 @@ export async function runCommand( options: {
 	) {
 		currentProvider = DEFAULT_AI_PROVIDER;
 	}
-	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	// The recorded model only sticks when the provider still serves it — old
+	// wpcom sessions snap to the provider default instead.
+	const initialDefinition = getAiProviderDefinition( currentProvider );
+	const recordedModel =
+		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
+			? resumeContext.model
+			: undefined;
+	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
+
+	// The wpcom default is quota-dependent; resolved in the background so
+	// startup never waits on the network. Turns await the resolution, and it
+	// only applies while nothing else picked a model.
+	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
+	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
+		.then( ( model ) => {
+			wpcomDefaultModel = model;
+			if ( quotaDefaultApplicable && currentProvider === DEFAULT_AI_PROVIDER ) {
+				currentModel = model;
+				ui.currentModel = model;
+			}
+		} )
+		// Awaited by every turn — a failed lookup must not poison them.
+		.catch( () => {} );
 	if ( options.activeSite ) {
 		ui.activeSite = {
 			id: options.activeSite.id,
@@ -188,8 +236,17 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
-						currentModel = resolveSessionModel( sm.getEntries() );
-						ui.currentModel = currentModel;
+						// Adopt the recorded model only when the provider still
+						// serves it; otherwise keep the (quota-based) default.
+						const sessionModel = readRecordedSessionModel( sm.getEntries() );
+						if (
+							sessionModel &&
+							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
+						) {
+							quotaDefaultApplicable = false;
+							currentModel = sessionModel;
+							ui.currentModel = currentModel;
+						}
 						break;
 					}
 				} catch {
@@ -314,15 +371,21 @@ export async function runCommand( options: {
 	}
 
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+		// The pin written below carries the model, so the quota-based default
+		// must be final first — otherwise an early switch durably records the
+		// static fallback for a paid account.
+		await wpcomDefaultModelResolution;
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 
 		// Auto-correct model when the provider change leaves it unsupported
-		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
-		// selected). Fall back to the provider's default.
+		// (e.g. switching from wpcom → anthropic-api-key while a tier is
+		// selected). Fall back to the provider's default — the quota-based one
+		// for WordPress.com.
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
-			currentModel = definition.defaultModel;
+			currentModel =
+				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
 			ui.currentModel = currentModel;
 		}
 
@@ -483,7 +546,9 @@ export async function runCommand( options: {
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
 						description: option.description,
+						...( option.image ? { image: option.image } : {} ),
 					} ) ),
+					multiSelect: question.multiSelect,
 				} )
 			);
 		}
@@ -510,8 +575,11 @@ export async function runCommand( options: {
 		prompt: string,
 		displayMessage = prompt,
 		images: StudioChatImage[] = [],
-		files: StudioChatFileAttachment[] = []
+		files: StudioChatFileAttachment[] = [],
+		visualAnnotations?: StudioVisualAnnotationSummary[]
 	): Promise< { status: TurnStatus; sessionId: string } > {
+		// The quota-based default must land before the turn captures its model.
+		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
@@ -548,12 +616,8 @@ export async function runCommand( options: {
 			// can exit naturally.
 			await disconnectFromDaemon();
 		}
-		if ( site?.remote && site?.url ) {
-			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
-		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+		if ( site ) {
+			enrichedPrompt = `${ formatActiveSitePrefix( site ) }\n\n${ prompt }`;
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with
@@ -596,6 +660,7 @@ export async function runCommand( options: {
 				source: 'prompt',
 				sitePath: site?.path,
 				attachments: buildChatAttachmentSummaries( images, files ),
+				visualAnnotations,
 			} )
 		);
 
@@ -681,7 +746,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
@@ -706,7 +772,8 @@ export async function runCommand( options: {
 				options.initialMessage,
 				displayMessage,
 				options.initialImages,
-				options.initialFiles
+				options.initialFiles,
+				options.initialVisualAnnotations
 			);
 		} catch ( error ) {
 			handleAgentTurnError( error );
@@ -724,6 +791,8 @@ export async function runCommand( options: {
 		},
 		set currentModel( value ) {
 			currentModel = value;
+			// An explicit pick wins over the pending quota-based default.
+			quotaDefaultApplicable = false;
 		},
 		get currentProvider() {
 			return currentProvider;

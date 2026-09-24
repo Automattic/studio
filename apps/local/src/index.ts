@@ -1,8 +1,14 @@
 import crypto from 'node:crypto';
-import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import {
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	validateStudioChatImages,
+} from '@studio/common/ai/chat-images';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
@@ -34,6 +40,7 @@ import {
 } from '@studio/common/ai/settings-store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import { createCliRunner } from '@studio/common/lib/cli-process';
@@ -54,8 +61,14 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isSupportedLocale } from '@studio/common/lib/locale';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	DEFAULT_ADMIN_USERNAME,
+	decodeAdminPassword,
+	decodePassword,
+} from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -68,12 +81,15 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -84,7 +100,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { readSitePath } from '@studio/common/sites/site-path';
+import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
@@ -100,7 +116,10 @@ import {
 	writeUserPreferences,
 } from './user-preferences';
 import type { UserPreferencesContext } from './user-preferences';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
@@ -187,6 +206,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
+		fileAccess: site.fileAccess,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -196,6 +217,8 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		enableScriptDebug: site.enableScriptDebug,
+		environmentType: site.environmentType,
 		operation: site.operation,
 		sortOrder,
 		siteIcon: null,
@@ -210,6 +233,36 @@ function backupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`_${ pad( now.getHours() ) }_${ pad( now.getMinutes() ) }_${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ ts }` );
+}
+
+// Raster formats only: an SVG served from the API origin could run scripts
+// there, and nothing in the transcript needs one.
+const SERVED_MEDIA_MIME_TYPES = new Set( [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'image/avif',
+] );
+
+// `requested` with symlinks resolved, when it lies inside one of `roots` both
+// as written and once resolved.
+async function resolveWithinRoots( roots: string[], requested: string ): Promise< string | null > {
+	for ( const root of roots ) {
+		const candidate = path.resolve( root, requested );
+		if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
+			continue;
+		}
+		try {
+			const resolved = await realpath( candidate );
+			if ( resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
+				return resolved;
+			}
+		} catch {
+			// Missing file or root.
+		}
+	}
+	return null;
 }
 
 // Express 4 doesn't forward async rejections to the error middleware — an
@@ -417,7 +470,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		rateLimit( { windowMs: 60_000, limit: 1_000, standardHeaders: true, legacyHeaders: false } )
 	);
 
-	app.use( express.json() );
+	// Chat attachments ride along as base64 in the JSON body; size the limit for
+	// the image cap (with base64 overhead) plus file metadata.
+	app.use( express.json( { limit: STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
 
 	api.get( '/events', ( req: Request, res: Response ) => {
 		res.setHeader( 'Content-Type', 'text/event-stream' );
@@ -924,7 +979,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Edit a site's settings — the same CLI `site set` the desktop uses, built
 	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded (the agentic UI doesn't edit runtime/file-access).
+	// fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -958,15 +1013,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( wpVersion ) {
 				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 			}
+			if ( getSiteRuntime( updated ) !== getSiteRuntime( current ) ) {
+				options.runtime = siteModeFromRuntime( getSiteRuntime( updated ) );
+			}
+			if ( getSiteFileAccess( updated ) !== getSiteFileAccess( current ) ) {
+				options.fileAccess = getSiteFileAccess( updated );
+			}
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
 			}
-			if ( ( updated.adminUsername ?? 'admin' ) !== ( current.adminUsername ?? 'admin' ) ) {
+			if (
+				( updated.adminUsername ?? DEFAULT_ADMIN_USERNAME ) !==
+				( current.adminUsername ?? DEFAULT_ADMIN_USERNAME )
+			) {
 				options.adminUsername = updated.adminUsername;
 			}
-			if ( ( updated.adminPassword ?? '' ) !== ( current.adminPassword ?? '' ) ) {
+			if (
+				decodeAdminPassword( updated.adminPassword ) !==
+				decodeAdminPassword( current.adminPassword )
+			) {
 				// The CLI expects a plaintext password (it encodes before saving).
-				options.adminPassword = decodePassword( updated.adminPassword ?? '' );
+				options.adminPassword = decodeAdminPassword( updated.adminPassword );
 			}
 			if ( ( updated.adminEmail ?? '' ) !== ( current.adminEmail ?? '' ) ) {
 				options.adminEmail = updated.adminEmail;
@@ -976,6 +1043,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( ( updated.enableDebugDisplay ?? false ) !== ( current.enableDebugDisplay ?? false ) ) {
 				options.debugDisplay = updated.enableDebugDisplay ?? false;
+			}
+			if ( ( updated.enableScriptDebug ?? false ) !== ( current.enableScriptDebug ?? false ) ) {
+				options.scriptDebug = updated.enableScriptDebug ?? false;
+			}
+			if ( getWpEnvironmentType( updated ) !== getWpEnvironmentType( current ) ) {
+				options.environmentType = getWpEnvironmentType( updated );
 			}
 
 			// More than path + siteId means a real change to apply.
@@ -1197,12 +1270,36 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// NOTE: there is intentionally no `/media/read` endpoint. Streaming an
-	// arbitrary local file by absolute path over HTTP is an arbitrary-read risk
-	// (the API is reachable cross-origin from the browser), and nothing in the UI
-	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
-	// consumer and a path-containment policy (e.g. restricted to the sites root)
-	// exist.
+	// Reachable cross-origin from the browser, so deliberately not a general
+	// file read: raster images under the sessions root or inside a site folder
+	// (where generated images go) only, symlinks resolved.
+	api.get(
+		'/media/read',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = typeof req.query.path === 'string' ? req.query.path : '';
+			const mimeType = getLocalMediaMimeType( requested );
+			if ( ! requested || ! SERVED_MEDIA_MIME_TYPES.has( mimeType ) ) {
+				res.status( 400 ).json( { error: 'Unsupported media path' } );
+				return;
+			}
+			const sessionFile = await resolveWithinRoots( [ sessionsRoot ], requested );
+			const resolved =
+				sessionFile ?? ( await resolveWithinRoots( await readSitePaths(), requested ) );
+			const stats = resolved ? await stat( resolved ) : null;
+			if ( ! resolved || ! stats?.isFile() ) {
+				res.status( 404 ).json( { error: 'Media not found' } );
+				return;
+			}
+			res.setHeader( 'Content-Type', mimeType );
+			res.setHeader( 'Content-Length', stats.size );
+			// Session files never change; a site image can be regenerated in place.
+			res.setHeader(
+				'Cache-Control',
+				sessionFile ? 'private, max-age=31536000, immutable' : 'no-cache'
+			);
+			await pipeline( createReadStream( resolved ), res );
+		} )
+	);
 
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's
@@ -1305,10 +1402,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// fetched — callers fall back to the single fixed top-up.
 	api.get(
 		'/top-up-pricing',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const token = await readAuthToken();
+			const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
 			res.json(
-				token?.accessToken ? await fetchStudioAssistantTopUpPricing( token.accessToken ) : null
+				token?.accessToken
+					? await fetchStudioAssistantTopUpPricing(
+							token.accessToken,
+							isSupportedLocale( locale ) ? locale : undefined
+					  )
+					: null
 			);
 		} )
 	);
@@ -1702,15 +1805,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-		const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+		const { prompt, displayMessage, visualAnnotations } = req.body as {
+			prompt?: string;
+			displayMessage?: string;
+			visualAnnotations?: unknown;
+		};
 		if ( ! prompt ) {
 			res.status( 400 ).json( { error: 'prompt is required' } );
+			return;
+		}
+		let images: StudioChatImage[];
+		let files: StudioChatFileAttachment[];
+		let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+		try {
+			images = validateStudioChatImages( req.body.images );
+			files = validateStudioChatFiles( req.body.files );
+			validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+		} catch ( error ) {
+			res.status( 400 ).json( { error: ( error as Error ).message } );
 			return;
 		}
 		const { runId } = runManager.startAgentRun( {
 			sessionId: req.params.id,
 			prompt: expandSkillCommandPrompt( prompt ),
 			displayMessage,
+			images,
+			files,
+			visualAnnotations: validatedVisualAnnotations,
 		} );
 		res.json( { runId } );
 	} );

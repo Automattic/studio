@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { readCliConfigFileRaw } from '../lib/cli-config-file';
 
-// Resolves a site's directory straight from `cli.json` — use instead of
-// `listSites` when a route only needs the path, to avoid a CLI fork.
+// Resolves site directories straight from `cli.json` — use instead of
+// `listSites` when a route only needs paths, to avoid a CLI fork.
 
 const sitePathsSchema = z.object( {
 	sites: z
@@ -11,15 +11,19 @@ const sitePathsSchema = z.object( {
 		.default( [] ),
 } );
 
-export async function readSitePath( siteId: string ): Promise< string | null > {
-	let config;
+async function readSites(): Promise< Array< { id: string; path: string } > > {
 	try {
-		config = sitePathsSchema.safeParse( await readCliConfigFileRaw() );
+		const config = sitePathsSchema.safeParse( await readCliConfigFileRaw() );
+		return config.success ? config.data.sites : [];
 	} catch {
-		return null;
+		return [];
 	}
-	if ( ! config.success ) {
-		return null;
-	}
-	return config.data.sites.find( ( site ) => site.id === siteId )?.path ?? null;
+}
+
+export async function readSitePath( siteId: string ): Promise< string | null > {
+	return ( await readSites() ).find( ( site ) => site.id === siteId )?.path ?? null;
+}
+
+export async function readSitePaths(): Promise< string[] > {
+	return ( await readSites() ).map( ( site ) => site.path );
 }

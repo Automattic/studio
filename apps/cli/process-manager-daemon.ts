@@ -3,12 +3,13 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
+import { getJspiExecArgv } from '@studio/common/lib/jspi';
 import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
-import semver from 'semver';
+import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
@@ -254,11 +255,10 @@ export class ProcessManagerDaemon {
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
-		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
-		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
-		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
-		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env,
+		const child = spawn( process.execPath, [ ...getJspiExecArgv(), scriptPath, ...args ], {
+			// Trimmed at the spawn rather than in the client, so every request is covered whichever
+			// process sent it.
+			env: withoutOversizedEnvValues( env ),
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
 			detached: process.platform !== 'win32',

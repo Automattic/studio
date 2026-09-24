@@ -4,6 +4,7 @@
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { StudioChatImageAttachment } from '../chat-images';
+import type { StudioVisualAnnotationSummary } from '../visual-annotations';
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -34,7 +35,8 @@ export interface StudioToolProgressData {
 
 export interface StudioAgentQuestionData {
 	question: string;
-	options: Array< { label: string; description: string } >;
+	options: Array< { label: string; description: string; image?: string } >;
+	multiSelect?: boolean;
 	selectedLabel?: string;
 }
 
@@ -82,6 +84,7 @@ export interface StudioUserPromptData {
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
 	attachments?: StudioChatAttachmentSummary[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
 }
 
 export interface StudioMessageEditedData {

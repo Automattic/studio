@@ -46,11 +46,6 @@ export type CaptureEngine = {
 			routesFailed: number;
 		};
 	} >;
-	checkFidelity: ( options: {
-		directory: string;
-		sampleSize?: number;
-		log?: ( message: string ) => void;
-	} ) => Promise< Record< string, unknown > >;
 };
 
 const DATA_LIBERATION_REPO = 'Automattic/data-liberation-agent';
@@ -322,7 +317,7 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	}
 	linkPlaywright( engineRoot );
 	const engine = ( await import( pathToFileURL( bundlePath ).href ) ) as Partial< CaptureEngine >;
-	if ( typeof engine.captureWebsite !== 'function' || typeof engine.checkFidelity !== 'function' ) {
+	if ( typeof engine.captureWebsite !== 'function' ) {
 		throw new Error( `Data Liberation ${ asset.version } does not export the capture engine API.` );
 	}
 	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };

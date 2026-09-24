@@ -4,11 +4,6 @@ import { z } from 'zod';
 import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 import { loadCaptureEngine, type CaptureEngine } from 'cli/lib/import-runtime';
 
-// Routes the fidelity check compares against the live source. Each costs several
-// browser round trips at more than one width, so it is a sample; the report says
-// what was measured.
-const FIDELITY_ROUTE_SAMPLE = 2;
-
 type LoadEngine = () => Promise< CaptureEngine >;
 
 const captureReceiptSchema = z.object( {
@@ -48,28 +43,27 @@ function routeIdentity( url: string ): string {
 
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
-	/** Called with a builder for the command that compares a site against the original. */
-	onCompareCommand?: ( command: ( siteUrl: string ) => string ) => void;
-	onPartialCapture?: ( report: PartialCaptureReport ) => void;
 	loadEngine?: LoadEngine;
+};
+
+type LiberatedWebsite = {
+	/** The portable `website/` directory to import. */
+	websiteDir: string;
+	/** Builds the command that compares a site at `siteUrl` against the original, route by route. */
+	compareCommand: ( siteUrl: string ) => string;
+	/** Set when a few routes could not be captured; the site is imported without them. */
+	partialCapture?: PartialCaptureReport;
 };
 
 /**
  * The Data Liberation CLI command that compares the site at `siteUrl`, route by route, against
  * the original source recorded in `captureRoot`.
  */
-export function compareCommand( packageUrl: string, captureRoot: string, siteUrl: string ): string {
+function compareCommand( packageUrl: string, captureRoot: string, siteUrl: string ): string {
 	return `npx --yes --package=${ packageUrl } data-liberation compare ${ JSON.stringify(
 		captureRoot
 	) } --candidate ${ siteUrl }`;
 }
-
-export type CaptureCompareResult = {
-	/** Whether both of Data Liberation's fidelity tiers passed. */
-	pass: boolean;
-	/** A one-line summary of what was measured. */
-	report: string;
-};
 
 // The release engine drives a real browser, so it is only loaded once Chromium is present.
 async function loadEngineWithBrowser(): Promise< CaptureEngine > {
@@ -96,7 +90,7 @@ export async function liberateWebsite(
 	url: string,
 	outputBase: string,
 	options: LiberateWebsiteOptions = {}
-): Promise< string > {
+): Promise< LiberatedWebsite > {
 	const parsed = new URL( url );
 	if ( ! [ 'http:', 'https:' ].includes( parsed.protocol ) ) {
 		throw new Error( 'Source URLs must use HTTP or HTTPS.' );
@@ -126,18 +120,20 @@ export async function liberateWebsite(
 			'Data Liberation returned a missing or unusable route summary; the capture cannot be confirmed complete.'
 		);
 	}
-	if ( failed > 0 ) {
-		checkPartialCapture( parsed.href, outputDir, result.summary.routesDiscovered, options );
-	}
+	const partialCapture =
+		failed > 0
+			? checkPartialCapture( parsed.href, outputDir, result.summary.routesDiscovered )
+			: undefined;
 
 	const websiteDir = path.join( outputDir, 'website' );
 	if ( ! fs.existsSync( websiteDir ) || ! fs.statSync( websiteDir ).isDirectory() ) {
 		throw new Error( 'Data Liberation completed without writing a website directory.' );
 	}
-	options.onCompareCommand?.( ( siteUrl ) =>
-		compareCommand( engine.packageUrl, outputDir, siteUrl )
-	);
-	return websiteDir;
+	return {
+		websiteDir,
+		compareCommand: ( siteUrl ) => compareCommand( engine.packageUrl, outputDir, siteUrl ),
+		partialCapture,
+	};
 }
 
 /**
@@ -150,9 +146,8 @@ export async function liberateWebsite(
 function checkPartialCapture(
 	url: string,
 	outputDir: string,
-	routesDiscovered: number,
-	options: LiberateWebsiteOptions
-): void {
+	routesDiscovered: number
+): PartialCaptureReport | undefined {
 	const diagnosticsPath = path.join( outputDir, 'diagnostics.json' );
 	const receiptPath = path.join( outputDir, 'capture-receipt.json' );
 	let receipt: z.infer< typeof captureReceiptSchema >;
@@ -170,7 +165,7 @@ function checkPartialCapture(
 		.filter( ( diagnostic ) => diagnostic.code === ROUTE_CAPTURE_FAILED )
 		.map( ( { url: droppedUrl, reason } ) => ( { url: droppedUrl, reason } ) );
 	if ( droppedRoutes.length === 0 ) {
-		return;
+		return undefined;
 	}
 	const entryRoute = receipt.source?.url ?? url;
 	const entryRouteIdentity = routeIdentity( entryRoute );
@@ -193,38 +188,5 @@ function checkPartialCapture(
 			`Data Liberation could not capture ${ droppedRoutes.length } of ${ routesDiscovered } routes. Review ${ diagnosticsPath } before importing.`
 		);
 	}
-	options.onPartialCapture?.( { routesDiscovered, droppedRoutes, diagnosticsPath } );
-}
-
-/**
- * Measure a capture against its live source with Data Liberation's own
- * fidelity check. The result is evidence about the capture, never a gate on
- * the import.
- */
-export async function compareLiberatedCapture(
-	directory: string,
-	options: { onProgress?: ( message: string ) => void; loadEngine?: LoadEngine } = {}
-): Promise< CaptureCompareResult > {
-	const engine = await ( options.loadEngine ?? loadEngineWithBrowser )();
-	const report = await engine.checkFidelity( {
-		directory,
-		sampleSize: FIDELITY_ROUTE_SAMPLE,
-		log: options.onProgress,
-	} );
-	const routes = Array.isArray( report.routes ) ? report.routes.length : 0;
-	const scores = Array.isArray( report.scores )
-		? ( report.scores as Array< { failures?: unknown[] } > )
-		: [];
-	const failedChecks = scores.reduce(
-		( total, score ) => total + ( Array.isArray( score.failures ) ? score.failures.length : 0 ),
-		0
-	);
-	const consistency = ( report.selfConsistency ?? {} ) as { routes?: number; findings?: unknown[] };
-	const findings = Array.isArray( consistency.findings ) ? consistency.findings.length : 0;
-	return {
-		pass: report.pass === true,
-		report: `${ failedChecks } source check(s) failed across ${ routes } compared route(s); ${ findings } offline finding(s) across ${
-			consistency.routes ?? 0
-		} route(s).`,
-	};
+	return { routesDiscovered, droppedRoutes, diagnosticsPath };
 }

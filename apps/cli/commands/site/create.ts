@@ -72,11 +72,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import {
-	compareLiberatedCapture,
-	liberateWebsite,
-	type PartialCaptureReport,
-} from 'cli/lib/data-liberation-client';
+import { liberateWebsite, type PartialCaptureReport } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -150,7 +146,6 @@ type StaticSiteImporterSource = {
 	payload: Record< string, unknown >;
 	stagedSourcePath?: string;
 	stagedReportFiles?: Array< { name: string; from: string } >;
-	captureDirectory?: string;
 };
 
 type StaticSiteImporterPlugin = string | { path: string };
@@ -172,7 +167,6 @@ export type CreateCommandOptions = {
 			bundlePath?: string;
 			sourcePath?: string;
 			reportFiles?: Array< { name: string; from: string } >;
-			captureDirectory?: string;
 		};
 	};
 	adminUsername?: string;
@@ -260,22 +254,6 @@ function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
 	return websiteRoot;
 }
 
-// `sourcePath` may already be the DLA capture root (containing `capture-receipt.json` and a
-// nested `website/`), or — in the real `--from <url>` flow — the `website/` directory
-// `liberateWebsite()` returns directly, one level below the receipt. `data-liberation
-// compare` resolves both shapes itself (`resolveCheckDirectory` in DLA's
-// `lib/fidelity/check.ts` checks the given directory, then its parent), so this only has to
-// confirm a receipt is reachable from one of the two and hand back whichever directory the
-// caller already has — not resolve it to a single canonical shape. Returns `undefined`
-// (rather than throwing) when no DLA capture is present: `data-liberation compare` simply
-// does not run for any other import source, exactly like today.
-function resolveDataLiberationCaptureDirectory( sourcePath: string ): string | undefined {
-	const hasCapture = [ sourcePath, path.dirname( sourcePath ) ].some( ( candidateRoot ) =>
-		isDataLiberationCaptureRoot( candidateRoot )
-	);
-	return hasCapture ? sourcePath : undefined;
-}
-
 function isDataLiberationCaptureRoot( directory: string ): boolean {
 	const receiptPath = path.join( directory, 'capture-receipt.json' );
 	if ( ! fs.existsSync( receiptPath ) || ! fs.statSync( receiptPath ).isFile() ) {
@@ -297,8 +275,7 @@ function collectArtifactRootReports(
 	websiteRoot: string
 ): Array< { name: string; from: string } > {
 	// `--from <url>` stages `website/` (liberateWebsite's return value). Sidecars
-	// live on the capture root, one directory up — the same parent lookup
-	// `resolveDataLiberationCaptureDirectory` already performs.
+	// live on the capture root, one directory up.
 	for ( const candidateRoot of [ sourcePath, path.dirname( sourcePath ) ] ) {
 		if (
 			path.resolve( candidateRoot ) === path.resolve( websiteRoot ) ||
@@ -353,7 +330,6 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			payload: {},
 			stagedSourcePath,
 			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
-			captureDirectory: resolveDataLiberationCaptureDirectory( sourcePath ),
 		};
 	}
 
@@ -499,7 +475,6 @@ export function buildCreateFromSourceBlueprint(
 		bundlePath?: string;
 		sourcePath?: string;
 		reportFiles?: Array< { name: string; from: string } >;
-		captureDirectory?: string;
 	};
 } {
 	const source = resolveStaticSiteImporterSource( sourcePath );
@@ -547,7 +522,6 @@ export function buildCreateFromSourceBlueprint(
 			bundlePath: tempDir,
 			sourcePath: source.stagedSourcePath,
 			reportFiles: source.stagedReportFiles,
-			captureDirectory: source.captureDirectory,
 		},
 	};
 }
@@ -626,22 +600,25 @@ export async function prepareSourceImport(
 			LoggerAction.IMPORT_SITE,
 			__( 'Preparing source website with Data Liberation…' )
 		);
-		importSource = await ( options.liberate ?? liberateWebsite )( sourceUrl, liberationOutputDir, {
-			onProgress: ( message ) => {
-				const now = Date.now();
-				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-					lastProgressAt = now;
-					logger.reportProgress( message );
-				}
-			},
-			onCompareCommand: ( command ) => {
-				compareCommand = command;
-			},
-			onPartialCapture: ( report ) => {
-				capturedPartially = true;
-				logger.reportWarning( partialCaptureWarning( report ) );
-			},
-		} );
+		const liberated = await ( options.liberate ?? liberateWebsite )(
+			sourceUrl,
+			liberationOutputDir,
+			{
+				onProgress: ( message ) => {
+					const now = Date.now();
+					if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+						lastProgressAt = now;
+						logger.reportProgress( message );
+					}
+				},
+			}
+		);
+		importSource = liberated.websiteDir;
+		compareCommand = liberated.compareCommand;
+		if ( liberated.partialCapture ) {
+			capturedPartially = true;
+			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );
+		}
 		logger.reportSuccess( __( 'Source website prepared' ) );
 	}
 	const blueprint = buildCreateFromSourceBlueprint(
@@ -821,45 +798,13 @@ function staticSiteImportQualityFailure(
 	);
 }
 
-// Measures the capture against its live source with Data Liberation's own fidelity check and
-// reports the result. This is evidence about the capture, never a gate: a disagreement or a failure to run it does not fail the import.
-async function reportDataLiberationFidelity(
-	captureDirectory: string,
-	logger: Logger< LoggerAction >
-): Promise< void > {
-	logger.reportStart(
-		LoggerAction.IMPORT_SITE,
-		__( 'Comparing the capture against its source with Data Liberation…' )
-	);
-	try {
-		const result = await compareLiberatedCapture( captureDirectory, {
-			onProgress: ( message ) => logger.reportProgress( message ),
-		} );
-		if ( result.pass ) {
-			logger.reportSuccess( sprintf( __( 'Fidelity check passed: %s' ), result.report ) );
-		} else {
-			logger.reportWarning(
-				sprintf( __( 'Fidelity check found differences: %s' ), result.report )
-			);
-		}
-	} catch ( error ) {
-		logger.reportWarning(
-			sprintf(
-				__( 'The fidelity check could not run: %s' ),
-				error instanceof Error ? error.message : String( error )
-			)
-		);
-	}
-}
-
 async function runStaticSiteImport(
 	site: SiteData,
 	request: string,
 	sourcePath?: string,
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger,
-	reportFiles: Array< { name: string; from: string } > = [],
-	captureDirectory?: string
+	reportFiles: Array< { name: string; from: string } > = []
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -924,18 +869,6 @@ async function runStaticSiteImport(
 		);
 	}
 	const qualityFailure = staticSiteImportQualityFailure( receipt );
-
-	// `captureDirectory` is resolved from the source path afresh on every `create` run —
-	// fresh or resumed — inside `resolveStaticSiteImporterSource`, not read back from
-	// persisted site state the way an earlier version of this gate read `site.url` (only
-	// ever set in memory on a fresh run, so the gate silently skipped on every resumed
-	// import; see 4ecbcc965 / aff1e33fa). Gating on it alone keeps that same guarantee — a
-	// resumed import still gets a verdict — without needing the site's own URL at all: DLA
-	// compares the capture to its live source, not to this running site. Run even when other
-	// quality gates already failed: a compare verdict is most valuable on a broken import.
-	if ( captureDirectory ) {
-		await reportDataLiberationFidelity( captureDirectory, logger );
-	}
 
 	if ( qualityFailure ) {
 		throw new LoggerError(
@@ -1121,8 +1054,7 @@ export async function runCommand(
 					staticSiteImport.sourcePath,
 					true,
 					logger,
-					staticSiteImport.reportFiles,
-					staticSiteImport.captureDirectory
+					staticSiteImport.reportFiles
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
@@ -1323,8 +1255,7 @@ export async function runCommand(
 						staticSiteImport.sourcePath,
 						false,
 						logger,
-						staticSiteImport.reportFiles,
-						staticSiteImport.captureDirectory
+						staticSiteImport.reportFiles
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -1379,8 +1310,7 @@ export async function runCommand(
 							staticSiteImport.sourcePath,
 							false,
 							logger,
-							staticSiteImport.reportFiles,
-							staticSiteImport.captureDirectory
+							staticSiteImport.reportFiles
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}

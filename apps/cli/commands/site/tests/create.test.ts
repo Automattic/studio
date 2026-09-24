@@ -36,7 +36,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { compareLiberatedCapture, liberateWebsite } from 'cli/lib/data-liberation-client';
+import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
@@ -101,17 +101,6 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
-vi.mock( 'cli/lib/data-liberation-client', async () => {
-	const actual = await vi.importActual< typeof import('cli/lib/data-liberation-client') >(
-		'cli/lib/data-liberation-client'
-	);
-	return {
-		...actual,
-		// `liberateWebsite` stays real: its own tests exercise it directly with an injected
-		// engine. Only the fidelity check is mocked here, the same way SSI's WP-CLI calls are.
-		compareLiberatedCapture: vi.fn(),
-	};
-} );
 const { staticSiteImporterFixture } = vi.hoisted( () => {
 	const nodeFs = require( 'node:fs' ) as typeof import('node:fs');
 
@@ -268,11 +257,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommandWithMessaging ).mockReset().mockResolvedValue( mockWpCli() );
-		vi.mocked( compareLiberatedCapture ).mockReset().mockResolvedValue( {
-			pass: true,
-			report:
-				'Passed: 0 route(s) checked offline, 0 of 0 compared to source, against https://example.com/\n',
-		} );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
@@ -481,7 +465,7 @@ describe( 'CLI: studio create', () => {
 					path.join( outputDir, 'index.html' ),
 					'<main>Liberated</main>'
 				);
-				return outputDir;
+				return { websiteDir: outputDir, compareCommand: () => '' };
 			} );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			const copySpy = vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
@@ -527,7 +511,7 @@ describe( 'CLI: studio create', () => {
 					path.join( outputDir, 'index.html' ),
 					'<main>Liberated</main>'
 				);
-				return outputDir;
+				return { websiteDir: outputDir, compareCommand: () => '' };
 			} );
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
@@ -588,7 +572,6 @@ describe( 'CLI: studio create', () => {
 										routesFailed: 6,
 									},
 								} ),
-								checkFidelity: vi.fn(),
 							} ),
 						} ),
 				}
@@ -720,7 +703,6 @@ describe( 'CLI: studio create', () => {
 										routesFailed: 2,
 									},
 								} ),
-								checkFidelity: vi.fn(),
 							} ),
 						} ),
 				}
@@ -790,7 +772,6 @@ describe( 'CLI: studio create', () => {
 										routesFailed: 2,
 									},
 								} ),
-								checkFidelity: vi.fn(),
 							} ),
 						} ),
 				}
@@ -1021,11 +1002,6 @@ describe( 'CLI: studio create', () => {
 				'https://example.com/static-site-importer.zip'
 			);
 
-			// `data-liberation compare` resolves either the capture root or its `website/`
-			// directory on its own (see `resolveDataLiberationCaptureDirectory` in create.ts),
-			// so Studio hands back the same directory it was given rather than the sections
-			// directory the old section-geometry measurement needed.
-			expect( blueprint.staticSiteImport.captureDirectory ).toBe( websiteDir );
 			expect( JSON.parse( blueprint.staticSiteImport.request ).write_theme_report_artifacts ).toBe(
 				true
 			);
@@ -2004,158 +1980,6 @@ describe( 'CLI: studio create', () => {
 			).resolves.toBeUndefined();
 			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
 				'Static site imported successfully'
-			);
-		} );
-
-		const createCaptureBlueprint = () => {
-			const captureDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-compare-run-' ) );
-			const websiteDir = path.join( captureDir, 'website' );
-			fsMkdirSyncSpy.mockRestore();
-			fs.mkdirSync( websiteDir );
-			fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-			fs.writeFileSync( path.join( websiteDir, 'index.html' ), '<main>Home</main>' );
-			fs.writeFileSync(
-				path.join( captureDir, 'capture-receipt.json' ),
-				JSON.stringify( {
-					schema: 'data-liberation/capture-receipt/v1',
-					websiteRoot: 'website',
-					source: { url: 'https://example.com/' },
-				} )
-			);
-			return buildCreateFromSourceBlueprint(
-				websiteDir,
-				'Captured Site',
-				'https://example.com/static-site-importer.zip'
-			);
-		};
-
-		it( 'reports a fidelity disagreement without failing the import', async () => {
-			const blueprint = createCaptureBlueprint();
-			const compareReport =
-				'/ 1600px FAIL: text 12 chars !== source 40\n' +
-				'Failed 1 source check(s) and 0 offline finding(s): 1 route(s) checked offline, ' +
-				'1 of 1 compared to source, against https://example.com/\n';
-			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
-				pass: false,
-				report: compareReport,
-			} );
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
-
-			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
-			).resolves.not.toThrow();
-
-			// Studio measures the same capture directory it resolved while staging the import.
-			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
-				blueprint.staticSiteImport.captureDirectory,
-				expect.objectContaining( { onProgress: expect.any( Function ) } )
-			);
-			expect( reportWarning ).toHaveBeenCalledWith( expect.stringContaining( compareReport ) );
-		} );
-
-		it( 'still runs data-liberation compare when SSI quality validation already failed', async () => {
-			const blueprint = createCaptureBlueprint();
-			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
-				pass: true,
-				report:
-					'Passed: 1 route(s) checked offline, 1 of 1 compared to source, against https://example.com/\n',
-			} );
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
-			vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommandWithMessaging ).mockImplementation( async ( _site, args ) => {
-				if ( args[ 0 ] === 'static-site-importer' ) {
-					return mockWpCli( {
-						stdout: JSON.stringify( {
-							schema: 'static-site-importer/import-cli-receipt/v1',
-							status: 'completed',
-							response: {
-								success: true,
-								result: {
-									import_report_summary: {
-										fail_import: true,
-										failure_reasons: [ 'core_html_block' ],
-										core_html_block_count: 1,
-									},
-								},
-							},
-						} ),
-					} );
-				}
-				return mockWpCli();
-			} );
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
-			).rejects.toThrow( /failed quality validation.*core_html_block/ );
-			// A compare verdict is most valuable on a broken import, so it still ran even
-			// though the (unrelated) SSI quality gate is what ultimately fails the import.
-			expect( compareLiberatedCapture ).toHaveBeenCalled();
-		} );
-
-		it( 'still runs data-liberation compare when resuming an existing site', async () => {
-			// `SiteData.url` is only ever set in memory during the *first* `create` run (see
-			// the assignment right before `startWordPressServer()` in create.ts); it is never
-			// written back to the on-disk CLI config, so it is `undefined` on every resumed
-			// `create` — the CLI's own documented recovery path after a failure. The old
-			// section-geometry gate read `site.url` directly and so silently skipped on every
-			// resume (see 4ecbcc965 / aff1e33fa); `captureDirectory` is resolved from the
-			// source path instead, so this proves the replacement does not repeat that bug.
-			const blueprint = createCaptureBlueprint();
-			const existingSite = {
-				...mockExistingSite,
-				path: mockSitePath,
-				port: 8883,
-				running: true,
-			};
-			expect( existingSite.url ).toBeUndefined();
-
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ existingSite ],
-			} );
-			createPathExistsMock( true );
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-			const compareReport =
-				'Failed 1 source check(s) and 0 offline finding(s): 1 route(s) checked offline, ' +
-				'1 of 1 compared to source, against https://example.com/\n';
-			vi.mocked( compareLiberatedCapture ).mockResolvedValue( {
-				pass: false,
-				report: compareReport,
-			} );
-
-			const requestPath = path.join( mockSitePath, '.studio-import', 'request.json' );
-			const stagedSourcePath = path.join( mockSitePath, '.studio-import', 'source' );
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => undefined );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
-				[ requestPath, stagedSourcePath ].includes( String( filePath ) )
-			);
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( filePath ) => {
-				if ( String( filePath ) === requestPath ) {
-					return blueprint.staticSiteImport.request;
-				}
-				throw new Error( `unexpected read: ${ String( filePath ) }` );
-			} );
-
-			await expect(
-				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
-			).resolves.not.toThrow();
-
-			// A resumed import is measured too, without consulting the (unset) site URL.
-			expect( compareLiberatedCapture ).toHaveBeenCalledWith(
-				blueprint.staticSiteImport.captureDirectory,
-				expect.objectContaining( { onProgress: expect.any( Function ) } )
 			);
 		} );
 

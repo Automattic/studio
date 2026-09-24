@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { compareLiberatedCapture, liberateWebsite } from '../data-liberation-client';
+import { liberateWebsite } from '../data-liberation-client';
 import type { CaptureEngine } from '../import-runtime';
 
 // An injected engine skips the browser check; this proves no test here can reach it.
@@ -32,7 +32,6 @@ function engine( overrides: Partial< CaptureEngine > = {} ): CaptureEngine {
 				summary: { routesDiscovered: 3, routesCaptured: 3, routesSkipped: 0, routesFailed: 0 },
 			};
 		} ),
-		checkFidelity: vi.fn(),
 		...overrides,
 	};
 }
@@ -49,7 +48,7 @@ describe( 'liberateWebsite', () => {
 		const loaded = engine();
 		const progress: string[] = [];
 
-		const websiteDir = await liberateWebsite( 'https://example.com/', outputBase, {
+		const { websiteDir } = await liberateWebsite( 'https://example.com/', outputBase, {
 			loadEngine: async () => loaded,
 			onProgress: ( message ) => progress.push( message ),
 		} );
@@ -66,16 +65,11 @@ describe( 'liberateWebsite', () => {
 
 	it( 'builds the command that compares a site against the original', async () => {
 		const outputBase = tempRoot();
-		let build: ( ( siteUrl: string ) => string ) | undefined;
-
-		await liberateWebsite( 'https://example.com/', outputBase, {
+		const { compareCommand: build } = await liberateWebsite( 'https://example.com/', outputBase, {
 			loadEngine: async () => engine(),
-			onCompareCommand: ( command ) => {
-				build = command;
-			},
 		} );
 
-		expect( build?.( 'http://localhost:8881' ) ).toBe(
+		expect( build( 'http://localhost:8881' ) ).toBe(
 			`npx --yes --package=https://example.com/data-liberation-9.9.9.tgz data-liberation compare ${ JSON.stringify(
 				path.join( outputBase, 'example.com' )
 			) } --candidate http://localhost:8881`
@@ -113,29 +107,5 @@ describe( 'liberateWebsite', () => {
 			liberateWebsite( 'file:///etc/passwd', tempRoot(), { loadEngine } )
 		).rejects.toThrow( 'Source URLs must use HTTP or HTTPS.' );
 		expect( loadEngine ).not.toHaveBeenCalled();
-	} );
-} );
-
-describe( 'compareLiberatedCapture', () => {
-	it( 'samples two routes and summarizes the report', async () => {
-		const loaded = engine( {
-			checkFidelity: vi.fn().mockResolvedValue( {
-				pass: false,
-				routes: [ '/', '/about/' ],
-				scores: [ { failures: [ 'a', 'b' ] }, { failures: [] } ],
-				selfConsistency: { routes: 8, findings: [] },
-			} ),
-		} );
-
-		const result = await compareLiberatedCapture( '/capture', { loadEngine: async () => loaded } );
-
-		expect( loaded.checkFidelity ).toHaveBeenCalledWith(
-			expect.objectContaining( { directory: '/capture', sampleSize: 2 } )
-		);
-		expect( result ).toEqual( {
-			pass: false,
-			report:
-				'2 source check(s) failed across 2 compared route(s); 0 offline finding(s) across 8 route(s).',
-		} );
 	} );
 } );

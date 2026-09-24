@@ -65,10 +65,46 @@ function runtimeDirectory(): string {
 	return path.join( getConfigDirectory(), 'import-runtime' );
 }
 
+type ResolvedRelease = { at: number; asset: ReleaseAsset };
+
+/** The last release resolved for `repo`, shared by every Studio process. */
+function releaseRecordPath( repo: string ): string {
+	return path.join( runtimeDirectory(), 'releases', `${ repo.replace( '/', '__' ) }.json` );
+}
+
+function readReleaseRecord( repo: string ): ResolvedRelease | null {
+	try {
+		const record = JSON.parse(
+			fs.readFileSync( releaseRecordPath( repo ), 'utf8' )
+		) as ResolvedRelease;
+		return typeof record.at === 'number' && record.asset?.repo === repo ? record : null;
+	} catch {
+		return null;
+	}
+}
+
+function writeReleaseRecord( record: ResolvedRelease ): void {
+	const destination = releaseRecordPath( record.asset.repo );
+	const partial = `${ destination }.partial-${ uniqueSuffix() }`;
+	try {
+		fs.mkdirSync( path.dirname( destination ), { recursive: true } );
+		fs.writeFileSync( partial, JSON.stringify( record ) );
+		fs.renameSync( partial, destination );
+	} catch {
+		// The record only saves lookups; an import never fails for want of it.
+		fs.rmSync( partial, { force: true } );
+	}
+}
+
 /**
  * The newest stable release of `repo` and its asset matching `matchesAsset`.
  * A release without that asset, or without a published digest, is refused
  * rather than silently falling back to an older one.
+ *
+ * Lookups are shared on disk for a few minutes, so parallel imports make one
+ * GitHub request instead of one each. When GitHub cannot be reached (offline,
+ * or the unauthenticated rate limit), the last release this machine verified
+ * is used instead of failing the import.
  */
 export async function resolveLatestReleaseAsset(
 	repo: string,
@@ -79,6 +115,11 @@ export async function resolveLatestReleaseAsset(
 	if ( cached && Date.now() - cached.at < RELEASE_CACHE_MS ) {
 		return cached.asset;
 	}
+	const recorded = readReleaseRecord( repo );
+	if ( recorded && Date.now() - recorded.at < RELEASE_CACHE_MS ) {
+		resolvedReleases.set( repo, recorded );
+		return recorded.asset;
+	}
 	const headers: Record< string, string > = {
 		Accept: 'application/vnd.github+json',
 		'User-Agent': 'wordpress-studio',
@@ -86,11 +127,16 @@ export async function resolveLatestReleaseAsset(
 	if ( process.env.GITHUB_TOKEN ) {
 		headers.Authorization = `Bearer ${ process.env.GITHUB_TOKEN }`;
 	}
-	const response = await fetchImpl( `https://api.github.com/repos/${ repo }/releases/latest`, {
-		headers,
-	} );
+	let response: Response;
+	try {
+		response = await fetchImpl( `https://api.github.com/repos/${ repo }/releases/latest`, {
+			headers,
+		} );
+	} catch ( error ) {
+		return lastVerifiedRelease( repo, recorded, ( error as Error ).message );
+	}
 	if ( ! response.ok ) {
-		throw new Error( `${ repo } latest release lookup failed (HTTP ${ response.status }).` );
+		return lastVerifiedRelease( repo, recorded, `HTTP ${ response.status }` );
 	}
 	const release = ( await response.json() ) as {
 		tag_name?: string;
@@ -118,8 +164,24 @@ export async function resolveLatestReleaseAsset(
 		url: asset.browser_download_url,
 		sha256,
 	};
-	resolvedReleases.set( repo, { at: Date.now(), asset: resolved } );
+	const record = { at: Date.now(), asset: resolved };
+	resolvedReleases.set( repo, record );
+	writeReleaseRecord( record );
 	return resolved;
+}
+
+function lastVerifiedRelease(
+	repo: string,
+	recorded: ResolvedRelease | null,
+	reason: string
+): ReleaseAsset {
+	if ( ! recorded ) {
+		throw new Error( `${ repo } latest release lookup failed (${ reason }).` );
+	}
+	process.stderr.write(
+		`Could not check ${ repo } for a newer release (${ reason }); using ${ recorded.asset.version }.\n`
+	);
+	return recorded.asset;
 }
 
 /** Download `asset` to `destination`, refusing bytes that do not match its digest. */
@@ -133,7 +195,8 @@ export async function downloadVerifiedAsset(
 		throw new Error( `Downloading ${ asset.name } failed (HTTP ${ response.status }).` );
 	}
 	fs.mkdirSync( path.dirname( destination ), { recursive: true } );
-	const partial = `${ destination }.partial`;
+	// Unique per download: concurrent imports may fetch the same asset at once.
+	const partial = `${ destination }.partial-${ uniqueSuffix() }`;
 	const hash = crypto.createHash( 'sha256' );
 	let bytes = 0;
 	await pipeline(
@@ -155,7 +218,50 @@ export async function downloadVerifiedAsset(
 		fs.rmSync( partial, { force: true } );
 		throw new Error( `${ asset.name } does not match its published SHA-256 digest.` );
 	}
+	// Replacing a file is atomic, and a concurrent winner wrote identical
+	// verified bytes, so the last rename is as good as the first.
 	fs.renameSync( partial, destination );
+}
+
+function uniqueSuffix(): string {
+	return `${ process.pid }-${ crypto.randomBytes( 4 ).toString( 'hex' ) }`;
+}
+
+/**
+ * Publish a fully staged install at `target` for concurrent imports.
+ *
+ * The staged directory is renamed into place; renaming is atomic, so readers
+ * only ever see a complete install. When another process published first,
+ * its install is kept and this staging directory is discarded. A complete
+ * install is never removed, because another running import may be using it.
+ * An incomplete directory at `target` is moved aside, then replaced.
+ */
+export function publishStagedInstall(
+	staging: string,
+	target: string,
+	isComplete: ( directory: string ) => boolean
+): void {
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
+		try {
+			fs.renameSync( staging, target );
+			return;
+		} catch ( error ) {
+			if ( isComplete( target ) ) {
+				fs.rmSync( staging, { recursive: true, force: true } );
+				return;
+			}
+			if ( attempt > 0 || ! fs.existsSync( target ) ) {
+				throw error;
+			}
+			const stale = `${ target }.stale-${ uniqueSuffix() }`;
+			try {
+				fs.renameSync( target, stale );
+			} catch {
+				// Another process moved or replaced it; retry the publish.
+			}
+			fs.rmSync( stale, { recursive: true, force: true } );
+		}
+	}
 }
 
 /**
@@ -170,7 +276,14 @@ function linkPlaywright( engineRoot: string ): void {
 		return;
 	}
 	fs.mkdirSync( path.dirname( target ), { recursive: true } );
-	fs.symlinkSync( playwrightRoot, target, os.platform() === 'win32' ? 'junction' : 'dir' );
+	try {
+		fs.symlinkSync( playwrightRoot, target, os.platform() === 'win32' ? 'junction' : 'dir' );
+	} catch ( error ) {
+		// A concurrent import linked it first.
+		if ( ( error as NodeJS.ErrnoException ).code !== 'EEXIST' ) {
+			throw error;
+		}
+	}
 }
 
 /** Install (once per version) and load the newest Data Liberation capture engine. */
@@ -181,9 +294,10 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	);
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
 	const bundlePath = path.join( engineRoot, 'dist', 'capture-engine.bundle.mjs' );
-	if ( ! fs.existsSync( bundlePath ) ) {
-		const staging = `${ engineRoot }.staging-${ process.pid }`;
-		fs.rmSync( staging, { recursive: true, force: true } );
+	const isCompleteEngine = ( directory: string ) =>
+		fs.existsSync( path.join( directory, 'dist', 'capture-engine.bundle.mjs' ) );
+	if ( ! isCompleteEngine( engineRoot ) ) {
+		const staging = `${ engineRoot }.staging-${ uniqueSuffix() }`;
 		fs.mkdirSync( staging, { recursive: true } );
 		const archive = path.join( staging, asset.name );
 		try {
@@ -198,11 +312,10 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 					`Data Liberation engine is ${ manifest.version }, expected ${ asset.version }.`
 				);
 			}
-			if ( ! fs.existsSync( path.join( staging, 'dist', 'capture-engine.bundle.mjs' ) ) ) {
+			if ( ! isCompleteEngine( staging ) ) {
 				throw new Error( 'Data Liberation release is missing its capture engine bundle.' );
 			}
-			fs.rmSync( engineRoot, { recursive: true, force: true } );
-			fs.renameSync( staging, engineRoot );
+			publishStagedInstall( staging, engineRoot, isCompleteEngine );
 		} finally {
 			fs.rmSync( staging, { recursive: true, force: true } );
 		}

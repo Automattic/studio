@@ -2,9 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	downloadVerifiedAsset,
+	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
 	type ReleaseAsset,
@@ -20,7 +21,16 @@ function releaseFetch( release: unknown, status = 200 ): typeof fetch {
 const matchesEngine = ( name: string, version: string ) =>
 	name === `data-liberation-${ version }.tgz`;
 
-beforeEach( () => resetImportRuntimeCacheForTests() );
+let configDirectory: string;
+beforeEach( () => {
+	resetImportRuntimeCacheForTests();
+	configDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
+} );
+afterEach( () => {
+	vi.unstubAllEnvs();
+	fs.rmSync( configDirectory, { recursive: true, force: true } );
+} );
 
 describe( 'resolveLatestReleaseAsset', () => {
 	it( 'returns the matching asset with its published digest', async () => {
@@ -80,6 +90,71 @@ describe( 'resolveLatestReleaseAsset', () => {
 			)
 		).rejects.toThrow( /latest release lookup failed \(HTTP 403\)/ );
 	} );
+
+	const release = {
+		tag_name: 'v0.5.3',
+		assets: [
+			{
+				name: 'data-liberation-0.5.3.tgz',
+				browser_download_url: 'https://example.com/engine.tgz',
+				digest: `sha256:${ digest( 'engine' ) }`,
+			},
+		],
+	};
+	const countingFetch = ( impl: typeof fetch ) => {
+		const calls = { count: 0 };
+		const wrapped = ( async ( ...args: Parameters< typeof fetch > ) => {
+			calls.count++;
+			return impl( ...args );
+		} ) as typeof fetch;
+		return { calls, fetch: wrapped };
+	};
+
+	it( 'shares a fresh lookup with other Studio processes', async () => {
+		const first = countingFetch( releaseFetch( release ) );
+		await resolveLatestReleaseAsset(
+			'Automattic/data-liberation-agent',
+			matchesEngine,
+			first.fetch
+		);
+		// A second process starts with an empty in-memory cache.
+		resetImportRuntimeCacheForTests();
+		const second = countingFetch( releaseFetch( release ) );
+		const asset = await resolveLatestReleaseAsset(
+			'Automattic/data-liberation-agent',
+			matchesEngine,
+			second.fetch
+		);
+		expect( asset.version ).toBe( '0.5.3' );
+		expect( second.calls.count ).toBe( 0 );
+	} );
+
+	it( 'uses the last verified release when GitHub rate-limits or is unreachable', async () => {
+		await resolveLatestReleaseAsset(
+			'Automattic/data-liberation-agent',
+			matchesEngine,
+			releaseFetch( release )
+		);
+		vi.useFakeTimers( { now: Date.now() + 60 * 60 * 1000 } );
+		try {
+			for ( const failing of [
+				releaseFetch( {}, 403 ),
+				( async () => {
+					throw new TypeError( 'fetch failed' );
+				} ) as unknown as typeof fetch,
+			] ) {
+				resetImportRuntimeCacheForTests();
+				const asset = await resolveLatestReleaseAsset(
+					'Automattic/data-liberation-agent',
+					matchesEngine,
+					failing
+				);
+				expect( asset.sha256 ).toBe( digest( 'engine' ) );
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	} );
 } );
 
 describe( 'downloadVerifiedAsset', () => {
@@ -111,5 +186,74 @@ describe( 'downloadVerifiedAsset', () => {
 			downloadVerifiedAsset( asset( digest( 'plugin' ) ), destination, bodyFetch( 'tampered' ) )
 		).rejects.toThrow( /does not match its published SHA-256 digest/ );
 		expect( fs.readdirSync( directory ) ).toEqual( [] );
+	} );
+
+	it( 'lets concurrent downloads of the same asset both succeed', async () => {
+		const destination = path.join( directory, 'ssi.zip' );
+		const body = 'plugin-bytes-'.repeat( 4096 );
+		// Chunked bodies interleave the two writes, as parallel imports do.
+		const chunkedFetch = ( async () =>
+			new Response(
+				new ReadableStream( {
+					async start( controller ) {
+						for ( let i = 0; i < body.length; i += 1024 ) {
+							controller.enqueue( new TextEncoder().encode( body.slice( i, i + 1024 ) ) );
+							await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+						}
+						controller.close();
+					},
+				} )
+			) ) as unknown as typeof fetch;
+		await Promise.all( [
+			downloadVerifiedAsset( asset( digest( body ) ), destination, chunkedFetch ),
+			downloadVerifiedAsset( asset( digest( body ) ), destination, chunkedFetch ),
+		] );
+		expect( fs.readFileSync( destination, 'utf8' ) ).toBe( body );
+		expect( fs.readdirSync( directory ) ).toEqual( [ 'ssi.zip' ] );
+	} );
+} );
+
+describe( 'publishStagedInstall', () => {
+	let directory: string;
+	beforeEach( () => {
+		directory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-runtime-' ) );
+	} );
+	afterEach( () => fs.rmSync( directory, { recursive: true, force: true } ) );
+
+	const isComplete = ( dir: string ) => fs.existsSync( path.join( dir, 'bundle.mjs' ) );
+	const stage = ( name: string, marker: string ) => {
+		const staging = path.join( directory, name );
+		fs.mkdirSync( staging );
+		fs.writeFileSync( path.join( staging, 'bundle.mjs' ), marker );
+		return staging;
+	};
+
+	it( 'publishes a staged install', () => {
+		const target = path.join( directory, '0.5.3' );
+		publishStagedInstall( stage( 'a', 'A' ), target, isComplete );
+		expect( fs.readFileSync( path.join( target, 'bundle.mjs' ), 'utf8' ) ).toBe( 'A' );
+	} );
+
+	it( 'keeps the first complete install when another process publishes second', () => {
+		const target = path.join( directory, '0.5.3' );
+		const first = stage( 'first', 'first' );
+		const second = stage( 'second', 'second' );
+		publishStagedInstall( first, target, isComplete );
+		const inUse = fs.statSync( path.join( target, 'bundle.mjs' ) ).ino;
+
+		publishStagedInstall( second, target, isComplete );
+
+		// The running import's files are untouched and the loser cleaned up.
+		expect( fs.readFileSync( path.join( target, 'bundle.mjs' ), 'utf8' ) ).toBe( 'first' );
+		expect( fs.statSync( path.join( target, 'bundle.mjs' ) ).ino ).toBe( inUse );
+		expect( fs.readdirSync( directory ) ).toEqual( [ '0.5.3' ] );
+	} );
+
+	it( 'replaces an incomplete directory left at the target', () => {
+		const target = path.join( directory, '0.5.3' );
+		fs.mkdirSync( path.join( target, 'dist' ), { recursive: true } );
+		publishStagedInstall( stage( 'a', 'A' ), target, isComplete );
+		expect( fs.readFileSync( path.join( target, 'bundle.mjs' ), 'utf8' ) ).toBe( 'A' );
+		expect( fs.readdirSync( directory ) ).toEqual( [ '0.5.3' ] );
 	} );
 } );

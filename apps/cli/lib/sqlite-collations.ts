@@ -9,7 +9,7 @@ const MYSQL8_COLLATION_COLUMNS = [
 
 /**
  * Replaces MySQL 8-only `utf8mb4_*0900*` collations recorded in the SQLite
- * driver's information schema with `utf8mb4_unicode_520_ci` (or `utf8mb4_bin`).
+ * driver's information schema with `utf8mb4_unicode_ci` (or `utf8mb4_bin`).
  *
  * The driver records `utf8mb4_0900_ai_ci` for any table created without an
  * explicit collation, which includes plugin tables created through
@@ -46,7 +46,7 @@ export async function replaceMysql8OnlyCollations( sitePath: string ): Promise< 
 					`UPDATE "${ table }"
 					SET "${ column }" = CASE
 						WHEN "${ column }" LIKE '%\\_bin' ESCAPE '\\' THEN 'utf8mb4_bin'
-						ELSE 'utf8mb4_unicode_520_ci'
+						ELSE 'utf8mb4_unicode_ci'
 					END
 					WHERE "${ column }" LIKE 'utf8mb4\\_%0900\\_%' ESCAPE '\\'`
 				);

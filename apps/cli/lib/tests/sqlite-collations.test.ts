@@ -28,7 +28,7 @@ describe( 'replaceMysql8OnlyCollations', () => {
 			INSERT INTO _wp_sqlite_mysql_information_schema_schemata VALUES ( 'utf8mb4_0900_ai_ci' );
 			INSERT INTO _wp_sqlite_mysql_information_schema_tables VALUES
 				( 'local', 'utf8mb4_0900_ai_ci' ),
-				( 'pulled', 'utf8mb4_unicode_ci' ),
+				( 'pulled', 'utf8mb4_unicode_520_ci' ),
 				( 'legacy', 'latin1_swedish_ci' );
 			INSERT INTO _wp_sqlite_mysql_information_schema_columns VALUES
 				( 'a', 'utf8mb4_0900_as_cs' ),
@@ -43,18 +43,18 @@ describe( 'replaceMysql8OnlyCollations', () => {
 		try {
 			expect(
 				result.prepare( 'SELECT * FROM _wp_sqlite_mysql_information_schema_schemata' ).all()
-			).toEqual( [ { DEFAULT_COLLATION_NAME: 'utf8mb4_unicode_520_ci' } ] );
+			).toEqual( [ { DEFAULT_COLLATION_NAME: 'utf8mb4_unicode_ci' } ] );
 			expect(
 				result.prepare( 'SELECT * FROM _wp_sqlite_mysql_information_schema_tables' ).all()
 			).toEqual( [
-				{ TABLE_NAME: 'local', TABLE_COLLATION: 'utf8mb4_unicode_520_ci' },
-				{ TABLE_NAME: 'pulled', TABLE_COLLATION: 'utf8mb4_unicode_ci' },
+				{ TABLE_NAME: 'local', TABLE_COLLATION: 'utf8mb4_unicode_ci' },
+				{ TABLE_NAME: 'pulled', TABLE_COLLATION: 'utf8mb4_unicode_520_ci' },
 				{ TABLE_NAME: 'legacy', TABLE_COLLATION: 'latin1_swedish_ci' },
 			] );
 			expect(
 				result.prepare( 'SELECT * FROM _wp_sqlite_mysql_information_schema_columns' ).all()
 			).toEqual( [
-				{ COLUMN_NAME: 'a', COLLATION_NAME: 'utf8mb4_unicode_520_ci' },
+				{ COLUMN_NAME: 'a', COLLATION_NAME: 'utf8mb4_unicode_ci' },
 				{ COLUMN_NAME: 'b', COLLATION_NAME: 'utf8mb4_bin' },
 				{ COLUMN_NAME: 'c', COLLATION_NAME: null },
 			] );

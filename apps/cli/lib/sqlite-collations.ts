@@ -19,8 +19,12 @@ const MYSQL8_COLLATION_COLUMNS = [
  * Collations are metadata only in SQLite, so rewriting them doesn't change
  * query behavior.
  */
+export function getSiteDatabasePath( sitePath: string ): string {
+	return path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+}
+
 export async function replaceMysql8OnlyCollations( sitePath: string ): Promise< void > {
-	const dbPath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const dbPath = getSiteDatabasePath( sitePath );
 	if ( ! fs.existsSync( dbPath ) ) {
 		return;
 	}

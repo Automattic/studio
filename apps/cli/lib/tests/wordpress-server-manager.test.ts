@@ -31,6 +31,9 @@ vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/sqlite-collations', () => ( {
+	getSiteDatabasePath: vi.fn(
+		( sitePath: string ) => `${ sitePath }/wp-content/database/.ht.sqlite`
+	),
 	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {
@@ -263,12 +266,34 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should replace MySQL 8-only collations before starting the server', async () => {
+		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
+			setupIpcMocks();
+			const existsSync = fs.existsSync;
+			vi.spyOn( fs, 'existsSync' ).mockImplementation(
+				( filePath ) =>
+					filePath === `${ mockSiteData.path }/wp-content/database/.ht.sqlite` ||
+					existsSync( filePath )
+			);
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 1 );
+			expect( vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'should replace MySQL 8-only collations again after WordPress is installed on first start', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer( mockSiteData, mockLogger );
 
-			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledWith( mockSiteData.path );
+			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 2 );
+			expect(
+				vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 1 ]
+			).toBeGreaterThan(
+				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
+			);
 		} );
 
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {

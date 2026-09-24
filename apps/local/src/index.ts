@@ -61,6 +61,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import {
@@ -1401,10 +1402,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// fetched — callers fall back to the single fixed top-up.
 	api.get(
 		'/top-up-pricing',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const token = await readAuthToken();
+			const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
 			res.json(
-				token?.accessToken ? await fetchStudioAssistantTopUpPricing( token.accessToken ) : null
+				token?.accessToken
+					? await fetchStudioAssistantTopUpPricing(
+							token.accessToken,
+							isSupportedLocale( locale ) ? locale : undefined
+					  )
+					: null
 			);
 		} )
 	);

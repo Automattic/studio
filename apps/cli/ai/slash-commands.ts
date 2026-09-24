@@ -28,6 +28,7 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
+import { getAppLocale } from 'cli/lib/i18n';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
@@ -156,7 +157,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			// are worth offering when the balance can't be read.
 			const [ quota, pricing ] = await Promise.all( [
 				fetchStudioAssistantQuota( token.accessToken ),
-				fetchStudioAssistantTopUpPricing( token.accessToken ),
+				getAppLocale().then( ( locale ) =>
+					fetchStudioAssistantTopUpPricing( token.accessToken, locale )
+				),
 			] );
 			ctx.ui.setBusy( false );
 

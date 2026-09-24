@@ -536,10 +536,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
 		},
-		async getStudioAssistantTopUpPricing() {
+		async getStudioAssistantTopUpPricing( locale?: string ) {
 			// Proxied server-side for the same reason as the quota: the browser
 			// UI never holds the wpcom token.
-			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
+			const query = locale ? `?locale=${ encodeURIComponent( locale ) }` : '';
+			return api< StudioAssistantTopUpPricing | null >( `/top-up-pricing${ query }` );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.

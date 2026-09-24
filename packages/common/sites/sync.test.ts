@@ -2,6 +2,7 @@ import EventEmitter from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { SYNC_MAX_STALLED_ATTEMPTS, SYNC_MAX_STALLED_MS } from '@studio/common/lib/sync/constants';
 import { pollImportStatus } from '@studio/common/lib/sync/sync-api';
 import { pullSite, pushSite } from './sync';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
@@ -26,10 +27,12 @@ vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
 	} ) ),
 } ) );
 
-// Poll back to back rather than waiting 3s between each status.
+// Poll back to back rather than waiting 3s between each status, and give up
+// on a stalled import after a few polls rather than an hour's worth.
 vi.mock( '@studio/common/lib/sync/constants', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/sync/constants') >() ),
 	SYNC_POLL_INTERVAL_MS: 0,
+	SYNC_MAX_STALLED_ATTEMPTS: 3,
 } ) );
 
 describe( 'pullSite', () => {
@@ -187,6 +190,24 @@ describe( 'pushSite', () => {
 		await pushing;
 
 		expect( vi.mocked( execute ).mock.calls[ 0 ][ 0 ] ).toContain( '--suppress-tracks-event' );
+	} );
+
+	it( 'keeps waiting on a long remote backup that reports no progress', async () => {
+		const { pushing } = startPush( [] );
+		vi.mocked( pollImportStatus ).mockResolvedValue( working( 'initial_backup_started' ) );
+
+		await expect( pushing ).rejects.toThrow( /update may still be running/i );
+
+		expect( pollImportStatus ).toHaveBeenCalledTimes( SYNC_MAX_STALLED_ATTEMPTS + 1 );
+
+		// A 10-minute stall (200 polls at 3s) used to fail large pushes that were still running.
+		const actual = await vi.importActual< typeof import('@studio/common/lib/sync/constants') >(
+			'@studio/common/lib/sync/constants'
+		);
+		expect( actual.SYNC_MAX_STALLED_ATTEMPTS * actual.SYNC_POLL_INTERVAL_MS ).toBe(
+			SYNC_MAX_STALLED_MS
+		);
+		expect( SYNC_MAX_STALLED_MS ).toBeGreaterThan( 10 * 60 * 1000 );
 	} );
 
 	it( 'rejects with the reason the remote import failed', async () => {

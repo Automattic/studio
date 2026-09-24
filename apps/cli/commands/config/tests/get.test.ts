@@ -144,7 +144,6 @@ describe( 'CLI: studio config get', () => {
 						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'root',
-						'admin-password': 'password123',
 						'admin-email': 'admin@example.com',
 						'debug-log': true,
 						'debug-display': false,
@@ -179,7 +178,6 @@ describe( 'CLI: studio config get', () => {
 						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'admin',
-						'admin-password': null,
 						'admin-email': null,
 						'debug-log': false,
 						'debug-display': false,
@@ -188,6 +186,16 @@ describe( 'CLI: studio config get', () => {
 					2
 				)
 			);
+		} );
+
+		it( 'omits the admin password from JSON', async () => {
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', undefined, 'json' );
+
+			const stdout = String( consoleSpy.mock.calls[ 0 ][ 0 ] );
+			expect( JSON.parse( stdout ) ).not.toHaveProperty( 'admin-password' );
+			expect( stdout ).not.toContain( 'password123' );
 		} );
 
 		it( 'renders a table by default', async () => {

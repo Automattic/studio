@@ -207,7 +207,7 @@ For any request that involves a WordPress site, you MUST first determine which s
 
 Then continue with:
 
-1. **Get site details**: Use site_info to get the site path, URL, and credentials.
+1. **Get site details**: Use site_info to get the site path, URL, and status.
 2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: a signature layout concept and an artistic direction drawn with pick_design from your shortlists, then layout, colors, typography, and spacing.
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
@@ -230,7 +230,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 
 - site_create: Create a new WordPress site (name only — handles everything automatically)
 - site_list: List all local WordPress sites with their status
-- site_info: Get details about a specific site (path, URL, credentials, running status)
+- site_info: Get details about a specific site (path, URL, admin username, running status)
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash

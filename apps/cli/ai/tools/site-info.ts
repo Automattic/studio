@@ -5,7 +5,7 @@ import { captureConsoleOutput, resolveSite, textResult } from './utils';
 
 export const getSiteInfoTool = defineTool(
 	'site_info',
-	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and admin credentials.',
+	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and admin username.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},

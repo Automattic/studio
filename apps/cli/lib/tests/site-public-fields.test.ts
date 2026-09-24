@@ -1,8 +1,8 @@
-import { omitSiteSecretFields, SITE_SECRET_FIELD_KEYS } from '../site-secret-fields';
+import { pickPublicSiteFields } from '../site-public-fields';
 
-describe( 'omitSiteSecretFields', () => {
-	it( 'drops known secret keys and keeps inventory fields', () => {
-		const publicRecord = omitSiteSecretFields( {
+describe( 'pickPublicSiteFields', () => {
+	it( 'keeps listed inventory fields and drops everything else', () => {
+		const publicRecord = pickPublicSiteFields( {
 			id: 'site-1',
 			name: 'Test Site',
 			path: '/path/to/site',
@@ -13,8 +13,8 @@ describe( 'omitSiteSecretFields', () => {
 			running: true,
 			adminUsername: 'admin',
 			adminPassword: 'encoded-secret',
-			tlsKey: 'private-key',
-			tlsCert: 'certificate',
+			latestCliPid: 1234,
+			someFutureSecret: 'new-secret',
 		} );
 
 		expect( publicRecord ).toEqual( {
@@ -28,8 +28,5 @@ describe( 'omitSiteSecretFields', () => {
 			running: true,
 			adminUsername: 'admin',
 		} );
-		for ( const key of SITE_SECRET_FIELD_KEYS ) {
-			expect( publicRecord ).not.toHaveProperty( key );
-		}
 	} );
 } );

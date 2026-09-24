@@ -1,26 +1,10 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
-import { SITE_SECRET_FIELD_KEYS } from 'cli/lib/site-secret-fields';
+import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
-
-const SECRET_KEY_PATTERN = /password|secret|tlsKey|tlsCert/i;
-
-function collectKeys( value: unknown, keys = new Set< string >() ): Set< string > {
-	if ( Array.isArray( value ) ) {
-		for ( const item of value ) {
-			collectKeys( item, keys );
-		}
-	} else if ( value && typeof value === 'object' ) {
-		for ( const [ key, nested ] of Object.entries( value ) ) {
-			keys.add( key );
-			collectKeys( nested, keys );
-		}
-	}
-	return keys;
-}
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
@@ -146,7 +130,7 @@ describe( 'CLI: studio site list', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'omits secret credential fields from default list JSON', async () => {
+		it( 'prints only public fields in list JSON', async () => {
 			const plaintextPassword = 'super-secret-admin-password';
 			const encodedPassword = btoa( plaintextPassword );
 			vi.mocked( readCliConfig ).mockResolvedValue( {
@@ -156,8 +140,9 @@ describe( 'CLI: studio site list', () => {
 						...testCliConfig.sites[ 0 ],
 						adminPassword: encodedPassword,
 						runtime: 'native-php',
-						tlsKey: 'TLS_PRIVATE_KEY_MATERIAL',
-						tlsCert: 'TLS_CERT_MATERIAL',
+						latestCliPid: 4242,
+						// Unknown fields pass through the loose config schema; they must stay hidden.
+						futureApiToken: 'FUTURE_TOKEN_VALUE',
 					},
 				],
 			} as Awaited< ReturnType< typeof readCliConfig > > );
@@ -182,16 +167,12 @@ describe( 'CLI: studio site list', () => {
 				running: false,
 			} );
 
-			for ( const key of collectKeys( parsed ) ) {
-				expect( key ).not.toMatch( SECRET_KEY_PATTERN );
-			}
-			for ( const key of SITE_SECRET_FIELD_KEYS ) {
-				expect( parsed[ 0 ] ).not.toHaveProperty( key );
+			for ( const key of Object.keys( parsed[ 0 ] ) ) {
+				expect( SITE_LIST_PUBLIC_FIELDS ).toContain( key );
 			}
 			expect( stdout ).not.toContain( plaintextPassword );
 			expect( stdout ).not.toContain( encodedPassword );
-			expect( stdout ).not.toContain( 'TLS_PRIVATE_KEY_MATERIAL' );
-			expect( stdout ).not.toContain( 'TLS_CERT_MATERIAL' );
+			expect( stdout ).not.toContain( 'FUTURE_TOKEN_VALUE' );
 
 			const [ , ipcJson ] = mockReportKeyValuePair.mock.calls[ 0 ];
 			const ipcSites = JSON.parse( ipcJson ) as Array< Record< string, unknown > >;

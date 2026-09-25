@@ -1,5 +1,6 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
+import { ThemeProvider } from '@wordpress/theme';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
@@ -56,13 +57,20 @@ export function Popup( {
 				alignOffset={ alignOffset }
 				className={ styles.positioner }
 			>
-				<BaseMenu.Popup
-					className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
-					onClick={ onClick }
-					onPointerDown={ onPointerDown }
-				>
-					{ children }
-				</BaseMenu.Popup>
+				{ /* The portal mounts into document.body, outside the light/dark
+					ThemeProvider the trigger lives in. A bare ThemeProvider inherits
+					that scope through React context and re-emits it here, so the
+					menu matches its trigger (dark in the sidebar chrome, the app's
+					color scheme elsewhere). */ }
+				<ThemeProvider>
+					<BaseMenu.Popup
+						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+						onClick={ onClick }
+						onPointerDown={ onPointerDown }
+					>
+						{ children }
+					</BaseMenu.Popup>
+				</ThemeProvider>
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);
@@ -87,13 +95,16 @@ export function ContextPopup( {
 	return (
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner className={ styles.positioner }>
-				<BaseMenu.Popup
-					className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
-					onClick={ onClick }
-					onPointerDown={ onPointerDown }
-				>
-					{ children }
-				</BaseMenu.Popup>
+				{ /* Re-establish the trigger's theme scope, same as `Popup` above. */ }
+				<ThemeProvider>
+					<BaseMenu.Popup
+						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+						onClick={ onClick }
+						onPointerDown={ onPointerDown }
+					>
+						{ children }
+					</BaseMenu.Popup>
+				</ThemeProvider>
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);

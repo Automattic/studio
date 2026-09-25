@@ -371,6 +371,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
 		},
+		async fixSiteDesignDrift( siteId, fixes ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design/fixes`, {
+				method: 'POST',
+				body: JSON.stringify( { fixes } ),
+			} );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {

@@ -77,6 +77,27 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( prompt ).toContain( '- Page: /about' );
 	} );
 
+	it( 'points design system notes at their DESIGN.md token', () => {
+		const annotations: Annotation[] = [
+			{
+				id: 'a_1',
+				comment: 'Make it warmer',
+				designToken: 'colors.primary',
+				nearbyText: 'primary: #4DE3FF',
+				path: 'DESIGN.md',
+			},
+		];
+
+		const prompt = formatAnnotationsAsPrompt( annotations );
+
+		expect( prompt ).toContain(
+			"Annotations from the Design system page are about the site's DESIGN.md"
+		);
+		expect( prompt ).toContain( '### 1. design token `colors.primary` - "primary: #4DE3FF"' );
+		expect( prompt ).toContain( '- Page: Design system (DESIGN.md)' );
+		expect( toVisualAnnotationSummaries( annotations )[ 0 ].elementLabel ).toBe( 'colors.primary' );
+	} );
+
 	it( 'summarizes each note with a short element handle for the transcript', () => {
 		expect(
 			toVisualAnnotationSummaries( [

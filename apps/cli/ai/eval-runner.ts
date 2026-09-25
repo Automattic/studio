@@ -68,9 +68,12 @@ const evalSeedSchema = z.object( {
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
 	// Creates a real (stopped) site under STUDIO_SITES_ROOT and makes it the
-	// active site for the turn, the way the app and the CLI picker do. Deleted
-	// after the turn.
-	activeSite: z.object( { name: z.string() } ).optional(),
+	// active site for the turn, the way the app and the CLI picker do, with
+	// `files` (paths relative to the site root) written into it. Deleted after
+	// the turn.
+	activeSite: z
+		.object( { name: z.string(), files: z.record( z.string(), z.string() ).optional() } )
+		.optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
@@ -173,6 +176,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			},
 			new Logger()
 		);
+		for ( const [ relativePath, content ] of Object.entries( activeSite.files ?? {} ) ) {
+			const filePath = path.join( activeSitePath, relativePath );
+			mkdirSync( path.dirname( filePath ), { recursive: true } );
+			writeFileSync( filePath, content );
+		}
 		promptPrefix = formatActiveSitePrefix( {
 			name: activeSite.name,
 			path: activeSitePath,

@@ -50,6 +50,10 @@
 }
 
 .sync {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 16px;
 	margin: 8px 0 0;
 	font-size: 13px;
 	opacity: 0.75;
@@ -57,6 +61,10 @@
 
 .sync summary {
 	cursor: pointer;
+}
+
+.sync details[open] {
+	flex-basis: 100%;
 }
 
 .driftList {
@@ -79,6 +87,33 @@
 }
 
 .driftList dd {
+	margin: 0;
+}
+
+.driftList .driftActions {
+	display: flex;
+	gap: 12px;
+	margin-inline-start: auto;
+}
+
+.driftAction {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.driftAction:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.driftError {
+	flex-basis: 100%;
 	margin: 0;
 }
 
@@ -437,4 +472,142 @@
 .messageDetail {
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
+}
+
+/* Annotation mode, styled like the site-preview inspector. */
+.root [data-annotation-target] {
+	position: relative;
+}
+
+.picking [data-annotation-target] {
+	cursor: pointer;
+}
+
+.picking [data-annotation-target]:hover {
+	outline: 2px solid #7c3aed;
+	outline-offset: 2px;
+}
+
+.annotationMarker {
+	position: absolute;
+	z-index: 1;
+	top: -11px;
+	inset-inline-end: -11px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	background: #7c3aed;
+	box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
+	color: #fff;
+	font: 700 11px/1 system-ui, sans-serif;
+	letter-spacing: normal;
+	text-transform: none;
+}
+
+/* The palette clips its tiles' corners, so their markers sit inside. */
+.tile .annotationMarker {
+	top: 8px;
+	inset-inline-end: 8px;
+}
+
+.notePopup {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(320px, calc(100vw - 16px));
+	padding: 12px;
+	border-radius: 12px;
+	background: #1a1a1a;
+	box-shadow: 0 4px 24px rgb(0 0 0 / 30%), 0 0 0 1px rgb(255 255 255 / 8%);
+	color: #fff;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.noteTarget {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	overflow: hidden;
+	color: rgb(255 255 255 / 50%);
+	font-size: 11px;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+
+.noteTarget code {
+	overflow: hidden;
+	color: rgb(255 255 255 / 70%);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	text-overflow: ellipsis;
+}
+
+.notePopup textarea {
+	width: 100%;
+	min-height: 72px;
+	padding: 8px;
+	border: 1px solid rgb(255 255 255 / 15%);
+	border-radius: 8px;
+	outline: none;
+	background: rgb(255 255 255 / 5%);
+	color: #fff;
+	font: inherit;
+	font-size: 13px;
+	line-height: 1.4;
+	resize: vertical;
+}
+
+.notePopup textarea:focus {
+	border-color: #7c3aed;
+}
+
+.noteActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 4px;
+}
+
+.noteActions button {
+	padding: 6px 8px;
+	border: none;
+	border-radius: 16px;
+	font: inherit;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.noteActions button:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.noteDelete {
+	margin-inline-end: auto;
+	background: transparent;
+	color: rgb(255 255 255 / 50%);
+}
+
+.noteDelete:hover {
+	color: #ef4444;
+}
+
+.noteCancel {
+	background: transparent;
+	color: rgb(255 255 255 / 70%);
+}
+
+.noteSave {
+	background: #fff;
+	color: #1a1a1a;
+}
+
+.noteSubmit {
+	background: #7c3aed;
+	color: #fff;
 }

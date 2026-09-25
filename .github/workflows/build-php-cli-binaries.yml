@@ -97,11 +97,11 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Checkout static-php-cli
         if: runner.os == 'macOS' || runner.os == 'Linux'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}
@@ -231,8 +231,7 @@ jobs:
           )
           build_args=(
             "$static_extensions"
-            # Give gd JPEG/WebP image support and FreeType (TrueType text).
-            --with-libs=freetype,libjpeg,libwebp
+            --with-suggested-libs
             --build-shared=xdebug
             --build-cli
           )
@@ -611,14 +610,14 @@ jobs:
           (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() | Set-Content -NoNewline "$archive.sha256"
 
       - name: Upload PHP CLI artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
           path: out/php-binaries/*
 
       - name: Upload static-php-cli logs
         if: ${{ failure() && (runner.os == 'macOS' || runner.os == 'Linux') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: spc-logs-${{ matrix.target }}
           path: .cache/static-php-cli/log/*.log
@@ -640,7 +639,7 @@ jobs:
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
@@ -648,7 +647,7 @@ jobs:
           bundler-cache: true
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -660,7 +659,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Download PHP CLI artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: php-${{ env.PHP_VERSION }}-cli-*
           path: out/php-binaries

@@ -100,7 +100,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { readSiteDesign } from '@studio/common/sites/site-design';
+import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
@@ -785,6 +785,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	const activeThemeSlug = ( sitePath: string ) => () =>
+		new Promise< string | undefined >( ( resolve ) => {
+			const [ emitter ] = execute( [ 'wp', '--path', sitePath, 'option', 'get', 'stylesheet' ], {
+				output: 'capture',
+			} );
+			emitter.on( 'success', ( { result } ) =>
+				resolve( result?.stdout.trim().split( '\n' ).pop()?.trim() )
+			);
+			emitter.on( 'failure', () => resolve( undefined ) );
+			emitter.on( 'error', () => resolve( undefined ) );
+		} );
+
 	api.get(
 		'/sites/:id/design',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -793,23 +805,24 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json(
-				await readSiteDesign(
-					sitePath,
-					() =>
-						new Promise( ( resolve ) => {
-							const [ emitter ] = execute(
-								[ 'wp', '--path', sitePath, 'option', 'get', 'stylesheet' ],
-								{ output: 'capture' }
-							);
-							emitter.on( 'success', ( { result } ) =>
-								resolve( result?.stdout.trim().split( '\n' ).pop()?.trim() )
-							);
-							emitter.on( 'failure', () => resolve( undefined ) );
-							emitter.on( 'error', () => resolve( undefined ) );
-						} )
-				)
-			);
+			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/design/fixes',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const fixes = designFixesSchema.safeParse( req.body?.fixes );
+			if ( ! fixes.success ) {
+				res.status( 400 ).json( { error: 'Invalid design fixes' } );
+				return;
+			}
+			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
 		} )
 	);
 

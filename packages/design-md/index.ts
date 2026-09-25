@@ -1,4 +1,4 @@
-import { parse } from 'yaml';
+import { parse, parseDocument } from 'yaml';
 
 export type Style = Record< string, unknown >;
 type Tokens = Record< string, unknown >;
@@ -379,14 +379,29 @@ export function designSheet( tokens: DesignTokens ): DesignSheet {
 }
 
 export interface DesignDrift {
-	kind: 'color' | 'font-family' | 'font-size' | 'spacing';
+	kind: 'color' | 'font-family' | 'font-files' | 'font-size' | 'spacing';
 	slug: string;
 	design: string;
 	/** The theme.json value, or undefined when theme.json lacks the token. */
 	theme?: string;
 }
 
+/** Settles one drift, by writing the DESIGN.md value to theme.json or the other way around. */
+export interface DesignFix {
+	kind: DesignDrift[ 'kind' ];
+	slug: string;
+	to: 'theme' | 'design';
+}
+
 type Preset = { slug?: unknown; [ key: string ]: unknown };
+
+const PRESET_LISTS: Record< DesignDrift[ 'kind' ], [ string, string, string ] > = {
+	color: [ 'color', 'palette', 'color' ],
+	'font-family': [ 'typography', 'fontFamilies', 'fontFamily' ],
+	'font-files': [ 'typography', 'fontFamilies', 'fontFace' ],
+	'font-size': [ 'typography', 'fontSizes', 'size' ],
+	spacing: [ 'spacing', 'spacingSizes', 'size' ],
+};
 
 function presets( settings: unknown, group: string, list: string ): Preset[] {
 	const value = ( settings as Record< string, Record< string, unknown > > | undefined )?.[
@@ -398,36 +413,122 @@ function presets( settings: unknown, group: string, list: string ): Preset[] {
 /**
  * Where a theme.json no longer matches the DESIGN.md it was generated from: every
  * palette color, font family, font size and spacing step that theme.json lacks
- * or sets to a different value.
+ * or sets to a different value, and every font family it declares without font files.
  */
 export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
 	const expected = themeJsonFromDesign( tokens, {} )?.themeJson.settings;
-	const checks: Array< [ DesignDrift[ 'kind' ], string, string, string ] > = [
-		[ 'color', 'color', 'palette', 'color' ],
-		[ 'font-family', 'typography', 'fontFamilies', 'fontFamily' ],
-		[ 'font-size', 'typography', 'fontSizes', 'size' ],
-		[ 'spacing', 'spacing', 'spacingSizes', 'size' ],
-	];
 	const normalize = ( kind: DesignDrift[ 'kind' ], value: unknown ) =>
 		kind === 'font-family'
 			? fontFamilyName( value ).toLowerCase()
 			: String( value ).replace( /\s+/g, '' ).toLowerCase();
-	return checks.flatMap( ( [ kind, group, list, field ] ) => {
-		const actual = presets( themeJson.settings, group, list );
-		return presets( expected, group, list ).flatMap( ( preset ) => {
-			const design = kind === 'font-family' ? String( preset.name ) : String( preset[ field ] );
-			const match = actual.find( ( candidate ) => candidate.slug === preset.slug );
-			const theme =
-				match?.[ field ] === undefined
-					? undefined
-					: kind === 'font-family'
-					? fontFamilyName( match[ field ] )
-					: String( match[ field ] );
-			return theme !== undefined && normalize( kind, design ) === normalize( kind, theme )
-				? []
-				: [ { kind, slug: String( preset.slug ), design, theme } ];
-		} );
-	} );
+	const drift = ( [ 'color', 'font-family', 'font-size', 'spacing' ] as const ).flatMap(
+		( kind ): DesignDrift[] => {
+			const [ group, list, field ] = PRESET_LISTS[ kind ];
+			const actual = presets( themeJson.settings, group, list );
+			return presets( expected, group, list ).flatMap( ( preset ) => {
+				const design = kind === 'font-family' ? String( preset.name ) : String( preset[ field ] );
+				const match = actual.find( ( candidate ) => candidate.slug === preset.slug );
+				const theme =
+					match?.[ field ] === undefined
+						? undefined
+						: kind === 'font-family'
+						? fontFamilyName( match[ field ] )
+						: String( match[ field ] );
+				return theme !== undefined && normalize( kind, design ) === normalize( kind, theme )
+					? []
+					: [ { kind, slug: String( preset.slug ), design, theme } ];
+			} );
+		}
+	);
+	const unloaded = presets( themeJson.settings, 'typography', 'fontFamilies' ).filter(
+		( family ) =>
+			! ( Array.isArray( family.fontFace ) && family.fontFace.length ) &&
+			! drift.some( ( entry ) => entry.kind === 'font-family' && entry.slug === family.slug ) &&
+			presets( expected, 'typography', 'fontFamilies' ).some(
+				( preset ) => preset.slug === family.slug
+			)
+	);
+	return [
+		...drift,
+		...unloaded.map( ( family ) => ( {
+			kind: 'font-files' as const,
+			slug: String( family.slug ),
+			design: fontFamilyName( family.fontFamily ),
+		} ) ),
+	];
+}
+
+/**
+ * Writes the DESIGN.md value of each drift into theme.json: the preset DESIGN.md
+ * generates replaces the one theme.json has under that slug, or is added.
+ * `fontFaces` carries the downloaded font files of the families being written.
+ */
+export function applyDesignToThemeJson(
+	tokens: DesignTokens,
+	themeJson: ThemeJson,
+	drift: DesignDrift[],
+	fontFaces: Record< string, object[] > = {}
+): ThemeJson {
+	const expected = themeJsonFromDesign( tokens, {}, fontFaces )?.themeJson.settings;
+	const settings = structuredClone( themeJson.settings ?? {} ) as Record<
+		string,
+		Record< string, unknown >
+	>;
+	for ( const { kind, slug } of drift ) {
+		const [ group, list ] = PRESET_LISTS[ kind ];
+		const preset = presets( expected, group, list ).find( ( entry ) => entry.slug === slug );
+		if ( ! preset ) {
+			continue;
+		}
+		const current = presets( settings, group, list );
+		const index = current.findIndex( ( entry ) => entry.slug === slug );
+		settings[ group ] = {
+			...settings[ group ],
+			[ list ]:
+				index === -1
+					? [ ...current, preset ]
+					: current.map( ( entry, position ) => ( position === index ? preset : entry ) ),
+		};
+	}
+	return { ...themeJson, settings };
+}
+
+/**
+ * Writes the theme.json value of each drift back into the DESIGN.md front matter,
+ * leaving the rest of the document as written. Drifts theme.json has no value for
+ * are skipped.
+ */
+export function applyThemeToDesign( design: string, drift: DesignDrift[] ): string {
+	const frontMatter = design.match( /^\s*---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
+	if ( frontMatter === undefined ) {
+		return design;
+	}
+	const document = parseDocument( frontMatter );
+	const typography = typographyStyles( parseDesignMd( design ) );
+	for ( const { kind, slug, design: value, theme } of drift ) {
+		if ( theme === undefined ) {
+			continue;
+		}
+		if ( kind === 'color' ) {
+			document.setIn( [ 'colors', slug ], theme );
+		} else if ( kind === 'spacing' ) {
+			document.setIn( [ 'spacing', slug ], theme );
+		} else if ( kind === 'font-size' ) {
+			document.setIn( [ 'typography', slug, 'fontSize' ], theme );
+		} else if ( kind === 'font-family' ) {
+			for ( const [ name, style ] of typography ) {
+				if ( fontFamilyName( style.fontFamily ) === value ) {
+					document.setIn(
+						[ 'typography', name, 'fontFamily' ],
+						String( style.fontFamily ).replace( value, theme )
+					);
+				}
+			}
+		}
+	}
+	return design.replace( frontMatter, () =>
+		document.toString( { lineWidth: 0, defaultStringType: 'QUOTE_DOUBLE' } ).replace( /\n$/, '' )
+	);
 }
 
 function compact< T extends Record< string, unknown > >( object: T ): Partial< T > | undefined {

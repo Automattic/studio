@@ -4,13 +4,14 @@ import {
 	fontFamilyName,
 	googleFontsUrl,
 	parseDesignMd,
-	type DesignDrift,
 	type Style,
 } from '@studio/design-md';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useDesignAnnotations, type DesignAnnotationProps } from './annotations';
+import { DriftPanel } from './drift-panel';
 import styles from './style.module.css';
 import type { SiteDesign } from '@/data/core';
 import type { CSSProperties } from 'react';
@@ -54,53 +55,15 @@ function proseSections( design: string ): Array< { title: string; body: string }
 		.filter( ( section ) => section.title && section.body );
 }
 
-function driftLabel( drift: DesignDrift ): string {
-	const kinds: Record< DesignDrift[ 'kind' ], string > = {
-		color: __( 'Color' ),
-		'font-family': __( 'Font family' ),
-		'font-size': __( 'Font size' ),
-		spacing: __( 'Spacing' ),
-	};
-	return `${ kinds[ drift.kind ] } · ${ drift.slug }`;
-}
-
-function SyncStatus( { drift }: { drift: DesignDrift[] } ) {
-	if ( ! drift.length ) {
-		return <p className={ styles.sync }>{ __( 'theme.json matches DESIGN.md' ) }</p>;
-	}
-	return (
-		<details className={ styles.sync }>
-			<summary>
-				{ sprintf(
-					/* translators: %d: number of design tokens that differ between the theme and DESIGN.md */
-					_n(
-						'%d token in theme.json differs from DESIGN.md',
-						'%d tokens in theme.json differ from DESIGN.md',
-						drift.length
-					),
-					drift.length
-				) }
-			</summary>
-			<dl className={ styles.driftList }>
-				{ drift.map( ( entry ) => (
-					<div key={ `${ entry.kind }:${ entry.slug }` }>
-						<dt>{ driftLabel( entry ) }</dt>
-						<dd>
-							{ sprintf(
-								/* translators: 1: value in DESIGN.md, 2: value in theme.json */
-								__( 'DESIGN.md %1$s, theme.json %2$s' ),
-								entry.design,
-								entry.theme ?? __( 'missing' )
-							) }
-						</dd>
-					</div>
-				) ) }
-			</dl>
-		</details>
-	);
-}
-
-export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | null } ) {
+export function DesignSystemView( {
+	siteId,
+	siteDesign,
+	annotations,
+}: {
+	siteId: string;
+	siteDesign: SiteDesign | null;
+	annotations?: DesignAnnotationProps;
+} ) {
 	const view = useMemo( () => {
 		if ( ! siteDesign ) {
 			return null;
@@ -117,6 +80,10 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
 	}, [ siteDesign ] );
+	const annotate = useDesignAnnotations( {
+		...annotations,
+		ready: !! view && ! ( 'error' in view ),
+	} );
 
 	if ( ! view ) {
 		return (
@@ -163,19 +130,35 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 		...fontStyle( sheet.body ),
 	} as CSSProperties;
 
-	const tile = ( [ name, value ]: [ string, string ] ) => (
-		<div
-			key={ name }
-			className={ styles.tile }
-			data-background={ value === sheet.background || undefined }
-			style={ { backgroundColor: value, color: sheet.ink( value ) } }
-		>
-			<span className={ styles.tileHex }>{ value }</span>
-			<span className={ styles.tileName }>{ name }</span>
-		</div>
-	);
+	const styleToken = ( style: Style ) =>
+		`typography.${ sheet.styles.find( ( [ , candidate ] ) => candidate === style )?.[ 0 ] }`;
+	const tile = ( [ name, value ]: [ string, string ] ) => {
+		const color = sheet.colors.find( ( [ , candidate ] ) => candidate === value )?.[ 0 ] ?? name;
+		return (
+			<div
+				key={ name }
+				className={ styles.tile }
+				data-background={ value === sheet.background || undefined }
+				style={ { backgroundColor: value, color: sheet.ink( value ) } }
+				{ ...annotate.target( `colors.${ color }`, name, value, `colors.${ color }` ) }
+			>
+				<span className={ styles.tileHex }>{ value }</span>
+				<span className={ styles.tileName }>{ name }</span>
+				{ annotate.marker( `colors.${ color }` ) }
+			</div>
+		);
+	};
 	const specimen = ( style: Style ) => (
-		<figure className={ styles.specimen }>
+		<figure
+			className={ styles.specimen }
+			{ ...annotate.target(
+				styleToken( style ),
+				titleCase( styleToken( style ).slice( 'typography.'.length ) ),
+				styleSpecs( style ),
+				styleToken( style )
+			) }
+		>
+			{ annotate.marker( styleToken( style ) ) }
 			<div className={ styles.aa } style={ fontStyle( style ) }>
 				Aa
 			</div>
@@ -186,21 +169,42 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 	);
 
 	return (
-		<div className={ styles.root } style={ rootStyle }>
+		<div
+			className={ annotate.isPicking ? `${ styles.root } ${ styles.picking }` : styles.root }
+			style={ rootStyle }
+			onClickCapture={ annotate.onClickCapture }
+		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
+			{ annotate.popup }
 			<header className={ styles.header }>
 				<p className={ styles.eyebrow } style={ fontStyle( sheet.label ) }>
 					{ __( 'Design system' ) }
 				</p>
 				{ tokens.name ? (
-					<h1 className={ styles.title } style={ fontStyle( sheet.display ) }>
+					<h1
+						className={ styles.title }
+						style={ fontStyle( sheet.display ) }
+						{ ...annotate.target( 'name', __( 'Site name' ), String( tokens.name ), 'name' ) }
+					>
 						{ String( tokens.name ) }
+						{ annotate.marker( 'name' ) }
 					</h1>
 				) : null }
 				{ tokens.description ? (
-					<p className={ styles.description }>{ String( tokens.description ) }</p>
+					<p
+						className={ styles.description }
+						{ ...annotate.target(
+							'description',
+							__( 'Tagline' ),
+							String( tokens.description ),
+							'description'
+						) }
+					>
+						{ String( tokens.description ) }
+						{ annotate.marker( 'description' ) }
+					</p>
 				) : null }
-				<SyncStatus drift={ drift } />
+				<DriftPanel siteId={ siteId } drift={ drift } />
 			</header>
 
 			<div className={ styles.sections }>
@@ -229,7 +233,17 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 					<h2 className={ styles.sectionTitle }>{ __( 'Type scale' ) }</h2>
 					<div className={ styles.scale }>
 						{ sheet.styles.map( ( [ name, style ] ) => (
-							<div key={ name } className={ styles.scaleRow }>
+							<div
+								key={ name }
+								className={ styles.scaleRow }
+								{ ...annotate.target(
+									`typography.${ name }`,
+									titleCase( name ),
+									styleSpecs( style ),
+									`typography.${ name }`
+								) }
+							>
+								{ annotate.marker( `typography.${ name }` ) }
 								<div className={ styles.scaleMeta }>
 									<span className={ styles.scaleName }>{ titleCase( name ) }</span>
 									<span className={ styles.scaleSpecs }>{ styleSpecs( style ) }</span>
@@ -269,8 +283,15 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 										borderRadius: dimension( sheet.button.rounded ),
 										padding: dimension( sheet.button.padding ),
 									} }
+									{ ...annotate.target(
+										'components.button-primary',
+										__( 'Primary button' ),
+										undefined,
+										'components.button-primary'
+									) }
 								>
 									{ __( 'Button' ) }
+									{ annotate.marker( 'components.button-primary' ) }
 								</span>
 								<span
 									className={ styles.button }
@@ -280,27 +301,43 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 										borderRadius: dimension( sheet.button.rounded ),
 										padding: dimension( sheet.button.padding ),
 									} }
+									{ ...annotate.target( 'button-secondary', __( 'Secondary button' ) ) }
 								>
 									{ __( 'Button' ) }
+									{ annotate.marker( 'button-secondary' ) }
 								</span>
-								<span className={ styles.link }>{ __( 'Link' ) }</span>
+								<span className={ styles.link } { ...annotate.target( 'link', __( 'Link' ) ) }>
+									{ __( 'Link' ) }
+									{ annotate.marker( 'link' ) }
+								</span>
 							</div>
 							<div className={ styles.row }>
-								<span className={ styles.input }>{ __( 'Input' ) }</span>
+								<span className={ styles.input } { ...annotate.target( 'input', __( 'Input' ) ) }>
+									{ __( 'Input' ) }
+									{ annotate.marker( 'input' ) }
+								</span>
 							</div>
 							<div className={ styles.row }>
-								<span className={ styles.tag } style={ fontStyle( sheet.label ) }>
+								<span
+									className={ styles.tag }
+									style={ fontStyle( sheet.label ) }
+									{ ...annotate.target( 'tag', __( 'Tag' ) ) }
+								>
 									{ __( 'Tag' ) }
+									{ annotate.marker( 'tag' ) }
 								</span>
 								<span
 									className={ `${ styles.tag } ${ styles.tagAccent }` }
 									style={ fontStyle( sheet.label ) }
+									{ ...annotate.target( 'tag-accent', __( 'Accent tag' ) ) }
 								>
 									{ __( 'Tag' ) }
+									{ annotate.marker( 'tag-accent' ) }
 								</span>
 							</div>
 						</div>
-						<div className={ styles.card }>
+						<div className={ styles.card } { ...annotate.target( 'card', __( 'Card' ) ) }>
+							{ annotate.marker( 'card' ) }
 							<span className={ styles.tag } style={ fontStyle( sheet.label ) }>
 								{ __( 'Card' ) }
 							</span>
@@ -316,7 +353,21 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 						<h2 className={ styles.sectionTitle }>{ __( 'Spacing & corners' ) }</h2>
 						<div className={ styles.spacing }>
 							{ spacing.map( ( [ name, value ] ) => (
-								<div key={ name } className={ styles.spacingRow }>
+								<div
+									key={ name }
+									className={ styles.spacingRow }
+									{ ...annotate.target(
+										`spacing.${ name }`,
+										sprintf(
+											/* translators: %s: spacing step name, e.g. "md" */
+											__( 'Spacing %s' ),
+											name
+										),
+										dimension( value ),
+										`spacing.${ name }`
+									) }
+								>
+									{ annotate.marker( `spacing.${ name }` ) }
 									<span className={ styles.spacingName }>{ name }</span>
 									<span
 										className={ styles.spacingBar }
@@ -329,7 +380,21 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 						{ rounded.length ? (
 							<div className={ styles.corners }>
 								{ rounded.map( ( [ name, value ] ) => (
-									<figure key={ name } className={ styles.corner }>
+									<figure
+										key={ name }
+										className={ styles.corner }
+										{ ...annotate.target(
+											`rounded.${ name }`,
+											sprintf(
+												/* translators: %s: corner radius name, e.g. "sm" */
+												__( 'Corner %s' ),
+												name
+											),
+											dimension( value ),
+											`rounded.${ name }`
+										) }
+									>
+										{ annotate.marker( `rounded.${ name }` ) }
 										<div style={ { borderRadius: `min(${ dimension( value ) }, 32px)` } } />
 										<figcaption>
 											{ name } · { dimension( value ) }
@@ -346,7 +411,19 @@ export function DesignSystemView( { siteDesign }: { siteDesign: SiteDesign | nul
 						<h2 className={ styles.sectionTitle }>{ __( 'Guidelines' ) }</h2>
 						<div className={ styles.guidelines }>
 							{ prose.map( ( section ) => (
-								<article key={ section.title } className={ styles.guideline }>
+								<article
+									key={ section.title }
+									className={ styles.guideline }
+									{ ...annotate.target(
+										`guidelines.${ section.title }`,
+										sprintf(
+											/* translators: %s: DESIGN.md section title, e.g. "Voice" */
+											__( 'Guideline: %s' ),
+											section.title
+										)
+									) }
+								>
+									{ annotate.marker( `guidelines.${ section.title }` ) }
 									<h3 style={ fontStyle( sheet.headline ) }>{ section.title }</h3>
 									<ReactMarkdown remarkPlugins={ [ remarkGfm ] }>{ section.body }</ReactMarkdown>
 								</article>

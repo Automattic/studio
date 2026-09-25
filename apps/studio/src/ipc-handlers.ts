@@ -103,7 +103,12 @@ import {
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
-import { readSiteDesign, type SiteDesign } from '@studio/common/sites/site-design';
+import {
+	designFixesSchema,
+	fixSiteDesign,
+	readSiteDesign,
+	type SiteDesign,
+} from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -1481,18 +1486,30 @@ export async function cancelSiteStorageUsage(
 	siteStorageControllers.get( requestId )?.abort();
 }
 
+const activeThemeSlug = ( server: SiteServer ) => async () =>
+	( await server.getThemeDetails() )?.slug;
+
 export async function getSiteDesign(
 	_event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDesign | null > {
 	const server = SiteServer.get( id );
-	if ( ! server ) {
-		return null;
-	}
-	return readSiteDesign(
-		server.details.path,
-		async () => ( await server.getThemeDetails() )?.slug
-	);
+	return server ? readSiteDesign( server.details.path, activeThemeSlug( server ) ) : null;
+}
+
+export async function fixSiteDesignDrift(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	fixes: unknown
+): Promise< SiteDesign | null > {
+	const server = SiteServer.get( id );
+	return server
+		? fixSiteDesign(
+				server.details.path,
+				activeThemeSlug( server ),
+				designFixesSchema.parse( fixes )
+		  )
+		: null;
 }
 
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

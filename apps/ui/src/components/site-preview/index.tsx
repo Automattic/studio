@@ -63,7 +63,7 @@ import {
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
-import type { Annotation } from './types';
+import type { Annotation, InspectorCommand, InspectorState } from './types';
 import type { SiteDetails } from '@/data/core';
 import type { CSSProperties } from 'react';
 
@@ -100,18 +100,6 @@ interface InspectorEvent {
 	annotationCount?: number;
 	hasUnsavedDraft?: boolean;
 	command?: PreviewShortcutCommandType;
-}
-
-interface InspectorState {
-	ready: boolean;
-	isPicking: boolean;
-	annotationCount: number;
-	hasUnsavedDraft: boolean;
-}
-
-interface InspectorCommand {
-	id: number;
-	type: 'cancel' | 'toggle-picking' | 'submit';
 }
 
 interface BrowserHistoryEntry {
@@ -425,8 +413,8 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
  * The front end and WP Admin link to each other and share a login, so they stay
  * one webview: one history stack, and a page loaded after signing in reflects
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
- * isn't responsive — so it gets its own surface, which never resizes or reloads
- * when the preview flips to it. The design system isn't a web page at all: its
+ * isn't responsive — so it gets its own surface, which never resizes when the
+ * preview flips to it. The design system isn't a web page at all: its
  * surface is rendered by Studio from the site's DESIGN.md and theme.json.
  */
 type PreviewSurfaceKey = 'site' | 'database' | 'design';
@@ -444,7 +432,7 @@ function isResponsiveSurface( key: PreviewSurfaceKey ): boolean {
 
 // A mounted preview surface: its url, plus the load state and pending commands
 // belonging to that webview. Kept alive once created so returning to it is a
-// visibility swap rather than a resize plus a fresh load.
+// reload at its own size rather than a resize plus a fresh load.
 interface PreviewSurfaceState {
 	path: string;
 	browser: BrowserNavigationState;
@@ -1282,18 +1270,22 @@ export function SitePreview( {
 	// Commands are addressed to the surface on screen. Each has its own slot, so
 	// the hidden one never sees a command it should have missed — and never
 	// replays a stale one when it comes back into view.
-	const sendBrowserCommand = useCallback(
-		( type: BrowserCommand[ 'type' ] ) => {
-			if ( activeSurfaceKey === 'design' ) {
+	const sendSurfaceCommand = useCallback(
+		( key: PreviewSurfaceKey, type: BrowserCommand[ 'type' ] ) => {
+			if ( key === 'design' ) {
 				if ( type === 'reload' ) {
 					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
 				}
 				return;
 			}
 			commandIdRef.current += 1;
-			patchSurface( activeSurfaceKey, { browserCommand: { id: commandIdRef.current, type } } );
+			patchSurface( key, { browserCommand: { id: commandIdRef.current, type } } );
 		},
-		[ activeSurfaceKey, patchSurface, queryClient, site.id ]
+		[ patchSurface, queryClient, site.id ]
+	);
+	const sendBrowserCommand = useCallback(
+		( type: BrowserCommand[ 'type' ] ) => sendSurfaceCommand( activeSurfaceKey, type ),
+		[ activeSurfaceKey, sendSurfaceCommand ]
 	);
 	const goToHistoryIndex = useCallback(
 		( historyIndex: number ) => {
@@ -1355,7 +1347,7 @@ export function SitePreview( {
 	}, [ activeSurfaceKey, reloadNonce, safePath, site.id ] );
 
 	// A host-driven reload targets what's on screen. Tracked against the last
-	// seen nonce so merely switching surfaces never reloads the one arrived at.
+	// seen nonce so a switch doesn't replay it on the surface arrived at.
 	const lastHostReloadNonceRef = useRef( reloadNonce );
 	useEffect( () => {
 		if ( lastHostReloadNonceRef.current === reloadNonce ) {
@@ -1367,6 +1359,11 @@ export function SitePreview( {
 		// added, edited or removed its design system.
 		void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
 	}, [ activeSurfaceKey, patchSurface, queryClient, reloadNonce, site.id ] );
+
+	const onDesignInspectorState = useCallback(
+		( state: InspectorState ) => patchSurface( 'design', { inspector: state } ),
+		[ patchSurface ]
+	);
 
 	// The design surface has no page load, so its progress follows the fetch.
 	const designFetching = siteDesign.isFetching;
@@ -1400,8 +1397,7 @@ export function SitePreview( {
 	// end and WP Admin is a navigation inside the shared site surface, so they
 	// keep one history and one login; admin targets go through the site's
 	// /studio-auto-login endpoint so they never land on the login form. Moving to
-	// or from the database only swaps which surface is visible — it's already
-	// loaded, at its own size, so there's nothing to reload or resize.
+	// another surface reloads it, so it shows what changed while it was hidden.
 	const handleSwitchRealm = useCallback(
 		( realm: PreviewRealm ) => {
 			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
@@ -1411,15 +1407,15 @@ export function SitePreview( {
 			// The agentic UI opens the realm in its in-app preview panel.
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
-			// Returning to a surface that's already sitting on the target path just
-			// reveals it; anything else is a real navigation.
-			if ( surfaces.byKey[ getSurfaceKey( realm ) ]?.path === target ) {
+			const key = getSurfaceKey( realm );
+			if ( surfaces.byKey[ key ]?.path === target ) {
+				sendSurfaceCommand( key, 'reload' );
 				onPathChange?.( target );
 				return;
 			}
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
+		[ activeRealm, connector, onPathChange, sendSurfaceCommand, siteUrl, surfaces ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -1642,7 +1638,10 @@ export function SitePreview( {
 							onPreviewZoomChange={ handlePreviewZoomChange }
 						/>
 					) : null }
-					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
+					{ canPreview &&
+					chatEnabled &&
+					// Studio renders the design system itself, so it needs no page injection.
+					( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' ) ? (
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
@@ -1650,11 +1649,7 @@ export function SitePreview( {
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
 							disabledReason={
-								{
-									design: __( 'Not available for Design system' ),
-									database: __( 'Not available for Database' ),
-									site: undefined,
-								}[ activeSurfaceKey ]
+								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 							}
 							onCommand={ sendInspectorCommand }
 						/>
@@ -1684,8 +1679,7 @@ export function SitePreview( {
 					{ canPreview ? (
 						// One stacked layer per mounted surface. Only the active layer is
 						// visible; the other stays mounted and laid out at its own size, so
-						// coming back to it is a visibility swap with nothing to resize,
-						// reload or re-emulate.
+						// coming back to it is a reload with nothing to resize or re-emulate.
 						( Object.keys( surfaces.byKey ) as PreviewSurfaceKey[] ).map( ( key ) => {
 							const surface = surfaces.byKey[ key ];
 							if ( ! surface ) {
@@ -1706,7 +1700,15 @@ export function SitePreview( {
 									>
 										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
 											{ siteDesign.isPending ? null : (
-												<DesignSystemView siteDesign={ siteDesign.data ?? null } />
+												<DesignSystemView
+													siteId={ site.id }
+													siteDesign={ siteDesign.data ?? null }
+													annotations={ {
+														command: surface.inspectorCommand,
+														onState: onDesignInspectorState,
+														onDone: onAnnotationsDone,
+													} }
+												/>
 											) }
 										</div>
 									</div>

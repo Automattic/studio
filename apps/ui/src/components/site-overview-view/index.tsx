@@ -41,6 +41,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { AboutSection } from './about-section';
 import { AdminSection } from './admin-section';
 import { OverviewCard } from './overview-card';
@@ -78,6 +79,9 @@ function OverviewHeader( {
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
+	// Nothing sits under the Windows/Linux controls here; this only repaints
+	// them to match the header.
+	useWindowControlsInset( 'content' );
 
 	return (
 		<div

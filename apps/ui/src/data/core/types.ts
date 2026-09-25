@@ -540,7 +540,7 @@ export interface Connector {
 	// Tells the host which surface the Windows/Linux window-controls overlay is
 	// sitting on, so it can repaint them to match (see
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
-	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
+	setWindowControlsSurface?( surface: 'chrome' | 'content' | 'toolbar' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

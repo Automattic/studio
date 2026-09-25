@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { DATABASE_HOME_PATH } from './address-bar';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import {
@@ -43,6 +45,10 @@ vi.mock( '@/components/dot-grid', () => ( {
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => ( { start: false, end: false } ),
+} ) );
+
+vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
+	useWindowControlsOverlay: vi.fn( () => null ),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
@@ -826,6 +832,45 @@ describe( 'SitePreview', () => {
 		expect( fullPreviewButton ).toHaveAttribute( 'aria-pressed', 'false' );
 		fireEvent.click( fullPreviewButton );
 		expect( onFullscreenChange ).toHaveBeenCalledWith( true );
+	} );
+
+	it( 'clears the Windows/Linux window controls while in the window corner', () => {
+		const setWindowControlsSurface = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			setWindowControlsSurface,
+			capabilities: CAPABILITIES,
+		} as never );
+		vi.mocked( useWindowControlsOverlay ).mockReturnValue( { height: 32, controlsWidth: 138 } );
+
+		const preview = ( inCorner: boolean ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<WindowControlsCornerContext.Provider value={ inCorner }>
+						<SitePreview
+							site={ createSite( { running: true } ) }
+							path="/"
+							reloadNonce={ 0 }
+							fullscreen
+							onFullscreenChange={ vi.fn() }
+						/>
+					</WindowControlsCornerContext.Provider>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		const queryClient = new QueryClient();
+		const { rerender } = render( preview( true ) );
+
+		const header = screen.getByRole( 'button', { name: 'Refresh' } ).parentElement?.parentElement;
+		expect( header?.style.paddingRight ).toBe( 'calc(138px + var(--wpds-dimension-padding-sm))' );
+		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'toolbar' );
+
+		rerender( preview( false ) );
+		expect( header?.style.paddingRight ).toBe( '' );
+		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'chrome' );
+
+		vi.mocked( useWindowControlsOverlay ).mockReturnValue( null );
 	} );
 
 	it( 'hides the responsive controls when the site is not running', () => {

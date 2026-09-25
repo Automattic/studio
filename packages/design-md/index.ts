@@ -118,11 +118,13 @@ export function googleFontsUrl(
 /**
  * Lays the DESIGN.md tokens over a base theme.json: palette, font families and sizes,
  * spacing, radii, and root, heading, link and button styles, each under the DESIGN.md name.
- * Returns undefined when the tokens carry no colors.
+ * `fontFaces` (theme.json fontFace entries keyed by family name) declares the font files
+ * each family loads. Returns undefined when the tokens carry no colors.
  */
 export function themeJsonFromDesign(
 	tokens: DesignTokens,
-	themeJson: ThemeJson
+	themeJson: ThemeJson,
+	fontFaces: Record< string, object[] > = {}
 ): ThemeJsonFromDesign | undefined {
 	const colors = Object.entries( tokens.colors ?? {} ).filter(
 		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
@@ -191,6 +193,7 @@ export function themeJsonFromDesign(
 						slug: slugify( family ),
 						name: family,
 						fontFamily: `"${ family }", ${ fallback }`,
+						...( fontFaces[ family ] && { fontFace: fontFaces[ family ] } ),
 					} ) ),
 					fontSizes: styles
 						.filter( ( [ , style ] ) => style.fontSize !== undefined )

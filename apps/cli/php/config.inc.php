@@ -35,6 +35,13 @@ $cfg['UserprefsDisallow'] = [
     'ShowColumnComments',
 ];
 
+// Studio's browser UI embeds phpMyAdmin from another localhost port, so allow
+// framing by localhost origins only (default is X-Frame-Options: DENY).
+$cfg['AllowThirdPartyFraming'] = true;
+header_register_callback(static function () {
+    header("Content-Security-Policy: frame-ancestors 'self' http://localhost:* http://127.0.0.1:*", false);
+});
+
 // Playground-specific configuration.
 $cfg['CheckConfigurationPermissions'] = false;
 $cfg['VersionCheck'] = false;

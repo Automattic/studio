@@ -1,3 +1,4 @@
+import path from 'path';
 import { move } from 'fs-extra';
 import { vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
@@ -46,7 +47,10 @@ describe( 'export-database', () => {
 
 			await exportDatabaseToFile( site, '/dest/db.sql' );
 
-			expect( move ).toHaveBeenCalledWith( expect.stringContaining( site.path ), '/dest/db.sql' );
+			expect( move ).toHaveBeenCalledWith(
+				expect.stringContaining( path.join( site.path, 'studio-backup-db-export' ) ),
+				'/dest/db.sql'
+			);
 			expect( consoleErrorSpy ).not.toHaveBeenCalled();
 		} );
 
@@ -112,7 +116,7 @@ describe( 'export-database', () => {
 
 			const files = await exportDatabaseToMultipleFiles( site, '/dest' );
 
-			expect( files ).toEqual( [ '/dest/wp_options.sql' ] );
+			expect( files ).toEqual( [ path.join( '/dest', 'wp_options.sql' ) ] );
 			expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
 		} );
 	} );

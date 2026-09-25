@@ -6,6 +6,7 @@ import { getFileAccessRequiresNativeLabel } from '@studio/common/lib/site-runtim
 import { BaseControl } from '@wordpress/components';
 import { Tooltip } from '@wordpress/ui';
 import { useId } from 'react';
+import { LearnMoreLink } from '@/components/learn-more';
 import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
@@ -43,6 +44,7 @@ export function RuntimeChoiceControl< Item >( {
 			__nextHasNoMarginBottom
 			label={ field.label }
 			hideLabelFromVision={ hideLabelFromVision }
+			help={ field.description }
 		>
 			<fieldset className={ styles.choiceControl } disabled={ disabled } aria-label={ field.label }>
 				<div className="components-radio-control">
@@ -105,6 +107,10 @@ export function RuntimeChoiceControl< Item >( {
 			</Tooltip.Popup>
 		</Tooltip.Root>
 	);
+}
+
+export function PhpRuntimeLearnMore() {
+	return <LearnMoreLink docsLinksKey="docsPhpRuntimes" />;
 }
 
 /**

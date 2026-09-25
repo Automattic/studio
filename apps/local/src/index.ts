@@ -81,8 +81,12 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
+import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	siteModeFromRuntime,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -873,6 +877,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name?: string;
 				path?: string;
 				phpVersion?: string;
+				runtime?: SiteRuntime;
+				fileAccess?: SiteFileAccess;
 				wpVersion?: string;
 				customDomain?: string;
 				enableHttps?: boolean;
@@ -916,6 +922,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					siteId,
 					wpVersion: body.wpVersion,
 					phpVersion: body.phpVersion,
+					runtime: body.runtime,
+					fileAccess: body.fileAccess,
 					customDomain: body.customDomain,
 					enableHttps: body.enableHttps,
 					adminUsername: body.adminUsername,

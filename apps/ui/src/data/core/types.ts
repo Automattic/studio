@@ -696,6 +696,8 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: SupportedPHPVersion;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	customDomain?: string;
 	enableHttps?: boolean;

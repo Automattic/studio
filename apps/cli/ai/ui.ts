@@ -28,7 +28,7 @@ import {
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
 import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, getAiModelLabel, type SelectedModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -268,7 +268,7 @@ export class AiChatUI implements AiOutputAdapter {
 		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
 	>();
 	private renderedToolResultIds = new Set< string >();
-	currentModel: AiModelId = DEFAULT_MODEL;
+	currentModel: SelectedModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
 

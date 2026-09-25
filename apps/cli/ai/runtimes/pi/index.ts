@@ -33,7 +33,7 @@ import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
-	type AiModelId,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import {
 	getSiteRuntime,
@@ -89,7 +89,7 @@ export interface StudioAgentTurnConfig {
 	images?: StudioChatImage[];
 	session: SessionManager;
 	env?: Record< string, string >;
-	model?: AiModelId;
+	model?: SelectedModelId;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
@@ -98,7 +98,7 @@ export interface StudioAgentTurnConfig {
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 	env: Record< string, string >;
-	model: AiModelId;
+	model: SelectedModelId;
 }
 
 export interface StudioAgentTurnHandle {
@@ -139,7 +139,15 @@ interface ResolvedCredentials {
 	apiKey: string;
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
+	// Real context window of a local `openai-compatible` model, discovered
+	// from its `/v1/models` endpoint. Drives pi's native compaction so long
+	// conversations stay within the local model's limit.
+	contextWindow?: number;
 }
+
+// Fallback context window for a local `openai-compatible` model when its real
+// window couldn't be discovered.
+const DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192;
 
 function resolveCredentials(
 	family: AiModelFamily,
@@ -167,6 +175,30 @@ function resolveCredentials(
 					'STUDIO_WPCOM_DEFAULT_HEADERS',
 					env.STUDIO_WPCOM_DEFAULT_HEADERS
 				),
+			},
+		};
+	}
+
+	// The `openai` family is the `openai-compatible` provider's local endpoint
+	// (the built-in tiers ride the `studio` family through the wpcom proxy).
+	if ( family === 'openai' ) {
+		const baseURL = env.OPENAI_BASE_URL?.trim();
+		if ( ! baseURL ) {
+			return {
+				ok: false,
+				reason: 'No OpenAI-compatible endpoint configured — run /openai-config to set a base URL.',
+			};
+		}
+		const contextWindow = Number.parseInt( env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW ?? '', 10 );
+		return {
+			ok: true,
+			creds: {
+				// Local servers usually ignore the key; the provider defaults it
+				// to a placeholder because pi rejects an empty one.
+				apiKey: env.OPENAI_API_KEY?.trim() || 'local',
+				baseURL,
+				contextWindow:
+					Number.isFinite( contextWindow ) && contextWindow > 0 ? contextWindow : undefined,
 			},
 		};
 	}
@@ -372,7 +404,7 @@ async function createStudioAgentSession(
 }
 
 function buildModel(
-	modelId: AiModelId,
+	modelId: SelectedModelId,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
 ): StudioModel {
@@ -387,6 +419,40 @@ function buildModel(
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
+
+	// A local `openai-compatible` endpoint speaks chat/completions and declares
+	// its own (usually much smaller) context window, discovered from
+	// `/v1/models`. pi's native compaction keeps sessions within it.
+	if ( family === 'openai' ) {
+		const contextWindow = creds.contextWindow ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
+		// Keep max output well under the window. pi clamps output tokens to the
+		// window minus its context estimate; on a small local window an
+		// over-large value can clamp down to 1 (a 400 from the server), so scale
+		// with the window and cap it.
+		const maxTokens = Math.max( 512, Math.min( 8_192, Math.floor( contextWindow / 4 ) ) );
+		return {
+			...common,
+			api: 'openai-completions',
+			provider: 'openai',
+			// Reasoning is an OpenAI-hosted feature; local models generally
+			// don't support it and can reject the parameter.
+			reasoning: false,
+			contextWindow,
+			maxTokens,
+			// pi infers `compat` from provider + base URL, and an unknown URL
+			// under `provider: 'openai'` reads as OpenAI itself — so requests
+			// would carry `store`, the `developer` role, strict-mode schemas and
+			// `max_completion_tokens`, all of which local servers (vLLM,
+			// llama.cpp, Ollama, LM Studio) reject or ignore.
+			compat: {
+				supportsStore: false,
+				supportsDeveloperRole: false,
+				supportsReasoningEffort: false,
+				supportsStrictMode: false,
+				maxTokensField: 'max_tokens',
+			},
+		};
+	}
 
 	if ( family === 'studio' ) {
 		// The capability tiers are resolved to upstream models by the wpcom

@@ -64,7 +64,7 @@ import {
 } from './use-composer-attachments';
 import { useSlashCommands } from './use-slash-commands';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { AiModelId } from '@studio/common/ai/models';
+import type { AiModelId, SelectedModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 /**
@@ -98,7 +98,7 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	usageCapMessage?: string | null;
-	model: AiModelId;
+	model: SelectedModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
@@ -350,9 +350,16 @@ export function Composer( {
 	// Only offer models the conversation's provider can serve. The paid tiers
 	// are listed but disabled for accounts without purchased credits.
 	const aiSettings = useAiSettings();
-	const visibleModels = getAiProviderModels(
-		getEffectiveSessionProvider( entries ?? [], aiSettings )
-	);
+	const sessionProvider = getEffectiveSessionProvider( entries ?? [], aiSettings );
+	const visibleModels = getAiProviderModels( sessionProvider );
+	// Short badge so the pill names what the conversation actually runs on
+	// rather than showing a bare model name for every provider.
+	let providerPillPrefix: string | null = null;
+	if ( sessionProvider === 'anthropic-api-key' ) {
+		providerPillPrefix = __( 'API' );
+	} else if ( sessionProvider === 'openai-compatible' ) {
+		providerPillPrefix = __( 'Local' );
+	}
 	const { isAuthenticated, user } = useAuth();
 	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isAuthenticated } );
 	// The paid tiers unlock with purchased credits; Automatticians are exempt.
@@ -810,22 +817,38 @@ export function Composer( {
 											className={ styles.pill }
 											aria-label={ __( 'Select model' ) }
 										>
-											<span>{ getAiModelLabel( model ) }</span>
+											<span>
+												{ providerPillPrefix ? (
+													<>
+														<strong className={ styles.pillProviderPrefix }>
+															{ providerPillPrefix }
+														</strong>
+														{ ' · ' }
+													</>
+												) : null }
+												{ getAiModelLabel( model ) }
+											</span>
 											<Icon icon={ chevronDownSmall } size={ 16 } />
 										</button>
 									}
 								/>
 								<Menu.Popup side="top" align="end">
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
-									>
-										{ visibleModels.map( ( { id } ) => (
-											<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
-												{ getAiModelLabel( id ) }
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
+									{ visibleModels.length > 0 ? (
+										<Menu.RadioGroup
+											value={ model }
+											onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
+										>
+											{ visibleModels.map( ( { id } ) => (
+												<Menu.RadioItem key={ id } value={ id } disabled={ isModelLocked( id ) }>
+													{ getAiModelLabel( id ) }
+												</Menu.RadioItem>
+											) ) }
+										</Menu.RadioGroup>
+									) : (
+										// The endpoint's models are configured through the CLI, so
+										// show what's running instead of an empty menu.
+										<Menu.Item disabled>{ getAiModelLabel( model ) }</Menu.Item>
+									) }
 									{ hasLockedModels ? (
 										<>
 											<Menu.Separator />

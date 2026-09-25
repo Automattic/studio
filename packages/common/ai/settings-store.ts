@@ -1,5 +1,9 @@
 import { readCliConfigFileRaw } from '../lib/cli-config-file';
-import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
+import {
+	getActiveOpenAiCompatibleEndpoint,
+	readSharedConfig,
+	updateSharedConfig,
+} from '../lib/shared-config';
 import { validateAnthropicApiKey } from './anthropic-key';
 import {
 	DEFAULT_AI_PROVIDER,
@@ -71,7 +75,10 @@ function previewKey( key: string ): string {
 	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 }
 
-function toAiSettings( config: AiProviderConfig ): AiSettings {
+function toAiSettings(
+	config: AiProviderConfig,
+	openAiCompatibleModel: string | null
+): AiSettings {
 	const key = config.anthropicApiKey;
 	return {
 		provider:
@@ -80,11 +87,23 @@ function toAiSettings( config: AiProviderConfig ): AiSettings {
 				: DEFAULT_AI_PROVIDER,
 		hasAnthropicApiKey: Boolean( key ),
 		anthropicApiKeyPreview: key ? previewKey( key ) : null,
+		openAiCompatibleModel,
 	};
 }
 
+// The endpoint lives in its own shared.json field, not in `AiProviderConfig`,
+// which is written back wholesale on update — keeping it out avoids writing a
+// copy of the model id to a second place that could then drift.
+async function readOpenAiCompatibleModel(): Promise< string | null > {
+	return ( await getActiveOpenAiCompatibleEndpoint() )?.selectedModel ?? null;
+}
+
 export async function readAiSettings(): Promise< AiSettings > {
-	return toAiSettings( await readAiProviderConfig() );
+	const [ config, openAiCompatibleModel ] = await Promise.all( [
+		readAiProviderConfig(),
+		readOpenAiCompatibleModel(),
+	] );
+	return toAiSettings( config, openAiCompatibleModel );
 }
 
 async function updateAiProviderConfig( update: AiProviderConfig ): Promise< AiSettings > {
@@ -92,7 +111,7 @@ async function updateAiProviderConfig( update: AiProviderConfig ): Promise< AiSe
 	// (e.g. only aiProvider) doesn't orphan the other field there.
 	const config = { ...( await readAiProviderConfig() ), ...update };
 	await updateSharedConfig( config );
-	return toAiSettings( config );
+	return toAiSettings( config, await readOpenAiCompatibleModel() );
 }
 
 /**

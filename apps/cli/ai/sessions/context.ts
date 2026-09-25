@@ -1,4 +1,4 @@
-import { readRecordedSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { readRecordedSessionModel, type SelectedModelId } from '@studio/common/ai/models';
 import { isAiProviderId } from '@studio/common/ai/providers';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -7,7 +7,7 @@ import type { AiProviderId } from 'cli/ai/providers';
 export interface ResumeSessionContext {
 	sessionId?: string;
 	provider?: AiProviderId;
-	model?: AiModelId;
+	model?: SelectedModelId;
 }
 
 // Resolve provider/model for resume from the most recent `model_change` /
@@ -24,8 +24,8 @@ export function resolveResumeSessionContext(
 		context.sessionId = resumeSession.summary.id;
 	}
 
-	// Unset when the session recorded no (still-offered) model, so the caller
-	// applies its provider-appropriate default instead of pinning a dead id.
+	// Unset when the session recorded no model, so the caller applies its
+	// provider-appropriate default instead of pinning a dead id.
 	context.model = readRecordedSessionModel( resumeSession.entries );
 
 	for ( let index = resumeSession.entries.length - 1; index >= 0; index -= 1 ) {

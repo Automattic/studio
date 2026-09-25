@@ -1,27 +1,38 @@
 import { password } from '@inquirer/prompts';
 import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_MODEL,
+	isAiModelId,
+	type AiModelId,
+	type SelectedModelId,
+} from '@studio/common/ai/models';
 import {
 	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken, getActiveOpenAiCompatibleEndpoint } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
+import {
+	discoverOpenAiCompatibleModels,
+	resolveOpenAiCompatibleContextWindow,
+} from 'cli/ai/openai-compatible';
 import { LoggerError } from 'cli/logger';
 
-export const AI_PROVIDERS: Record< AiProviderId, string > = {
-	wpcom: 'WordPress.com',
-	'anthropic-api-key': 'Anthropic · API key',
-};
+// Labels live in @studio/common so the CLI and the UI can't drift apart.
+export { AI_PROVIDER_LABELS as AI_PROVIDERS };
 
 export type { AiProviderId };
 export { DEFAULT_AI_PROVIDER };
 // Fallback order when the configured provider is unavailable; declaration
 // order of the canonical id list.
 export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
+
+// Fallback context window for a local model whose window can't be discovered.
+const DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192;
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 // The wpcom AI proxy maps feature slugs to upstream providers. The
@@ -41,12 +52,24 @@ export interface AiProviderDefinition {
 	// `@studio/common/ai/providers`), kept on the definition so callers don't
 	// have to filter AI_MODELS themselves.
 	readonly availableModels: readonly AiModelId[];
-	readonly defaultModel: AiModelId;
-	supportsModel( model: AiModelId ): boolean;
+	readonly defaultModel: SelectedModelId;
+	supportsModel( model: SelectedModelId ): boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
 	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
+	/**
+	 * Providers whose models are discovered at runtime (e.g. `openai-compatible`,
+	 * which lists a local endpoint's `/v1/models`) implement this so the `/model`
+	 * picker can offer real models instead of the fixed `AI_MODELS` list. Absent
+	 * on providers backed by the built-in catalog.
+	 */
+	listDynamicModels?: () => Promise< { id: string; contextWindow?: number }[] >;
+	/**
+	 * The model to select when switching to this provider, for providers with
+	 * dynamic models (the saved selection, or the first discovered model).
+	 */
+	resolveDefaultModel?: () => Promise< SelectedModelId | undefined >;
 }
 
 // Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
@@ -60,7 +83,7 @@ function defineProvider(
 		availableModels,
 		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
 		supportsModel( model ) {
-			return availableModels.includes( model );
+			return availableModels.includes( model as AiModelId );
 		},
 	};
 }
@@ -131,8 +154,21 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.STUDIO_WPCOM_API_KEY;
 	delete env.STUDIO_WPCOM_BASE_URL;
 	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
+	delete env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW;
 
 	return env;
+}
+
+const OPENAI_COMPATIBLE_NOT_CONFIGURED = __(
+	'OpenAI-compatible endpoint not configured. Use /openai-config to set one up.'
+);
+
+async function resolveOpenAiCompatibleEndpointOrThrow() {
+	const endpoint = await getActiveOpenAiCompatibleEndpoint();
+	if ( ! endpoint?.baseUrl ) {
+		throw new LoggerError( OPENAI_COMPATIBLE_NOT_CONFIGURED );
+	}
+	return endpoint;
 }
 
 const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
@@ -201,6 +237,76 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			return env;
 		},
 	} ),
+	// Declared literally rather than through `defineProvider`: its models come
+	// from the endpoint at runtime, so the built-in catalog can't fill these in.
+	// Routes through the pi `openai` family (OPENAI_* credentials); the runtime
+	// switches to the chat/completions wire flavor via the env markers set in
+	// resolveEnv below.
+	'openai-compatible': {
+		id: 'openai-compatible',
+		autoFallbackWhenUnavailable: false,
+		availableModels: [],
+		// Placeholder for an endpoint that hasn't been configured yet (the real
+		// default comes from `resolveDefaultModel`). It has to stay outside the
+		// built-in catalog: a catalog id would fail this provider's own
+		// `supportsModel`, and route the turn to the `studio` family — which
+		// then blames a missing WordPress.com login instead of the endpoint.
+		defaultModel: 'local',
+		// Owns any id that isn't a built-in model (i.e. a local endpoint model).
+		supportsModel: ( model ) => ! isAiModelId( model ),
+		isVisible: async () => true,
+		isReady: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			return Boolean( endpoint?.baseUrl && endpoint?.selectedModel );
+		},
+		prepare: async () => {
+			// Configuration is interactive via the /openai-config slash command;
+			// nothing to prepare non-interactively here.
+			await resolveOpenAiCompatibleEndpointOrThrow();
+		},
+		resolveEnv: async () => {
+			const endpoint = await resolveOpenAiCompatibleEndpointOrThrow();
+			if ( ! endpoint.selectedModel ) {
+				throw new LoggerError(
+					__( 'No OpenAI-compatible model selected. Use /model to choose one.' )
+				);
+			}
+
+			const contextWindow =
+				( await resolveOpenAiCompatibleContextWindow(
+					endpoint.baseUrl,
+					endpoint.apiKey,
+					endpoint.selectedModel,
+					endpoint.contextWindow
+				) ) ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
+
+			const env = createBaseEnvironment();
+			env.OPENAI_BASE_URL = endpoint.baseUrl;
+			// pi's openai family requires a non-empty key; local servers usually
+			// ignore it, so default to a placeholder when none is configured.
+			env.OPENAI_API_KEY = endpoint.apiKey || 'local';
+			env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW = String( contextWindow );
+			return env;
+		},
+		listDynamicModels: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			if ( ! endpoint?.baseUrl ) {
+				return [];
+			}
+			return discoverOpenAiCompatibleModels( endpoint.baseUrl, endpoint.apiKey );
+		},
+		resolveDefaultModel: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			if ( endpoint?.selectedModel ) {
+				return endpoint.selectedModel;
+			}
+			if ( ! endpoint?.baseUrl ) {
+				return undefined;
+			}
+			const models = await discoverOpenAiCompatibleModels( endpoint.baseUrl, endpoint.apiKey );
+			return models[ 0 ]?.id;
+		},
+	},
 };
 
 export function getAiProviderDefinition( provider: AiProviderId ): AiProviderDefinition {

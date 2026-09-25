@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'studio';
+export type AiModelFamily = 'anthropic' | 'studio' | 'openai';
 
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
@@ -12,7 +12,8 @@ export interface AiModel {
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
 	/**
-	 * Whether the model accepts image input. Defaults to true. Set false for
+	 * Whether the model accepts image input. Defaults to true for built-in
+	 * models (ids outside this catalog default to false). Set false for
 	 * text-only models so the runtime doesn't advertise vision they lack —
 	 * screenshot tool results are images.
 	 */
@@ -38,6 +39,15 @@ export const AI_MODELS = [
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
+
+/**
+ * A model id the user has selected to run. It is usually a built-in
+ * `AiModelId`, but the `openai-compatible` provider lets the user run an
+ * arbitrary model served by a local endpoint, whose id is not in `AI_MODELS`.
+ * The `( string & {} )` member keeps editor autocomplete for the known ids
+ * while still accepting any string.
+ */
+export type SelectedModelId = AiModelId | ( string & {} );
 
 export const DEFAULT_MODEL: AiModelId = 'fast';
 // Accounts with purchased AI credits remaining default to the balanced tier
@@ -65,8 +75,14 @@ export function getAiModel( id: AiModelId ): AiModel {
 	return MODEL_BY_ID.get( id )!;
 }
 
-export function getAiModelFamily( id: AiModelId ): AiModelFamily {
-	return getAiModel( id ).family;
+/**
+ * Resolve a model's family. Built-in ids map to their declared family;
+ * unknown ids (e.g. a local model served through the `openai-compatible`
+ * provider) default to `'openai'`, since those endpoints speak the OpenAI
+ * wire protocol.
+ */
+export function getAiModelFamily( id: SelectedModelId ): AiModelFamily {
+	return MODEL_BY_ID.get( id )?.family ?? 'openai';
 }
 
 // The tier labels are plain adjectives (unlike the Anthropic brand names), so
@@ -77,18 +93,29 @@ const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
 	strong: () => __( 'Strong' ),
 };
 
-export function getAiModelLabel( id: AiModelId ): string {
-	return TRANSLATED_MODEL_LABELS[ id ]?.() ?? getAiModel( id ).label;
+/**
+ * Human-readable label for a model. Unknown ids (e.g. a local model served
+ * through the `openai-compatible` provider) have no built-in label, so the id
+ * itself is shown.
+ */
+export function getAiModelLabel( id: SelectedModelId ): string {
+	return TRANSLATED_MODEL_LABELS[ id as AiModelId ]?.() ?? MODEL_BY_ID.get( id )?.label ?? id;
 }
 
 export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
 	return getAiModel( id ).requiresPaidAiCredits ?? false;
 }
 
-// Tolerates ids outside AI_MODELS — callers can reach here with a cast, and
-// image support is the safe default.
-export function aiModelSupportsImages( id: AiModelId ): boolean {
-	return MODEL_BY_ID.get( id )?.supportsImages ?? true;
+// Tolerates ids outside AI_MODELS (e.g. a local `openai-compatible` model).
+// Those are assumed text-only: most local models reject an image content block
+// outright, so advertising a screenshot tool would make every call 400. A
+// built-in model that doesn't say otherwise still takes images.
+export function aiModelSupportsImages( id: SelectedModelId ): boolean {
+	const model = MODEL_BY_ID.get( id );
+	if ( ! model ) {
+		return false;
+	}
+	return model.supportsImages ?? true;
 }
 
 /**
@@ -112,14 +139,16 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 }
 
 /**
- * The most recently recorded model still in `AI_MODELS`, or `undefined` when
- * the session never recorded one (or only models we no longer offer) — so
- * callers can apply their own default to both cases.
+ * The most recently recorded model, returned verbatim — including ids that
+ * aren't in `AI_MODELS`, since the `openai-compatible` provider runs arbitrary
+ * local models whose ids must survive resume. Undefined when the session never
+ * recorded one, so callers can apply their own default. Callers that can only
+ * use a built-in id narrow with `isAiModelId` / `providerServesModel`.
  */
-export function readRecordedSessionModel( entries: SessionEntry[] ): AiModelId | undefined {
+export function readRecordedSessionModel( entries: SessionEntry[] ): SelectedModelId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
-		if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
+		if ( recordedModel !== undefined ) {
 			return recordedModel;
 		}
 	}
@@ -130,6 +159,6 @@ export function readRecordedSessionModel( entries: SessionEntry[] ): AiModelId |
 export function resolveSessionModel(
 	entries: SessionEntry[],
 	defaultModel: AiModelId = DEFAULT_MODEL
-): AiModelId {
+): SelectedModelId {
 	return readRecordedSessionModel( entries ) ?? defaultModel;
 }

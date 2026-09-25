@@ -1,11 +1,19 @@
+import { input, password, select } from '@inquirer/prompts';
 import {
 	aiModelRequiresPaidCredits,
 	getAiModelFamily,
 	getAiModelLabel,
+	type AiModelFamily,
 	type AiModelId,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	isAutomatticianFromToken,
+	readAuthToken,
+	getActiveOpenAiCompatibleEndpoint,
+	saveActiveOpenAiCompatibleEndpoint,
+} from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
 	fetchStudioAssistantQuota,
@@ -20,6 +28,7 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
+import { discoverOpenAiCompatibleModels } from 'cli/ai/openai-compatible';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -36,7 +45,7 @@ import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
 	ui: AiChatUI;
-	currentModel: AiModelId;
+	currentModel: SelectedModelId;
 	currentProvider: AiProviderId;
 	showCapabilitiesOnConnect: boolean;
 	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
@@ -70,6 +79,27 @@ function isPromptAbortError( error: unknown ): boolean {
 	return (
 		error instanceof Error &&
 		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
+	);
+}
+
+/**
+ * A conversation's recorded turns carry one provider's shapes — Anthropic
+ * thinking blocks and tool_use ids, or OpenAI reasoning items. Rather than
+ * replay those to an endpoint speaking the other protocol and rely on every
+ * historical entry translating cleanly, a switch across families starts fresh.
+ */
+async function clearSessionAcrossFamilies(
+	ctx: SlashCommandContext,
+	previousFamily: AiModelFamily
+): Promise< void > {
+	if ( getAiModelFamily( ctx.currentModel ) === previousFamily ) {
+		return;
+	}
+	await ctx.clearSession();
+	ctx.ui.showInfo(
+		__(
+			"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+		)
 	);
 }
 
@@ -245,6 +275,94 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
+		name: 'openai-config',
+		description: __( 'Configure a local OpenAI-compatible endpoint (base URL, key, model)' ),
+		handler: async ( _prompt, ctx ) => {
+			const existing = await getActiveOpenAiCompatibleEndpoint();
+			const previousFamily = getAiModelFamily( ctx.currentModel );
+			// Interactive prompts need the raw terminal, so pause the chat UI —
+			// same pattern as /login.
+			ctx.ui.stop();
+			try {
+				const baseUrl = (
+					await input( {
+						message: __( 'OpenAI-compatible base URL (e.g. http://localhost:11435/v1):' ),
+						default: existing?.baseUrl,
+						validate: ( value ) => ( value.trim() ? true : __( 'Base URL is required' ) ),
+					} )
+				).trim();
+				const apiKeyInput = (
+					await password( {
+						message: existing?.apiKey
+							? __( 'API key (leave blank to keep the saved one, "-" to remove it):' )
+							: __( 'API key, if required (leave blank if none):' ),
+						mask: '*',
+					} )
+				).trim();
+				// Blank keeps what's saved: the prompt can't show a masked default,
+				// so treating blank as "clear it" silently breaks the next request.
+				const apiKey = apiKeyInput === '-' ? undefined : apiKeyInput || existing?.apiKey;
+
+				// Discover the endpoint's models so the user picks a real one.
+				const models = await discoverOpenAiCompatibleModels( baseUrl, apiKey );
+				let selectedModel: string;
+				if ( models.length > 0 ) {
+					selectedModel = await select( {
+						message: __( 'Select a model:' ),
+						choices: models.map( ( model ) => ( {
+							name: model.contextWindow
+								? sprintf(
+										/* translators: 1: model id, 2: context window in tokens */
+										__( '%1$s (%2$s-token context)' ),
+										model.id,
+										model.contextWindow.toLocaleString()
+								  )
+								: model.id,
+							value: model.id,
+						} ) ),
+					} );
+				} else {
+					// The chat UI is stopped here, so its showInfo would never be
+					// seen — the explanation has to ride along on the prompt itself.
+					selectedModel = (
+						await input( {
+							message: __( "Couldn't list models from the endpoint. Model id:" ),
+							default: existing?.selectedModel,
+							validate: ( value ) => ( value.trim() ? true : __( 'Model id is required' ) ),
+						} )
+					).trim();
+				}
+
+				await saveActiveOpenAiCompatibleEndpoint( {
+					baseUrl,
+					apiKey,
+					selectedModel,
+					contextWindow: models.find( ( model ) => model.id === selectedModel )?.contextWindow,
+				} );
+				ctx.currentModel = selectedModel;
+				// The provider switch below only refreshes the footer when it has
+				// to correct the model, and a local id needs no correcting.
+				ctx.ui.currentModel = selectedModel;
+			} catch ( error ) {
+				ctx.ui.start();
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'OpenAI-compatible setup canceled.' ) );
+					return 'continue';
+				}
+				throw error;
+			}
+			ctx.ui.start();
+			ctx.ui.showInfo( __( 'OpenAI-compatible endpoint updated.' ) );
+			await ctx.switchProvider( 'openai-compatible' );
+			await clearSessionAcrossFamilies( ctx, previousFamily );
+			if ( ctx.showCapabilitiesOnConnect ) {
+				ctx.showCapabilitiesOnConnect = false;
+				ctx.ui.showCapabilities();
+			}
+			return 'continue';
+		},
+	},
+	{
 		name: 'login',
 		description: __( 'Log in to WordPress.com' ),
 		handler: async ( _prompt, ctx ) => {
@@ -297,27 +415,46 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
-			// The paid tiers are only offered while purchased credits remain;
-			// Automatticians are exempt. The current model always stays listed,
-			// so a session already on a paid tier keeps showing what it runs on.
-			let offeredModels = availableModels;
-			if (
-				availableModels.some( aiModelRequiresPaidCredits ) &&
-				! ( await isAutomatticianFromToken() )
-			) {
-				const token = await readAuthToken();
-				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
-				if ( ! hasPaidAiCredits( quota ) ) {
-					offeredModels = availableModels.filter(
-						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+			const definition = getAiProviderDefinition( ctx.currentProvider );
+			// Providers with dynamic models (e.g. openai-compatible) list the
+			// endpoint's live models; the rest use the built-in catalog, gated
+			// on purchased credits.
+			const dynamicModels = await definition.listDynamicModels?.();
+			let offeredModels: readonly SelectedModelId[];
+			if ( dynamicModels ) {
+				if ( dynamicModels.length === 0 ) {
+					ctx.ui.showInfo(
+						__(
+							'No models available for this provider. For OpenAI-compatible, check the endpoint with /openai-config.'
+						)
+					);
+					return 'continue';
+				}
+				offeredModels = dynamicModels.map( ( model ) => model.id );
+			} else {
+				const { availableModels } = definition;
+				// The paid tiers are only offered while purchased credits remain;
+				// Automatticians are exempt. The current model always stays listed,
+				// so a session already on a paid tier keeps showing what it runs on.
+				let catalogModels: readonly AiModelId[] = availableModels;
+				if (
+					availableModels.some( aiModelRequiresPaidCredits ) &&
+					! ( await isAutomatticianFromToken() )
+				) {
+					const token = await readAuthToken();
+					const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
+					if ( ! hasPaidAiCredits( quota ) ) {
+						catalogModels = availableModels.filter(
+							( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+						);
+					}
+				}
+				if ( catalogModels.length < availableModels.length ) {
+					ctx.ui.showInfo(
+						__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
 					);
 				}
-			}
-			if ( offeredModels.length < availableModels.length ) {
-				ctx.ui.showInfo(
-					__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
-				);
+				offeredModels = catalogModels;
 			}
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
@@ -325,7 +462,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			// (e.g. "GPT 5.6" prefixes "GPT 5.6 Sol" — picking Sol silently
 			// returns the other id), so we keep the label → id mapping
 			// explicit here and look up by exact match below.
-			const labelToId = new Map< string, AiModelId >();
+			const labelToId = new Map< string, SelectedModelId >();
 			const modelOptions = offeredModels.map( ( id ) => {
 				const label =
 					id === ctx.currentModel
@@ -336,31 +473,45 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						  )
 						: getAiModelLabel( id );
 				labelToId.set( label, id );
-				return { label, description: id };
+				// A dynamic model's label is already its id, so repeating it as the
+				// description wastes the line — show its context window instead.
+				const contextWindow = dynamicModels?.find( ( model ) => model.id === id )?.contextWindow;
+				return {
+					label,
+					description: contextWindow
+						? sprintf(
+								/* translators: %s: context window in tokens */
+								__( '%s-token context' ),
+								contextWindow.toLocaleString()
+						  )
+						: id,
+				};
 			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
 			const newModel = labelToId.get( selectedLabel );
-			if ( newModel && newModel !== ctx.currentModel ) {
-				// Switching to a model in a different family (Anthropic ↔ OpenAI)
-				// hands the next turn off to a different runtime. Each runtime keeps
-				// its own session store, so the existing session id from the previous
-				// runtime won't resolve there ("No conversation found"). Clear the
-				// session before the model swap so the new runtime starts fresh.
-				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
-				if ( familyChanged ) {
-					await ctx.clearSession();
-					ctx.ui.showInfo(
-						__(
-							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-						)
-					);
+			// For a dynamic provider, persist the selection to its endpoint so it
+			// survives restarts and drives resolveEnv's context-window discovery.
+			if ( newModel && dynamicModels && ctx.currentProvider === 'openai-compatible' ) {
+				const endpoint = await getActiveOpenAiCompatibleEndpoint();
+				if ( endpoint ) {
+					await saveActiveOpenAiCompatibleEndpoint( {
+						...endpoint,
+						selectedModel: newModel,
+						contextWindow: dynamicModels.find( ( model ) => model.id === newModel )?.contextWindow,
+					} );
 				}
-
+			}
+			if ( newModel && newModel !== ctx.currentModel ) {
+				const previousFamily = getAiModelFamily( ctx.currentModel );
+				// Swap the model first: a cross-family clear re-renders the
+				// welcome banner and records a session context, both of which
+				// should already name the model the next turn will use.
 				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
+				await clearSessionAcrossFamilies( ctx, previousFamily );
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
@@ -401,16 +552,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
-					// Providers don't share a model family, so a switch is the
-					// same runtime handoff as a cross-family /model switch.
-					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
-						await ctx.clearSession();
-						ctx.ui.showInfo(
-							__(
-								"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-							)
-						);
-					}
+					await clearSessionAcrossFamilies( ctx, previousFamily );
 				} catch ( error ) {
 					if ( isPromptAbortError( error ) ) {
 						ctx.ui.showInfo(

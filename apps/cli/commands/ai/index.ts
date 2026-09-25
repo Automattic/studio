@@ -7,8 +7,10 @@ import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import {
 	getAiModelFamily,
+	isAiModelId,
 	readRecordedSessionModel,
 	type AiModelId,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
@@ -41,6 +43,7 @@ import {
 	AI_PROVIDERS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
+	type AiProviderDefinition,
 	type AiProviderId,
 } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
@@ -125,6 +128,15 @@ function getErrorMessage( error: unknown ): string {
 // can't block the first turn — the free-tier default is the safe floor.
 const QUOTA_FETCH_TIMEOUT_MS = 3_000;
 
+// Dynamic-model providers (openai-compatible) have no usable static default —
+// theirs comes from the configured endpoint. Everyone else uses the static one.
+async function resolveProviderDefaultModel(
+	definition: AiProviderDefinition
+): Promise< SelectedModelId > {
+	const dynamicDefault = await definition.resolveDefaultModel?.();
+	return dynamicDefault ?? definition.defaultModel;
+}
+
 async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 	const token = await readAuthToken();
 	const quota = token
@@ -180,7 +192,8 @@ export async function runCommand( options: {
 		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
+	let currentModel: SelectedModelId =
+		recordedModel ?? ( await resolveProviderDefaultModel( initialDefinition ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -385,7 +398,9 @@ export async function runCommand( options: {
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
 			currentModel =
-				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
+				currentProvider === DEFAULT_AI_PROVIDER
+					? wpcomDefaultModel
+					: await resolveProviderDefaultModel( definition );
 			ui.currentModel = currentModel;
 		}
 
@@ -409,6 +424,7 @@ export async function runCommand( options: {
 		}
 
 		const previousProvider = currentProvider;
+		const previousFamily = getAiModelFamily( currentModel );
 		await switchProvider( fallbackProvider, false );
 		ui.showInfo(
 			sprintf(
@@ -418,6 +434,16 @@ export async function runCommand( options: {
 				AI_PROVIDERS[ currentProvider ]
 			)
 		);
+		// The fallback provider can land on a different model family, which the
+		// recorded turns weren't shaped for — see `clearSessionAcrossFamilies`.
+		if ( getAiModelFamily( currentModel ) !== previousFamily ) {
+			await clearSession();
+			ui.showInfo(
+				__(
+					"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+				)
+			);
+		}
 	}
 
 	function handleAgentTurnError( error: unknown ): void {
@@ -641,7 +667,10 @@ export async function runCommand( options: {
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
 			provider: currentProvider,
-			model: currentModel,
+			// A local endpoint names its own models, and servers like vLLM report
+			// the filesystem path they were launched with — which can carry a home
+			// directory. Only catalog ids are safe to send.
+			model: isAiModelId( currentModel ) ? currentModel : 'local',
 			model_family: getAiModelFamily( currentModel ),
 		};
 		const turnStartedAt = Date.now();
@@ -784,6 +813,29 @@ export async function runCommand( options: {
 		throw new Error( 'Interactive mode requires AiChatUI adapter' );
 	}
 
+	// Declared past the `AiChatUI` guard above, as an arrow function so the
+	// narrowing survives into the closure.
+	const clearSession = async (): Promise< void > => {
+		session = await createStudioSession();
+		ui.clearTranscript();
+		ui.showWelcome();
+		ui.showInfo( __( 'Conversation cleared' ) );
+		await persistSessionContext();
+		const site = ui.activeSite;
+		if ( site ) {
+			await append( ( sm ) =>
+				appendStudioEntry( sm, 'studio.site_selected', {
+					siteName: site.name,
+					sitePath: site.path,
+					siteId: site.id,
+					remote: site.remote,
+					url: site.url,
+					wpcomSiteId: site.wpcomSiteId,
+				} )
+			);
+		}
+	};
+
 	const slashCommandContext: SlashCommandContext = {
 		ui,
 		get currentModel() {
@@ -807,26 +859,7 @@ export async function runCommand( options: {
 		prepareProviderSelection,
 		maybeAutoSwitchProvider,
 		persistSessionContext,
-		async clearSession() {
-			session = await createStudioSession();
-			ui.clearTranscript();
-			ui.showWelcome();
-			ui.showInfo( __( 'Conversation cleared' ) );
-			await persistSessionContext();
-			const site = ui.activeSite;
-			if ( site ) {
-				await append( ( sm ) =>
-					appendStudioEntry( sm, 'studio.site_selected', {
-						siteName: site.name,
-						sitePath: site.path,
-						siteId: site.id,
-						remote: site.remote,
-						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
-					} )
-				);
-			}
-		},
+		clearSession,
 	};
 
 	// --- Main loop ---

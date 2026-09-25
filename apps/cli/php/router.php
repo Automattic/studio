@@ -18,7 +18,7 @@ if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
 }
 
 $root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
-$path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
+$path = rawurldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;
 
 // phpMyAdmin ships outside the site root, so map the public URL prefix to the

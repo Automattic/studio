@@ -1,31 +1,48 @@
 ---
 name: liberate
-description: Import and rebuild a website from a closed platform (Wix, Squarespace, Webflow, Shopify, GoDaddy, Hostinger, HubSpot, Weebly) into a Studio WordPress site. Extracts pages/posts/products + media, then reconstructs the design as editable blocks + WooCommerce OR as a high-fidelity replica theme. Invoke when the user wants to migrate, import, liberate, or rebuild a site from one of these platforms.
+description: Liberate any website into a portable HTML copy and import it into WordPress using the Studio CLI. Then work with the user to make sure it looks and function like the original. Use this when the user wants to migrate, import, move, liberate, or rebuild a website from a URL.
 ---
 
-# Liberate a website into Studio
+## 1. Bring the site over
 
-This skill is only a **redirect**. The real, always-up-to-date pipeline lives in the Data Liberation engine's own skill. Do NOT re-plan or summarize the steps here — defer to the engine skill so its updates take effect automatically. Your job is just to (1) stand the engine up and (2) follow its skill, translating its tool calls into Studio's bridge.
+Ask where the website lives if the user has not already provided a URL. It can be a public address starting with `https://`, or a folder or `.zip` of the site's files on this computer.
 
-## Step 1 — Locate the engine
+For an address, the import has two stages: first Data Liberation copies every page of the original site, then Static Site Importer rebuilds that copy as a WordPress site. Copying takes longest and grows with the number of pages, so a small site takes a few minutes and a large one can take much longer. Tell the user what to expect.
 
-Call the `data_liberation` tool with `{ tool: "setup" }`. It returns `{ engineDir, liberateSkill, skillsDir }` — the paths to the engine's skill files. The engine ships prebuilt with Studio, so this is instant — just proceed.
+Import it with the Studio CLI. For a website address:
 
-## Step 2 — Load the engine's tool catalog
+```bash
+studio create --from <url> --name "<site name>" --path ~/Studio/<slug> --keep-source --skip-browser
+```
 
-Call `data_liberation` with `{ tool: "list" }` to load the engine's full tool catalog (every tool name + its argument JSON-Schema). Treat that catalog as the **source of truth** for tool names and arguments — the engine skill names the tools to call, but the catalog tells you their exact arguments. If you are ever unsure of an argument, re-read the catalog rather than guessing.
+For a folder or `.zip` of website files, pass its path instead and leave out `--keep-source`:
 
-## Step 3 — Follow the engine's real liberate skill
+```bash
+studio create --from <path> --name "<site name>" --path ~/Studio/<slug> --skip-browser
+```
 
-`Read` the `liberateSkill` path from Step 1 (the engine's own `SKILL.md`) and execute its workflow verbatim, applying these Studio bindings wherever it instructs you:
+Run it with a timeout of at least 20 minutes. For an address, `--keep-source` keeps the copy of the original in a `<path>-source` folder next to the new site, which the comparison below uses.
 
-- **Engine tool call** — where it says "call the `liberate_X` tool with `{…}`", instead call Studio's `data_liberation` tool with `{ tool: "liberate_X", args: {…} }` and read the returned text/JSON as that tool's result. (`args` is a JSON **object**, never a stringified JSON.)
-- **Sub-skill dispatch** — where it dispatches another skill (e.g. `replicate-with-blocks` / `replicate-theme`), `Read` it under `engineDir/skills/<name>/SKILL.md` and continue inline with these same bindings.
-- **Install & import** — follow the engine's install step (it documents both `liberate_preview` and `liberate_install_theme` + `liberate_import`); `/liberate` is the engine's *standalone* context, so prefer **`liberate_preview`** (one call: creates the Studio site, imports the WXR + media, runs WP-default cleanup, activates the theme). Two Studio specifics the engine can't know: (1) `liberate_import` needs credentials — create an application password with `studio wp user application-password create` and pass it; (2) never point `studio wp import` / `wp eval-file` at the host `_liberations` path — Studio's PHP sandbox only reads inside the site (`/wordpress/...`), so let `liberate_preview` / `liberate_import` do the import rather than hand-rolling it.
-- **Don't skip the final QA** — it's nested a level deeper and easy to stop short of after a long run. The chosen sub-skill ends with a mandatory parity step: **blocks** → `Read` `engineDir/skills/design-qa/SKILL.md` and complete its loop; **theme** → `replicate-theme`'s `liberate_compare` step. Run it fully; never substitute eyeballed screenshots, and honor the engine's honesty rule — no "looks good / matches" without measured parity.
-- **`liberate_blockify_wxr`** — if it reports "no platform recorded", re-call with the platform from `liberate_detect` (e.g. `{ platform: "wix" }`); a no-op on platforms without a block recipe is expected, not a failure.
-- **Timeouts (`MCP error -32001`) mean "still working," not "failed."** Any engine op can return `-32001` on the client side while it keeps running **inside the engine** — never treat it as a failure and never blindly re-invoke (a re-invoke often errors, e.g. `extraction already in progress`). For extraction/reconstruct ops (`liberate_extract`, `liberate_screenshot`, reconstruct), poll `liberate_status` with `{ outputDir }` until `running` is `false`, then continue from the output artifacts. For any other op that times out, wait and re-check its output/state before concluding it failed.
+If a few pages could not be copied, the import still finishes without them and lists them with the reason each one failed; tell the user which pages are missing. The import stops instead when the home page could not be copied, or more than one page in ten; report the reason it printed rather than guessing at one.
 
-## Reporting
+If the import stops after the site was created, the site is kept and `studio create` says so. Re-running the same command continues that import from the copy it already made, instead of starting a new site or copying the original again. If it stops before the site was created, re-running starts over.
 
-When the engine finishes, summarize its run report: the Studio site built into, the reconstruct path taken, counts (pages/posts/products/media), the parity/verdict, and anything flagged for manual attention.
+## 2. Find what came out differently
+
+When the import finishes, make the new site the active site with `site_info` and share its address and login details.
+
+For a website address, `studio create` prints a command at the end of the import that compares the new site with the original, page by page, at several screen sizes including a phone. Run it; the site must be running. It lists each page and screen size where the new site differs, and what differs: missing text, different fonts or sizes, moved or missing images, or menus and buttons that do not open.
+
+For a folder of files there is no automatic comparison; open the original files alongside the new site and compare them yourself.
+
+Tell the user, in plain words, what you found. Ask them to look through the site too and point out anything that looks wrong or is missing.
+
+## 3. Fix it, one change at a time
+
+Fix each difference on the new site itself. Edit its pages and its theme using block editor blocks, so the user can keep editing everything in the WordPress editor afterwards. Avoid raw HTML blocks and custom code the user cannot edit.
+
+After each fix, refresh the site preview so the user sees the change, and ask whether it looks right. When you have the comparison, run it again after a batch of fixes to confirm them and catch anything new. Keep going until the comparison is clean or the user is happy with what remains.
+
+## 4. Wrap up
+
+Summarize what was brought over, what you changed together, and anything that still differs from the original. Point the user to the WordPress editor for future changes.

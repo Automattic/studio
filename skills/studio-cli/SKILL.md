@@ -17,8 +17,8 @@ The `studio` command manages local WordPress sites.
 
 ```bash
 studio create    # Create a new site
-studio list      # List all sites (--format table|json)
-studio status    # Show site details (--format table|json)
+studio list      # List all sites (--format table|json). JSON prints a fixed set of public fields and never includes passwords.
+studio status    # Show site details (--format table|json). JSON omits admin passwords; use `config get admin-password` for credentials.
 studio start     # Start a site
 studio stop      # Stop a site (--all to stop all)
 studio delete    # Delete one or more sites by path or ID (--files to trash, --dry-run to preview)
@@ -56,11 +56,17 @@ studio create --from https://example.com --name "Example" --path ~/Studio/exampl
 
 ### Checking site details
 
-`studio status` shows site URL, auto-login URL, admin credentials, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info.
+`studio status` shows site URL, auto-login URL, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info. Table output may include the admin password for the selected site; JSON never does.
 
 ```bash
 studio status --path ~/Studio/my-site              # Table output
-studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, wpVersion, xdebug, adminUsername, adminPassword, adminEmail)
+studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, runtime, fileAccess, wpVersion, xdebug, adminUsername, adminEmail)
+```
+
+Retrieve one site's admin password with an explicit, auditable command. Do not log, pipe into transcripts, or cache the value:
+
+```bash
+studio config get admin-password --path ~/Studio/my-site
 ```
 
 ### Reading and changing configuration
@@ -69,7 +75,7 @@ Read the settable site settings with `studio config get`:
 
 ```bash
 studio config get --path ~/Studio/my-site                # All settings (table)
-studio config get --path ~/Studio/my-site --format json  # All settings (JSON)
+studio config get --path ~/Studio/my-site --format json  # All settings except admin-password (JSON)
 studio config get php --path ~/Studio/my-site            # A single setting, printed raw (e.g. "8.4")
 ```
 
@@ -169,7 +175,7 @@ studio wp --path ~/Studio/my-site user list
 ## Tips
 
 - Use `--path` to target a specific site directory, or `cd` into the site folder first.
-- Use `--format json` on `list`, `status`, `config get`, and `preview list` for machine-readable output. For a single config value, `studio config get <key>` prints it raw (no parsing needed).
+- Use `--format json` on `list`, `status`, `config get`, and `preview list` for machine-readable output. JSON output from `list`, `status`, and `config get` omits the admin password. For a single config value, `studio config get <key>` prints it raw (no parsing needed). Never log `studio config get admin-password`.
 - Run `studio <command> --help` to see all options for any command.
 - Custom domains require hosts file changes (may need elevated permissions on macOS/Linux).
 - HTTPS uses self-signed certificates stored in platform-specific locations.

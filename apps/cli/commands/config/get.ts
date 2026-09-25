@@ -18,6 +18,8 @@ type ConfigValue = string | boolean | undefined;
 interface ConfigEntry {
 	key: string;
 	value: ConfigValue;
+	// Secret values are printed only when requested by key, never in the JSON dump.
+	secret?: boolean;
 }
 
 // The settable knobs exposed by `studio config set`, keyed and ordered to match
@@ -40,6 +42,7 @@ function getConfigEntries( site: SiteData ): ConfigEntry[] {
 		{
 			key: 'admin-password',
 			value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
+			secret: true,
 		},
 		{ key: 'admin-email', value: site.adminEmail },
 		{ key: 'debug-log', value: site.enableDebugLog ?? false },
@@ -84,7 +87,9 @@ export async function runCommand(
 
 	if ( format === 'json' ) {
 		const data = Object.fromEntries(
-			entries.map( ( { key: entryKey, value } ) => [ entryKey, value ?? null ] )
+			entries
+				.filter( ( { secret } ) => ! secret )
+				.map( ( { key: entryKey, value } ) => [ entryKey, value ?? null ] )
 		);
 		console.log( JSON.stringify( data, null, 2 ) );
 		return;

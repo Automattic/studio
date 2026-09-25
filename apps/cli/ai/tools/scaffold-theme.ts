@@ -159,17 +159,7 @@ function renderThemeJson( data: ThemeJson ): string {
 	return JSON.stringify( data, null, '\t' ) + '\n';
 }
 
-function renderFontsEnqueue( slug: string, fontsUrl: string | undefined ): string {
-	return fontsUrl
-		? `\twp_enqueue_style( '${ slug }-fonts', '${ fontsUrl }', array(), null );\n`
-		: '';
-}
-
-function renderFontsEditorStyle( fontsUrl: string | undefined ): string {
-	return fontsUrl ? `\tadd_editor_style( '${ fontsUrl }' );\n` : '';
-}
-
-function renderFunctionsPhp( name: string, slug: string, fontsUrl?: string ): string {
+function renderFunctionsPhp( name: string, slug: string ): string {
 	return `<?php
 /**
  * ${ name } theme functions.
@@ -178,26 +168,21 @@ function renderFunctionsPhp( name: string, slug: string, fontsUrl?: string ): st
  */
 
 add_action( 'wp_enqueue_scripts', function () {
-${ renderFontsEnqueue( slug, fontsUrl ) }	wp_enqueue_style(
+	wp_enqueue_style(
 		'${ slug }-style',
 		get_parent_theme_file_uri( 'style.css' ),
-		array(${ fontsUrl ? ` '${ slug }-fonts' ` : '' }),
+		array(),
 		wp_get_theme()->get( 'Version' )
 	);
 } );
 
 add_action( 'after_setup_theme', function () {
-${ renderFontsEditorStyle( fontsUrl ) }	add_editor_style( 'style.css' );
+	add_editor_style( 'style.css' );
 } );
 `;
 }
 
-function renderChildFunctionsPhp(
-	name: string,
-	slug: string,
-	parentSlug: string,
-	fontsUrl?: string
-): string {
+function renderChildFunctionsPhp( name: string, slug: string, parentSlug: string ): string {
 	return `<?php
 /**
  * ${ name } child theme functions.
@@ -214,16 +199,16 @@ add_action( 'wp_enqueue_scripts', function () {
 		array(),
 		wp_get_theme( get_template() )->get( 'Version' )
 	);
-${ renderFontsEnqueue( slug, fontsUrl ) }	wp_enqueue_style(
+	wp_enqueue_style(
 		'${ slug }-style',
 		get_stylesheet_directory_uri() . '/style.css',
-		array( '${ parentSlug }-parent-style'${ fontsUrl ? `, '${ slug }-fonts'` : '' } ),
+		array( '${ parentSlug }-parent-style' ),
 		wp_get_theme()->get( 'Version' )
 	);
 } );
 
 add_action( 'after_setup_theme', function () {
-${ renderFontsEditorStyle( fontsUrl ) }	add_editor_style( 'style.css' );
+	add_editor_style( 'style.css' );
 } );
 `;
 }
@@ -504,16 +489,14 @@ export const scaffoldThemeTool = defineTool(
 				? parseDesignMd( await readFile( designPath, 'utf8' ) )
 				: undefined;
 			let design = tokens && themeJsonFromDesign( tokens, baseJson );
-			let fontsUrl = design?.fontsUrl;
 			let fontsError: string | undefined;
-			if ( tokens && fontsUrl ) {
+			if ( tokens && design?.fontsUrl ) {
 				try {
 					design = themeJsonFromDesign(
 						tokens,
 						baseJson,
-						await downloadThemeFonts( fontsUrl, themeDir )
+						await downloadThemeFonts( design.fontsUrl, themeDir )
 					);
-					fontsUrl = undefined;
 				} catch ( error ) {
 					fontsError = error instanceof Error ? error.message : String( error );
 				}
@@ -529,7 +512,7 @@ export const scaffoldThemeTool = defineTool(
 				files = [
 					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug, fontsUrl ) ],
+					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug ) ],
 				];
 			} else {
 				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
@@ -540,7 +523,7 @@ export const scaffoldThemeTool = defineTool(
 				files = [
 					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[ 'functions.php', renderFunctionsPhp( trimmedName, slug, fontsUrl ) ],
+					[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
 					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
 					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
@@ -571,7 +554,7 @@ export const scaffoldThemeTool = defineTool(
 			if ( design ) {
 				summaryLines.push(
 					`theme.json carries the DESIGN.md tokens under the same names (${ design.summary })${
-						design.fontsUrl && ! fontsUrl
+						design.fontsUrl && ! fontsError
 							? ', with its fonts downloaded to assets/fonts and declared as fontFace'
 							: ''
 					}. Edit it only for what DESIGN.md does not cover.`
@@ -579,7 +562,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 			if ( fontsError ) {
 				summaryLines.push(
-					`Downloading the fonts failed (${ fontsError }), so functions.php loads them from Google Fonts instead.`
+					`Downloading the fonts failed (${ fontsError }): theme.json declares the font families without font files.`
 				);
 			}
 

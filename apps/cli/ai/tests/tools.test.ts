@@ -1511,34 +1511,6 @@ describe( 'Studio AI MCP tools', () => {
 			);
 		} );
 
-		it( 'loads the fonts from Google Fonts when downloading them fails', async () => {
-			await writeNunitoDesign();
-			vi.stubGlobal(
-				'fetch',
-				vi.fn( async () => {
-					throw new Error( 'offline' );
-				} )
-			);
-
-			const result = await getTool( 'scaffold_theme' ).rawHandler( {
-				nameOrPath: scaffoldSite.name,
-				name: 'Acme Studio',
-				activate: false,
-			} as never );
-
-			const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' );
-			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
-			const fontsUrl = 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap';
-			expect( functionsPhp ).toContain(
-				`wp_enqueue_style( 'acme-studio-fonts', '${ fontsUrl }', array(), null );`
-			);
-			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
-			expect( functionsPhp ).toContain( `add_editor_style( '${ fontsUrl }' );` );
-			expect( getTextContent( result ) ).toContain(
-				'Downloading the fonts failed (offline), so functions.php loads them from Google Fonts instead.'
-			);
-		} );
-
 		it( 'honors an explicit slug argument over the derived one', async () => {
 			await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,

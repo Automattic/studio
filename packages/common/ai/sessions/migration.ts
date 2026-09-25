@@ -3,10 +3,14 @@
 
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import { readFirstJsonlLine, splitJsonlContent } from './jsonl';
 
 // Must match pi-coding-agent's `CURRENT_SESSION_VERSION`. If pi bumps it,
 // pi's `migrateSessionEntries` will bring our v3 output forward on open.
-const PI_SESSION_VERSION = 3;
+export const PI_SESSION_VERSION = 3;
+
+// Default `cwd` stamped into session headers when no site directory applies.
+export const PI_SESSION_CWD = '~/Studio';
 
 type PiFileEntry = Record< string, unknown > & { type: string };
 
@@ -175,7 +179,7 @@ interface LegacyEvent {
 
 function parseLegacyLines( content: string ): LegacyEvent[] {
 	const events: LegacyEvent[] = [];
-	for ( const line of content.split( '\n' ) ) {
+	for ( const line of splitJsonlContent( content ) ) {
 		const trimmed = line.trim();
 		if ( ! trimmed ) continue;
 		try {
@@ -419,18 +423,36 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 
 // Migrate the on-disk file in place. Reads the legacy JSONL, transforms,
 // and rewrites atomically (`.tmp` + rename). No-ops for already-pi files.
-export async function migrateLegacyFileInPlace( filePath: string, cwd: string ): Promise< void > {
+export async function migrateLegacyFileInPlace(
+	filePath: string,
+	cwd: string = PI_SESSION_CWD
+): Promise< void > {
+	if ( detectSessionFormat( await readFirstJsonlLine( filePath ) ) !== 'legacy' ) return;
+
 	const content = await fs.readFile( filePath, 'utf8' );
-	const firstLine = content.split( '\n' ).find( ( line ) => line.trim().length > 0 );
-	if ( detectSessionFormat( firstLine ) !== 'legacy' ) return;
+	// The probe above and this read are separate reads, so a concurrent
+	// migration can swap the file in between. Every decision from here on is
+	// made against this one snapshot, so pi content is never parsed as legacy
+	// and rewritten down to a lone header.
+	const firstContentLine = splitJsonlContent( content ).find( ( line ) => line.trim() );
+	if ( detectSessionFormat( firstContentLine ) !== 'legacy' ) return;
 
 	const events = parseLegacyLines( content );
+	if ( ! events.some( ( event ) => event.type === 'session.started' ) ) return;
+
 	const fileEntries = migrateLegacyEvents( events, cwd );
 
 	const serialized = fileEntries.map( ( entry ) => JSON.stringify( entry ) ).join( '\n' ) + '\n';
-	const tmp = `${ filePath }.tmp`;
-	await fs.writeFile( tmp, serialized, 'utf8' );
-	await fs.rename( tmp, filePath );
+	// Unique tmp name: concurrent migrations of the same file must not clobber
+	// each other's tmp between write and rename.
+	const tmp = `${ filePath }.${ crypto.randomUUID().slice( 0, 8 ) }.tmp`;
+	try {
+		await fs.writeFile( tmp, serialized, 'utf8' );
+		await fs.rename( tmp, filePath );
+	} catch ( error ) {
+		await fs.rm( tmp, { force: true } ).catch( () => undefined );
+		throw error;
+	}
 }
 
 export type { PiFileEntry };

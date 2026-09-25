@@ -17,7 +17,9 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 vi.mock( '@/components/learn-more', () => ( {
 	LearnHowLink: () => null,
-	LearnMoreLink: () => null,
+	LearnMoreLink: ( { docsLinksKey }: { docsLinksKey: string } ) => (
+		<span data-testid={ `learn-more-${ docsLinksKey }` } />
+	),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -387,6 +389,42 @@ describe( 'CreateSiteForm', () => {
 		);
 		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
 		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/manual' } ) );
+	} );
+
+	it( 'offers the PHP runtime choices and submits native with site-directory access by default', async () => {
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Runtime' }, onSubmit );
+		openAdvancedSettings();
+		expect( screen.getByRole( 'radio', { name: 'Native' } ) ).toBeChecked();
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		expect( screen.getByTestId( 'learn-more-docsPhpRuntimes' ) ).toBeInTheDocument();
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Runtime' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { runtime: 'native-php', fileAccess: 'site-directory' } )
+		);
+	} );
+
+	it( 'holds file access at the site directory when the sandbox runtime is chosen', async () => {
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Sandboxed' }, onSubmit );
+		openAdvancedSettings();
+		fireEvent.click( screen.getByRole( 'radio', { name: 'All files' } ) );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'Sandbox' } ) );
+
+		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Sandboxed' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { runtime: 'playground', fileAccess: 'site-directory' } )
+		);
 	} );
 
 	it( 'surfaces path validation and generation errors without leaving the form pending', async () => {

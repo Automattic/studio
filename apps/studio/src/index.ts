@@ -348,9 +348,15 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			// An uncaught rejection here aborts the rest of `ready`, leaving an
+			// app with no window at all. Devtools aren't worth that.
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await installExtension( REDUX_DEVTOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				console.error( 'Failed to load devtools extensions:', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

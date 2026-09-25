@@ -42,6 +42,7 @@ import {
 } from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
+import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
@@ -666,10 +667,12 @@ function buildAgentTools(
 		];
 	}
 
+	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
+		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
+		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
 		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),

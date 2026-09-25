@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import {
 	createContext,
 	useCallback,
@@ -105,11 +106,18 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			};
 		case 'preview/reload':
 			// Reload the current path in place (bump the nonce). Reveal the
-			// panel so the agent-triggered refresh is actually visible.
+			// panel so the agent-triggered refresh is actually visible. The
+			// agent reloads to show the site it changed, so the design system
+			// page gives way to the front end.
 			return {
 				...state,
 				preview: {
 					...state.preview,
+					pathsBySiteId:
+						pathForSite( state.preview.pathsBySiteId, state.preview.siteId ) ===
+						DESIGN_SYSTEM_PREVIEW_PATH
+							? rememberPath( state.preview, '/' )
+							: state.preview.pathsBySiteId,
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},

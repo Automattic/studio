@@ -16,6 +16,7 @@ import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
+import { importFailureReason } from '@studio/common/lib/sync/import-failure-reason';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
@@ -262,8 +263,14 @@ async function runPush(
 			const status = await pollImportStatus( token.accessToken, remoteSite.id );
 
 			if ( status.status === 'failed' ) {
+				// Without the API's reason the user only sees "Import failed" and has
+				// to guess between a missing Jetpack Backup product, a collation
+				// mismatch, a partially copied plugin, and so on.
+				const reason = importFailureReason( status );
 				throw new LoggerError(
-					sprintf( __( 'Import failed on %s' ), remoteSite.name ),
+					reason
+						? sprintf( __( 'Import failed on %s: %s' ), remoteSite.name, reason )
+						: sprintf( __( 'Import failed on %s' ), remoteSite.name ),
 					undefined,
 					'remote_import'
 				);

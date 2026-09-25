@@ -72,6 +72,17 @@ export async function initiateBackup(
 	if ( ! response.success ) {
 		throw new Error( 'Backup request failed' );
 	}
+	// A site without an active Jetpack Backup product answers success with no
+	// usable backup id; polling with it then fails on the server with
+	// "Invalid parameter(s): backup_id", which points nowhere. Say what is
+	// missing instead.
+	if ( ! response.backup_id ) {
+		throw new Error(
+			__(
+				'The remote site did not start a backup. Studio Sync uses Jetpack Backup; check that a Jetpack plan with backups is active and connected on the remote site.'
+			)
+		);
+	}
 
 	return response.backup_id;
 }

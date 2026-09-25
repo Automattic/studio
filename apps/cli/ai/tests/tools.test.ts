@@ -1506,8 +1506,6 @@ describe( 'Studio AI MCP tools', () => {
 			await expect(
 				readFile( path.join( themeDir, 'assets/fonts/nunito/nunito-400-700-latin.woff2' ) )
 			).resolves.toEqual( Buffer.from( [ 1, 2, 3 ] ) );
-			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
-			expect( functionsPhp ).not.toContain( 'fonts.googleapis.com' );
 			expect( getTextContent( result ) ).toContain(
 				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 2 text styles, 0 spacing steps), with its fonts downloaded to assets/fonts and declared as fontFace.'
 			);

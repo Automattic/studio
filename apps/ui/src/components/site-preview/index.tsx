@@ -1710,7 +1710,8 @@ export function SitePreview( {
 										inert={ active ? undefined : true }
 									>
 										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
-											{ siteDesign.isPending ? null : (
+											{ siteDesign.isPending ||
+											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
 												<DesignSystemView
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }

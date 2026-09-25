@@ -177,7 +177,14 @@ describe( 'designDrift', () => {
 		expect( designDrift( tokens, themeJson ) ).toEqual( [] );
 		expect(
 			designDrift( tokens, {
-				settings: { color: { palette: [ { slug: 'base', color: '#fff' } ] } },
+				settings: {
+					color: {
+						palette: [
+							{ slug: 'base', color: '#fff' },
+							{ slug: 'accent-warm', color: '#f6c344' },
+						],
+					},
+				},
 			} )
 		).toEqual( [] );
 

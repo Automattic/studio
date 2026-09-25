@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"target": "ES2023",
+		"lib": [ "ES2023", "DOM", "DOM.Iterable" ],
+		"types": [ "vitest/globals", "node", "vite/client" ],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true
+	},
+	"include": [ "**/*" ],
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", ".data/**/*" ]
+}

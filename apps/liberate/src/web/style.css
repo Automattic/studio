@@ -1,0 +1,390 @@
+@property --p {
+	syntax: '<number>';
+	inherits: true;
+	initial-value: 1;
+}
+
+:root {
+	--ink: #111111;
+	--paper: #ffffff;
+	--muted: #6b6b6b;
+	--faded: #8f8f8a;
+	--rule: #e6e6e1;
+	--accent: #ff4b2b;
+	--accent-ink: #c43a1d;
+	--display: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+	--mono: 'DM Mono', ui-monospace, 'SFMono-Regular', monospace;
+	color-scheme: light;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var( --paper );
+	color: var( --ink );
+	font: 400 1.0625rem/1.55 var( --display );
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: inherit;
+	text-decoration-thickness: 0.08em;
+	text-underline-offset: 0.18em;
+}
+
+a:hover {
+	color: var( --accent-ink );
+}
+
+:focus-visible {
+	outline: 3px solid var( --accent );
+	outline-offset: 3px;
+	border-radius: 4px;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset( 50% );
+	white-space: nowrap;
+}
+
+.simulated {
+	margin: 0;
+	padding: 8px 16px;
+	background: var( --ink );
+	color: var( --paper );
+	font: 500 0.875rem/1.4 var( --mono );
+	text-align: center;
+}
+
+.page {
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	gap: 32px;
+	max-width: 1180px;
+	min-height: 100svh;
+	margin: 0 auto;
+	padding: clamp( 20px, 4vw, 44px ) clamp( 16px, 5vw, 64px );
+}
+
+.brand {
+	font-weight: 800;
+	font-size: 1.375rem;
+	letter-spacing: -0.02em;
+	text-decoration: none;
+}
+
+.brand span {
+	color: var( --accent );
+}
+
+.stage {
+	align-self: center;
+	padding-block: clamp( 16px, 6vh, 80px );
+	container-type: inline-size;
+}
+
+.headline {
+	margin: 0;
+	font-weight: 800;
+	font-size: clamp( 2.75rem, 10vw, 8.25rem );
+	line-height: 0.94;
+	letter-spacing: -0.045em;
+	text-wrap: balance;
+}
+
+/* Long names and addresses shrink to fit the line instead of breaking mid-word. */
+.site {
+	font-size: min( 1em, calc( 100cqi / ( var( --chars, 10 ) * 0.47 ) ) );
+	overflow-wrap: anywhere;
+}
+
+/* The marker stroke through the platform's name. While a site is being
+   liberated, how much of the name is struck is the progress bar. */
+.x {
+	position: relative;
+	display: inline-block;
+	transition: --p 0.8s cubic-bezier( 0.2, 0.7, 0.2, 1 );
+}
+
+.x::after {
+	content: '';
+	position: absolute;
+	top: 0.52em;
+	left: -0.06em;
+	width: calc( ( 100% + 0.12em ) * var( --p ) );
+	height: 0.13em;
+	border-radius: 0.07em;
+	background: var( --accent );
+	transform: rotate( -2deg );
+	transform-origin: left center;
+	pointer-events: none;
+}
+
+.x.draw {
+	animation: draw 0.7s cubic-bezier( 0.2, 0.7, 0.2, 1 ) both;
+}
+
+@keyframes draw {
+	from {
+		--p: 0;
+	}
+}
+
+.was {
+	margin: 0 0 0.3em;
+	line-height: 1;
+	font-weight: 800;
+	font-size: clamp( 1.75rem, 4vw, 2.75rem );
+	letter-spacing: -0.03em;
+	color: var( --faded );
+}
+
+.liberate {
+	max-width: 760px;
+	margin-top: clamp( 28px, 5vw, 48px );
+}
+
+.field {
+	display: flex;
+	overflow: hidden;
+	border: 3px solid var( --ink );
+	border-radius: 14px;
+	background: var( --paper );
+}
+
+.field:focus-within {
+	box-shadow: 0 0 0 4px rgb( 255 75 43 / 0.28 );
+}
+
+.field input {
+	flex: 1;
+	min-width: 0;
+	padding: 18px 20px;
+	border: 0;
+	background: transparent;
+	color: var( --ink );
+	font: 500 1.125rem/1.2 var( --mono );
+}
+
+.field input:focus {
+	outline: none;
+}
+
+.field input::placeholder {
+	color: #767676;
+}
+
+.field button {
+	padding: 0 30px;
+	border: 0;
+	background: var( --ink );
+	color: var( --paper );
+	font: 700 1.125rem/1 var( --display );
+	cursor: pointer;
+}
+
+.field button:hover {
+	background: #2e2e2e;
+}
+
+.field button:disabled {
+	cursor: progress;
+	opacity: 0.7;
+}
+
+.consent {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+	margin-top: 16px;
+	color: var( --muted );
+	font-size: 0.95rem;
+	cursor: pointer;
+}
+
+.consent input {
+	width: 18px;
+	height: 18px;
+	margin: 2px 0 0;
+	accent-color: var( --ink );
+}
+
+.turnstile:not( :empty ) {
+	margin-top: 16px;
+}
+
+.error {
+	min-height: 1.55em;
+	margin: 10px 0 0;
+	color: var( --accent-ink );
+	font-weight: 600;
+}
+
+.fine {
+	max-width: 62ch;
+	margin: 18px 0 0;
+	color: var( --muted );
+	font-size: 0.95rem;
+}
+
+.status {
+	margin: clamp( 24px, 3.5vw, 36px ) 0 0;
+	font: 500 1.125rem/1.45 var( --mono );
+}
+
+.steps {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 22px;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+	color: var( --muted );
+	font: 400 0.95rem var( --mono );
+}
+
+.steps li::before {
+	content: '○ ';
+}
+
+.steps .done {
+	color: var( --ink );
+}
+
+.steps .done::before {
+	content: '✓ ';
+}
+
+.steps .now {
+	color: var( --accent-ink );
+}
+
+.steps .now::before {
+	content: '● ';
+}
+
+.summary {
+	margin: 24px 0 0;
+	font-size: 1.25rem;
+}
+
+.note {
+	margin: 8px 0 0;
+	color: var( --muted );
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-top: 28px;
+}
+
+.button {
+	display: inline-flex;
+	gap: 10px;
+	align-items: baseline;
+	padding: 17px 22px;
+	border: 3px solid var( --ink );
+	border-radius: 14px;
+	background: var( --paper );
+	color: var( --ink );
+	font: 700 1.0625rem/1 var( --display );
+	text-decoration: none;
+}
+
+.button small {
+	color: var( --muted );
+	font: 500 0.85rem/1 var( --mono );
+}
+
+.button:hover {
+	color: var( --ink );
+	background: #f3f3ef;
+}
+
+.button.primary {
+	background: var( --ink );
+	color: var( --paper );
+}
+
+.button.primary small {
+	color: #c4c4bf;
+}
+
+.button.primary:hover {
+	background: #2e2e2e;
+	color: var( --paper );
+}
+
+.hosts {
+	margin: 26px 0 0;
+}
+
+.how {
+	max-width: 70ch;
+	margin-top: 22px;
+	padding-top: 16px;
+	border-top: 1px solid var( --rule );
+}
+
+.how summary {
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.how ul {
+	margin: 4px 0 0;
+	padding-left: 1.1em;
+}
+
+.how li {
+	margin-top: 10px;
+}
+
+.foot {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 24px;
+	justify-content: space-between;
+	padding-top: 18px;
+	border-top: 1px solid var( --rule );
+	color: var( --muted );
+	font-size: 0.875rem;
+}
+
+.foot p {
+	margin: 0;
+}
+
+@media ( max-width: 640px ) {
+	.field {
+		flex-direction: column;
+	}
+
+	.field button {
+		padding: 16px;
+	}
+
+	.button {
+		flex: 1 1 100%;
+		justify-content: center;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.x {
+		transition: none;
+	}
+
+	.x.draw {
+		animation: none;
+	}
+}

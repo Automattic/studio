@@ -14,6 +14,8 @@ export default defineConfig(
 		'**/node_modules/',
 		'**/__mocks__',
 		'apps/cli/dist/',
+		'apps/liberate/.data/',
+		'apps/liberate/dist/',
 		'dist/',
 		'out/',
 		'vendor/',

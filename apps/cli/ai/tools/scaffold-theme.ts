@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { downloadThemeFonts } from '@studio/common/lib/theme-fonts';
 import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md';
 import { Type } from 'typebox';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -405,7 +406,7 @@ export const scaffoldThemeTool = defineTool(
 		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'The result holds the content of every file it wrote, so edit them without reading them first. ' +
-		'When the site has a DESIGN.md, theme.json is filled from its tokens — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under the same names — and functions.php enqueues its Google Fonts. ' +
+		'When the site has a DESIGN.md, theme.json is filled from its tokens — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under the same names — and its Google Fonts are downloaded to assets/fonts and declared in theme.json. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
 		'Block themes only; does not support classic (PHP template) themes. ' +
@@ -499,9 +500,24 @@ export const scaffoldThemeTool = defineTool(
 
 			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
 			const designPath = path.join( site.path, 'DESIGN.md' );
-			const design = ( await pathExists( designPath ) )
-				? themeJsonFromDesign( parseDesignMd( await readFile( designPath, 'utf8' ) ), baseJson )
+			const tokens = ( await pathExists( designPath ) )
+				? parseDesignMd( await readFile( designPath, 'utf8' ) )
 				: undefined;
+			let design = tokens && themeJsonFromDesign( tokens, baseJson );
+			let fontsUrl = design?.fontsUrl;
+			let fontsError: string | undefined;
+			if ( tokens && fontsUrl ) {
+				try {
+					design = themeJsonFromDesign(
+						tokens,
+						baseJson,
+						await downloadThemeFonts( fontsUrl, themeDir )
+					);
+					fontsUrl = undefined;
+				} catch ( error ) {
+					fontsError = error instanceof Error ? error.message : String( error );
+				}
+			}
 			const themeJson = design?.themeJson ?? baseJson;
 
 			let files: Array< [ string, string ] >;
@@ -513,10 +529,7 @@ export const scaffoldThemeTool = defineTool(
 				files = [
 					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[
-						'functions.php',
-						renderChildFunctionsPhp( trimmedName, slug, parentSlug, design?.fontsUrl ),
-					],
+					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug, fontsUrl ) ],
 				];
 			} else {
 				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
@@ -527,7 +540,7 @@ export const scaffoldThemeTool = defineTool(
 				files = [
 					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[ 'functions.php', renderFunctionsPhp( trimmedName, slug, design?.fontsUrl ) ],
+					[ 'functions.php', renderFunctionsPhp( trimmedName, slug, fontsUrl ) ],
 					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
 					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
@@ -558,8 +571,15 @@ export const scaffoldThemeTool = defineTool(
 			if ( design ) {
 				summaryLines.push(
 					`theme.json carries the DESIGN.md tokens under the same names (${ design.summary })${
-						design.fontsUrl ? ' and functions.php enqueues its Google Fonts' : ''
+						design.fontsUrl && ! fontsUrl
+							? ', with its fonts downloaded to assets/fonts and declared as fontFace'
+							: ''
 					}. Edit it only for what DESIGN.md does not cover.`
+				);
+			}
+			if ( fontsError ) {
+				summaryLines.push(
+					`Downloading the fonts failed (${ fontsError }), so functions.php loads them from Google Fonts instead.`
 				);
 			}
 
@@ -591,6 +611,6 @@ export const scaffoldThemeTool = defineTool(
 	},
 	{
 		promptSnippet:
-			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site, activate it, and return every file's content; when the site has a DESIGN.md, theme.json is filled from its tokens under the same names and its Google Fonts are enqueued. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
+			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site, activate it, and return every file's content; when the site has a DESIGN.md, theme.json is filled from its tokens under the same names and its Google Fonts are downloaded into the theme. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
 	}
 );

@@ -1375,6 +1375,7 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		afterEach( async () => {
+			vi.unstubAllGlobals();
 			await rm( tempSiteRoot, { recursive: true, force: true } );
 		} );
 
@@ -1453,11 +1454,29 @@ describe( 'Studio AI MCP tools', () => {
 			);
 		} );
 
-		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
-			await writeFile(
+		const writeNunitoDesign = () =>
+			writeFile(
 				path.join( tempSiteRoot, 'DESIGN.md' ),
-				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n---\n'
+				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n  headline:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 700\n---\n'
 			);
+
+		it( 'fills theme.json from DESIGN.md and downloads its fonts into the theme', async () => {
+			await writeNunitoDesign();
+			const face = ( subset: string, weight: number, file: string ) =>
+				`/* ${ subset } */\n@font-face {\n  font-family: 'Nunito';\n  font-style: normal;\n  font-weight: ${ weight };\n  src: url(https://fonts.gstatic.com/${ file }.woff2) format('woff2');\n  unicode-range: U+${ subset };\n}\n`;
+			const fetchMock = vi.fn( async ( url: string ) =>
+				url.startsWith( 'https://fonts.googleapis.com/' )
+					? new Response(
+							[ 400, 700 ]
+								.flatMap( ( weight ) => [
+									face( 'latin-ext', weight, 'ext' ),
+									face( 'latin', weight, 'latin' ),
+								] )
+								.join( '' )
+					  )
+					: new Response( new Uint8Array( [ 1, 2, 3 ] ) )
+			);
+			vi.stubGlobal( 'fetch', fetchMock );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,
@@ -1471,16 +1490,54 @@ describe( 'Studio AI MCP tools', () => {
 				{ slug: 'primary', color: '#e2231a', name: 'Primary' },
 			] );
 			expect( themeJson.settings.layout ).toEqual( { contentSize: '1000px', wideSize: '1280px' } );
+			expect( fetchMock ).toHaveBeenCalledWith(
+				'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap',
+				expect.anything()
+			);
+			expect( themeJson.settings.typography.fontFamilies[ 0 ].fontFace ).toEqual(
+				[ 'latin-ext', 'latin' ].map( ( subset ) => ( {
+					fontFamily: 'Nunito',
+					fontStyle: 'normal',
+					fontWeight: '400 700',
+					src: [ `file:./assets/fonts/nunito/nunito-400-700-${ subset }.woff2` ],
+					unicodeRange: `U+${ subset }`,
+				} ) )
+			);
+			await expect(
+				readFile( path.join( themeDir, 'assets/fonts/nunito/nunito-400-700-latin.woff2' ) )
+			).resolves.toEqual( Buffer.from( [ 1, 2, 3 ] ) );
 			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+			expect( functionsPhp ).not.toContain( 'fonts.googleapis.com' );
+			expect( getTextContent( result ) ).toContain(
+				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 2 text styles, 0 spacing steps), with its fonts downloaded to assets/fonts and declared as fontFace.'
+			);
+		} );
+
+		it( 'loads the fonts from Google Fonts when downloading them fails', async () => {
+			await writeNunitoDesign();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn( async () => {
+					throw new Error( 'offline' );
+				} )
+			);
+
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+				activate: false,
+			} as never );
+
+			const themeDir = path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' );
+			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
+			const fontsUrl = 'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap';
 			expect( functionsPhp ).toContain(
-				"wp_enqueue_style( 'acme-studio-fonts', 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap', array(), null );"
+				`wp_enqueue_style( 'acme-studio-fonts', '${ fontsUrl }', array(), null );`
 			);
 			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
-			expect( functionsPhp ).toContain(
-				"add_editor_style( 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap' );"
-			);
+			expect( functionsPhp ).toContain( `add_editor_style( '${ fontsUrl }' );` );
 			expect( getTextContent( result ) ).toContain(
-				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 1 text style, 0 spacing steps)'
+				'Downloading the fonts failed (offline), so functions.php loads them from Google Fonts instead.'
 			);
 		} );
 

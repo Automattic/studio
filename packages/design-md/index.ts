@@ -414,17 +414,17 @@ function presets( settings: unknown, group: string, list: string ): Preset[] {
  * Where a theme.json no longer matches the DESIGN.md it was generated from: every
  * palette color, font family, font size and spacing step that theme.json lacks
  * or sets to a different value, and every font family it declares without font files.
- * A theme.json that uses none of DESIGN.md's palette slugs wasn't generated from it
- * (e.g. the default theme before the design is built), so it has no drift.
+ * A theme.json that uses fewer than half of DESIGN.md's palette slugs wasn't generated
+ * from it (e.g. the default theme before the design is built), so it has no drift.
  */
 export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
 	const expected = themeJsonFromDesign( tokens, {} )?.themeJson.settings;
 	const palette = presets( themeJson.settings, 'color', 'palette' );
-	if (
-		! presets( expected, 'color', 'palette' ).some( ( color ) =>
-			palette.some( ( candidate ) => candidate.slug === color.slug )
-		)
-	) {
+	const colors = presets( expected, 'color', 'palette' );
+	const shared = colors.filter( ( color ) =>
+		palette.some( ( candidate ) => candidate.slug === color.slug )
+	);
+	if ( shared.length * 2 < colors.length ) {
 		return [];
 	}
 	const normalize = ( kind: DesignDrift[ 'kind' ], value: unknown ) =>

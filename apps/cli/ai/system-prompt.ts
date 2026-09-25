@@ -1,8 +1,4 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
-import {
-	getStudioPresentationRulesPrompt,
-	getStudioWidgetPromptManifest,
-} from '@studio/common/ai/studio-widgets';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
 interface RemoteSiteContext {
@@ -175,21 +171,7 @@ function buildLocalIntro( options: {
 ## Screenshots
 
 This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
-	const automaticArtifactSection = options.chatArtifactsEnabled
-		? `
-
-## Visual artifacts
-
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
-
-You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
-
-Presentation rules:
-${ getStudioPresentationRulesPrompt() }
-
-Available desks widget types:
-${ getStudioWidgetPromptManifest() }`
-		: terminalScreenshotSection;
+	const screenshotSection = options.chatArtifactsEnabled ? '' : terminalScreenshotSection;
 	const refreshBrowserRule = options.chatArtifactsEnabled
 		? `
 - After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
@@ -235,7 +217,7 @@ One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`si
 
 For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
-${ toolSections }${ automaticArtifactSection }
+${ toolSections }${ screenshotSection }
 
 ## General rules
 

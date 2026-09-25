@@ -22,7 +22,6 @@ import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { studioPresentTool } from './studio-present';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
@@ -84,12 +83,7 @@ export interface CreateStudioToolsOptions {
 export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	const definitions =
-		options.emitChatArtifacts === true
-			? [ ...studioToolDefinitions, studioPresentTool ]
-			: studioToolDefinitions;
-
-	return definitions.flatMap( ( candidate ) => {
+	return studioToolDefinitions.flatMap( ( candidate ) => {
 		// refresh_browser only makes sense when a Studio UI with a preview pane
 		// is attached to consume the preview.reload event; emitChatArtifacts is
 		// the existing "UI attached" signal (process.send available).

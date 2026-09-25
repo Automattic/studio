@@ -23,10 +23,12 @@ import {
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DesignSystemView } from '@/components/design-system-view';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -46,6 +48,7 @@ import {
 } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
+	DESIGN_SYSTEM_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -60,7 +63,7 @@ import {
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
-import type { Annotation } from './types';
+import type { Annotation, InspectorCommand, InspectorState } from './types';
 import type { SiteDetails } from '@/data/core';
 import type { CSSProperties } from 'react';
 
@@ -97,18 +100,6 @@ interface InspectorEvent {
 	annotationCount?: number;
 	hasUnsavedDraft?: boolean;
 	command?: PreviewShortcutCommandType;
-}
-
-interface InspectorState {
-	ready: boolean;
-	isPicking: boolean;
-	annotationCount: number;
-	hasUnsavedDraft: boolean;
-}
-
-interface InspectorCommand {
-	id: number;
-	type: 'cancel' | 'toggle-picking' | 'submit';
 }
 
 interface BrowserHistoryEntry {
@@ -407,11 +398,13 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
-// better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
+// better: site root, WP Admin dashboard, phpMyAdmin's WordPress database, and
+// the design system.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
+	design: DESIGN_SYSTEM_PATH,
 };
 
 /**
@@ -420,13 +413,14 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
  * The front end and WP Admin link to each other and share a login, so they stay
  * one webview: one history stack, and a page loaded after signing in reflects
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
- * isn't responsive — so it gets its own surface, which never resizes or reloads
- * when the preview flips to it.
+ * isn't responsive — so it gets its own surface, which never resizes when the
+ * preview flips to it. The design system isn't a web page at all: its
+ * surface is rendered by Studio from the site's DESIGN.md and theme.json.
  */
-type PreviewSurfaceKey = 'site' | 'database';
+type PreviewSurfaceKey = 'site' | 'database' | 'design';
 
 function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
-	return realm === 'database' ? 'database' : 'site';
+	return realm === 'frontend' || realm === 'admin' ? 'site' : realm;
 }
 
 // Whether a surface previews responsive pages. phpMyAdmin has no mobile layout,
@@ -438,7 +432,7 @@ function isResponsiveSurface( key: PreviewSurfaceKey ): boolean {
 
 // A mounted preview surface: its url, plus the load state and pending commands
 // belonging to that webview. Kept alive once created so returning to it is a
-// visibility swap rather than a resize plus a fresh load.
+// reload at its own size rather than a resize plus a fresh load.
 interface PreviewSurfaceState {
 	path: string;
 	browser: BrowserNavigationState;
@@ -1128,6 +1122,7 @@ export function SitePreview( {
 	// truth for where the preview is aimed.
 	const activeRealm = getPreviewRealm( safePath );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
+	const siteDesign = useSiteDesign( site );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
 		queryFn: () => connector.getSiteThumbnail( site.id ),
@@ -1275,12 +1270,22 @@ export function SitePreview( {
 	// Commands are addressed to the surface on screen. Each has its own slot, so
 	// the hidden one never sees a command it should have missed — and never
 	// replays a stale one when it comes back into view.
-	const sendBrowserCommand = useCallback(
-		( type: BrowserCommand[ 'type' ] ) => {
+	const sendSurfaceCommand = useCallback(
+		( key: PreviewSurfaceKey, type: BrowserCommand[ 'type' ] ) => {
+			if ( key === 'design' ) {
+				if ( type === 'reload' ) {
+					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
+				}
+				return;
+			}
 			commandIdRef.current += 1;
-			patchSurface( activeSurfaceKey, { browserCommand: { id: commandIdRef.current, type } } );
+			patchSurface( key, { browserCommand: { id: commandIdRef.current, type } } );
 		},
-		[ activeSurfaceKey, patchSurface ]
+		[ patchSurface, queryClient, site.id ]
+	);
+	const sendBrowserCommand = useCallback(
+		( type: BrowserCommand[ 'type' ] ) => sendSurfaceCommand( activeSurfaceKey, type ),
+		[ activeSurfaceKey, sendSurfaceCommand ]
 	);
 	const goToHistoryIndex = useCallback(
 		( historyIndex: number ) => {
@@ -1342,15 +1347,36 @@ export function SitePreview( {
 	}, [ activeSurfaceKey, reloadNonce, safePath, site.id ] );
 
 	// A host-driven reload targets what's on screen. Tracked against the last
-	// seen nonce so merely switching surfaces never reloads the one arrived at.
+	// seen nonce so a switch doesn't replay it on the surface arrived at.
 	const lastHostReloadNonceRef = useRef( reloadNonce );
 	useEffect( () => {
 		if ( lastHostReloadNonceRef.current === reloadNonce ) {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		patchSurface( activeSurfaceKey, { reloadNonce } );
-	}, [ activeSurfaceKey, patchSurface, reloadNonce ] );
+		if ( activeSurfaceKey === 'design' ) {
+			sendSurfaceCommand( 'design', 'reload' );
+		} else {
+			patchSurface( activeSurfaceKey, { reloadNonce } );
+		}
+	}, [ activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
+
+	const onDesignInspectorState = useCallback(
+		( state: InspectorState ) => patchSurface( 'design', { inspector: state } ),
+		[ patchSurface ]
+	);
+
+	// The design surface has no page load, so its progress follows the fetch.
+	const designFetching = siteDesign.isFetching;
+	useEffect( () => {
+		patchSurface( 'design', {
+			browser: {
+				...EMPTY_BROWSER_STATE,
+				loading: designFetching,
+				progress: designFetching ? 0.5 : 0,
+			},
+		} );
+	}, [ designFetching, patchSurface, surfaces.byKey.design ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
@@ -1372,8 +1398,7 @@ export function SitePreview( {
 	// end and WP Admin is a navigation inside the shared site surface, so they
 	// keep one history and one login; admin targets go through the site's
 	// /studio-auto-login endpoint so they never land on the login form. Moving to
-	// or from the database only swaps which surface is visible — it's already
-	// loaded, at its own size, so there's nothing to reload or resize.
+	// another surface reloads it, so it shows what changed while it was hidden.
 	const handleSwitchRealm = useCallback(
 		( realm: PreviewRealm ) => {
 			// Re-selecting the active realm (e.g. via its shortcut) is a no-op.
@@ -1383,15 +1408,15 @@ export function SitePreview( {
 			// The agentic UI opens the realm in its in-app preview panel.
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
-			// Returning to a surface that's already sitting on the target path just
-			// reveals it; anything else is a real navigation.
-			if ( surfaces.byKey[ getSurfaceKey( realm ) ]?.path === target ) {
+			const key = getSurfaceKey( realm );
+			if ( surfaces.byKey[ key ]?.path === target ) {
+				sendSurfaceCommand( key, 'reload' );
 				onPathChange?.( target );
 				return;
 			}
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ activeRealm, connector, onPathChange, siteUrl, surfaces ]
+		[ activeRealm, connector, onPathChange, sendSurfaceCommand, siteUrl, surfaces ]
 	);
 
 	const browserShortcuts = useMemo(
@@ -1581,19 +1606,24 @@ export function SitePreview( {
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 							onSwitchRealm={ handleSwitchRealm }
-							onOpenExternal={ () => {
-								const safePath = getSafePath( path );
-								// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
-								// rather than always the front end.
-								void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
-									browser: 'external',
-								} );
-								// Via the host so the URL goes through /studio-auto-login; opening
-								// it raw drops the session and lands admin screens on the login form.
-								void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
-									console.error( 'Failed to open site in browser:', error );
-								} );
-							} }
+							hasDesignSystem={ !! siteDesign.data }
+							onOpenExternal={
+								activeRealm === 'design'
+									? undefined
+									: () => {
+											const safePath = getSafePath( path );
+											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
+											// rather than always the front end.
+											void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
+												browser: 'external',
+											} );
+											// Via the host so the URL goes through /studio-auto-login; opening
+											// it raw drops the session and lands admin screens on the login form.
+											void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
+												console.error( 'Failed to open site in browser:', error );
+											} );
+									  }
+							}
 						/>
 					) : null }
 				</div>
@@ -1609,7 +1639,10 @@ export function SitePreview( {
 							onPreviewZoomChange={ handlePreviewZoomChange }
 						/>
 					) : null }
-					{ canPreview && chatEnabled && connector.capabilities.annotatePreview ? (
+					{ canPreview &&
+					chatEnabled &&
+					// Studio renders the design system itself, so it needs no page injection.
+					( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' ) ? (
 						<PreviewAnnotationControls
 							isPicking={ inspectorState.isPicking }
 							annotationCount={ inspectorState.annotationCount }
@@ -1617,9 +1650,7 @@ export function SitePreview( {
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
 							disabledReason={
-								! isResponsiveSurface( activeSurfaceKey )
-									? __( 'Not available for Database' )
-									: undefined
+								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined
 							}
 							onCommand={ sendInspectorCommand }
 						/>
@@ -1649,8 +1680,7 @@ export function SitePreview( {
 					{ canPreview ? (
 						// One stacked layer per mounted surface. Only the active layer is
 						// visible; the other stays mounted and laid out at its own size, so
-						// coming back to it is a visibility swap with nothing to resize,
-						// reload or re-emulate.
+						// coming back to it is a reload with nothing to resize or re-emulate.
 						( Object.keys( surfaces.byKey ) as PreviewSurfaceKey[] ).map( ( key ) => {
 							const surface = surfaces.byKey[ key ];
 							if ( ! surface ) {
@@ -1662,6 +1692,30 @@ export function SitePreview( {
 							// gets the floating device frame.
 							const frame = activePreset ? viewport : null;
 							const surfaceUrl = `${ siteUrl }${ surface.path }`;
+							if ( key === 'design' ) {
+								return (
+									<div
+										key={ key }
+										className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+										inert={ active ? undefined : true }
+									>
+										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
+											{ siteDesign.isPending ||
+											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
+												<DesignSystemView
+													siteId={ site.id }
+													siteDesign={ siteDesign.data ?? null }
+													annotations={ {
+														command: surface.inspectorCommand,
+														onState: onDesignInspectorState,
+														onDone: onAnnotationsDone,
+													} }
+												/>
+											) }
+										</div>
+									</div>
+								);
+							}
 							return (
 								<div
 									key={ key }

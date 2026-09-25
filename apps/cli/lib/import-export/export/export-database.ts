@@ -5,6 +5,7 @@ import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -17,7 +18,7 @@ async function createDatabaseExportError(
 		return new LoggerError( message, undefined, 'database_export' );
 	}
 	console.error( message, stderr );
-	return new LoggerError( message, new Error( stderr ), 'database_export' );
+	return new LoggerError( message, new Error( summarizeWpCliStderr( stderr ) ), 'database_export' );
 }
 
 export async function exportDatabaseToFile(

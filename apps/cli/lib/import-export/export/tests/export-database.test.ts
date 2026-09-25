@@ -68,6 +68,16 @@ describe( 'export-database', () => {
 			expect( move ).not.toHaveBeenCalled();
 		} );
 
+		it( 'logs the full stderr but keeps only the error line in the message', async () => {
+			const stderr = 'Deprecated: noise in /wp-cli/a.php\nError: no such table: wp_options';
+			mockWpCliResult( { exitCode: 1, stderr } );
+
+			const error = await captureError( exportDatabaseToFile( site, '/dest/db.sql' ) );
+
+			expect( error.message ).toBe( 'Database export failed: Error: no such table: wp_options' );
+			expect( consoleErrorSpy ).toHaveBeenCalledWith( 'Database export failed', stderr );
+		} );
+
 		it( 'keeps the generic message when WP-CLI prints nothing to stderr', async () => {
 			mockWpCliResult( { exitCode: 1 } );
 

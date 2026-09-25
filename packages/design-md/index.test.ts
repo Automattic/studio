@@ -175,6 +175,11 @@ describe( 'designDrift', () => {
 		const tokens = parseDesignMd( DESIGN_MD );
 		const themeJson = themeJsonFromDesign( tokens, BASE, FONT_FACES )!.themeJson;
 		expect( designDrift( tokens, themeJson ) ).toEqual( [] );
+		expect(
+			designDrift( tokens, {
+				settings: { color: { palette: [ { slug: 'base', color: '#fff' } ] } },
+			} )
+		).toEqual( [] );
 
 		const settings = themeJson.settings as {
 			color: { palette: Array< { slug: string; color: string } > };

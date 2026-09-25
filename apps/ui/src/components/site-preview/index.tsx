@@ -1354,11 +1354,12 @@ export function SitePreview( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		patchSurface( activeSurfaceKey, { reloadNonce } );
-		// The agent reloads the preview after changing the site, which may have
-		// added, edited or removed its design system.
-		void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
-	}, [ activeSurfaceKey, patchSurface, queryClient, reloadNonce, site.id ] );
+		if ( activeSurfaceKey === 'design' ) {
+			sendSurfaceCommand( 'design', 'reload' );
+		} else {
+			patchSurface( activeSurfaceKey, { reloadNonce } );
+		}
+	}, [ activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
 
 	const onDesignInspectorState = useCallback(
 		( state: InspectorState ) => patchSurface( 'design', { inspector: state } ),

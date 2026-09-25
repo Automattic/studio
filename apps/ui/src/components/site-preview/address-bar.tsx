@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
@@ -26,9 +27,7 @@ export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
-// The design system isn't a page on the site: Studio renders it from DESIGN.md
-// and theme.json. A non-path location keeps it out of the site's URL space.
-export const DESIGN_SYSTEM_PATH = 'studio:design-system';
+export const DESIGN_SYSTEM_PATH = DESIGN_SYSTEM_PREVIEW_PATH;
 
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PATH ) {

@@ -23,10 +23,12 @@ import {
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DesignSystemView } from '@/components/design-system-view';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -46,6 +48,7 @@ import {
 } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
+	DESIGN_SYSTEM_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -407,11 +410,13 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything
-// better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
+// better: site root, WP Admin dashboard, phpMyAdmin's WordPress database, and
+// the design system.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
+	design: DESIGN_SYSTEM_PATH,
 };
 
 /**
@@ -421,12 +426,13 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
  * one webview: one history stack, and a page loaded after signing in reflects
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
  * isn't responsive — so it gets its own surface, which never resizes or reloads
- * when the preview flips to it.
+ * when the preview flips to it. The design system isn't a web page at all: its
+ * surface is rendered by Studio from the site's DESIGN.md and theme.json.
  */
-type PreviewSurfaceKey = 'site' | 'database';
+type PreviewSurfaceKey = 'site' | 'database' | 'design';
 
 function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
-	return realm === 'database' ? 'database' : 'site';
+	return realm === 'frontend' || realm === 'admin' ? 'site' : realm;
 }
 
 // Whether a surface previews responsive pages. phpMyAdmin has no mobile layout,
@@ -1128,6 +1134,7 @@ export function SitePreview( {
 	// truth for where the preview is aimed.
 	const activeRealm = getPreviewRealm( safePath );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
+	const siteDesign = useSiteDesign( site );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
 		queryFn: () => connector.getSiteThumbnail( site.id ),
@@ -1277,10 +1284,16 @@ export function SitePreview( {
 	// replays a stale one when it comes back into view.
 	const sendBrowserCommand = useCallback(
 		( type: BrowserCommand[ 'type' ] ) => {
+			if ( activeSurfaceKey === 'design' ) {
+				if ( type === 'reload' ) {
+					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
+				}
+				return;
+			}
 			commandIdRef.current += 1;
 			patchSurface( activeSurfaceKey, { browserCommand: { id: commandIdRef.current, type } } );
 		},
-		[ activeSurfaceKey, patchSurface ]
+		[ activeSurfaceKey, patchSurface, queryClient, site.id ]
 	);
 	const goToHistoryIndex = useCallback(
 		( historyIndex: number ) => {
@@ -1350,7 +1363,22 @@ export function SitePreview( {
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
 		patchSurface( activeSurfaceKey, { reloadNonce } );
-	}, [ activeSurfaceKey, patchSurface, reloadNonce ] );
+		// The agent reloads the preview after changing the site, which may have
+		// added, edited or removed its design system.
+		void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( site.id ) } );
+	}, [ activeSurfaceKey, patchSurface, queryClient, reloadNonce, site.id ] );
+
+	// The design surface has no page load, so its progress follows the fetch.
+	const designFetching = siteDesign.isFetching;
+	useEffect( () => {
+		patchSurface( 'design', {
+			browser: {
+				...EMPTY_BROWSER_STATE,
+				loading: designFetching,
+				progress: designFetching ? 0.5 : 0,
+			},
+		} );
+	}, [ designFetching, patchSurface, surfaces.byKey.design ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
@@ -1581,19 +1609,24 @@ export function SitePreview( {
 							path={ getSafePath( path ) }
 							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 							onSwitchRealm={ handleSwitchRealm }
-							onOpenExternal={ () => {
-								const safePath = getSafePath( path );
-								// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
-								// rather than always the front end.
-								void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
-									browser: 'external',
-								} );
-								// Via the host so the URL goes through /studio-auto-login; opening
-								// it raw drops the session and lands admin screens on the login form.
-								void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
-									console.error( 'Failed to open site in browser:', error );
-								} );
-							} }
+							hasDesignSystem={ !! siteDesign.data }
+							onOpenExternal={
+								activeRealm === 'design'
+									? undefined
+									: () => {
+											const safePath = getSafePath( path );
+											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
+											// rather than always the front end.
+											void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
+												browser: 'external',
+											} );
+											// Via the host so the URL goes through /studio-auto-login; opening
+											// it raw drops the session and lands admin screens on the login form.
+											void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
+												console.error( 'Failed to open site in browser:', error );
+											} );
+									  }
+							}
 						/>
 					) : null }
 				</div>
@@ -1617,9 +1650,11 @@ export function SitePreview( {
 							cancelRequestId={ annotationCancelRequestId }
 							disabled={ ! canAnnotate }
 							disabledReason={
-								! isResponsiveSurface( activeSurfaceKey )
-									? __( 'Not available for Database' )
-									: undefined
+								{
+									design: __( 'Not available for Design system' ),
+									database: __( 'Not available for Database' ),
+									site: undefined,
+								}[ activeSurfaceKey ]
 							}
 							onCommand={ sendInspectorCommand }
 						/>
@@ -1662,6 +1697,21 @@ export function SitePreview( {
 							// gets the floating device frame.
 							const frame = activePreset ? viewport : null;
 							const surfaceUrl = `${ siteUrl }${ surface.path }`;
+							if ( key === 'design' ) {
+								return (
+									<div
+										key={ key }
+										className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+										inert={ active ? undefined : true }
+									>
+										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
+											{ siteDesign.isPending ? null : (
+												<DesignSystemView siteDesign={ siteDesign.data ?? null } />
+											) }
+										</div>
+									</div>
+								);
+							}
 							return (
 								<div
 									key={ key }

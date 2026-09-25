@@ -101,6 +101,7 @@ const api: IpcApi = {
 	getSiteStorageUsage: ( id, requestId ) =>
 		ipcRendererInvoke( 'getSiteStorageUsage', id, requestId ),
 	cancelSiteStorageUsage: ( requestId ) => ipcRendererInvoke( 'cancelSiteStorageUsage', requestId ),
+	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>

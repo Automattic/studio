@@ -256,6 +256,177 @@ export function themeJsonFromDesign(
 	};
 }
 
+export function luminance( color: string ): number {
+	const hex = color.trim().match( /^#([0-9a-f]{6}|[0-9a-f]{3})/i )?.[ 1 ];
+	if ( ! hex ) {
+		return 0.5;
+	}
+	const full = hex.length === 3 ? [ ...hex ].map( ( digit ) => digit + digit ).join( '' ) : hex;
+	const [ r, g, b ] = [ 0, 2, 4 ].map( ( start ) => {
+		const channel = parseInt( full.slice( start, start + 2 ), 16 ) / 255;
+		return channel <= 0.04045 ? channel / 12.92 : ( ( channel + 0.055 ) / 1.055 ) ** 2.4;
+	} );
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export interface DesignSheet {
+	colors: Array< [ string, string ] >;
+	/** primary, background and text first, then every other color once. */
+	palette: Array< [ string, string ] >;
+	background: string;
+	text: string;
+	primary: string;
+	accent: string;
+	/** The text or background color, whichever reads better on the surface. */
+	ink: ( surface: string ) => string;
+	styles: Array< [ string, Style ] >;
+	display: Style;
+	headline: Style;
+	body: Style;
+	label: Style;
+	button: {
+		backgroundColor: string;
+		textColor: string;
+		rounded: unknown;
+		padding: unknown;
+		typography: Style;
+	};
+	/** Follows a `{colors.primary}`-style reference to its token value. */
+	resolve: ( value: unknown ) => unknown;
+}
+
+/**
+ * The roles a design-system sheet shows, picked from the tokens: the page colors,
+ * the display/headline/body/label styles and the primary button.
+ * Throws when the tokens carry fewer than two colors or no typography style.
+ */
+export function designSheet( tokens: DesignTokens ): DesignSheet {
+	const colors = Object.entries( tokens.colors ?? {} ).filter(
+		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
+	);
+	const styles = typographyStyles( tokens );
+	if ( colors.length < 2 || ! styles.length ) {
+		throw new Error(
+			'The DESIGN.md front matter needs at least two colors, as quoted hex values (primary: "#c2552b"), and one typography style.'
+		);
+	}
+
+	const named = ( key: string ) => colors.find( ( [ name ] ) => name === key )?.[ 1 ];
+	const byLuminance = colors
+		.map( ( [ , value ] ) => value )
+		.sort( ( a, b ) => luminance( a ) - luminance( b ) );
+	const background = named( 'background' ) ?? byLuminance[ byLuminance.length - 1 ];
+	const text =
+		named( 'text' ) ??
+		( luminance( background ) > 0.2 ? byLuminance[ 0 ] : byLuminance[ byLuminance.length - 1 ] );
+	const primary = named( 'primary' ) ?? colors[ 0 ][ 1 ];
+	const ink = ( surface: string ) =>
+		Math.abs( luminance( text ) - luminance( surface ) ) >=
+		Math.abs( luminance( background ) - luminance( surface ) )
+			? text
+			: background;
+	const seen = new Set< string >();
+	const palette = (
+		[ [ 'primary', primary ], [ 'background', background ], [ 'text', text ], ...colors ] as Array<
+			[ string, string ]
+		>
+	 ).filter(
+		( [ , value ] ) => ! seen.has( value.toLowerCase() ) && seen.add( value.toLowerCase() )
+	);
+
+	const styleNamed = ( name: string ) => styles.find( ( [ key ] ) => key.includes( name ) )?.[ 1 ];
+	const display = styleNamed( 'display' ) ?? styles[ 0 ][ 1 ];
+	const body = styleNamed( 'body' ) ?? styles[ styles.length - 1 ][ 1 ];
+	const label = styleNamed( 'label' ) ?? body;
+
+	const resolve = ( value: unknown ): unknown => {
+		const reference = typeof value === 'string' ? value.match( /^\{([^}]+)\}$/ )?.[ 1 ] : undefined;
+		return reference
+			? reference
+					.split( '.' )
+					.reduce< unknown >( ( node, key ) => ( node as Style | undefined )?.[ key ], tokens )
+			: value;
+	};
+	const button = tokens.components?.[ 'button-primary' ] ?? {};
+	const buttonBackground = String( resolve( button.backgroundColor ) ?? primary );
+	const buttonType = resolve( button.typography );
+
+	return {
+		colors,
+		palette,
+		background,
+		text,
+		primary,
+		accent: palette[ 3 ]?.[ 1 ] ?? text,
+		ink,
+		styles,
+		display,
+		headline: styleNamed( 'headline' ) ?? display,
+		body,
+		label,
+		button: {
+			backgroundColor: buttonBackground,
+			textColor: String( resolve( button.textColor ) ?? ink( buttonBackground ) ),
+			rounded: resolve( button.rounded ) ?? 0,
+			padding: resolve( button.padding ) ?? '14px 28px',
+			typography: buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label,
+		},
+		resolve,
+	};
+}
+
+export interface DesignDrift {
+	kind: 'color' | 'font-family' | 'font-size' | 'spacing';
+	slug: string;
+	design: string;
+	/** The theme.json value, or undefined when theme.json lacks the token. */
+	theme?: string;
+}
+
+type Preset = { slug?: unknown; [ key: string ]: unknown };
+
+function presets( settings: unknown, group: string, list: string ): Preset[] {
+	const value = ( settings as Record< string, Record< string, unknown > > | undefined )?.[
+		group
+	]?.[ list ];
+	return Array.isArray( value ) ? value : [];
+}
+
+/**
+ * Where a theme.json no longer matches the DESIGN.md it was generated from: every
+ * palette color, font family, font size and spacing step that theme.json lacks
+ * or sets to a different value.
+ */
+export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
+	const expected = themeJsonFromDesign( tokens, {} )?.themeJson.settings;
+	const checks: Array< [ DesignDrift[ 'kind' ], string, string, string ] > = [
+		[ 'color', 'color', 'palette', 'color' ],
+		[ 'font-family', 'typography', 'fontFamilies', 'fontFamily' ],
+		[ 'font-size', 'typography', 'fontSizes', 'size' ],
+		[ 'spacing', 'spacing', 'spacingSizes', 'size' ],
+	];
+	const normalize = ( kind: DesignDrift[ 'kind' ], value: unknown ) =>
+		kind === 'font-family'
+			? fontFamilyName( value ).toLowerCase()
+			: String( value ).replace( /\s+/g, '' ).toLowerCase();
+	return checks.flatMap( ( [ kind, group, list, field ] ) => {
+		const actual = presets( themeJson.settings, group, list );
+		return presets( expected, group, list ).flatMap( ( preset ) => {
+			const design = kind === 'font-family' ? String( preset.name ) : String( preset[ field ] );
+			const match = actual.find( ( candidate ) => candidate.slug === preset.slug );
+			const theme =
+				match?.[ field ] === undefined
+					? undefined
+					: kind === 'font-family'
+					? fontFamilyName( match[ field ] )
+					: String( match[ field ] );
+			return theme !== undefined && normalize( kind, design ) === normalize( kind, theme )
+				? []
+				: [ { kind, slug: String( preset.slug ), design, theme } ];
+		} );
+	} );
+}
+
 function compact< T extends Record< string, unknown > >( object: T ): Partial< T > | undefined {
 	const entries = Object.entries( object ).filter(
 		( [ , value ] ) =>

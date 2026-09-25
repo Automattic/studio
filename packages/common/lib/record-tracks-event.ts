@@ -19,6 +19,7 @@ export const TRACKS_EVENTS = {
 	SITE_OPEN_WP_ADMIN: 'studio_site_open_wp_admin',
 	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
 	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
+	SITE_OPEN_DESIGN_SYSTEM: 'studio_site_open_design_system',
 	SITE_OPEN_FOLDER: 'studio_site_open_folder',
 	SITE_IMPORT: 'studio_site_imported',
 	SITE_EXPORT: 'studio_site_exported',

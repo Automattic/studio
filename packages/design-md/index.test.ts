@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { googleFontsUrl, parseDesignMd, themeJsonFromDesign, typographyStyles } from './index';
+import {
+	designDrift,
+	googleFontsUrl,
+	parseDesignMd,
+	themeJsonFromDesign,
+	typographyStyles,
+} from './index';
 
 const DESIGN_MD = `---
 name: Sunny Bakery
@@ -154,5 +160,26 @@ describe( 'googleFontsUrl', () => {
 		const styles = typographyStyles( parseDesignMd( DESIGN_MD ) ).map( ( [ , style ] ) => style );
 		expect( googleFontsUrl( styles, 'block' ) ).toMatch( /&display=block$/ );
 		expect( googleFontsUrl( [] ) ).toBeUndefined();
+	} );
+} );
+
+describe( 'designDrift', () => {
+	it( 'lists the tokens theme.json lacks or sets differently', () => {
+		const tokens = parseDesignMd( DESIGN_MD );
+		const themeJson = themeJsonFromDesign( tokens, BASE )!.themeJson;
+		expect( designDrift( tokens, themeJson ) ).toEqual( [] );
+
+		const settings = themeJson.settings as {
+			color: { palette: Array< { slug: string; color: string } > };
+			spacing: { spacingSizes: unknown[] };
+		};
+		settings.color.palette[ 0 ].color = '#E2231A';
+		settings.color.palette[ 1 ].color = '#000000';
+		settings.spacing.spacingSizes = [];
+		expect( designDrift( tokens, themeJson ) ).toEqual( [
+			{ kind: 'color', slug: 'background', design: '#fffdf7', theme: '#000000' },
+			{ kind: 'spacing', slug: 'sm', design: '16px', theme: undefined },
+			{ kind: 'spacing', slug: 'md', design: '32px', theme: undefined },
+		] );
 	} );
 } );

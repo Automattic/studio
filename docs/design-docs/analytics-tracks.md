@@ -307,8 +307,8 @@ The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customiz
 browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
 browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
 preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
-`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`; re-selecting the active
-tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
+`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`, design system →
+`open_design_system`; re-selecting the active tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
 "Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
 preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
 preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
@@ -331,6 +331,7 @@ enumerated prop values below.
 | `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
 | `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_design_system` | Renderer (agentic) | `browser` (always `internal` — the design system view only exists in the preview panel) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
 

@@ -18,6 +18,7 @@ export type {
 	PushSyncOptions,
 	QuitSitesBehavior,
 	SessionEntry,
+	SiteDesign,
 	SiteDetails,
 	SiteStorageUsage,
 	SkillStatus,

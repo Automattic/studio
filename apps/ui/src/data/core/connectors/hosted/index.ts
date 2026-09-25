@@ -183,6 +183,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteStorageUsage(): Promise< null > {
 			return null;
 		},
+		async getSiteDesign(): Promise< null > {
+			return null;
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},

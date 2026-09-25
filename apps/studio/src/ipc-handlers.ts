@@ -103,6 +103,7 @@ import {
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { readSiteDesign, type SiteDesign } from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -1478,6 +1479,20 @@ export async function cancelSiteStorageUsage(
 	requestId: string
 ): Promise< void > {
 	siteStorageControllers.get( requestId )?.abort();
+}
+
+export async function getSiteDesign(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteDesign | null > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return null;
+	}
+	return readSiteDesign(
+		server.details.path,
+		async () => ( await server.getThemeDetails() )?.slug
+	);
 }
 
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

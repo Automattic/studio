@@ -473,6 +473,10 @@ export function createIpcConnector(): Connector {
 			}
 		},
 
+		async getSiteDesign( siteId ) {
+			return ipcApi.getSiteDesign( siteId );
+		},
+
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
 			// `false` skips the loading event consumed by Classic; this UI tracks
 			// the same request through React Query.

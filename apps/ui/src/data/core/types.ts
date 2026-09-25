@@ -24,6 +24,7 @@ import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-set
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -60,6 +61,7 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+export type { SiteDesign } from '@studio/common/sites/site-design';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
@@ -226,6 +228,10 @@ export interface Connector {
 	// way down: aborting it stops the walk rather than leaving it to finish for
 	// a site the user has already left.
 	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
+	// The site's DESIGN.md and its active theme's theme.json, or null when it
+	// lacks either. Resolving the active theme runs WP-CLI, but only for sites
+	// with a DESIGN.md.
+	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

@@ -368,6 +368,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
+		async getSiteDesign( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {

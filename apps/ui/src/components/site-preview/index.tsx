@@ -36,6 +36,7 @@ import {
 import { useAppZoomFactor } from '@/hooks/use-app-zoom-factor';
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
 import {
 	browserBackIcon,
@@ -1122,6 +1123,7 @@ export function SitePreview( {
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
 	const trafficLightSpace = useTrafficLightSpace();
+	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const safePath = getSafePath( path );
 	// Which realm the host is pointing the preview at. Derived from the path
 	// rather than stored alongside it, so the parent stays the single source of
@@ -1529,13 +1531,15 @@ export function SitePreview( {
 					inspectorState.isPicking && styles.headerAnnotating,
 					fullscreen && trafficLightSpace.start && styles.headerTrafficLights
 				) }
-				style={
+				style={ {
 					// In RTL the preview pane sits at the physical left, so the
 					// header's end-side controls land under the macOS traffic
-					// lights — pad past them. Windows/Linux need nothing: their
-					// controls sit in the chrome band above the frame.
-					trafficLightSpace.end ? { paddingInlineEnd: 96 } : undefined
-				}
+					// lights — pad past them.
+					...( trafficLightSpace.end && { paddingInlineEnd: 96 } ),
+					...( windowControlsInset > 0 && {
+						paddingRight: `calc(${ windowControlsInset }px + var(--wpds-dimension-padding-sm))`,
+					} ),
+				} }
 			>
 				{ /* Browser navigation stays at the start, the address field fills the
 					available middle track, and preview actions stay at the end. */ }

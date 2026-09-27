@@ -38,8 +38,10 @@ import {
 } from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { createElement } from 'react';
 import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
 import {
+	PhpRuntimeLearnMore,
 	RuntimeChoiceControl,
 	effectiveFileAccess,
 } from '@/components/site-fields/runtime-control';
@@ -282,6 +284,7 @@ export function phpRuntimeField< T extends { runtime: SiteRuntime } >(): Field< 
 		id: 'runtime',
 		type: 'text',
 		label: __( 'PHP runtime' ),
+		description: createElement( PhpRuntimeLearnMore ),
 		elements: [
 			{
 				value: SITE_RUNTIME_NATIVE_PHP,

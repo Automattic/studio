@@ -51,6 +51,5 @@ function cloneChatArtifactWidgets(
 	return widgets.map( ( widget ) => ( {
 		type: widget.type,
 		widgetProps: { ...widget.widgetProps },
-		...( widget.shapeProps ? { shapeProps: { ...widget.shapeProps } } : {} ),
 	} ) );
 }

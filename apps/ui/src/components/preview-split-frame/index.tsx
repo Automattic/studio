@@ -1,9 +1,10 @@
-import { __ } from '@wordpress/i18n';
+import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
@@ -96,6 +97,10 @@ export function PreviewSplitFrame( {
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.
 	const contentHidden = showFullscreen && ! animatingPreviewToggle;
+	// Only a flush frame reaches the window's top-right corner. The preview sits
+	// at the inline end, so in RTL it only gets there when it fills the frame.
+	const contentInCorner = isSidebarCollapsed && ! showFullscreen && ( ! showPreview || isRTL() );
+	const previewInCorner = isSidebarCollapsed && showPreview && ( showFullscreen || ! isRTL() );
 
 	return (
 		<div
@@ -113,7 +118,9 @@ export function PreviewSplitFrame( {
 				className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
 				aria-hidden={ contentHidden || undefined }
 			>
-				{ children }
+				<WindowControlsCornerContext.Provider value={ contentInCorner }>
+					{ children }
+				</WindowControlsCornerContext.Provider>
 			</div>
 			{ preview ? (
 				<div
@@ -124,7 +131,9 @@ export function PreviewSplitFrame( {
 					) }
 					aria-hidden={ ! showPreview }
 				>
-					{ renderedPreview }
+					<WindowControlsCornerContext.Provider value={ previewInCorner }>
+						{ renderedPreview }
+					</WindowControlsCornerContext.Provider>
 				</div>
 			) : null }
 			{ showPreview && ! showFullscreen && ! animatingPreviewToggle ? (

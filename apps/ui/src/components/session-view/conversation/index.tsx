@@ -157,11 +157,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [
-	'studio_present',
-	'AskUserQuestion',
-	'present_design_options',
-] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'AskUserQuestion', 'present_design_options' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the

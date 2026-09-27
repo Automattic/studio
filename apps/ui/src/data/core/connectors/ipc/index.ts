@@ -282,6 +282,8 @@ export function createIpcConnector(): Connector {
 				name,
 				path,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
@@ -295,6 +297,8 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,

@@ -1,8 +1,4 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
-import {
-	getStudioPresentationRulesPrompt,
-	getStudioWidgetPromptManifest,
-} from '@studio/common/ai/studio-widgets';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
 interface RemoteSiteContext {
@@ -175,21 +171,7 @@ function buildLocalIntro( options: {
 ## Screenshots
 
 This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
-	const automaticArtifactSection = options.chatArtifactsEnabled
-		? `
-
-## Visual artifacts
-
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
-
-You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
-
-Presentation rules:
-${ getStudioPresentationRulesPrompt() }
-
-Available desks widget types:
-${ getStudioWidgetPromptManifest() }`
-		: terminalScreenshotSection;
+	const screenshotSection = options.chatArtifactsEnabled ? '' : terminalScreenshotSection;
 	const refreshBrowserRule = options.chatArtifactsEnabled
 		? `
 - After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
@@ -220,7 +202,7 @@ For any request that involves a WordPress site, you MUST first pick the site to 
 Then continue with:
 
 1. **Run the site spec**: When the request is to create, build, make, design, redesign, or rebuild a site, run the \`site-spec\` skill on the active site before any design work. Run it even when the prompt already answers its questions — skip the questions but still produce the Site Spec. Skip the skill for smaller changes such as adding a page or section, fixing styles, or plugin work; when such a change touches the look, load the \`visual-design\` skill directly instead.
-2. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. When the site has a DESIGN.md, the scaffold fills theme.json from it — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under DESIGN.md's names — and enqueues its Google Fonts, so edit theme.json only for what DESIGN.md does not cover. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
+2. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. When the site has a DESIGN.md, the scaffold fills theme.json from it — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under DESIGN.md's names — and downloads its Google Fonts into assets/fonts, declared in theme.json, so edit theme.json only for what DESIGN.md does not cover. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 3. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 4. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
 5. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
@@ -235,7 +217,7 @@ One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`si
 
 For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
-${ toolSections }${ automaticArtifactSection }
+${ toolSections }${ screenshotSection }
 
 ## General rules
 

@@ -99,7 +99,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'present_design_options' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'present_design_options' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each

@@ -261,7 +261,10 @@ tests:
             if (!result || result.isError) {
               return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
             }
-            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
+            if (!/fonts downloaded to assets\/fonts/.test(result.text || '')) {
+              return { pass: false, score: 0, reason: `the scaffold did not self-host the DESIGN.md fonts: ${(result.text || '').split('\n').slice(0, 4).join(' ')}` };
+            }
+            return { pass: true, score: 1, reason: `blank theme scaffolded with self-hosted fonts: ${JSON.stringify(call.input)}` };
           });
       - type: javascript
         value: |

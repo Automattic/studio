@@ -2,7 +2,8 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getStudioUserAgent, getWpcomAiGatewayBaseUrl } from 'cli/ai/providers';
 
 /**
- * AI image generation through the WP.com AI proxy's Google Vertex Gemini route.
+ * AI image generation through the WP.com AI proxy's OpenAI-compatible images
+ * route.
  *
  * A TypeScript port of minimalistic-site-builder's image subsystem
  * (GeminiImage / WpcomImageClient / ImagePromptComposer), trimmed for an
@@ -11,19 +12,20 @@ import { getStudioUserAgent, getWpcomAiGatewayBaseUrl } from 'cli/ai/providers';
  * machinery (grade-token stripping, pictorial page-context recasting) is
  * replaced by authoring guidance, and its LLM prompt-repair pass is replaced by
  * reporting safety-filtered failures back to the agent to rewrite and retry.
- * Only JPEG output is supported — the skill forbids decorative/transparent
- * imagery, which is what PNG output existed for.
+ * The route only delivers PNG.
  */
 
-const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image';
-// Studio's slug on the proxy's Google publisher route; unlike the site
-// builder's `builder-theme-image` (which requires a Vertex-scoped token), this
-// one accepts regular user OAuth tokens.
+// The proxy picks the actual model behind the `image` alias; a real model id
+// is rejected.
+const IMAGE_MODEL_ALIAS = 'image';
+// The proxy accepts only `low` or `medium`.
+const IMAGE_QUALITY = 'medium';
+// Studio's image slug on the proxy; it accepts regular user OAuth tokens.
 const IMAGE_FEATURE_SLUG = 'studio-image';
 const MAX_CONCURRENT_REQUESTS = 5;
 const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
-// Prompt budget inherited from the builder: Gemini accepts longer prompts, but
-// a tight prompt keeps the subject dominant instead of drowning it in context.
+// Prompt budget inherited from the builder: the model accepts longer prompts,
+// but a tight prompt keeps the subject dominant instead of drowning it in context.
 export const MAX_PROMPT_TOKENS = 480;
 
 export const IMAGE_STYLES = [
@@ -38,33 +40,24 @@ export const IMAGE_STYLES = [
 ] as const;
 export type ImageStyle = ( typeof IMAGE_STYLES )[ number ];
 
-const ASPECT_RATIO_BY_KEYWORD = {
-	square: '1:1',
-	landscape: '16:9',
-	ultrawide: '21:9',
-	portrait: '9:16',
-	'card-landscape': '4:3',
-	'card-portrait': '3:4',
+// The route renders only these three canvases, so each slot shape maps to the
+// nearest one and CSS crops to the slot.
+const IMAGE_SIZE_BY_KEYWORD = {
+	square: '1024x1024',
+	landscape: '1536x1024',
+	ultrawide: '1536x1024',
+	portrait: '1024x1536',
+	'card-landscape': '1536x1024',
+	'card-portrait': '1024x1536',
 } as const;
 export const IMAGE_ASPECT_RATIOS = Object.keys(
-	ASPECT_RATIO_BY_KEYWORD
+	IMAGE_SIZE_BY_KEYWORD
 ) as ImageAspectRatioKeyword[];
-export type ImageAspectRatioKeyword = keyof typeof ASPECT_RATIO_BY_KEYWORD;
+export type ImageAspectRatioKeyword = keyof typeof IMAGE_SIZE_BY_KEYWORD;
 
-// Gemini outcomes that unambiguously mean a policy/safety filter rejected the
-// prompt. Everything else (MAX_TOKENS, NO_IMAGE, …) is an ordinary no-image
-// response and must not be reported as repairable-by-rewriting.
-const FILTERED_REASONS = new Set( [
-	'SAFETY',
-	'RECITATION',
-	'BLOCKLIST',
-	'PROHIBITED_CONTENT',
-	'SPII',
-	'IMAGE_SAFETY',
-	'IMAGE_PROHIBITED_CONTENT',
-	'IMAGE_RECITATION',
-	'MODEL_ARMOR',
-] );
+// Error codes the proxy passes through when the moderation system rejected the
+// prompt; any other failure must not be reported as repairable-by-rewriting.
+const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
 
 /**
  * Whether the generate_images capability is enabled for this session: an
@@ -93,23 +86,15 @@ async function resolveImageAuthToken(): Promise< string > {
 	return token.accessToken;
 }
 
-function getImageModel(): string {
-	return process.env.STUDIO_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL;
-}
-
 function getImageEndpoint(): string {
 	const base = getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' );
-	return `${ base }/v1/publishers/google/models/${ getImageModel() }:generateContent`;
+	return `${ base }/v1/images/generations`;
 }
 
-export function resolveAspectRatio( keyword: string | undefined ): string {
-	return ASPECT_RATIO_BY_KEYWORD[ ( keyword ?? 'landscape' ) as ImageAspectRatioKeyword ] ?? '16:9';
-}
-
-// Wide ratios are used full-bleed (heroes, banners) where a 1K render goes
-// soft; the smaller contained slots stay at 1K to keep cost down.
-function imageSizeForRatio( aspectRatio: string ): '1K' | '2K' {
-	return aspectRatio === '16:9' || aspectRatio === '21:9' ? '2K' : '1K';
+export function resolveImageSize( keyword: string | undefined ): string {
+	return (
+		IMAGE_SIZE_BY_KEYWORD[ ( keyword ?? 'landscape' ) as ImageAspectRatioKeyword ] ?? '1536x1024'
+	);
 }
 
 export interface ImagePromptSpec {
@@ -200,127 +185,67 @@ export function buildImageRequestBody(
 	prompt: string,
 	aspectRatioKeyword: string | undefined
 ): Record< string, unknown > {
-	const aspectRatio = resolveAspectRatio( aspectRatioKeyword );
+	// No `stream` and no `n` above 1: the proxy rejects both.
 	return {
-		contents: [ { role: 'user', parts: [ { text: prompt } ] } ],
-		generationConfig: {
-			// TEXT rides along because not every Gemini image model accepts an
-			// IMAGE-only response; interpretation scans past text parts.
-			responseModalities: [ 'TEXT', 'IMAGE' ],
-			imageConfig: {
-				aspectRatio,
-				imageSize: imageSizeForRatio( aspectRatio ),
-				imageOutputOptions: { mimeType: 'image/jpeg', compressionQuality: 85 },
-			},
-		},
+		model: IMAGE_MODEL_ALIAS,
+		prompt,
+		quality: IMAGE_QUALITY,
+		size: resolveImageSize( aspectRatioKeyword ),
 	};
 }
 
 export class TransientImageError extends Error {}
 export class ImageFilteredError extends Error {}
 
-interface GeminiResponsePart {
-	thought?: boolean;
-	text?: string;
-	inlineData?: { data?: string; mimeType?: string };
-	inline_data?: { data?: string; mimeType?: string };
+interface ImagesResponse {
+	data?: Array< { b64_json?: string } >;
+	error?: { code?: string; message?: string };
 }
 
-interface GeminiResponse {
-	promptFeedback?: { blockReason?: string };
-	candidates?: Array< {
-		finishReason?: string;
-		finishMessage?: string;
-		content?: { parts?: GeminiResponsePart[] };
-	} >;
-}
-
-function imagePartData( data: GeminiResponse ): string | null {
-	for ( const candidate of data.candidates ?? [] ) {
-		for ( const part of candidate.content?.parts ?? [] ) {
-			// Gemini 3 may include internal `thought: true` image parts before
-			// the authored result; those are never a deliverable asset.
-			if ( part.thought === true ) {
-				continue;
-			}
-			const inline = part.inlineData ?? part.inline_data;
-			if ( inline?.data ) {
-				return inline.data;
-			}
-		}
-	}
-	return null;
-}
-
-function filteredReason( data: GeminiResponse ): string | null {
-	if ( imagePartData( data ) !== null ) {
+function parseJson( raw: string ): ImagesResponse | null {
+	try {
+		return JSON.parse( raw ) as ImagesResponse;
+	} catch {
 		return null;
 	}
-	const block = data.promptFeedback?.blockReason?.toUpperCase().trim();
-	if ( block && FILTERED_REASONS.has( block ) ) {
-		return `prompt blocked: ${ block }`;
-	}
-	for ( const candidate of data.candidates ?? [] ) {
-		const finish = candidate.finishReason?.toUpperCase().trim();
-		if ( finish && FILTERED_REASONS.has( finish ) ) {
-			return `candidate finished: ${ finish }`;
-		}
-	}
-	return null;
 }
 
-function noImageReason( data: GeminiResponse ): string {
-	for ( const candidate of data.candidates ?? [] ) {
-		const finish = candidate.finishReason?.trim();
-		const text = candidate.content?.parts
-			?.map( ( part ) => part.text?.trim() )
-			.find( ( value ) => value );
-		if ( finish && finish.toUpperCase() !== 'STOP' ) {
-			return `candidate finished: ${ finish }${ text ? `; text: ${ text.slice( 0, 200 ) }` : '' }`;
-		}
-		if ( text ) {
-			return `text-only response: ${ text.slice( 0, 200 ) }`;
-		}
-	}
-	return 'no candidates';
-}
+const PNG_SIGNATURE = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ] );
 
 /**
- * Interpret a completed transfer: HTTP-status classification plus
- * generateContent body parsing. Returns decoded JPEG bytes or throws
- * TransientImageError (429/5xx — retryable), ImageFilteredError (safety filter
- * — retryable, and repairable by rewriting the subject), or Error (permanent).
+ * Interpret a completed transfer: HTTP-status classification plus images
+ * response parsing. Returns decoded PNG bytes or throws TransientImageError
+ * (429/5xx — retryable), ImageFilteredError (moderation — retryable, and
+ * repairable by rewriting the subject), or Error (permanent).
  */
 export function interpretImageResponse( raw: string, status: number ): Buffer {
 	if ( status === 429 || status >= 500 ) {
 		throw new TransientImageError( `HTTP ${ status }: ${ raw.slice( 0, 300 ) }` );
 	}
+	const data = parseJson( raw );
+	const errorCode = data?.error?.code;
+	if ( errorCode && FILTERED_ERROR_CODES.has( errorCode ) ) {
+		throw new ImageFilteredError(
+			`Image safety filter rejected the prompt: ${ data?.error?.message ?? errorCode }`
+		);
+	}
 	if ( status < 200 || status >= 300 ) {
 		throw new Error( `Image proxy HTTP ${ status }: ${ raw.slice( 0, 500 ) }` );
 	}
-
-	let data: GeminiResponse;
-	try {
-		data = JSON.parse( raw ) as GeminiResponse;
-	} catch {
+	if ( ! data ) {
 		throw new Error( `Image proxy returned non-JSON response: ${ raw.slice( 0, 300 ) }` );
 	}
 
-	const filtered = filteredReason( data );
-	if ( filtered ) {
-		throw new ImageFilteredError( `Image safety filter rejected the prompt: ${ filtered }` );
-	}
-
-	const base64 = imagePartData( data );
+	const base64 = data.data?.[ 0 ]?.b64_json;
 	if ( ! base64 ) {
-		throw new Error( `Image proxy response had no image data: ${ noImageReason( data ) }` );
+		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
 	const bytes = Buffer.from( base64, 'base64' );
-	// Byte magic is the source of truth: never deliver non-JPEG bytes under a
-	// .jpg filename, whatever the response metadata declares.
-	if ( bytes.length < 4 || bytes[ 0 ] !== 0xff || bytes[ 1 ] !== 0xd8 || bytes[ 2 ] !== 0xff ) {
-		throw new Error( 'Image proxy returned bytes that are not a JPEG' );
+	// Byte magic is the source of truth: never deliver non-PNG bytes under a
+	// .png filename.
+	if ( ! bytes.subarray( 0, PNG_SIGNATURE.length ).equals( PNG_SIGNATURE ) ) {
+		throw new Error( 'Image proxy returned bytes that are not a PNG' );
 	}
 	return bytes;
 }

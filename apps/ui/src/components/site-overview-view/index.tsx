@@ -180,7 +180,9 @@ function OpenInSection( { site, busy }: { site: SiteDetails; busy: boolean } ) {
 
 	const apps = destinations.filter(
 		( destination ) =>
-			destination.id !== 'browser' && ( destination.id !== 'editor' || editorConfigured )
+			destination.id !== 'browser' &&
+			destination.id !== 'wp-admin' &&
+			( destination.id !== 'editor' || editorConfigured )
 	);
 
 	return (

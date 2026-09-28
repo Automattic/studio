@@ -550,21 +550,48 @@ describe( 'CLI: studio create', () => {
 			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-captured-title-' ) );
 			const website = path.join( root, 'website' );
 			await fs.promises.mkdir( website );
-			await fs.promises.writeFile( path.join( website, 'index.html' ), '<title>Example Brand</title><main>Hello</main>' );
-			await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), JSON.stringify( {
-				schema: 'data-liberation/capture-receipt/v1', title: '  Example Brand  ',
-			} ) );
+			await fs.promises.writeFile(
+				path.join( website, 'index.html' ),
+				'<title>Example Brand</title><main>Hello</main>'
+			);
+			await fs.promises.writeFile(
+				path.join( root, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					title: '  Example Brand  ',
+				} )
+			);
 			const plugin = 'https://example.com/ssi.zip';
 			try {
-				const inferred = await prepareSourceImport( website, path.join( root, 'site' ), undefined, new Logger(), { staticSiteImporter: plugin } );
+				const inferred = await prepareSourceImport(
+					website,
+					path.join( root, 'site' ),
+					undefined,
+					new Logger(),
+					{ staticSiteImporter: plugin }
+				);
 				const request = JSON.parse( inferred.blueprint.staticSiteImport.request );
 				expect( inferred.siteName ).toBe( 'Example Brand' );
 				expect( request ).toMatchObject( { name: 'Example Brand', site_title: 'Example Brand' } );
-				const explicit = await prepareSourceImport( website, path.join( root, 'site' ), 'Custom Name', new Logger(), { staticSiteImporter: plugin } );
+				const explicit = await prepareSourceImport(
+					website,
+					path.join( root, 'site' ),
+					'Custom Name',
+					new Logger(),
+					{ staticSiteImporter: plugin }
+				);
 				expect( explicit.siteName ).toBe( 'Custom Name' );
-				expect( JSON.parse( explicit.blueprint.staticSiteImport.request ).site_title ).toBe( 'Custom Name' );
+				expect( JSON.parse( explicit.blueprint.staticSiteImport.request ).site_title ).toBe(
+					'Custom Name'
+				);
 				await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), '{malformed' );
-				const fallback = await prepareSourceImport( website, path.join( root, 'site' ), undefined, new Logger(), { staticSiteImporter: plugin } );
+				const fallback = await prepareSourceImport(
+					website,
+					path.join( root, 'site' ),
+					undefined,
+					new Logger(),
+					{ staticSiteImporter: plugin }
+				);
 				expect( fallback.siteName ).toBe( 'Imported Site' );
 			} finally {
 				await fs.promises.rm( root, { recursive: true, force: true } );

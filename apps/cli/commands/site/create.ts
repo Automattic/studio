@@ -475,7 +475,11 @@ function capturedSourceTitle( websitePath: string ): string | undefined {
 		if ( ! fs.existsSync( receiptPath ) ) continue;
 		try {
 			const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) );
-			if ( receipt.schema === 'data-liberation/capture-receipt/v1' && typeof receipt.title === 'string' && receipt.title.trim() ) {
+			if (
+				receipt.schema === 'data-liberation/capture-receipt/v1' &&
+				typeof receipt.title === 'string' &&
+				receipt.title.trim()
+			) {
 				return receipt.title.trim();
 			}
 		} catch {
@@ -633,7 +637,10 @@ export async function prepareSourceImport(
 		);
 		return {
 			blueprint,
-			siteName: siteName ?? capturedSourceTitle( path.join( keptCapture, 'website' ) ) ?? __( 'Imported Site' ),
+			siteName:
+				siteName ??
+				capturedSourceTitle( path.join( keptCapture, 'website' ) ) ??
+				__( 'Imported Site' ),
 			compareCommand: fs.existsSync( keptCapture )
 				? await captureCompareCommand( keptCapture ).catch( () => undefined )
 				: undefined,
@@ -685,7 +692,13 @@ export async function prepareSourceImport(
 		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
 		sourceUrl
 	);
-	return { blueprint, liberationOutputDir, compareCommand, capturedPartially, siteName: resolvedSiteName };
+	return {
+		blueprint,
+		liberationOutputDir,
+		compareCommand,
+		capturedPartially,
+		siteName: resolvedSiteName,
+	};
 }
 
 export function staticSiteImportProgressMessage(

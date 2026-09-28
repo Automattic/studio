@@ -1,0 +1,8 @@
+/* The positioner portals into document.body, so without a z-index it loses to
+   app chrome that creates stacking contexts. The floating toast shelf
+   (.floatingToasts in sidebar-layout) is z-index: 110 and shares the collapsed
+   sidebar's corner, so popovers clear that too. */
+.positioner {
+	z-index: 120;
+	outline: none;
+}

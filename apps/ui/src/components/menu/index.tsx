@@ -2,7 +2,7 @@ import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
-import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { FloatingSurface } from '@/components/floating-surface';
 import styles from './style.module.css';
 import type {
 	ComponentPropsWithoutRef,
@@ -33,9 +33,8 @@ type PopupProps = {
 };
 
 /**
- * Wraps Portal + Positioner + Popup so consumers only need one component.
- * Styled to match @wordpress/components `Popover`: surface-strong background,
- * neutral stroke, elevation-md, radius-md.
+ * Wraps Portal + Positioner + Popup so consumers only need one component,
+ * rendered on the shared floating surface.
  */
 export function Popup( {
 	children,
@@ -57,7 +56,7 @@ export function Popup( {
 				className={ styles.positioner }
 			>
 				<BaseMenu.Popup
-					className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
 					onClick={ onClick }
 					onPointerDown={ onPointerDown }
 				>
@@ -88,7 +87,7 @@ export function ContextPopup( {
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner className={ styles.positioner }>
 				<BaseMenu.Popup
-					className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+					render={ <FloatingSurface className={ clsx( styles.popup, className ) } /> }
 					onClick={ onClick }
 					onPointerDown={ onPointerDown }
 				>

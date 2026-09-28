@@ -1,32 +1,17 @@
-/* The positioner portals into document.body, so without a z-index it loses
-   to app chrome that creates stacking contexts (same rationale as the menu
-   popup's positioner). The floating toast shelf (.floatingToasts in
-   sidebar-layout) is z-index: 110 and sits in the same collapsed-mode
-   corner, so this needs to clear that, not just the z-index: 100 toggle. */
-.positioner {
-	z-index: 120;
-	outline: none;
-}
-
 .popup {
 	box-sizing: border-box;
 	width: 272px;
 	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
 }
 
-/* Same surface chrome as the menu popup (weak stroke, lg radius,
-   elevation-md), over the window-chrome background the component supplies
-   inline. Tokens resolve against the dark theme scope wrapping this node.
-   A flex column so the "Open sidebar" CTA stays pinned below the scrolling
-   list instead of scrolling out of view with it. */
+/* A flex column so the "Open sidebar" CTA stays pinned below the scrolling
+   list instead of scrolling out of view with it. Tokens resolve against the
+   dark theme scope wrapping this node. */
 .surface {
 	display: flex;
 	flex-direction: column;
-	box-sizing: border-box;
 	overflow: hidden;
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	border-radius: inherit;
 	color: var(--wpds-color-foreground-content-neutral);
 }
 

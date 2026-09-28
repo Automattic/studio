@@ -1,8 +1,9 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { external, Icon, wordpress } from '@wordpress/icons';
-import { Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
+import { Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
+import * as Popover from '@/components/popover';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
@@ -295,19 +296,13 @@ export function PreviewAddressBar( {
 				) : null }
 			</form>
 			<Popover.Popup
-				variant="unstyled"
+				anchor={ addressBarRef }
+				side="bottom"
+				align="start"
+				sideOffset={ 4 }
 				initialFocus={ false }
 				finalFocus={ false }
 				className={ styles.shortcutsPopup }
-				positioner={
-					<Popover.Positioner
-						anchor={ addressBarRef }
-						side="bottom"
-						align="start"
-						sideOffset={ 4 }
-						className={ styles.shortcutsPositioner }
-					/>
-				}
 			>
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
 				<div className={ styles.shortcutsList }>

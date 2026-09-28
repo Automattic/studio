@@ -1,0 +1,99 @@
+/* Menus and popovers portal to document.body, escaping whatever light/dark
+   scope they opened from. Force the same dark, theme-independent surface
+   everywhere (matching the sidebar's fixed-dark chrome) instead of falling
+   through to the app's light/dark toggle. Literal colors, not the matching
+   wpds tokens: this block remaps those same tokens below, so seeding from them
+   would make each definition depend on itself. */
+.surface {
+	--floating-surface: #1e1e1e;
+	--floating-foreground: #f0f0f0;
+	--floating-surface-subtle: color-mix(in srgb, var(--floating-foreground) 7%, var(--floating-surface));
+	--floating-foreground-weak: color-mix(in srgb, var(--floating-foreground) 72%, transparent);
+	--floating-foreground-disabled: color-mix(in srgb, var(--floating-foreground) 38%, transparent);
+	--floating-border: color-mix(in srgb, var(--floating-foreground) 11%, transparent);
+	--floating-divider: color-mix(in srgb, var(--floating-foreground) 16%, transparent);
+	--wpds-color-background-surface-neutral-strong: var(--floating-surface);
+	--wpds-color-background-surface-neutral: var(--floating-surface-subtle);
+	--wpds-color-stroke-surface-neutral-weak: var(--floating-border);
+	--wpds-color-stroke-surface-neutral: var(--floating-divider);
+	--wpds-color-foreground-content-neutral: var(--floating-foreground);
+	--wpds-color-foreground-content-neutral-weak: var(--floating-foreground-weak);
+	--wpds-color-foreground-interactive-neutral-disabled: var(--floating-foreground-disabled);
+	--studio-floating-surface-width-duration: 0ms;
+	--studio-floating-surface-transform-duration: 180ms;
+	--studio-floating-surface-opacity-duration: 160ms;
+	--studio-floating-surface-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+	box-sizing: border-box;
+	background: var(--wpds-color-background-surface-neutral-strong);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow: 0 2px 3px 0 rgba(0, 0, 0, 0.05), 0 4px 5px 0 rgba(0, 0, 0, 0.04), 0 12px 12px 0 rgba(0, 0, 0, 0.03), 0 16px 16px 0 rgba(0, 0, 0, 0.02);
+	color: var(--wpds-color-foreground-content-neutral);
+	transform-origin: top left;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.surface {
+		transition:
+			width var(--studio-floating-surface-width-duration)
+				var(--studio-floating-surface-easing),
+			transform var(--studio-floating-surface-transform-duration)
+				var(--studio-floating-surface-easing),
+			opacity var(--studio-floating-surface-opacity-duration)
+				var(--studio-floating-surface-easing);
+	}
+
+	.surface[data-align='center'] {
+		transform-origin: top center;
+	}
+
+	.surface[data-align='end'] {
+		transform-origin: top right;
+	}
+
+	.surface[data-side='top'] {
+		transform-origin: bottom left;
+	}
+
+	.surface[data-side='top'][data-align='center'] {
+		transform-origin: bottom center;
+	}
+
+	.surface[data-side='top'][data-align='end'] {
+		transform-origin: bottom right;
+	}
+
+	.surface[data-side='left'] {
+		transform-origin: center right;
+	}
+
+	.surface[data-side='right'] {
+		transform-origin: center left;
+	}
+
+	.surface[data-instant] {
+		transition-duration: 0ms;
+	}
+
+	.surface[data-starting-style],
+	.surface[data-ending-style] {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.96);
+	}
+
+	.surface[data-side='top'][data-starting-style],
+	.surface[data-side='top'][data-ending-style] {
+		transform: translateY(4px) scale(0.96);
+	}
+
+	.surface[data-side='left'][data-starting-style],
+	.surface[data-side='left'][data-ending-style] {
+		transform: translateX(4px) scale(0.96);
+	}
+
+	.surface[data-side='right'][data-starting-style],
+	.surface[data-side='right'][data-ending-style] {
+		transform: translateX(-4px) scale(0.96);
+	}
+}

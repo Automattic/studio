@@ -260,6 +260,16 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
+	if ( process.platform === 'darwin' ) {
+		// The renderer moves the traffic lights for full preview; a reload drops
+		// that state without running its cleanup, so put them back here.
+		mainWindow.webContents.on( 'did-start-navigation', ( details ) => {
+			if ( details.isMainFrame && ! details.isSameDocument ) {
+				mainWindow?.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
+			}
+		} );
+	}
+
 	mainWindow.on( 'closed', () => {
 		removeMenu();
 		mainWindow = null;
@@ -324,6 +334,8 @@ let agenticControlsSurface: WindowControlsSurface = 'chrome';
 export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
 	agenticControlsSurface = surface;
 }
+
+export type TrafficLightsPosition = 'default' | 'toolbar';
 
 export function getTitleBarOverlayOptions() {
 	if ( getPreferredStudioUiMode() !== 'agentic' ) {

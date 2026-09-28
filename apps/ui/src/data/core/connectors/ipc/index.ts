@@ -1022,6 +1022,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setWindowControlsSurface( surface );
 		},
 
+		async setTrafficLightsPosition( position ) {
+			await ipcApi.setTrafficLightsPosition( position );
+		},
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},

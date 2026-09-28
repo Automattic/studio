@@ -542,6 +542,11 @@ export interface Connector {
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
 	setWindowControlsSurface?( surface: 'chrome' | 'content' | 'toolbar' ): Promise< void >;
 
+	// Moves the macOS traffic lights to line up with the site preview toolbar
+	// while it sits beside them, and back again (see `useTrafficLightsPosition`).
+	// Only the Electron host has traffic lights to move.
+	setTrafficLightsPosition?( position: 'default' | 'toolbar' ): Promise< void >;
+
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
 	ensureWindowWidth( minimumWidth: number ): Promise< number | null >;

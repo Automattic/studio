@@ -9,7 +9,7 @@ import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
-const PREVIEW_TOGGLE_DURATION = 150;
+export const PREVIEW_TOGGLE_DURATION = 150;
 
 export interface PreviewSplitFramePreviewProps {
 	collapsed: boolean;

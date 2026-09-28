@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { themeDetailsQueryKey } from '@/hooks/use-theme-details';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { DATABASE_HOME_PATH } from './address-bar';
@@ -44,7 +45,7 @@ vi.mock( '@/components/dot-grid', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
-	useTrafficLightSpace: () => ( { start: false, end: false } ),
+	useTrafficLightSpace: vi.fn( () => ( { start: false, end: false } ) ),
 } ) );
 
 vi.mock( '@/hooks/use-window-controls-overlay', () => ( {
@@ -871,6 +872,67 @@ describe( 'SitePreview', () => {
 		expect( setWindowControlsSurface ).toHaveBeenLastCalledWith( 'chrome' );
 
 		vi.mocked( useWindowControlsOverlay ).mockReturnValue( null );
+	} );
+
+	it( 'aligns the macOS traffic lights with the toolbar only while in full preview', () => {
+		const setTrafficLightsPosition = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			setTrafficLightsPosition,
+			capabilities: CAPABILITIES,
+		} as never );
+		vi.mocked( useTrafficLightSpace ).mockReturnValue( { start: true, end: false } );
+
+		const queryClient = new QueryClient();
+		const preview = ( fullscreen: boolean ) => (
+			<QueryClientProvider client={ queryClient }>
+				<Tooltip.Provider>
+					<SitePreview
+						site={ createSite( { running: true } ) }
+						path="/"
+						reloadNonce={ 0 }
+						fullscreen={ fullscreen }
+						onFullscreenChange={ vi.fn() }
+					/>
+				</Tooltip.Provider>
+			</QueryClientProvider>
+		);
+		vi.useFakeTimers();
+		const { rerender, unmount } = render( preview( false ) );
+		vi.runAllTimers();
+		expect( setTrafficLightsPosition ).not.toHaveBeenCalled();
+
+		// Waits for the layout to slide the toolbar into the corner.
+		rerender( preview( true ) );
+		expect( setTrafficLightsPosition ).not.toHaveBeenCalled();
+		vi.advanceTimersByTime( 150 );
+		expect( setTrafficLightsPosition ).toHaveBeenLastCalledWith( 'toolbar' );
+
+		// Waits again for the chat column to slide back over the corner.
+		setTrafficLightsPosition.mockClear();
+		rerender( preview( false ) );
+		expect( setTrafficLightsPosition ).not.toHaveBeenCalled();
+		vi.advanceTimersByTime( 150 );
+		expect( setTrafficLightsPosition ).toHaveBeenLastCalledWith( 'default' );
+
+		// Toggling back before a move lands cancels it.
+		setTrafficLightsPosition.mockClear();
+		rerender( preview( true ) );
+		rerender( preview( false ) );
+		vi.runAllTimers();
+		expect( setTrafficLightsPosition ).not.toHaveBeenCalled();
+
+		// Unmounting restores at once.
+		rerender( preview( true ) );
+		vi.runAllTimers();
+		setTrafficLightsPosition.mockClear();
+		unmount();
+		expect( setTrafficLightsPosition ).toHaveBeenCalledTimes( 1 );
+		expect( setTrafficLightsPosition ).toHaveBeenLastCalledWith( 'default' );
+
+		vi.useRealTimers();
+		vi.mocked( useTrafficLightSpace ).mockReturnValue( { start: false, end: false } );
 	} );
 
 	it( 'hides the responsive controls when the site is not running', () => {

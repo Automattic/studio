@@ -22,7 +22,7 @@ export interface SiteDesign {
 
 export const designFixesSchema = z.array(
 	z.object( {
-		kind: z.enum( [ 'color', 'font-family', 'font-files', 'font-size', 'spacing' ] ),
+		kind: z.enum( [ 'color', 'font-family', 'font-size', 'spacing' ] ),
 		slug: z.string(),
 		to: z.enum( [ 'theme', 'design' ] ),
 	} )
@@ -112,7 +112,7 @@ export async function fixSiteDesign(
 	const toTheme = fixed( 'theme' );
 	if ( toTheme.length ) {
 		const families = toTheme
-			.filter( ( entry ) => entry.kind === 'font-family' || entry.kind === 'font-files' )
+			.filter( ( entry ) => entry.kind === 'font-family' )
 			.map( ( entry ) => entry.design );
 		const fontsUrl = googleFontsUrl(
 			typographyStyles( tokens )

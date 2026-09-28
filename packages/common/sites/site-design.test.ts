@@ -35,9 +35,7 @@ beforeEach( async () => {
 						{ slug: 'background', color: '#ffffff', name: 'Background' },
 					],
 				},
-				typography: {
-					fontFamilies: [ { slug: 'inter', name: 'Inter', fontFamily: '"Inter", sans-serif' } ],
-				},
+				typography: { fontFamilies: [] },
 			},
 		} )
 	);
@@ -62,7 +60,7 @@ it( 'settles each drift in the direction its fix names', async () => {
 	const result = await fixSiteDesign( sitePath, async () => 'bakery', [
 		{ kind: 'color', slug: 'primary', to: 'theme' },
 		{ kind: 'color', slug: 'background', to: 'design' },
-		{ kind: 'font-files', slug: 'inter', to: 'theme' },
+		{ kind: 'font-family', slug: 'inter', to: 'theme' },
 	] );
 
 	expect( result?.design ).toBe( DESIGN_MD.replace( '#fbf6ee', '#ffffff' ) );

@@ -259,7 +259,7 @@ export function themeJsonFromDesign(
 	};
 }
 
-export function luminance( color: string ): number {
+function luminance( color: string ): number {
 	const hex = color.trim().match( /^#([0-9a-f]{6}|[0-9a-f]{3})/i )?.[ 1 ];
 	if ( ! hex ) {
 		return 0.5;
@@ -294,8 +294,6 @@ export interface DesignSheet {
 		padding: unknown;
 		typography: Style;
 	};
-	/** Follows a `{colors.primary}`-style reference to its token value. */
-	resolve: ( value: unknown ) => unknown;
 }
 
 /**
@@ -374,12 +372,11 @@ export function designSheet( tokens: DesignTokens ): DesignSheet {
 			padding: resolve( button.padding ) ?? '14px 28px',
 			typography: buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label,
 		},
-		resolve,
 	};
 }
 
 export interface DesignDrift {
-	kind: 'color' | 'font-family' | 'font-files' | 'font-size' | 'spacing';
+	kind: 'color' | 'font-family' | 'font-size' | 'spacing';
 	slug: string;
 	design: string;
 	/** The theme.json value, or undefined when theme.json lacks the token. */
@@ -398,7 +395,6 @@ type Preset = { slug?: unknown; [ key: string ]: unknown };
 const PRESET_LISTS: Record< DesignDrift[ 'kind' ], [ string, string, string ] > = {
 	color: [ 'color', 'palette', 'color' ],
 	'font-family': [ 'typography', 'fontFamilies', 'fontFamily' ],
-	'font-files': [ 'typography', 'fontFamilies', 'fontFace' ],
 	'font-size': [ 'typography', 'fontSizes', 'size' ],
 	spacing: [ 'spacing', 'spacingSizes', 'size' ],
 };
@@ -413,8 +409,7 @@ function presets( settings: unknown, group: string, list: string ): Preset[] {
 /**
  * Where a theme.json no longer matches the DESIGN.md it was generated from: every
  * palette color, font family, font size and spacing step that theme.json lacks
- * or sets to a different value, and every font family it declares without font files.
- * A theme.json that uses fewer than half of DESIGN.md's palette slugs wasn't generated
+ * or sets to a different value. A theme.json that uses fewer than half of DESIGN.md's palette slugs wasn't generated
  * from it (e.g. the default theme before the design is built), so it has no drift.
  */
 export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
@@ -431,7 +426,7 @@ export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): Desig
 		kind === 'font-family'
 			? fontFamilyName( value ).toLowerCase()
 			: String( value ).replace( /\s+/g, '' ).toLowerCase();
-	const drift = ( [ 'color', 'font-family', 'font-size', 'spacing' ] as const ).flatMap(
+	return ( Object.keys( PRESET_LISTS ) as Array< DesignDrift[ 'kind' ] > ).flatMap(
 		( kind ): DesignDrift[] => {
 			const [ group, list, field ] = PRESET_LISTS[ kind ];
 			const actual = presets( themeJson.settings, group, list );
@@ -450,22 +445,6 @@ export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): Desig
 			} );
 		}
 	);
-	const unloaded = presets( themeJson.settings, 'typography', 'fontFamilies' ).filter(
-		( family ) =>
-			! ( Array.isArray( family.fontFace ) && family.fontFace.length ) &&
-			! drift.some( ( entry ) => entry.kind === 'font-family' && entry.slug === family.slug ) &&
-			presets( expected, 'typography', 'fontFamilies' ).some(
-				( preset ) => preset.slug === family.slug
-			)
-	);
-	return [
-		...drift,
-		...unloaded.map( ( family ) => ( {
-			kind: 'font-files' as const,
-			slug: String( family.slug ),
-			design: fontFamilyName( family.fontFamily ),
-		} ) ),
-	];
 }
 
 /**
@@ -480,10 +459,7 @@ export function applyDesignToThemeJson(
 	fontFaces: Record< string, object[] > = {}
 ): ThemeJson {
 	const expected = themeJsonFromDesign( tokens, {}, fontFaces )?.themeJson.settings;
-	const settings = structuredClone( themeJson.settings ?? {} ) as Record<
-		string,
-		Record< string, unknown >
-	>;
+	const settings = { ...themeJson.settings } as Record< string, Record< string, unknown > >;
 	for ( const { kind, slug } of drift ) {
 		const [ group, list ] = PRESET_LISTS[ kind ];
 		const preset = presets( expected, group, list ).find( ( entry ) => entry.slug === slug );
@@ -504,9 +480,9 @@ export function applyDesignToThemeJson(
 }
 
 /**
- * Writes the theme.json value of each drift back into the DESIGN.md front matter,
- * leaving the rest of the document as written. Drifts theme.json has no value for
- * are skipped.
+ * Writes the theme.json value of each color, font size and spacing drift back into
+ * the DESIGN.md front matter, leaving the rest of the document as written. Drifts
+ * theme.json has no value for are skipped.
  */
 export function applyThemeToDesign( design: string, drift: DesignDrift[] ): string {
 	const frontMatter = design.match( /^\s*---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
@@ -514,8 +490,7 @@ export function applyThemeToDesign( design: string, drift: DesignDrift[] ): stri
 		return design;
 	}
 	const document = parseDocument( frontMatter );
-	const typography = typographyStyles( parseDesignMd( design ) );
-	for ( const { kind, slug, design: value, theme } of drift ) {
+	for ( const { kind, slug, theme } of drift ) {
 		if ( theme === undefined ) {
 			continue;
 		}
@@ -525,15 +500,6 @@ export function applyThemeToDesign( design: string, drift: DesignDrift[] ): stri
 			document.setIn( [ 'spacing', slug ], theme );
 		} else if ( kind === 'font-size' ) {
 			document.setIn( [ 'typography', slug, 'fontSize' ], theme );
-		} else if ( kind === 'font-family' ) {
-			for ( const [ name, style ] of typography ) {
-				if ( fontFamilyName( style.fontFamily ) === value ) {
-					document.setIn(
-						[ 'typography', name, 'fontFamily' ],
-						String( style.fontFamily ).replace( value, theme )
-					);
-				}
-			}
 		}
 	}
 	return design.replace( frontMatter, () =>

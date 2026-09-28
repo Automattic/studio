@@ -520,48 +520,24 @@
 	gap: 8px;
 	width: min(320px, calc(100vw - 16px));
 	padding: 12px;
-	border-radius: 12px;
-	background: #1a1a1a;
-	box-shadow: 0 4px 24px rgb(0 0 0 / 30%), 0 0 0 1px rgb(255 255 255 / 8%);
-	color: #fff;
-	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.noteTarget {
+.notePopup .noteTarget {
 	display: flex;
 	align-items: baseline;
 	gap: 8px;
+	margin: 0;
 	overflow: hidden;
-	color: rgb(255 255 255 / 50%);
-	font-size: 11px;
-	line-height: 1.4;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 400;
 	white-space: nowrap;
 }
 
-.noteTarget code {
+.notePopup .noteTarget code {
 	overflow: hidden;
-	color: rgb(255 255 255 / 70%);
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--wpds-typography-font-family-mono);
 	text-overflow: ellipsis;
-}
-
-.notePopup textarea {
-	width: 100%;
-	min-height: 72px;
-	padding: 8px;
-	border: 1px solid rgb(255 255 255 / 15%);
-	border-radius: 8px;
-	outline: none;
-	background: rgb(255 255 255 / 5%);
-	color: #fff;
-	font: inherit;
-	font-size: 13px;
-	line-height: 1.4;
-	resize: vertical;
-}
-
-.notePopup textarea:focus {
-	border-color: #7c3aed;
 }
 
 .noteActions {
@@ -570,44 +546,6 @@
 	gap: 4px;
 }
 
-.noteActions button {
-	padding: 6px 8px;
-	border: none;
-	border-radius: 16px;
-	font: inherit;
-	font-size: 11px;
-	font-weight: 600;
-	line-height: 1;
-	white-space: nowrap;
-	cursor: pointer;
-}
-
-.noteActions button:disabled {
-	opacity: 0.4;
-	cursor: default;
-}
-
 .noteDelete {
 	margin-inline-end: auto;
-	background: transparent;
-	color: rgb(255 255 255 / 50%);
-}
-
-.noteDelete:hover {
-	color: #ef4444;
-}
-
-.noteCancel {
-	background: transparent;
-	color: rgb(255 255 255 / 70%);
-}
-
-.noteSave {
-	background: #fff;
-	color: #1a1a1a;
-}
-
-.noteSubmit {
-	background: #7c3aed;
-	color: #fff;
 }

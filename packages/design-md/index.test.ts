@@ -165,15 +165,10 @@ describe( 'googleFontsUrl', () => {
 	} );
 } );
 
-const FONT_FACES = {
-	Fredoka: [ { fontFamily: 'Fredoka', src: [ 'file:./assets/fonts/fredoka.woff2' ] } ],
-	Nunito: [ { fontFamily: 'Nunito', src: [ 'file:./assets/fonts/nunito.woff2' ] } ],
-};
-
 describe( 'designDrift', () => {
-	it( 'lists the tokens theme.json lacks or sets differently, and fonts without files', () => {
+	it( 'lists the tokens theme.json lacks or sets differently', () => {
 		const tokens = parseDesignMd( DESIGN_MD );
-		const themeJson = themeJsonFromDesign( tokens, BASE, FONT_FACES )!.themeJson;
+		const themeJson = themeJsonFromDesign( tokens, BASE )!.themeJson;
 		expect( designDrift( tokens, themeJson ) ).toEqual( [] );
 		expect(
 			designDrift( tokens, {
@@ -191,17 +186,14 @@ describe( 'designDrift', () => {
 		const settings = themeJson.settings as {
 			color: { palette: Array< { slug: string; color: string } > };
 			spacing: { spacingSizes: unknown[] };
-			typography: { fontFamilies: Array< { fontFace?: unknown } > };
 		};
 		settings.color.palette[ 0 ].color = '#E2231A';
 		settings.color.palette[ 1 ].color = '#000000';
 		settings.spacing.spacingSizes = [];
-		delete settings.typography.fontFamilies[ 1 ].fontFace;
 		expect( designDrift( tokens, themeJson ) ).toEqual( [
 			{ kind: 'color', slug: 'background', design: '#fffdf7', theme: '#000000' },
 			{ kind: 'spacing', slug: 'sm', design: '16px', theme: undefined },
 			{ kind: 'spacing', slug: 'md', design: '32px', theme: undefined },
-			{ kind: 'font-files', slug: 'nunito', design: 'Nunito' },
 		] );
 	} );
 } );
@@ -209,7 +201,7 @@ describe( 'designDrift', () => {
 describe( 'applying drift', () => {
 	const tokens = parseDesignMd( DESIGN_MD );
 	const drifted = () => {
-		const themeJson = themeJsonFromDesign( tokens, BASE, FONT_FACES )!.themeJson;
+		const themeJson = themeJsonFromDesign( tokens, BASE )!.themeJson;
 		const settings = themeJson.settings as {
 			color: { palette: Array< { slug: string; color: string } > };
 			spacing: { spacingSizes: unknown[] };

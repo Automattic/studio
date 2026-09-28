@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Popover, VisuallyHidden } from '@wordpress/ui';
+import { Button, Popover, Textarea } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './style.module.css';
 import type { Annotation, InspectorCommand, InspectorState } from '@/components/site-preview/types';
@@ -200,7 +200,6 @@ function NotePopup( {
 	return (
 		<Popover.Root open onOpenChange={ ( open ) => ! open && onClose() }>
 			<Popover.Popup
-				variant="unstyled"
 				className={ styles.notePopup }
 				positioner={
 					<Popover.Positioner
@@ -211,17 +210,17 @@ function NotePopup( {
 					/>
 				}
 			>
-				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Add a note' ) }</VisuallyHidden>
-				<div className={ styles.noteTarget }>
-					<span>{ draft.target.label }</span>
+				<Popover.Title className={ styles.noteTarget }>
+					{ draft.target.label }
 					{ draft.target.value ? <code>{ draft.target.value }</code> : null }
-				</div>
-				<textarea
+				</Popover.Title>
+				<Textarea
 					autoFocus
+					rows={ 3 }
 					aria-label={ __( 'Note' ) }
 					placeholder={ __( 'What should change about this?' ) }
 					value={ draft.comment }
-					onChange={ ( event ) => onChange( event.target.value ) }
+					onValueChange={ onChange }
 					onKeyDown={ ( event ) => {
 						if ( event.key === 'Enter' && ! event.shiftKey && ! event.nativeEvent.isComposing ) {
 							event.preventDefault();
@@ -233,24 +232,37 @@ function NotePopup( {
 				/>
 				<div className={ styles.noteActions }>
 					{ draft.id ? (
-						<button type="button" className={ styles.noteDelete } onClick={ onDelete }>
+						<Button
+							className={ styles.noteDelete }
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							onClick={ onDelete }
+						>
 							{ __( 'Delete' ) }
-						</button>
+						</Button>
 					) : null }
-					<button type="button" className={ styles.noteCancel } onClick={ onClose }>
+					<Button variant="minimal" tone="neutral" size="small" onClick={ onClose }>
 						{ __( 'Cancel' ) }
-					</button>
-					<button type="button" className={ styles.noteSave } disabled={ empty } onClick={ onSave }>
+					</Button>
+					<Button
+						variant="outline"
+						tone="neutral"
+						size="small"
+						disabled={ empty }
+						onClick={ onSave }
+					>
 						{ draft.id ? __( 'Update' ) : __( 'Save' ) }
-					</button>
-					<button
-						type="button"
-						className={ styles.noteSubmit }
+					</Button>
+					<Button
+						variant="solid"
+						tone="brand"
+						size="small"
 						disabled={ empty && ! hasNotes }
 						onClick={ onSubmit }
 					>
 						{ __( 'Send to chat' ) }
-					</button>
+					</Button>
 				</div>
 			</Popover.Popup>
 		</Popover.Root>

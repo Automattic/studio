@@ -28,10 +28,8 @@ export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
-export const DESIGN_SYSTEM_PATH = DESIGN_SYSTEM_PREVIEW_PATH;
-
 export function getPreviewRealm( path: string ): PreviewRealm {
-	if ( path === DESIGN_SYSTEM_PATH ) {
+	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
 	}
 	let target = path;
@@ -109,7 +107,6 @@ interface PreviewAddressBarProps {
 	path: string;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	// Offers the design system shortcut, for sites with DESIGN.md and theme.json.
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
 }
@@ -166,7 +163,7 @@ function storeRecentLocation(
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
-	if ( path === DESIGN_SYSTEM_PATH ) {
+	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return __( 'Design system' );
 	}
 	try {

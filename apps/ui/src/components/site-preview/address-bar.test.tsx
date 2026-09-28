@@ -1,8 +1,8 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
-	DESIGN_SYSTEM_PATH,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
@@ -32,13 +32,11 @@ function renderAddressBar( {
 	site = SITE,
 	onNavigate = vi.fn< ( path: string ) => void >(),
 	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
-	hasDesignSystem,
 }: {
 	path?: string;
 	site?: SiteDetails;
 	onNavigate?: Mock< ( path: string ) => void >;
 	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
-	hasDesignSystem?: boolean;
 } = {} ) {
 	const result = render(
 		<PreviewAddressBar
@@ -47,7 +45,6 @@ function renderAddressBar( {
 			path={ path }
 			onNavigate={ onNavigate }
 			onSwitchRealm={ onSwitchRealm }
-			hasDesignSystem={ hasDesignSystem }
 		/>
 	);
 	return { ...result, onNavigate, onSwitchRealm };
@@ -84,7 +81,7 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( '/wp-admin/' ) ).toBe( 'admin' );
 		expect( getPreviewRealm( DATABASE_HOME_PATH ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
-		expect( getPreviewRealm( DESIGN_SYSTEM_PATH ) ).toBe( 'design' );
+		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
 	} );
 
 	it( 'maps realms to open events', () => {
@@ -224,19 +221,6 @@ describe( 'PreviewAddressBar', () => {
 		);
 		fireEvent.focus( input );
 		expect( screen.queryByRole( 'button', { name: /Database/ } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'offers the design system only for sites that have one', async () => {
-		const { unmount } = renderAddressBar();
-		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		expect( await screen.findByRole( 'button', { name: /Database/ } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: /Design system/ } ) ).not.toBeInTheDocument();
-		unmount();
-
-		const { onSwitchRealm } = renderAddressBar( { hasDesignSystem: true } );
-		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: /Design system/ } ) );
-		expect( onSwitchRealm ).toHaveBeenCalledWith( 'design' );
 	} );
 
 	it( 'remembers submitted addresses per site and lists them as recent destinations', async () => {

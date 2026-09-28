@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -51,7 +52,6 @@ import {
 } from '@/lib/icons';
 import {
 	DATABASE_HOME_PATH,
-	DESIGN_SYSTEM_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -407,7 +407,7 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
-	design: DESIGN_SYSTEM_PATH,
+	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
 
 /**
@@ -1373,18 +1373,6 @@ export function SitePreview( {
 		( state: InspectorState ) => patchSurface( 'design', { inspector: state } ),
 		[ patchSurface ]
 	);
-
-	// The design surface has no page load, so its progress follows the fetch.
-	const designFetching = siteDesign.isFetching;
-	useEffect( () => {
-		patchSurface( 'design', {
-			browser: {
-				...EMPTY_BROWSER_STATE,
-				loading: designFetching,
-				progress: designFetching ? 0.5 : 0,
-			},
-		} );
-	}, [ designFetching, patchSurface, surfaces.byKey.design ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.

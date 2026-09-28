@@ -7,7 +7,6 @@ function driftLabel( drift: DesignDrift ): string {
 	const kinds: Record< DesignDrift[ 'kind' ], string > = {
 		color: __( 'Color' ),
 		'font-family': __( 'Font family' ),
-		'font-files': __( 'Font files' ),
 		'font-size': __( 'Font size' ),
 		spacing: __( 'Spacing' ),
 	};
@@ -15,13 +14,6 @@ function driftLabel( drift: DesignDrift ): string {
 }
 
 function driftValues( drift: DesignDrift ): string {
-	if ( drift.kind === 'font-files' ) {
-		return sprintf(
-			/* translators: %s: font family name */
-			__( 'The theme declares %s without its font files.' ),
-			drift.design
-		);
-	}
 	return drift.theme === undefined
 		? sprintf(
 				/* translators: %s: value in DESIGN.md */
@@ -74,10 +66,7 @@ export function DriftPanel( { siteId, drift }: { siteId: string; drift: DesignDr
 							<dt>{ driftLabel( entry ) }</dt>
 							<dd>{ driftValues( entry ) }</dd>
 							<dd className={ styles.driftActions }>
-								{ action(
-									entry.kind === 'font-files' ? __( 'Download fonts' ) : __( 'Use DESIGN.md' ),
-									() => fix( [ entry ], 'theme' )
-								) }
+								{ action( __( 'Use DESIGN.md' ), () => fix( [ entry ], 'theme' ) ) }
 								{ entry.theme !== undefined
 									? action( __( 'Keep theme.json' ), () => fix( [ entry ], 'design' ) )
 									: null }

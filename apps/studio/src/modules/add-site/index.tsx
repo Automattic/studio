@@ -608,10 +608,12 @@ export function AddSiteModalContent( {
 
 	return (
 		<>
+			{ /* The grid inherits `-webkit-app-region: drag`, so it must stay behind the titlebar and
+			modal header or it swallows clicks on their buttons on Windows/Linux. */ }
 			<div
 				aria-hidden="true"
 				className={ cx(
-					'fixed inset-0 pointer-events-none z-0 transition-opacity ease-out',
+					'absolute inset-0 pointer-events-none -z-10 transition-opacity ease-out',
 					showDotGrid ? 'opacity-100 duration-500' : 'opacity-0 duration-700'
 				) }
 			>

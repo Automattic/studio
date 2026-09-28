@@ -49,37 +49,29 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',
+			'wp-content/cache',
 			`wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
 			...prefixedLegacyMuPluginNames,
 			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 		];
+		const normalizedPath = path.normalize( pathToCheck );
 
-		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) =>
-			pathToCheck.startsWith( path.normalize( pathToExclude ) )
-		);
+		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) => {
+			const normalizedPathToExclude = path.normalize( pathToExclude );
+			return (
+				normalizedPath === normalizedPathToExclude ||
+				normalizedPath.startsWith( normalizedPathToExclude + path.sep )
+			);
+		} );
 	}
 
-	// Look for disallowed directory names in a given path. If found, determine whether that part of
-	// the path is a directory or not.
-	isPathExcludedByPattern( pathToCheck: string ) {
-		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
-		const pathParts = pathToCheck.split( path.sep );
+	// Excludes files inside directories with these names anywhere under the archived path.
+	// Expects a path relative to the site root so the site's own location never matches.
+	isPathExcludedByPattern( relativePath: string ) {
+		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules' ];
+		const directoryParts = path.normalize( relativePath ).split( path.sep ).slice( 0, -1 );
 
-		for ( const directoryName of DIRECTORY_NAMES_TO_EXCLUDE ) {
-			if ( ! pathParts.includes( directoryName ) ) {
-				continue;
-			}
-			const offenderIndex = pathToCheck.lastIndexOf( directoryName );
-			const offenderPath = pathToCheck.substring( 0, offenderIndex + directoryName.length );
-			try {
-				const stat = fs.statSync( offenderPath );
-				return stat.isDirectory();
-			} catch ( error ) {
-				return false;
-			}
-		}
-
-		return false;
+		return directoryParts.some( ( part ) => DIRECTORY_NAMES_TO_EXCLUDE.includes( part ) );
 	}
 
 	constructor( options: ExportOptions ) {
@@ -268,7 +260,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			);
 			if (
 				this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-				this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+				this.isPathExcludedByPattern( entryPathRelativeToArchiveRoot ) ||
 				this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
 			) {
 				continue;

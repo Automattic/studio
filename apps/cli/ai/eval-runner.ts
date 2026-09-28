@@ -67,10 +67,11 @@ const evalSeedSchema = z.object( {
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
-	// Creates a real (stopped) site under STUDIO_SITES_ROOT and makes it the
-	// active site for the turn, the way the app and the CLI picker do. Deleted
-	// after the turn.
-	activeSite: z.object( { name: z.string() } ).optional(),
+	// A real (stopped) site under STUDIO_SITES_ROOT, active for the turn, with
+	// `files` written relative to its root. Deleted after the turn.
+	activeSite: z
+		.object( { name: z.string(), files: z.record( z.string(), z.string() ).optional() } )
+		.optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
@@ -173,6 +174,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			},
 			new Logger()
 		);
+		for ( const [ relativePath, content ] of Object.entries( activeSite.files ?? {} ) ) {
+			const filePath = path.join( activeSitePath, relativePath );
+			mkdirSync( path.dirname( filePath ), { recursive: true } );
+			writeFileSync( filePath, content );
+		}
 		promptPrefix = formatActiveSitePrefix( {
 			name: activeSite.name,
 			path: activeSitePath,

@@ -1,6 +1,7 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { external, Icon, wordpress } from '@wordpress/icons';
+import { external, Icon, styles as stylesIcon, wordpress } from '@wordpress/icons';
 import { Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@/components/popover';
@@ -23,11 +24,14 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database';
+export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
 export function getPreviewRealm( path: string ): PreviewRealm {
+	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
+		return 'design';
+	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
 		const query = path.split( '?' )[ 1 ] ?? '';
@@ -46,6 +50,7 @@ const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
 
 export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
@@ -102,6 +107,7 @@ interface PreviewAddressBarProps {
 	path: string;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
+	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
 }
 
@@ -157,6 +163,9 @@ function storeRecentLocation(
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
+	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
+		return __( 'Design system' );
+	}
 	try {
 		return new URL( path, siteUrl ).toString();
 	} catch {
@@ -170,6 +179,7 @@ export function PreviewAddressBar( {
 	path,
 	onNavigate,
 	onSwitchRealm,
+	hasDesignSystem = false,
 	onOpenExternal,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
@@ -208,12 +218,11 @@ export function PreviewAddressBar( {
 		setShortcutsOpen( false );
 		onNavigate( recent.path );
 	};
-	const renderLocationIcon = ( locationPath: string ) => {
-		const realm = getPreviewRealm( locationPath );
+	const renderRealmIcon = ( realm: PreviewRealm, siteIconClassName?: string ) => {
 		if ( realm === 'frontend' ) {
 			return (
 				<SiteIcon
-					className={ styles.shortcutSiteIcon }
+					className={ siteIconClassName }
 					seed={ `${ site.id }:${ site.name }:${ site.path }` }
 					imageSrc={ site.siteIcon }
 				/>
@@ -221,7 +230,7 @@ export function PreviewAddressBar( {
 		}
 		return (
 			<Icon
-				icon={ realm === 'admin' ? wordpress : databaseIcon }
+				icon={ { admin: wordpress, database: databaseIcon, design: stylesIcon }[ realm ] }
 				size={ 18 }
 				className={ realm === 'admin' ? styles.wordpressIcon : undefined }
 			/>
@@ -248,18 +257,7 @@ export function PreviewAddressBar( {
 					aria-label={ __( 'Preview shortcuts' ) }
 					onClick={ () => setShortcutsOpen( true ) }
 				>
-					{ activeRealm === 'frontend' ? (
-						<SiteIcon
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
-					) : (
-						<Icon
-							icon={ activeRealm === 'admin' ? wordpress : databaseIcon }
-							size={ 18 }
-							className={ activeRealm === 'admin' ? styles.wordpressIcon : undefined }
-						/>
-					) }
+					{ renderRealmIcon( activeRealm ) }
 				</button>
 				<input
 					className={ styles.input }
@@ -304,21 +302,23 @@ export function PreviewAddressBar( {
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
 				<div className={ styles.shortcutsList }>
 					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'frontend' ) }>
-						<SiteIcon
-							className={ styles.shortcutSiteIcon }
-							seed={ `${ site.id }:${ site.name }:${ site.path }` }
-							imageSrc={ site.siteIcon }
-						/>
+						{ renderRealmIcon( 'frontend', styles.shortcutSiteIcon ) }
 						<span>{ __( 'Front end' ) }</span>
 					</Popover.Close>
 					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'admin' ) }>
-						<Icon icon={ wordpress } size={ 18 } className={ styles.wordpressIcon } />
+						{ renderRealmIcon( 'admin' ) }
 						<span>{ __( 'WP Admin' ) }</span>
 					</Popover.Close>
 					<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'database' ) }>
-						<Icon icon={ databaseIcon } size={ 18 } />
+						{ renderRealmIcon( 'database' ) }
 						<span>{ __( 'Database' ) }</span>
 					</Popover.Close>
+					{ hasDesignSystem ? (
+						<Popover.Close className={ styles.shortcut } onClick={ () => chooseRealm( 'design' ) }>
+							{ renderRealmIcon( 'design' ) }
+							<span>{ __( 'Design system' ) }</span>
+						</Popover.Close>
+					) : null }
 				</div>
 				{ recentLocations.length > 0 ? (
 					<div className={ styles.shortcutsSection }>
@@ -330,7 +330,7 @@ export function PreviewAddressBar( {
 								title={ recent.label }
 								onClick={ () => chooseRecentLocation( recent ) }
 							>
-								{ renderLocationIcon( recent.path ) }
+								{ renderRealmIcon( getPreviewRealm( recent.path ), styles.shortcutSiteIcon ) }
 								<span className={ styles.shortcutUrl }>{ recent.label }</span>
 							</Popover.Close>
 						) ) }

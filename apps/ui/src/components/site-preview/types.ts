@@ -15,3 +15,16 @@ export interface Annotation {
 	timestamp?: number;
 	[ key: string ]: unknown;
 }
+
+export interface InspectorState {
+	ready: boolean;
+	isPicking: boolean;
+	annotationCount: number;
+	hasUnsavedDraft: boolean;
+}
+
+// A new id is a new command.
+export interface InspectorCommand {
+	id: number;
+	type: 'cancel' | 'toggle-picking' | 'submit';
+}

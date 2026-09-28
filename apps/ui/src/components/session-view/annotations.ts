@@ -20,6 +20,7 @@ function truncateText( text: string, maxLength: number ): string {
 /* Short CSS-ish handle for the chip in the transcript: the tag plus up to two
  * of the element's own classes, e.g. `h1.hero-title`. */
 function describeElement( annotation: Annotation ): string | undefined {
+	if ( typeof annotation.designToken === 'string' ) return annotation.designToken;
 	if ( ! annotation.tag ) return undefined;
 	const classes = ( annotation.classes ?? [] ).slice( 0, 2 );
 	return classes.length ? `${ annotation.tag }.${ classes.join( '.' ) }` : `<${ annotation.tag }>`;
@@ -38,6 +39,10 @@ export function toVisualAnnotationSummaries(
 	} ) );
 }
 
+function isDesignSystemAnnotation( annotation: Annotation ): boolean {
+	return annotation.path === 'DESIGN.md';
+}
+
 function stringifyAnnotation( annotation: Annotation ): string {
 	return JSON.stringify( annotation, null, 2 );
 }
@@ -54,17 +59,29 @@ export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
 		'',
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
-		'## Submitted Annotations',
-		'',
 	];
+	if ( annotations.some( isDesignSystemAnnotation ) ) {
+		lines.push(
+			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
+			''
+		);
+	}
+	lines.push( '## Submitted Annotations', '' );
 
 	annotations.forEach( ( annotation, index ) => {
-		const tag = annotation.tag ? `<${ annotation.tag }>` : 'element';
+		const token = typeof annotation.designToken === 'string' ? annotation.designToken : undefined;
+		const tag = token
+			? `design token \`${ token }\``
+			: annotation.tag
+			? `<${ annotation.tag }>`
+			: 'element';
 		const nearbyText =
 			typeof annotation.nearbyText === 'string' && annotation.nearbyText.trim()
 				? ` - "${ truncateText( annotation.nearbyText.trim(), 120 ) }"`
 				: '';
-		const page = annotation.url || annotation.path || '/';
+		const page = isDesignSystemAnnotation( annotation )
+			? 'Design system (DESIGN.md)'
+			: annotation.url || annotation.path || '/';
 
 		lines.push(
 			`### ${ index + 1 }. ${ tag }${ nearbyText }`,

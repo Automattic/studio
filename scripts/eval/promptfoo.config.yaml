@@ -994,3 +994,78 @@ tests:
             const asks = mentionsCurrent && mentionsNew && text.includes('?');
             return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
           });
+
+  # An annotation left on the preview's Design system page names a DESIGN.md
+  # token. The agent changes it in DESIGN.md and carries it to theme.json.
+  - description: design system annotation updates DESIGN.md and theme.json
+    vars:
+      caseId: design-system-annotation
+      timeoutMs: 420000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Design Annotation
+          files:
+            DESIGN.md: |
+              ---
+              name: "Eval Design Annotation"
+              colors:
+                primary: "#2F6BFF"
+                background: "#FFFFFF"
+                text: "#111111"
+              typography:
+                body:
+                  fontFamily: "Inter"
+                  fontSize: "1rem"
+                  fontWeight: 400
+              ---
+
+              # Overview
+              A calm, minimal site.
+      prompt: |
+        The user submitted 1 visual annotation from the site preview.
+
+        Make the requested changes. When there are several annotations, address them in the order they were submitted.
+
+        When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
+
+        Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.
+
+        ## Submitted Annotations
+
+        ### 1. design token `colors.primary` - "primary: #2F6BFF"
+        - Page: Design system (DESIGN.md)
+        - Comment: Make the primary color a warm terracotta instead of this blue.
+
+        ```json
+        {
+          "id": "a_1",
+          "comment": "Make the primary color a warm terracotta instead of this blue.",
+          "nearbyText": "primary: #2F6BFF",
+          "designToken": "colors.primary",
+          "path": "DESIGN.md",
+          "timestamp": 1790000000000
+        }
+        ```
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '');
+            const written = (c) => [c.input?.content, c.input?.new_string, ...(Array.isArray(c.input?.edits) ? c.input.edits.map(e => e?.newText) : [])].filter(v => typeof v === 'string').join('\n');
+            const writes = calls.filter(c => c.name === 'Write' || c.name === 'Edit');
+            const design = writes.filter(c => pathOf(c.input).endsWith('DESIGN.md'));
+            const primary = design.map(written).join('\n').match(/primary:\s*"?(#[0-9a-fA-F]{3,8})/);
+            if (!primary || primary[1].toLowerCase() === '#2f6bff') {
+              return { pass: false, score: 0, reason: `DESIGN.md's primary color was not changed; DESIGN.md writes: ${JSON.stringify(design.map(c => c.input)).slice(0, 400)}` };
+            }
+            const themed = writes.some(c => /wp-content\/themes\/[^/]+\/theme\.json$/.test(pathOf(c.input))) || calls.some(c => c.name === 'scaffold_theme');
+            if (!themed) {
+              return { pass: false, score: 0, reason: `no theme.json update after changing DESIGN.md; tools: ${JSON.stringify(calls.map(c => c.name))}` };
+            }
+            return { pass: true, score: 1, reason: `DESIGN.md primary changed to ${primary[1]} and the theme followed` };
+          });

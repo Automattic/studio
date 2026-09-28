@@ -25,6 +25,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
+import { PREVIEW_TOGGLE_DURATION } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
@@ -36,6 +37,7 @@ import {
 import { useAppZoomFactor } from '@/hooks/use-app-zoom-factor';
 import { refreshThemeDetails } from '@/hooks/use-theme-details';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useTrafficLightsPosition } from '@/hooks/use-traffic-lights-position';
 import { useWindowControlsInset } from '@/hooks/use-window-controls-inset';
 import { getSiteUrl } from '@/lib/get-site-url';
 import {
@@ -1123,6 +1125,10 @@ export function SitePreview( {
 	const canPreview = site.running;
 	const canUseWebview = isElectron();
 	const trafficLightSpace = useTrafficLightSpace();
+	useTrafficLightsPosition(
+		!! fullscreen && canPreview && ( trafficLightSpace.start || trafficLightSpace.end ),
+		PREVIEW_TOGGLE_DURATION
+	);
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const safePath = getSafePath( path );
 	// Which realm the host is pointing the preview at. Derived from the path

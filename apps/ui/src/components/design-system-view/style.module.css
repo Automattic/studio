@@ -1,5 +1,4 @@
-/* The page wears the site's own design, so its colors come from the DESIGN.md
-   tokens (set inline as --ds-*) rather than the app theme. */
+/* Colors come from the site's DESIGN.md (inline --ds-*), not the app theme. */
 .root {
 	--ds-hairline: color-mix(in srgb, var(--ds-text) 18%, transparent);
 	container-type: inline-size;
@@ -474,7 +473,6 @@
 	font-size: var(--wpds-typography-font-size-sm);
 }
 
-/* Annotation mode, styled like the site-preview inspector. */
 .root [data-annotation-target] {
 	position: relative;
 }

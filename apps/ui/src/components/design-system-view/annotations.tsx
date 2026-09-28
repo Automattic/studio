@@ -11,7 +11,6 @@ export interface DesignAnnotationProps {
 	onDone?: ( annotations: Annotation[] ) => void;
 }
 
-// Something on the page a note can point at: a DESIGN.md token when it has one.
 interface Target {
 	key: string;
 	label: string;
@@ -46,8 +45,7 @@ function toAnnotation( note: Note ): Annotation {
 
 /**
  * Annotation mode for the design system page, driven by the preview toolbar like
- * the site-preview inspector: while picking, clicking a target opens a note, and
- * submitting hands the notes over as annotations naming the DESIGN.md token.
+ * the site-preview inspector.
  */
 export function useDesignAnnotations( {
 	command,

@@ -231,11 +231,9 @@ export interface Connector {
 	// a site the user has already left.
 	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
-	// lacks either. Resolving the active theme runs WP-CLI, but only for sites
-	// with a DESIGN.md.
+	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
-	// Settles drifts between DESIGN.md and theme.json, each in the direction its
-	// fix names, and resolves the design system as it stands afterwards.
+	// Settles drifts between DESIGN.md and theme.json and resolves the result.
 	fixSiteDesignDrift( siteId: string, fixes: DesignFix[] ): Promise< SiteDesign | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the

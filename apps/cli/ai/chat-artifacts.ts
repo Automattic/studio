@@ -63,7 +63,7 @@ interface FileWritingTool {
 
 /**
  * Wraps a file-writing tool so that writing a site's DESIGN.md opens the design
- * system in the preview: the design system changed, so that is what to look at.
+ * system in the preview.
  */
 export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	tool: TTool,

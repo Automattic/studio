@@ -16,7 +16,6 @@ export interface Annotation {
 	[ key: string ]: unknown;
 }
 
-// What an annotation surface reports to the preview toolbar.
 export interface InspectorState {
 	ready: boolean;
 	isPicking: boolean;
@@ -24,7 +23,7 @@ export interface InspectorState {
 	hasUnsavedDraft: boolean;
 }
 
-// A toolbar command addressed to an annotation surface; a new id is a new command.
+// A new id is a new command.
 export interface InspectorCommand {
 	id: number;
 	type: 'cancel' | 'toggle-picking' | 'submit';

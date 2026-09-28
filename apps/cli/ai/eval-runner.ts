@@ -67,10 +67,8 @@ const evalSeedSchema = z.object( {
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
-	// Creates a real (stopped) site under STUDIO_SITES_ROOT and makes it the
-	// active site for the turn, the way the app and the CLI picker do, with
-	// `files` (paths relative to the site root) written into it. Deleted after
-	// the turn.
+	// A real (stopped) site under STUDIO_SITES_ROOT, active for the turn, with
+	// `files` written relative to its root. Deleted after the turn.
 	activeSite: z
 		.object( { name: z.string(), files: z.record( z.string(), z.string() ).optional() } )
 		.optional(),

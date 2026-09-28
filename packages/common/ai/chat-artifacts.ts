@@ -1,8 +1,6 @@
 export const STUDIO_CHAT_ARTIFACT_VERSION = 1 as const;
 
-// The site preview path of the design system page. It isn't a page on the site:
-// Studio renders it from DESIGN.md and theme.json, so a non-path location keeps
-// it out of the site's URL space.
+// Not a URL path: Studio renders the design system page itself.
 export const DESIGN_SYSTEM_PREVIEW_PATH = 'studio:design-system';
 
 export interface StudioChatArtifactWidgetDraft {

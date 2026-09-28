@@ -105,10 +105,8 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				},
 			};
 		case 'preview/reload':
-			// Reload the current path in place (bump the nonce). Reveal the
-			// panel so the agent-triggered refresh is actually visible. The
-			// agent reloads to show the site it changed, so the design system
-			// page gives way to the front end.
+			// Reveal the panel so the refresh is visible. The agent reloads to
+			// show the site it changed, so the design system gives way to it.
 			return {
 				...state,
 				preview: {

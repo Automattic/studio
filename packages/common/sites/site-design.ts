@@ -14,9 +14,7 @@ import { z } from 'zod';
 import { downloadThemeFonts } from '../lib/theme-fonts';
 
 export interface SiteDesign {
-	// DESIGN.md at the site root, as written.
 	design: string;
-	// The active theme's theme.json, parsed.
 	themeJson: Record< string, unknown >;
 }
 
@@ -87,10 +85,8 @@ export async function readSiteDesign(
 }
 
 /**
- * Settles drifts between DESIGN.md and the active theme's theme.json, each in the
- * direction its fix names, downloading the font files of families written to
- * theme.json. Fixes for drifts that no longer exist are ignored. Resolves the
- * design system as it stands afterwards.
+ * Settles drifts between DESIGN.md and the active theme's theme.json, downloading
+ * the font files of families written to theme.json. Stale fixes are ignored.
  */
 export async function fixSiteDesign(
 	sitePath: string,

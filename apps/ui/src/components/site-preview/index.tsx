@@ -400,9 +400,7 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
-// Where each realm segment lands before its per-realm memory has anything
-// better: site root, WP Admin dashboard, phpMyAdmin's WordPress database, and
-// the design system.
+// Where each realm segment lands before its per-realm memory has anything better.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
@@ -417,8 +415,7 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
  * one webview: one history stack, and a page loaded after signing in reflects
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
  * isn't responsive — so it gets its own surface, which never resizes when the
- * preview flips to it. The design system isn't a web page at all: its
- * surface is rendered by Studio from the site's DESIGN.md and theme.json.
+ * preview flips to it. The design system isn't a web page: Studio renders it.
  */
 type PreviewSurfaceKey = 'site' | 'database' | 'design';
 

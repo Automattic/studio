@@ -378,14 +378,11 @@ export function designSheet( tokens: DesignTokens ): DesignSheet {
 export interface DesignDrift {
 	/** `style-font` is the font a theme.json style (body, heading, button) uses. */
 	kind: 'color' | 'font-family' | 'font-size' | 'spacing' | 'style-font';
-	/** The preset slug, or the style for `style-font`. */
 	slug: string;
 	design: string;
-	/** The theme.json value, or undefined when theme.json lacks the token. */
 	theme?: string;
 }
 
-/** Settles one drift, by writing the DESIGN.md value to theme.json or the other way around. */
 export interface DesignFix {
 	kind: DesignDrift[ 'kind' ];
 	slug: string;
@@ -474,8 +471,6 @@ export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): Desig
 		}
 	);
 
-	// A style points at a font preset (`var:preset|font-family|x` or its CSS
-	// variable) or names a family directly.
 	const families = [
 		...presets( themeJson.settings, 'typography', 'fontFamilies' ),
 		...presets( expected?.settings, 'typography', 'fontFamilies' ),

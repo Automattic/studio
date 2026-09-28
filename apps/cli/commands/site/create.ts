@@ -468,25 +468,12 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 }
 
 function capturedSourceTitle( websitePath: string ): string | undefined {
-	for ( const receiptPath of [
-		path.join( path.dirname( websitePath ), 'capture-receipt.json' ),
-		path.join( websitePath, 'capture-receipt.json' ),
-	] ) {
-		if ( ! fs.existsSync( receiptPath ) ) continue;
-		try {
-			const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) );
-			if (
-				receipt.schema === 'data-liberation/capture-receipt/v1' &&
-				typeof receipt.title === 'string' &&
-				receipt.title.trim()
-			) {
-				return receipt.title.trim();
-			}
-		} catch {
-			// A malformed or absent receipt leaves the importer's fallback intact.
-		}
-	}
-	return undefined;
+	const captureRoot = [ websitePath, path.dirname( websitePath ) ].find(
+		isDataLiberationCaptureRoot
+	);
+	if ( ! captureRoot ) return undefined;
+	const title = readSiteArtifact( path.join( captureRoot, 'capture-receipt.json' ) ).title;
+	return typeof title === 'string' && title.trim() ? title.trim() : undefined;
 }
 
 export function buildCreateFromSourceBlueprint(
@@ -637,10 +624,7 @@ export async function prepareSourceImport(
 		);
 		return {
 			blueprint,
-			siteName:
-				siteName ??
-				capturedSourceTitle( path.join( keptCapture, 'website' ) ) ??
-				__( 'Imported Site' ),
+			siteName: siteName ?? artifactTitle( JSON.parse( resumable ) ) ?? __( 'Imported Site' ),
 			compareCommand: fs.existsSync( keptCapture )
 				? await captureCompareCommand( keptCapture ).catch( () => undefined )
 				: undefined,

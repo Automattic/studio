@@ -511,6 +511,7 @@ describe( 'CLI: studio create', () => {
 			const sitePath = path.join( siteRoot, 'site' );
 			const staged = path.join( sitePath, '.studio-import' );
 			const request = `${ JSON.stringify( {
+				site_title: 'Liberated Site',
 				source_metadata: { source: 'studio-create-from', source_path: 'https://example.com' },
 			} ) }\n`;
 			await fs.promises.mkdir( path.join( staged, 'source' ), { recursive: true } );
@@ -533,6 +534,14 @@ describe( 'CLI: studio create', () => {
 				);
 				expect( liberate ).not.toHaveBeenCalled();
 				expect( resumed.blueprint.staticSiteImport.request ).toBe( request );
+				const inferred = await prepareSourceImport(
+					'https://example.com',
+					sitePath,
+					undefined,
+					new Logger(),
+					{ staticSiteImporter: 'https://example.com/ssi.zip', liberate }
+				);
+				expect( inferred.siteName ).toBe( 'Liberated Site' );
 
 				// A different source at the same path is a new import, not a resume.
 				await expect(

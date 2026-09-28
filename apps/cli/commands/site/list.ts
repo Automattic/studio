@@ -6,6 +6,7 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
+import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -86,9 +87,10 @@ function displaySiteList(
 
 		console.log( table.toString() );
 	} else {
-		const json = JSON.stringify( data.jsonEntries );
-		console.log( json );
-		logger.reportKeyValuePair( 'sites', json );
+		// stdout is for scripts, logs, and agents, so it only carries public fields. The
+		// desktop app reads the full record, credentials included, over IPC.
+		console.log( JSON.stringify( data.jsonEntries.map( pickPublicSiteFields ) ) );
+		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
 	}
 }
 

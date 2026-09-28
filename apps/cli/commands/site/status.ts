@@ -53,6 +53,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			value: string | undefined;
 			type?: string;
 			hidden?: boolean;
+			secret?: boolean;
 		}[] = [
 			{
 				key: __( 'Site URL' ),
@@ -83,6 +84,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				key: __( 'Admin password' ),
 				jsonKey: 'adminPassword',
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
+				secret: true,
 			},
 			{ key: __( 'Admin email' ), jsonKey: 'adminEmail', value: site.adminEmail },
 		].filter( ( { value, hidden } ) => value && ! hidden );
@@ -104,14 +106,16 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.flatMap( ( { jsonKey, value } ) =>
-					jsonKey === 'status'
-						? [
-								[ jsonKey, value ],
-								[ 'isOnline', isOnline ],
-						  ]
-						: [ [ jsonKey, value ] ]
-				)
+				siteData
+					.filter( ( { secret } ) => ! secret )
+					.flatMap( ( { jsonKey, value } ) =>
+						jsonKey === 'status'
+							? [
+									[ jsonKey, value ],
+									[ 'isOnline', isOnline ],
+							  ]
+							: [ [ jsonKey, value ] ]
+					)
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

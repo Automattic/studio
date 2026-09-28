@@ -89,12 +89,33 @@ describe( 'CLI: studio site status', () => {
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
-						adminPassword: 'password123',
 					},
 					null,
 					2
 				)
 			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'omits secret credential fields from status JSON', async () => {
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			const stdout = String( consoleSpy.mock.calls[ 0 ][ 0 ] );
+			const parsed = JSON.parse( stdout ) as Record< string, unknown >;
+
+			expect( parsed ).not.toHaveProperty( 'adminPassword' );
+			expect( stdout ).not.toContain( 'password123' );
+			expect( parsed ).toMatchObject( {
+				siteUrl: 'http://localhost:8080/',
+				sitePath: '/path/to/site',
+				phpVersion: '8.0',
+				runtime: 'Native',
+				wpVersion: '6.4',
+				adminUsername: 'admin',
+			} );
 
 			consoleSpy.mockRestore();
 		} );
@@ -126,7 +147,6 @@ describe( 'CLI: studio site status', () => {
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
-						adminPassword: 'password123',
 					},
 					null,
 					2

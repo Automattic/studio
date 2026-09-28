@@ -608,8 +608,6 @@ export function AddSiteModalContent( {
 
 	return (
 		<>
-			{ /* The grid inherits `-webkit-app-region: drag`, so it must stay behind the titlebar and
-			modal header or it swallows clicks on their buttons on Windows/Linux. */ }
 			<div
 				aria-hidden="true"
 				className={ cx(

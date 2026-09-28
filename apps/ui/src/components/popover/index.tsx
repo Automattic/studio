@@ -1,5 +1,6 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
-import { FloatingSurface } from '@/components/floating-surface';
+import { ThemeProvider } from '@wordpress/theme';
+import { FLOATING_SURFACE_BACKGROUND, FloatingSurface } from '@/components/floating-surface';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -11,10 +12,7 @@ export const Title = BasePopover.Title;
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;
 type PopupProps = ComponentProps< typeof BasePopover.Popup >;
 
-/**
- * Portal + Positioner + Popup in one, on the same floating surface as the menus.
- * `anchor` positions it against an element instead of its trigger.
- */
+/** Portal + Positioner + Popup on the floating surface, its content themed to match. */
 export function Popup( {
 	children,
 	side = 'bottom',
@@ -50,7 +48,9 @@ export function Popup( {
 					finalFocus={ finalFocus }
 					render={ <FloatingSurface className={ className } style={ style } /> }
 				>
-					{ children }
+					<ThemeProvider color={ { background: FLOATING_SURFACE_BACKGROUND } }>
+						{ children }
+					</ThemeProvider>
 				</BasePopover.Popup>
 			</BasePopover.Positioner>
 		</BasePopover.Portal>

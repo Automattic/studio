@@ -4,9 +4,7 @@
 	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
 }
 
-/* A flex column so the "Open sidebar" CTA stays pinned below the scrolling
-   list instead of scrolling out of view with it. Tokens resolve against the
-   dark theme scope wrapping this node. */
+/* Keeps the "Open sidebar" CTA pinned below the scrolling list. */
 .surface {
 	display: flex;
 	flex-direction: column;

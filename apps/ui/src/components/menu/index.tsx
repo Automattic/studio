@@ -33,8 +33,7 @@ type PopupProps = {
 };
 
 /**
- * Wraps Portal + Positioner + Popup so consumers only need one component,
- * rendered on the shared floating surface.
+ * Wraps Portal + Positioner + Popup so consumers only need one component.
  */
 export function Popup( {
 	children,

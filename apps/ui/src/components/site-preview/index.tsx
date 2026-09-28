@@ -23,7 +23,7 @@ import {
 } from '@wordpress/keycodes';
 import { Button, Dialog, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DesignSystemView } from '@/components/design-system-view';
 import { DotGrid } from '@/components/dot-grid';
 import * as Menu from '@/components/menu';
@@ -1698,18 +1698,21 @@ export function SitePreview( {
 										inert={ active ? undefined : true }
 									>
 										<div className={ clsx( styles.surfaceFrame, styles.designSurface ) }>
-											{ siteDesign.isPending ||
-											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
-												<DesignSystemView
-													siteId={ site.id }
-													siteDesign={ siteDesign.data ?? null }
-													annotations={ {
-														command: surface.inspectorCommand,
-														onState: onDesignInspectorState,
-														onDone: onAnnotationsDone,
-													} }
-												/>
-											) }
+											{ /* The view waits for the site's font stylesheet; only this pane should. */ }
+											<Suspense fallback={ null }>
+												{ siteDesign.isPending ||
+												( siteDesign.isFetching && ! siteDesign.data ) ? null : (
+													<DesignSystemView
+														siteId={ site.id }
+														siteDesign={ siteDesign.data ?? null }
+														annotations={ {
+															command: surface.inspectorCommand,
+															onState: onDesignInspectorState,
+															onDone: onAnnotationsDone,
+														} }
+													/>
+												) }
+											</Suspense>
 										</div>
 									</div>
 								);

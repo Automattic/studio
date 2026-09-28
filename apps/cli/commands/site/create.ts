@@ -467,6 +467,24 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 	return undefined;
 }
 
+function capturedSourceTitle( websitePath: string ): string | undefined {
+	for ( const receiptPath of [
+		path.join( path.dirname( websitePath ), 'capture-receipt.json' ),
+		path.join( websitePath, 'capture-receipt.json' ),
+	] ) {
+		if ( ! fs.existsSync( receiptPath ) ) continue;
+		try {
+			const receipt = JSON.parse( fs.readFileSync( receiptPath, 'utf8' ) );
+			if ( receipt.schema === 'data-liberation/capture-receipt/v1' && typeof receipt.title === 'string' && receipt.title.trim() ) {
+				return receipt.title.trim();
+			}
+		} catch {
+			// A malformed or absent receipt leaves the importer's fallback intact.
+		}
+	}
+	return undefined;
+}
+
 export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
@@ -582,7 +600,7 @@ function partialCaptureWarning( report: PartialCaptureReport ): string {
 export async function prepareSourceImport(
 	source: string,
 	sitePath: string,
-	siteName: string,
+	siteName: string | undefined,
 	logger: Logger< LoggerAction >,
 	options: {
 		staticSiteImporter?: StaticSiteImporterPlugin;
@@ -593,6 +611,7 @@ export async function prepareSourceImport(
 	liberationOutputDir?: string;
 	compareCommand?: ( siteUrl: string ) => string;
 	capturedPartially: boolean;
+	siteName: string;
 } > {
 	const sourceUrl = isUrl( source ) ? source : undefined;
 	let importSource = source;
@@ -614,6 +633,7 @@ export async function prepareSourceImport(
 		);
 		return {
 			blueprint,
+			siteName: siteName ?? capturedSourceTitle( path.join( keptCapture, 'website' ) ) ?? __( 'Imported Site' ),
 			compareCommand: fs.existsSync( keptCapture )
 				? await captureCompareCommand( keptCapture ).catch( () => undefined )
 				: undefined,
@@ -658,13 +678,14 @@ export async function prepareSourceImport(
 		}
 		logger.reportSuccess( __( 'Source website prepared' ) );
 	}
+	const resolvedSiteName = siteName ?? capturedSourceTitle( importSource ) ?? __( 'Imported Site' );
 	const blueprint = buildCreateFromSourceBlueprint(
 		importSource,
-		siteName,
+		resolvedSiteName,
 		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
 		sourceUrl
 	);
-	return { blueprint, liberationOutputDir, compareCommand, capturedPartially };
+	return { blueprint, liberationOutputDir, compareCommand, capturedPartially, siteName: resolvedSiteName };
 }
 
 export function staticSiteImportProgressMessage(
@@ -1857,7 +1878,7 @@ export const registerCommand = (
 					const prepared = await prepareSourceImport(
 						importSource,
 						sitePath,
-						siteName || __( 'Imported Site' ),
+						siteName,
 						defaultLogger,
 						{
 							staticSiteImporter: argv.staticSiteImporterPath
@@ -1867,6 +1888,7 @@ export const registerCommand = (
 						}
 					);
 					config.blueprint = prepared.blueprint;
+					config.name = prepared.siteName;
 					liberationOutputDir = prepared.liberationOutputDir;
 					compareCommand = prepared.compareCommand;
 					capturedPartially = prepared.capturedPartially;

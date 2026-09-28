@@ -34,7 +34,7 @@ describe( 'CollapsedSiteSwitcher', () => {
 		fireEvent.click( trigger );
 
 		expect( screen.getByTestId( 'site-list' ) ).toBeInTheDocument();
-		expect( screen.getByTestId( 'site-list' ).parentElement?.parentElement ).toHaveStyle( {
+		expect( screen.getByRole( 'dialog' ) ).toHaveStyle( {
 			backgroundColor: '#1e1e1e',
 		} );
 	} );

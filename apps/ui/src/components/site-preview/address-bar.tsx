@@ -1,8 +1,9 @@
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { external, Icon, wordpress } from '@wordpress/icons';
-import { Popover, Tooltip, VisuallyHidden } from '@wordpress/ui';
+import { Tooltip, VisuallyHidden } from '@wordpress/ui';
 import { useEffect, useRef, useState } from 'react';
+import * as Popover from '@/components/popover';
 import { SiteIcon } from '@/components/site-icon';
 import { databaseIcon } from '@/lib/icons';
 import styles from './address-bar.module.css';
@@ -101,8 +102,6 @@ interface PreviewAddressBarProps {
 	path: string;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	// Opens the page the preview is showing in the OS browser. Omitted when
-	// the host can't (no running site to point it at).
 	onOpenExternal?: () => void;
 }
 
@@ -152,7 +151,7 @@ function storeRecentLocation(
 			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
 		);
 	} catch {
-		// The address bar remains usable when storage is unavailable or full.
+		// Storage may be unavailable or full.
 	}
 	return locations;
 }
@@ -232,8 +231,7 @@ export function PreviewAddressBar( {
 	return (
 		<Popover.Root
 			open={ shortcutsOpen }
-			// The webview swallows outside clicks, so the modal backdrop is what
-			// lets a click on the page dismiss the shortcuts.
+			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );
@@ -295,19 +293,13 @@ export function PreviewAddressBar( {
 				) : null }
 			</form>
 			<Popover.Popup
-				variant="unstyled"
+				anchor={ addressBarRef }
+				side="bottom"
+				align="start"
+				sideOffset={ 4 }
 				initialFocus={ false }
 				finalFocus={ false }
 				className={ styles.shortcutsPopup }
-				positioner={
-					<Popover.Positioner
-						anchor={ addressBarRef }
-						side="bottom"
-						align="start"
-						sideOffset={ 4 }
-						className={ styles.shortcutsPositioner }
-					/>
-				}
 			>
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Preview shortcuts' ) }</VisuallyHidden>
 				<div className={ styles.shortcutsList }>

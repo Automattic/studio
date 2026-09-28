@@ -7,9 +7,6 @@ import * as Popover from '@/components/popover';
 import { SiteList } from '@/components/site-list';
 import styles from './style.module.css';
 
-// A short pause before opening so incidental pointer travel across the
-// toggle doesn't flash the list, and a longer grace period before closing
-// so brief hover gaps don't dismiss it.
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
 
@@ -43,8 +40,6 @@ export function CollapsedSiteSwitcher( {
 				style={ { backgroundColor } }
 			>
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
-				{ /* Same dark theme scope as the expanded sidebar so the list
-				     renders identically on the window-chrome background. */ }
 				<ThemeProvider color={ { background: backgroundColor } }>
 					<div className={ styles.surface }>
 						<div className={ styles.scrollArea }>

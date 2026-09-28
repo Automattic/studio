@@ -66,11 +66,7 @@ export function Popup( {
 	);
 }
 
-/**
- * Popup for context menus. Same chrome as `Popup`, but passes no `side`/
- * `align`/offsets: with those undefined, Base UI's positioner anchors a
- * context menu at the pointer instead of a trigger edge.
- */
+/** Popup for context menus: no side/align, so Base UI anchors it at the pointer. */
 export function ContextPopup( {
 	children,
 	className,

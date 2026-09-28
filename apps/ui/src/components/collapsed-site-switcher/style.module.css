@@ -4,7 +4,6 @@
 	max-width: calc(100vw - 2 * var(--wpds-dimension-padding-xl));
 }
 
-/* Keeps the "Open sidebar" CTA pinned below the scrolling list. */
 .surface {
 	display: flex;
 	flex-direction: column;
@@ -20,23 +19,16 @@
 	padding-block: var(--wpds-dimension-padding-md);
 }
 
-/* Tighter bottom edge than the expanded sidebar. The descendant selector
-   outranks site-list's own `.root` padding shorthand, so the override does
-   not depend on stylesheet injection order. */
+/* Outranks site-list's own `.root` padding shorthand. */
 .scrollArea .siteList {
 	padding-block-end: var(--wpds-dimension-padding-sm);
 }
 
-/* Same as .headerClose in settings-view/style.module.css: keep the icons at
-   the compact 16px size so they match the expanded sidebar. */
 .surface svg {
 	width: 16px;
 	height: 16px;
 }
 
-/* Persistent affordance for the trigger's other purpose — opening the full
-   sidebar — since hover already spends the click for the site list. Sits
-   outside the scrolling area so it stays visible regardless of list length. */
 .openSidebarCta {
 	display: flex;
 	align-items: center;
@@ -46,9 +38,6 @@
 	box-sizing: border-box;
 	width: 100%;
 	padding-block: var(--wpds-dimension-padding-md);
-	/* Matches the site rows' title column, which is inset further than a
-	   plain padding-md — see --site-list-row-leading-inset/-outer-inset and
-	   --site-list-label-inline-offset in site-list/style.module.css. */
 	padding-inline-start: var(--wpds-dimension-padding-xl);
 	padding-inline-end: var(--wpds-dimension-padding-md);
 	border: none;

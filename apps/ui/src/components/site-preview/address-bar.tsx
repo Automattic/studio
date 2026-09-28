@@ -102,8 +102,6 @@ interface PreviewAddressBarProps {
 	path: string;
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	// Opens the page the preview is showing in the OS browser. Omitted when
-	// the host can't (no running site to point it at).
 	onOpenExternal?: () => void;
 }
 
@@ -153,7 +151,7 @@ function storeRecentLocation(
 			JSON.stringify( { version: RECENT_LOCATIONS_VERSION, locations } )
 		);
 	} catch {
-		// The address bar remains usable when storage is unavailable or full.
+		// Storage may be unavailable or full.
 	}
 	return locations;
 }
@@ -233,8 +231,7 @@ export function PreviewAddressBar( {
 	return (
 		<Popover.Root
 			open={ shortcutsOpen }
-			// The webview swallows outside clicks, so the modal backdrop is what
-			// lets a click on the page dismiss the shortcuts.
+			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
 			onOpenChange={ ( open ) => {
 				setShortcutsOpen( open );

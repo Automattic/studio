@@ -1,9 +1,5 @@
-/* Menus and popovers portal to document.body, escaping whatever light/dark
-   scope they opened from. Force the same dark, theme-independent surface
-   everywhere (matching the sidebar's fixed-dark chrome) instead of falling
-   through to the app's light/dark toggle. Literal colors, not the matching
-   wpds tokens: this block remaps those same tokens below, so seeding from them
-   would make each definition depend on itself. */
+/* A fixed dark surface whatever the app theme. Literal colors: the wpds tokens
+   are remapped below, so seeding from them would be circular. */
 .surface {
 	--floating-surface: #1e1e1e;
 	--floating-foreground: #f0f0f0;

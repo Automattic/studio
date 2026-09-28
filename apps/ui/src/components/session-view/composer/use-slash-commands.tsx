@@ -13,10 +13,8 @@ const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
 type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
 
 /**
- * Reproduces Base UI's `data-starting-style` / `data-ending-style` handshake
- * for a plain element (the listbox stays a plain `<ul>` so the textarea keeps
- * focus): mount with starting styles, drop them next paint, keep mounted while
- * the exit transition plays.
+ * Base UI's `data-starting-style` / `data-ending-style` handshake for a plain
+ * element (a popup would take focus from the textarea).
  */
 function useFloatingPresence( open: boolean ): {
 	mounted: boolean;

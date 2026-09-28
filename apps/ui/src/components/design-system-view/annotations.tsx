@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Popover, Textarea } from '@wordpress/ui';
+import { Button, Textarea } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Popover from '@/components/popover';
 import styles from './style.module.css';
 import type { Annotation, InspectorCommand, InspectorState } from '@/components/site-preview/types';
 import type { MouseEvent } from 'react';
@@ -198,15 +199,11 @@ function NotePopup( {
 	return (
 		<Popover.Root open onOpenChange={ ( open ) => ! open && onClose() }>
 			<Popover.Popup
+				anchor={ draft.anchor }
+				side="bottom"
+				align="start"
+				sideOffset={ 8 }
 				className={ styles.notePopup }
-				positioner={
-					<Popover.Positioner
-						anchor={ draft.anchor }
-						side="bottom"
-						align="start"
-						sideOffset={ 8 }
-					/>
-				}
 			>
 				<Popover.Title className={ styles.noteTarget }>
 					{ draft.target.label }

@@ -205,12 +205,31 @@ describe( 'applying drift', () => {
 		const settings = themeJson.settings as {
 			color: { palette: Array< { slug: string; color: string } > };
 			spacing: { spacingSizes: unknown[] };
+			typography: { fontFamilies: Array< { slug: string; name: string; fontFamily: string } > };
 		};
 		settings.color.palette[ 1 ].color = '#000000';
 		settings.color.palette.push( { slug: 'extra', color: '#123456' } );
 		settings.spacing.spacingSizes = [];
+		settings.typography.fontFamilies[ 1 ].fontFamily = '"Lora", serif';
+		settings.typography.fontFamilies.push( {
+			slug: 'playfair',
+			name: 'Playfair Display',
+			fontFamily: '"Playfair Display", serif',
+		} );
+		(
+			themeJson.styles as { elements: { heading: { typography: { fontFamily: string } } } }
+		 ).elements.heading.typography.fontFamily = 'var:preset|font-family|playfair';
 		return themeJson;
 	};
+
+	it( 'finds a style using another font than DESIGN.md gives it', () => {
+		expect( designDrift( tokens, drifted() ) ).toContainEqual( {
+			kind: 'style-font',
+			slug: 'heading',
+			design: 'Fredoka',
+			theme: 'Playfair Display',
+		} );
+	} );
 
 	it( 'writes the DESIGN.md values into theme.json and keeps its other presets', () => {
 		const themeJson = drifted();
@@ -219,11 +238,15 @@ describe( 'applying drift', () => {
 		expect( ( fixed.settings as { color: { palette: unknown[] } } ).color.palette ).toContainEqual(
 			{ slug: 'extra', color: '#123456' }
 		);
-		expect( fixed.styles ).toEqual( themeJson.styles );
+		expect( fixed.styles ).toEqual( themeJsonFromDesign( tokens, BASE )!.themeJson.styles );
 	} );
 
 	it( 'writes theme.json values back into the front matter and leaves the rest as written', () => {
 		const design = applyThemeToDesign( DESIGN_MD, designDrift( tokens, drifted() ) );
-		expect( design ).toBe( DESIGN_MD.replace( 'background: "#fffdf7"', 'background: "#000000"' ) );
+		expect( design ).toBe(
+			DESIGN_MD.replace( 'background: "#fffdf7"', 'background: "#000000"' )
+				.replace( /'Fredoka'/g, "'Playfair Display'" )
+				.replace( /Nunito, sans-serif/g, 'Lora, sans-serif' )
+		);
 	} );
 } );

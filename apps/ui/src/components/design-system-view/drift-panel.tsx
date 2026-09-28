@@ -4,7 +4,14 @@ import styles from './style.module.css';
 import type { DesignDrift, DesignFix } from '@studio/design-md';
 
 function driftLabel( drift: DesignDrift ): string {
-	const kinds: Record< DesignDrift[ 'kind' ], string > = {
+	if ( drift.kind === 'style-font' ) {
+		return (
+			{ body: __( 'Body font' ), heading: __( 'Heading font' ), button: __( 'Button font' ) }[
+				drift.slug
+			] ?? drift.slug
+		);
+	}
+	const kinds = {
 		color: __( 'Color' ),
 		'font-family': __( 'Font family' ),
 		'font-size': __( 'Font size' ),

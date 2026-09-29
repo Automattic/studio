@@ -4,7 +4,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { code, external } from '@wordpress/icons';
+import { code, external, wordpress } from '@wordpress/icons';
 import { DATABASE_HOME_PATH } from '@/components/site-preview/address-bar';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -20,7 +20,7 @@ import {
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+type OpenInDestination = 'browser' | 'wp-admin' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
 
 interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -42,13 +42,13 @@ function getFileManager(): { label: string; logo: ReactElement } {
 }
 
 /**
- * The "Open in…" destinations for a site (browser, file manager, editor,
- * terminal, phpMyAdmin) with their labels, logos, and open handlers. One
+ * The "Open in…" destinations for a site (browser, WP Admin, file manager,
+ * editor, terminal, phpMyAdmin) with their labels, logos, and open handlers. One
  * list feeds both the Overview's shortcuts and the session header's menu so
  * the two never drift.
  *
- * Every destination means "open this site in X" — the browser and phpMyAdmin
- * entries open in the OS browser, not the preview panel. The preview's
+ * Every destination means "open this site in X" — the browser, WP Admin and
+ * phpMyAdmin entries open in the OS browser, not the preview panel. The preview's
  * address bar owns in-app navigation, including opening its current page
  * externally.
  *
@@ -56,7 +56,7 @@ function getFileManager(): { label: string; logo: ReactElement } {
  * without a configured preference navigates to settings instead and reports
  * nothing.
  *
- * Browser and phpMyAdmin need a running site; the rest work stopped.
+ * Browser, WP Admin and phpMyAdmin need a running site; the rest work stopped.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
@@ -93,6 +93,19 @@ export function useOpenInDestinations(
 				// URL goes via /studio-auto-login and keeps the session.
 				void connector.openSiteUrl( site.id, '/' ).catch( ( error ) => {
 					console.error( 'Failed to open site in browser:', error );
+				} );
+			},
+		},
+		{
+			id: 'wp-admin',
+			label: __( 'Browser (WP Admin)' ),
+			logo: wordpress,
+			disabled: ! site.running,
+			open: () => {
+				onOpen?.( 'wp-admin' );
+				void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
+				void connector.openSiteUrl( site.id, '/wp-admin/' ).catch( ( error ) => {
+					console.error( 'Failed to open WP Admin:', error );
 				} );
 			},
 		},

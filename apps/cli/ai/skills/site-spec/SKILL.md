@@ -1,6 +1,6 @@
 ---
 name: site-spec
-description: Gather the layout preference and plugin needs for the active site before building it. Run this after the site to work on has been picked and before any design work.
+description: Settle the design and plugin needs for the active site before building it. Run this after the site to work on has been picked and before any design work.
 user-invokable: true
 ---
 
@@ -27,7 +27,7 @@ A new site's spec needs nothing from the site itself: do not search its files or
 
 Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and the sneak-peek rules live there — and follow its "Concept and Direction" runbook. The design is settled in two steps, the look and then the layout, each with one `pick_design` call, repeated only when the user asks for other options:
 
-- Pass `options: 4` so the user picks, or `options: 1` when there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names the entry. For a reference site, look at it once with `take_screenshot` (`display: false`) and choose its closest entries, with `options` set to their number: two when `present_design_options` is available, otherwise one.
+- Pass `options: 4` so the user picks, or `options: 1` when there is nothing to pick — the user asked to be surprised or to skip the questions, or the brief names that step's catalog entry. Neither a page count ("one page") nor adjectives ("elegant", "warm") pick an entry: ask, and apply them to the options you choose. For a reference site, look at it once with `take_screenshot` (`display: false`) and choose its closest entries, with `options` set to their number: two when `present_design_options` is available, otherwise one.
 - With one entry, use it without asking. With more, ask once, one option per entry in the order returned, labelled with the entry's name, without describing the options in prose first. A typed answer ("2 but darker") is a preference to apply to the closest option; asking for other options, as a choice or in their own words, means drawing that step again and asking the same way.
 
 1. **The look**: `catalog: "directions"`, asking "Which look should I build?". Skip this step when the active-site line names a design system and the user did not ask for a new look.
@@ -41,13 +41,10 @@ Load the `visual-design` skill first — the catalogs, the DESIGN.md format, and
 
 ## After Gathering Answers
 
-Use the layout preference to guide all subsequent design decisions.
-
 State the plan as a short **Site Spec** summary before building. The summary MUST include a **Concept** line — the signature layout concept settled by `pick_design` or picked by the user, as `Concept: <catalog name> — <one-line adaptation>`, the entry's name verbatim so the user can find it, then the twist — followed by a **Layout map** (as the `visual-design` skill defines it: one line per section of the page saying what the concept does to it), a **Direction** line — the artistic direction behind `DESIGN.md`, as `Direction: <catalog name> — <one-line adaptation>` — and a **Functionality & plugins** line. A side designed from the brief rather than the catalog is stated as `Concept: <the brief's words> — <how it is built>` or `Direction: <the brief's words> — <how it is built>`. For the plugins line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 3); do not silently hand-build static markup for a feature a plugin should provide.
 
 ## When to Skip the Questions
 
 Skipping means skipping the interactive questions only — each design step then returns a single entry, `DESIGN.md` is still written, and you still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
-- The user already provided the layout preference in the initial prompt.
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.

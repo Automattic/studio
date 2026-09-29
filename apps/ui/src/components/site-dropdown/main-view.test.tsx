@@ -28,6 +28,7 @@ const {
 	stopSiteMutate: vi.fn(),
 	spacefast: {
 		connection: null as { spaceId: string; title: string; liveUrl: string } | null,
+		signedIn: true,
 		publishMutate: vi.fn(),
 	},
 } ) );
@@ -82,6 +83,7 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 
 vi.mock( '@/data/queries/use-spacefast', () => ( {
 	useSpacefastConnection: () => ( { data: spacefast.connection } ),
+	useSpacefastSignedIn: () => ( { data: spacefast.signedIn } ),
 	usePublishToSpacefast: () => ( { mutate: spacefast.publishMutate } ),
 	useDisconnectSpacefastSite: () => ( { mutate: vi.fn() } ),
 } ) );
@@ -162,7 +164,31 @@ describe( 'MainView', () => {
 		snapshotUsage = null;
 		connectedSites.splice( 0, connectedSites.length );
 		spacefast.connection = null;
+		spacefast.signedIn = true;
 		spacefast.publishMutate.mockReset();
+	} );
+
+	it( 'keeps Spacefast out of the dropdown while logged out, except for a published site', () => {
+		spacefast.signedIn = false;
+		const { unmount } = renderMainView();
+
+		expect( screen.queryByText( 'Spacefast' ) ).not.toBeInTheDocument();
+
+		unmount();
+		spacefast.connection = {
+			spaceId: 'spc_1',
+			title: 'Demo',
+			liveUrl: 'https://demo.view.fast/',
+		};
+		renderMainView();
+
+		expect( screen.getByText( 'demo.view.fast' ) ).toBeInTheDocument();
+		const publish = screen.getByRole( 'button', {
+			name: 'Publish to Spacefast (log in required)',
+		} );
+		expect( publish ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( publish );
+		expect( spacefast.publishMutate ).not.toHaveBeenCalled();
 	} );
 
 	it( 'publishes a site connected to Spacefast to its Space', () => {

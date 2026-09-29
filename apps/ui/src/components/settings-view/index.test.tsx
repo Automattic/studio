@@ -102,6 +102,13 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: () => ( { mutate: vi.fn(), isPending: false } ),
 } ) );
 
+vi.mock( '@/data/queries/use-spacefast', () => ( {
+	useSpacefastSignedIn: () => ( { data: false, isLoading: false } ),
+	useSpacefastTeams: () => ( { data: undefined } ),
+	useSpacefastLogin: () => ( { mutate: vi.fn(), isPending: false } ),
+	useSpacefastLogout: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );

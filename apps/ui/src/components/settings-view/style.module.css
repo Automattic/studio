@@ -413,6 +413,37 @@
 	object-fit: cover;
 }
 
+/* Two classes to outrank the global `:root svg` 16px sizing. */
+.accountAvatar.accountLogo {
+	inline-size: 44px;
+	block-size: 44px;
+}
+
+.accountAvatar.accountIcon svg {
+	inline-size: 24px;
+	block-size: 24px;
+}
+
+.accountIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var( --wpds-color-background-surface-neutral-weak );
+	color: var( --wpds-color-foreground-content-neutral );
+	fill: currentColor;
+}
+
+.accountRows {
+	display: flex;
+	flex-direction: column;
+}
+
+.accountRows > .accountSummary + .accountSummary {
+	margin-top: var( --wpds-dimension-padding-lg );
+	padding-top: var( --wpds-dimension-padding-lg );
+	border-top: 1px solid var( --wpds-color-stroke-surface-neutral-weak );
+}
+
 .accountDetails {
 	display: flex;
 	flex-direction: column;

@@ -69,6 +69,21 @@ export function useSpacefastLogin() {
 	} );
 }
 
+// Forgets Studio's Spacefast key. Sites stay linked to their Spaces, so signing in
+// again resumes publishing to them.
+export function useSpacefastLogout() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: () => connector.logoutSpacefast(),
+		onSuccess: () => {
+			queryClient.setQueryData( SPACEFAST_ACCOUNT_QUERY_KEY, false );
+			queryClient.removeQueries( { queryKey: SPACEFAST_SPACES_QUERY_KEY } );
+			queryClient.removeQueries( { queryKey: SPACEFAST_TEAMS_QUERY_KEY } );
+		},
+	} );
+}
+
 export function useDisconnectSpacefastSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

@@ -28,6 +28,7 @@ import {
 	useDisconnectSpacefastSite,
 	usePublishToSpacefast,
 	useSpacefastConnection,
+	useSpacefastSignedIn,
 } from '@/data/queries/use-spacefast';
 import {
 	PULL_FROM_LIVE_MUTATION_KEY,
@@ -154,6 +155,7 @@ export function MainView( {
 	const publishPreviewSite = usePublishPreviewSite();
 	const cancelSync = useCancelSync();
 	const { data: spacefastConnection } = useSpacefastConnection( site.id );
+	const { data: spacefastSignedIn } = useSpacefastSignedIn();
 	const publishToSpacefast = usePublishToSpacefast();
 	const disconnectSpacefast = useDisconnectSpacefastSite();
 
@@ -484,15 +486,15 @@ export function MainView( {
 								tone="neutral"
 								size="small"
 								icon={ arrowUp }
-								label={
-									isSpacefastPending
-										? __( 'Publishing to Spacefast…' )
-										: __( 'Publish to Spacefast' )
-								}
+								label={ getSpacefastPublishLabel(
+									spacefastSignedIn,
+									isSpacefastPending,
+									isSyncing
+								) }
 								className={ styles.rowActionButton }
 								loading={ isSpacefastPending }
 								loadingAnnouncement={ __( 'Publishing to Spacefast' ) }
-								disabled={ isSiteBusy }
+								disabled={ isSiteBusy || ! spacefastSignedIn }
 								focusableWhenDisabled
 								onClick={ () =>
 									publishToSpacefast.mutate( {
@@ -521,9 +523,9 @@ export function MainView( {
 						</div>
 					}
 				/>
-			) : (
-				// Unlike a WordPress.com live site, publishing to Spacefast doesn't need a
-				// WordPress.com login, so it has its own entry point into the publish picker.
+			) : spacefastSignedIn ? (
+				// Publishing to Spacefast doesn't need a WordPress.com login, so it has its own
+				// entry point into the publish picker once Spacefast is logged in (in Settings).
 				<EnvironmentActionPanel
 					title={ __( 'Spacefast' ) }
 					copy={ __( 'Publish a static copy of this site.' ) }
@@ -533,9 +535,23 @@ export function MainView( {
 					disabled={ isSiteBusy || isOffline }
 					onClick={ onSetupClick }
 				/>
-			) }
+			) : null }
 		</div>
 	);
+}
+
+function getSpacefastPublishLabel(
+	signedIn: boolean | undefined,
+	isPending: boolean,
+	isSyncing: boolean
+): string {
+	if ( isPending ) {
+		return __( 'Publishing to Spacefast…' );
+	}
+	if ( ! signedIn ) {
+		return __( 'Publish to Spacefast (log in required)' );
+	}
+	return isSyncing ? __( 'Publish to Spacefast (sync in progress)' ) : __( 'Publish to Spacefast' );
 }
 
 function XdebugBadge( { running }: { running: boolean } ) {

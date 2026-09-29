@@ -1,9 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { plus } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { chevronLeft, plus } from '@wordpress/icons';
+import { Icon, IconButton } from '@wordpress/ui';
 import {
 	usePublishToSpacefast,
-	useSpacefastSignedIn,
 	useSpacefastSpaces,
 	useSpacefastTeams,
 } from '@/data/queries/use-spacefast';
@@ -13,15 +12,16 @@ import type { SiteDetails, SpacefastPublishTarget } from '@/data/core';
 
 type Props = {
 	site: SiteDetails;
+	// Fires once a Space is picked or the back button is pressed, returning the
+	// dropdown to its main view.
 	onClose: () => void;
 };
 
 // Publishing to Spacefast exports the site as static files, so the Space only ever
 // serves a snapshot: dynamic features (forms, comments, search) don't carry over.
-export function SpacefastPickerSection( { site, onClose }: Props ) {
-	const { data: signedIn } = useSpacefastSignedIn();
-	const spaces = useSpacefastSpaces( !! signedIn );
-	const teams = useSpacefastTeams( !! signedIn );
+export function SpacefastPickerView( { site, onClose }: Props ) {
+	const spaces = useSpacefastSpaces( true );
+	const teams = useSpacefastTeams( true );
 	const publish = usePublishToSpacefast();
 
 	const publishTo = ( target: SpacefastPublishTarget ) => {
@@ -31,20 +31,25 @@ export function SpacefastPickerSection( { site, onClose }: Props ) {
 
 	const team = teams.data?.[ 0 ];
 
-	// Logging in to Spacefast happens in Settings → Account; until then it stays out of the way.
-	if ( ! signedIn ) {
-		return null;
-	}
-
 	return (
-		<>
-			<div className={ styles.sectionTitle }>{ __( 'Spacefast (static site)' ) }</div>
+		<div className={ styles.picker }>
+			<div className={ styles.header }>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ chevronLeft }
+					label={ __( 'Back' ) }
+					onClick={ onClose }
+				/>
+				<span className={ styles.title }>{ __( 'Publish a static copy to Spacefast' ) }</span>
+			</div>
 			<div className={ styles.body }>
 				{ spaces.isLoading ? (
 					<div className={ styles.status }>{ __( 'Loading Spaces…' ) }</div>
-				) : (
+				) : spaces.data?.length ? (
 					<ul className={ styles.list }>
-						{ spaces.data?.map( ( space ) => (
+						{ spaces.data.map( ( space ) => (
 							<li key={ space.id }>
 								<button
 									type="button"
@@ -57,6 +62,8 @@ export function SpacefastPickerSection( { site, onClose }: Props ) {
 							</li>
 						) ) }
 					</ul>
+				) : (
+					<div className={ styles.status }>{ __( 'No Spaces yet.' ) }</div>
 				) }
 			</div>
 			<button
@@ -68,6 +75,6 @@ export function SpacefastPickerSection( { site, onClose }: Props ) {
 				<Icon icon={ plus } size={ 16 } />
 				<span>{ __( 'Create a new Space' ) }</span>
 			</button>
-		</>
+		</div>
 	);
 }

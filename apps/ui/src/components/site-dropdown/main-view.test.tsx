@@ -122,9 +122,13 @@ const site: SiteDetails = {
 function renderMainView( {
 	siteOverrides = {},
 	activity = null,
+	onSetupClick = vi.fn(),
+	onSpacefastSetupClick = vi.fn(),
 }: {
 	siteOverrides?: Partial< SiteDetails >;
 	activity?: SyncActivity | null;
+	onSetupClick?: () => void;
+	onSpacefastSetupClick?: () => void;
 } = {} ) {
 	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
 	// dropdown provides around MainView in the real app.
@@ -134,7 +138,8 @@ function renderMainView( {
 				<MainView
 					site={ { ...site, ...siteOverrides } }
 					activity={ activity }
-					onSetupClick={ vi.fn() }
+					onSetupClick={ onSetupClick }
+					onSpacefastSetupClick={ onSpacefastSetupClick }
 					onDisconnectClick={ vi.fn() }
 					onPullClick={ vi.fn() }
 					onPushClick={ vi.fn() }
@@ -166,6 +171,18 @@ describe( 'MainView', () => {
 		spacefast.connection = null;
 		spacefast.signedIn = true;
 		spacefast.publishMutate.mockReset();
+	} );
+
+	it( 'opens the Spacefast picker, not the WordPress.com one, from the Spacefast row', () => {
+		const onSetupClick = vi.fn();
+		const onSpacefastSetupClick = vi.fn();
+		renderMainView( { onSetupClick, onSpacefastSetupClick } );
+
+		const [ , spacefastPublish ] = screen.getAllByRole( 'button', { name: 'Publish' } );
+		fireEvent.click( spacefastPublish );
+
+		expect( onSpacefastSetupClick ).toHaveBeenCalledTimes( 1 );
+		expect( onSetupClick ).not.toHaveBeenCalled();
 	} );
 
 	it( 'keeps Spacefast out of the dropdown while logged out, except for a published site', () => {

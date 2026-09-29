@@ -61,6 +61,8 @@ type Props = {
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
+	// Switches the dropdown to the Spacefast picker.
+	onSpacefastSetupClick: () => void;
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
 	onDisconnectClick: () => void;
@@ -131,6 +133,7 @@ export function MainView( {
 	site,
 	activity,
 	onSetupClick,
+	onSpacefastSetupClick,
 	onDisconnectClick,
 	onPullClick,
 	onPushClick,
@@ -533,7 +536,7 @@ export function MainView( {
 					variant="outline"
 					tone="neutral"
 					disabled={ isSiteBusy || isOffline }
-					onClick={ onSetupClick }
+					onClick={ onSpacefastSetupClick }
 				/>
 			) : null }
 		</div>

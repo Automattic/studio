@@ -9,7 +9,6 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
-import { SpacefastPickerSection } from './spacefast-picker-section';
 import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
@@ -120,7 +119,6 @@ export function PublishPickerView( { site, onClose }: Props ) {
 				<Icon icon={ plus } size={ 16 } />
 				<span>{ __( 'Create a new WordPress.com site' ) }</span>
 			</button>
-			<SpacefastPickerSection site={ site } onClose={ onClose } />
 		</div>
 	);
 }

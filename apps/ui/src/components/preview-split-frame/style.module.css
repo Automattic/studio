@@ -45,6 +45,19 @@
 	border-radius: 0;
 }
 
+/* When the sidebar is collapsed, the full-bleed frame covers the parent
+   window drag region. Restore a top-edge drag strip while preview is open so
+   the frameless layout can still move the desktop window. */
+.windowDragEdge {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	height: var(--panel-frame-gap-top);
+	z-index: 4;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
 /* Opaque and above the preview slot so it fully covers the (still mounted)
    preview while the panel is toggled off. Scrolls itself so routes taller
    than the viewport (e.g. settings) keep working under the fixed-height

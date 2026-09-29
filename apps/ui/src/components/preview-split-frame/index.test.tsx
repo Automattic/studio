@@ -5,6 +5,7 @@ import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/lib/resizable-panels';
 import { PreviewSplitFrame } from './index';
+import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 
 function CornerProbe( { testId }: { testId: string } ) {
@@ -192,6 +193,29 @@ describe( 'PreviewSplitFrame', () => {
 				preview: 'true',
 			} );
 		} );
+	} );
+
+	it( 'restores a window drag edge when the collapsed sidebar and preview fill the chrome', () => {
+		const preview = () => <aside aria-label="Site preview" />;
+		const { container, rerender } = render(
+			<SidebarCollapsedContext.Provider value>
+				<PreviewSplitFrame previewOpen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			</SidebarCollapsedContext.Provider>
+		);
+
+		expect( container.querySelector( '.' + styles.windowDragEdge ) ).toBeInTheDocument();
+
+		rerender(
+			<SidebarCollapsedContext.Provider value>
+				<PreviewSplitFrame previewOpen={ false } preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			</SidebarCollapsedContext.Provider>
+		);
+
+		expect( container.querySelector( '.' + styles.windowDragEdge ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps preview space reserved when the first mount measurement is zero', () => {

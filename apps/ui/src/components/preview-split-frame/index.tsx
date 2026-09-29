@@ -114,6 +114,9 @@ export function PreviewSplitFrame( {
 			) }
 			style={ rootStyle }
 		>
+			{ isSidebarCollapsed && showPreview ? (
+				<div aria-hidden="true" className={ styles.windowDragEdge } />
+			) : null }
 			<div
 				className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
 				aria-hidden={ contentHidden || undefined }

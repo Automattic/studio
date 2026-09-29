@@ -42,6 +42,18 @@ WP_CLI::add_wp_hook( 'wp_archive_creation_job_loopback_available', '__return_fal
 // GET_LOCK()/IS_USED_LOCK() don't exist on SQLite, and this process is the only worker.
 WP_CLI::add_wp_hook( 'wp_archive_creation_job_use_database_lock', '__return_false' );
 
+// `cite` attributes (blockquote, q, del, ins) point at sources, not pages of the site, and
+// relative ones were followed from every archive page, multiplying bogus URLs.
+WP_CLI::add_wp_hook(
+	'ss_match_tags',
+	function ( $match_tags ) {
+		foreach ( array( 'blockquote', 'del', 'ins', 'q' ) as $tag ) {
+			$match_tags[ $tag ] = array_values( array_diff( $match_tags[ $tag ] ?? array(), array( 'cite' ) ) );
+		}
+		return $match_tags;
+	}
+);
+
 // Simply Static's list of asset extensions misses AVIF, so AVIF images were never exported.
 WP_CLI::add_wp_hook(
 	'simply_static_allowed_local_asset_extensions',
@@ -108,6 +120,8 @@ WP_CLI::add_command(
 		$options
 			->set( 'delivery_method', 'local' )
 			->set( 'local_dir', __DIR__ . '/output/' )
+			// Otherwise Simply Static writes its working copy to the site's uploads folder.
+			->set( 'temp_files_dir', __DIR__ . '/temp/' )
 			->set( 'clear_directory_before_export', true )
 			->set( 'generate_404', true )
 			->set( 'add_feeds', true )

@@ -24,6 +24,8 @@ export type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	SpacefastPublishProgress,
+	SpacefastPublishTarget,
 	StudioChatFileAttachment,
 	StudioChatImage,
 	StudioCustomEntry,

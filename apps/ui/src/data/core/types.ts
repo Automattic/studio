@@ -29,6 +29,14 @@ import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type {
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishProgress,
+	SpacefastPublishTarget,
+	SpacefastSpace,
+	SpacefastTeam,
+} from '@studio/common/types/spacefast';
+import type {
 	PullSiteProgress,
 	PullSyncOptions,
 	PushPhase,
@@ -49,6 +57,14 @@ export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
+export type {
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishProgress,
+	SpacefastPublishTarget,
+	SpacefastSpace,
+	SpacefastTeam,
+} from '@studio/common/types/spacefast';
 export type {
 	PullSiteProgress,
 	PullSyncOptions,
@@ -382,6 +398,24 @@ export interface Connector {
 	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
 	// web server polls the account's sites instead.
 	watchForPublishedSite?( siteId: string ): Promise< void >;
+
+	// Spacefast static publishing. Sign-in is a device login: open the returned
+	// `verificationUrl`, then `completeSpacefastLogin` resolves once the user approves.
+	isSpacefastSignedIn(): Promise< boolean >;
+	startSpacefastLogin(): Promise< SpacefastDeviceLogin >;
+	completeSpacefastLogin( login: SpacefastDeviceLogin ): Promise< void >;
+	logoutSpacefast(): Promise< void >;
+	listSpacefastSpaces(): Promise< SpacefastSpace[] >;
+	listSpacefastTeams(): Promise< SpacefastTeam[] >;
+	// The Space a local site publishes to, or `null` before its first publish.
+	getSpacefastConnection( siteId: string ): Promise< SpacefastConnection | null >;
+	disconnectSpacefastSite( siteId: string ): Promise< void >;
+	// Exports the site as static files and publishes them as the Space's live version.
+	publishToSpacefast(
+		siteId: string,
+		target: SpacefastPublishTarget,
+		onProgress?: ( progress: SpacefastPublishProgress ) => void
+	): Promise< SpacefastConnection >;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;

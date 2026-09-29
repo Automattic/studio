@@ -258,6 +258,18 @@ export {
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
+	completeSpacefastLogin,
+	disconnectSpacefastSite,
+	getSpacefastConnection,
+	isSpacefastSignedIn,
+	listSpacefastSpaces,
+	listSpacefastTeams,
+	logoutSpacefast,
+	publishSiteToSpacefastSpace,
+	startSpacefastLogin,
+} from 'src/modules/spacefast/lib/ipc-handlers';
+
+export {
 	createSnapshot,
 	deleteSnapshot,
 	deleteAllSnapshots,

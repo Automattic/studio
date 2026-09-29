@@ -24,6 +24,11 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishProgress,
+	SpacefastSpace,
+	SpacefastTeam,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SyncSite,
@@ -62,6 +67,7 @@ type PullProgressSseOutput = PullSiteProgress & {
 };
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
 type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
+type SpacefastPublishSseOutput = SpacefastPublishProgress & { siteId: string };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
@@ -71,6 +77,7 @@ type ServerEvent =
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
 	| { channel: 'sync-push'; payload: PushSseOutput }
+	| { channel: 'spacefast-publish'; payload: SpacefastPublishSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
@@ -96,6 +103,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
 	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
+	const spacefastPublishListeners = new Set< ( output: SpacefastPublishSseOutput ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -234,6 +242,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-push' ) {
 					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'spacefast-publish' ) {
+					spacefastPublishListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -602,6 +612,48 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sites/${ encodeURIComponent( siteId ) }/watch-published-site`, {
 				method: 'POST',
 			} );
+		},
+		async isSpacefastSignedIn() {
+			return ( await api< { signedIn: boolean } >( '/spacefast/account' ) ).signedIn;
+		},
+		async startSpacefastLogin() {
+			return api< SpacefastDeviceLogin >( '/spacefast/login', { method: 'POST' } );
+		},
+		async completeSpacefastLogin( login ) {
+			await api( '/spacefast/login/complete', { method: 'POST', body: JSON.stringify( login ) } );
+		},
+		async logoutSpacefast() {
+			await api( '/spacefast/logout', { method: 'POST' } );
+		},
+		async listSpacefastSpaces() {
+			return api< SpacefastSpace[] >( '/spacefast/spaces' );
+		},
+		async listSpacefastTeams() {
+			return api< SpacefastTeam[] >( '/spacefast/teams' );
+		},
+		async getSpacefastConnection( siteId ) {
+			return api< SpacefastConnection | null >(
+				`/sites/${ encodeURIComponent( siteId ) }/spacefast`
+			);
+		},
+		async disconnectSpacefastSite( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/spacefast`, { method: 'DELETE' } );
+		},
+		async publishToSpacefast( siteId, target, onProgress ) {
+			const listener = ( output: SpacefastPublishSseOutput ) => {
+				if ( output.siteId === siteId ) {
+					onProgress?.( output );
+				}
+			};
+			spacefastPublishListeners.add( listener );
+			try {
+				return await api< SpacefastConnection >(
+					`/sites/${ encodeURIComponent( siteId ) }/spacefast/publish`,
+					{ method: 'POST', body: JSON.stringify( { target } ) }
+				);
+			} finally {
+				spacefastPublishListeners.delete( listener );
+			}
 		},
 		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
 			const listener = ( output: PushSseOutput ) => {

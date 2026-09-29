@@ -21,6 +21,15 @@ type TriggerSecondaryOptions = {
 };
 
 export function getSyncActivityLabel( activity: SyncActivity ): string {
+	if ( activity.direction === 'spacefast' ) {
+		return {
+			pending: __( 'Publishing to Spacefast…' ),
+			success: __( 'Published to Spacefast' ),
+			cancelled: __( 'Publishing to Spacefast cancelled' ),
+			error: __( 'Publishing to Spacefast failed' ),
+		}[ activity.kind ];
+	}
+
 	if ( activity.kind === 'pending' ) {
 		if ( activity.direction === 'preview' ) {
 			return __( 'Publishing preview…' );

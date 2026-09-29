@@ -7,6 +7,7 @@ import { getExistingMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { SpacefastPublishProgress } from '@studio/common/types/spacefast';
 import type { PullSiteProgress, PushPhase } from '@studio/common/types/sync';
 
 type SnapshotEventData = {
@@ -43,6 +44,7 @@ export interface IpcEvents {
 	'sync-push-phase': [
 		{ selectedSiteId: string; remoteSiteId: number; phase: PushPhase; progress?: number },
 	];
+	'spacefast-publish-progress': [ SpacefastPublishProgress & { siteId: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

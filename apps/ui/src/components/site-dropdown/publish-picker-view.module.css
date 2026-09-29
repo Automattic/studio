@@ -92,3 +92,17 @@
 	background-color: var(--wpds-color-background-interactive-neutral-weak-active);
 	outline: none;
 }
+
+.sectionTitle {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg) 0;
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	text-transform: uppercase;
+}
+
+.create:disabled {
+	cursor: default;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}

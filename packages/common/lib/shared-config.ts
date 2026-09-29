@@ -3,6 +3,7 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
+import { spacefastAuthSchema, spacefastConnectionSchema } from '../types/spacefast';
 import { syncSiteSchema } from '../types/sync';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
 import { isAutomatticianEmail } from './automattician';
@@ -45,6 +46,10 @@ export const sharedConfigSchema = z
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`.
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
+		// Spacefast sign-in and the Space each local site publishes to, keyed by local
+		// site id. Read and written through `./spacefast/config.ts`.
+		spacefastAuth: spacefastAuthSchema.optional(),
+		spacefastConnections: z.record( z.string(), spacefastConnectionSchema ).optional(),
 		// AI provider selection and the Anthropic API key, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the

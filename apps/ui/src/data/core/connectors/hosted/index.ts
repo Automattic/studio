@@ -256,6 +256,30 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new UnsupportedError( 'publishPreviewSite' );
 		},
+		// Hosted mode has no local sites to export, so Spacefast publishing is unavailable.
+		async isSpacefastSignedIn() {
+			return false;
+		},
+		async startSpacefastLogin(): Promise< never > {
+			throw new UnsupportedError( 'startSpacefastLogin' );
+		},
+		async completeSpacefastLogin(): Promise< never > {
+			throw new UnsupportedError( 'completeSpacefastLogin' );
+		},
+		async logoutSpacefast() {},
+		async listSpacefastSpaces() {
+			return [];
+		},
+		async listSpacefastTeams() {
+			return [];
+		},
+		async getSpacefastConnection() {
+			return null;
+		},
+		async disconnectSpacefastSite() {},
+		async publishToSpacefast(): Promise< never > {
+			throw new UnsupportedError( 'publishToSpacefast' );
+		},
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},

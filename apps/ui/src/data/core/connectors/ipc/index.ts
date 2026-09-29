@@ -32,6 +32,11 @@ import type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishProgress,
+	SpacefastSpace,
+	SpacefastTeam,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SupportedEditor,
@@ -720,6 +725,59 @@ export function createIpcConnector(): Connector {
 
 		getPublishCheckoutUrl( site ): string {
 			return buildPublishCheckoutUrl( site );
+		},
+
+		async isSpacefastSignedIn(): Promise< boolean > {
+			return ( await ipcApi.isSpacefastSignedIn() ) as boolean;
+		},
+
+		async startSpacefastLogin(): Promise< SpacefastDeviceLogin > {
+			return ( await ipcApi.startSpacefastLogin() ) as SpacefastDeviceLogin;
+		},
+
+		async completeSpacefastLogin( login ): Promise< void > {
+			await ipcApi.completeSpacefastLogin( login );
+		},
+
+		async logoutSpacefast(): Promise< void > {
+			await ipcApi.logoutSpacefast();
+		},
+
+		async listSpacefastSpaces(): Promise< SpacefastSpace[] > {
+			return ( await ipcApi.listSpacefastSpaces() ) as SpacefastSpace[];
+		},
+
+		async listSpacefastTeams(): Promise< SpacefastTeam[] > {
+			return ( await ipcApi.listSpacefastTeams() ) as SpacefastTeam[];
+		},
+
+		async getSpacefastConnection( siteId ): Promise< SpacefastConnection | null > {
+			return ( await ipcApi.getSpacefastConnection( siteId ) ) as SpacefastConnection | null;
+		},
+
+		async disconnectSpacefastSite( siteId ): Promise< void > {
+			await ipcApi.disconnectSpacefastSite( siteId );
+		},
+
+		async publishToSpacefast( siteId, target, onProgress ): Promise< SpacefastConnection > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'spacefast-publish-progress',
+						( _event: unknown, payload: SpacefastPublishProgress & { siteId: string } ) => {
+							if ( payload.siteId === siteId ) {
+								onProgress( payload );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				return ( await ipcApi.publishSiteToSpacefastSpace(
+					siteId,
+					target
+				) ) as SpacefastConnection;
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		// AI sessions

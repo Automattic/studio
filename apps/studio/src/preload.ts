@@ -41,6 +41,16 @@ const api: IpcApi = {
 		),
 	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
+	isSpacefastSignedIn: () => ipcRendererInvoke( 'isSpacefastSignedIn' ),
+	startSpacefastLogin: () => ipcRendererInvoke( 'startSpacefastLogin' ),
+	completeSpacefastLogin: ( login ) => ipcRendererInvoke( 'completeSpacefastLogin', login ),
+	logoutSpacefast: () => ipcRendererInvoke( 'logoutSpacefast' ),
+	listSpacefastSpaces: () => ipcRendererInvoke( 'listSpacefastSpaces' ),
+	listSpacefastTeams: () => ipcRendererInvoke( 'listSpacefastTeams' ),
+	getSpacefastConnection: ( siteId ) => ipcRendererInvoke( 'getSpacefastConnection', siteId ),
+	disconnectSpacefastSite: ( siteId ) => ipcRendererInvoke( 'disconnectSpacefastSite', siteId ),
+	publishSiteToSpacefastSpace: ( siteId, target ) =>
+		ipcRendererInvoke( 'publishSiteToSpacefastSpace', siteId, target ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),

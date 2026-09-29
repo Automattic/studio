@@ -25,6 +25,12 @@ import {
 } from '@/data/queries/use-sites';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import {
+	useDisconnectSpacefastSite,
+	usePublishToSpacefast,
+	useSpacefastConnection,
+	useSpacefastSignedIn,
+} from '@/data/queries/use-spacefast';
+import {
 	PULL_FROM_LIVE_MUTATION_KEY,
 	PUSH_TO_LIVE_MUTATION_KEY,
 	useCancelSync,
@@ -55,6 +61,8 @@ type Props = {
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
+	// Switches the dropdown to the Spacefast picker.
+	onSpacefastSetupClick: () => void;
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
 	onDisconnectClick: () => void;
@@ -125,6 +133,7 @@ export function MainView( {
 	site,
 	activity,
 	onSetupClick,
+	onSpacefastSetupClick,
 	onDisconnectClick,
 	onPullClick,
 	onPushClick,
@@ -148,6 +157,10 @@ export function MainView( {
 	const stopSite = useStopSite();
 	const publishPreviewSite = usePublishPreviewSite();
 	const cancelSync = useCancelSync();
+	const { data: spacefastConnection } = useSpacefastConnection( site.id );
+	const { data: spacefastSignedIn } = useSpacefastSignedIn();
+	const publishToSpacefast = usePublishToSpacefast();
+	const disconnectSpacefast = useDisconnectSpacefastSite();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
@@ -162,7 +175,9 @@ export function MainView( {
 	// files and database outright, so it locks them out too — and the CLI won't
 	// refuse it, since import is deliberately not a tracked site operation.
 	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
-	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
+	const isSpacefastPending = activity?.kind === 'pending' && activity.direction === 'spacefast';
+	const isSyncing =
+		isPreviewPending || isPushPending || isPullPending || isImporting || isSpacefastPending;
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
@@ -459,8 +474,87 @@ export function MainView( {
 					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
+			{ spacefastConnection ? (
+				<PopoverRow
+					label={ __( 'Spacefast' ) }
+					sublabel={ renderUrlLink( {
+						text: stripProtocol( spacefastConnection.liveUrl ),
+						url: spacefastConnection.liveUrl,
+						label: __( 'Open the Spacefast site in your browser' ),
+					} ) }
+					action={
+						<div className={ styles.rowActions }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowUp }
+								label={ getSpacefastPublishLabel(
+									spacefastSignedIn,
+									isSpacefastPending,
+									isSyncing
+								) }
+								className={ styles.rowActionButton }
+								loading={ isSpacefastPending }
+								loadingAnnouncement={ __( 'Publishing to Spacefast' ) }
+								disabled={ isSiteBusy || ! spacefastSignedIn }
+								focusableWhenDisabled
+								onClick={ () =>
+									publishToSpacefast.mutate( {
+										siteId: site.id,
+										target: { spaceId: spacefastConnection.spaceId },
+									} )
+								}
+							/>
+							<Menu.SubmenuRoot>
+								<Menu.SubmenuTrigger
+									className={ styles.moreMenuTrigger }
+									disabled={ isSiteBusy }
+									aria-label={ __( 'More Spacefast actions' ) }
+								>
+									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
+								</Menu.SubmenuTrigger>
+								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
+									<Menu.Item
+										disabled={ isSiteBusy }
+										onClick={ () => disconnectSpacefast.mutate( site.id ) }
+									>
+										{ __( 'Disconnect' ) }
+									</Menu.Item>
+								</Menu.Popup>
+							</Menu.SubmenuRoot>
+						</div>
+					}
+				/>
+			) : spacefastSignedIn ? (
+				// Publishing to Spacefast doesn't need a WordPress.com login, so it has its own
+				// entry point into the publish picker once Spacefast is logged in (in Settings).
+				<EnvironmentActionPanel
+					title={ __( 'Spacefast' ) }
+					copy={ __( 'Publish a static copy of this site.' ) }
+					buttonLabel={ __( 'Publish' ) }
+					variant="outline"
+					tone="neutral"
+					disabled={ isSiteBusy || isOffline }
+					onClick={ onSpacefastSetupClick }
+				/>
+			) : null }
 		</div>
 	);
+}
+
+function getSpacefastPublishLabel(
+	signedIn: boolean | undefined,
+	isPending: boolean,
+	isSyncing: boolean
+): string {
+	if ( isPending ) {
+		return __( 'Publishing to Spacefast…' );
+	}
+	if ( ! signedIn ) {
+		return __( 'Publish to Spacefast (log in required)' );
+	}
+	return isSyncing ? __( 'Publish to Spacefast (sync in progress)' ) : __( 'Publish to Spacefast' );
 }
 
 function XdebugBadge( { running }: { running: boolean } ) {
@@ -482,6 +576,16 @@ function XdebugBadge( { running }: { running: boolean } ) {
 			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
 		</Tooltip.Root>
 	);
+}
+
+function getActivityPlaceholder( direction: SyncActivity[ 'direction' ] ): string {
+	if ( direction === 'import' ) {
+		return __( 'Preparing the backup…' );
+	}
+	if ( direction === 'spacefast' ) {
+		return __( 'Generating static files…' );
+	}
+	return __( 'Preparing the live site…' );
 }
 
 function SyncActivityDetails( {
@@ -506,10 +610,7 @@ function SyncActivityDetails( {
 			<div className={ styles.activityStatusText } role="status" aria-live="polite">
 				<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
 				<div className={ styles.activityStatusMessage }>
-					{ activity.message ??
-						( activity.direction === 'import'
-							? __( 'Preparing the backup…' )
-							: __( 'Preparing the live site…' ) ) }
+					{ activity.message ?? getActivityPlaceholder( activity.direction ) }
 				</div>
 				{ blockedLabel ? (
 					// Stating this inline rather than leaving it to the disabled

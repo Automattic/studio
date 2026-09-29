@@ -22,7 +22,8 @@ type ActivityProgress = PullSiteProgress;
 // rewrites that site underneath you. It lives here so a site being imported
 // reads the same way in the sidebar and dropdown as one being pulled — and so
 // two concurrent imports stay told apart by site, which a global toast can't do.
-export type SyncDirection = 'push' | 'pull' | 'preview' | 'import';
+// `spacefast` is publishing a static export of the site to a Spacefast Space.
+export type SyncDirection = 'push' | 'pull' | 'preview' | 'import' | 'spacefast';
 
 export type SyncActivity =
 	| {
@@ -84,7 +85,7 @@ export function reportSyncPending( siteId: string, direction: SyncDirection ): v
 
 export function reportSyncProgress(
 	siteId: string,
-	direction: Extract< SyncDirection, 'pull' | 'import' >,
+	direction: Extract< SyncDirection, 'pull' | 'import' | 'spacefast' >,
 	progress: ActivityProgress
 ): void {
 	clearExpiryTimer( siteId );

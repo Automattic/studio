@@ -16,6 +16,7 @@ import { registerCommand as registerSiteListCommand } from 'cli/commands/site/li
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { registerCommand as registerSpacefastCommand } from 'cli/commands/spacefast';
 import { registerCommand as registerUiCommand } from 'cli/commands/ui';
 import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall';
 import {
@@ -220,6 +221,7 @@ async function main() {
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
 	registerExportStaticCommand( studioArgv );
+	registerSpacefastCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
 	registerUninstallCommand( studioArgv );

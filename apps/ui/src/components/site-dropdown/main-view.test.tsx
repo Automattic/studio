@@ -14,6 +14,7 @@ const {
 	transitions,
 	startSiteMutate,
 	stopSiteMutate,
+	spacefast,
 } = vi.hoisted( () => ( {
 	connector: {
 		copyText: vi.fn(),
@@ -25,6 +26,11 @@ const {
 	transitions: { starting: false, stopping: false },
 	startSiteMutate: vi.fn(),
 	stopSiteMutate: vi.fn(),
+	spacefast: {
+		connection: null as { spaceId: string; title: string; liveUrl: string } | null,
+		signedIn: true,
+		publishMutate: vi.fn(),
+	},
 } ) );
 
 let snapshotUsage: {
@@ -75,6 +81,13 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useSnapshotUsage: () => ( { data: snapshotUsage } ),
 } ) );
 
+vi.mock( '@/data/queries/use-spacefast', () => ( {
+	useSpacefastConnection: () => ( { data: spacefast.connection } ),
+	useSpacefastSignedIn: () => ( { data: spacefast.signedIn } ),
+	usePublishToSpacefast: () => ( { mutate: spacefast.publishMutate } ),
+	useDisconnectSpacefastSite: () => ( { mutate: vi.fn() } ),
+} ) );
+
 const cancelSyncMutate = vi.fn();
 
 vi.mock( '@/data/queries/use-sync-site', () => ( {
@@ -109,9 +122,13 @@ const site: SiteDetails = {
 function renderMainView( {
 	siteOverrides = {},
 	activity = null,
+	onSetupClick = vi.fn(),
+	onSpacefastSetupClick = vi.fn(),
 }: {
 	siteOverrides?: Partial< SiteDetails >;
 	activity?: SyncActivity | null;
+	onSetupClick?: () => void;
+	onSpacefastSetupClick?: () => void;
 } = {} ) {
 	// The live row's "more" submenu needs the Menu.Root + Popup contexts the
 	// dropdown provides around MainView in the real app.
@@ -121,7 +138,8 @@ function renderMainView( {
 				<MainView
 					site={ { ...site, ...siteOverrides } }
 					activity={ activity }
-					onSetupClick={ vi.fn() }
+					onSetupClick={ onSetupClick }
+					onSpacefastSetupClick={ onSpacefastSetupClick }
 					onDisconnectClick={ vi.fn() }
 					onPullClick={ vi.fn() }
 					onPushClick={ vi.fn() }
@@ -150,6 +168,82 @@ describe( 'MainView', () => {
 		} );
 		snapshotUsage = null;
 		connectedSites.splice( 0, connectedSites.length );
+		spacefast.connection = null;
+		spacefast.signedIn = true;
+		spacefast.publishMutate.mockReset();
+	} );
+
+	it( 'opens the Spacefast picker, not the WordPress.com one, from the Spacefast row', () => {
+		const onSetupClick = vi.fn();
+		const onSpacefastSetupClick = vi.fn();
+		renderMainView( { onSetupClick, onSpacefastSetupClick } );
+
+		const [ , spacefastPublish ] = screen.getAllByRole( 'button', { name: 'Publish' } );
+		fireEvent.click( spacefastPublish );
+
+		expect( onSpacefastSetupClick ).toHaveBeenCalledTimes( 1 );
+		expect( onSetupClick ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps Spacefast out of the dropdown while logged out, except for a published site', () => {
+		spacefast.signedIn = false;
+		const { unmount } = renderMainView();
+
+		expect( screen.queryByText( 'Spacefast' ) ).not.toBeInTheDocument();
+
+		unmount();
+		spacefast.connection = {
+			spaceId: 'spc_1',
+			title: 'Demo',
+			liveUrl: 'https://demo.view.fast/',
+		};
+		renderMainView();
+
+		expect( screen.getByText( 'demo.view.fast' ) ).toBeInTheDocument();
+		const publish = screen.getByRole( 'button', {
+			name: 'Publish to Spacefast (log in required)',
+		} );
+		expect( publish ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( publish );
+		expect( spacefast.publishMutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'publishes a site connected to Spacefast to its Space', () => {
+		spacefast.connection = {
+			spaceId: 'spc_1',
+			title: 'Demo',
+			liveUrl: 'https://demo.view.fast/',
+		};
+		renderMainView();
+
+		expect( screen.getByText( 'demo.view.fast' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish to Spacefast' } ) );
+		expect( spacefast.publishMutate ).toHaveBeenCalledWith( {
+			siteId: site.id,
+			target: { spaceId: 'spc_1' },
+		} );
+	} );
+
+	it( 'shows Spacefast publishing progress and blocks other sync actions meanwhile', () => {
+		spacefast.connection = {
+			spaceId: 'spc_1',
+			title: 'Demo',
+			liveUrl: 'https://demo.view.fast/',
+		};
+		connectedSites.push( liveSite );
+		renderMainView( {
+			activity: {
+				kind: 'pending',
+				direction: 'spacefast',
+				message: 'Uploading 3 of 10 files…',
+			},
+		} );
+
+		expect( screen.getByText( 'Publishing to Spacefast…' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Uploading 3 of 10 files…' ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Push to live (sync in progress)' } )
+		).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
 	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {

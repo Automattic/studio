@@ -18,6 +18,7 @@ import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
+import { SpacefastPickerView } from './spacefast-picker-view';
 import styles from './style.module.css';
 import { getSiteDropdownSecondary } from './trigger-secondary';
 import { deriveSiteStatus, ensureProtocol, pickLatestSnapshot, pickLiveSite } from './utils';
@@ -46,7 +47,7 @@ export function SiteDropdown( {
 	floating = true,
 	defaultOpen = false,
 }: Props ) {
-	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
+	const [ view, setView ] = useState< 'main' | 'picker' | 'spacefast-picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
 	const rootRef = useRef< HTMLDivElement >( null );
 	const reopenAfterDialogRef = useRef( false );
@@ -186,10 +187,13 @@ export function SiteDropdown( {
 							site={ site }
 							activity={ activity }
 							onSetupClick={ () => setView( 'picker' ) }
+							onSpacefastSetupClick={ () => setView( 'spacefast-picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
 							onPullClick={ () => openSyncDialog( 'pull' ) }
 							onPushClick={ () => openSyncDialog( 'push' ) }
 						/>
+					) : view === 'spacefast-picker' ? (
+						<SpacefastPickerView site={ site } onClose={ () => setView( 'main' ) } />
 					) : (
 						<PublishPickerView site={ site } onClose={ () => setView( 'main' ) } />
 					) }

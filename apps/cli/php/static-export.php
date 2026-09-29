@@ -42,20 +42,6 @@ WP_CLI::add_wp_hook( 'wp_archive_creation_job_loopback_available', '__return_fal
 // GET_LOCK()/IS_USED_LOCK() don't exist on SQLite, and this process is the only worker.
 WP_CLI::add_wp_hook( 'wp_archive_creation_job_use_database_lock', '__return_false' );
 
-// Smart crawl force-enables the wp-includes crawler, which copies all of wp-includes.
-// Referenced core assets are still exported as they are found in the pages.
-WP_CLI::add_wp_hook(
-	'simply_static_crawlers',
-	function ( $crawlers ) {
-		return array_filter(
-			$crawlers,
-			function ( $crawler ) {
-				return ! $crawler instanceof \Simply_Static\Crawler\Wp_Includes_Crawler;
-			}
-		);
-	}
-);
-
 // Simply Static's list of asset extensions misses AVIF, so AVIF images were never exported.
 WP_CLI::add_wp_hook(
 	'simply_static_allowed_local_asset_extensions',
@@ -84,6 +70,37 @@ function studio_static_resolve_dot_segments( $url ) {
 WP_CLI::add_wp_hook( 'simply_static_extracted_url', 'studio_static_resolve_dot_segments' );
 WP_CLI::add_wp_hook( 'simply_static_pre_converted_url', 'studio_static_resolve_dot_segments' );
 
+// Import map entries are rewritten but never queued, so modules that are only loaded
+// dynamically (e.g. the Interactivity API router) would be missing from the export.
+WP_CLI::add_wp_hook(
+	'simply_static_decoded_urls_in_script',
+	function ( $text, $static_page ) {
+		$importmap = json_decode( $text, true );
+		foreach ( (array) ( $importmap['imports'] ?? array() ) as $url ) {
+			if ( ! is_string( $url ) || ! \Simply_Static\Util::is_local_url( $url ) ) {
+				continue;
+			}
+			$module = \Simply_Static\Page::query()->find_or_create_by( 'url', \Simply_Static\Util::remove_params_and_fragment( $url ) );
+			if ( null === $module->found_on_id ) {
+				$module->found_on_id = $static_page->id;
+				$module->save();
+			}
+		}
+		return $text;
+	},
+	10,
+	2
+);
+
+function studio_static_additional_urls() {
+	// Only referenced from the inline emoji settings JSON, which isn't crawled.
+	$urls = array( includes_url( 'js/wp-emoji-release.min.js' ) );
+	if ( wp_sitemaps_get_server()->sitemaps_enabled() ) {
+		$urls[] = home_url( '/wp-sitemap.xml' );
+	}
+	return $urls;
+}
+
 WP_CLI::add_command(
 	'studio-static-export',
 	function () use ( $studio_static_config ) {
@@ -94,9 +111,14 @@ WP_CLI::add_command(
 			->set( 'clear_directory_before_export', true )
 			->set( 'generate_404', true )
 			->set( 'add_feeds', true )
-			->set( 'crawlers', array( 'home', 'post_type', 'taxonomy', 'author', 'archive', 'pagination', 'rss_feeds', 'sitemap', 'text_file' ) )
-			// Only referenced from the inline emoji settings JSON, which isn't crawled.
-			->set( 'additional_urls', includes_url( 'js/wp-emoji-release.min.js' ) );
+			// Smart crawl only exports pages its crawlers know about (no date archive
+			// pagination, attachment pages, ...) and copies all of wp-includes. Following
+			// links from the home page and the sitemap covers every reachable page instead.
+			->set( 'smart_crawl', false )
+			// Admin and login pages, but not the static assets some front-end pages load
+			// from wp-admin (e.g. the password strength meter). Lines wrapped in / are regexes.
+			->set( 'urls_to_exclude', implode( "\n", array( '/\/wp-admin\/(?:[^?#]*\.php)?(?:[?#]|$)/', '/wp-login.php', '/xmlrpc.php' ) ) )
+			->set( 'additional_urls', implode( "\n", studio_static_additional_urls() ) );
 
 		$destination = wp_parse_url( $studio_static_config['destinationUrl'] ?? '' );
 		if ( ! empty( $destination['host'] ) ) {

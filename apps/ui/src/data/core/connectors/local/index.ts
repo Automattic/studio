@@ -31,6 +31,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { PushOutput } from '@studio/common/types/sync';
 
@@ -72,7 +73,9 @@ type ServerEvent =
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
 	| { channel: 'sync-push'; payload: PushSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
-	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
+	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
+	| { channel: 'site-event'; payload: SiteEvent }
+	| { channel: 'auth-event'; payload: unknown };
 
 /**
  * The `studio ui` data source: the browser analog of the Electron IPC
@@ -100,6 +103,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const siteEventListeners = new Set< ( event: SiteEvent ) => void >();
+	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -238,6 +243,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'site-event' ) {
+					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'auth-event' ) {
+					authListeners.forEach( ( listener ) => listener() );
 				}
 			};
 		},
@@ -341,8 +350,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async logout() {
 			await api( '/auth/logout', { method: 'POST' } );
 		},
-		onAuthStateChanged() {
-			return () => {};
+		onAuthStateChanged( listener ) {
+			authListeners.add( listener );
+			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
 			return true;
@@ -911,8 +921,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onFullscreenChange() {
 			return () => {};
 		},
-		onSiteEvent() {
-			return () => {};
+		onSiteEvent( listener ) {
+			siteEventListeners.add( listener );
+			return () => siteEventListeners.delete( listener );
 		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.

@@ -51,7 +51,10 @@ export class SocketMessageDecoder {
 	}
 }
 
-async function connectToEndpoint( peer: string, connectTimeoutMs: number ): Promise< net.Socket > {
+export async function connectToEndpoint(
+	peer: string,
+	connectTimeoutMs: number
+): Promise< net.Socket > {
 	let timeoutId: NodeJS.Timeout;
 	const socket = net.createConnection( peer );
 
@@ -368,11 +371,11 @@ export class SocketServer extends SocketServerEventEmitter {
 		socket.write( encodeSocketMessage( message ) );
 	}
 
-	broadcast( message: unknown ) {
+	broadcast( message: unknown, except?: net.Socket ) {
 		const payload = encodeSocketMessage( message );
 
 		for ( const socket of this.sockets ) {
-			if ( ! socket.destroyed ) {
+			if ( ! socket.destroyed && socket !== except ) {
 				socket.write( payload );
 			}
 		}

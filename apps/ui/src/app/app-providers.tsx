@@ -11,6 +11,7 @@ import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
+import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import type { Connector } from '@/data/core';
@@ -23,6 +24,7 @@ interface AppProvidersProps extends PropsWithChildren {
 function SiteEventsBridge() {
 	useSyncSitesWithEvents();
 	useSyncSessionsWithEvents();
+	useSyncActivityEvents();
 	useSyncConnectSiteListener();
 	useAutoStartSites();
 	useSyncAppUpdateStatus();

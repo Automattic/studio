@@ -1,4 +1,4 @@
-import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { app, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -26,7 +26,7 @@ import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -525,50 +525,31 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
-// Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
-// pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
-// client to initiate + poll + download — that polling lives in the
-// renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
-// the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
-// simpler flow used by `push`. Exchanges everything (`--options all`).
-export async function pullSiteFromLive(
-	event: IpcMainInvokeEvent,
+// Push and pull for apps/ui run the CLI commands, which publish their progress as
+// sync activity events. Registered under the same key the legacy renderer uses, so
+// `cancelSyncOperation` stops these too.
+async function runCancellableSync(
 	siteId: string,
 	remoteSiteId: number,
-	options?: PullSyncOptions
+	sync: ( sitePath: string, signal: AbortSignal ) => Promise< void >
 ): Promise< SyncOperationResult > {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const window = BrowserWindow.fromWebContents( event.sender );
-	// Registered under the same key the legacy renderer uses, so `cancelSyncOperation`
-	// stops an agentic pull too.
 	const operationId = `${ siteId }-${ remoteSiteId }`;
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 	try {
-		await pullSite(
-			executeCliCommand,
-			site.details.path,
-			remoteSiteId,
-			( progress ) => {
-				sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
-					siteId,
-					...progress,
-				} );
-			},
-			options,
-			abortController.signal
-		);
+		await sync( site.details.path, abortController.signal );
 		return { cancelled: false };
 	} catch ( error ) {
 		// A user cancel is an intentional stop, not a failure. Rejecting here would
 		// make Electron log it as a handler error in the very log we point users at
-		// when a pull fails, so report it as a result instead — the renderer turns it
+		// when a sync fails, so report it as a result instead — the renderer turns it
 		// back into a cancelled operation. Same reasoning as `downloadSyncBackup`.
 		if ( isSyncCancelledError( error ) ) {
-			console.log( `[Sync] Pull cancelled by user for operation: ${ operationId }` );
+			console.log( `[Sync] Cancelled by user for operation: ${ operationId }` );
 			return { cancelled: true };
 		}
 		throw error;
@@ -579,76 +560,26 @@ export async function pullSiteFromLive(
 	}
 }
 
-// Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
-// server uses, so the agentic UI pushes identically in the desktop and the
-// browser (export → TUS upload → import). Progress is forwarded over the
-// existing `sync-upload-*` channels. The legacy renderer keeps its own
-// `exportSiteForPush` + `pushArchive` (with manual pause/resume) untouched.
+export async function pullSiteFromLive(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: number,
+	options?: PullSyncOptions
+): Promise< SyncOperationResult > {
+	return runCancellableSync( siteId, remoteSiteId, ( sitePath, signal ) =>
+		pullSite( executeCliCommand, sitePath, remoteSiteId, options, signal )
+	);
+}
+
 export async function pushSiteToLive(
 	_event: IpcMainInvokeEvent,
-	selectedSiteId: string,
+	siteId: string,
 	remoteSiteId: number,
 	options?: PushSyncOptions
 ): Promise< SyncOperationResult > {
-	const site = SiteServer.get( selectedSiteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-	const operationId = `${ selectedSiteId }-${ remoteSiteId }`;
-	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
-	try {
-		await pushSite(
-			{
-				executeCliCommand,
-				accessToken: token.accessToken,
-				emit: ( output ) => {
-					if ( output.kind === 'phase' ) {
-						void sendIpcEventToRenderer( 'sync-push-phase', {
-							selectedSiteId,
-							remoteSiteId,
-							phase: output.phase,
-							progress: output.progress,
-						} );
-					} else if ( output.kind === 'upload-progress' ) {
-						void sendIpcEventToRenderer( 'sync-upload-progress', {
-							selectedSiteId,
-							remoteSiteId,
-							progress: output.progress,
-						} );
-					} else if ( output.kind === 'network-paused' ) {
-						void sendIpcEventToRenderer( 'sync-upload-network-paused', {
-							selectedSiteId,
-							remoteSiteId,
-							error: output.error,
-						} );
-					} else if ( output.kind === 'resumed' ) {
-						void sendIpcEventToRenderer( 'sync-upload-resumed', {
-							selectedSiteId,
-							remoteSiteId,
-						} );
-					}
-				},
-			},
-			{ sitePath: site.details.path, remoteSiteId, options, signal: abortController.signal }
-		);
-		return { cancelled: false };
-	} catch ( error ) {
-		// See `pullSiteFromLive` — a cancel is reported, not thrown.
-		if ( isSyncCancelledError( error ) ) {
-			console.log( `[Sync] Push cancelled by user for operation: ${ operationId }` );
-			return { cancelled: true };
-		}
-		throw error;
-	} finally {
-		if ( SYNC_ABORT_CONTROLLERS.get( operationId ) === abortController ) {
-			SYNC_ABORT_CONTROLLERS.delete( operationId );
-		}
-	}
+	return runCancellableSync( siteId, remoteSiteId, ( sitePath, signal ) =>
+		pushSite( executeCliCommand, sitePath, remoteSiteId, options, signal )
+	);
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.

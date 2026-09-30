@@ -3,6 +3,7 @@ import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
 	cliSnapshotEventSchema,
+	cliSyncEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
 	SiteDetails,
@@ -157,6 +158,12 @@ export async function startCliEventsSubscriber(): Promise< void > {
 				} else {
 					void sendIpcEventToRenderer( 'auth-updated', { token: null } );
 				}
+				return;
+			}
+
+			const syncParsed = cliSyncEventSchema.safeParse( data );
+			if ( syncParsed.success ) {
+				void sendIpcEventToRenderer( 'sync-activity', syncParsed.data.value );
 				return;
 			}
 

@@ -14,6 +14,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure, normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -55,6 +56,7 @@ export async function runCommand(
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
 	const startedAt = Date.now();
+	let siteId: string | undefined;
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
@@ -66,6 +68,8 @@ export async function runCommand(
 		}
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
+		siteId = ( await getSiteByFolder( siteFolder ) ).id;
+		void reportSyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
@@ -99,11 +103,19 @@ export async function runCommand(
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
+		if ( siteId ) {
+			await reportSyncActivity( siteId, {
+				kind: 'error',
+				direction: 'preview',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		}
 		await recordPreviewUpdateEvent( {
 			success: false,
 			failure_reason: classifyPreviewFailure( error ),

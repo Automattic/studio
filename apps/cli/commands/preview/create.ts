@@ -12,6 +12,7 @@ import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
@@ -28,10 +29,12 @@ export async function runCommand(
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
 	const startedAt = Date.now();
+	let siteId: string | undefined;
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		await getSiteByFolder( siteFolder );
+		siteId = ( await getSiteByFolder( siteFolder ) ).id;
+		void reportSyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
 		await validateSiteSize( siteFolder );
 		const token = await readAuthToken();
 		if ( ! token ) {
@@ -80,10 +83,18 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewCreateEvent( { success: true, time_ms: Date.now() - startedAt } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 
 		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
+		if ( siteId ) {
+			await reportSyncActivity( siteId, {
+				kind: 'error',
+				direction: 'preview',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		}
 		await recordPreviewCreateEvent( {
 			success: false,
 			failure_reason: classifyPreviewFailure( error ),

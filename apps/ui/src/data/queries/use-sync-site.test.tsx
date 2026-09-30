@@ -1,13 +1,14 @@
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { usePullSiteFromLive, usePushSiteToLive } from './use-sync-site';
+import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { Connector } from '@/data/core';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@/data/core') >();
@@ -19,6 +20,11 @@ vi.mock( '@/data/app-messages', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+
+function SyncActivityEvents() {
+	useSyncActivityEvents();
+	return null;
+}
 
 function Harness() {
 	const pull = usePullSiteFromLive();
@@ -38,40 +44,42 @@ function Harness() {
 }
 
 describe( 'usePullSiteFromLive', () => {
-	let finishPull: () => void;
+	let publish: ( event: SyncEvent ) => void;
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		finishPull = () => {};
+		publish = () => {};
 		useConnectorMock.mockReturnValue( {
 			capabilities: { studioLogs: true },
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			pullSiteFromLive: vi.fn( async ( _siteId, _remoteSiteId, onProgress ) => {
-				onProgress?.( { message: 'Creating remote backup… (24%)', progress: 24 } );
-				await new Promise< void >( ( resolve ) => {
-					finishPull = resolve;
-				} );
+			onSyncActivity: vi.fn( ( listener ) => {
+				publish = listener;
+				return () => {};
 			} ),
 		} as unknown as Connector );
 	} );
 
-	it( 'publishes CLI progress outside the component that started the pull', async () => {
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
+	// The agent, a terminal or another window can start the sync: the UI only
+	// ever sees the activity the CLI publishes.
+	it( 'shows and announces a sync this UI did not start', async () => {
 		render(
-			<QueryClientProvider client={ queryClient }>
+			<QueryClientProvider client={ new QueryClient() }>
+				<SyncActivityEvents />
 				<Harness />
 			</QueryClientProvider>
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-		await waitFor( () =>
-			expect( screen.getByText( 'Creating remote backup… (24%)' ) ).toBeVisible()
+		act( () =>
+			publish( {
+				siteId: 'site-1',
+				activity: { kind: 'pending', direction: 'pull', message: 'Creating remote backup… (24%)' },
+			} )
 		);
+		expect( screen.getByText( 'Creating remote backup… (24%)' ) ).toBeVisible();
 
-		finishPull();
-		await waitFor( () => expect( screen.getByText( 'success' ) ).toBeVisible() );
+		act( () => publish( { siteId: 'site-1', activity: { kind: 'success', direction: 'pull' } } ) );
+		expect( screen.getByText( 'success' ) ).toBeVisible();
+		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
 	} );
 
 	it( 'replaces connector details with an actionable pull error', async () => {

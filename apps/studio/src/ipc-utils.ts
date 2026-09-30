@@ -7,7 +7,7 @@ import { getExistingMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { PullSiteProgress, PushPhase } from '@studio/common/types/sync';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -39,10 +39,7 @@ export interface IpcEvents {
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
-	'sync-pull-progress': [ PullSiteProgress & { siteId: string } ];
-	'sync-push-phase': [
-		{ selectedSiteId: string; remoteSiteId: number; phase: PushPhase; progress?: number },
-	];
+	'sync-activity': [ SyncEvent ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

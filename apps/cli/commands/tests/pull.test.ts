@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { checkBackupSize, fetchSyncableSites, pollBackupStatus } from 'cli/lib/sync-api';
 import {
 	isServerRunning,
@@ -29,6 +30,7 @@ vi.mock( 'cli/lib/import-export/import/import-manager', async ( importActual ) =
 	getImporter: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/site-operations' );
+vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
@@ -77,22 +79,29 @@ describe( 'CLI: studio pull', () => {
 	} );
 
 	it.each( [
-		[ 'succeeds', [ 'hold import', 'stop', 'import', 'start', 'release' ] ],
-		[ 'fails', [ 'hold import', 'stop', 'start', 'release' ] ],
-	] )( 'holds the site until it has restarted when the import %s', async ( outcome, expected ) => {
-		if ( outcome === 'fails' ) {
-			importBackup.mockRejectedValue( new Error( 'boom' ) );
+		[ 'succeeds', [ 'hold import', 'stop', 'import', 'start', 'release' ], 'success' ],
+		[ 'fails', [ 'hold import', 'stop', 'start', 'release' ], 'error' ],
+	] )(
+		'holds the site until it has restarted when the import %s',
+		async ( outcome, expected, result ) => {
+			if ( outcome === 'fails' ) {
+				importBackup.mockRejectedValue( new Error( 'boom' ) );
+			}
+
+			await runCommand(
+				site.path,
+				[ 'all' ],
+				String( remoteSite.id ),
+				undefined,
+				undefined,
+				true
+			).catch( () => undefined );
+
+			expect( steps ).toEqual( expected );
+			expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
+				site.id,
+				expect.objectContaining( { kind: result, direction: 'pull' } ),
+			] );
 		}
-
-		await runCommand(
-			site.path,
-			[ 'all' ],
-			String( remoteSite.id ),
-			undefined,
-			undefined,
-			true
-		).catch( () => undefined );
-
-		expect( steps ).toEqual( expected );
-	} );
+	);
 } );

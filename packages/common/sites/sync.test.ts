@@ -2,11 +2,8 @@ import EventEmitter from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { SYNC_MAX_STALLED_ATTEMPTS, SYNC_MAX_STALLED_MS } from '@studio/common/lib/sync/constants';
-import { pollImportStatus } from '@studio/common/lib/sync/sync-api';
 import { pullSite, pushSite } from './sync';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
-import type { ImportResponse } from '@studio/common/types/sync';
 
 // How the child is killed is platform-specific and covered by
 // `lib/tests/cli-process.test.ts`; here we only care that a cancel asks for it.
@@ -15,74 +12,18 @@ vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	killChild: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/sync/sync-api', () => ( {
-	initiateImport: vi.fn(),
-	pollImportStatus: vi.fn(),
-} ) );
-
-vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
-	createTusUpload: vi.fn( () => ( {
-		promise: Promise.resolve( 'attachment-1' ),
-		abort: vi.fn(),
-	} ) ),
-} ) );
-
-// Poll back to back rather than waiting 3s between each status, and give up
-// on a stalled import after a few polls rather than an hour's worth.
-vi.mock( '@studio/common/lib/sync/constants', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/sync/constants') >() ),
-	SYNC_POLL_INTERVAL_MS: 0,
-	SYNC_MAX_STALLED_ATTEMPTS: 3,
-} ) );
+function fakeCli() {
+	const emitter = new EventEmitter();
+	const child = { pid: 4242 };
+	const execute = vi.fn( () => [ emitter, child ] ) as unknown as ExecuteCliCommand;
+	return { emitter, child, execute };
+}
 
 describe( 'pullSite', () => {
-	it( 'forwards live CLI messages and their percentage', async () => {
-		const emitter = new EventEmitter();
-		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
-		const onProgress = vi.fn();
-		const pulling = pullSite( execute, '/sites/local', 42, onProgress );
-
-		emitter.emit( 'data', {
-			data: {
-				action: 'initiateBackup',
-				status: 'inprogress',
-				message: 'Creating remote backup… (24%)',
-			},
-		} );
-		emitter.emit( 'data', {
-			data: {
-				action: 'importWpContent',
-				status: 'inprogress',
-				message: 'Importing media uploads… (3/10)',
-			},
-		} );
-		emitter.emit( 'success' );
-
-		await pulling;
-		expect( onProgress ).toHaveBeenNthCalledWith( 1, {
-			message: 'Creating remote backup… (24%)',
-			progress: 24,
-			action: 'initiateBackup',
-		} );
-		expect( onProgress ).toHaveBeenNthCalledWith( 2, {
-			message: 'Importing media uploads… (3/10)',
-			action: 'importWpContent',
-		} );
-	} );
-
 	it( 'kills the CLI and rejects as cancelled when the signal aborts', async () => {
-		const emitter = new EventEmitter();
-		const child = { pid: 4242 };
-		const execute = vi.fn( () => [ emitter, child ] ) as unknown as ExecuteCliCommand;
+		const { child, execute } = fakeCli();
 		const controller = new AbortController();
-		const pulling = pullSite(
-			execute,
-			'/sites/local',
-			42,
-			undefined,
-			undefined,
-			controller.signal
-		);
+		const pulling = pullSite( execute, '/sites/local', 42, undefined, controller.signal );
 
 		controller.abort();
 
@@ -91,18 +32,17 @@ describe( 'pullSite', () => {
 	} );
 
 	it( 'rejects immediately when the signal is already aborted', async () => {
-		const execute = vi.fn() as unknown as ExecuteCliCommand;
+		const { execute } = fakeCli();
 		await expect(
-			pullSite( execute, '/sites/local', 42, undefined, undefined, AbortSignal.abort() )
+			pullSite( execute, '/sites/local', 42, undefined, AbortSignal.abort() )
 		).rejects.toSatisfy( isSyncCancelledError );
 		expect( execute ).not.toHaveBeenCalled();
 	} );
 
 	it( 'passes backup node ids with commas as separate argv values', async () => {
-		const emitter = new EventEmitter();
-		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+		const { emitter, execute } = fakeCli();
 		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
-		const pulling = pullSite( execute, '/sites/local', 42, undefined, {
+		const pulling = pullSite( execute, '/sites/local', 42, {
 			optionsToSync: [ 'paths' ],
 			includePathList,
 		} );
@@ -129,106 +69,30 @@ describe( 'pullSite', () => {
 } );
 
 describe( 'pushSite', () => {
-	function startPush( statuses: ImportResponse[] ) {
-		const emitter = new EventEmitter();
-		const execute = vi.fn( () => {
-			// The handlers are attached right after this returns.
-			queueMicrotask( () => emitter.emit( 'success' ) );
-			return [ emitter, {} ];
-		} ) as unknown as ExecuteCliCommand;
+	it( 'runs the CLI push with the selection and rejects with its error', async () => {
+		const { emitter, execute } = fakeCli();
+		const pushing = pushSite( execute, '/sites/local', 42, {
+			optionsToSync: [ 'themes' ],
+			specificSelectionPaths: [ 'wp-content/themes/twentytwentyfive' ],
+		} );
 
-		vi.mocked( pollImportStatus ).mockReset();
-		for ( const status of statuses ) {
-			vi.mocked( pollImportStatus ).mockResolvedValueOnce( status );
-		}
+		emitter.emit( 'failure', { error: new Error( 'Upload failed' ) } );
 
-		const emit = vi.fn();
-		const pushing = pushSite(
-			{ executeCliCommand: execute, accessToken: 'token', emit },
-			{ sitePath: '/sites/local', remoteSiteId: 42 }
-		);
-		return { emit, execute, pushing };
-	}
-
-	const working = ( status: string, progress: Partial< ImportResponse > = {} ) =>
-		( {
-			status,
-			success: true,
-			backup_progress: null,
-			import_progress: null,
-			...progress,
-		} ) as ImportResponse;
-
-	it( 'polls the remote import to completion instead of resolving once it starts', async () => {
-		const { emit, pushing } = startPush( [
-			working( 'initial_backup_started', { backup_progress: 40 } ),
-			working( 'archive_import_started', { import_progress: 20 } ),
-			working( 'archive_import_finished' ),
-			working( 'finished' ),
-		] );
-
-		await pushing;
-
-		// Resolving at initiate — the bug — would stop this list at the first
-		// `creatingRemoteBackup`, before any of the polled phases.
-		expect( emit.mock.calls.map( ( [ output ] ) => output ) ).toEqual( [
-			{ kind: 'phase', phase: 'creatingBackup' },
-			{ kind: 'phase', phase: 'uploading' },
-			{ kind: 'phase', phase: 'creatingRemoteBackup' },
-			{ kind: 'phase', phase: 'creatingRemoteBackup', progress: 40 },
-			{ kind: 'phase', phase: 'applyingChanges', progress: 20 },
-			{ kind: 'phase', phase: 'finishing' },
-		] );
-		expect( pollImportStatus ).toHaveBeenCalledTimes( 4 );
-	} );
-
-	// `studio_site_exported` means a user-initiated backup export. The export this
-	// runs is an implementation detail of the push, so it must not be counted.
-	it( 'suppresses the export Tracks event for the archive it builds', async () => {
-		const { execute, pushing } = startPush( [ working( 'finished' ) ] );
-
-		await pushing;
-
-		expect( vi.mocked( execute ).mock.calls[ 0 ][ 0 ] ).toContain( '--suppress-tracks-event' );
-	} );
-
-	it( 'keeps waiting on a long remote backup that reports no progress', async () => {
-		const { pushing } = startPush( [] );
-		vi.mocked( pollImportStatus ).mockResolvedValue( working( 'initial_backup_started' ) );
-
-		await expect( pushing ).rejects.toThrow( /update may still be running/i );
-
-		expect( pollImportStatus ).toHaveBeenCalledTimes( SYNC_MAX_STALLED_ATTEMPTS + 1 );
-
-		// A 10-minute stall (200 polls at 3s) used to fail large pushes that were still running.
-		const actual = await vi.importActual< typeof import('@studio/common/lib/sync/constants') >(
-			'@studio/common/lib/sync/constants'
-		);
-		expect( actual.SYNC_MAX_STALLED_ATTEMPTS * actual.SYNC_POLL_INTERVAL_MS ).toBe(
-			SYNC_MAX_STALLED_MS
-		);
-		expect( SYNC_MAX_STALLED_MS ).toBeGreaterThan( 10 * 60 * 1000 );
-	} );
-
-	it( 'rejects with the reason the remote import failed', async () => {
-		const failure = ( error: string, vp_restore_message: string | null = null ): ImportResponse =>
-			( {
-				status: 'failed',
-				success: false,
-				error,
-				error_data: { vp_restore_status: null, vp_restore_message, vp_rewind_id: null },
-			} ) as ImportResponse;
-
-		await expect(
-			startPush( [ failure( 'Import failed', 'Error importing SQL dump' ) ] ).pushing
-		).rejects.toThrow( /database failed to import/i );
-
-		await expect( startPush( [ failure( 'Import timed out' ) ] ).pushing ).rejects.toThrow(
-			/timed out while importing/i
-		);
-
-		await expect( startPush( [ failure( 'Something else' ) ] ).pushing ).rejects.toThrow(
-			/went wrong while updating the live site/i
+		await expect( pushing ).rejects.toThrow( 'Upload failed' );
+		expect( execute ).toHaveBeenCalledWith(
+			[
+				'push',
+				'--path',
+				'/sites/local',
+				'--remote-site',
+				'42',
+				'--options',
+				'themes',
+				'--include-only',
+				'wp-content/themes/twentytwentyfive',
+				'--suppress-tracks-event',
+			],
+			{ output: 'capture' }
 		);
 	} );
 } );

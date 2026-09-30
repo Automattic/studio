@@ -43,7 +43,11 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
-import { cliAuthEventSchema, cliSiteEventSchema } from '@studio/common/lib/cli-events';
+import {
+	cliAuthEventSchema,
+	cliSiteEventSchema,
+	cliSyncEventSchema,
+} from '@studio/common/lib/cli-events';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
@@ -438,6 +442,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const siteEvent = cliSiteEventSchema.safeParse( data );
 		if ( siteEvent.success ) {
 			sseSend( { channel: 'site-event', payload: siteEvent.data.value } );
+			return;
+		}
+		const syncEvent = cliSyncEventSchema.safeParse( data );
+		if ( syncEvent.success ) {
+			sseSend( { channel: 'sync-activity', payload: syncEvent.data.value } );
 			return;
 		}
 		const authEvent = cliAuthEventSchema.safeParse( data );
@@ -1578,19 +1587,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pullSite(
-					execute,
-					site.path,
-					remoteSiteId,
-					( progress ) => {
-						sseSend( {
-							channel: 'sync-pull',
-							payload: { ...progress, siteId: req.params.id, remoteSiteId },
-						} );
-					},
-					options,
-					release.signal
-				);
+				await pullSite( execute, site.path, remoteSiteId, options, release.signal );
 			} catch ( error ) {
 				// A user cancel is an intentional stop, not a server error — report it
 				// as a result so it doesn't surface as a 500.
@@ -1696,8 +1693,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Push the local site to its connected WordPress.com live site. Long-running
-	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Responds once the remote import has finished.
+	// (export → upload → import); progress streams on the SSE `sync-activity`
+	// channel. Responds once the remote import has finished.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1709,11 +1706,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
 			}
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.status( 401 ).json( { error: 'Authentication required to push.' } );
-				return;
-			}
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
@@ -1721,18 +1713,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pushSite(
-					{
-						executeCliCommand: execute,
-						accessToken: token.accessToken,
-						emit: ( output ) =>
-							sseSend( {
-								channel: 'sync-push',
-								payload: { ...output, siteId: req.params.id, remoteSiteId },
-							} ),
-					},
-					{ sitePath: site.path, remoteSiteId, options, signal: release.signal }
-				);
+				await pushSite( execute, site.path, remoteSiteId, options, release.signal );
 			} catch ( error ) {
 				if ( ! isSyncCancelledError( error ) ) {
 					throw error;

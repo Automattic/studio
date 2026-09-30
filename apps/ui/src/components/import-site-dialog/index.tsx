@@ -8,13 +8,7 @@ import { useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
-import {
-	reportSyncError,
-	reportSyncPending,
-	reportSyncProgress,
-	reportSyncSuccess,
-	useSiteSyncActivity,
-} from '@/data/sync-activity';
+import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -74,7 +68,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		}
 		const { id: siteId } = site;
 		closeDialog();
-		reportSyncPending( siteId, 'import' );
+		applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
 		// Extraction reports progress once per stream chunk, so a large backup
 		// fires thousands of events a second. Only report when the rendered text
 		// actually changes — otherwise the store notifies its subscribers that
@@ -92,17 +86,17 @@ export function useSiteBackupImport( site: SiteDetails ) {
 					const message = getImportStatusMessage( event );
 					if ( message && message !== lastMessage ) {
 						lastMessage = message;
-						reportSyncProgress( siteId, 'import', { message } );
+						applySyncActivity( siteId, { kind: 'pending', direction: 'import', message } );
 					}
 				},
 			} );
-			reportSyncSuccess( siteId, 'import' );
+			applySyncActivity( siteId, { kind: 'success', direction: 'import' } );
 		} catch ( error ) {
 			// Matches push/pull: the activity store carries the detail on the site
 			// itself, and a toast says so wherever the user has navigated to.
 			const message =
 				getErrorMessage( error ) ?? __( 'Failed to import the backup. Please try again.' );
-			reportSyncError( siteId, 'import', message );
+			applySyncActivity( siteId, { kind: 'error', direction: 'import', message } );
 			toast.error( __( "Import didn't complete" ), { description: message } );
 		} finally {
 			// Drop the File so a large backup isn't held in memory for the session.

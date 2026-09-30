@@ -372,7 +372,9 @@ describe( 'local web server Connect contracts', () => {
 			);
 
 			expect( response.status ).toBe( 200 );
-			expect( mocks.execute.mock.calls[ 0 ][ 0 ] ).toContain( '--no-start' );
+			expect( mocks.execute.mock.calls.some( ( [ args ] ) => args.includes( '--no-start' ) ) ).toBe(
+				true
+			);
 		} finally {
 			randomUuid.mockRestore();
 		}

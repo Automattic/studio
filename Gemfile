@@ -5,6 +5,6 @@ source 'https://rubygems.org'
 gem 'fastlane', '~> 2.240'
 gem 'fastlane-plugin-wpmreleasetoolkit', '~> 15.0'
 
-gem 'aws-sdk-cloudfront', '~> 1.154'
+gem 'aws-sdk-cloudfront', '~> 1.155'
 
 gem 'rubocop', '~> 1.91', require: false

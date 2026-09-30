@@ -213,6 +213,24 @@ describe( 'getMuPlugins error capture', () => {
 	} );
 } );
 
+describe( 'getMuPlugins localhost framing', () => {
+	it( 'should replace core frame options with a localhost-only frame-ancestors policy', async () => {
+		const [ muPluginsDir ] = await getMuPlugins();
+		const content = await readFile( join( muPluginsDir, '0-allow-localhost-framing.php' ), 'utf8' );
+
+		expect( content ).toContain(
+			"remove_action( current_action(), 'send_frame_options_header' );"
+		);
+		expect( content ).toContain( "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*" );
+		expect( content ).toContain(
+			"add_action( 'admin_init', 'studio_send_frame_options_header', 0 );"
+		);
+		expect( content ).toContain(
+			"add_action( 'login_init', 'studio_send_frame_options_header', 0 );"
+		);
+	} );
+} );
+
 describe( 'getMuPlugins admin API', () => {
 	it( 'should set the admin password only when it differs from the stored one', async () => {
 		const [ muPluginsDir ] = await getMuPlugins();

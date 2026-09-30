@@ -1,4 +1,4 @@
-import { parse } from 'yaml';
+import { parse, parseDocument } from 'yaml';
 
 export type Style = Record< string, unknown >;
 type Tokens = Record< string, unknown >;
@@ -118,11 +118,13 @@ export function googleFontsUrl(
 /**
  * Lays the DESIGN.md tokens over a base theme.json: palette, font families and sizes,
  * spacing, radii, and root, heading, link and button styles, each under the DESIGN.md name.
- * Returns undefined when the tokens carry no colors.
+ * `fontFaces` (theme.json fontFace entries keyed by family name) declares the font files
+ * each family loads. Returns undefined when the tokens carry no colors.
  */
 export function themeJsonFromDesign(
 	tokens: DesignTokens,
-	themeJson: ThemeJson
+	themeJson: ThemeJson,
+	fontFaces: Record< string, object[] > = {}
 ): ThemeJsonFromDesign | undefined {
 	const colors = Object.entries( tokens.colors ?? {} ).filter(
 		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
@@ -191,6 +193,7 @@ export function themeJsonFromDesign(
 						slug: slugify( family ),
 						name: family,
 						fontFamily: `"${ family }", ${ fallback }`,
+						...( fontFaces[ family ] && { fontFace: fontFaces[ family ] } ),
 					} ) ),
 					fontSizes: styles
 						.filter( ( [ , style ] ) => style.fontSize !== undefined )
@@ -254,6 +257,341 @@ export function themeJsonFromDesign(
 			plural( spacing.length, 'spacing step', 'spacing steps' ),
 		].join( ', ' ),
 	};
+}
+
+function luminance( color: string ): number {
+	const hex = color.trim().match( /^#([0-9a-f]{6}|[0-9a-f]{3})/i )?.[ 1 ];
+	if ( ! hex ) {
+		return 0.5;
+	}
+	const full = hex.length === 3 ? [ ...hex ].map( ( digit ) => digit + digit ).join( '' ) : hex;
+	const [ r, g, b ] = [ 0, 2, 4 ].map( ( start ) => {
+		const channel = parseInt( full.slice( start, start + 2 ), 16 ) / 255;
+		return channel <= 0.04045 ? channel / 12.92 : ( ( channel + 0.055 ) / 1.055 ) ** 2.4;
+	} );
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export interface DesignSheet {
+	colors: Array< [ string, string ] >;
+	/** primary, background and text first, then every other color once. */
+	palette: Array< [ string, string ] >;
+	background: string;
+	text: string;
+	primary: string;
+	accent: string;
+	/** The text or background color, whichever reads better on the surface. */
+	ink: ( surface: string ) => string;
+	styles: Array< [ string, Style ] >;
+	display: Style;
+	headline: Style;
+	body: Style;
+	label: Style;
+	button: {
+		backgroundColor: string;
+		textColor: string;
+		rounded: unknown;
+		padding: unknown;
+		typography: Style;
+	};
+}
+
+/**
+ * The roles a design-system sheet shows, picked from the tokens: the page colors,
+ * the display/headline/body/label styles and the primary button.
+ * Throws when the tokens carry fewer than two colors or no typography style.
+ */
+export function designSheet( tokens: DesignTokens ): DesignSheet {
+	const colors = Object.entries( tokens.colors ?? {} ).filter(
+		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
+	);
+	const styles = typographyStyles( tokens );
+	if ( colors.length < 2 || ! styles.length ) {
+		throw new Error(
+			'The DESIGN.md front matter needs at least two colors, as quoted hex values (primary: "#c2552b"), and one typography style.'
+		);
+	}
+
+	const named = ( key: string ) => colors.find( ( [ name ] ) => name === key )?.[ 1 ];
+	const byLuminance = colors
+		.map( ( [ , value ] ) => value )
+		.sort( ( a, b ) => luminance( a ) - luminance( b ) );
+	const background = named( 'background' ) ?? byLuminance[ byLuminance.length - 1 ];
+	const text =
+		named( 'text' ) ??
+		( luminance( background ) > 0.2 ? byLuminance[ 0 ] : byLuminance[ byLuminance.length - 1 ] );
+	const primary = named( 'primary' ) ?? colors[ 0 ][ 1 ];
+	const ink = ( surface: string ) =>
+		Math.abs( luminance( text ) - luminance( surface ) ) >=
+		Math.abs( luminance( background ) - luminance( surface ) )
+			? text
+			: background;
+	const seen = new Set< string >();
+	const palette = (
+		[ [ 'primary', primary ], [ 'background', background ], [ 'text', text ], ...colors ] as Array<
+			[ string, string ]
+		>
+	 ).filter(
+		( [ , value ] ) => ! seen.has( value.toLowerCase() ) && seen.add( value.toLowerCase() )
+	);
+
+	const styleNamed = ( name: string ) => styles.find( ( [ key ] ) => key.includes( name ) )?.[ 1 ];
+	const display = styleNamed( 'display' ) ?? styles[ 0 ][ 1 ];
+	const body = styleNamed( 'body' ) ?? styles[ styles.length - 1 ][ 1 ];
+	const label = styleNamed( 'label' ) ?? body;
+
+	const resolve = ( value: unknown ): unknown => {
+		const reference = typeof value === 'string' ? value.match( /^\{([^}]+)\}$/ )?.[ 1 ] : undefined;
+		return reference
+			? reference
+					.split( '.' )
+					.reduce< unknown >( ( node, key ) => ( node as Style | undefined )?.[ key ], tokens )
+			: value;
+	};
+	const button = tokens.components?.[ 'button-primary' ] ?? {};
+	const buttonBackground = String( resolve( button.backgroundColor ) ?? primary );
+	const buttonType = resolve( button.typography );
+
+	return {
+		colors,
+		palette,
+		background,
+		text,
+		primary,
+		accent: palette[ 3 ]?.[ 1 ] ?? text,
+		ink,
+		styles,
+		display,
+		headline: styleNamed( 'headline' ) ?? display,
+		body,
+		label,
+		button: {
+			backgroundColor: buttonBackground,
+			textColor: String( resolve( button.textColor ) ?? ink( buttonBackground ) ),
+			rounded: resolve( button.rounded ) ?? 0,
+			padding: resolve( button.padding ) ?? '14px 28px',
+			typography: buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label,
+		},
+	};
+}
+
+export interface DesignDrift {
+	/** `style-font` is the font a theme.json style (body, heading, button) uses. */
+	kind: 'color' | 'font-family' | 'font-size' | 'spacing' | 'style-font';
+	slug: string;
+	design: string;
+	theme?: string;
+}
+
+export interface DesignFix {
+	kind: DesignDrift[ 'kind' ];
+	slug: string;
+	to: 'theme' | 'design';
+}
+
+type Preset = { slug?: unknown; [ key: string ]: unknown };
+type Tree = Record< string, unknown >;
+
+const PRESET_LISTS: Record<
+	Exclude< DesignDrift[ 'kind' ], 'style-font' >,
+	[ string, string, string ]
+> = {
+	color: [ 'color', 'palette', 'color' ],
+	'font-family': [ 'typography', 'fontFamilies', 'fontFamily' ],
+	'font-size': [ 'typography', 'fontSizes', 'size' ],
+	spacing: [ 'spacing', 'spacingSizes', 'size' ],
+};
+
+// Where each style's font lives in theme.json `styles`, and the DESIGN.md
+// typography styles themeJsonFromDesign draws it from.
+const STYLE_FONTS: Record< string, { path: string[]; styles: string[] } > = {
+	body: { path: [ 'typography', 'fontFamily' ], styles: [ 'body' ] },
+	heading: {
+		path: [ 'elements', 'heading', 'typography', 'fontFamily' ],
+		styles: [ 'headline', 'heading', 'display' ],
+	},
+	button: { path: [ 'elements', 'button', 'typography', 'fontFamily' ], styles: [ 'label' ] },
+};
+
+function presets( settings: unknown, group: string, list: string ): Preset[] {
+	const value = ( settings as Record< string, Tree > | undefined )?.[ group ]?.[ list ];
+	return Array.isArray( value ) ? value : [];
+}
+
+function getIn( tree: unknown, path: string[] ): unknown {
+	return path.reduce< unknown >( ( node, key ) => ( node as Tree | undefined )?.[ key ], tree );
+}
+
+function setIn( tree: Tree | undefined, [ key, ...rest ]: string[], value: unknown ): Tree {
+	return {
+		...tree,
+		[ key ]: rest.length ? setIn( tree?.[ key ] as Tree | undefined, rest, value ) : value,
+	};
+}
+
+/**
+ * Where a theme.json no longer matches the DESIGN.md it was generated from: every
+ * palette color, font family, font size and spacing step that theme.json lacks
+ * or sets to a different value, and every body, heading or button style that uses
+ * another font. A theme.json that uses fewer than half of DESIGN.md's palette slugs
+ * wasn't generated from it (e.g. the default theme before the design is built), so
+ * it has no drift.
+ */
+export function designDrift( tokens: DesignTokens, themeJson: ThemeJson ): DesignDrift[] {
+	const expected = themeJsonFromDesign( tokens, {} )?.themeJson;
+	const palette = presets( themeJson.settings, 'color', 'palette' );
+	const colors = presets( expected?.settings, 'color', 'palette' );
+	const shared = colors.filter( ( color ) =>
+		palette.some( ( candidate ) => candidate.slug === color.slug )
+	);
+	if ( shared.length * 2 < colors.length ) {
+		return [];
+	}
+	const normalize = ( kind: DesignDrift[ 'kind' ], value: unknown ) =>
+		kind === 'font-family'
+			? fontFamilyName( value ).toLowerCase()
+			: String( value ).replace( /\s+/g, '' ).toLowerCase();
+	const presetDrift = ( Object.keys( PRESET_LISTS ) as Array< keyof typeof PRESET_LISTS > ).flatMap(
+		( kind ): DesignDrift[] => {
+			const [ group, list, field ] = PRESET_LISTS[ kind ];
+			const actual = presets( themeJson.settings, group, list );
+			return presets( expected?.settings, group, list ).flatMap( ( preset ) => {
+				const design = kind === 'font-family' ? String( preset.name ) : String( preset[ field ] );
+				const match = actual.find( ( candidate ) => candidate.slug === preset.slug );
+				const theme =
+					match?.[ field ] === undefined
+						? undefined
+						: kind === 'font-family'
+						? fontFamilyName( match[ field ] )
+						: String( match[ field ] );
+				return theme !== undefined && normalize( kind, design ) === normalize( kind, theme )
+					? []
+					: [ { kind, slug: String( preset.slug ), design, theme } ];
+			} );
+		}
+	);
+
+	const families = [
+		...presets( themeJson.settings, 'typography', 'fontFamilies' ),
+		...presets( expected?.settings, 'typography', 'fontFamilies' ),
+	];
+	const familyName = ( value: unknown ) => {
+		const slug = String( value ?? '' ).match(
+			/(?:var:preset\|font-family\||--wp--preset--font-family--)([\w-]+)/
+		)?.[ 1 ];
+		const family = slug
+			? families.find( ( candidate ) => candidate.slug === slug )?.fontFamily ?? slug
+			: value;
+		return fontFamilyName( family ) || undefined;
+	};
+	const styleDrift = Object.entries( STYLE_FONTS ).flatMap(
+		( [ style, { path } ] ): DesignDrift[] => {
+			const design = familyName( getIn( expected?.styles, path ) );
+			const theme = familyName( getIn( themeJson.styles, path ) );
+			return ! design || theme?.toLowerCase() === design.toLowerCase()
+				? []
+				: [ { kind: 'style-font', slug: style, design, theme } ];
+		}
+	);
+	return [ ...presetDrift, ...styleDrift ];
+}
+
+/**
+ * Writes the DESIGN.md value of each drift into theme.json: the preset DESIGN.md
+ * generates replaces the one theme.json has under that slug, or is added; a style
+ * gets DESIGN.md's font, adding its preset when theme.json lacks it.
+ * `fontFaces` carries the downloaded font files of the families being written.
+ */
+export function applyDesignToThemeJson(
+	tokens: DesignTokens,
+	themeJson: ThemeJson,
+	drift: DesignDrift[],
+	fontFaces: Record< string, object[] > = {}
+): ThemeJson {
+	const expected = themeJsonFromDesign( tokens, {}, fontFaces )?.themeJson;
+	let settings = { ...themeJson.settings } as Tree;
+	let styles = themeJson.styles;
+	const put = ( group: string, list: string, preset: Preset, replace: boolean ) => {
+		const current = presets( settings, group, list );
+		const index = current.findIndex( ( entry ) => entry.slug === preset.slug );
+		if ( index === -1 || replace ) {
+			settings = setIn(
+				settings,
+				[ group, list ],
+				index === -1
+					? [ ...current, preset ]
+					: current.map( ( entry, position ) => ( position === index ? preset : entry ) )
+			);
+		}
+	};
+	for ( const { kind, slug, design } of drift ) {
+		if ( kind === 'style-font' ) {
+			const { path } = STYLE_FONTS[ slug ];
+			styles = setIn( styles, path, getIn( expected?.styles, path ) );
+			const family = presets( expected?.settings, 'typography', 'fontFamilies' ).find(
+				( preset ) => preset.name === design
+			);
+			if ( family ) {
+				put( 'typography', 'fontFamilies', family, false );
+			}
+			continue;
+		}
+		const [ group, list ] = PRESET_LISTS[ kind ];
+		const preset = presets( expected?.settings, group, list ).find(
+			( entry ) => entry.slug === slug
+		);
+		if ( preset ) {
+			put( group, list, preset, true );
+		}
+	}
+	return { ...themeJson, settings, ...( styles && { styles } ) };
+}
+
+/**
+ * Writes the theme.json value of each drift back into the DESIGN.md front matter,
+ * leaving the rest of the document as written. A font moves to every typography
+ * style using it, or for `style-font` to the styles that style is drawn from.
+ * Drifts theme.json has no value for are skipped.
+ */
+export function applyThemeToDesign( design: string, drift: DesignDrift[] ): string {
+	const frontMatter = design.match( /^\s*---\r?\n([\s\S]*?)\r?\n---/ )?.[ 1 ];
+	if ( frontMatter === undefined ) {
+		return design;
+	}
+	const document = parseDocument( frontMatter );
+	const typography = typographyStyles( parseDesignMd( design ) );
+	for ( const { kind, slug, design: value, theme } of drift ) {
+		if ( theme === undefined ) {
+			continue;
+		}
+		if ( kind === 'color' ) {
+			document.setIn( [ 'colors', slug ], theme );
+		} else if ( kind === 'spacing' ) {
+			document.setIn( [ 'spacing', slug ], theme );
+		} else if ( kind === 'font-size' ) {
+			document.setIn( [ 'typography', slug, 'fontSize' ], theme );
+		} else {
+			for ( const [ name, style ] of typography ) {
+				if (
+					fontFamilyName( style.fontFamily ) === value &&
+					( kind === 'font-family' || STYLE_FONTS[ slug ].styles.includes( name ) )
+				) {
+					// Reuse the stack of a style already using the theme's font, so its
+					// fallback comes along.
+					const stack = typography.find(
+						( [ , other ] ) => fontFamilyName( other.fontFamily ) === theme
+					)?.[ 1 ].fontFamily;
+					document.setIn(
+						[ 'typography', name, 'fontFamily' ],
+						stack ?? String( style.fontFamily ).replace( value, theme )
+					);
+				}
+			}
+		}
+	}
+	return design.replace( frontMatter, () =>
+		document.toString( { lineWidth: 0, defaultStringType: 'QUOTE_DOUBLE' } ).replace( /\n$/, '' )
+	);
 }
 
 function compact< T extends Record< string, unknown > >( object: T ): Partial< T > | undefined {

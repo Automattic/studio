@@ -20,6 +20,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -136,7 +137,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 				if ( exitCode !== 0 ) {
 					throw new LoggerError(
-						sprintf( __( 'Database import failed: %s' ), stderr ),
+						sprintf( __( 'Database import failed: %s' ), summarizeWpCliStderr( stderr ) ),
 						undefined,
 						'database_import'
 					);

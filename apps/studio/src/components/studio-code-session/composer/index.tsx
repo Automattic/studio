@@ -46,6 +46,7 @@ import { useAiSettings } from 'src/hooks/use-ai-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useI18nLocale } from 'src/stores';
 import {
 	useGetStudioAssistantQuota,
 	useGetStudioAssistantTopUpPricing,
@@ -385,7 +386,8 @@ export function Composer( {
 
 	// Mirrors AddAiCreditsButton: the chooser when priced options exist, else
 	// straight to checkout for the single fixed top-up.
-	const { data: topUpPricing } = useGetStudioAssistantTopUpPricing();
+	const locale = useI18nLocale();
+	const { data: topUpPricing } = useGetStudioAssistantTopUpPricing( { locale } );
 	const [ creditsPurchaseOpen, setCreditsPurchaseOpen ] = useState( false );
 	const openAddCredits = () => {
 		if ( ( topUpPricing?.options.length ?? 0 ) > 0 ) {

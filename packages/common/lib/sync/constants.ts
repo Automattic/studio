@@ -26,5 +26,5 @@ export const SYNC_IGNORE_DEFAULTS = [
 	'debug.log',
 	'studio-error.log',
 	'sqlite-database-integration',
-	'cache',
+	'/wp-content/cache',
 ];

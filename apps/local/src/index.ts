@@ -61,6 +61,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import {
@@ -80,8 +81,12 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
+import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	siteModeFromRuntime,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -99,6 +104,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
+import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
@@ -783,6 +789,47 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	const activeThemeSlug = ( sitePath: string ) => () =>
+		new Promise< string | undefined >( ( resolve ) => {
+			const [ emitter ] = execute( [ 'wp', '--path', sitePath, 'option', 'get', 'stylesheet' ], {
+				output: 'capture',
+			} );
+			emitter.on( 'success', ( { result } ) =>
+				resolve( result?.stdout.trim().split( '\n' ).pop()?.trim() )
+			);
+			emitter.on( 'failure', () => resolve( undefined ) );
+			emitter.on( 'error', () => resolve( undefined ) );
+		} );
+
+	api.get(
+		'/sites/:id/design',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/design/fixes',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const fixes = designFixesSchema.safeParse( req.body?.fixes );
+			if ( ! fixes.success ) {
+				res.status( 400 ).json( { error: 'Invalid design fixes' } );
+				return;
+			}
+			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
+		} )
+	);
+
 	// `readSitePath` for the reason above, and more so: the UI re-checks this on
 	// every window focus.
 	api.get(
@@ -872,6 +919,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name?: string;
 				path?: string;
 				phpVersion?: string;
+				runtime?: SiteRuntime;
+				fileAccess?: SiteFileAccess;
 				wpVersion?: string;
 				customDomain?: string;
 				enableHttps?: boolean;
@@ -915,6 +964,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					siteId,
 					wpVersion: body.wpVersion,
 					phpVersion: body.phpVersion,
+					runtime: body.runtime,
+					fileAccess: body.fileAccess,
 					customDomain: body.customDomain,
 					enableHttps: body.enableHttps,
 					adminUsername: body.adminUsername,
@@ -1401,10 +1452,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// fetched — callers fall back to the single fixed top-up.
 	api.get(
 		'/top-up-pricing',
-		asyncHandler( async ( _req: Request, res: Response ) => {
+		asyncHandler( async ( req: Request, res: Response ) => {
 			const token = await readAuthToken();
+			const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
 			res.json(
-				token?.accessToken ? await fetchStudioAssistantTopUpPricing( token.accessToken ) : null
+				token?.accessToken
+					? await fetchStudioAssistantTopUpPricing(
+							token.accessToken,
+							isSupportedLocale( locale ) ? locale : undefined
+					  )
+					: null
 			);
 		} )
 	);

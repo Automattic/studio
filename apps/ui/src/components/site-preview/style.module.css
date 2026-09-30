@@ -426,6 +426,12 @@
 	}
 }
 
+/* Studio renders the design system itself, so its surface scrolls like a page. */
+.designSurface {
+	display: block;
+	overflow-y: auto;
+}
+
 .iframe {
 	flex: 1;
 	width: 100%;

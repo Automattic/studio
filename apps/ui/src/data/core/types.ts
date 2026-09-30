@@ -24,6 +24,7 @@ import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-set
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -36,6 +37,7 @@ import type {
 } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
+import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -60,6 +62,7 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+export type { SiteDesign } from '@studio/common/sites/site-design';
 export type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
@@ -146,7 +149,8 @@ export interface ConnectorCapabilities {
 	// The preview can host the annotation inspector (script injection + a bridge
 	// into the previewed page). Only the desktop's <webview> supports this; in a
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
-	// the Annotate control is hidden.
+	// the Annotate control is hidden (except on the design system page, which
+	// Studio renders itself).
 	annotatePreview: boolean;
 	// `readLocalMediaFile` can read media files from the host's disk (used to
 	// render screenshots and generated images inline). The local server limits
@@ -226,6 +230,11 @@ export interface Connector {
 	// way down: aborting it stops the walk rather than leaving it to finish for
 	// a site the user has already left.
 	getSiteStorageUsage( siteId: string, signal?: AbortSignal ): Promise< SiteStorageUsage | null >;
+	// The site's DESIGN.md and its active theme's theme.json, or null when it
+	// lacks either.
+	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
+	// Settles drifts between DESIGN.md and theme.json and resolves the result.
+	fixSiteDesignDrift( siteId: string, fixes: DesignFix[] ): Promise< SiteDesign | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -284,7 +293,8 @@ export interface Connector {
 	// AI credit top-up options priced for the signed-in account. Resolves
 	// `null` when pricing can't be fetched (signed out, or the host has no
 	// pricing source) so callers can fall back to the single fixed top-up.
-	getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null >;
+	// Prices are formatted for `locale`.
+	getStudioAssistantTopUpPricing( locale?: string ): Promise< StudioAssistantTopUpPricing | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
@@ -539,7 +549,12 @@ export interface Connector {
 	// Tells the host which surface the Windows/Linux window-controls overlay is
 	// sitting on, so it can repaint them to match (see
 	// `useWindowControlsSurface`). Only the Electron host has an overlay.
-	setWindowControlsSurface?( surface: 'chrome' | 'content' ): Promise< void >;
+	setWindowControlsSurface?( surface: 'chrome' | 'content' | 'toolbar' ): Promise< void >;
+
+	// Moves the macOS traffic lights to line up with the site preview toolbar
+	// while it sits beside them, and back again (see `useTrafficLightsPosition`).
+	// Only the Electron host has traffic lights to move.
+	setTrafficLightsPosition?( position: 'default' | 'toolbar' ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
@@ -695,6 +710,8 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: SupportedPHPVersion;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	customDomain?: string;
 	enableHttps?: boolean;

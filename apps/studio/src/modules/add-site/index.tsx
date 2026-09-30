@@ -611,7 +611,7 @@ export function AddSiteModalContent( {
 			<div
 				aria-hidden="true"
 				className={ cx(
-					'fixed inset-0 pointer-events-none z-0 transition-opacity ease-out',
+					'absolute inset-0 pointer-events-none -z-10 transition-opacity ease-out',
 					showDotGrid ? 'opacity-100 duration-500' : 'opacity-0 duration-700'
 				) }
 			>

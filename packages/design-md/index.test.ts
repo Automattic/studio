@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { googleFontsUrl, parseDesignMd, themeJsonFromDesign, typographyStyles } from './index';
+import {
+	applyDesignToThemeJson,
+	applyThemeToDesign,
+	designDrift,
+	googleFontsUrl,
+	parseDesignMd,
+	themeJsonFromDesign,
+	typographyStyles,
+} from './index';
 
 const DESIGN_MD = `---
 name: Sunny Bakery
@@ -154,5 +162,91 @@ describe( 'googleFontsUrl', () => {
 		const styles = typographyStyles( parseDesignMd( DESIGN_MD ) ).map( ( [ , style ] ) => style );
 		expect( googleFontsUrl( styles, 'block' ) ).toMatch( /&display=block$/ );
 		expect( googleFontsUrl( [] ) ).toBeUndefined();
+	} );
+} );
+
+describe( 'designDrift', () => {
+	it( 'lists the tokens theme.json lacks or sets differently', () => {
+		const tokens = parseDesignMd( DESIGN_MD );
+		const themeJson = themeJsonFromDesign( tokens, BASE )!.themeJson;
+		expect( designDrift( tokens, themeJson ) ).toEqual( [] );
+		expect(
+			designDrift( tokens, {
+				settings: {
+					color: {
+						palette: [
+							{ slug: 'base', color: '#fff' },
+							{ slug: 'accent-warm', color: '#f6c344' },
+						],
+					},
+				},
+			} )
+		).toEqual( [] );
+
+		const settings = themeJson.settings as {
+			color: { palette: Array< { slug: string; color: string } > };
+			spacing: { spacingSizes: unknown[] };
+		};
+		settings.color.palette[ 0 ].color = '#E2231A';
+		settings.color.palette[ 1 ].color = '#000000';
+		settings.spacing.spacingSizes = [];
+		expect( designDrift( tokens, themeJson ) ).toEqual( [
+			{ kind: 'color', slug: 'background', design: '#fffdf7', theme: '#000000' },
+			{ kind: 'spacing', slug: 'sm', design: '16px', theme: undefined },
+			{ kind: 'spacing', slug: 'md', design: '32px', theme: undefined },
+		] );
+	} );
+} );
+
+describe( 'applying drift', () => {
+	const tokens = parseDesignMd( DESIGN_MD );
+	const drifted = () => {
+		const themeJson = themeJsonFromDesign( tokens, BASE )!.themeJson;
+		const settings = themeJson.settings as {
+			color: { palette: Array< { slug: string; color: string } > };
+			spacing: { spacingSizes: unknown[] };
+			typography: { fontFamilies: Array< { slug: string; name: string; fontFamily: string } > };
+		};
+		settings.color.palette[ 1 ].color = '#000000';
+		settings.color.palette.push( { slug: 'extra', color: '#123456' } );
+		settings.spacing.spacingSizes = [];
+		settings.typography.fontFamilies[ 1 ].fontFamily = '"Lora", serif';
+		settings.typography.fontFamilies.push( {
+			slug: 'playfair',
+			name: 'Playfair Display',
+			fontFamily: '"Playfair Display", serif',
+		} );
+		(
+			themeJson.styles as { elements: { heading: { typography: { fontFamily: string } } } }
+		 ).elements.heading.typography.fontFamily = 'var:preset|font-family|playfair';
+		return themeJson;
+	};
+
+	it( 'finds a style using another font than DESIGN.md gives it', () => {
+		expect( designDrift( tokens, drifted() ) ).toContainEqual( {
+			kind: 'style-font',
+			slug: 'heading',
+			design: 'Fredoka',
+			theme: 'Playfair Display',
+		} );
+	} );
+
+	it( 'writes the DESIGN.md values into theme.json and keeps its other presets', () => {
+		const themeJson = drifted();
+		const fixed = applyDesignToThemeJson( tokens, themeJson, designDrift( tokens, themeJson ) );
+		expect( designDrift( tokens, fixed ) ).toEqual( [] );
+		expect( ( fixed.settings as { color: { palette: unknown[] } } ).color.palette ).toContainEqual(
+			{ slug: 'extra', color: '#123456' }
+		);
+		expect( fixed.styles ).toEqual( themeJsonFromDesign( tokens, BASE )!.themeJson.styles );
+	} );
+
+	it( 'writes theme.json values back into the front matter and leaves the rest as written', () => {
+		const design = applyThemeToDesign( DESIGN_MD, designDrift( tokens, drifted() ) );
+		expect( design ).toBe(
+			DESIGN_MD.replace( 'background: "#fffdf7"', 'background: "#000000"' )
+				.replace( /'Fredoka'/g, "'Playfair Display'" )
+				.replace( /Nunito, sans-serif/g, 'Lora, sans-serif' )
+		);
 	} );
 } );

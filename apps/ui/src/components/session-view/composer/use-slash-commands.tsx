@@ -1,7 +1,7 @@
 import { getSlashCommandMatches } from '@studio/common/ai/slash-commands';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { FloatingSurface } from '@/components/floating-surface';
 import menuStyles from '@/components/menu/style.module.css';
 import styles from './style.module.css';
 import type { Dispatch, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
@@ -13,16 +13,14 @@ const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
 type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
 
 /**
- * Reproduces Base UI's `data-starting-style` / `data-ending-style` handshake
- * for a plain element (the listbox stays a plain `<ul>` so the textarea keeps
- * focus): mount with starting styles, drop them next paint, keep mounted while
- * the exit transition plays.
+ * Base UI's `data-starting-style` / `data-ending-style` handshake for a plain
+ * element (a popup would take focus from the textarea).
  */
 function useFloatingPresence( open: boolean ): {
 	mounted: boolean;
 	status: FloatingPresenceStatus;
 } {
-	// Matches the longest transition in floating-surface-motion (transform 180ms).
+	// Matches the longest transition in floating-surface (transform 180ms).
 	const EXIT_MS = 200;
 	const [ mounted, setMounted ] = useState( open );
 	const [ status, setStatus ] = useState< FloatingPresenceStatus >( open ? 'open' : 'ending' );
@@ -159,9 +157,9 @@ export function useSlashCommands( {
 	);
 
 	const popup = presence.mounted ? (
-		<ul
+		<FloatingSurface
 			id={ listboxId }
-			className={ `${ menuStyles.popup } ${ styles.autocompletePopup } ${ motionStyles.motion }` }
+			className={ `${ menuStyles.popup } ${ styles.autocompletePopup }` }
 			data-side="top"
 			data-align="start"
 			data-starting-style={ presence.status === 'starting' ? '' : undefined }
@@ -170,7 +168,7 @@ export function useSlashCommands( {
 			aria-label={ __( 'Slash commands' ) }
 		>
 			{ popupMatches.map( ( command, index ) => (
-				<li
+				<div
 					key={ command.name }
 					id={ optionId( command.name ) }
 					role="option"
@@ -188,9 +186,9 @@ export function useSlashCommands( {
 						<span className={ styles.commandName }>/{ command.name }</span>
 						<span className={ styles.commandDescription }>{ command.description }</span>
 					</span>
-				</li>
+				</div>
 			) ) }
-		</ul>
+		</FloatingSurface>
 	) : null;
 
 	return {

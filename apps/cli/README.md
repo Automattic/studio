@@ -64,7 +64,10 @@ The Studio CLI integrates with Studio and uses the same list of sites. Similarly
 
 ```bash
 studio list
+studio list --format json
 ```
+
+JSON output prints a fixed set of public fields (site identity, path, status, runtime, version, and URL). Fields outside that set, including admin passwords, are omitted. To read one site's admin password, run `studio config get admin-password --path <site>` and do not log the value.
 
 To start and stop sites, run these commands:
 

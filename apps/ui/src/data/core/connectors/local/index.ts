@@ -368,6 +368,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
+		async getSiteDesign( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
+		},
+		async fixSiteDesignDrift( siteId, fixes ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design/fixes`, {
+				method: 'POST',
+				body: JSON.stringify( { fixes } ),
+			} );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
@@ -377,6 +386,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					name: params.name,
 					path: params.path,
 					phpVersion: params.phpVersion,
+					runtime: params.runtime,
+					fileAccess: params.fileAccess,
 					wpVersion: params.wpVersion,
 					customDomain: params.customDomain,
 					enableHttps: params.enableHttps,
@@ -536,10 +547,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
 		},
-		async getStudioAssistantTopUpPricing() {
+		async getStudioAssistantTopUpPricing( locale?: string ) {
 			// Proxied server-side for the same reason as the quota: the browser
 			// UI never holds the wpcom token.
-			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
+			const query = locale ? `?locale=${ encodeURIComponent( locale ) }` : '';
+			return api< StudioAssistantTopUpPricing | null >( `/top-up-pricing${ query }` );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.

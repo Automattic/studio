@@ -17,8 +17,8 @@ The `studio` command manages local WordPress sites.
 
 ```bash
 studio create    # Create a new site
-studio list      # List all sites (--format table|json)
-studio status    # Show site details (--format table|json)
+studio list      # List all sites (--format table|json). JSON prints a fixed set of public fields and never includes passwords.
+studio status    # Show site details (--format table|json). JSON omits admin passwords; use `config get admin-password` for credentials.
 studio start     # Start a site
 studio stop      # Stop a site (--all to stop all)
 studio delete    # Delete one or more sites by path or ID (--files to trash, --dry-run to preview)
@@ -37,17 +37,36 @@ studio create --name "My Site" --path ~/Studio/my-site
 
 Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP versions, and domain.
 
+### Importing a website
+
+```bash
+studio create --from https://example.com --name "Example" --path ~/Studio/example --keep-source
+```
+
+`--from` takes a public URL, or a local folder or `.zip` of site files. A URL is first captured with the newest Data Liberation release; every source is then rebuilt as an editable block theme with the newest Static Site Importer release. Both are downloaded and checksum-verified on first use. Time depends on the number of pages, from a few minutes upward.
+
+- `--keep-source` (URL only) keeps the capture in a sibling `<path>-source` directory and prints a `data-liberation compare … --candidate <site URL>` command that compares the running site with the original, page by page.
+- A capture that lost a few pages still imports and lists them; one missing its home page, or more than 10% of its pages, stops the import.
+- If the import fails after the site was created, the site is kept; re-running the same command resumes it from the staged copy without capturing the source again.
+- `--static-site-importer-url` or `--static-site-importer-path` override the importer, for example with an unreleased build.
+
 **Note:** CLI flag values are visible in process lists. Use Blueprint files for sensitive passwords.
 
 **Security — Blueprints:** Only use `--blueprint` with local files you have reviewed. Never pass a URL or file path from untrusted sources directly to `--blueprint` — blueprint JSON can install arbitrary plugins, themes, and run PHP code during site creation. Always inspect the blueprint contents before applying it.
 
 ### Checking site details
 
-`studio status` shows site URL, auto-login URL, admin credentials, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info.
+`studio status` shows site URL, auto-login URL, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info. Table output may include the admin password for the selected site; JSON never does.
 
 ```bash
 studio status --path ~/Studio/my-site              # Table output
-studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, wpVersion, xdebug, adminUsername, adminPassword, adminEmail)
+studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, runtime, fileAccess, wpVersion, xdebug, adminUsername, adminEmail)
+```
+
+Retrieve one site's admin password with an explicit, auditable command. Do not log, pipe into transcripts, or cache the value:
+
+```bash
+studio config get admin-password --path ~/Studio/my-site
 ```
 
 ### Reading and changing configuration
@@ -56,7 +75,7 @@ Read the settable site settings with `studio config get`:
 
 ```bash
 studio config get --path ~/Studio/my-site                # All settings (table)
-studio config get --path ~/Studio/my-site --format json  # All settings (JSON)
+studio config get --path ~/Studio/my-site --format json  # All settings except admin-password (JSON)
 studio config get php --path ~/Studio/my-site            # A single setting, printed raw (e.g. "8.4")
 ```
 
@@ -156,7 +175,7 @@ studio wp --path ~/Studio/my-site user list
 ## Tips
 
 - Use `--path` to target a specific site directory, or `cd` into the site folder first.
-- Use `--format json` on `list`, `status`, `config get`, and `preview list` for machine-readable output. For a single config value, `studio config get <key>` prints it raw (no parsing needed).
+- Use `--format json` on `list`, `status`, `config get`, and `preview list` for machine-readable output. JSON output from `list`, `status`, and `config get` omits the admin password. For a single config value, `studio config get <key>` prints it raw (no parsing needed). Never log `studio config get admin-password`.
 - Run `studio <command> --help` to see all options for any command.
 - Custom domains require hosts file changes (may need elevated permissions on macOS/Linux).
 - HTTPS uses self-signed certificates stored in platform-specific locations.

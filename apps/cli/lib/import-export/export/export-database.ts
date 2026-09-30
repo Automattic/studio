@@ -6,8 +6,21 @@ import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
+
+async function createDatabaseExportError(
+	message: string,
+	stderrText: Promise< string >
+): Promise< LoggerError > {
+	const stderr = ( await stderrText ).trim();
+	if ( ! stderr ) {
+		return new LoggerError( message, undefined, 'database_export' );
+	}
+	console.error( message, stderr );
+	return new LoggerError( message, new Error( summarizeWpCliStderr( stderr ) ), 'database_export' );
+}
 
 export async function exportDatabaseToFile(
 	site: SiteData,
@@ -31,7 +44,10 @@ export async function exportDatabaseToFile(
 
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new LoggerError( __( 'Database export failed' ), undefined, 'database_export' );
+		throw await createDatabaseExportError(
+			__( 'Database export failed' ),
+			command.response.stderrText
+		);
 	}
 
 	// Move the file to its final destination
@@ -64,7 +80,10 @@ export async function exportDatabaseToMultipleFiles(
 	const tablesStdout = await command.response.stdoutText;
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new LoggerError( __( 'Database export failed' ), undefined, 'database_export' );
+		throw await createDatabaseExportError(
+			__( 'Database export failed' ),
+			command.response.stderrText
+		);
 	}
 
 	let tables;
@@ -112,10 +131,9 @@ export async function exportDatabaseToMultipleFiles(
 
 		const exitCode = await command.response.exitCode;
 		if ( exitCode !== 0 ) {
-			throw new LoggerError(
+			throw await createDatabaseExportError(
 				sprintf( __( 'Database export failed for table %s' ), table ),
-				undefined,
-				'database_export'
+				command.response.stderrText
 			);
 		}
 

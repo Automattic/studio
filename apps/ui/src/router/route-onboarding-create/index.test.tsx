@@ -115,6 +115,8 @@ const formValues: CreateSiteFormValues = {
 	name: 'My Site',
 	path: '/sites/my-site',
 	phpVersion: '8.3',
+	runtime: 'playground',
+	fileAccess: 'site-directory',
 	wpVersion: 'latest',
 	enableHttps: false,
 	adminUsername: 'admin',
@@ -158,6 +160,10 @@ describe( 'CreateSitePage', () => {
 		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
+			runtime: 'playground',
+			fileAccess: 'site-directory',
+		} );
 		expect( mocks.createSession ).not.toHaveBeenCalled();
 		expect( mocks.navigate ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/new',

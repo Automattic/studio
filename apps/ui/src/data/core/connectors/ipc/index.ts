@@ -282,6 +282,8 @@ export function createIpcConnector(): Connector {
 				name,
 				path,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
@@ -295,6 +297,8 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
@@ -469,6 +473,13 @@ export function createIpcConnector(): Connector {
 			}
 		},
 
+		async getSiteDesign( siteId ) {
+			return ipcApi.getSiteDesign( siteId );
+		},
+		async fixSiteDesignDrift( siteId, fixes ) {
+			return ipcApi.fixSiteDesignDrift( siteId, fixes );
+		},
+
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
 			// `false` skips the loading event consumed by Classic; this UI tracks
 			// the same request through React Query.
@@ -551,9 +562,11 @@ export function createIpcConnector(): Connector {
 			return data === null ? null : studioAssistantQuotaSchema.parse( data );
 		},
 
-		async getStudioAssistantTopUpPricing(): Promise< StudioAssistantTopUpPricing | null > {
+		async getStudioAssistantTopUpPricing(
+			locale?: string
+		): Promise< StudioAssistantTopUpPricing | null > {
 			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			return token ? fetchStudioAssistantTopUpPricing( token.accessToken ) : null;
+			return token ? fetchStudioAssistantTopUpPricing( token.accessToken, locale ) : null;
 		},
 
 		async deleteAllSnapshots(): Promise< void > {
@@ -1014,6 +1027,10 @@ export function createIpcConnector(): Connector {
 
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );
+		},
+
+		async setTrafficLightsPosition( position ) {
+			await ipcApi.setTrafficLightsPosition( position );
 		},
 
 		async isFullscreen(): Promise< boolean > {

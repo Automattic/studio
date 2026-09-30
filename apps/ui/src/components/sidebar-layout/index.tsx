@@ -3,7 +3,11 @@ import { ThemeProvider } from '@wordpress/theme';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
+import {
+	AppMessageCards,
+	AppMessageCardsDot,
+	AppMessageHistoryRecorder,
+} from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
 import { CollapsedSiteSwitcher } from '@/components/collapsed-site-switcher';
 import { NoticeHistoryDialog } from '@/components/notice-history';
@@ -253,6 +257,7 @@ export function SidebarLayout( {
 					</main>
 					{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 					<NoticeHistoryDialog />
+					<AppMessageHistoryRecorder />
 				</div>
 			</SeenSessionTimestampsProvider>
 		</SidebarCollapsedContext.Provider>

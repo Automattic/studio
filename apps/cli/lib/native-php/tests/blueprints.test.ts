@@ -69,6 +69,15 @@ describe( 'getBlueprintRunnerPrependContent', () => {
 		expect( content ).toContain( `'timeout_ms' => ${ BLUEPRINT_HTTP_TIMEOUT_MS }` );
 	} );
 
+	it( 'keeps the runner client when the bundled HttpClient supports idle timeouts', () => {
+		const content = getBlueprintRunnerPrependContent();
+
+		expect( content ).toContain(
+			"property_exists( '\\WordPress\\HttpClient\\ClientState', 'idle_timeout_ms' )"
+		);
+		expect( content ).toContain( 'return $client;' );
+	} );
+
 	it( 'allows far more than the runner default of 30 seconds per download', () => {
 		expect( BLUEPRINT_HTTP_TIMEOUT_MS ).toBeGreaterThan( 30_000 );
 	} );

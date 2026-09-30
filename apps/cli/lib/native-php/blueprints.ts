@@ -13,18 +13,22 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 // blueprints.phar caps each download at 30 s in total, so large plugins (e.g. Gutenberg) fail
-// on slow connections. Remove once the upstream runner stops using a total transfer timeout.
+// on slow connections. Remove once the bundled phar includes WordPress/php-toolkit#322.
 export const BLUEPRINT_HTTP_TIMEOUT_MS = 10 * 60 * 1000;
 
 // Hooks the runner's `blueprint.http_client` filter through the `$wp_filter` global its
 // polyfilled `apply_filters()` reads, since the phar exposes no CLI option for the timeout.
+// A phar with `idle_timeout_ms` already fails only stalled downloads, so its client is kept.
 export function getBlueprintRunnerPrependContent(): string {
 	return `<?php
 $GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
-	'function'      => function () {
+	'function'      => function ( $client ) {
+		if ( property_exists( '\\WordPress\\HttpClient\\ClientState', 'idle_timeout_ms' ) ) {
+			return $client;
+		}
 		return new \\WordPress\\HttpClient\\Client( array( 'timeout_ms' => ${ BLUEPRINT_HTTP_TIMEOUT_MS } ) );
 	},
-	'accepted_args' => 0,
+	'accepted_args' => 1,
 );
 `;
 }

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	downloadVerifiedAsset,
 	linkPlaywright,
+	loadHostAcceptanceRuntime,
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
@@ -31,6 +32,62 @@ beforeEach( () => {
 afterEach( () => {
 	vi.unstubAllEnvs();
 	fs.rmSync( configDirectory, { recursive: true, force: true } );
+} );
+
+describe( 'installed importer host API', () => {
+	function install( body: string, version = '1.21.0' ) {
+		const plugin = path.join( configDirectory, 'site', 'wp-content/plugins/static-site-importer' );
+		const host = path.join( plugin, 'assets/host-acceptance' );
+		fs.mkdirSync( host, { recursive: true } );
+		fs.writeFileSync(
+			path.join( plugin, 'static-site-importer.php' ),
+			`<?php\n * Version: ${ version }\n`
+		);
+		fs.writeFileSync( path.join( host, 'index.mjs' ), body );
+		fs.writeFileSync(
+			path.join( host, 'manifest.json' ),
+			JSON.stringify( {
+				schema: 'static-site-importer/host-acceptance/v1',
+				version,
+				entry: 'index.mjs',
+				sha256: digest( body ),
+			} )
+		);
+		return { site: path.join( configDirectory, 'site' ), host };
+	}
+	it( 'loads verified installed bytes without selecting a newer release and rejects entry tampering', async () => {
+		const body =
+			'export const HOST_ACCEPTANCE_API="static-site-importer/host-acceptance/v1"; export async function runExistingRuntimeAcceptance(){return {status:"pending"}};export function consumeExistingRuntimeAcceptance(){return {status:"pending"}}';
+		const { site, host } = install( body );
+		const load = vi.fn().mockResolvedValue( {
+			HOST_ACCEPTANCE_API: 'static-site-importer/host-acceptance/v1',
+			runExistingRuntimeAcceptance: async () => ( { status: 'pending' } ),
+			consumeExistingRuntimeAcceptance: () => ( { status: 'pending' } ),
+		} );
+		const runtime = await loadHostAcceptanceRuntime( site, load );
+		expect( runtime.version ).toBe( '1.21.0' );
+		expect( runtime.sha256 ).toBe( digest( body ) );
+		expect( load ).toHaveBeenCalledWith(
+			expect.stringContaining( `/host-acceptance/1.21.0/${ digest( body ) }/index.mjs` )
+		);
+		fs.writeFileSync( path.join( host, 'index.mjs' ), `${ body }\n// changed` );
+		await expect( loadHostAcceptanceRuntime( site, load ) ).rejects.toThrow(
+			/digest does not match/
+		);
+	} );
+	it( 'refuses mismatched importer versions and missing host capability', async () => {
+		const { site } = install( 'export const HOST_ACCEPTANCE_API="wrong"' );
+		await expect(
+			loadHostAcceptanceRuntime( site, async () => ( { HOST_ACCEPTANCE_API: 'wrong' } ) )
+		).rejects.toThrow( /public host acceptance API/ );
+		fs.writeFileSync(
+			path.join( site, 'wp-content/plugins/static-site-importer/static-site-importer.php' ),
+			'<?php\n * Version: 1.22.0\n'
+		);
+		await expect( loadHostAcceptanceRuntime( site ) ).rejects.toThrow(
+			/incompatible host acceptance manifest/
+		);
+	} );
 } );
 
 describe( 'resolveLatestReleaseAsset', () => {

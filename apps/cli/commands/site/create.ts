@@ -84,6 +84,7 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { findCaptureRoot, isImportAccepted, reviewImportedSite } from 'cli/lib/import-acceptance';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
@@ -103,7 +104,11 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	runBlueprint,
+	startWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import {
 	CLI_AUTO_UPDATE_WP_VERSION,
 	coerceWpVersionOption,
@@ -171,6 +176,7 @@ export type CreateCommandOptions = {
 			request: string;
 			bundlePath?: string;
 			sourcePath?: string;
+			captureRoot?: string;
 			reportFiles?: Array< { name: string; from: string } >;
 		};
 	};
@@ -488,6 +494,7 @@ export function buildCreateFromSourceBlueprint(
 		request: string;
 		bundlePath?: string;
 		sourcePath?: string;
+		captureRoot?: string;
 		reportFiles?: Array< { name: string; from: string } >;
 	};
 } {
@@ -497,6 +504,7 @@ export function buildCreateFromSourceBlueprint(
 		request: `${ JSON.stringify( request, null, 2 ) }\n`,
 		sourcePath: source.stagedSourcePath,
 		reportFiles: source.stagedReportFiles,
+		captureRoot: findCaptureRoot( sourcePath ),
 	} );
 }
 
@@ -506,6 +514,7 @@ function importerBlueprint(
 	staticSiteImport: {
 		request: string;
 		sourcePath?: string;
+		captureRoot?: string;
 		reportFiles?: Array< { name: string; from: string } >;
 	}
 ): ReturnType< typeof buildCreateFromSourceBlueprint > {
@@ -622,6 +631,7 @@ export async function prepareSourceImport(
 			sourceUrl,
 			path.join( path.dirname( sitePath ), `${ path.basename( sitePath ) }-source` )
 		);
+		if ( fs.existsSync( keptCapture ) ) blueprint.staticSiteImport.captureRoot = keptCapture;
 		return {
 			blueprint,
 			siteName: siteName ?? artifactTitle( JSON.parse( resumable ) ) ?? __( 'Imported Site' ),
@@ -876,7 +886,8 @@ async function runStaticSiteImport(
 	sourcePath?: string,
 	resume = false,
 	logger: Logger< LoggerAction > = defaultLogger,
-	reportFiles: Array< { name: string; from: string } > = []
+	reportFiles: Array< { name: string; from: string } > = [],
+	captureRoot?: string
 ): Promise< boolean > {
 	const requestPath = staticSiteImportRequestPath( site.path );
 	if ( resume ) {
@@ -948,6 +959,27 @@ async function runStaticSiteImport(
 			new Error( qualityFailure )
 		);
 	}
+	logger.reportProgress( __( 'Reviewing frozen source, WordPress and editor acceptance…' ) );
+	const acceptance = await reviewImportedSite(
+		site,
+		staticSiteImportResult( receipt ) ?? {},
+		captureRoot ?? ( sourcePath ? findCaptureRoot( sourcePath ) : undefined )
+	);
+	logger.reportKeyValuePair( 'acceptance', acceptance.status );
+	logger.reportKeyValuePair( 'acceptance_report', acceptance.reportPath );
+	if ( acceptance.status !== 'accepted' ) {
+		logger.reportWarning(
+			sprintf(
+				__(
+					'Import preview materialized; acceptance is %1$s. Source and staged evidence were retained. %2$s'
+				),
+				acceptance.status,
+				acceptance.reason ?? acceptance.reportPath
+			)
+		);
+		process.exitCode = 2;
+		return false;
+	}
 
 	const finalizationStartedAt = Date.now();
 	logger.reportProgress( staticSiteImportProgressMessage( 'finalization', 0 ) );
@@ -955,7 +987,7 @@ async function runStaticSiteImport(
 	logger.reportProgress(
 		staticSiteImportProgressMessage( 'finalization', Date.now() - finalizationStartedAt )
 	);
-	logger.reportSuccess( __( 'Static site imported successfully' ) );
+	logger.reportSuccess( __( 'Static site imported and acceptance verified' ) );
 	return cleanupSucceeded;
 }
 
@@ -1120,13 +1152,21 @@ export async function runCommand(
 		if ( existingSite && staticSiteImport && canResumeStaticSiteImport ) {
 			try {
 				importOutcome = 'attempted';
+				await connectToDaemon();
+				existingSite.running = Boolean( await isServerRunning( existingSite.id ) );
+				if ( ! options.noStart && ! existingSite.running ) {
+					await setupCustomDomain( existingSite, logger );
+					await startWordPressServer( existingSite, logger );
+					existingSite.running = true;
+				}
 				const cleanupSucceeded = await runStaticSiteImport(
 					existingSite,
 					staticSiteImport.request,
 					staticSiteImport.sourcePath,
 					true,
 					logger,
-					staticSiteImport.reportFiles
+					staticSiteImport.reportFiles,
+					staticSiteImport.captureRoot
 				);
 				importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 			} catch ( error ) {
@@ -1327,7 +1367,8 @@ export async function runCommand(
 						staticSiteImport.sourcePath,
 						false,
 						logger,
-						staticSiteImport.reportFiles
+						staticSiteImport.reportFiles,
+						staticSiteImport.captureRoot
 					);
 					importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 				}
@@ -1382,7 +1423,8 @@ export async function runCommand(
 							staticSiteImport.sourcePath,
 							false,
 							logger,
-							staticSiteImport.reportFiles
+							staticSiteImport.reportFiles,
+							staticSiteImport.captureRoot
 						);
 						importOutcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 					}
@@ -1917,7 +1959,13 @@ export const registerCommand = (
 
 				try {
 					await runCommand( sitePath, config );
-					if ( sourceUrl && liberationOutputDir && ! argv.keepSource && ! capturedPartially ) {
+					if (
+						sourceUrl &&
+						liberationOutputDir &&
+						! argv.keepSource &&
+						! capturedPartially &&
+						isImportAccepted( sitePath )
+					) {
 						await fs.promises
 							.rm( liberationOutputDir, { recursive: true, force: true } )
 							.catch( () => {} );

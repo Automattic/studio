@@ -39,6 +39,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { isImportAccepted, reviewImportedSite } from 'cli/lib/import-acceptance';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -90,6 +91,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/language-packs' );
+vi.mock( 'cli/lib/import-acceptance', async () => {
+	const actual = await vi.importActual( 'cli/lib/import-acceptance' );
+	return { ...actual, reviewImportedSite: vi.fn(), isImportAccepted: vi.fn() };
+} );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
@@ -234,6 +239,12 @@ describe( 'CLI: studio create', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		process.exitCode = undefined;
+		vi.mocked( reviewImportedSite ).mockResolvedValue( {
+			schema: 'studio/import-acceptance/v1',
+			status: 'accepted',
+			reportPath: '/test/acceptance.json',
+		} );
+		vi.mocked( isImportAccepted ).mockReturnValue( true );
 
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
@@ -1307,6 +1318,26 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
+		it( 'retains a materialized preview and staged evidence when acceptance is pending', async () => {
+			const blueprint = buildCapturedSiteBlueprint();
+			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			vi.mocked( reviewImportedSite ).mockResolvedValue( {
+				schema: 'studio/import-acceptance/v1',
+				status: 'pending',
+				reason: 'editor_presentation_required',
+				reportPath: '/test/acceptance.json',
+			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+			expect( process.exitCode ).toBe( 2 );
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
+			expect( rmSpy ).not.toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
+				recursive: true,
+				force: true,
+			} );
+		} );
+
 		it( 'rejects a successful process without a terminal SSI receipt', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
@@ -1324,39 +1355,48 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
-		it( 'reruns a matching staged request without reprovisioning the site', async () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			const existingSite = { ...mockExistingSite, path: mockSitePath };
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ existingSite ],
-			} );
-			createPathExistsMock( true );
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
-				filePath.toString().endsWith( path.join( '.studio-import', 'request.json' ) )
-			);
-			vi.spyOn( fs, 'readFileSync' ).mockReturnValue( blueprint.staticSiteImport.request );
-			const writeSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+		it.each( [ true, false ] )(
+			'reruns a matching staged request with noStart=%s without reprovisioning the site',
+			async ( noStart ) => {
+				const blueprint = buildCapturedSiteBlueprint();
+				const existingSite = { ...mockExistingSite, path: mockSitePath };
+				vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+					version: 1,
+					sites: [ existingSite ],
+				} );
+				createPathExistsMock( true );
+				vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				vi.mocked( isWordPressDirectory ).mockReturnValue( true );
+				vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) =>
+					filePath.toString().endsWith( path.join( '.studio-import', 'request.json' ) )
+				);
+				vi.spyOn( fs, 'readFileSync' ).mockReturnValue( blueprint.staticSiteImport.request );
+				const writeSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 
-			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+				await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart } );
 
-			expect( runBlueprint ).not.toHaveBeenCalled();
-			expect( writeSpy ).not.toHaveBeenCalledWith(
-				path.join( mockSitePath, '.studio-import', 'request.json' ),
-				expect.anything()
-			);
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
-				existingSite,
-				[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
-				expect.objectContaining( {
-					liveOutput: true,
-					onLiveOutput: expect.any( Function ),
-				} )
-			);
-		} );
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( startWordPressServer ).toHaveBeenCalledTimes( noStart ? 0 : 1 );
+				expect( reviewImportedSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { running: ! noStart } ),
+					expect.anything(),
+					undefined
+				);
+				expect( writeSpy ).not.toHaveBeenCalledWith(
+					path.join( mockSitePath, '.studio-import', 'request.json' ),
+					expect.anything()
+				);
+				expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith(
+					existingSite,
+					[ 'static-site-importer', 'import', '--request=.studio-import/request.json' ],
+					expect.objectContaining( {
+						liveOutput: true,
+						onLiveOutput: expect.any( Function ),
+					} )
+				);
+			}
+		);
 
 		it( 'rejects a registered site whose staged request does not match', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
@@ -1963,7 +2003,7 @@ describe( 'CLI: studio create', () => {
 
 			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledTimes( 1 );
 			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
-				'Static site imported successfully'
+				'Static site imported and acceptance verified'
 			);
 			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
 			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
@@ -2085,7 +2125,7 @@ describe( 'CLI: studio create', () => {
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } )
 			).resolves.toBeUndefined();
 			expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
-				'Static site imported successfully'
+				'Static site imported and acceptance verified'
 			);
 		} );
 

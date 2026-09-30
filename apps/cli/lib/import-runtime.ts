@@ -25,6 +25,10 @@ export type ReleaseAsset = {
 
 export type CaptureEngine = {
 	version: string;
+	/** Verified public entry used by host acceptance, not a private SDK module. */
+	entryPath?: string;
+	checkFidelity?: ( options: Record< string, unknown > ) => Promise< Record< string, unknown > >;
+	serveCapture?: ( directory: string ) => Promise< { url: string; close(): Promise< void > } >;
 	/** The verified release tarball, runnable as `npx --package=<url> data-liberation`. */
 	packageUrl: string;
 	captureWebsite: ( options: {
@@ -351,7 +355,90 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	if ( typeof engine.captureWebsite !== 'function' ) {
 		throw new Error( `Data Liberation ${ asset.version } does not export the capture engine API.` );
 	}
-	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };
+	return {
+		...( engine as CaptureEngine ),
+		version: asset.version,
+		packageUrl: asset.url,
+		entryPath: bundlePath,
+	};
+}
+
+export type HostAcceptanceRuntime = {
+	version: string;
+	sha256: string;
+	runExistingRuntimeAcceptance: (
+		config: Record< string, unknown >
+	) => Promise< Record< string, unknown > >;
+	consumeExistingRuntimeAcceptance: (
+		directory: string,
+		report: Record< string, unknown >
+	) => { status: string };
+};
+
+/** Load the host API from the importer that actually materialized this site.
+ * Never resolve a different/newer SSI release during acceptance.
+ */
+export async function loadHostAcceptanceRuntime(
+	sitePath: string,
+	loadModule: ( url: string ) => Promise< Record< string, unknown > > = ( url ) =>
+		import( /* @vite-ignore */ url )
+): Promise< HostAcceptanceRuntime > {
+	const pluginRoot = path.join( sitePath, 'wp-content', 'plugins', 'static-site-importer' );
+	const source = path.join( pluginRoot, 'assets', 'host-acceptance' );
+	const manifest = JSON.parse(
+		fs.readFileSync( path.join( source, 'manifest.json' ), 'utf8' )
+	) as {
+		schema: string;
+		version: string;
+		entry: string;
+		sha256: string;
+	};
+	const pluginVersion = fs
+		.readFileSync( path.join( pluginRoot, 'static-site-importer.php' ), 'utf8' )
+		.match( /^\s*\* Version:\s*([0-9.]+)/m )?.[ 1 ];
+	if (
+		manifest.schema !== 'static-site-importer/host-acceptance/v1' ||
+		manifest.entry !== 'index.mjs' ||
+		! /^\d+\.\d+\.\d+$/.test( manifest.version ) ||
+		manifest.version !== pluginVersion ||
+		! /^[a-f0-9]{64}$/.test( manifest.sha256 )
+	) {
+		throw new Error( 'Installed importer has an incompatible host acceptance manifest.' );
+	}
+	const bytes = fs.readFileSync( path.join( source, manifest.entry ) );
+	if ( crypto.createHash( 'sha256' ).update( bytes ).digest( 'hex' ) !== manifest.sha256 ) {
+		throw new Error( 'Installed importer host acceptance digest does not match.' );
+	}
+	const root = path.join(
+		runtimeDirectory(),
+		'host-acceptance',
+		manifest.version,
+		manifest.sha256
+	);
+	const entry = path.join( root, 'index.mjs' );
+	fs.mkdirSync( root, { recursive: true } );
+	// Content-addressed bytes are verified again after cache reuse/copy.
+	if ( ! fs.existsSync( entry ) ) fs.writeFileSync( entry, bytes );
+	if (
+		crypto.createHash( 'sha256' ).update( fs.readFileSync( entry ) ).digest( 'hex' ) !==
+		manifest.sha256
+	) {
+		throw new Error( 'Cached importer host acceptance digest does not match.' );
+	}
+	linkPlaywright( root );
+	const runtime = await loadModule( pathToFileURL( entry ).href );
+	if (
+		runtime.HOST_ACCEPTANCE_API !== manifest.schema ||
+		typeof runtime.runExistingRuntimeAcceptance !== 'function' ||
+		typeof runtime.consumeExistingRuntimeAcceptance !== 'function'
+	) {
+		throw new Error( 'Importer does not expose the public host acceptance API.' );
+	}
+	return {
+		...( runtime as Omit< HostAcceptanceRuntime, 'version' | 'sha256' > ),
+		version: manifest.version,
+		sha256: manifest.sha256,
+	};
 }
 
 /** The newest Static Site Importer release ZIP, downloaded and verified once per version. */

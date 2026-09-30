@@ -43,6 +43,7 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
+import { cliAuthEventSchema, cliSiteEventSchema } from '@studio/common/lib/cli-events';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
@@ -428,6 +429,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const snapshotManager = createSnapshotManager( {
 		executeCliCommand: execute,
 		emit: ( output ) => sseSend( { channel: 'snapshot', payload: output } ),
+	} );
+
+	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
+	// browser through the same `_events` stream the Desktop subscribes to.
+	const [ cliEvents ] = execute( [ '_events' ], { output: 'capture' } );
+	cliEvents.on( 'data', ( { data } ) => {
+		const siteEvent = cliSiteEventSchema.safeParse( data );
+		if ( siteEvent.success ) {
+			sseSend( { channel: 'site-event', payload: siteEvent.data.value } );
+			return;
+		}
+		const authEvent = cliAuthEventSchema.safeParse( data );
+		if ( authEvent.success ) {
+			sseSend( { channel: 'auth-event', payload: authEvent.data.value } );
+		}
 	} );
 
 	const app = express();

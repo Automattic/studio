@@ -525,9 +525,7 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
-// Push and pull for apps/ui run the CLI commands, which publish their progress as
-// sync activity events. Registered under the same key the legacy renderer uses, so
-// `cancelSyncOperation` stops these too.
+// Registered under the legacy renderer's key, so `cancelSyncOperation` stops these too.
 async function runCancellableSync(
 	siteId: string,
 	remoteSiteId: number,

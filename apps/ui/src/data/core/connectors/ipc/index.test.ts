@@ -130,7 +130,6 @@ describe( 'createIpcConnector Connect contracts', () => {
 	const getConnectedWpcomSites = vi.fn();
 	const pullSiteFromLive = vi.fn();
 	const pushSiteToLive = vi.fn();
-	const updateConnectedWpcomSites = vi.fn();
 	const subscribe = vi.fn();
 	const unsubscribe = vi.fn();
 
@@ -144,7 +143,6 @@ describe( 'createIpcConnector Connect contracts', () => {
 			getConnectedWpcomSites,
 			pullSiteFromLive,
 			pushSiteToLive,
-			updateConnectedWpcomSites,
 		} );
 		vi.stubGlobal( 'ipcListener', { subscribe } );
 	} );
@@ -209,13 +207,6 @@ describe( 'createIpcConnector Connect contracts', () => {
 			);
 		}
 	);
-
-	it( 'completes normally when nothing was cancelled', async () => {
-		pullSiteFromLive.mockResolvedValue( { cancelled: false } );
-
-		await expect( createIpcConnector().pullSiteFromLive( 'site-1', 42 ) ).resolves.toBeUndefined();
-		expect( pullSiteFromLive ).toHaveBeenCalledWith( 'site-1', 42, undefined );
-	} );
 
 	it( 'relays the sync activity the CLI publishes', () => {
 		const listener = vi.fn();

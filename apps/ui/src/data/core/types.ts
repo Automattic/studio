@@ -326,8 +326,7 @@ export interface Connector {
 		remoteSiteId: number,
 		options?: PullSyncOptions
 	): Promise< void >;
-	// What every push, pull and preview is doing, whoever started it: this UI, the
-	// agent, a terminal or another window. Published by the CLI command running it.
+	// Every push, pull and preview, whoever started it, as published by the CLI.
 	onSyncActivity( listener: ( event: SyncEvent ) => void ): () => void;
 	// Stops an in-flight push or pull, rejecting the operation with a cancelled
 	// error. A no-op once the operation is past the point where stopping is safe

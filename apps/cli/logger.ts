@@ -53,7 +53,6 @@ export class Logger< T extends string > {
 		this.onProgress = options?.onProgress ?? null;
 	}
 
-	/** Hands every in-progress message to `observer` too, whatever else the logger does with it. */
 	public observeProgress( observer: ( message: string, action: string | null ) => void ) {
 		this.progressObservers.add( observer );
 		return () => this.progressObservers.delete( observer );

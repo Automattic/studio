@@ -5,7 +5,6 @@ import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 
 let latest: SyncEvent | undefined;
 
-/** Publishes what a sync is doing, for every Studio UI to render. */
 export function reportSyncActivity( siteId: string, activity: SyncActivity ): Promise< void > {
 	latest = { siteId, activity };
 	return emitCliEvent( { event: SYNC_EVENTS.ACTIVITY, data: latest } );

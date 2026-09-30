@@ -283,7 +283,6 @@ async function runPush(
 			process.emit = originalEmit;
 		}
 
-		// Point of no return: the live site starts changing, so a cancel is no longer honoured.
 		reportPhase( 'creatingRemoteBackup' );
 		// Initiate import: 40%
 		logger.reportProgress( formatProgressLabel( __( 'Initiating import…' ), 40 ) );
@@ -302,6 +301,13 @@ async function runPush(
 
 			if ( status.status === 'failed' ) {
 				throw new LoggerError( getImportFailureMessage( status ), undefined, 'remote_import' );
+			}
+			if ( ! status.success ) {
+				throw new LoggerError(
+					__( 'Something went wrong while updating the live site.' ),
+					undefined,
+					'remote_import'
+				);
 			}
 
 			if ( status.status === 'finished' ) {
@@ -383,7 +389,6 @@ async function runPush(
 	}
 }
 
-// A failed SQL import and a timeout need different things from the user.
 function getImportFailureMessage( response: Extract< ImportResponse, { status: 'failed' } > ) {
 	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
 		return __(

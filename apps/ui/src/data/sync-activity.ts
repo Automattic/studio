@@ -6,15 +6,9 @@ import type { SyncActivity } from '@studio/common/lib/sync/activity';
 
 export type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 
-// Tracks in-flight and recently completed syncs per site so the sidebar and the
-// site dropdown can surface them from any page. Fed by the sync activity the CLI
-// publishes, so a sync reads the same whoever started it. Uses a module-level
-// store (rather than React context) so the state survives remounts during
-// navigation.
-//
-// `import` is not a live-site operation, but it is the same shape of thing from
-// the UI's point of view: long-running, scoped to one site, and it rewrites that
-// site underneath you. The import dialog still reports it from the client.
+// In-flight and recently finished syncs per site, fed by the activity the CLI
+// publishes. Module-level so it survives remounts during navigation. Imports are
+// still reported by the import dialog.
 
 // How long success/error stay visible before the indicator vanishes.
 // Matches the 30s requirement from the UX spec.

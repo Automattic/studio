@@ -10,8 +10,8 @@ import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { applySyncActivity } from '@/data/sync-activity';
-import type { PullSyncOptions, PushSyncOptions } from '@/data/core';
-import type { SyncActivity } from '@studio/common/lib/sync/activity';
+import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
+import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
@@ -20,31 +20,7 @@ import type { SyncSite } from '@studio/common/types/sync';
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 
-// `onMutate`'s return value, handed back to `onSuccess`/`onError` by react-query.
-type SyncTracksContext = { startedAt: number };
-
-// Resolves the connected site behind a sync, to derive the `sync_type` Tracks
-// prop. Callers that already hold the remote site pass it as `syncSite` — the
-// onboarding flow creates its local site as it goes, so nothing has ever
-// populated the cache for it. Otherwise this reads the cache, which costs no
-// request; a miss reports `unknown` rather than guessing.
-function useFindConnectedSite() {
-	const queryClient = useQueryClient();
-	return (
-		localSiteId: string,
-		remoteSiteId: number,
-		syncSite?: Pick< SyncSite, 'isPressable' >
-	): Pick< SyncSite, 'isPressable' > | undefined =>
-		syncSite ??
-		queryClient
-			.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( localSiteId ) )
-			?.find( ( site ) => site.id === remoteSiteId );
-}
-
-/**
- * Records a sync's activity and, the first time it settles, announces the result
- * and refreshes what it changed — whichever surface started the sync.
- */
+// Records a sync's activity and, the first time it settles, announces the result.
 export function useSettleSync() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -81,7 +57,6 @@ export function useSettleSync() {
 			}
 
 			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( siteId ) } );
-			// A pull stops and restarts the site and rewrites its content.
 			if ( settled.direction === 'pull' ) {
 				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			}
@@ -112,7 +87,7 @@ export function useSettleSync() {
 	);
 }
 
-/** Mirrors the sync activity the CLI publishes into the UI. Mount once near the app root. */
+// Mount once near the app root.
 export function useSyncActivityEvents(): void {
 	const connector = useConnector();
 	const settleSync = useSettleSync();
@@ -125,65 +100,82 @@ export function useSyncActivityEvents(): void {
 // The CLI reports how a sync ends, but not if it never got to run (it failed to
 // start, or was stopped before it could say so). Settling from the mutation too
 // covers that; whichever lands second is ignored.
-function settleFromError( settleSync: ReturnType< typeof useSettleSync > ) {
-	return ( error: unknown, siteId: string, direction: 'push' | 'pull' | 'preview' ) =>
-		settleSync(
-			siteId,
-			isSyncCancelledError( error )
-				? { kind: 'cancelled', direction }
-				: {
-						kind: 'error',
-						direction,
-						message: error instanceof Error ? error.message : String( error ),
-				  }
-		);
+export function getFailedActivity( error: unknown, direction: SyncDirection ): SyncActivity {
+	return isSyncCancelledError( error )
+		? { kind: 'cancelled', direction }
+		: {
+				kind: 'error',
+				direction,
+				message: error instanceof Error ? error.message : String( error ),
+		  };
 }
 
-type PushToLiveVariables = {
+type LiveSyncVariables< Options > = {
 	siteId: string;
 	remoteSiteId: number;
-	options?: PushSyncOptions;
+	options?: Options;
 	// Supplied by callers whose site isn't in the connected-sites cache yet.
 	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
-export function usePushSiteToLive() {
+function useLiveSync< Options >(
+	direction: 'push' | 'pull',
+	sync: (
+		connector: Connector,
+		siteId: string,
+		remoteSiteId: number,
+		options?: Options
+	) => Promise< void >
+) {
 	const connector = useConnector();
-	const findConnectedSite = useFindConnectedSite();
-	const settleError = settleFromError( useSettleSync() );
+	const queryClient = useQueryClient();
+	const settleSync = useSettleSync();
+	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
+	const track = (
+		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
+		startedAt: number,
+		error?: unknown
+	) =>
+		void connector.trackEvent(
+			direction === 'push' ? TRACKS_EVENTS.SYNC_PUSH : TRACKS_EVENTS.SYNC_PULL,
+			buildSyncEventProps( {
+				startedAt,
+				site:
+					syncSite ??
+					queryClient
+						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
+						?.find( ( site ) => site.id === remoteSiteId ),
+				error,
+			} )
+		);
+
 	return useMutation( {
-		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options ),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			applySyncActivity( siteId, { kind: 'pending', direction: 'push' } );
+		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
+		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
+			sync( connector, siteId, remoteSiteId, options ),
+		onMutate: ( { siteId } ) => {
+			applySyncActivity( siteId, { kind: 'pending', direction } );
 			return { startedAt: Date.now() };
 		},
-		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PUSH,
-				buildSyncEventProps( {
-					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-				} )
-			);
-		},
-		onError: ( error, { siteId, remoteSiteId, syncSite }, context ) => {
-			settleError( error, siteId, 'push' );
-			if ( isSyncCancelledError( error ) ) {
-				return;
+		onSuccess: ( _result, variables, { startedAt } ) => track( variables, startedAt ),
+		onError: ( error, variables, context ) => {
+			settleSync( variables.siteId, getFailedActivity( error, direction ) );
+			if ( ! isSyncCancelledError( error ) ) {
+				track( variables, context?.startedAt ?? Date.now(), error );
 			}
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PUSH,
-				buildSyncEventProps( {
-					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-					error,
-				} )
-			);
 		},
 	} );
 }
+
+export const usePushSiteToLive = () =>
+	useLiveSync< PushSyncOptions >( 'push', ( connector, ...args ) =>
+		connector.pushSiteToLive( ...args )
+	);
+
+export const usePullSiteFromLive = () =>
+	useLiveSync< PullSyncOptions >( 'pull', ( connector, ...args ) =>
+		connector.pullSiteFromLive( ...args )
+	);
 
 type DisconnectWpcomSiteVariables = {
 	siteId: string;
@@ -216,52 +208,6 @@ export function useCancelSync() {
 			connector.cancelSync( siteId, remoteSiteId ),
 		onError: ( error ) => {
 			console.error( 'Failed to cancel sync:', error );
-		},
-	} );
-}
-
-type PullFromLiveVariables = {
-	siteId: string;
-	remoteSiteId: number;
-	options?: PullSyncOptions;
-	// Supplied by callers whose site isn't in the connected-sites cache yet.
-	syncSite?: Pick< SyncSite, 'isPressable' >;
-};
-
-export function usePullSiteFromLive() {
-	const connector = useConnector();
-	const findConnectedSite = useFindConnectedSite();
-	const settleError = settleFromError( useSettleSync() );
-	return useMutation( {
-		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId, options ),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			applySyncActivity( siteId, { kind: 'pending', direction: 'pull' } );
-			return { startedAt: Date.now() };
-		},
-		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PULL,
-				buildSyncEventProps( {
-					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-				} )
-			);
-		},
-		onError: ( error, { siteId, remoteSiteId, syncSite }, context ) => {
-			settleError( error, siteId, 'pull' );
-			if ( isSyncCancelledError( error ) ) {
-				return;
-			}
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PULL,
-				buildSyncEventProps( {
-					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-					error,
-				} )
-			);
 		},
 	} );
 }

@@ -33,7 +33,8 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		siteId = ( await getSiteByFolder( siteFolder ) ).id;
+		const site = await getSiteByFolder( siteFolder );
+		siteId = site.id;
 		void reportSyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
 		await validateSiteSize( siteFolder );
 		const token = await readAuthToken();
@@ -63,7 +64,6 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
 		let snapshotName = name;
 		if ( ! snapshotName ) {
-			const site = await getSiteByFolder( siteFolder );
 			const snapshots = await getSnapshotsFromConfig( token.id );
 			const sequence = getNextSnapshotSequence( site.id, snapshots, token.id );
 			snapshotName = sprintf(

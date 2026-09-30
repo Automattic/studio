@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
-import { useSettleSync } from '@/data/queries/use-sync-site';
+import { getFailedActivity, useSettleSync } from '@/data/queries/use-sync-site';
 import { applySyncActivity } from '@/data/sync-activity';
 
 type PublishPreviewVariables = {
@@ -8,8 +8,6 @@ type PublishPreviewVariables = {
 	existingHostname?: string;
 };
 
-// Creates or refreshes the WordPress.com-hosted preview snapshot for a local
-// site. The CLI publishes its progress and result as sync activity.
 export function usePublishPreviewSite() {
 	const connector = useConnector();
 	const settleSync = useSettleSync();
@@ -19,12 +17,6 @@ export function usePublishPreviewSite() {
 		onMutate: ( { siteId } ) => {
 			applySyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
 		},
-		onError: ( error, { siteId } ) => {
-			settleSync( siteId, {
-				kind: 'error',
-				direction: 'preview',
-				message: error instanceof Error ? error.message : String( error ),
-			} );
-		},
+		onError: ( error, { siteId } ) => settleSync( siteId, getFailedActivity( error, 'preview' ) ),
 	} );
 }

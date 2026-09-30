@@ -3,11 +3,7 @@ import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
-/**
- * WordPress.com sync operations, run as the CLI's `push` and `pull` commands so a sync behaves the
- * same whichever surface starts it. The commands publish their progress as sync activity events,
- * which every UI renders; these resolve once the command finishes.
- */
+// Syncs run as CLI commands, which publish their progress as sync activity events.
 
 function runSyncCommand(
 	executeCliCommand: ExecuteCliCommand,

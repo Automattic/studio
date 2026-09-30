@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { exitOnCancel, reportSyncActivity } from '../sync-activity';
 
@@ -6,10 +6,6 @@ vi.mock( 'cli/lib/daemon-client' );
 
 describe( 'exitOnCancel', () => {
 	const existingListeners = process.listeners( 'SIGTERM' );
-
-	beforeEach( () => {
-		vi.mocked( emitCliEvent ).mockResolvedValue();
-	} );
 
 	afterEach( () => {
 		for ( const listener of process.listeners( 'SIGTERM' ) ) {
@@ -20,35 +16,23 @@ describe( 'exitOnCancel', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'reports the cancel and exits while the sync can still be stopped', async () => {
+	it.each( [
+		[ 'uploading', true ],
+		[ 'applyingChanges', false ],
+	] as const )( 'on SIGTERM while %s, exits: %s', async ( phase, exits ) => {
+		vi.mocked( emitCliEvent ).mockResolvedValue();
 		const exit = vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 		exitOnCancel();
-		await reportSyncActivity( 'site-1', {
-			kind: 'pending',
-			direction: 'push',
-			phase: 'uploading',
-		} );
+		await reportSyncActivity( 'site-1', { kind: 'pending', direction: 'push', phase } );
 
 		process.emit( 'SIGTERM' );
 
-		await vi.waitFor( () => expect( exit ).toHaveBeenCalled() );
-		expect( emitCliEvent ).toHaveBeenLastCalledWith( {
-			event: 'sync-activity',
-			data: { siteId: 'site-1', activity: { kind: 'cancelled', direction: 'push' } },
-		} );
-	} );
-
-	it( 'keeps going once the live site is being changed', async () => {
-		const exit = vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
-		exitOnCancel();
-		await reportSyncActivity( 'site-1', {
-			kind: 'pending',
-			direction: 'push',
-			phase: 'applyingChanges',
-		} );
-
-		process.emit( 'SIGTERM' );
-
-		expect( exit ).not.toHaveBeenCalled();
+		await vi.waitFor( () => expect( exit ).toHaveBeenCalledTimes( exits ? 1 : 0 ) );
+		if ( exits ) {
+			expect( emitCliEvent ).toHaveBeenLastCalledWith( {
+				event: 'sync-activity',
+				data: { siteId: 'site-1', activity: { kind: 'cancelled', direction: 'push' } },
+			} );
+		}
 	} );
 } );

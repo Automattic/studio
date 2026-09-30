@@ -7,6 +7,7 @@ import {
 	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
+import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
@@ -31,6 +32,7 @@ import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
+	getAiModel,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
@@ -71,7 +73,10 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioWpcomModel = Model< 'openai-completions' > | Model< 'openai-responses' >;
+type StudioWpcomModel =
+	| Model< 'openai-completions' >
+	| Model< 'openai-responses' >
+	| Model< 'anthropic-messages' >;
 type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
@@ -395,9 +400,23 @@ function buildModel(
 		// upstreams a tier may resolve to, so compaction kicks in before any
 		// of them overflows.
 		//
-		// `strong` rides the Responses path: its upstream is a reasoning model
-		// that rejects tools-plus-reasoning on Chat Completions.
+		// `strong` rides the proxy's Anthropic Messages path, which sits beside
+		// `/v1` rather than under it and authenticates with a bearer token.
 		if ( modelId === 'strong' ) {
+			return {
+				...common,
+				baseUrl: baseUrl.replace( /\/v1$/, '' ),
+				headers: { ...creds.extraHeaders, Authorization: `Bearer ${ creds.apiKey }` },
+				api: 'anthropic-messages',
+				provider: STUDIO_WPCOM_PROVIDER,
+				reasoning: false,
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			};
+		}
+		// `balanced` rides the Responses path: its upstream is a reasoning model
+		// that rejects tools-plus-reasoning on Chat Completions.
+		if ( modelId === 'balanced' ) {
 			return {
 				...common,
 				api: 'openai-responses',
@@ -532,15 +551,34 @@ function createWpcomProviderConfig(
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
 	// is narrower, and the model registered below is the one passed in.
 	const stream = (
-		model.api === 'openai-completions' ? streamOpenAiCompletions : streamOpenAiResponses
+		model.api === 'openai-completions'
+			? streamOpenAiCompletions
+			: model.api === 'anthropic-messages'
+			? streamAnthropicMessages
+			: streamOpenAiResponses
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
+	// The model keeps its stable id for pi and the session history; only the
+	// request names the proxy's current upstream alias.
+	const apiModelId = getAiModel( model.id as AiModelId ).apiModelId;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite( stream( m, stripStaleImagesFromContext( ctx ), options ) ),
+			withUsageCapErrorRewrite(
+				stream( m, stripStaleImagesFromContext( ctx ), {
+					...options,
+					...( apiModelId
+						? {
+								onPayload: async ( params: unknown, payloadModel ) => {
+									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+									return { ...( next as Record< string, unknown > ), model: apiModelId };
+								},
+						  }
+						: {} ),
+				} )
+			),
 		models: [
 			{
 				id: model.id,

@@ -2,14 +2,11 @@ import { z } from 'zod';
 
 /**
  * Studio-initiated operations that hold a site while they run. One at a time:
- * each either owns the site's server process or removes the site outright.
+ * each owns the site's server process, its files, or removes the site outright.
  *
- * Import, pull, export and push are deliberately excluded. Export and push
- * never stop the server, so blocking a start during one only takes away a site
- * the user could still be using. Import and pull do stop it, but a sync can run
- * for tens of minutes, and holding the site for that long costs more than it
- * protects — scoping a guard to just their local write window is tracked
- * separately.
+ * Syncs hold the site only while they touch it locally (`import` while
+ * writing it, `export` while archiving it), not while waiting on the network.
+ * `pull-reprint` streams straight into the site, so it holds it throughout.
  *
  * Distinct from the site's `status` health field: `status` records durable
  * damage that must survive a crash (a half-written `pull-failed` site stays
@@ -30,6 +27,8 @@ export const SITE_OPERATIONS = [
 	// domain change, so it owns the site for the duration just like a start.
 	'settings',
 	'duplicate',
+	'import',
+	'export',
 ] as const;
 
 export type SiteOperationKind = ( typeof SITE_OPERATIONS )[ number ];

@@ -9,6 +9,7 @@ import { getSiteByFolder, updateSitePhpVersion } from 'cli/lib/cli-config/sites'
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -44,6 +45,10 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
+
+vi.mock( 'cli/lib/site-operations', () => ( {
+	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
+} ) );
 
 describe( 'CLI: studio import', () => {
 	const testSitePath = '/test/site';
@@ -115,6 +120,11 @@ describe( 'CLI: studio import', () => {
 				type: 'application/zip',
 			},
 			DEFAULT_IMPORTER_OPTIONS
+		);
+		expect( withSiteOperation ).toHaveBeenCalledWith(
+			testSitePath,
+			'import',
+			expect.any( Function )
 		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );

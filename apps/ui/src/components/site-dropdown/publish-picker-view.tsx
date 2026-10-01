@@ -91,7 +91,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 					label={ __( 'Back' ) }
 					onClick={ onClose }
 				/>
-				<span className={ styles.title }>{ __( 'Publish this site' ) }</span>
+				<span className={ styles.title }>{ __( 'Connect a live site' ) }</span>
 			</div>
 			{ authUser ? (
 				<div className={ styles.body }>
@@ -129,7 +129,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 						</ul>
 					) : (
 						<div className={ styles.status }>
-							{ __( 'No WordPress.com sites available to publish to.' ) }
+							{ __( 'No WordPress.com sites available to connect.' ) }
 						</div>
 					) }
 				</div>

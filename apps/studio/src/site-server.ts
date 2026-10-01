@@ -18,6 +18,7 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
+import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
@@ -265,6 +266,16 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
+		this.releaseOperation( 'start' );
+	}
+
+	// The CLI command releases its operation before exiting, but the event saying
+	// so can land after the command resolves. Clear it here so a refetch right
+	// after doesn't still show the site mid-start or mid-stop.
+	private releaseOperation( kind: SiteOperationKind ) {
+		if ( this.details.operation?.kind === kind ) {
+			this.details = { ...this.details, operation: undefined };
+		}
 	}
 
 	// Adopt an authoritative running value, touching only running/url so Studio-owned fields survive.
@@ -331,6 +342,7 @@ export class SiteServer {
 		} else {
 			this.details = { running: false, ...rest };
 		}
+		this.releaseOperation( 'stop' );
 	}
 
 	async updateCachedThumbnail() {

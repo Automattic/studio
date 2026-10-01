@@ -195,5 +195,24 @@ describe( 'SiteServer', () => {
 				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 			);
 		} );
+
+		it( 'clears its own start operation once the start resolves', async () => {
+			mockStartServer.mockResolvedValue( undefined );
+			const server = SiteServer.register( {
+				id: 'started-id',
+				name: 'test-name',
+				path: 'started-path',
+				port: 1234,
+				adminPassword: 'test-password',
+				phpVersion: '8.4',
+				running: false,
+				themeDetails: undefined,
+				operation: { pid: 1, kind: 'start' },
+			} );
+
+			await server.start();
+
+			expect( server.details.operation ).toBeUndefined();
+		} );
 	} );
 } );

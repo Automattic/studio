@@ -1,7 +1,7 @@
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -20,6 +20,17 @@ vi.mock( '@/data/app-messages', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+
+// Lets a mutation's fallback settle the sync, after the window the CLI gets to report first.
+const passReportGrace = () => act( () => vi.advanceTimersByTimeAsync( 1500 ) );
+
+beforeEach( () => {
+	vi.useFakeTimers( { shouldAdvanceTime: true } );
+} );
+
+afterEach( () => {
+	vi.useRealTimers();
+} );
 
 function SyncActivityEvents() {
 	useSyncActivityEvents();
@@ -82,6 +93,39 @@ describe( 'usePullSiteFromLive', () => {
 		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
 	} );
 
+	it( 'announces a button sync once when the CLI reports after it exits', async () => {
+		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: false },
+			trackEvent: vi.fn().mockResolvedValue( undefined ),
+			onSyncActivity: ( listener: typeof publish ) => {
+				publish = listener;
+				return () => {};
+			},
+			// The CLI's events arrive just after the CLI process has already exited.
+			pullSiteFromLive: vi.fn( async () => {
+				setTimeout( () => {
+					publish( { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } } );
+					publish( {
+						siteId: 'site-1',
+						activity: { kind: 'error', direction: 'pull', message: 'Auth failed' },
+					} );
+				}, 50 );
+				throw new Error( 'Auth failed' );
+			} ),
+		} as unknown as Connector );
+		render(
+			<QueryClientProvider client={ new QueryClient() }>
+				<SyncActivityEvents />
+				<Harness />
+			</QueryClientProvider>
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		await passReportGrace();
+
+		expect( toast.error ).toHaveBeenCalledOnce();
+	} );
+
 	it( 'replaces connector details with an actionable pull error', async () => {
 		const openStudioLogs = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
@@ -106,6 +150,7 @@ describe( 'usePullSiteFromLive', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		await passReportGrace();
 
 		const message =
 			"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details.";
@@ -136,6 +181,7 @@ describe( 'usePullSiteFromLive', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		await passReportGrace();
 
 		await waitFor( () =>
 			expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
@@ -234,6 +280,7 @@ describe( 'sync Tracks events', () => {
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		await passReportGrace();
 
 		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Pull cancelled' ) );
 		expect( trackEvent ).not.toHaveBeenCalled();
@@ -279,6 +326,7 @@ describe( 'sync Tracks events', () => {
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
+		await passReportGrace();
 
 		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Push cancelled' ) );
 		expect( trackEvent ).not.toHaveBeenCalled();

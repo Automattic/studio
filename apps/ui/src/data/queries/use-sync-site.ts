@@ -97,17 +97,23 @@ export function useSyncActivityEvents(): void {
 	);
 }
 
-// The CLI reports how a sync ends, but not if it never got to run (it failed to
-// start, or was stopped before it could say so). Settling from the mutation too
-// covers that; whichever lands second is ignored.
-export function getFailedActivity( error: unknown, direction: SyncDirection ): SyncActivity {
-	return isSyncCancelledError( error )
-		? { kind: 'cancelled', direction }
-		: {
-				kind: 'error',
-				direction,
-				message: error instanceof Error ? error.message : String( error ),
-		  };
+// The CLI reports how a sync ends, but its events can land after the mutation
+// settles, or never if it failed before it could report. So the mutation only
+// settles a sync the CLI hasn't settled within this window.
+const CLI_REPORT_GRACE_MS = 1500;
+
+export function useSettleFromMutation() {
+	const settleSync = useSettleSync();
+	return ( siteId: string, direction: SyncDirection, error?: unknown ) => {
+		let activity: SyncActivity = { kind: 'success', direction };
+		if ( isSyncCancelledError( error ) ) {
+			activity = { kind: 'cancelled', direction };
+		} else if ( error !== undefined ) {
+			const message = error instanceof Error ? error.message : String( error );
+			activity = { kind: 'error', direction, message };
+		}
+		setTimeout( () => settleSync( siteId, activity ), CLI_REPORT_GRACE_MS );
+	};
 }
 
 type LiveSyncVariables< Options > = {
@@ -129,7 +135,7 @@ function useLiveSync< Options >(
 ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const settleSync = useSettleSync();
+	const settleFromMutation = useSettleFromMutation();
 	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
 	const track = (
 		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
@@ -157,9 +163,12 @@ function useLiveSync< Options >(
 			applySyncActivity( siteId, { kind: 'pending', direction } );
 			return { startedAt: Date.now() };
 		},
-		onSuccess: ( _result, variables, { startedAt } ) => track( variables, startedAt ),
+		onSuccess: ( _result, variables, { startedAt } ) => {
+			settleFromMutation( variables.siteId, direction );
+			track( variables, startedAt );
+		},
 		onError: ( error, variables, context ) => {
-			settleSync( variables.siteId, getFailedActivity( error, direction ) );
+			settleFromMutation( variables.siteId, direction, error );
 			if ( ! isSyncCancelledError( error ) ) {
 				track( variables, context?.startedAt ?? Date.now(), error );
 			}

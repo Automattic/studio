@@ -3,11 +3,10 @@ import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, close, external, Icon, moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { close, external, Icon } from '@wordpress/icons';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
-import * as Menu from '@/components/menu';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -29,23 +28,14 @@ import {
 } from '@/data/queries/use-sync-site';
 import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
+import { LiveSitesSection } from './live-sites-section';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
 import { PreviewsSection } from './previews-section';
-import { getPullLabel, getPushLabel, getSyncActivityLabel } from './trigger-secondary';
-import {
-	deriveSiteStatus,
-	getSiteStatusName,
-	ensureProtocol,
-	getSiteSnapshots,
-	pickLiveSite,
-	stripProtocol,
-} from './utils';
-import type { SiteDetails } from '@/data/core';
+import { getSyncActivityLabel } from './trigger-secondary';
+import { deriveSiteStatus, getSiteStatusName, getSiteSnapshots } from './utils';
+import type { SiteDetails, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
-import type { ComponentProps } from 'react';
-
-type ButtonProps = ComponentProps< typeof Button >;
 
 type Props = {
 	site: SiteDetails;
@@ -55,11 +45,11 @@ type Props = {
 	onSetupClick: () => void;
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
-	onDisconnectClick: () => void;
+	onDisconnectClick: ( liveSite: SyncSite ) => void;
 	// Open the selective-sync dialog for pull/push; owned by the parent for the
 	// same reason as the disconnect dialog.
-	onPullClick: () => void;
-	onPushClick: () => void;
+	onPullClick: ( liveSite: SyncSite ) => void;
+	onPushClick: ( liveSite: SyncSite ) => void;
 };
 
 // Push/pull mutations this window has in flight for the site, across hook
@@ -137,10 +127,6 @@ export function MainView( {
 		() => getSiteSnapshots( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
-	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
-	const lastSyncedLabel = [ getPullLabel( liveSite ), getPushLabel( liveSite ) ]
-		.filter( Boolean )
-		.join( ' · ' );
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -214,16 +200,6 @@ export function MainView( {
 		stopSite.mutate( site.id );
 	};
 
-	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
-		onPullClick();
-	};
-
-	const handlePushClick = () => {
-		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
-		onPushClick();
-	};
-
 	const renderUrlLink = ( {
 		text,
 		url,
@@ -263,8 +239,14 @@ export function MainView( {
 					activity={ activity }
 					showCancel={ canStopSync }
 					onCancel={
-						liveSite && canCancelSyncActivity( activity )
-							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
+						activity.kind === 'pending' &&
+						activity.remoteSiteId !== undefined &&
+						canCancelSyncActivity( activity )
+							? () =>
+									cancelSync.mutate( {
+										siteId: site.id,
+										remoteSiteId: activity.remoteSiteId as number,
+									} )
 							: undefined
 					}
 				/>
@@ -321,90 +303,20 @@ export function MainView( {
 				getPublishLabel={ ( idle ) => getSyncActionLabel( idle, __( 'Updating preview…' ), false ) }
 			/>
 
-			{ liveSite ? (
-				<PopoverRow
-					label={ __( 'Live' ) }
-					sublabel={
-						<>
-							{ renderUrlLink( {
-								text: stripProtocol( liveSite.url ),
-								url: ensureProtocol( liveSite.url ),
-								label: __( 'Open live site in your browser' ),
-							} ) }
-							{ lastSyncedLabel ? (
-								<span className={ styles.lastSynced }>{ lastSyncedLabel }</span>
-							) : null }
-						</>
-					}
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowDown }
-								label={ getSyncActionLabel(
-									__( 'Pull from live' ),
-									__( 'Pulling from live…' ),
-									isPullPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPullPending }
-								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePullClick }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncActionLabel(
-									__( 'Push to live' ),
-									__( 'Pushing to live…' ),
-									isPushPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPushPending }
-								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePushClick }
-							/>
-							<Menu.SubmenuRoot>
-								<Menu.SubmenuTrigger
-									className={ styles.moreMenuTrigger }
-									disabled={ isSiteBusy || ! agenticEnabled }
-									aria-label={ __( 'More live site actions' ) }
-								>
-									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
-								</Menu.SubmenuTrigger>
-								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item
-										disabled={ isSiteBusy || ! agenticEnabled }
-										onClick={ onDisconnectClick }
-									>
-										{ __( 'Disconnect' ) }
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.SubmenuRoot>
-						</div>
-					}
-				/>
-			) : (
-				<EnvironmentActionPanel
-					title={ __( 'Live' ) }
-					copy={ getLivePanelCopy( agenticEnabled, isOffline ) }
-					buttonLabel={ agenticEnabled || isOffline ? __( 'Connect' ) : __( 'Log in' ) }
-					variant="solid"
-					tone="brand"
-					loading={ ! agenticEnabled && login.isPending }
-					loadingAnnouncement={ __( 'Opening login page' ) }
-					disabled={ isSiteBusy || isOffline }
-					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
-				/>
-			) }
+			<LiveSitesSection
+				liveSites={ connectedSites ?? [] }
+				activity={ activity }
+				notice={ getLivePanelCopy( agenticEnabled, isOffline ) }
+				actionLabel={ agenticEnabled || isOffline ? __( 'Connect site' ) : __( 'Log in' ) }
+				actionDisabled={ isSiteBusy || isOffline }
+				actionLoading={ ! agenticEnabled && login.isPending }
+				onAction={ agenticEnabled ? onSetupClick : () => login.mutate() }
+				canSync={ ! isSiteBusy && agenticEnabled }
+				getSyncLabel={ getSyncActionLabel }
+				onPull={ onPullClick }
+				onPush={ onPushClick }
+				onDisconnect={ onDisconnectClick }
+			/>
 		</div>
 	);
 }
@@ -568,51 +480,5 @@ function LocalServerControl( {
 				{ statusLabel }
 			</Tooltip.Popup>
 		</Tooltip.Root>
-	);
-}
-
-function EnvironmentActionPanel( {
-	title,
-	copy,
-	buttonLabel,
-	variant,
-	tone,
-	loading,
-	loadingAnnouncement,
-	disabled,
-	onClick,
-}: {
-	title: string;
-	copy: string;
-	buttonLabel: string;
-	variant: ButtonProps[ 'variant' ];
-	tone: ButtonProps[ 'tone' ];
-	loading?: boolean;
-	loadingAnnouncement?: string;
-	disabled: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<div className={ styles.environmentActionRow }>
-			<div className={ styles.environmentActionText }>
-				<div className={ styles.environmentActionTitle }>{ title }</div>
-				<p className={ styles.environmentActionCopy }>{ copy }</p>
-			</div>
-			<Button
-				variant={ variant }
-				tone={ tone }
-				size="compact"
-				className={ clsx(
-					styles.environmentActionButton,
-					variant === 'outline' && styles.environmentActionButton_outline
-				) }
-				loading={ loading }
-				loadingAnnouncement={ loadingAnnouncement }
-				disabled={ disabled }
-				onClick={ onClick }
-			>
-				{ buttonLabel }
-			</Button>
-		</div>
 	);
 }

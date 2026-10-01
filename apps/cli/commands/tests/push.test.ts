@@ -73,12 +73,14 @@ describe( 'CLI: studio push', () => {
 			reported().map( ( activity ) => ( 'phase' in activity ? activity.phase : activity.kind ) )
 		).toEqual( [
 			'pending',
+			'pending',
 			'creatingBackup',
 			'uploading',
 			'creatingRemoteBackup',
 			'applyingChanges',
 			'success',
 		] );
+		expect( reported()[ 1 ] ).toMatchObject( { remoteSiteId: remoteSite.id } );
 	} );
 
 	it( 'explains a database the live site failed to import', async () => {

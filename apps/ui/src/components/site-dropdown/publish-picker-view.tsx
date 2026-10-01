@@ -1,18 +1,15 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
-import { __, _x } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
-import {
-	getEnvironmentLabel,
-	getSiteEnvironment,
-} from '@/components/selective-sync/lib/environment-utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
+import { RemoteSiteBadges } from './remote-site-badges';
 import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
@@ -100,7 +97,6 @@ export function PublishPickerView( { site, onClose }: Props ) {
 					) : pickableSites.data && pickableSites.data.length > 0 ? (
 						<ul className={ styles.list }>
 							{ pickableSites.data.map( ( candidate ) => {
-								const environment = getSiteEnvironment( candidate );
 								return (
 									<li key={ candidate.id }>
 										<button
@@ -112,16 +108,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 												<span className={ styles.itemName }>
 													{ candidate.name || candidate.url }
 												</span>
-												<span className={ styles.itemHost }>
-													{ candidate.isPressable
-														? _x( 'Pressable', 'hosting provider name' )
-														: _x( 'WP.com', 'hosting provider name' ) }
-												</span>
-												{ environment !== 'production' ? (
-													<span className={ styles.itemHost } data-environment={ environment }>
-														{ getEnvironmentLabel( environment ) }
-													</span>
-												) : null }
+												<RemoteSiteBadges site={ candidate } />
 											</span>
 											<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
 										</button>

@@ -124,6 +124,7 @@ async function runPush(
 		void reportSyncActivity( site.id, {
 			kind: 'pending',
 			direction: 'push',
+			remoteSiteId: pushed.remoteSite?.id,
 			...( phase ? { phase } : {} ),
 			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
 		} );
@@ -149,6 +150,7 @@ async function runPush(
 		}
 	}
 	pushed.remoteSite = remoteSite;
+	reportPhase();
 
 	let optionsToSync: SyncOption[];
 	let specificSelectionPaths: string[] | undefined;

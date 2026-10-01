@@ -205,8 +205,8 @@ function useLiveSync< Options >(
 		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
 			sync( connector, siteId, remoteSiteId, options ),
-		onMutate: ( { siteId } ) => {
-			applySyncActivity( siteId, { kind: 'pending', direction } );
+		onMutate: ( { siteId, remoteSiteId } ) => {
+			applySyncActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
 			return { startedAt: Date.now() };
 		},
 		onSuccess: ( _result, variables, { startedAt } ) => {

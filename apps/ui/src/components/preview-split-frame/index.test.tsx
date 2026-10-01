@@ -149,6 +149,61 @@ describe( 'PreviewSplitFrame', () => {
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
 	} );
 
+	describe( 'window drag strips', () => {
+		function renderStrips(
+			sidebarCollapsed: boolean,
+			props: Partial< ComponentProps< typeof PreviewSplitFrame > > = {}
+		) {
+			const { container } = render(
+				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
+					<PreviewSplitFrame
+						previewOpen
+						preview={ () => <aside aria-label="Site preview" /> }
+						{ ...props }
+					>
+						<span data-testid="content">Content</span>
+					</PreviewSplitFrame>
+				</SidebarCollapsedContext.Provider>
+			);
+			return Array.from( container.querySelectorAll( '[class*="dragStrip"]' ) ).map(
+				( strip ) =>
+					[ 'Top', 'Bottom', 'Start', 'End' ].find( ( edge ) =>
+						strip.className.includes( `dragStrip${ edge }` )
+					) + ( strip.className.includes( 'dragStripContentOnly' ) ? ':content' : '' )
+			);
+		}
+
+		it( 'covers the chrome gaps around the inset frame', () => {
+			expect( renderStrips( false ) ).toEqual( [ 'Top', 'Bottom', 'End' ] );
+		} );
+
+		it( 'uses every window edge of a flush frame around a stopped site', () => {
+			expect( renderStrips( true ) ).toEqual( [ 'Top', 'Start', 'Bottom', 'End' ] );
+		} );
+
+		it( 'keeps the edge handles off a live preview', () => {
+			expect( renderStrips( true, { previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom:content',
+			] );
+		} );
+
+		it( 'runs the bottom handle full width with the preview closed', () => {
+			expect( renderStrips( true, { previewOpen: false, previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom',
+			] );
+		} );
+
+		it( 'leaves only the top edge over a live full preview', () => {
+			expect( renderStrips( true, { previewFullscreen: true, previewLive: true } ) ).toEqual( [
+				'Top',
+			] );
+		} );
+	} );
+
 	describe( 'window controls corner', () => {
 		function renderFrame(
 			sidebarCollapsed: boolean,

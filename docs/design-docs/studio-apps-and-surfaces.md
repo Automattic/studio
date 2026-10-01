@@ -122,7 +122,7 @@ Everything else is shared in `@studio/common`. Concretely:
 Shared modules are constructed with two injected dependencies and nothing Electron-specific:
 
 - **`executeCliCommand`** — produced by `createCliRunner({ cliBinary, nodeBinary })` in `lib/cli-process.ts`. The binary resolves once, from `STUDIO_CLI_BIN ?? process.argv[1]` (the CLI launching the server via `studio ui`), with an env override for development.
-- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `snapshot`, `import`, `sync-connect`). There are no per-feature setter functions.
+- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `sync-connect`). There are no per-feature setter functions.
 
 So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, emit, surface, … })`: the desktop and the local server build it with their own `emit`, and the orchestration code is identical.
 

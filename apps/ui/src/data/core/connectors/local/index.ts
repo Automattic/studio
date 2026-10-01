@@ -46,21 +46,11 @@ interface LocalConnectorOptions {
 	apiBaseUrl: string;
 }
 
-// One snapshot (preview-site) command's progress, correlated by operationId —
-// the browser-side view of the server's shared SnapshotOutput. Only the fields
-// the connector reacts to are modelled.
-type SnapshotSseOutput =
-	| { kind: 'key-value'; operationId: string; data: { key: string; value: string } }
-	| { kind: 'fatal-error'; operationId: string; data: { message: string } }
-	| { kind: 'success'; operationId: string }
-	| { kind: 'output' | 'error'; operationId: string };
-
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
-	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-activity'; payload: SyncEvent }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
 	| { channel: 'site-event'; payload: SiteEvent }
@@ -85,7 +75,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
-	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const syncActivityListeners = new Set< ( event: SyncEvent ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -176,34 +165,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return site.url;
 	}
 
-	// Resolve when the snapshot command with this operationId finishes, with its
-	// published URL — correlating the `snapshot` SSE stream by operationId, the
-	// same way the IPC connector correlates the snapshot-* events.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
-		return new Promise( ( resolve, reject ) => {
-			let capturedUrl: string | undefined;
-			const listener = ( output: SnapshotSseOutput ) => {
-				if ( output.operationId !== operationId ) {
-					return;
-				}
-				if ( output.kind === 'key-value' && output.data.key === 'url' ) {
-					capturedUrl = output.data.value;
-				} else if ( output.kind === 'success' ) {
-					snapshotListeners.delete( listener );
-					if ( capturedUrl ) {
-						resolve( { url: capturedUrl } );
-					} else {
-						reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
-					}
-				} else if ( output.kind === 'fatal-error' ) {
-					snapshotListeners.delete( listener );
-					reject( new Error( output.data.message ) );
-				}
-			};
-			snapshotListeners.add( listener );
-		} );
-	}
-
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -220,8 +181,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'snapshot' ) {
-					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-activity' ) {
 					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -541,13 +500,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
-			// The server returns an operationId; progress + the final URL arrive on
-			// the `snapshot` SSE channel.
-			const { operationId } = await api< { operationId: string } >(
-				`/sites/${ encodeURIComponent( siteId ) }/preview`,
-				{ method: 'POST', body: JSON.stringify( { hostname: existingHostname } ) }
-			);
-			return awaitSnapshotOperation( operationId );
+			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
+				method: 'POST',
+				body: JSON.stringify( { hostname: existingHostname } ),
+			} );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(

@@ -110,7 +110,7 @@ import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
-import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import { fetchSnapshots, publishPreviewSite } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
@@ -425,13 +425,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		surface: 'cliui',
 		// Agent-run events on `agent`, session-placement updates on `placement`.
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
-	} );
-
-	// Preview snapshots stream their progress on the `snapshot` channel, the
-	// same shared manager + emit the desktop wires to IPC.
-	const snapshotManager = createSnapshotManager( {
-		executeCliCommand: execute,
-		emit: ( output ) => sseSend( { channel: 'snapshot', payload: output } ),
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
@@ -1528,8 +1521,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- Preview sites (snapshots) --------------------------------------------
-	// Kick off the CLI command and return its operationId immediately; progress
-	// + the final url/success stream over the SSE `snapshot` channel.
+	// Publishing responds with the preview's URL once it's live; its progress
+	// streams as sync activity.
 	api.get(
 		'/snapshots',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1540,24 +1533,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname } = req.body as { hostname?: string };
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			const { operationId } = hostname
-				? snapshotManager.updateSnapshot( site.path, hostname )
-				: snapshotManager.createSnapshot( site.path, name );
-			res.json( { operationId } );
+			res.json( await publishPreviewSite( execute, site.path, hostname ) );
 		} )
 	);
-
-	api.delete( '/snapshots/:hostname', ( req: Request, res: Response ) => {
-		const { operationId } = snapshotManager.deleteSnapshot( req.params.hostname );
-		res.json( { operationId } );
-	} );
 
 	// --- Sync: pull from a connected WordPress.com live site ------------------
 	api.post(

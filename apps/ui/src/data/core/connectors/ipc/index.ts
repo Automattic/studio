@@ -130,65 +130,6 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
-	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
-	// into an awaitable promise. The main process emits `snapshot-key-value`
-	// with the final preview URL right before `snapshot-success`; fatal
-	// errors arrive via `snapshot-fatal-error`. All three are broadcast to
-	// every renderer subscriber, so we filter by operationId.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
-		return new Promise( ( resolve, reject ) => {
-			let capturedUrl: string | undefined;
-			const unsubscribes: Array< () => void > = [];
-			const cleanup = () => {
-				for ( const unsubscribe of unsubscribes ) {
-					unsubscribe();
-				}
-			};
-
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-key-value',
-					(
-						_event: unknown,
-						payload: { operationId: string; data: { key: string; value: string } }
-					) => {
-						if ( payload.operationId === operationId && payload.data.key === 'url' ) {
-							capturedUrl = payload.data.value;
-						}
-					}
-				)
-			);
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-success',
-					( _event: unknown, payload: { operationId: string } ) => {
-						if ( payload.operationId !== operationId ) {
-							return;
-						}
-						cleanup();
-						if ( capturedUrl ) {
-							resolve( { url: capturedUrl } );
-						} else {
-							reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
-						}
-					}
-				)
-			);
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-fatal-error',
-					( _event: unknown, payload: { operationId: string; data: { message: string } } ) => {
-						if ( payload.operationId !== operationId ) {
-							return;
-						}
-						cleanup();
-						reject( new Error( payload.data.message ) );
-					}
-				)
-			);
-		} );
-	}
-
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
@@ -535,15 +476,9 @@ export function createIpcConnector(): Connector {
 
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
-			// pair. Those kick off a CLI command and immediately return an
-			// operationId; the actual completion is reported later via the
-			// `snapshot-*` event channel, so we correlate by operationId and
-			// resolve once the matching `snapshot-success` fires.
-			const { operationId } = ( await ( existingHostname
-				? ipcApi.updateSnapshot( siteFolder, existingHostname )
-				: ipcApi.createSnapshot( siteFolder ) ) ) as { operationId: string };
-			return awaitSnapshotOperation( operationId );
+			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname ) ) as {
+				url: string;
+			};
 		},
 
 		// Connected WPCom sites

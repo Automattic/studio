@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
@@ -102,15 +102,13 @@ export function PublishPickerView( { site, onClose }: Props ) {
 										className={ styles.item }
 										onClick={ () => void handlePickSite( candidate ) }
 									>
-										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
-										<span className={ styles.itemUrl }>
-											{ sprintf(
-												/* translators: 1: hosting provider ("Pressable" or "WordPress.com"), 2: site address */
-												__( '%1$s · %2$s' ),
-												candidate.isPressable ? __( 'Pressable' ) : __( 'WordPress.com' ),
-												stripProtocol( candidate.url )
-											) }
+										<span className={ styles.itemHeader }>
+											<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
+											<span className={ styles.itemHost }>
+												{ candidate.isPressable ? __( 'Pressable' ) : __( 'WP.com' ) }
+											</span>
 										</span>
+										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
 									</button>
 								</li>
 							) ) }

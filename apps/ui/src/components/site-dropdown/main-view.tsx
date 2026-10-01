@@ -115,9 +115,9 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 		return __( 'No connected site.' );
 	}
 	if ( isOffline ) {
-		return __( 'Go online to publish your site.' );
+		return __( 'Go online to connect a live site.' );
 	}
-	return __( 'Sign in to publish your site.' );
+	return __( 'Sign in to connect a live site.' );
 }
 
 export function MainView( {
@@ -450,7 +450,7 @@ export function MainView( {
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
 					copy={ getLivePanelCopy( agenticEnabled, isOffline ) }
-					buttonLabel={ agenticEnabled || isOffline ? __( 'Publish' ) : __( 'Log in' ) }
+					buttonLabel={ agenticEnabled || isOffline ? __( 'Connect' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
 					loading={ ! agenticEnabled && login.isPending }

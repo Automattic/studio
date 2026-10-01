@@ -147,7 +147,6 @@ export function createIpcConnector(): Connector {
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: true,
-			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -953,10 +952,6 @@ export function createIpcConnector(): Connector {
 
 		onAiCreditsPurchased( listener ) {
 			return ipcListener.subscribe( 'ai-credits-purchased', () => listener() );
-		},
-
-		async disableAgenticUi(): Promise< void > {
-			await ipcApi.disableAgenticUi();
 		},
 
 		async getOnboardingHints() {

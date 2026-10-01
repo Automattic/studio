@@ -156,10 +156,6 @@ export interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
-	// The host can switch this window back to the classic Studio UI
-	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
-	// in a browser there is nothing to switch to.
-	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -582,9 +578,6 @@ export interface Connector {
 	// can't receive a custom scheme.
 	onAiCreditsPurchased( listener: () => void ): () => void;
 
-	// Switches back to the legacy (classic) Studio UI.
-	disableAgenticUi(): Promise< void >;
-
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
 	// its partial. Desktop persists to app.json; hosted/web to localStorage.
@@ -672,8 +665,7 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all. Unrelated to which
-	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	// Whether chat/agent features are offered at all.
 	agenticFeaturesEnabled: boolean;
 }
 

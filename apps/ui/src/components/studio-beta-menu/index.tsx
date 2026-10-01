@@ -24,11 +24,6 @@ export function StudioBetaMenu( { className }: { className?: string } ) {
 				<span className={ styles.label }>{ __( 'Beta' ) }</span>
 			</Menu.Trigger>
 			<Menu.Popup side="top" align="start">
-				{ connector.capabilities.switchToClassicUi ? (
-					<Menu.Item onClick={ () => void connector.disableAgenticUi() }>
-						{ __( 'Switch to classic' ) }
-					</Menu.Item>
-				) : null }
 				<Menu.Item onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }>
 					{ __( 'Report an issue' ) }
 				</Menu.Item>

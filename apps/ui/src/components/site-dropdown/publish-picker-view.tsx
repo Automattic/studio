@@ -115,13 +115,13 @@ export function PublishPickerView( { site, onClose }: Props ) {
 												<span className={ styles.itemHost }>
 													{ candidate.isPressable ? 'Pressable' : 'WP.com' }
 												</span>
+												{ environment !== 'production' ? (
+													<span className={ styles.itemHost } data-environment={ environment }>
+														{ getEnvironmentLabel( environment ) }
+													</span>
+												) : null }
 											</span>
-											<span className={ styles.itemMeta }>
-												<span className={ styles.itemEnvironment } data-environment={ environment }>
-													{ getEnvironmentLabel( environment ) }
-												</span>
-												<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
-											</span>
+											<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
 										</button>
 									</li>
 								);

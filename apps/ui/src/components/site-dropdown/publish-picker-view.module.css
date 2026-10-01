@@ -82,44 +82,15 @@
 	color: var(--wpds-color-foreground-content-neutral-weak);
 }
 
-.itemMeta {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	max-width: 100%;
+.itemHost[data-environment='staging'] {
+	border-color: var(--wpds-color-stroke-surface-warning-strong);
 }
 
-.itemEnvironment {
-	display: inline-flex;
-	flex-shrink: 0;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-.itemEnvironment::before {
-	content: '';
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--environment-color);
-}
-
-.itemEnvironment[data-environment='production'] {
-	--environment-color: var(--wpds-color-stroke-surface-success-strong);
-}
-
-.itemEnvironment[data-environment='staging'] {
-	--environment-color: var(--wpds-color-stroke-surface-warning-strong);
-}
-
-.itemEnvironment[data-environment='development'] {
-	--environment-color: var(--wpds-color-stroke-surface-info-strong);
+.itemHost[data-environment='development'] {
+	border-color: var(--wpds-color-stroke-surface-info-strong);
 }
 
 .itemUrl {
-	min-width: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	overflow: hidden;

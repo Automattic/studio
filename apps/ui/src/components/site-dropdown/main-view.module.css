@@ -277,6 +277,11 @@
 	clip-path: polygon(28% 18%, 28% 82%, 82% 50%);
 }
 
+.lastSynced {
+	display: block;
+	margin-top: 2px;
+}
+
 .urlLink {
 	display: inline-flex;
 	align-items: center;

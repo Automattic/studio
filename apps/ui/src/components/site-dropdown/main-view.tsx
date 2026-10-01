@@ -33,7 +33,7 @@ import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
-import { getSyncActivityLabel } from './trigger-secondary';
+import { getPullLabel, getPushLabel, getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
 	getSiteStatusName,
@@ -142,6 +142,9 @@ export function MainView( {
 	);
 	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	const lastSyncedLabel = [ getPullLabel( liveSite ), getPushLabel( liveSite ) ]
+		.filter( Boolean )
+		.join( ' · ' );
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -385,11 +388,18 @@ export function MainView( {
 			{ liveSite ? (
 				<PopoverRow
 					label={ __( 'Live' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( liveSite.url ),
-						url: ensureProtocol( liveSite.url ),
-						label: __( 'Open live site in your browser' ),
-					} ) }
+					sublabel={
+						<>
+							{ renderUrlLink( {
+								text: stripProtocol( liveSite.url ),
+								url: ensureProtocol( liveSite.url ),
+								label: __( 'Open live site in your browser' ),
+							} ) }
+							{ lastSyncedLabel ? (
+								<span className={ styles.lastSynced }>{ lastSyncedLabel }</span>
+							) : null }
+						</>
+					}
 					action={
 						<div className={ styles.rowActions }>
 							<IconButton

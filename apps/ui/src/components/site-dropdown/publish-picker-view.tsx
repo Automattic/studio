@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, _x } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import {
@@ -113,7 +113,9 @@ export function PublishPickerView( { site, onClose }: Props ) {
 													{ candidate.name || candidate.url }
 												</span>
 												<span className={ styles.itemHost }>
-													{ candidate.isPressable ? 'Pressable' : 'WP.com' }
+													{ candidate.isPressable
+														? _x( 'Pressable', 'hosting provider name' )
+														: _x( 'WP.com', 'hosting provider name' ) }
 												</span>
 												{ environment !== 'production' ? (
 													<span className={ styles.itemHost } data-environment={ environment }>

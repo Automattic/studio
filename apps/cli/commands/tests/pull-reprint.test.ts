@@ -1416,6 +1416,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 
+		let operationDuringPull: unknown;
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
 			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
@@ -1448,6 +1449,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 					};
 				}
 				if ( args[ 0 ] === 'pull-files' ) {
+					operationDuringPull = readSeededCliConfig( fakeHome ).sites[ 0 ].operation;
 					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
 				}
 				if ( args[ 0 ] === 'merge-wp-content' ) {
@@ -1471,6 +1473,11 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 				skipDatabase: true,
 			} )
 		).rejects.toThrow( /stop after flat-docroot/ );
+
+		expect( operationDuringPull ).toMatchObject( { kind: 'import' } );
+		const config = readSeededCliConfig( fakeHome );
+		expect( config.sites[ 0 ].operation ).toBeUndefined();
+		expect( config.sites[ 0 ].status ).toBe( 'pull-failed' );
 
 		// No pull-db: the database was skipped. CLI selections do not need a
 		// remote tree lookup.

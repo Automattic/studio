@@ -23,6 +23,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	fetchSyncableSites,
@@ -180,7 +181,7 @@ async function runPush(
 		}
 
 		handleExportEvents( exporter, logger );
-		await exporter.export();
+		await withSiteOperation( site.path, 'export', () => exporter.export() );
 
 		const archiveSize = fs.statSync( archivePath ).size;
 		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {

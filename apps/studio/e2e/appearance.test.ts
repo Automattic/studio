@@ -1,25 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
-import SiteContent from './page-objects/site-content';
-import UserSettingsModal from './page-objects/user-settings-modal';
+import AppSettings from './page-objects/app-settings';
 
 test.describe( 'Appearance', () => {
 	const session = new E2ESession();
-
-	const openSettings = async ( page: typeof session.mainWindow ) => {
-		const settingsButton = page.getByTestId( 'settings-button' );
-		await expect( settingsButton ).toBeVisible();
-		await settingsButton.click();
-	};
+	const isDark = () =>
+		session.electronApp.evaluate( ( { nativeTheme } ) => nativeTheme.shouldUseDarkColors );
 
 	test.beforeAll( async () => {
 		await session.launch();
-		const onboarding = new Onboarding( session.mainWindow );
-		await onboarding.completeOnboarding();
-		await onboarding.closeWhatsNew();
-		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+	} );
+
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportMainProcessLogsOnFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
@@ -27,77 +20,39 @@ test.describe( 'Appearance', () => {
 	} );
 
 	test( 'changes color scheme from settings', async () => {
-		await openSettings( session.mainWindow );
-		const settings = new UserSettingsModal( session.mainWindow );
-		await expect( settings.locator ).toBeVisible( { timeout: 10_000 } );
+		const settings = new AppSettings( session.mainWindow );
+		await settings.open();
+		await expect( settings.appearanceOption( 'Light' ) ).toHaveAttribute( 'aria-pressed', 'true' );
 
-		// Preferences tab should be active by default with appearance radio group visible
-		await expect( settings.appearanceRadioGroup ).toBeVisible();
-
-		// Default should be Light
-		await expect( settings.getAppearanceOption( 'Light' ) ).toHaveAttribute(
-			'aria-checked',
-			'true'
-		);
-
-		// Switch to Dark and save
 		await settings.selectColorScheme( 'Dark' );
-		await settings.save();
-		const isDark = await session.electronApp.evaluate(
-			( { nativeTheme } ) => nativeTheme.shouldUseDarkColors
+		await expect.poll( isDark ).toBe( true );
+		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute(
+			'data-color-scheme',
+			'dark'
 		);
-		expect( isDark ).toBe( true );
 
-		// Switch to Light and save
-		await openSettings( session.mainWindow );
-		const settingsLight = new UserSettingsModal( session.mainWindow );
-		await expect( settingsLight.locator ).toBeVisible( { timeout: 10_000 } );
-		await settingsLight.selectColorScheme( 'Light' );
-		await settingsLight.save();
-		const isLight = await session.electronApp.evaluate(
-			( { nativeTheme } ) => nativeTheme.shouldUseDarkColors
-		);
-		expect( isLight ).toBe( false );
+		await settings.selectColorScheme( 'Light' );
+		await expect.poll( isDark ).toBe( false );
+		await settings.close();
 	} );
 
 	test( 'persists color scheme across app restart', async () => {
-		// Select Dark and save
-		await openSettings( session.mainWindow );
-		const settings = new UserSettingsModal( session.mainWindow );
-		await expect( settings.locator ).toBeVisible( { timeout: 10_000 } );
+		const settings = new AppSettings( session.mainWindow );
+		await settings.open();
 		await settings.selectColorScheme( 'Dark' );
-		await settings.save();
 
-		// Restart the app
 		await session.restart();
-		await session.mainWindow.waitForLoadState( 'domcontentloaded' );
-
-		const onboarding = new Onboarding( session.mainWindow );
-		try {
-			const visible = await onboarding.heading.isVisible( { timeout: 2000 } );
-			if ( visible ) {
-				await onboarding.completeOnboarding();
-			}
-		} catch ( error ) {
-			// Onboarding not visible, continue with test
-		}
-
-		await onboarding.closeWhatsNew();
-
-		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-
-		// Verify Dark is still selected
-		await openSettings( session.mainWindow );
-		const settingsAfterRestart = new UserSettingsModal( session.mainWindow );
-		await expect( settingsAfterRestart.locator ).toBeVisible( { timeout: 10_000 } );
-		await expect( settingsAfterRestart.getAppearanceOption( 'Dark' ) ).toHaveAttribute(
-			'aria-checked',
-			'true'
+		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute(
+			'data-color-scheme',
+			'dark'
 		);
 
-		// Reset to Light for other tests
+		const settingsAfterRestart = new AppSettings( session.mainWindow );
+		await settingsAfterRestart.open();
+		await expect( settingsAfterRestart.appearanceOption( 'Dark' ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 		await settingsAfterRestart.selectColorScheme( 'Light' );
-		await settingsAfterRestart.save();
 	} );
 } );

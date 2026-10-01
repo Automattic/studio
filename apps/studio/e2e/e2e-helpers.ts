@@ -1,12 +1,19 @@
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
+import { expect, type TestInfo } from '@playwright/test';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 import { rimraf } from 'rimraf';
-import type { TestInfo } from '@playwright/test';
+import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
+import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
+
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/data/onboarding/orientation-guide.ts.
+const ORIENTATION_GUIDE_VERSION = 2;
+
+export type PersistedSite = { id: string; name: string; path: string; port: number };
 
 export class E2ESession {
 	electronApp!: ElectronApplication;
@@ -31,13 +38,17 @@ export class E2ESession {
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
 	}
 
-	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
+	/**
+	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
+	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
+	 * overview rather than on a sign-in prompt.
+	 */
+	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
 
-		// Pre-create appdata file with beta features enabled for CLI testing
 		// Path must include 'Studio' subfolder to match Electron app's path structure
 		const studioAppDataPath = path.join( this.appDataPath, 'Studio' );
 		await fs.mkdir( studioAppDataPath, { recursive: true } );
@@ -46,16 +57,14 @@ export class E2ESession {
 			version: 1,
 			sites: [],
 			snapshots: [],
-			// The opt-in banner is a floating card over the bottom-right of the site content, so
-			// leaving it up intercepts clicks on whatever sits underneath (e.g. the overview's
-			// customize shortcuts). Start dismissed so specs see the classic UI unobstructed.
-			agenticUiBannerDismissed: true,
-			betaFeatures: {
-				studioSitesCli: true,
-				// These specs drive the classic renderer. Setting this explicitly opts the run
-				// out of the agentic default that fresh installs otherwise get seeded with.
-				enableAgenticUi: false,
-			},
+			betaFeatures: { studioSitesCli: true },
+			...( firstRun
+				? {}
+				: {
+						onboardingCompleted: true,
+						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
+						agenticFeaturesEnabled: false,
+				  } ),
 		};
 
 		await fs.writeFile(
@@ -123,9 +132,36 @@ export class E2ESession {
 		}
 	}
 
-	async restart() {
+	async getSites(): Promise< PersistedSite[] > {
+		const config = await fs
+			.readJson( path.join( this.cliConfigPath, 'cli.json' ) )
+			.catch( () => ( { sites: [] } ) );
+		return config.sites;
+	}
+
+	// Polls cli.json, which the CLI may write slightly after the UI shows the site.
+	async waitForSite( siteName: string ): Promise< PersistedSite > {
+		let site: PersistedSite | undefined;
+		await expect
+			.poll(
+				async () => {
+					site = ( await this.getSites() ).find( ( candidate ) => candidate.name === siteName );
+					return site?.port;
+				},
+				{ message: `site "${ siteName }" was never persisted to cli.json`, timeout: 120_000 }
+			)
+			.toBeTruthy();
+		return site as PersistedSite;
+	}
+
+	async getSiteUrl( siteName: string ) {
+		const { port } = await this.waitForSite( siteName );
+		return `http://localhost:${ port }`;
+	}
+
+	async restart( testEnv: NodeJS.ProcessEnv = {} ) {
 		await this.closeApp();
-		await this.launchFirstWindow();
+		await this.launchFirstWindow( testEnv );
 	}
 
 	async cleanup() {
@@ -259,4 +295,26 @@ export class E2ESession {
 	private getMainProcessLogs() {
 		return this.mainProcessLogs.join( '' ).trim();
 	}
+}
+
+/**
+ * Launches Studio and creates a site through "Add a site", resolving once it runs. `folder` makes
+ * the mocked folder dialog return `~/Studio/<folder>`, and has the form pick it.
+ */
+export async function launchWithSite(
+	session: E2ESession,
+	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {}
+) {
+	const env: NodeJS.ProcessEnv = {};
+	if ( folder ) {
+		env.E2E_OPEN_FOLDER_DIALOG = path.join( session.homePath, 'Studio', folder );
+		await fs.mkdir( env.E2E_OPEN_FOLDER_DIALOG, { recursive: true } );
+	}
+	await session.launch( env );
+	const siteName = await new AddSite( session.mainWindow ).createSite( {
+		...options,
+		pickFolder: Boolean( folder ),
+	} );
+	await new Sidebar( session.mainWindow ).expectRunning( siteName );
+	return { siteName, site: await session.waitForSite( siteName ) };
 }

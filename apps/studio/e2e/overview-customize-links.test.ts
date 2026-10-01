@@ -1,84 +1,50 @@
 import { test, expect, type Page } from '@playwright/test';
-import { E2ESession } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
-import SiteContent from './page-objects/site-content';
+import { E2ESession, launchWithSite } from './e2e-helpers';
+import SiteOverview from './page-objects/site-overview';
 import { getUrlWithAutoLogin } from './utils';
 
-const global = globalThis as unknown as {
-	__originalOpenExternal?: ( url: string ) => Promise< void >;
-	__openExternalCall?: string | null;
-};
-test.describe( 'Overview customize links', () => {
+test.describe( 'Overview shortcuts', () => {
 	const session = new E2ESession();
-
 	const siteName = 'E2E-Shortcuts-Site';
 
-	const mockOpenExternal = async () => {
-		await session.electronApp.evaluate( ( { shell } ) => {
-			if ( ! global.__originalOpenExternal ) {
-				global.__originalOpenExternal = shell.openExternal;
-			}
-			global.__openExternalCall = null;
-			shell.openExternal = async ( url: string ) => {
-				global.__openExternalCall = url;
-			};
-		} );
+	const shortcuts = () => session.mainWindow.getByRole( 'region', { name: 'Shortcuts' } );
+
+	// The URL the site preview's webview shows, once it has left the auto-login redirect.
+	const getPreviewUrl = async ( expected: RegExp ) => {
+		let previewUrl = '';
+		await expect
+			.poll(
+				async () => {
+					const urls = await session.electronApp.evaluate( ( { webContents } ) =>
+						webContents
+							.getAllWebContents()
+							.filter( ( contents ) => contents.getType() === 'webview' )
+							.map( ( contents ) => contents.getURL() )
+					);
+					previewUrl =
+						urls.find(
+							( url ) =>
+								! url.includes( 'studio-auto-login' ) && expected.test( decodeURIComponent( url ) )
+						) ?? '';
+					return previewUrl;
+				},
+				{ timeout: 120_000 }
+			)
+			.toBeTruthy();
+		return previewUrl;
 	};
 
-	const getOpenExternalCall = async (): Promise< string | null > => {
-		return await session.electronApp.evaluate( () => {
-			return global.__openExternalCall ?? null;
-		} );
-	};
-
-	const restoreOpenExternal = async () => {
-		await session.electronApp.evaluate( ( { shell } ) => {
-			if ( global.__originalOpenExternal ) {
-				shell.openExternal = global.__originalOpenExternal;
-			}
-			delete global.__openExternalCall;
-			delete global.__originalOpenExternal;
-		} );
-	};
-
-	const openShortcut = async ( page: Page, label: string ) => {
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		await mockOpenExternal();
-
-		await siteContent.locator.getByRole( 'button', { name: label } ).click();
-
-		const openedUrl = await getOpenExternalCall();
-
-		expect( openedUrl ).toBeTruthy();
-		if ( ! openedUrl ) {
-			throw new Error( 'openExternal was not called' );
-		}
-
-		await page.goto( getUrlWithAutoLogin( openedUrl ), {
+	// Opens a shortcut in the site preview and loads the same page in the test browser.
+	const openShortcut = async ( page: Page, label: string, expected: RegExp ) => {
+		await shortcuts().getByRole( 'button', { name: label } ).click();
+		await page.goto( getUrlWithAutoLogin( await getPreviewUrl( expected ) ), {
 			waitUntil: 'domcontentloaded',
 		} );
-		// Decode URL-encoded characters to normalize the URL across platforms
-		// Need to decode multiple times due to nested redirect_to parameters
-		let url = page.url();
-		let decoded = decodeURIComponent( url );
-		while ( decoded !== url ) {
-			url = decoded;
-			decoded = decodeURIComponent( url );
-		}
-		return decoded;
 	};
 
 	test.beforeAll( async () => {
-		await session.launch();
-
-		const onboarding = new Onboarding( session.mainWindow );
-		await onboarding.completeOnboarding( { customSiteName: siteName } );
-		await onboarding.closeWhatsNew();
-
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+		await launchWithSite( session, { siteName } );
+		await new SiteOverview( session.mainWindow ).open( siteName );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
@@ -86,121 +52,86 @@ test.describe( 'Overview customize links', () => {
 	} );
 
 	test.afterAll( async () => {
-		if ( session.electronApp ) {
-			await restoreOpenExternal();
-		}
 		await session.cleanup();
 	} );
 
-	test.describe( 'Block theme customize shortcut links', () => {
-		test( 'shows overview shortcuts for a new site', async () => {
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-			await expect( siteContent.siteNameHeading ).toBeVisible();
-
-			const customizeHeading = siteContent.locator.getByRole( 'heading', { name: 'Customize' } );
-			await expect( customizeHeading ).toBeVisible( { timeout: 120_000 } );
-
-			const buttonMatchers: Array< string | RegExp > = [
-				'Site Editor',
-				'Styles',
-				'Patterns',
-				'Navigation',
-				'Templates',
-				'Pages',
-			];
-
-			for ( const matcher of buttonMatchers ) {
-				await expect( siteContent.locator.getByRole( 'button', { name: matcher } ) ).toBeVisible( {
-					timeout: 120_000,
-				} );
-			}
-		} );
-
-		test( 'opens Site Editor shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Site Editor' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php' );
-
-			const headingLocator = page.getByRole( 'heading', {
-				name: 'Design',
+	test( 'shows block theme shortcuts for a new site', async () => {
+		for ( const label of [
+			'Site Editor',
+			'Styles',
+			'Patterns',
+			'Navigation',
+			'Templates',
+			'Pages',
+		] ) {
+			await expect( shortcuts().getByRole( 'button', { name: label } ) ).toBeEnabled( {
+				timeout: 120_000,
 			} );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
-		} );
+		}
+	} );
 
-		test( 'opens Styles shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Styles' );
-			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch(
-				/\/wp-admin\/site-editor\.php\?(path=\/wp_global_styles|p=\/styles)/
-			);
-
-			const headingLocator = page.getByRole( 'heading', {
-				name: 'Design',
-			} );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test( 'opens Patterns shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Patterns' );
-			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch(
-				/\/wp-admin\/site-editor\.php\?(path=\/patterns|p=\/pattern)/
-			);
-
-			const headingLocator = page.getByRole( 'heading', {
-				name: 'All patterns',
-			} );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test( 'opens Navigation shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Navigation' );
-			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch(
-				/\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/
-			);
-
-			const headingLocator = page.getByRole( 'heading', {
-				name: 'Navigation',
-			} );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test( 'opens Templates shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Templates' );
-			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch(
-				/\/wp-admin\/site-editor\.php\?(path=\/wp_template|p=\/template)/
-			);
-
-			const headingLocator = page.locator( 'h1', { hasText: 'Templates' } );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
-		} );
-
-		test( 'opens Pages shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'Pages' );
-			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/page|p=\/page)/ );
-
-			const headingLocator = page.locator( 'h1', { hasText: 'Pages' } );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
+	test( 'opens Site Editor shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Site Editor', /\/wp-admin\/site-editor\.php/ );
+		await expect( page.getByRole( 'heading', { name: 'Design' } ) ).toBeVisible( {
+			timeout: 120_000,
 		} );
 	} );
 
-	test.describe( 'phpMyAdmin shortcut link', () => {
-		test( 'phpMyAdmin button is visible and enabled for a new site', async () => {
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			const phpMyAdminButton = siteContent.locator.getByRole( 'button', { name: 'phpMyAdmin' } );
-			await expect( phpMyAdminButton ).toBeVisible( { timeout: 120_000 } );
-			await expect( phpMyAdminButton ).toBeEnabled();
+	test( 'opens Styles shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Styles', /site-editor\.php\?(path=\/wp_global_styles|p=\/styles)/ );
+		await expect( page.getByRole( 'heading', { name: 'Design' } ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+	} );
+
+	test( 'opens Patterns shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Patterns', /site-editor\.php\?(path=\/patterns|p=\/pattern)/ );
+		await expect( page.getByRole( 'heading', { name: 'All patterns' } ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+	} );
+
+	test( 'opens Navigation shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Navigation', /site-editor\.php\?(path|p)=\/navigation/ );
+		await expect( page.getByRole( 'heading', { name: 'Navigation' } ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+	} );
+
+	test( 'opens Templates shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Templates', /site-editor\.php\?(path=\/wp_template|p=\/template)/ );
+		await expect( page.locator( 'h1', { hasText: 'Templates' } ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+	} );
+
+	test( 'opens Pages shortcut', async ( { page } ) => {
+		await openShortcut( page, 'Pages', /\/wp-admin\/edit\.php\?post_type=page/ );
+		await expect( page.locator( 'h1', { hasText: 'Pages' } ) ).toBeVisible( { timeout: 120_000 } );
+	} );
+
+	test( 'opens phpMyAdmin in the browser', async ( { page } ) => {
+		await session.electronApp.evaluate( ( { shell } ) => {
+			const state = globalThis as typeof globalThis & { __e2eOpened?: string };
+			shell.openExternal = async ( url: string ) => {
+				state.__e2eOpened = url;
+			};
 		} );
 
-		test( 'opens phpMyAdmin shortcut', async ( { page } ) => {
-			const redirectUrl = await openShortcut( page, 'phpMyAdmin' );
-			expect( redirectUrl ).toContain( '/phpmyadmin/' );
+		await session.mainWindow.getByRole( 'button', { name: 'phpMyAdmin' } ).click();
+		let openedUrl = '';
+		await expect
+			.poll( async () => {
+				openedUrl =
+					( await session.electronApp.evaluate(
+						() => ( globalThis as typeof globalThis & { __e2eOpened?: string } ).__e2eOpened
+					) ) ?? '';
+				return openedUrl;
+			} )
+			.toContain( 'phpmyadmin' );
 
-			// phpMyAdmin renders its main content after the shortcut opens.
-			await expect( page.locator( '#page_content' ) ).toBeVisible( { timeout: 120_000 } );
-		} );
+		// Already wrapped in the auto-login redirect.
+		await page.goto( openedUrl, { waitUntil: 'domcontentloaded' } );
+		await expect( page.locator( '#page_content' ) ).toBeVisible( { timeout: 120_000 } );
 	} );
 } );

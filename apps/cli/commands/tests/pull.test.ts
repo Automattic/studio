@@ -1,4 +1,5 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
@@ -10,6 +11,7 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { Logger } from 'cli/logger';
 import { runCommand } from '../pull';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -104,4 +106,26 @@ describe( 'CLI: studio pull', () => {
 			] );
 		}
 	);
+
+	it.each( [
+		[ 'warns and continues without asking when nobody can answer', undefined, true ],
+		[ 'stops when the user declines', async () => false, false ],
+	] )( 'pulling a backup over the size limit %s', async ( _case, confirm, imported ) => {
+		vi.mocked( checkBackupSize ).mockResolvedValue( SYNC_PUSH_SIZE_LIMIT_BYTES + 1 );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+
+		await runCommand(
+			site.path,
+			[ 'all' ],
+			String( remoteSite.id ),
+			undefined,
+			logger,
+			true,
+			confirm
+		);
+
+		expect( steps.includes( 'import' ) ).toBe( imported );
+		expect( messages.some( ( message ) => message.includes( 'exceeds' ) ) ).toBe( ! confirm );
+	} );
 } );

@@ -283,12 +283,7 @@ describe( 'MainView', () => {
 
 		renderMainView();
 
-		expect(
-			screen.getByRole( 'button', { name: 'Pull from live · Pulled 2h ago' } )
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole( 'button', { name: 'Push to live · Pushed just now' } )
-		).toBeInTheDocument();
+		expect( screen.getByText( 'Pulled 2h ago · Pushed just now' ) ).toBeInTheDocument();
 	} );
 
 	it( 'offers to stop an in-flight push and reports the site being stopped', () => {

@@ -1,6 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
-import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { __, sprintf } from '@wordpress/i18n';
 import { AlertDialog } from '@wordpress/ui';
@@ -8,6 +7,7 @@ import { useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
+import { openStudioLogsAction } from '@/data/queries/use-sync-site';
 import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
@@ -92,12 +92,22 @@ export function useSiteBackupImport( site: SiteDetails ) {
 			} );
 			applySyncActivity( siteId, { kind: 'success', direction: 'import' } );
 		} catch ( error ) {
-			// Matches push/pull: the activity store carries the detail on the site
-			// itself, and a toast says so wherever the user has navigated to.
-			const message =
-				getErrorMessage( error ) ?? __( 'Failed to import the backup. Please try again.' );
+			// Matches pull: the raw CLI error goes to the logs, and the activity
+			// store and toast carry a plain-language message wherever the user is.
+			console.error( 'Failed to import backup:', error );
+			const canOpenLogs = connector.capabilities.studioLogs;
+			const message = canOpenLogs
+				? __(
+						"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
+				  )
+				: __(
+						"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+				  );
 			applySyncActivity( siteId, { kind: 'error', direction: 'import', message } );
-			toast.error( __( "Import didn't complete" ), { description: message } );
+			toast.error( __( "Import didn't complete" ), {
+				description: message,
+				action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+			} );
 		} finally {
 			// Drop the File so a large backup isn't held in memory for the session.
 			setPending( ( current ) => ( current?.siteId === siteId ? null : current ) );

@@ -29,14 +29,13 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - The node.js `child_process` module is used to fork a process that runs the CLI.
    - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
-   - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
+   - Most commands report their progress through these messages. Syncs (push, pull and preview) publish theirs as events instead (see below), so every UI can show them, whoever started them.
 
-3. Studio reacts when the CLI modifies preview sites:
+3. Studio reacts when the CLI changes state:
 
-   - Studio spawns the `_events` CLI command when the application starts.
-   - The `_events` command runs a local IPC server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
-   - Studio parses and validates the events and emits `snapshot-event` events to the renderer process.
-   - State handlers in the renderer process (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
+   - Any CLI process, whether Studio forked it, the agent runs it, or a user typed it in a terminal, publishes an event when it changes something Studio shows: a site is created, changed or deleted, an operation starts or ends on a site, a preview site changes, the user logs in or out, or a sync makes progress.
+   - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which listens for these events on a socket of its own and forwards them to it. CLI processes send each event to every app's socket, so they all see every change.
+   - Each app relays the events to its UI, which refreshes what changed. That is what lets the UI react the same way whether a change came from its own buttons, the agent, a terminal or another window.
 
 ## Implementation details
 
@@ -80,7 +79,7 @@ Rather than a written stage cursor, "where do I continue from?" is computed from
 
 ### Studio calling the CLI
 
-Studio instantiates CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through node IPC calls (using the `process.send` API).
+Studio instantiates CLI child processes to execute site operations: creating, starting and stopping sites, import and export, push and pull, and preview sites, as well as running the agent. The CLI communicates with Studio through node IPC calls (using the `process.send` API).
 
 This approach of forking CLI processes to run business logic has both pros and cons.
 

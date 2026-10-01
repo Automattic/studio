@@ -53,7 +53,8 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	suppressTracksEvent = false
+	suppressTracksEvent = false,
+	confirmLargeBackup?: () => Promise< boolean >
 ): Promise< void > {
 	let pullError: unknown;
 	let restartSiteError: unknown;
@@ -169,18 +170,20 @@ export async function runCommand(
 		// Check backup size before downloading
 		const backupFileSize = await checkBackupSize( downloadUrl );
 		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			logger.spinner.stop();
-			const shouldContinue = await confirm( {
-				message: sprintf(
-					__(
-						"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
-					),
-					SYNC_PUSH_SIZE_LIMIT_GB
-				),
-				default: true,
-			} );
-			if ( ! shouldContinue ) {
-				return;
+			if ( confirmLargeBackup ) {
+				logger.spinner.stop();
+				if ( ! ( await confirmLargeBackup() ) ) {
+					return;
+				}
+			} else {
+				logger.reportWarning(
+					sprintf(
+						__(
+							"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
+						),
+						SYNC_PUSH_SIZE_LIMIT_GB
+					)
+				);
 			}
 		}
 
@@ -376,7 +379,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.remoteSite,
 					argv.includePathList as string[] | undefined,
 					defaultLogger,
-					argv.suppressTracksEvent
+					argv.suppressTracksEvent,
+					process.stdin.isTTY
+						? () =>
+								confirm( {
+									message: sprintf(
+										__(
+											"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
+										),
+										SYNC_PUSH_SIZE_LIMIT_GB
+									),
+									default: true,
+								} )
+						: undefined
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

@@ -145,7 +145,7 @@ export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 	} );
 }
 
-export function useStopSite() {
+export function useStopSite( { silent = false }: StartSiteOptions = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
@@ -154,10 +154,33 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onSuccess: () => {
+			if ( ! silent ) {
+				toast.success( __( 'Site stopped' ) );
+			}
+		},
 		onError: ( _error, id ) =>
 			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
 	} );
+}
+
+// Stops each running site through the per-site mutation, so every row shows its
+// own stopping state and failures still toast per site, with one summary toast.
+export function useStopAllSites() {
+	const { data: sites } = useSites();
+	const stopSite = useStopSite( { silent: true } );
+	const runningIds = sites?.filter( ( site ) => site.running ).map( ( site ) => site.id ) ?? [];
+	return {
+		runningCount: runningIds.length,
+		stopAll: async () => {
+			const results = await Promise.allSettled(
+				runningIds.map( ( id ) => stopSite.mutateAsync( id ) )
+			);
+			if ( results.every( ( result ) => result.status === 'fulfilled' ) ) {
+				toast.success( __( 'All sites stopped' ) );
+			}
+		},
+	};
 }
 
 interface UpdateSiteInput {

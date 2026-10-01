@@ -40,6 +40,7 @@ import {
 	useSiteOperation,
 	useSites,
 	useStartSite,
+	useStopAllSites,
 	useStopSite,
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
@@ -409,6 +410,7 @@ function SiteActionsMenu( {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
+	const stopAllSites = useStopAllSites();
 	const busy = useIsSiteBusy( site );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	// Same source as the overview screen's Manage section, so the two can't drift
@@ -454,6 +456,12 @@ function SiteActionsMenu( {
 							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
 						</Menu.Item>
 					) }
+					<Menu.Item
+						disabled={ stopAllSites.runningCount === 0 }
+						onClick={ () => void stopAllSites.stopAll() }
+					>
+						{ __( 'Stop all sites' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						onClick={ () => {

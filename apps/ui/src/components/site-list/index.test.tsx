@@ -65,6 +65,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
 	useStartSite: vi.fn(),
+	useStopAllSites: () => ( { runningCount: 0, stopAll: vi.fn() } ),
 	useStopSite: vi.fn(),
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );

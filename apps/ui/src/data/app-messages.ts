@@ -36,9 +36,11 @@ export type ToastMessage = {
 	leaving?: boolean;
 };
 
+export type NoticeIntent = ToastIntent | 'warning';
+
 export type NoticeRecord = {
 	id: string;
-	intent: ToastIntent;
+	intent: NoticeIntent;
 	title: string;
 	description?: string;
 	// Epoch ms of the first showing; an in-place replacement keeps it.
@@ -63,6 +65,8 @@ let rendererMounted = false;
 // can still be read. Bounded so a noisy session can't grow it forever.
 const HISTORY_LIMIT = 50;
 let noticeHistory: NoticeRecord[] = [];
+// Keeps re-renders from re-logging a card, and "Clear all" from restoring one still showing.
+let loggedCards = new Map< string, string >();
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -101,7 +105,10 @@ function scheduleExpiry( toast: ToastMessage ) {
 	timers.set( toast.id, timer );
 }
 
-function recordNotice( toastMessage: ToastMessage, isReplacement: boolean ) {
+function recordNotice(
+	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' >,
+	isReplacement: boolean
+) {
 	const record: NoticeRecord = {
 		id: toastMessage.id,
 		intent: toastMessage.intent,
@@ -301,6 +308,26 @@ export function clearNoticeHistory(): void {
 	emit();
 }
 
+// A card that goes away and comes back is logged again.
+export function syncCardNotices(
+	cards: readonly Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' >[]
+): void {
+	const next = new Map< string, string >();
+	let changed = false;
+	for ( const card of cards ) {
+		const content = [ card.intent, card.title, card.description ?? '' ].join( '\n' );
+		next.set( card.id, content );
+		if ( loggedCards.get( card.id ) !== content ) {
+			recordNotice( card, loggedCards.has( card.id ) );
+			changed = true;
+		}
+	}
+	loggedCards = next;
+	if ( changed ) {
+		emit();
+	}
+}
+
 // Title plus the full description, for the clipboard.
 export function noticeToText( notice: Pick< NoticeRecord, 'title' | 'description' > ): string {
 	return notice.description ? `${ notice.title }\n${ notice.description }` : notice.title;
@@ -317,4 +344,5 @@ export function resetAppMessagesForTests(): void {
 	rendererMounted = false;
 	snapshot = visible;
 	noticeHistory = [];
+	loggedCards = new Map();
 }

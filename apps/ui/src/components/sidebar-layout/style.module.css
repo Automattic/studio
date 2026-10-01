@@ -110,10 +110,9 @@
    makes up the rest, since that strip is positioned inside the inset panel
    while this one is positioned against `.main` — keep the three in sync. */
 .floatingToggle {
-	/* Cleared to 0 while the frame is flush (see `.floatingToggleFramed`);
-	   12px gap + the frame's 1px border. Keep in sync with --panel-frame-gap
+	/* 12px gap + the frame's 1px border. Keep in sync with --panel-frame-gap
 	   in preview-split-frame. */
-	--floating-toggle-frame-inset: 0px;
+	--floating-toggle-frame-inset: calc(12px + var(--wpds-border-width-xs));
 
 	position: absolute;
 	bottom: calc(var(--floating-toggle-frame-inset) - var(--wpds-dimension-padding-sm));
@@ -131,19 +130,17 @@
 	-webkit-app-region: no-drag;
 }
 
-/* While the sidebar is open the content panel sits inside its inset frame, so
-   the toggle has to rise by that inset to share the panel's footer band with
-   the chat controls. Collapsed, the frame goes flush (see
-   preview-split-frame's `.rootFrameless`) and the inset drops out. */
-.floatingToggleFramed {
-	--floating-toggle-frame-inset: calc(12px + var(--wpds-border-width-xs));
-}
-
 /* With no traffic lights to clear — non-macOS, the browser, or macOS
    fullscreen (which hides them) — the toggle sits near the main area's left
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
 	inset-inline-start: var(--wpds-dimension-padding-xl);
+}
+
+/* Collapsed, the frame is inset on the sidebar edge too (see
+   preview-split-frame's `.rootSidebarCollapsed`). */
+.floatingToggleSidebarCollapsed {
+	inset-inline-start: calc(var(--wpds-dimension-padding-xl) + var(--floating-toggle-frame-inset));
 }
 
 .floatingToggleButton {

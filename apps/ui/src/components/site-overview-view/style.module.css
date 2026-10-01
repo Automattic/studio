@@ -40,7 +40,8 @@
    components/session-view/style.module.css so the site menu sits
    in the same spot when switching between chat and overview. */
 .headerSidebarCollapsed {
-	padding-inline-start: 94px;
+	/* Clears the traffic lights, less the inset frame's 12px gap + 1px border. */
+	padding-inline-start: 81px;
 }
 
 .tabsFrame {

@@ -34,8 +34,53 @@
 	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
 }
 
-/* Full-bleed when the sidebar is hidden — the frame reads as chrome that
-   belongs with the sidebar. The border must drop to zero WIDTH (not just
+/* With no sidebar beside it, the frame is inset on both inline edges. The
+   chrome gap above it stays as the window's drag handle. */
+.rootSidebarCollapsed {
+	margin-inline-start: var(--panel-frame-gap);
+}
+
+/* Window drag handles over the chrome gaps around the frame. Electron maps
+   app regions without clipping, so no-drag content inside the frame (scrolled
+   chat, the preview webview) still cuts into the chrome's drag region. Painted
+   on top, these strips re-add the gaps after anything beneath them. Sized to
+   --panel-frame-gap. */
+.dragStrip {
+	position: absolute;
+	z-index: 120;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragStripTop,
+.dragStripBottom {
+	inset-inline: 0;
+	height: 12px;
+}
+
+.dragStripTop {
+	inset-block-start: 0;
+}
+
+.dragStripBottom {
+	inset-block-end: 0;
+}
+
+.dragStripEnd,
+.dragStripStart {
+	inset-block: 0;
+	width: 12px;
+}
+
+.dragStripEnd {
+	inset-inline-end: 0;
+}
+
+.dragStripStart {
+	inset-inline-start: 0;
+}
+
+/* Full-bleed in full preview. The border must drop to zero WIDTH (not just
    transparent): the chrome background shows through a transparent border
    ring via background-clip, leaving stray dark lines at the edges. */
 .rootFrameless {

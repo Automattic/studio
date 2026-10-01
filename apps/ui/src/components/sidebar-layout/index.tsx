@@ -214,7 +214,7 @@ export function SidebarLayout( {
 							<div
 								className={ clsx(
 									styles.floatingToggle,
-									! effectiveCollapsed && styles.floatingToggleFramed,
+									effectiveCollapsed && styles.floatingToggleSidebarCollapsed,
 									! reserveTrafficLightSpace && styles.floatingToggleFlush
 								) }
 							>

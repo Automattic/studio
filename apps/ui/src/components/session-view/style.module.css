@@ -45,7 +45,8 @@
 }
 
 .headerSidebarCollapsed {
-	padding-inline-start: 94px;
+	/* Clears the traffic lights, less the inset frame's 12px gap + 1px border. */
+	padding-inline-start: 81px;
 }
 
 .headerSite {

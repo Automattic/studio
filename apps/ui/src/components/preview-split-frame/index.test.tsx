@@ -175,14 +175,15 @@ describe( 'PreviewSplitFrame', () => {
 			} );
 		} );
 
-		it( 'puts the chat in the corner when the preview is closed', () => {
-			expect( renderFrame( true, {} ) ).toEqual( { chat: 'true', preview: 'false' } );
+		it( 'keeps the frame inset when the sidebar is collapsed', () => {
+			expect( renderFrame( true, {} ) ).toEqual( { chat: 'false', preview: 'false' } );
+			expect( getFrameRoot().className ).not.toMatch( /rootFrameless/ );
 		} );
 
-		it( 'puts the preview in the corner when it is open', () => {
+		it( 'puts nothing in the corner with the preview open beside the chat', () => {
 			expect( renderFrame( true, { previewOpen: true } ) ).toEqual( {
 				chat: 'false',
-				preview: 'true',
+				preview: 'false',
 			} );
 		} );
 
@@ -191,6 +192,7 @@ describe( 'PreviewSplitFrame', () => {
 				chat: 'false',
 				preview: 'true',
 			} );
+			expect( getFrameRoot().className ).toMatch( /rootFrameless/ );
 		} );
 	} );
 

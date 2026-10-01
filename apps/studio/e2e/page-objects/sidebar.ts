@@ -17,7 +17,9 @@ export default class Sidebar {
 	}
 
 	getSiteRow( siteName: string ) {
-		return this.locator.locator( 'section' ).filter( { has: this.getSiteButton( siteName ) } );
+		return this.locator.locator( 'section' ).filter( {
+			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
+		} );
 	}
 
 	getStatusButton( siteName: string ) {

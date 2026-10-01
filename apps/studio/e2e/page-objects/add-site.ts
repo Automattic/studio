@@ -39,10 +39,12 @@ export default class AddSite {
 		);
 	}
 
-	// Opens "Add a site", from the sidebar once a site exists.
+	// Opens "Add a site": the first screen with no sites, the sidebar's "Add site" otherwise.
 	async open() {
+		const addSiteButton = new Sidebar( this.page ).addSiteButton;
+		await expect( this.heading.or( addSiteButton ) ).toBeVisible( { timeout: 60_000 } );
 		if ( ! ( await this.heading.isVisible() ) ) {
-			await new Sidebar( this.page ).addSiteButton.click();
+			await addSiteButton.click();
 		}
 		await expect( this.heading ).toBeVisible();
 	}

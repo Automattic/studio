@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { E2ESession } from './e2e-helpers';
+import { E2ESession, launchWithSite } from './e2e-helpers';
 import AppSettings from './page-objects/app-settings';
 
 test.describe( 'Appearance', () => {
@@ -8,7 +8,8 @@ test.describe( 'Appearance', () => {
 		session.electronApp.evaluate( ( { nativeTheme } ) => nativeTheme.shouldUseDarkColors );
 
 	test.beforeAll( async () => {
-		await session.launch();
+		// The sidebar, which holds App settings, shows once a site exists.
+		await launchWithSite( session );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {

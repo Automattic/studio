@@ -70,21 +70,23 @@ export function useSettleSync() {
 			} else {
 				toast.error( __( "Pull didn't complete" ), {
 					description: settled.message,
-					action: canOpenLogs
-						? {
-								label: __( 'Open Studio Logs' ),
-								onClick: () => {
-									void connector.openStudioLogs().catch( ( error ) => {
-										console.error( 'Failed to open Studio logs:', error );
-									} );
-								},
-						  }
-						: undefined,
+					action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
 				} );
 			}
 		},
 		[ connector, queryClient ]
 	);
+}
+
+export function openStudioLogsAction( connector: Connector ) {
+	return {
+		label: __( 'Open Studio Logs' ),
+		onClick: () => {
+			void connector.openStudioLogs().catch( ( error ) => {
+				console.error( 'Failed to open Studio logs:', error );
+			} );
+		},
+	};
 }
 
 // Mount once near the app root.

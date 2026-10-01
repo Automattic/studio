@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This document describes how the Studio CLI and the apps built on it (the desktop app, the `studio ui` server and the Studio Code agent) exchange work and state. It covers the principles they follow and the parts that are still being converged. The remaining work is tracked in [#4963](https://github.com/Automattic/studio/issues/4963).
+This document describes how the Studio CLI and the apps built on it (the desktop app, the `studio ui` server and the Studio Code agent) exchange work and state. It covers the principles they follow; remaining work is tracked in [#4963](https://github.com/Automattic/studio/issues/4963).
 
 ## Context
 
@@ -18,17 +18,10 @@ The CLI runs every site operation: creating, starting and stopping sites, import
 
 ## How events reach the apps
 
-Each running Studio app runs the hidden `_events` command, which listens on a socket of its own. A CLI process sends each event to every app's socket, skipping apps that aren't running. Each app relays the events to its UI, which refreshes the state that changed and updates the activity shown on the site.
+Each running Studio app runs the hidden `_events` command, which listens on a socket of its own. A CLI process sends each event to every app's socket, skipping apps that aren't running. Each app relays the events to its UI, which refreshes the state that changed and updates the activity shown on the site. Two copies of the same app (for example two `studio ui` servers) would share one socket, so only the newest receives events.
 
 `_events` also reports site processes starting and stopping, which it learns from the process manager that supervises them.
 
 ## Cancelling
 
 An app cancels an operation it started by stopping the CLI process running it. The command then reports the cancellation and exits, unless it has passed the point where stopping is safe (for example once a push has started changing the live site). An operation started by the agent or a terminal can't be cancelled from an app, so the UI doesn't offer it.
-
-## Not converged yet
-
-- Some commands still report progress only to the app that started them, through their own output: creating a site, exporting, and most commands' plain progress messages.
-- Results are returned to the calling app in a loosely structured form rather than a typed contract.
-- The agent calls command implementations in-process, but some still exit the process or prompt for missing input, which isn't safe there.
-- Two copies of the same app (for example two `studio ui` servers) share one socket, so only the newest receives events.

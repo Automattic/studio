@@ -144,6 +144,10 @@ describe( 'OnboardingImportPage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 		await screen.findByText( 'Studio could not import this backup.' );
 
+		// The import starts the site; a running site's WP-CLI lookups would race it.
+		expect( mocks.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { skipStart: true } )
+		);
 		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
 		expect( mocks.importSite ).toHaveBeenNthCalledWith(
 			1,

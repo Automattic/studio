@@ -21,6 +21,7 @@ import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -58,6 +59,8 @@ export async function runCommand(
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
 	let pullCompleted = false;
+	let siteId: string | undefined;
+	let stopReportingProgress = () => {};
 	const startedAt = Date.now();
 
 	try {
@@ -77,6 +80,8 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
+		siteId = site.id;
+		stopReportingProgress = reportPullProgress( site.id, logger );
 
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
@@ -247,7 +252,22 @@ export async function runCommand(
 	} catch ( error ) {
 		pullError = error;
 	} finally {
+		stopReportingProgress();
 		await disconnectFromDaemon();
+	}
+
+	const failure = pullError ?? restartSiteError;
+	if ( siteId ) {
+		await reportSyncActivity(
+			siteId,
+			failure !== undefined
+				? {
+						kind: 'error',
+						direction: 'pull',
+						message: failure instanceof Error ? failure.message : String( failure ),
+				  }
+				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
+		);
 	}
 
 	// Emitted before the restart error is merged below: merging would put a secondary failure at the
@@ -282,6 +302,26 @@ export async function runCommand(
 	if ( restartSiteError instanceof Error ) {
 		throw restartSiteError;
 	}
+}
+
+function reportPullProgress( siteId: string, logger: Logger< LoggerAction > ) {
+	void reportSyncActivity( siteId, { kind: 'pending', direction: 'pull' } );
+	let lastMessage = '';
+	return logger.observeProgress( ( message, action ) => {
+		// The importer reports once per stream chunk; only forward what changes.
+		if ( message === lastMessage ) {
+			return;
+		}
+		lastMessage = message;
+		const percent = /\((\d+)%\)/.exec( message )?.[ 1 ];
+		void reportSyncActivity( siteId, {
+			kind: 'pending',
+			direction: 'pull',
+			message,
+			...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),
+			...( action ? { action } : {} ),
+		} );
+	} );
 }
 
 async function recordSyncPullEvent( props: SyncEventProps ): Promise< void > {
@@ -328,6 +368,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			exitOnCancel();
 			try {
 				await runCommand(
 					argv.path,

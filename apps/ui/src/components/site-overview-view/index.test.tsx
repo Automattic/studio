@@ -38,7 +38,7 @@ import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
 const importSiteFromBackup = vi.hoisted( () => vi.fn() );
-const reportSyncProgressMock = vi.hoisted( () => vi.fn() );
+const applySyncActivityMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -146,10 +146,11 @@ vi.mock( '@/hooks/use-theme-details', () => ( {
 	useThemeDetails: vi.fn(),
 } ) );
 
-vi.mock( '@/data/sync-activity', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/sync-activity') >() ),
-	reportSyncProgress: reportSyncProgressMock,
-} ) );
+vi.mock( '@/data/sync-activity', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@/data/sync-activity') >();
+	applySyncActivityMock.mockImplementation( actual.applySyncActivity );
+	return { ...actual, applySyncActivity: applySyncActivityMock };
+} );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
@@ -1042,9 +1043,11 @@ describe( 'SiteOverviewView', () => {
 			] as ImportEventTuple );
 		}
 
-		expect( reportSyncProgressMock.mock.calls ).toEqual( [
-			[ 'site-1', 'import', { message: '10% · Extracting…' } ],
-			[ 'site-1', 'import', { message: '20% · Extracting…' } ],
+		expect(
+			applySyncActivityMock.mock.calls.filter( ( [ , activity ] ) => 'message' in activity )
+		).toEqual( [
+			[ 'site-1', { kind: 'pending', direction: 'import', message: '10% · Extracting…' } ],
+			[ 'site-1', { kind: 'pending', direction: 'import', message: '20% · Extracting…' } ],
 		] );
 	} );
 

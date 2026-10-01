@@ -10,6 +10,7 @@ import {
 	AUTH_EVENTS,
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
+	SYNC_EVENTS,
 	siteDetailsSchema,
 	socketEventSchema,
 	SiteEvent,
@@ -158,6 +159,10 @@ export async function runCommand(): Promise< void > {
 				case SITE_EVENTS.DELETED:
 				case SITE_EVENTS.OPERATIONS_CHANGED:
 					void emitSiteEvent( parsed.event, parsed.data.siteId );
+					break;
+
+				case SYNC_EVENTS.ACTIVITY:
+					logger.reportKeyValuePair( 'sync-event', JSON.stringify( parsed.data ) );
 					break;
 			}
 		} catch ( error ) {

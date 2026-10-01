@@ -3,19 +3,15 @@ import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-pr
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { useCallback, useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import {
-	reportPushPhase,
-	reportSyncCancelled,
-	reportSyncError,
-	reportSyncPending,
-	reportSyncProgress,
-	reportSyncSuccess,
-} from '@/data/sync-activity';
-import type { PullSiteProgress, PullSyncOptions, PushSyncOptions } from '@/data/core';
+import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
+import { applySyncActivity } from '@/data/sync-activity';
+import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
+import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
@@ -24,83 +20,171 @@ import type { SyncSite } from '@studio/common/types/sync';
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 
-// `onMutate`'s return value, handed back to `onSuccess`/`onError` by react-query.
-type SyncTracksContext = { startedAt: number };
-
-// Resolves the connected site behind a sync, to derive the `sync_type` Tracks
-// prop. Callers that already hold the remote site pass it as `syncSite` — the
-// onboarding flow creates its local site as it goes, so nothing has ever
-// populated the cache for it. Otherwise this reads the cache, which costs no
-// request; a miss reports `unknown` rather than guessing.
-function useFindConnectedSite() {
+// Records a sync's activity and, the first time it settles, announces the result.
+export function useSettleSync() {
+	const connector = useConnector();
 	const queryClient = useQueryClient();
-	return (
-		localSiteId: string,
-		remoteSiteId: number,
-		syncSite?: Pick< SyncSite, 'isPressable' >
-	): Pick< SyncSite, 'isPressable' > | undefined =>
-		syncSite ??
-		queryClient
-			.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( localSiteId ) )
-			?.find( ( site ) => site.id === remoteSiteId );
+	return useCallback(
+		( siteId: string, activity: SyncActivity ) => {
+			// Only point at the logs where the user can actually open them.
+			const canOpenLogs = connector.capabilities.studioLogs;
+			const settled =
+				activity.kind === 'error' && activity.direction === 'pull'
+					? {
+							...activity,
+							message: canOpenLogs
+								? __(
+										"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+								  )
+								: __( "Studio couldn't copy the live site. Try again." ),
+					  }
+					: activity;
+			if ( ! applySyncActivity( siteId, settled ) ) {
+				return;
+			}
+
+			if ( settled.direction === 'preview' ) {
+				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+				if ( settled.kind === 'success' ) {
+					toast.success( __( 'Preview site published' ) );
+				} else if ( settled.kind === 'error' ) {
+					toast.error( __( 'Failed to publish preview site' ) );
+				}
+				return;
+			}
+			if ( settled.direction !== 'push' && settled.direction !== 'pull' ) {
+				return;
+			}
+
+			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( siteId ) } );
+			if ( settled.direction === 'pull' ) {
+				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			}
+			const isPush = settled.direction === 'push';
+			if ( settled.kind === 'success' ) {
+				toast.success( isPush ? __( 'Push complete' ) : __( 'Pull complete' ) );
+			} else if ( settled.kind === 'cancelled' ) {
+				toast.success( isPush ? __( 'Push cancelled' ) : __( 'Pull cancelled' ) );
+			} else if ( isPush ) {
+				toast.error( __( "Push didn't complete" ) );
+			} else {
+				toast.error( __( "Pull didn't complete" ), {
+					description: settled.message,
+					action: canOpenLogs
+						? {
+								label: __( 'Open Studio Logs' ),
+								onClick: () => {
+									void connector.openStudioLogs().catch( ( error ) => {
+										console.error( 'Failed to open Studio logs:', error );
+									} );
+								},
+						  }
+						: undefined,
+				} );
+			}
+		},
+		[ connector, queryClient ]
+	);
 }
 
-type PushToLiveVariables = {
+// Mount once near the app root.
+export function useSyncActivityEvents(): void {
+	const connector = useConnector();
+	const settleSync = useSettleSync();
+	useEffect(
+		() => connector.onSyncActivity( ( { siteId, activity } ) => settleSync( siteId, activity ) ),
+		[ connector, settleSync ]
+	);
+}
+
+// The CLI reports how a sync ends, but its events can land after the mutation
+// settles, or never if it failed before it could report. So the mutation only
+// settles a sync the CLI hasn't settled within this window.
+const CLI_REPORT_GRACE_MS = 1500;
+
+export function useSettleFromMutation() {
+	const settleSync = useSettleSync();
+	return ( siteId: string, direction: SyncDirection, error?: unknown ) => {
+		let activity: SyncActivity = { kind: 'success', direction };
+		if ( isSyncCancelledError( error ) ) {
+			activity = { kind: 'cancelled', direction };
+		} else if ( error !== undefined ) {
+			const message = error instanceof Error ? error.message : String( error );
+			activity = { kind: 'error', direction, message };
+		}
+		setTimeout( () => settleSync( siteId, activity ), CLI_REPORT_GRACE_MS );
+	};
+}
+
+type LiveSyncVariables< Options > = {
 	siteId: string;
 	remoteSiteId: number;
-	options?: PushSyncOptions;
+	options?: Options;
 	// Supplied by callers whose site isn't in the connected-sites cache yet.
 	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
-export function usePushSiteToLive() {
+function useLiveSync< Options >(
+	direction: 'push' | 'pull',
+	sync: (
+		connector: Connector,
+		siteId: string,
+		remoteSiteId: number,
+		options?: Options
+	) => Promise< void >
+) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const findConnectedSite = useFindConnectedSite();
+	const settleFromMutation = useSettleFromMutation();
+	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
+	const track = (
+		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
+		startedAt: number,
+		error?: unknown
+	) =>
+		void connector.trackEvent(
+			direction === 'push' ? TRACKS_EVENTS.SYNC_PUSH : TRACKS_EVENTS.SYNC_PULL,
+			buildSyncEventProps( {
+				startedAt,
+				site:
+					syncSite ??
+					queryClient
+						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
+						?.find( ( site ) => site.id === remoteSiteId ),
+				error,
+			} )
+		);
+
 	return useMutation( {
-		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId, options, ( phase, progress ) =>
-				reportPushPhase( siteId, phase, progress )
-			),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			reportSyncPending( siteId, 'push' );
+		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
+		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
+			sync( connector, siteId, remoteSiteId, options ),
+		onMutate: ( { siteId } ) => {
+			applySyncActivity( siteId, { kind: 'pending', direction } );
 			return { startedAt: Date.now() };
 		},
-		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
-			reportSyncSuccess( siteId, 'push' );
-			void queryClient.invalidateQueries( {
-				queryKey: connectedWpcomSitesQueryKey( siteId ),
-			} );
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PUSH,
-				buildSyncEventProps( {
-					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-				} )
-			);
-			toast.success( __( 'Push complete' ) );
+		onSuccess: ( _result, variables, { startedAt } ) => {
+			settleFromMutation( variables.siteId, direction );
+			track( variables, startedAt );
 		},
-		onError: ( error, { siteId, remoteSiteId, syncSite }, context ) => {
-			if ( isSyncCancelledError( error ) ) {
-				reportSyncCancelled( siteId, 'push' );
-				toast.success( __( 'Push cancelled' ) );
-				return;
+		onError: ( error, variables, context ) => {
+			settleFromMutation( variables.siteId, direction, error );
+			if ( ! isSyncCancelledError( error ) ) {
+				track( variables, context?.startedAt ?? Date.now(), error );
 			}
-			const message = error instanceof Error ? error.message : String( error );
-			reportSyncError( siteId, 'push', message );
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PUSH,
-				buildSyncEventProps( {
-					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-					error,
-				} )
-			);
-			toast.error( __( "Push didn't complete" ) );
 		},
 	} );
 }
+
+export const usePushSiteToLive = () =>
+	useLiveSync< PushSyncOptions >( 'push', ( connector, ...args ) =>
+		connector.pushSiteToLive( ...args )
+	);
+
+export const usePullSiteFromLive = () =>
+	useLiveSync< PullSyncOptions >( 'pull', ( connector, ...args ) =>
+		connector.pullSiteFromLive( ...args )
+	);
 
 type DisconnectWpcomSiteVariables = {
 	siteId: string;
@@ -133,93 +217,6 @@ export function useCancelSync() {
 			connector.cancelSync( siteId, remoteSiteId ),
 		onError: ( error ) => {
 			console.error( 'Failed to cancel sync:', error );
-		},
-	} );
-}
-
-type PullFromLiveVariables = {
-	siteId: string;
-	remoteSiteId: number;
-	onProgress?: ( progress: PullSiteProgress ) => void;
-	options?: PullSyncOptions;
-	// Supplied by callers whose site isn't in the connected-sites cache yet.
-	syncSite?: Pick< SyncSite, 'isPressable' >;
-};
-
-export function usePullSiteFromLive() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	const findConnectedSite = useFindConnectedSite();
-	return useMutation( {
-		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, onProgress, options }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive(
-				siteId,
-				remoteSiteId,
-				( progress ) => {
-					reportSyncProgress( siteId, 'pull', progress );
-					onProgress?.( progress );
-				},
-				options
-			),
-		onMutate: ( { siteId } ): SyncTracksContext => {
-			reportSyncPending( siteId, 'pull' );
-			return { startedAt: Date.now() };
-		},
-		onSuccess: ( _result, { siteId, remoteSiteId, syncSite }, context ) => {
-			reportSyncSuccess( siteId, 'pull' );
-			// The CLI may have stopped/started the server during the import,
-			// and the site's database + themes just changed — refresh the
-			// site list so any downstream consumers see the new state.
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PULL,
-				buildSyncEventProps( {
-					startedAt: context.startedAt,
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-				} )
-			);
-			toast.success( __( 'Pull complete' ) );
-		},
-		onError: ( _error, { siteId, remoteSiteId, syncSite }, context ) => {
-			if ( isSyncCancelledError( _error ) ) {
-				reportSyncCancelled( siteId, 'pull' );
-				// The CLI restarts the site server on its way out, so the local
-				// site may have been stopped and started again.
-				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-				toast.success( __( 'Pull cancelled' ) );
-				return;
-			}
-			// Only point at the logs where the user can actually open them.
-			const canOpenLogs = connector.capabilities.studioLogs;
-			const message = canOpenLogs
-				? __(
-						"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
-				  )
-				: __( "Studio couldn't copy the live site. Try again." );
-			reportSyncError( siteId, 'pull', message );
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_PULL,
-				buildSyncEventProps( {
-					startedAt: context?.startedAt ?? Date.now(),
-					site: findConnectedSite( siteId, remoteSiteId, syncSite ),
-					// Classify the raw error — `message` above is translated display text.
-					error: _error,
-				} )
-			);
-			toast.error( __( "Pull didn't complete" ), {
-				description: message,
-				action: canOpenLogs
-					? {
-							label: __( 'Open Studio Logs' ),
-							onClick: () => {
-								void connector.openStudioLogs().catch( ( error ) => {
-									console.error( 'Failed to open Studio logs:', error );
-								} );
-							},
-					  }
-					: undefined,
-			} );
 		},
 	} );
 }

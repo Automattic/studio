@@ -380,38 +380,26 @@ describe( 'local web server Connect contracts', () => {
 		}
 	} );
 
-	it( 'streams CLI pull progress over the local event channel', async () => {
-		mocks.execute.mockImplementationOnce( () => {
-			const emitter = new EventEmitter();
-			queueMicrotask( () => {
-				emitter.emit( 'data', {
-					data: {
-						status: 'inprogress',
-						message: 'Creating remote backup… (18%)',
-					},
-				} );
-				emitter.emit( 'success' );
-			} );
-			return [ emitter, {} ];
-		} );
+	it( 'streams the sync activity the CLI publishes', async () => {
+		const eventsCall = mocks.execute.mock.calls.findIndex(
+			( [ args ] ) => args[ 0 ] === '_events'
+		);
+		const [ cliEvents ] = mocks.execute.mock.results[ eventsCall ].value;
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 		const eventsResponse = await fetch( `${ baseUrl }/api/events` );
 		const reader = eventsResponse.body!.getReader();
 		await reader.read();
 
-		const response = await fetch( `${ baseUrl }/api/sites/local-a/pull`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { remoteSiteId: 42 } ),
+		const event = { siteId: 'local-a', activity: { kind: 'pending', direction: 'pull' } };
+		cliEvents.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'sync-event', value: JSON.stringify( event ) },
 		} );
 		const eventChunk = new TextDecoder().decode( ( await reader.read() ).value );
 		await reader.cancel();
 
-		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( { cancelled: false } );
-		expect( eventChunk ).toContain( '"channel":"sync-pull"' );
-		expect( eventChunk ).toContain( '"siteId":"local-a"' );
-		expect( eventChunk ).toContain( 'Creating remote backup… (18%)' );
+		expect( eventChunk ).toContain(
+			JSON.stringify( { channel: 'sync-activity', payload: event } )
+		);
 	} );
 
 	// A user cancel is reported as an outcome, not a 500 — the browser connector

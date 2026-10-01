@@ -219,46 +219,16 @@ describe( 'MainView', () => {
 		consoleError.mockRestore();
 	} );
 
-	it( 'shows detailed pull progress in the open site status', () => {
+	it.each( [
+		[ 'pull', 'Pulling from live…' ],
+		[ 'import', 'Importing backup…' ],
+	] as const )( 'shows detailed %s progress in the open site status', ( direction, title ) => {
 		renderMainView( {
-			activity: {
-				kind: 'pending',
-				direction: 'pull',
-				message: '24% · Creating remote backup…',
-				progress: 24,
-			},
+			activity: { kind: 'pending', direction, message: '24% · Media uploads…' },
 		} );
 
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Creating remote backup…' );
-	} );
-
-	it( 'shows detailed import progress in the open site status', () => {
-		renderMainView( {
-			activity: { kind: 'pending', direction: 'import', message: '24% · Media uploads…' },
-		} );
-
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Importing backup…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( title );
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Media uploads…' );
-	} );
-
-	// An import replaces the site's files and database, so letting a sync run
-	// alongside it would have them fighting over the same site.
-	it( 'blocks the live sync actions while an import is running', () => {
-		renderMainView( { activity: { kind: 'pending', direction: 'import' } } );
-
-		expect(
-			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
-		).toHaveAttribute( 'aria-disabled', 'true' );
-	} );
-
-	it( 'keeps the update button busy when activity reports a pending preview', () => {
-		renderMainView( { activity: { kind: 'pending', direction: 'preview' } } );
-
-		expect( screen.getByRole( 'button', { name: 'Updating preview…' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
 	} );
 
 	it( 'updates the existing preview site while the snapshot is fresh', () => {
@@ -305,6 +275,7 @@ describe( 'MainView', () => {
 	} );
 
 	it( 'offers to stop an in-flight push and reports the site being stopped', () => {
+		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView( {
@@ -318,22 +289,6 @@ describe( 'MainView', () => {
 			remoteSiteId: liveSite.id,
 		} );
 		expect( screen.getByRole( 'status' ) ).not.toHaveTextContent( 'can not be cancelled' );
-	} );
-
-	it( 'stops offering to cancel a push once the remote import has started', () => {
-		connectedSites.splice( 0, connectedSites.length, liveSite );
-
-		renderMainView( {
-			activity: { kind: 'pending', direction: 'push', phase: 'applyingChanges' },
-		} );
-
-		const blocked = screen.getByRole( 'button', {
-			name: 'Push can not be cancelled while applying changes to the remote site',
-		} );
-		fireEvent.click( blocked );
-
-		expect( blocked ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( cancelSyncMutate ).not.toHaveBeenCalled();
 	} );
 
 	it( 'disables the Share button when the preview site limit is reached', () => {
@@ -366,49 +321,48 @@ describe( 'MainView', () => {
 		);
 	} );
 
-	it( 'stops offering to cancel a pull once the local import has started', () => {
+	// The reason doubles as the accessible name and is stated in the panel: a
+	// tooltip on a disabled control is a dead end.
+	it.each( [
+		[
+			{ kind: 'pending', direction: 'push', phase: 'applyingChanges' },
+			'Push can not be cancelled while applying changes to the remote site',
+		],
+		[
+			{ kind: 'pending', direction: 'pull', action: 'import' },
+			'Pull can not be cancelled while importing changes to your local site',
+		],
+	] as const )( 'stops offering to cancel past the point of no return', ( activity, reason ) => {
+		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
-		renderMainView( {
-			activity: {
-				kind: 'pending',
-				direction: 'pull',
-				action: 'import',
-				message: 'Importing backup…',
-			},
-		} );
+		renderMainView( { activity } );
 
-		// The reason doubles as the accessible name, so it reaches the tooltip and
-		// screen readers instead of a bare "Cancel pull" that then does nothing.
-		expect(
-			screen.getByRole( 'button', {
-				name: 'Pull can not be cancelled while importing changes to your local site',
-			} )
-		).toHaveAttribute( 'aria-disabled', 'true' );
-
-		// And stated in the panel itself — a tooltip on a disabled control is a
-		// dead end, since nothing invites you to hover it.
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent(
-			'Pull can not be cancelled while importing changes to your local site'
+		fireEvent.click( screen.getByRole( 'button', { name: reason } ) );
+		expect( screen.getByRole( 'button', { name: reason } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
 		);
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( reason );
+		expect( cancelSyncMutate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reflects an in-flight pull on both live sync controls', () => {
-		vi.mocked( useIsMutating ).mockImplementation( ( filters ) =>
-			filters?.mutationKey?.[ 0 ] === 'pull-site-from-live' ? 1 : 0
-		);
+	// Whoever started the sync — this window, the agent or a terminal — the live
+	// sync controls are busy; only a sync this window started offers a cancel.
+	it.each( [
+		[ 'push', 'Pushing to live…' ],
+		[ 'pull', 'Pulling from live…' ],
+		[ 'preview', 'Updating preview…' ],
+		[ 'import', 'Push to live (sync in progress)' ],
+	] as const )( 'keeps the live sync controls busy during a %s', ( direction, busyLabel ) => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
-		renderMainView();
+		renderMainView( { activity: { kind: 'pending', direction } } );
 
-		const pullButton = screen.getByRole( 'button', { name: 'Pulling from live…' } );
-		expect( pullButton ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		const pushButton = screen.getByRole( 'button', { name: 'Push to live (sync in progress)' } );
-		expect( pushButton ).toHaveAttribute( 'aria-disabled', 'true' );
-
-		expect(
-			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
-		).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: busyLabel } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.queryByRole( 'button', { name: /^Cancel / } ) ).not.toBeInTheDocument();
 	} );
 } );

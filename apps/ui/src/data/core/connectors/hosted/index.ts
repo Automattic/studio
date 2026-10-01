@@ -280,6 +280,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pullSiteFromLive() {
 			throw new UnsupportedError( 'pullSiteFromLive' );
 		},
+		onSyncActivity() {
+			return () => {};
+		},
 		async getLatestRewindId(): Promise< string | null > {
 			throw new UnsupportedError( 'getLatestRewindId' );
 		},

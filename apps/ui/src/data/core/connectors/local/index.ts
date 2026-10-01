@@ -19,7 +19,6 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -33,7 +32,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
-import type { PushOutput } from '@studio/common/types/sync';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -57,12 +56,7 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
-type PullProgressSseOutput = PullSiteProgress & {
-	siteId: string;
-	remoteSiteId: number;
-};
 type ImportSseOutput = { siteId: string; event: ImportEventTuple };
-type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
@@ -70,8 +64,7 @@ type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
-	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
-	| { channel: 'sync-push'; payload: PushSseOutput }
+	| { channel: 'sync-activity'; payload: SyncEvent }
 	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
 	| { channel: 'site-event'; payload: SiteEvent }
@@ -97,8 +90,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
-	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
-	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
+	const syncActivityListeners = new Set< ( event: SyncEvent ) => void >();
 	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
@@ -235,10 +227,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-pull' ) {
-					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-push' ) {
-					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-activity' ) {
+					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'import' ) {
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
@@ -613,24 +603,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
-			const listener = ( output: PushSseOutput ) => {
-				if ( output.siteId === siteId && output.kind === 'phase' ) {
-					onPhase?.( output.phase, output.progress );
-				}
-			};
-			if ( onPhase ) {
-				pushOutputListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pushOutputListeners.delete( listener );
-			}
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/push`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
 			if ( result?.cancelled ) {
@@ -644,32 +621,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
-			const listener = ( output: PullProgressSseOutput ) => {
-				if ( output.siteId === siteId ) {
-					onProgress?.( {
-						message: output.message,
-						...( output.progress === undefined ? {} : { progress: output.progress } ),
-						// Drives the cancel gate — without it every pull looks cancellable.
-						...( output.action === undefined ? {} : { action: output.action } ),
-					} );
-				}
-			};
-			if ( onProgress ) {
-				pullProgressListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pullProgressListeners.delete( listener );
-			}
+		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
+		},
+		onSyncActivity( listener ) {
+			syncActivityListeners.add( listener );
+			return () => syncActivityListeners.delete( listener );
 		},
 		async getLatestRewindId( remoteSiteId ) {
 			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );

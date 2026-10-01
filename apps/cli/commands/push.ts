@@ -25,6 +25,7 @@ import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import {
 	fetchSyncableSites,
 	initiateImport,
@@ -39,7 +40,7 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -47,7 +48,8 @@ export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
-	logger: Logger< LoggerAction > = defaultLogger
+	logger: Logger< LoggerAction > = defaultLogger,
+	{ includeOnly, suppressTracksEvent = false }: PushFlags = {}
 ): Promise< void > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
@@ -57,31 +59,48 @@ export async function runCommand(
 	const pushed: PushOutcome = {};
 
 	try {
-		await runPush( siteFolder, syncOptions, remoteSiteIdentifier, logger, pushed );
+		await runPush( siteFolder, syncOptions, includeOnly, remoteSiteIdentifier, logger, pushed );
 	} catch ( error ) {
-		await recordSyncPushEvent(
-			buildSyncEventProps( {
-				startedAt,
-				site: pushed.remoteSite,
-				error,
-				hint: { code: findFailureCode( error ) },
-			} )
-		);
+		if ( pushed.siteId ) {
+			await reportSyncActivity( pushed.siteId, {
+				kind: 'error',
+				direction: 'push',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		}
+		if ( ! suppressTracksEvent ) {
+			await recordSyncPushEvent(
+				buildSyncEventProps( {
+					startedAt,
+					site: pushed.remoteSite,
+					error,
+					hint: { code: findFailureCode( error ) },
+				} )
+			);
+		}
 		throw error;
 	}
 
+	if ( pushed.siteId ) {
+		await reportSyncActivity( pushed.siteId, {
+			kind: pushed.completed ? 'success' : 'cancelled',
+			direction: 'push',
+		} );
+	}
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
-	if ( pushed.completed ) {
+	if ( pushed.completed && ! suppressTracksEvent ) {
 		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
 	}
 }
 
-type PushOutcome = { remoteSite?: SyncSite; completed?: boolean };
+type PushFlags = { includeOnly?: string[]; suppressTracksEvent?: boolean };
+type PushOutcome = { siteId?: string; remoteSite?: SyncSite; completed?: boolean };
 
 async function runPush(
 	siteFolder: string,
 	syncOptions: SyncOption[] | undefined,
+	includeOnly: string[] | undefined,
 	remoteSiteIdentifier: string | undefined,
 	logger: Logger< LoggerAction >,
 	pushed: PushOutcome
@@ -100,6 +119,15 @@ async function runPush(
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
+	pushed.siteId = site.id;
+	const reportPhase = ( phase?: PushPhase, progress?: number ) =>
+		void reportSyncActivity( site.id, {
+			kind: 'pending',
+			direction: 'push',
+			...( phase ? { phase } : {} ),
+			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
+		} );
+	reportPhase();
 
 	logger.reportStart(
 		LoggerAction.INSTALL_SQLITE,
@@ -127,6 +155,7 @@ async function runPush(
 
 	if ( syncOptions ) {
 		optionsToSync = syncOptions;
+		specificSelectionPaths = includeOnly;
 	} else {
 		const selection = await selectSyncItemsForPush( site.path );
 		if ( ! selection ) {
@@ -180,6 +209,7 @@ async function runPush(
 			);
 		}
 
+		reportPhase( 'creatingBackup' );
 		handleExportEvents( exporter, logger );
 		await withSiteOperation( site.path, 'export', () => exporter.export() );
 
@@ -210,6 +240,8 @@ async function runPush(
 			return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
 		};
 
+		reportPhase( 'uploading' );
+		let uploadPercent = -1;
 		logger.reportStart(
 			LoggerAction.UPLOAD,
 			formatProgressLabel( __( 'Uploading archive…' ), 20 )
@@ -219,6 +251,10 @@ async function runPush(
 			remoteSiteId: remoteSite.id,
 			archivePath,
 			onProgress: ( percent ) => {
+				if ( Math.round( percent ) !== uploadPercent ) {
+					uploadPercent = Math.round( percent );
+					reportPhase( 'uploading', uploadPercent );
+				}
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
 				logger.reportProgress( formatProgressLabel( __( 'Uploading archive…' ), progress ) );
@@ -247,6 +283,7 @@ async function runPush(
 			process.emit = originalEmit;
 		}
 
+		reportPhase( 'creatingRemoteBackup' );
 		// Initiate import: 40%
 		logger.reportProgress( formatProgressLabel( __( 'Initiating import…' ), 40 ) );
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
@@ -263,8 +300,11 @@ async function runPush(
 			const status = await pollImportStatus( token.accessToken, remoteSite.id );
 
 			if ( status.status === 'failed' ) {
+				throw new LoggerError( getImportFailureMessage( status ), undefined, 'remote_import' );
+			}
+			if ( ! status.success ) {
 				throw new LoggerError(
-					sprintf( __( 'Import failed on %s' ), remoteSite.name ),
+					__( 'Something went wrong while updating the live site.' ),
 					undefined,
 					'remote_import'
 				);
@@ -277,6 +317,8 @@ async function runPush(
 
 			let statusMessage: string;
 			let progress: number;
+			let phase: PushPhase = 'creatingRemoteBackup';
+			let phaseProgress: number | undefined;
 
 			switch ( status.status ) {
 				case 'started':
@@ -284,14 +326,18 @@ async function runPush(
 				case 'initial_backup_finished':
 					statusMessage = __( 'Backing up remote site…' );
 					progress = 40 + ( ( status.backup_progress ?? 0 ) / 100 ) * 20;
+					phaseProgress = status.backup_progress ?? undefined;
 					break;
 				case 'archive_import_started':
 					statusMessage = __( 'Applying changes…' );
 					progress = 60 + ( ( status.import_progress ?? 0 ) / 100 ) * 35;
+					phase = 'applyingChanges';
+					phaseProgress = status.import_progress ?? undefined;
 					break;
 				case 'archive_import_finished':
 					statusMessage = __( 'Almost there…' );
 					progress = 99;
+					phase = 'finishing';
 					break;
 				default:
 					statusMessage = __( 'Applying changes…' );
@@ -300,6 +346,7 @@ async function runPush(
 
 			const roundedProgress = Math.round( progress );
 			if ( roundedProgress !== lastProgress ) {
+				reportPhase( phase, phaseProgress );
 				stalledAttempts = 0;
 				lastProgress = roundedProgress;
 			} else {
@@ -342,6 +389,20 @@ async function runPush(
 	}
 }
 
+function getImportFailureMessage( response: Extract< ImportResponse, { status: 'failed' } > ) {
+	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
+		return __(
+			'The database failed to import on the live site. Review your database and try again.'
+		);
+	}
+	if ( response.error === 'Import timed out' ) {
+		return __(
+			'The live site timed out while importing, likely because the site is too large. Try reducing its content or files.'
+		);
+	}
+	return __( 'Something went wrong while updating the live site.' );
+}
+
 async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, { ...props, ...getTracksOrigin() } );
@@ -367,11 +428,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'remote-site', {
 					type: 'string',
 					description: __( 'Remote site URL or ID' ),
+				} )
+				.option( 'include-only', {
+					type: 'string',
+					array: true,
+					description: __( 'Only push these paths from the selection made with --options' ),
+				} )
+				.option( 'suppress-tracks-event', {
+					type: 'boolean',
+					default: false,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
+			exitOnCancel();
 			try {
-				await runCommand( argv.path, argv.options, argv.remoteSite );
+				await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
+					includeOnly: argv.includeOnly,
+					suppressTracksEvent: argv.suppressTracksEvent,
+				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					defaultLogger.reportError( error );

@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useExportFullSite } from '@/data/queries/use-sites';
-import { reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
+import { applySyncActivity } from '@/data/sync-activity';
 import { useSiteManagementActions } from './use-site-management-actions';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -86,7 +86,7 @@ describe( 'useSiteManagementActions', () => {
 	} );
 
 	it( 'disables every action while the site is being imported into', () => {
-		reportSyncPending( site.id, 'import' );
+		applySyncActivity( site.id, { kind: 'pending', direction: 'import' } );
 
 		const { result } = renderHook(
 			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
@@ -102,7 +102,7 @@ describe( 'useSiteManagementActions', () => {
 		] );
 		expect( result.current.find( ( action ) => action.id === 'import' )?.loading ).toBe( true );
 
-		reportSyncSuccess( site.id, 'import' );
+		applySyncActivity( site.id, { kind: 'success', direction: 'import' } );
 	} );
 
 	// The screen that starts an export can be navigated away from while it runs.

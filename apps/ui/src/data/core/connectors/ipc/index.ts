@@ -25,7 +25,6 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
-	PushPhase,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -45,6 +44,7 @@ import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -129,33 +129,6 @@ export function createIpcConnector(): Connector {
 			throw new Error( `Site ${ siteId } not found` );
 		}
 		return site.path;
-	}
-
-	async function markConnectedWpcomSiteSynced(
-		localSiteId: string,
-		remoteSiteId: number,
-		direction: 'push' | 'pull'
-	): Promise< void > {
-		try {
-			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
-			const connectedSite = connectedSites.find(
-				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
-			);
-
-			if ( ! connectedSite ) {
-				return;
-			}
-
-			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
-			await ipcApi.updateConnectedWpcomSites( [
-				{
-					...connectedSite,
-					[ timestampKey ]: new Date().toISOString(),
-				},
-			] );
-		} catch ( error ) {
-			console.warn( 'Failed to update connected site sync timestamp:', error );
-		}
 	}
 
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
@@ -613,41 +586,13 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ): Promise< void > {
-			// The agentic UI pushes via the shared `pushSite` (export → TUS
-			// upload → import) in both desktop and `studio ui`; the desktop runs
-			// it behind this single IPC handler. Resolves once the remote import
-			// has finished.
-			const unsubscribe = onPhase
-				? ipcListener.subscribe(
-						'sync-push-phase',
-						(
-							_event: unknown,
-							payload: {
-								selectedSiteId: string;
-								remoteSiteId: number;
-								phase: PushPhase;
-								progress?: number;
-							}
-						) => {
-							if ( payload.selectedSiteId === siteId && payload.remoteSiteId === remoteSiteId ) {
-								onPhase( payload.phase, payload.progress );
-							}
-						}
-				  )
-				: undefined;
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
-			} finally {
-				unsubscribe?.();
-			}
+		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
 			// The main process reports a cancel instead of rejecting, to keep it out
 			// of the logs as an error; turn it back into one for the caller.
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
-			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async cancelSync( siteId, remoteSiteId ): Promise< void > {
@@ -656,35 +601,17 @@ export function createIpcConnector(): Connector {
 			ipcApi.cancelSyncOperation( `${ siteId }-${ remoteSiteId }` );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ): Promise< void > {
-			const unsubscribe = onProgress
-				? ipcListener.subscribe(
-						'sync-pull-progress',
-						(
-							_event: unknown,
-							payload: { siteId: string; message: string; progress?: number; action?: string }
-						) => {
-							if ( payload.siteId === siteId ) {
-								onProgress( {
-									message: payload.message,
-									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
-									// Drives the cancel gate — without it every pull looks cancellable.
-									...( payload.action === undefined ? {} : { action: payload.action } ),
-								} );
-							}
-						}
-				  )
-				: undefined;
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
-			} finally {
-				unsubscribe?.();
-			}
+		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
-			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
+		},
+
+		onSyncActivity( listener ) {
+			return ipcListener.subscribe( 'sync-activity', ( _event: unknown, event: SyncEvent ) =>
+				listener( event )
+			);
 		},
 
 		async getLatestRewindId( remoteSiteId ): Promise< string | null > {

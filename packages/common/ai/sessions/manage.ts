@@ -1,4 +1,3 @@
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
@@ -105,54 +104,18 @@ export async function deleteAiSessionsForSite(
 	return sessionIds;
 }
 
-function newestFirst( a: AiSessionSummary, b: AiSessionSummary ): number {
-	return Date.parse( b.updatedAt ) - Date.parse( a.updatedAt );
-}
-
 /**
- * Create a session, or reuse the newest existing empty "draft" one (never
- * prompted, not archived) so repeatedly opening "new chat" doesn't pile up
- * orphan sessions. When a `site` is given, the session is bound to it (recorded
- * in the session file) and its placement is persisted so the UI shows it under
- * that site; the reuse match is scoped to that same site.
- *
- * `created` reports whether a session was actually made, so hosts can count real
- * creations without duplicating the reuse rules above.
+ * Create a session. When a `site` is given, the session is bound to it
+ * (recorded in the session file) and its placement is persisted so the UI shows
+ * it under that site.
  */
-export async function createOrReuseAiSession(
+export async function createHydratedAiSession(
 	rootDirectory: string,
 	options: { site?: SessionSite } = {}
-): Promise< AiSessionSummary & { created: boolean } > {
+): Promise< AiSessionSummary > {
 	const { site } = options;
-	const existing = await listHydratedAiSessions( rootDirectory );
-
 	if ( ! site ) {
-		const reusable = existing
-			.filter(
-				( session ) =>
-					! session.ownerSiteId &&
-					! session.ownerSitePath &&
-					! session.firstPrompt &&
-					! session.archived
-			)
-			.sort( newestFirst )[ 0 ];
-		if ( reusable ) {
-			return { ...reusable, created: false };
-		}
-		return {
-			...hydrateAiSessionSummary( await createAiSession( rootDirectory ) ),
-			created: true,
-		};
-	}
-
-	const reusable = existing
-		.filter(
-			( session ) =>
-				! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
-		)
-		.sort( newestFirst )[ 0 ];
-	if ( reusable ) {
-		return { ...reusable, created: false };
+		return hydrateAiSessionSummary( await createAiSession( rootDirectory ) );
 	}
 
 	const created = await createAiSession( rootDirectory, {
@@ -163,5 +126,5 @@ export async function createOrReuseAiSession(
 		siteName: site.name,
 		sitePath: site.path,
 	} );
-	return { ...hydrateAiSessionSummary( created, undefined, placement ), created: true };
+	return hydrateAiSessionSummary( created, undefined, placement );
 }

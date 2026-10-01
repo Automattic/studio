@@ -31,19 +31,19 @@ export function useSettleSync() {
 		( siteId: string, activity: SyncActivity ) => {
 			// Only point at the logs where the user can actually open them.
 			const canOpenLogs = connector.capabilities.studioLogs;
+			const plainMessage =
+				activity.kind === 'error'
+					? getPlainErrorMessage( activity.direction, canOpenLogs )
+					: undefined;
 			const settled =
-				activity.kind === 'error' && activity.direction === 'pull'
-					? {
-							...activity,
-							message: canOpenLogs
-								? __(
-										"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
-								  )
-								: __( "Studio couldn't copy the live site. Try again." ),
-					  }
+				activity.kind === 'error' && plainMessage
+					? { ...activity, message: plainMessage }
 					: activity;
 			if ( ! applySyncActivity( siteId, settled ) ) {
 				return;
+			}
+			if ( activity.kind === 'error' && plainMessage ) {
+				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
 			if ( settled.direction === 'preview' ) {
@@ -70,7 +70,10 @@ export function useSettleSync() {
 				if ( settled.kind === 'success' ) {
 					toast.success( __( 'Import finished' ) );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( "Import didn't complete" ), { description: settled.message } );
+					toast.error( __( "Import didn't complete" ), {
+						description: settled.message,
+						action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+					} );
 				}
 				return;
 			}
@@ -89,21 +92,45 @@ export function useSettleSync() {
 			} else {
 				toast.error( __( "Pull didn't complete" ), {
 					description: settled.message,
-					action: canOpenLogs
-						? {
-								label: __( 'Open Studio Logs' ),
-								onClick: () => {
-									void connector.openStudioLogs().catch( ( error ) => {
-										console.error( 'Failed to open Studio logs:', error );
-									} );
-								},
-						  }
-						: undefined,
+					action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
 				} );
 			}
 		},
 		[ connector, queryClient ]
 	);
+}
+
+// Pull and import failures carry the CLI's raw error. The UI shows plain
+// language instead, and the raw error goes to the logs.
+function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
+	if ( direction === 'pull' ) {
+		return canOpenLogs
+			? __(
+					"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+			  )
+			: __( "Studio couldn't copy the live site. Try again." );
+	}
+	if ( direction === 'import' ) {
+		return canOpenLogs
+			? __(
+					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
+			  )
+			: __(
+					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+			  );
+	}
+	return undefined;
+}
+
+export function openStudioLogsAction( connector: Connector ) {
+	return {
+		label: __( 'Open Studio Logs' ),
+		onClick: () => {
+			void connector.openStudioLogs().catch( ( error ) => {
+				console.error( 'Failed to open Studio logs:', error );
+			} );
+		},
+	};
 }
 
 // Mount once near the app root.

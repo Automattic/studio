@@ -127,6 +127,35 @@ describe( 'usePullSiteFromLive', () => {
 		expect( toast.success ).toHaveBeenCalledWith( 'Import finished' );
 	} );
 
+	it( 'shows plain language for a failed import and keeps the raw error for the logs', () => {
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		render(
+			<QueryClientProvider client={ new QueryClient() }>
+				<SyncActivityEvents />
+			</QueryClientProvider>
+		);
+
+		act( () =>
+			publish( { siteId: 'site-3', activity: { kind: 'pending', direction: 'import' } } )
+		);
+		act( () =>
+			publish( {
+				siteId: 'site-3',
+				activity: { kind: 'error', direction: 'import', message: 'SQLSTATE[HY000]: oops' },
+			} )
+		);
+
+		expect( toast.error ).toHaveBeenCalledWith( "Import didn't complete", {
+			description: expect.stringContaining( "Studio couldn't import this backup." ),
+			action: { label: 'Open Studio Logs', onClick: expect.any( Function ) },
+		} );
+		expect( console.error ).toHaveBeenCalledWith(
+			'Sync activity failed:',
+			'import',
+			'SQLSTATE[HY000]: oops'
+		);
+	} );
+
 	it( 'announces a button sync once when the CLI reports after it exits', async () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: { studioLogs: false },

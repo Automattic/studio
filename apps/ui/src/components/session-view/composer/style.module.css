@@ -755,18 +755,6 @@
 	color: var(--wpds-color-foreground-content-neutral);
 }
 
-.meta {
-	display: flex;
-	align-items: center;
-	margin-top: var(--wpds-dimension-padding-sm);
-	padding: 0 var(--wpds-dimension-padding-xs);
-}
-
-.error {
-	color: var(--wpds-color-foreground-content-error, #dc2626);
-	font-size: var(--wpds-typography-font-size-xs);
-}
-
 .dialogDescription {
 	text-wrap: pretty;
 }

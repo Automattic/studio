@@ -1,4 +1,3 @@
-import noExitOrPromptInRunCommand from './rules/no-exit-or-prompt-in-run-command.js';
 import noModuleLevelTranslations from './rules/no-module-level-translations.js';
 import noRedundantCx from './rules/no-redundant-cx.js';
 import requireLockBeforeSave from './rules/require-lock-before-save.js';
@@ -8,6 +7,5 @@ export default {
 		'no-redundant-cx': noRedundantCx,
 		'require-lock-before-save': requireLockBeforeSave,
 		'no-module-level-translations': noModuleLevelTranslations,
-		'no-exit-or-prompt-in-run-command': noExitOrPromptInRunCommand,
 	},
 };

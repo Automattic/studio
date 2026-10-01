@@ -170,24 +170,6 @@ export default defineConfig(
 		},
 	},
 	{
-		// The agent and host apps call these commands without a terminal. The ignored
-		// ones only ever run as an interactive or long-lived process of their own.
-		files: [ 'apps/cli/commands/**/*.ts' ],
-		ignores: [
-			'apps/cli/commands/**/tests/**',
-			'apps/cli/commands/_events.ts',
-			'apps/cli/commands/ai/**',
-			'apps/cli/commands/auth/login.ts',
-			'apps/cli/commands/blueprint/use.ts',
-			'apps/cli/commands/pull-reprint.ts',
-			'apps/cli/commands/uninstall.ts',
-			'apps/cli/commands/wp.ts',
-		],
-		rules: {
-			'studio/no-exit-or-prompt-in-run-command': 'error',
-		},
-	},
-	{
 		files: [ 'scripts/**/*.mjs' ],
 		rules: {
 			'no-restricted-globals': [

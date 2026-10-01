@@ -14,6 +14,7 @@ import {
 	useSyncExternalStore,
 	type PropsWithChildren,
 } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -75,7 +76,6 @@ interface LiveAgentEvents {
 	// Gives the Stop button immediate "Stopping..." feedback.
 	isInterrupting: boolean;
 	startedAt: number | null;
-	error: string | null;
 	pendingQuestions: PendingQuestion[];
 	// Accumulated answers for the current batch, keyed by question text.
 	// The user can re-click an option to change their pick until every
@@ -102,7 +102,6 @@ interface State {
 	phase: RunPhase;
 	runId: string | null;
 	startedAt: number | null;
-	error: string | null;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
@@ -113,7 +112,6 @@ const initialState: State = {
 	phase: 'idle',
 	runId: null,
 	startedAt: null,
-	error: null,
 	isInterrupting: false,
 	pendingQuestions: [],
 	pendingAnswers: {},
@@ -124,7 +122,6 @@ type Action =
 	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
-	| { type: 'error_set'; message: string | null }
 	| { type: 'turn_completed' }
 	| { type: 'run_ended' }
 	| { type: 'interrupt_requested' }
@@ -152,7 +149,6 @@ function reducer( state: State, action: Action ): State {
 				phase: 'running',
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
-				error: null,
 				isInterrupting: action.interrupting,
 			};
 		case 'send_pending':
@@ -161,7 +157,6 @@ function reducer( state: State, action: Action ): State {
 				phase: 'starting',
 				runId: null,
 				startedAt: action.startedAt,
-				error: null,
 				isInterrupting: false,
 			};
 		case 'send_start':
@@ -170,11 +165,8 @@ function reducer( state: State, action: Action ): State {
 				phase: 'running',
 				runId: action.runId,
 				startedAt: resolveRunStartedAt( state, action.runId, action.startedAt ),
-				error: null,
 				isInterrupting: false,
 			};
-		case 'error_set':
-			return { ...state, error: action.message };
 		case 'turn_completed':
 			return {
 				...state,
@@ -184,13 +176,10 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition, and any transport error — `run.exited`
-			// lags the `error` event and must not wipe the banner before the
-			// user can read it. Everything else resets.
+			// survive the transition. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
-				error: state.error,
 			};
 		case 'interrupt_requested':
 			return {
@@ -387,7 +376,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'error':
-					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
+					toast.error( event.message );
 					return;
 				case 'turn.completed':
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
@@ -548,7 +537,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			const visualAnnotations = options.visualAnnotations;
-			dispatchSession( sessionId, { type: 'error_set', message: null } );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
@@ -598,8 +586,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					if ( idx === -1 ) return entries;
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
-				const message = err instanceof Error ? err.message : String( err );
-				dispatchSession( sessionId, { type: 'error_set', message } );
+				toast.error( err instanceof Error ? err.message : String( err ) );
 				throw err;
 			}
 		},
@@ -770,15 +757,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const state = useSyncExternalStore( stateStore.subscribe, () =>
 		sessionId ? stateStore.getState()[ sessionId ] ?? initialState : initialState
 	);
-	const {
-		phase,
-		startedAt,
-		error,
-		isInterrupting,
-		pendingQuestions,
-		pendingAnswers,
-		queuedPrompts,
-	} = state;
+	const { phase, startedAt, isInterrupting, pendingQuestions, pendingAnswers, queuedPrompts } =
+		state;
 
 	const isOutOfCredits = useIsOutOfAiCredits();
 
@@ -889,7 +869,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		hasActiveRun: phase !== 'idle',
 		isInterrupting,
 		startedAt,
-		error,
 		pendingQuestions,
 		pendingAnswers,
 		queuedPrompts,

@@ -42,7 +42,6 @@ vi.mock( '@/data/core', () => ( {
 
 const defaultProps = {
 	busy: false,
-	error: null,
 	model: DEFAULT_MODEL,
 	onSend: vi.fn< ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void > >(),
 	onInterrupt: vi.fn< () => Promise< void > >(),

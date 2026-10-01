@@ -65,7 +65,6 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 		hasActiveRun: agentRunState.hasActiveRun,
 		isInterrupting: false,
 		startedAt: undefined,
-		error: null,
 		pendingQuestions: [],
 		pendingAnswers: [],
 		queuedPrompts: [],

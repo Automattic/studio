@@ -31,7 +31,7 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
    - Most commands report their progress through these messages. Syncs (push, pull and preview) publish theirs as events instead (see below), so every UI can show them, whoever started them.
 
-3. Studio reacts when the CLI changes state:
+3. Studio reacts when the CLI changes state (see [How the CLI and Studio apps communicate](./cli-host-communication.md)):
 
    - Any CLI process, whether Studio forked it, the agent runs it, or a user typed it in a terminal, publishes an event when it changes something Studio shows: a site is created, changed or deleted, an operation starts or ends on a site, a preview site changes, the user logs in or out, or a sync makes progress.
    - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which listens for these events on a socket of its own and forwards them to it. CLI processes send each event to every app's socket, so they all see every change.

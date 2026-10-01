@@ -48,11 +48,7 @@ vi.mock( '@studio/common/ai/run-manager', () => ( {
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/snapshots', () => ( {
-	createSnapshotManager: vi.fn( () => ( {
-		createSnapshot: vi.fn(),
-		updateSnapshot: vi.fn(),
-		deleteSnapshot: vi.fn(),
-	} ) ),
+	publishPreviewSite: vi.fn(),
 	fetchSnapshots: vi.fn( async () => [] ),
 } ) );
 

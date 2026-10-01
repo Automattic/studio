@@ -1,13 +1,13 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
-import { getImportStatusMessage } from '@studio/common/lib/import-progress';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __, sprintf } from '@wordpress/i18n';
 import { AlertDialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
-import { openStudioLogsAction } from '@/data/queries/use-sync-site';
+import { useSettleSync } from '@/data/queries/use-sync-site';
 import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/hooks/use-confirm-on-enter';
 import styles from './style.module.css';
@@ -27,6 +27,7 @@ interface PendingImport {
 export function useSiteBackupImport( site: SiteDetails ) {
 	const connector = useConnector();
 	const importSite = useImportSite();
+	const settleSync = useSettleSync();
 	// Everything here is stamped with a site id: the overview stays mounted when
 	// the user switches sites (the route only swaps the `$siteId` param), so a
 	// plain boolean would follow them and light up the next site's Import button.
@@ -68,45 +69,20 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		}
 		const { id: siteId } = site;
 		closeDialog();
+		// Covers the backup's upload too, before the CLI starts reporting.
 		applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
-		// Extraction reports progress once per stream chunk, so a large backup
-		// fires thousands of events a second. Only report when the rendered text
-		// actually changes — otherwise the store notifies its subscribers that
-		// fast and the app stops responding to clicks.
-		let lastMessage = '';
 		try {
 			const backupPath = await connector.getFilePath( file );
 			if ( ! backupPath ) {
 				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
 			}
-			await importSite.mutateAsync( {
-				siteId,
-				backupPath,
-				onProgress: ( event ) => {
-					const message = getImportStatusMessage( event );
-					if ( message && message !== lastMessage ) {
-						lastMessage = message;
-						applySyncActivity( siteId, { kind: 'pending', direction: 'import', message } );
-					}
-				},
-			} );
-			applySyncActivity( siteId, { kind: 'success', direction: 'import' } );
+			// The import reports its own progress and result.
+			await importSite.mutateAsync( { siteId, backupPath } ).catch( () => undefined );
 		} catch ( error ) {
-			// Matches pull: the raw CLI error goes to the logs, and the activity
-			// store and toast carry a plain-language message wherever the user is.
-			console.error( 'Failed to import backup:', error );
-			const canOpenLogs = connector.capabilities.studioLogs;
-			const message = canOpenLogs
-				? __(
-						"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
-				  )
-				: __(
-						"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
-				  );
-			applySyncActivity( siteId, { kind: 'error', direction: 'import', message } );
-			toast.error( __( "Import didn't complete" ), {
-				description: message,
-				action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+			settleSync( siteId, {
+				kind: 'error',
+				direction: 'import',
+				message: getErrorMessage( error ) ?? __( 'Failed to import the backup. Please try again.' ),
 			} );
 		} finally {
 			// Drop the File so a large backup isn't held in memory for the session.

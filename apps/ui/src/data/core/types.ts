@@ -6,7 +6,6 @@ import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -263,11 +262,8 @@ export interface Connector {
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
-	importSiteFromBackup(
-		siteId: string,
-		backupPath: string,
-		onProgress?: ( event: ImportEventTuple ) => void
-	): Promise< void >;
+	// Its progress and result arrive as sync activity (`onSyncActivity`).
+	importSiteFromBackup( siteId: string, backupPath: string ): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

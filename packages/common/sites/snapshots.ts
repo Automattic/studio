@@ -111,6 +111,39 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 	};
 }
 
+/**
+ * Creates a preview site, or refreshes the one at `hostname`, and resolves with its URL once the
+ * CLI command finishes. The command publishes its progress as sync activity.
+ */
+export function publishPreviewSite(
+	executeCliCommand: ExecuteCliCommand,
+	siteFolder: string,
+	hostname?: string
+): Promise< { url: string } > {
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand(
+			hostname
+				? [ 'preview', 'update', '--path', siteFolder, hostname ]
+				: [ 'preview', 'create', '--path', siteFolder ],
+			{ output: 'capture', logPrefix: 'preview' }
+		);
+		let url: string | undefined;
+		emitter.on( 'data', ( { data } ) => {
+			const parsed = snapshotEventSchema.safeParse( data );
+			if ( parsed.success && parsed.data.action === 'keyValuePair' && parsed.data.key === 'url' ) {
+				url = parsed.data.value;
+			}
+		} );
+		emitter.on( 'success', () =>
+			url
+				? resolve( { url } )
+				: reject( new Error( 'Preview site command succeeded but no URL was returned.' ) )
+		);
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
 // The CLI reports the snapshot list over its IPC channel as a `keyValuePair`
 // ("snapshots" → JSON string), the same envelope the desktop reads.
 const snapshotListKeyValueSchema = z.object( {

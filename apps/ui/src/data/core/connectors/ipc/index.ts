@@ -42,7 +42,6 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
@@ -129,65 +128,6 @@ export function createIpcConnector(): Connector {
 			throw new Error( `Site ${ siteId } not found` );
 		}
 		return site.path;
-	}
-
-	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
-	// into an awaitable promise. The main process emits `snapshot-key-value`
-	// with the final preview URL right before `snapshot-success`; fatal
-	// errors arrive via `snapshot-fatal-error`. All three are broadcast to
-	// every renderer subscriber, so we filter by operationId.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
-		return new Promise( ( resolve, reject ) => {
-			let capturedUrl: string | undefined;
-			const unsubscribes: Array< () => void > = [];
-			const cleanup = () => {
-				for ( const unsubscribe of unsubscribes ) {
-					unsubscribe();
-				}
-			};
-
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-key-value',
-					(
-						_event: unknown,
-						payload: { operationId: string; data: { key: string; value: string } }
-					) => {
-						if ( payload.operationId === operationId && payload.data.key === 'url' ) {
-							capturedUrl = payload.data.value;
-						}
-					}
-				)
-			);
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-success',
-					( _event: unknown, payload: { operationId: string } ) => {
-						if ( payload.operationId !== operationId ) {
-							return;
-						}
-						cleanup();
-						if ( capturedUrl ) {
-							resolve( { url: capturedUrl } );
-						} else {
-							reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
-						}
-					}
-				)
-			);
-			unsubscribes.push(
-				ipcListener.subscribe(
-					'snapshot-fatal-error',
-					( _event: unknown, payload: { operationId: string; data: { message: string } } ) => {
-						if ( payload.operationId !== operationId ) {
-							return;
-						}
-						cleanup();
-						reject( new Error( payload.data.message ) );
-					}
-				)
-			);
-		} );
 	}
 
 	return {
@@ -381,27 +321,15 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
-			const unsubscribe = onProgress
-				? ipcListener.subscribe(
-						'on-import',
-						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
-							if ( importSiteId === siteId ) onProgress( importEvent );
-						}
-				  )
-				: undefined;
-			try {
-				await ipcApi.importSite( siteId, backupPath, {
-					alwaysStartServer: true,
-					showErrorModal: false,
-					showNotification: false,
-					// Onboarding imports are part of the add-site flow, which `studio_site_imported`
-					// deliberately does not count.
-					suppressTracksEvent: true,
-				} );
-			} finally {
-				unsubscribe?.();
-			}
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await ipcApi.importSite( siteId, backupPath, {
+				alwaysStartServer: true,
+				showErrorModal: false,
+				showNotification: false,
+				// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+				// deliberately does not count.
+				suppressTracksEvent: true,
+			} );
 		},
 
 		async startSite( id ) {
@@ -548,15 +476,9 @@ export function createIpcConnector(): Connector {
 
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
-			// pair. Those kick off a CLI command and immediately return an
-			// operationId; the actual completion is reported later via the
-			// `snapshot-*` event channel, so we correlate by operationId and
-			// resolve once the matching `snapshot-success` fires.
-			const { operationId } = ( await ( existingHostname
-				? ipcApi.updateSnapshot( siteFolder, existingHostname )
-				: ipcApi.createSnapshot( siteFolder ) ) ) as { operationId: string };
-			return awaitSnapshotOperation( operationId );
+			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname ) ) as {
+				url: string;
+			};
 		},
 
 		// Connected WPCom sites

@@ -7,8 +7,11 @@ import { useCallback, useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
+import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { applySyncActivity } from '@/data/sync-activity';
 import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
@@ -28,19 +31,19 @@ export function useSettleSync() {
 		( siteId: string, activity: SyncActivity ) => {
 			// Only point at the logs where the user can actually open them.
 			const canOpenLogs = connector.capabilities.studioLogs;
+			const plainMessage =
+				activity.kind === 'error'
+					? getPlainErrorMessage( activity.direction, canOpenLogs )
+					: undefined;
 			const settled =
-				activity.kind === 'error' && activity.direction === 'pull'
-					? {
-							...activity,
-							message: canOpenLogs
-								? __(
-										"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
-								  )
-								: __( "Studio couldn't copy the live site. Try again." ),
-					  }
+				activity.kind === 'error' && plainMessage
+					? { ...activity, message: plainMessage }
 					: activity;
 			if ( ! applySyncActivity( siteId, settled ) ) {
 				return;
+			}
+			if ( activity.kind === 'error' && plainMessage ) {
+				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
 			if ( settled.direction === 'preview' ) {
@@ -52,7 +55,26 @@ export function useSettleSync() {
 				}
 				return;
 			}
-			if ( settled.direction !== 'push' && settled.direction !== 'pull' ) {
+			if ( settled.direction === 'import' ) {
+				// The importer replaces the site's files and database and restarts the
+				// server, so everything read off that site is stale — disk usage in
+				// particular caches for minutes and nothing else would refetch it.
+				for ( const queryKey of [
+					SITES_QUERY_KEY,
+					[ ...WP_VERSION_QUERY_KEY, siteId ],
+					siteStorageUsageQueryKey( siteId ),
+					siteThumbnailQueryKey( siteId ),
+				] ) {
+					void queryClient.invalidateQueries( { queryKey } );
+				}
+				if ( settled.kind === 'success' ) {
+					toast.success( __( 'Import finished' ) );
+				} else if ( settled.kind === 'error' ) {
+					toast.error( __( "Import didn't complete" ), {
+						description: settled.message,
+						action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+					} );
+				}
 				return;
 			}
 
@@ -76,6 +98,28 @@ export function useSettleSync() {
 		},
 		[ connector, queryClient ]
 	);
+}
+
+// Pull and import failures carry the CLI's raw error. The UI shows plain
+// language instead, and the raw error goes to the logs.
+function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
+	if ( direction === 'pull' ) {
+		return canOpenLogs
+			? __(
+					"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+			  )
+			: __( "Studio couldn't copy the live site. Try again." );
+	}
+	if ( direction === 'import' ) {
+		return canOpenLogs
+			? __(
+					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
+			  )
+			: __(
+					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+			  );
+	}
+	return undefined;
 }
 
 export function openStudioLogsAction( connector: Connector ) {

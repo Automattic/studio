@@ -1,4 +1,3 @@
-import { BackupExtractEvents } from '@studio/common/lib/import-export-events';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
@@ -33,12 +32,10 @@ import type {
 	SupportedEditor,
 	UserPreferences,
 } from '@/data/core';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
 const importSiteFromBackup = vi.hoisted( () => vi.fn() );
-const applySyncActivityMock = vi.hoisted( () => vi.fn() );
 const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
 const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
@@ -145,12 +142,6 @@ vi.mock( '@/hooks/use-offline', () => ( {
 vi.mock( '@/hooks/use-theme-details', () => ( {
 	useThemeDetails: vi.fn(),
 } ) );
-
-vi.mock( '@/data/sync-activity', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/sync-activity') >();
-	applySyncActivityMock.mockImplementation( actual.applySyncActivity );
-	return { ...actual, applySyncActivity: applySyncActivityMock };
-} );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: useSidebarCollapsedMock,
@@ -929,36 +920,7 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Import' } ) );
 
 		await waitFor( () =>
-			expect( importSiteFromBackup ).toHaveBeenCalledWith(
-				'site-1',
-				'/tmp/backup.tar.gz',
-				expect.any( Function )
-			)
-		);
-	} );
-
-	// An import replaces the site wholesale, so everything read off it is stale.
-	// Disk usage caches for five minutes and the overview never unmounts, so
-	// without an explicit invalidation it keeps showing pre-import numbers.
-	it( 'refetches the site details an import invalidates', async () => {
-		const staleKeys = [
-			[ 'sites' ],
-			[ 'wp-version', 'site-1' ],
-			[ 'site-storage-usage', 'site-1' ],
-			[ 'site-thumbnail', 'site-1' ],
-		];
-		renderView();
-		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
-
-		selectBackup( 'demo-site.tar.gz' );
-		fireEvent.click(
-			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
-		);
-
-		await waitFor( () =>
-			staleKeys.forEach( ( key ) =>
-				expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
-			)
+			expect( importSiteFromBackup ).toHaveBeenCalledWith( 'site-1', '/tmp/backup.tar.gz' )
 		);
 	} );
 
@@ -1015,38 +977,9 @@ describe( 'SiteOverviewView', () => {
 		// Settle it so the shared activity store doesn't stay pending for site-1
 		// and bleed into the tests that follow.
 		finishImport();
-		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false ) );
-	} );
-
-	// Extraction emits one progress event per stream chunk, so a large backup
-	// would otherwise notify every activity subscriber thousands of times a
-	// second and the app stops responding to clicks.
-	it( 'only reports progress when the status text changes', async () => {
-		let emitProgress: ( ( event: ImportEventTuple ) => void ) | undefined;
-		importSiteFromBackup.mockImplementation( async ( _siteId, _path, onProgress ) => {
-			emitProgress = onProgress;
+		await waitFor( () => expect( isManageButtonDisabled( 'Export entire site' ) ).toBe( false ), {
+			timeout: 3000,
 		} );
-		renderView();
-
-		selectBackup( 'demo-site.tar.gz' );
-		fireEvent.click(
-			within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', { name: 'Import' } )
-		);
-		await waitFor( () => expect( emitProgress ).toBeDefined() );
-
-		for ( let processedFiles = 1; processedFiles <= 500; processedFiles++ ) {
-			emitProgress?.( [
-				BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
-				{ processedFiles: processedFiles <= 250 ? 1 : 2, totalFiles: 10 },
-			] as ImportEventTuple );
-		}
-
-		expect(
-			applySyncActivityMock.mock.calls.filter( ( [ , activity ] ) => 'message' in activity )
-		).toEqual( [
-			[ 'site-1', { kind: 'pending', direction: 'import', message: '10% · Extracting…' } ],
-			[ 'site-1', { kind: 'pending', direction: 'import', message: '20% · Extracting…' } ],
-		] );
 	} );
 
 	// Driven by a lookup rather than the setting: the log may not exist yet.

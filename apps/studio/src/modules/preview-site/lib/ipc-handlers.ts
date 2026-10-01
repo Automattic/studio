@@ -2,6 +2,7 @@ import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import {
 	createSnapshotManager,
 	fetchSnapshots as fetchSnapshotsFromCli,
+	publishPreviewSite as publishPreviewSiteViaCli,
 	type SnapshotManager,
 	type SnapshotOutput,
 } from '@studio/common/sites/snapshots';
@@ -53,6 +54,16 @@ function snapshotManagerForWindow( window: BrowserWindow | null ): SnapshotManag
 
 export async function fetchSnapshots(): Promise< Snapshot[] > {
 	return fetchSnapshotsFromCli( executeCliCommand );
+}
+
+// For apps/ui: resolves with the preview's URL once it's published. Progress
+// reaches the UI as sync activity, so nothing is forwarded on `snapshot-*`.
+export async function publishPreviewSite(
+	_event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname?: string
+): Promise< { url: string } > {
+	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname );
 }
 
 export async function createSnapshot(

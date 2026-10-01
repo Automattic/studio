@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
+import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { Connector } from '@/data/core';
@@ -93,6 +97,36 @@ describe( 'usePullSiteFromLive', () => {
 		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
 	} );
 
+	// An import replaces the site wholesale, so everything read off it is stale —
+	// disk usage caches for minutes and the overview never unmounts.
+	it( 'refreshes what an import changed once it settles', () => {
+		const queryClient = new QueryClient();
+		const staleKeys = [
+			SITES_QUERY_KEY,
+			[ ...WP_VERSION_QUERY_KEY, 'site-2' ],
+			siteStorageUsageQueryKey( 'site-2' ),
+			siteThumbnailQueryKey( 'site-2' ),
+		];
+		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SyncActivityEvents />
+			</QueryClientProvider>
+		);
+
+		act( () =>
+			publish( { siteId: 'site-2', activity: { kind: 'pending', direction: 'import' } } )
+		);
+		act( () =>
+			publish( { siteId: 'site-2', activity: { kind: 'success', direction: 'import' } } )
+		);
+
+		staleKeys.forEach( ( key ) =>
+			expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
+		);
+		expect( toast.success ).toHaveBeenCalledWith( 'Import finished' );
+	} );
+
 	it( 'announces a button sync once when the CLI reports after it exits', async () => {
 		useConnectorMock.mockReturnValue( {
 			capabilities: { studioLogs: false },
@@ -126,70 +160,51 @@ describe( 'usePullSiteFromLive', () => {
 		expect( toast.error ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'replaces connector details with an actionable pull error', async () => {
-		const openStudioLogs = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: true },
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			openStudioLogs,
-			pullSiteFromLive: vi
-				.fn()
-				.mockRejectedValue(
-					new Error(
-						"Error invoking remote method 'pullSiteFromLive': CliCommandError: [Last error message] Failed to initiate backup: 500 status code"
-					)
-				),
-		} as unknown as Connector );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<Harness />
-			</QueryClientProvider>
-		);
+	it.each( [
+		[ 'pull', true, "Pull didn't complete", "Studio couldn't copy the live site." ],
+		[ 'import', false, "Import didn't complete", "Studio couldn't import this backup." ],
+	] as const )(
+		'shows plain language for a failed %s (logs available: %s)',
+		( direction, studioLogs, title, copy ) => {
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+			const openStudioLogs = vi.fn().mockResolvedValue( undefined );
+			useConnectorMock.mockReturnValue( {
+				capabilities: { studioLogs },
+				openStudioLogs,
+				onSyncActivity: ( listener: typeof publish ) => {
+					publish = listener;
+					return () => {};
+				},
+			} as unknown as Connector );
+			render(
+				<QueryClientProvider client={ new QueryClient() }>
+					<SyncActivityEvents />
+					<Harness />
+				</QueryClientProvider>
+			);
+			const rawError = 'CliCommandError: [Last error message] Failed: 500 status code';
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-		await passReportGrace();
+			act( () => publish( { siteId: 'site-1', activity: { kind: 'pending', direction } } ) );
+			act( () =>
+				publish( {
+					siteId: 'site-1',
+					activity: { kind: 'error', direction, message: rawError },
+				} )
+			);
 
-		const message =
-			"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details.";
-		await waitFor( () => expect( screen.getByText( message ) ).toBeVisible() );
-		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
-		expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
-			description: message,
-			action: { label: 'Open Studio Logs', onClick: expect.any( Function ) },
-		} );
-
-		vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
-		expect( openStudioLogs ).toHaveBeenCalled();
-	} );
-
-	it( 'omits the logs hint when the host has no Studio log file', async () => {
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: false },
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			pullSiteFromLive: vi.fn().mockRejectedValue( new Error( 'nope' ) ),
-		} as unknown as Connector );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<Harness />
-			</QueryClientProvider>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-		await passReportGrace();
-
-		await waitFor( () =>
-			expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
-				description: "Studio couldn't copy the live site. Try again.",
-				action: undefined,
-			} )
-		);
-	} );
+			expect( screen.getByText( new RegExp( copy ) ) ).toBeVisible();
+			expect( screen.queryByText( /CliCommandError/ ) ).not.toBeInTheDocument();
+			expect( toast.error ).toHaveBeenCalledWith( title, {
+				description: expect.stringContaining( copy ),
+				action: studioLogs
+					? { label: 'Open Studio Logs', onClick: expect.any( Function ) }
+					: undefined,
+			} );
+			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );
+			vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
+			expect( openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
+		}
+	);
 } );
 
 describe( 'sync Tracks events', () => {

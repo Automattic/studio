@@ -85,9 +85,6 @@ describe( 'useSiteManagementActions', () => {
 		expect( result.current.map( ( action ) => action.id ) ).toContain( 'import' );
 	} );
 
-	// Import is deliberately excluded from `SITE_OPERATIONS`, so `useIsSiteBusy`
-	// won't catch it and the CLI won't refuse the others. Duplicating a site
-	// mid-import would copy a half-replaced tree.
 	it( 'disables every action while the site is being imported into', () => {
 		reportSyncPending( site.id, 'import' );
 

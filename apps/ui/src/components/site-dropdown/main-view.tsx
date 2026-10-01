@@ -159,8 +159,7 @@ export function MainView( {
 		( activity?.kind === 'pending' && activity.direction === 'preview' );
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime. An import replaces that site's
-	// files and database outright, so it locks them out too — and the CLI won't
-	// refuse it, since import is deliberately not a tracked site operation.
+	// files and database outright, so it locks them out too.
 	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
 	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
 	// …and none of them can run while the CLI holds the site either. Gate the
@@ -228,12 +227,12 @@ export function MainView( {
 	};
 
 	const handleStartLocalClick = () => {
-		if ( isOperationInProgress || isSyncing || site.running ) return;
+		if ( isOperationInProgress || site.running ) return;
 		startSite.mutate( site.id );
 	};
 
 	const handleStopLocalClick = () => {
-		if ( isOperationInProgress || isSyncing || ! site.running ) return;
+		if ( isOperationInProgress || ! site.running ) return;
 		stopSite.mutate( site.id );
 	};
 
@@ -322,7 +321,6 @@ export function MainView( {
 						starting={ isStarting }
 						stopping={ isStopping }
 						operation={ operation }
-						disabled={ isSyncing }
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
 					/>
@@ -554,7 +552,6 @@ function LocalServerControl( {
 	starting,
 	stopping,
 	operation,
-	disabled,
 	onStart,
 	onStop,
 }: {
@@ -564,16 +561,14 @@ function LocalServerControl( {
 	// A CLI operation (an agent settings change, another window's delete). Blocks
 	// the toggle and names itself in the tooltip, so a dead control explains why.
 	operation: SiteOperationKind | null;
-	disabled: boolean;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
-	const pending = starting || stopping || operation !== null;
-	const targetRunning = getTargetRunning( running, starting, stopping );
 	// aria-disabled rather than disabled: a natively disabled button suppresses
 	// the pointer events the tooltip listens for, hiding the status exactly
 	// while the site is transitioning.
-	const inert = disabled || pending;
+	const pending = starting || stopping || operation !== null;
+	const targetRunning = getTargetRunning( running, starting, stopping );
 	const statusLabel = sprintf(
 		__( 'Site status: %s' ),
 		getSiteStatusName( { running, starting, stopping, operation } )
@@ -592,14 +587,14 @@ function LocalServerControl( {
 							pending && styles.localServerControl_pending
 						) }
 						aria-label={
-							inert ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
+							pending ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
 						}
 						role="switch"
 						aria-checked={ targetRunning }
 						aria-busy={ pending || undefined }
-						aria-disabled={ inert || undefined }
+						aria-disabled={ pending || undefined }
 						onClick={ () => {
-							if ( inert ) {
+							if ( pending ) {
 								return;
 							}
 							if ( targetRunning ) {

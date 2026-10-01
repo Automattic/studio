@@ -10,6 +10,7 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
@@ -40,7 +41,9 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
-		await archiveSiteContent( siteFolder, archivePath );
+		await withSiteOperation( siteFolder, 'export', () =>
+			archiveSiteContent( siteFolder, archivePath )
+		);
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );

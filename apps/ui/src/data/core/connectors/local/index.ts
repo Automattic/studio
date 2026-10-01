@@ -30,7 +30,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
-import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
@@ -54,6 +54,7 @@ type ServerEvent =
 	| { channel: 'sync-activity'; payload: SyncEvent }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
 	| { channel: 'site-event'; payload: SiteEvent }
+	| { channel: 'snapshot-event'; payload: SnapshotEvent }
 	| { channel: 'auth-event'; payload: unknown };
 
 /**
@@ -80,6 +81,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
 	const siteEventListeners = new Set< ( event: SiteEvent ) => void >();
+	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
@@ -187,6 +189,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'site-event' ) {
 					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'snapshot-event' ) {
+					snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'auth-event' ) {
 					authListeners.forEach( ( listener ) => listener() );
 				}
@@ -498,11 +502,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
 		},
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
 				method: 'POST',
-				body: JSON.stringify( { hostname: existingHostname } ),
+				body: JSON.stringify( { hostname: existingHostname, name } ),
+			} );
+		},
+		async deleteSnapshot( hostname ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, { method: 'DELETE' } );
+		},
+		async renameSnapshot( hostname, name ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, {
+				method: 'PATCH',
+				body: JSON.stringify( { name } ),
 			} );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
@@ -826,6 +839,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onSiteEvent( listener ) {
 			siteEventListeners.add( listener );
 			return () => siteEventListeners.delete( listener );
+		},
+		onSnapshotEvent( listener ) {
+			snapshotEventListeners.add( listener );
+			return () => snapshotEventListeners.delete( listener );
 		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.

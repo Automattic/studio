@@ -62,8 +62,10 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
-	publishPreviewSite: ( siteFolder, hostname ) =>
-		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname ),
+	publishPreviewSite: ( siteFolder, hostname, name ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
+	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),

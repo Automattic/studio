@@ -32,10 +32,18 @@ export async function runCommand(
 	let siteId: string | undefined;
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
-		void reportSyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
+		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			logger.reportStart( action, message );
+			void reportSyncActivity( site.id, {
+				kind: 'pending',
+				direction: 'preview',
+				message,
+				progress,
+			} );
+		};
+		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 		await validateSiteSize( siteFolder );
 		const token = await readAuthToken();
 		if ( ! token ) {
@@ -44,24 +52,24 @@ export async function runCommand(
 			);
 		}
 
-		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
+		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
 			archiveSiteContent( siteFolder, archivePath )
 		);
 		logger.reportSuccess( __( 'Archive created' ) );
 
-		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
+		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		const wordpressVersion = getWordPressVersion( siteFolder );
 		const uploadResponse = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		logger.reportStart( LoggerAction.READY, __( 'Creating preview site…' ) );
+		reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
 		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
 		);
 
-		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
+		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		let snapshotName = name;
 		if ( ! snapshotName ) {
 			const snapshots = await getSnapshotsFromConfig( token.id );

@@ -110,23 +110,47 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 }
 
 /**
- * Creates a preview site, or refreshes the one at `hostname`, and resolves with its URL once the
- * CLI command finishes. The command publishes its progress as sync activity.
+ * Creates a preview site (named `name`, when given), or refreshes the one at `hostname`, and
+ * resolves with its URL once the CLI command finishes. The command publishes its progress as sync
+ * activity.
  */
 export async function publishPreviewSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
-	hostname?: string
+	hostname?: string,
+	name?: string
 ): Promise< { url: string } > {
 	const { url } = await runCliCommand(
 		executeCliCommand,
 		hostname
 			? [ 'preview', 'update', '--path', siteFolder, hostname ]
-			: [ 'preview', 'create', '--path', siteFolder ],
+			: [ 'preview', 'create', '--path', siteFolder, ...( name ? [ '--name', name ] : [] ) ],
 		previewResultSchema,
 		{ logPrefix: 'preview' }
 	);
 	return { url };
+}
+
+export async function deletePreviewSite(
+	executeCliCommand: ExecuteCliCommand,
+	hostname: string
+): Promise< void > {
+	await runCliCommand( executeCliCommand, [ 'preview', 'delete', hostname ], previewResultSchema, {
+		logPrefix: 'preview',
+	} );
+}
+
+export async function renamePreviewSite(
+	executeCliCommand: ExecuteCliCommand,
+	hostname: string,
+	name: string
+): Promise< void > {
+	await runCliCommand(
+		executeCliCommand,
+		[ 'preview', 'set', hostname, '--name', name ],
+		previewResultSchema,
+		{ logPrefix: 'preview' }
+	);
 }
 
 export async function fetchSnapshots(

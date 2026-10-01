@@ -342,13 +342,11 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'summarizes the site theme and runtime versions', async () => {
+	it( 'summarizes the site runtime versions', async () => {
 		useWpVersionMock.mockReturnValue( { data: '6.8.2' } );
 
 		renderView();
 
-		expect( screen.getByText( 'Theme' ) ).toBeVisible();
-		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
 		expect( screen.getByText( 'WP v6.8.2' ) ).toBeVisible();
 		expect( screen.getByText( 'PHP v8.4' ) ).toBeVisible();
 		expect( await screen.findByRole( 'img', { name: 'Screenshot of Demo Site' } ) ).toHaveAttribute(

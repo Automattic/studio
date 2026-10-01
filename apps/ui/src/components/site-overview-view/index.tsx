@@ -300,11 +300,7 @@ function SiteOverviewBody( {
 								<div className={ styles.cardColumn }>
 									<h2 className={ styles.columnHeading }>{ __( 'About' ) }</h2>
 									<OverviewCard>
-										<AboutSection
-											site={ site }
-											wpVersion={ wpVersion }
-											themeDetails={ themeDetails }
-										/>
+										<AboutSection site={ site } wpVersion={ wpVersion } />
 									</OverviewCard>
 									<h2 className={ styles.columnHeading }>{ __( 'WP Admin' ) }</h2>
 									<OverviewCard>

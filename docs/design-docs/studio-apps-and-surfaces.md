@@ -126,7 +126,7 @@ Shared modules are constructed with two injected dependencies and nothing Electr
 
 So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, emit, surface, … })`: the desktop and the local server build it with their own `emit`, and the orchestration code is identical.
 
-State the CLI changes from anywhere (sites, auth, and the progress of a push, pull or preview) reaches both surfaces the same way: each runs `studio _events`, which relays the CLI's events (see [cli.md](./cli.md)). The desktop forwards them over IPC; the local server forwards them on its `site-event`, `auth-event` and `sync-activity` SSE channels.
+Changes the CLI makes from anywhere (sites, auth, and the progress of a push, pull or preview) reach both surfaces the same way: each runs `studio _events`, which receives the CLI's events (see [cli.md](./cli.md)), and forwards them to its UI over its own transport.
 
 ### What is converged (shared, both surfaces)
 

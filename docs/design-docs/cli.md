@@ -29,14 +29,13 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - The node.js `child_process` module is used to fork a process that runs the CLI.
    - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
-   - Progress for most commands is read from these messages, using the "logger action" definitions in `packages/common/logger-actions`. Push, pull and preview instead publish their progress as sync activity events (see below), so every UI shows them whoever started them.
+   - Most commands report their progress through these messages. Syncs (push, pull and preview) publish theirs as events instead (see below), so every UI can show them, whoever started them.
 
 3. Studio reacts when the CLI changes state:
 
-   - CLI processes publish events with `emitCliEvent` to the events socket (`~/.studio/daemon/events.sock`, a named pipe on Windows): sites created, updated or deleted, site operations claimed or released, snapshot changes, auth changes, and sync activity (a push, pull or preview's progress and result).
-   - Every Studio host runs the `_events` CLI command: the desktop app when it starts, and the `studio ui` server. The first one to bind the events socket is the hub and rebroadcasts each event to the others; they follow it and take over when it exits (`apps/cli/lib/event-hub.ts`). `_events` also turns the process-manager daemon's site-process events into site events.
-   - `_events` passes each event back to its host over `process.send` IPC. The desktop relays them to the renderer over Electron IPC (`site-event`, `snapshot-event`, `auth-updated`, `sync-activity`); the `studio ui` server relays them on its SSE stream (`site-event`, `auth-event`, `sync-activity`).
-   - The agentic UI refetches its data on site events and renders sync activity from its activity store, so a sync started by the agent, a terminal or another window shows the same progress and result as one started from a button. The legacy renderer listens to `site-event` in its site details hook and to `snapshot-event` in its snapshot Redux slice.
+   - Any CLI process, whether Studio forked it, the agent runs it, or a user typed it in a terminal, publishes an event when it changes something Studio shows: a site is created, changed or deleted, an operation starts or ends on a site, a preview site changes, the user logs in or out, or a sync makes progress.
+   - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which receives these events and forwards them to it. The first one to start acts as a hub and passes each event on to the others, so they all see every change; if it exits, another takes over.
+   - Each app relays the events to its UI, which refreshes what changed. That is what lets the UI react the same way whether a change came from its own buttons, the agent, a terminal or another window.
 
 ## Implementation details
 

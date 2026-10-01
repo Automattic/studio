@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
@@ -97,9 +97,10 @@ export function PreviewSplitFrame( {
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.
 	const contentHidden = showFullscreen && ! animatingPreviewToggle;
-	// Only the full preview's flush frame reaches the window's top-right corner;
-	// otherwise the chrome gap above the frame holds the window controls.
-	const previewInCorner = showFullscreen;
+	// Only a flush frame reaches the window's top-right corner. The preview sits
+	// at the inline end, so in RTL it only gets there when it fills the frame.
+	const contentInCorner = isSidebarCollapsed && ! showFullscreen && ( ! showPreview || isRTL() );
+	const previewInCorner = isSidebarCollapsed && showPreview && ( showFullscreen || ! isRTL() );
 
 	return (
 		<>
@@ -107,8 +108,7 @@ export function PreviewSplitFrame( {
 				ref={ rootRef }
 				className={ clsx(
 					styles.root,
-					isSidebarCollapsed && styles.rootSidebarCollapsed,
-					showFullscreen && styles.rootFrameless,
+					isSidebarCollapsed && styles.rootFrameless,
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating
@@ -119,7 +119,9 @@ export function PreviewSplitFrame( {
 					className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
 					aria-hidden={ contentHidden || undefined }
 				>
-					{ children }
+					<WindowControlsCornerContext.Provider value={ contentInCorner }>
+						{ children }
+					</WindowControlsCornerContext.Provider>
 				</div>
 				{ preview ? (
 					<div
@@ -144,7 +146,12 @@ export function PreviewSplitFrame( {
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
 			</div>
-			{ ! showFullscreen ? (
+			{ isSidebarCollapsed ? (
+				<div
+					className={ clsx( styles.dragStrip, styles.dragStripTop, styles.dragStripEdge ) }
+					aria-hidden="true"
+				/>
+			) : (
 				<>
 					<div
 						className={ clsx( styles.dragStrip, styles.dragStripTop ) }
@@ -153,11 +160,8 @@ export function PreviewSplitFrame( {
 					/>
 					<div className={ clsx( styles.dragStrip, styles.dragStripBottom ) } aria-hidden="true" />
 					<div className={ clsx( styles.dragStrip, styles.dragStripEnd ) } aria-hidden="true" />
-					{ isSidebarCollapsed ? (
-						<div className={ clsx( styles.dragStrip, styles.dragStripStart ) } aria-hidden="true" />
-					) : null }
 				</>
-			) : null }
+			) }
 		</>
 	);
 }

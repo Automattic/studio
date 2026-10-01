@@ -149,6 +149,35 @@ describe( 'PreviewSplitFrame', () => {
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
 	} );
 
+	describe( 'window drag strips', () => {
+		function renderStrips( sidebarCollapsed: boolean ) {
+			const { container } = render(
+				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
+					<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+						<span data-testid="content">Content</span>
+					</PreviewSplitFrame>
+				</SidebarCollapsedContext.Provider>
+			);
+			return Array.from( container.querySelectorAll( '[class*="dragStrip"]' ) ).map(
+				( strip ) => strip.className
+			);
+		}
+
+		it( 'covers the chrome gaps around the inset frame', () => {
+			const strips = renderStrips( false );
+			expect( strips ).toHaveLength( 3 );
+			expect( strips.join( ' ' ) ).toMatch( /dragStripTop/ );
+			expect( strips.join( ' ' ) ).toMatch( /dragStripBottom/ );
+			expect( strips.join( ' ' ) ).toMatch( /dragStripEnd/ );
+		} );
+
+		it( 'falls back to the top window edge when the frame is flush', () => {
+			const strips = renderStrips( true );
+			expect( strips ).toHaveLength( 1 );
+			expect( strips[ 0 ] ).toMatch( /dragStripEdge/ );
+		} );
+	} );
+
 	describe( 'window controls corner', () => {
 		function renderFrame(
 			sidebarCollapsed: boolean,
@@ -175,15 +204,14 @@ describe( 'PreviewSplitFrame', () => {
 			} );
 		} );
 
-		it( 'keeps the frame inset when the sidebar is collapsed', () => {
-			expect( renderFrame( true, {} ) ).toEqual( { chat: 'false', preview: 'false' } );
-			expect( getFrameRoot().className ).not.toMatch( /rootFrameless/ );
+		it( 'puts the chat in the corner when the preview is closed', () => {
+			expect( renderFrame( true, {} ) ).toEqual( { chat: 'true', preview: 'false' } );
 		} );
 
-		it( 'puts nothing in the corner with the preview open beside the chat', () => {
+		it( 'puts the preview in the corner when it is open', () => {
 			expect( renderFrame( true, { previewOpen: true } ) ).toEqual( {
 				chat: 'false',
-				preview: 'false',
+				preview: 'true',
 			} );
 		} );
 
@@ -192,7 +220,6 @@ describe( 'PreviewSplitFrame', () => {
 				chat: 'false',
 				preview: 'true',
 			} );
-			expect( getFrameRoot().className ).toMatch( /rootFrameless/ );
 		} );
 	} );
 

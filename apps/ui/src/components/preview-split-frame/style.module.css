@@ -34,10 +34,15 @@
 	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
 }
 
-/* With no sidebar beside it, the frame is inset on both inline edges. The
-   chrome gap above it stays as the window's drag handle. */
-.rootSidebarCollapsed {
-	margin-inline-start: var(--panel-frame-gap);
+/* Full-bleed when the sidebar is hidden — the frame reads as chrome that
+   belongs with the sidebar. The border must drop to zero WIDTH (not just
+   transparent): the chrome background shows through a transparent border
+   ring via background-clip, leaving stray dark lines at the edges. */
+.rootFrameless {
+	height: 100%;
+	margin: 0;
+	border-width: 0;
+	border-radius: 0;
 }
 
 /* Window drag handles over the chrome gaps around the frame. Electron maps
@@ -66,28 +71,17 @@
 	inset-block-end: 0;
 }
 
-.dragStripEnd,
-.dragStripStart {
+.dragStripEnd {
 	inset-block: 0;
+	inset-inline-end: 0;
 	width: 12px;
 }
 
-.dragStripEnd {
-	inset-inline-end: 0;
-}
-
-.dragStripStart {
-	inset-inline-start: 0;
-}
-
-/* Full-bleed in full preview. The border must drop to zero WIDTH (not just
-   transparent): the chrome background shows through a transparent border
-   ring via background-clip, leaving stray dark lines at the edges. */
-.rootFrameless {
-	height: 100%;
-	margin: 0;
-	border-width: 0;
-	border-radius: 0;
+/* A flush frame leaves no chrome gap, so the window's top edge becomes the
+   handle instead. Kept above the header and toolbar controls, which start
+   8px down. */
+.dragStripEdge {
+	height: 8px;
 }
 
 /* Opaque and above the preview slot so it fully covers the (still mounted)

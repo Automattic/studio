@@ -1,3 +1,4 @@
+import { useReducedMotion } from '@wordpress/compose';
 import { useEffect, useRef } from 'react';
 import styles from './style.module.css';
 
@@ -13,7 +14,7 @@ interface DotGridProps {
 }
 
 const REPULSION = 0.25;
-const RIPPLE_STRENGTH = 1;
+const RIPPLE_STRENGTH = 0.3;
 const SPRING_K = 0.07;
 const DAMPING = 0.8;
 const SLEEP_EPS = 0.08;
@@ -53,6 +54,7 @@ export function DotGrid( {
 	intro = true,
 }: DotGridProps ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
+	const reducedMotion = useReducedMotion();
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
@@ -299,9 +301,7 @@ export function DotGrid( {
 			drawStatic();
 		}
 
-		const prefersReducedMotion = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
-
-		if ( prefersReducedMotion ) {
+		if ( reducedMotion ) {
 			resizeStatic();
 
 			const resizeObserver = new ResizeObserver( resizeStatic );
@@ -402,7 +402,7 @@ export function DotGrid( {
 			resizeObserver.disconnect();
 			mediaQuery.removeEventListener( 'change', onColorChange );
 		};
-	}, [ spacing, crossSize, crossThickness, intro ] );
+	}, [ spacing, crossSize, crossThickness, intro, reducedMotion ] );
 
 	return (
 		<canvas

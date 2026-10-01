@@ -4,6 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
+import {
+	getEnvironmentLabel,
+	getSiteEnvironment,
+} from '@/components/selective-sync/lib/environment-utils';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -95,18 +99,33 @@ export function PublishPickerView( { site, onClose }: Props ) {
 						<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
 					) : pickableSites.data && pickableSites.data.length > 0 ? (
 						<ul className={ styles.list }>
-							{ pickableSites.data.map( ( candidate ) => (
-								<li key={ candidate.id }>
-									<button
-										type="button"
-										className={ styles.item }
-										onClick={ () => void handlePickSite( candidate ) }
-									>
-										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
-										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
-									</button>
-								</li>
-							) ) }
+							{ pickableSites.data.map( ( candidate ) => {
+								const environment = getSiteEnvironment( candidate );
+								return (
+									<li key={ candidate.id }>
+										<button
+											type="button"
+											className={ styles.item }
+											onClick={ () => void handlePickSite( candidate ) }
+										>
+											<span className={ styles.itemHeader }>
+												<span className={ styles.itemName }>
+													{ candidate.name || candidate.url }
+												</span>
+												<span className={ styles.itemHost }>
+													{ candidate.isPressable ? 'Pressable' : 'WP.com' }
+												</span>
+												{ environment !== 'production' ? (
+													<span className={ styles.itemHost } data-environment={ environment }>
+														{ getEnvironmentLabel( environment ) }
+													</span>
+												) : null }
+											</span>
+											<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
+										</button>
+									</li>
+								);
+							} ) }
 						</ul>
 					) : (
 						<div className={ styles.status }>

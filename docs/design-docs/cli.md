@@ -34,7 +34,7 @@ The first iteration of the CLI shipped commands to create, read, update, and del
 3. Studio reacts when the CLI changes state:
 
    - Any CLI process, whether Studio forked it, the agent runs it, or a user typed it in a terminal, publishes an event when it changes something Studio shows: a site is created, changed or deleted, an operation starts or ends on a site, a preview site changes, the user logs in or out, or a sync makes progress.
-   - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which receives these events and forwards them to it. The first one to start acts as a hub and passes each event on to the others, so they all see every change; if it exits, another takes over.
+   - Every running Studio app (the desktop app and the `studio ui` server) runs the hidden `_events` command, which listens for these events on a socket of its own and forwards them to it. CLI processes send each event to every app's socket, so they all see every change.
    - Each app relays the events to its UI, which refreshes what changed. That is what lets the UI react the same way whether a change came from its own buttons, the agent, a terminal or another window.
 
 ## Implementation details

@@ -79,7 +79,7 @@ function RemoteSiteCard( {
 	const connector = useConnector();
 	const isAvailable = group === 'available';
 	const siteName = getSiteName( site );
-	const providerLabel = site.isPressable ? __( 'Pressable' ) : __( 'WP.com' );
+	const providerLabel = site.isPressable ? 'Pressable' : 'WP.com';
 	const environmentLabel = getEnvironmentLabel( site );
 	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
 	const className = clsx(

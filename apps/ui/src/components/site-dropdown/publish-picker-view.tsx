@@ -105,7 +105,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 										<span className={ styles.itemHeader }>
 											<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
 											<span className={ styles.itemHost }>
-												{ candidate.isPressable ? __( 'Pressable' ) : __( 'WP.com' ) }
+												{ candidate.isPressable ? 'Pressable' : 'WP.com' }
 											</span>
 										</span>
 										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>

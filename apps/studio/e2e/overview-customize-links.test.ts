@@ -7,7 +7,10 @@ test.describe( 'Overview shortcuts', () => {
 	const session = new E2ESession();
 	const siteName = 'E2E-Shortcuts-Site';
 
-	const shortcuts = () => session.mainWindow.getByRole( 'region', { name: 'Shortcuts' } );
+	const shortcuts = () =>
+		session.mainWindow.locator( 'section' ).filter( {
+			has: session.mainWindow.getByRole( 'heading', { name: 'Shortcuts', exact: true } ),
+		} );
 
 	// The URL the site preview's webview shows, once it has left the auto-login redirect.
 	const getPreviewUrl = async ( expected: RegExp ) => {

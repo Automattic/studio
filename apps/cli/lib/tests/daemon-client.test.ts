@@ -115,6 +115,16 @@ describe( 'process manager daemon client', () => {
 		expect( createConnectionMock ).toHaveBeenCalledTimes( 2 );
 	} );
 
+	it( 'emitCliEvent() sends each event to every Studio app', async () => {
+		const { emitCliEvent, EVENTS_SOCKET_PATHS } = await import( '../daemon-client' );
+
+		await emitCliEvent( { event: 'auth-logout', data: {} } as never );
+
+		expect( createConnectionMock.mock.calls.map( ( [ peer ] ) => peer ) ).toEqual(
+			Object.values( EVENTS_SOCKET_PATHS )
+		);
+	} );
+
 	it( 'connectToDaemon() auto-starts the daemon when the socket is missing', async () => {
 		createConnectionMock.mockImplementationOnce( () => {
 			const error = new Error( 'missing' ) as NodeJS.ErrnoException;

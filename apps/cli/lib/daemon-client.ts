@@ -31,10 +31,20 @@ import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
-export const SITE_EVENTS_SOCKET_PATH =
-	process.platform === 'win32'
-		? '\\\\.\\pipe\\studio-events.sock'
-		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
+// One events socket per kind of Studio app, each owned by that app's `_events`. The
+// desktop keeps the original path, which older desktop builds also listen on.
+export const EVENTS_SOCKET_PATHS = {
+	desktop:
+		process.platform === 'win32'
+			? '\\\\.\\pipe\\studio-events.sock'
+			: path.join( PROCESS_MANAGER_HOME, 'events.sock' ),
+	ui:
+		process.platform === 'win32'
+			? '\\\\.\\pipe\\studio-events-ui.sock'
+			: path.join( PROCESS_MANAGER_HOME, 'events-ui.sock' ),
+} as const;
+
+export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS;
 
 function ensureProcessManagerHome() {
 	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
@@ -343,15 +353,15 @@ export async function stopProcess( processName: string ): Promise< void > {
 	} );
 }
 
-const eventsSocketClient = new SocketRequestClient( SITE_EVENTS_SOCKET_PATH );
+const eventsSocketClients = Object.values( EVENTS_SOCKET_PATHS ).map(
+	( socketPath ) => new SocketRequestClient( socketPath )
+);
 
 /**
- * Emit a CLI event via the events socket, for the `_events` command server to receive.
+ * Emit a CLI event to every Studio app's `_events` command. Apps that aren't running are skipped.
  */
 export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
-	try {
-		await eventsSocketClient.send( payload );
-	} catch {
-		// Do nothing
-	}
+	await Promise.all(
+		eventsSocketClients.map( ( client ) => client.send( payload ).catch( () => undefined ) )
+	);
 }

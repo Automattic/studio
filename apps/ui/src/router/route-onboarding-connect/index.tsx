@@ -2,7 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { Spinner, VisuallyHidden } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 import { check, chevronLeft, external, search } from '@wordpress/icons';
 import { Badge, Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -79,7 +79,9 @@ function RemoteSiteCard( {
 	const connector = useConnector();
 	const isAvailable = group === 'available';
 	const siteName = getSiteName( site );
-	const providerLabel = site.isPressable ? 'Pressable' : 'WP.com';
+	const providerLabel = site.isPressable
+		? _x( 'Pressable', 'hosting provider name' )
+		: _x( 'WP.com', 'hosting provider name' );
 	const environmentLabel = getEnvironmentLabel( site );
 	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
 	const className = clsx(

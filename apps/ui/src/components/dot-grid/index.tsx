@@ -13,7 +13,7 @@ interface DotGridProps {
 }
 
 const REPULSION = 0.25;
-const RIPPLE_STRENGTH = 1;
+const RIPPLE_STRENGTH = 0.3;
 const SPRING_K = 0.07;
 const DAMPING = 0.8;
 const SLEEP_EPS = 0.08;

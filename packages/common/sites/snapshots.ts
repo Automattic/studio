@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
+import { runCliCommand, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
-import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 /**
  * Preview-site (snapshot) operations, delegated to the Studio CLI. Each
@@ -12,19 +12,21 @@ import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 type OperationId = ReturnType< typeof crypto.randomUUID >;
 
-// A progress/log line, or a final key/value (e.g. the preview `url`/`name`),
-// matching what the CLI's Logger emits over its IPC channel.
+// A progress/log line, matching what the CLI's Logger emits over its IPC channel.
 export type SnapshotProgress = {
 	action: PreviewCommandLoggerAction;
 	status: 'inprogress' | 'fail' | 'success';
 	message: string;
 };
-export type SnapshotKeyValue = { action: 'keyValuePair'; key: string; value: string };
+
+// What `preview create` and `preview update` report as their result.
+const previewResultSchema = z.object( { name: z.string().optional(), url: z.string() } );
+export type PreviewResult = z.infer< typeof previewResultSchema >;
 
 // Everything a snapshot command produces for the UI, correlated by operationId.
 export type SnapshotOutput =
 	| { kind: 'output'; operationId: OperationId; data: SnapshotProgress }
-	| { kind: 'key-value'; operationId: OperationId; data: SnapshotKeyValue }
+	| { kind: 'result'; operationId: OperationId; data: PreviewResult }
 	| { kind: 'error'; operationId: OperationId; data: SnapshotProgress }
 	| { kind: 'fatal-error'; operationId: OperationId; data: { message: string } }
 	| { kind: 'success'; operationId: OperationId };
@@ -35,11 +37,7 @@ const snapshotEventSchema = z.discriminatedUnion( 'action', [
 		status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
 		message: z.string(),
 	} ),
-	z.object( {
-		action: z.literal( 'keyValuePair' ),
-		key: z.string(),
-		value: z.string(),
-	} ),
+	z.object( { action: z.literal( 'result' ), value: previewResultSchema } ),
 ] );
 
 export interface SnapshotCommandContext {
@@ -67,8 +65,8 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 				console.error( 'Invalid snapshot event:', parsed.error );
 				return;
 			}
-			if ( parsed.data.action === 'keyValuePair' ) {
-				ctx.emit( { kind: 'key-value', operationId, data: parsed.data } );
+			if ( parsed.data.action === 'result' ) {
+				ctx.emit( { kind: 'result', operationId, data: parsed.data.value } );
 			} else if ( parsed.data.status === 'fail' ) {
 				ctx.emit( { kind: 'error', operationId, data: parsed.data } );
 			} else {
@@ -115,64 +113,31 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
  * Creates a preview site, or refreshes the one at `hostname`, and resolves with its URL once the
  * CLI command finishes. The command publishes its progress as sync activity.
  */
-export function publishPreviewSite(
+export async function publishPreviewSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	hostname?: string
 ): Promise< { url: string } > {
-	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			hostname
-				? [ 'preview', 'update', '--path', siteFolder, hostname ]
-				: [ 'preview', 'create', '--path', siteFolder ],
-			{ output: 'capture', logPrefix: 'preview' }
-		);
-		let url: string | undefined;
-		emitter.on( 'data', ( { data } ) => {
-			const parsed = snapshotEventSchema.safeParse( data );
-			if ( parsed.success && parsed.data.action === 'keyValuePair' && parsed.data.key === 'url' ) {
-				url = parsed.data.value;
-			}
-		} );
-		emitter.on( 'success', () =>
-			url
-				? resolve( { url } )
-				: reject( new Error( 'Preview site command succeeded but no URL was returned.' ) )
-		);
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
+	const { url } = await runCliCommand(
+		executeCliCommand,
+		hostname
+			? [ 'preview', 'update', '--path', siteFolder, hostname ]
+			: [ 'preview', 'create', '--path', siteFolder ],
+		previewResultSchema,
+		{ logPrefix: 'preview' }
+	);
+	return { url };
 }
-
-// The CLI reports the snapshot list over its IPC channel as a `keyValuePair`
-// ("snapshots" → JSON string), the same envelope the desktop reads.
-const snapshotListKeyValueSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'snapshots' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) as unknown )
-		.pipe( z.array( snapshotSchema ) ),
-} );
 
 export async function fetchSnapshots(
 	executeCliCommand: ExecuteCliCommand
 ): Promise< Snapshot[] > {
 	try {
-		return await new Promise< Snapshot[] >( ( resolve, reject ) => {
-			const [ emitter ] = executeCliCommand( [ 'preview', 'list', '--format', 'json' ], {
-				output: 'capture',
-			} );
-			emitter.on( 'data', ( { data } ) => {
-				const parsed = snapshotListKeyValueSchema.safeParse( data );
-				if ( parsed.success ) {
-					resolve( parsed.data.value );
-				}
-			} );
-			emitter.on( 'success', () => resolve( [] ) );
-			emitter.on( 'failure', ( { error } ) => reject( error ) );
-			emitter.on( 'error', ( { error } ) => reject( error ) );
-		} );
+		return await runCliCommand(
+			executeCliCommand,
+			[ 'preview', 'list', '--format', 'json' ],
+			z.array( snapshotSchema )
+		);
 	} catch ( error ) {
 		console.error( 'Failed to fetch snapshots from CLI:', error );
 		return [];

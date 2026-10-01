@@ -19,9 +19,7 @@ function truncate( str: string, maxLength: number ): string {
 
 function displayBlueprints( blueprints: Blueprint[], format: 'table' | 'json' ): void {
 	if ( format === 'json' ) {
-		const json = JSON.stringify( blueprints );
-		console.log( json );
-		logger.reportKeyValuePair( 'blueprints', json );
+		console.log( JSON.stringify( blueprints ) );
 		return;
 	}
 

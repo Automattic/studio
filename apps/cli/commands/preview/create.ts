@@ -85,8 +85,7 @@ export async function runCommand(
 		await recordPreviewCreateEvent( { success: true, time_ms: Date.now() - startedAt } );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 
-		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
-		logger.reportKeyValuePair( 'url', snapshot.url );
+		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
 	} catch ( error ) {
 		if ( siteId ) {
 			await reportSyncActivity( siteId, {

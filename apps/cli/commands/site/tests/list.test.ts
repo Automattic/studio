@@ -3,7 +3,7 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { mockReportKeyValuePair } from 'cli/tests/test-utils';
+import { mockReportResult } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -22,7 +22,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = vi.fn();
 		reportProgress = vi.fn();
 		reportWarning = vi.fn();
-		reportKeyValuePair = mockReportKeyValuePair;
+		reportResult = mockReportResult;
 		spinner = {};
 		currentAction = null;
 	},
@@ -121,10 +121,7 @@ describe( 'CLI: studio site list', () => {
 				},
 			];
 			expect( consoleSpy ).toHaveBeenCalledWith( JSON.stringify( publicSites ) );
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-				'sites',
-				JSON.stringify( publicSites )
-			);
+			expect( mockReportResult ).toHaveBeenCalledWith( publicSites );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
@@ -174,9 +171,7 @@ describe( 'CLI: studio site list', () => {
 			expect( stdout ).not.toContain( encodedPassword );
 			expect( stdout ).not.toContain( 'FUTURE_TOKEN_VALUE' );
 
-			const [ , ipcJson ] = mockReportKeyValuePair.mock.calls[ 0 ];
-			const ipcSites = JSON.parse( ipcJson ) as Array< Record< string, unknown > >;
-			expect( ipcSites[ 0 ] ).toMatchObject( {
+			expect( mockReportResult.mock.calls[ 0 ][ 0 ][ 0 ] ).toMatchObject( {
 				id: 'site-1',
 				adminPassword: encodedPassword,
 			} );
@@ -199,8 +194,7 @@ describe( 'CLI: studio site list', () => {
 
 			await runCommand( 'json' );
 
-			const [ , json ] = mockReportKeyValuePair.mock.calls[ 0 ];
-			expect( JSON.parse( json )[ 0 ] ).not.toHaveProperty( 'operation' );
+			expect( mockReportResult.mock.calls[ 0 ][ 0 ][ 0 ].operation ).toBeUndefined();
 		} );
 
 		it( 'should handle no sites found', async () => {
@@ -217,16 +211,15 @@ describe( 'CLI: studio site list', () => {
 
 			await runCommand( 'json' );
 
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'sites', '[]' );
+			expect( mockReportResult ).toHaveBeenCalledWith( [] );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle custom domain in site URL', async () => {
 			await runCommand( 'json' );
 
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-				'sites',
-				expect.stringContaining( 'my-site.wp.local' )
+			expect( mockReportResult ).toHaveBeenCalledWith(
+				expect.arrayContaining( [ expect.objectContaining( { url: 'http://my-site.wp.local' } ) ] )
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );

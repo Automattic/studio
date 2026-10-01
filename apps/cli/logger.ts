@@ -145,6 +145,13 @@ export class Logger< T extends string > {
 		this.currentAction = null;
 	}
 
+	/** Sends the command's result to the host that started it. Hosts read it with `runCliCommand`. */
+	public reportResult( value: unknown ) {
+		if ( canSend() ) {
+			process.send!( { action: 'result', value } );
+		}
+	}
+
 	public reportKeyValuePair( key: string, value: string ) {
 		if ( canSend() ) {
 			process.send!( { action: 'keyValuePair', key, value } );

@@ -1412,9 +1412,7 @@ export async function runCommand(
 			console.log( __( 'Run "studio start" to start the site.' ) );
 		}
 
-		logger.reportKeyValuePair( 'id', siteDetails.id );
-		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
-		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
+		logger.reportResult( { ...siteDetails, url: getSiteUrl( siteDetails ) } );
 
 		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
 		// existence (new/blueprint/import/sync/duplicate, app-spawned or standalone) is counted once.

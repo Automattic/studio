@@ -18,7 +18,6 @@ const mockReportSuccess = vi.fn();
 const mockReportError = vi.fn();
 const mockReportProgress = vi.fn();
 const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
 
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
@@ -54,7 +53,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = mockReportError;
 		reportProgress = mockReportProgress;
 		reportWarning = mockReportWarning;
-		reportKeyValuePair = mockReportKeyValuePair;
+		reportResult = vi.fn();
 		spinner = {};
 		currentAction = null;
 	},

@@ -311,3 +311,48 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 
 	return { executeCliCommand, killAll } as CliRunner;
 }
+
+const cliResultMessageSchema = z.object( { action: z.literal( 'result' ), value: z.unknown() } );
+const cliProgressMessageSchema = z.object( {
+	status: z.literal( 'inprogress' ),
+	message: z.string(),
+} );
+
+/**
+ * Runs a CLI command and resolves with the result it reports (`logger.reportResult`), parsed by
+ * `schema`. Rejects with the command's error, or when it succeeds without reporting a result.
+ */
+export function runCliCommand< T >(
+	execute: ExecuteCliCommand,
+	args: string[],
+	schema: z.ZodType< T >,
+	options: { logPrefix?: string; onProgress?: ( message: string ) => void } = {}
+): Promise< T > {
+	return new Promise( ( resolve, reject ) => {
+		let result: z.ZodSafeParseResult< T > | undefined;
+		const [ emitter ] = execute( args, { output: 'capture', logPrefix: options.logPrefix } );
+		emitter.on( 'data', ( { data } ) => {
+			const message = cliResultMessageSchema.safeParse( data );
+			if ( message.success ) {
+				result = schema.safeParse( message.data.value );
+				return;
+			}
+			const progress = cliProgressMessageSchema.safeParse( data );
+			if ( progress.success ) {
+				options.onProgress?.( progress.data.message );
+			}
+		} );
+		emitter.on( 'success', () => {
+			if ( result?.success ) {
+				resolve( result.data );
+			} else {
+				reject(
+					result?.error ??
+						new Error( `\`studio ${ args.slice( 0, 2 ).join( ' ' ) }\` reported no result.` )
+				);
+			}
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}

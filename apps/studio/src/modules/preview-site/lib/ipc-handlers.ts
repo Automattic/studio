@@ -24,8 +24,8 @@ function snapshotManagerForWindow( window: BrowserWindow | null ): SnapshotManag
 						data: output.data,
 					} );
 					break;
-				case 'key-value':
-					sendIpcEventToRendererWithWindow( window, 'snapshot-key-value', {
+				case 'result':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-result', {
 						operationId: output.operationId,
 						data: output.data,
 					} );

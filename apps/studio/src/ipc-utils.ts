@@ -8,16 +8,12 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { PreviewResult } from '@studio/common/sites/snapshots';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
 	status: 'inprogress' | 'fail' | 'success';
 	message: string;
-};
-type SnapshotKeyValueEventData = {
-	action: 'keyValuePair';
-	key: string;
-	value: string;
 };
 
 export interface IpcEvents {
@@ -43,7 +39,7 @@ export interface IpcEvents {
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
-	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
+	'snapshot-result': [ { operationId: crypto.UUID; data: PreviewResult } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
 	'show-getting-started': [ void ];

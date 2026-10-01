@@ -420,7 +420,6 @@ export async function runCommand(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			logger.reportKeyValuePair( 'id', site.id );
 
 			// Imported sites' databases come from the remote dump, which lacks
 			// the local admin user. Without this, the auto-login mu-plugin can't

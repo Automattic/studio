@@ -42,7 +42,6 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
@@ -381,27 +380,15 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
-			const unsubscribe = onProgress
-				? ipcListener.subscribe(
-						'on-import',
-						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
-							if ( importSiteId === siteId ) onProgress( importEvent );
-						}
-				  )
-				: undefined;
-			try {
-				await ipcApi.importSite( siteId, backupPath, {
-					alwaysStartServer: true,
-					showErrorModal: false,
-					showNotification: false,
-					// Onboarding imports are part of the add-site flow, which `studio_site_imported`
-					// deliberately does not count.
-					suppressTracksEvent: true,
-				} );
-			} finally {
-				unsubscribe?.();
-			}
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await ipcApi.importSite( siteId, backupPath, {
+				alwaysStartServer: true,
+				showErrorModal: false,
+				showNotification: false,
+				// Onboarding imports are part of the add-site flow, which `studio_site_imported`
+				// deliberately does not count.
+				suppressTracksEvent: true,
+			} );
 		},
 
 		async startSite( id ) {

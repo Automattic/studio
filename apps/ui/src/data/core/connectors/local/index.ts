@@ -31,7 +31,6 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
@@ -56,8 +55,6 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
-type ImportSseOutput = { siteId: string; event: ImportEventTuple };
-
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
 type ServerEvent =
@@ -65,7 +62,6 @@ type ServerEvent =
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-activity'; payload: SyncEvent }
-	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
 	| { channel: 'site-event'; payload: SiteEvent }
 	| { channel: 'auth-event'; payload: unknown };
@@ -91,7 +87,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
 	const syncActivityListeners = new Set< ( event: SyncEvent ) => void >();
-	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
@@ -229,8 +224,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-activity' ) {
 					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'import' ) {
-					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'site-event' ) {
@@ -515,21 +508,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
-			const listener = onProgress
-				? ( output: ImportSseOutput ) => {
-						if ( output.siteId === siteId ) onProgress( output.event );
-				  }
-				: undefined;
-			if ( listener ) importListeners.add( listener );
-			try {
-				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-					method: 'POST',
-					body: JSON.stringify( { path: backupPath } ),
-				} );
-			} finally {
-				if ( listener ) importListeners.delete( listener );
-			}
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+				method: 'POST',
+				body: JSON.stringify( { path: backupPath } ),
+			} );
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot

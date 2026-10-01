@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
+import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { Connector } from '@/data/core';
@@ -91,6 +95,36 @@ describe( 'usePullSiteFromLive', () => {
 		act( () => publish( { siteId: 'site-1', activity: { kind: 'success', direction: 'pull' } } ) );
 		expect( screen.getByText( 'success' ) ).toBeVisible();
 		expect( toast.success ).toHaveBeenCalledWith( 'Pull complete' );
+	} );
+
+	// An import replaces the site wholesale, so everything read off it is stale —
+	// disk usage caches for minutes and the overview never unmounts.
+	it( 'refreshes what an import changed once it settles', () => {
+		const queryClient = new QueryClient();
+		const staleKeys = [
+			SITES_QUERY_KEY,
+			[ ...WP_VERSION_QUERY_KEY, 'site-2' ],
+			siteStorageUsageQueryKey( 'site-2' ),
+			siteThumbnailQueryKey( 'site-2' ),
+		];
+		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
+		render(
+			<QueryClientProvider client={ queryClient }>
+				<SyncActivityEvents />
+			</QueryClientProvider>
+		);
+
+		act( () =>
+			publish( { siteId: 'site-2', activity: { kind: 'pending', direction: 'import' } } )
+		);
+		act( () =>
+			publish( { siteId: 'site-2', activity: { kind: 'success', direction: 'import' } } )
+		);
+
+		staleKeys.forEach( ( key ) =>
+			expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
+		);
+		expect( toast.success ).toHaveBeenCalledWith( 'Import finished' );
 	} );
 
 	it( 'announces a button sync once when the CLI reports after it exits', async () => {

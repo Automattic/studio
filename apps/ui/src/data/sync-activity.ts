@@ -6,9 +6,9 @@ import type { PushPhase } from '@studio/common/types/sync';
 
 export type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 
-// In-flight and recently finished syncs per site, fed by the activity the CLI
-// publishes. Module-level so it survives remounts during navigation. Imports are
-// still reported by the import dialog.
+// In-flight and recently finished syncs and imports per site, fed by the
+// activity the CLI publishes. Module-level so it survives remounts during
+// navigation.
 
 // How long success/error stay visible before the indicator vanishes.
 // Matches the 30s requirement from the UX spec.

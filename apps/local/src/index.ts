@@ -64,7 +64,6 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
@@ -1326,15 +1325,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 						],
 						{ output: 'capture' }
 					);
-					emitter.on( 'data', ( { data } ) => {
-						const parsed = importIpcEventSchema.safeParse( data );
-						if ( parsed.success ) {
-							sseSend( {
-								channel: 'import',
-								payload: { siteId: site.id, event: parsed.data.event },
-							} );
-						}
-					} );
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );

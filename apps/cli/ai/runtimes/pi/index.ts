@@ -559,7 +559,7 @@ function createWpcomProviderConfig(
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	// The model keeps its stable id for pi and the session history; only the
 	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId ).apiModelId;
+	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),

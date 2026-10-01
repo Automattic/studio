@@ -364,6 +364,33 @@ describe( 'pi runtime', () => {
 		}
 	);
 
+	it.each( [ 'fast', 'balanced', 'strong' ] as const )(
+		'surfaces the proxy cost cap on the %s tier as a usage-cap error',
+		async ( model ) => {
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const body = JSON.stringify( {
+				error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
+			} );
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockImplementation( async () => new Response( body, { status: 429 } ) );
+
+			try {
+				const result = await options
+					.modelRuntime!.streamSimple(
+						options.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
+			} finally {
+				fetchSpy.mockRestore();
+			}
+		}
+	);
+
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {
 			prompt: 'hello',

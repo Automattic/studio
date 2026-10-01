@@ -125,7 +125,7 @@ function getPreviewLabel( previewSnapshot: Snapshot | undefined ): string | null
 	);
 }
 
-function getPushLabel( liveSite: SyncSite | undefined ): string | null {
+export function getPushLabel( liveSite: SyncSite | undefined ): string | null {
 	return formatIsoTimestampPhrase(
 		liveSite?.lastPushTimestamp,
 		__( 'Pushed just now' ),
@@ -138,7 +138,7 @@ function getPushLabel( liveSite: SyncSite | undefined ): string | null {
 	);
 }
 
-function getPullLabel( liveSite: SyncSite | undefined ): string | null {
+export function getPullLabel( liveSite: SyncSite | undefined ): string | null {
 	return formatIsoTimestampPhrase(
 		liveSite?.lastPullTimestamp,
 		__( 'Pulled just now' ),

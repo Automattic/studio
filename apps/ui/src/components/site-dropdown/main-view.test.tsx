@@ -274,6 +274,23 @@ describe( 'MainView', () => {
 		expect( screen.getByRole( 'button', { name: 'Push to live' } ) ).toBeInTheDocument();
 	} );
 
+	it( 'tells when the live site was last pulled and pushed', () => {
+		connectedSites.splice( 0, connectedSites.length, {
+			...liveSite,
+			lastPullTimestamp: new Date( Date.now() - 2 * 60 * 60 * 1000 ).toISOString(),
+			lastPushTimestamp: new Date().toISOString(),
+		} );
+
+		renderMainView();
+
+		expect(
+			screen.getByRole( 'button', { name: 'Pull from live · Pulled 2h ago' } )
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Push to live · Pushed just now' } )
+		).toBeInTheDocument();
+	} );
+
 	it( 'offers to stop an in-flight push and reports the site being stopped', () => {
 		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );

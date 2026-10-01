@@ -33,7 +33,7 @@ import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
-import { getSyncActivityLabel } from './trigger-secondary';
+import { getPullLabel, getPushLabel, getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
 	getSiteStatusName,
@@ -180,7 +180,12 @@ export function MainView( {
 		void connector.openExternalUrl( url );
 	};
 
-	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
+	const getSyncActionLabel = (
+		idle: string,
+		pending: string,
+		isPending: boolean,
+		lastSynced?: string | null
+	): string => {
 		if ( isPending ) {
 			return pending;
 		}
@@ -203,7 +208,14 @@ export function MainView( {
 				: // translators: %s: a sync action, e.g. "Pull from live".
 				  sprintf( __( '%s (sign in required)' ), idle );
 		}
-		return idle;
+		return lastSynced
+			? sprintf(
+					/* translators: 1: a sync action, e.g. "Pull from live". 2: when it last ran, e.g. "Pulled 2h ago". */
+					__( '%1$s · %2$s' ),
+					idle,
+					lastSynced
+			  )
+			: idle;
 	};
 
 	const handlePreviewClick = () => {
@@ -400,7 +412,8 @@ export function MainView( {
 								label={ getSyncActionLabel(
 									__( 'Pull from live' ),
 									__( 'Pulling from live…' ),
-									isPullPending
+									isPullPending,
+									getPullLabel( liveSite )
 								) }
 								className={ styles.rowActionButton }
 								loading={ isPullPending }
@@ -417,7 +430,8 @@ export function MainView( {
 								label={ getSyncActionLabel(
 									__( 'Push to live' ),
 									__( 'Pushing to live…' ),
-									isPushPending
+									isPushPending,
+									getPushLabel( liveSite )
 								) }
 								className={ styles.rowActionButton }
 								loading={ isPushPending }

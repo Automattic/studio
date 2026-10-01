@@ -332,7 +332,17 @@ export function useSyncSitesWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH );
+			// Keeping the in-flight fetch means joining it, and it may have read the
+			// sites before this event (an operation's release lands moments after its
+			// acquire). Refetch once more after it settles so the event isn't lost.
+			const joinsInFlightFetch = queryClient.isFetching( { queryKey: SITES_QUERY_KEY } ) > 0;
+			void queryClient
+				.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+				.then( () =>
+					joinsInFlightFetch
+						? queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+						: undefined
+				);
 			// Site deletion deletes the site's chat sessions (CLI `site delete`),
 			// so refresh the session list too. Scoped to deletes: start/stop
 			// events fire often and don't affect sessions. `exact` keeps this off

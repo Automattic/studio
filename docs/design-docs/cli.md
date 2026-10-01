@@ -29,14 +29,14 @@ The first iteration of the CLI shipped commands to create, read, update, and del
    - The node.js `child_process` module is used to fork a process that runs the CLI.
    - When running in forked mode, the CLI process uses the `process.send` API to communicate back to Studio.
    - IPC messages received from the CLI are parsed and validated. The results are emitted as Electron IPC events to the renderer process.
-   - The renderer process uses "logger action" definitions from the `common` folder to determine command progress based on incoming IPC events.
+   - Progress for most commands is read from these messages, using the "logger action" definitions in `packages/common/logger-actions`. Push, pull and preview instead publish their progress as sync activity events (see below), so every UI shows them whoever started them.
 
-3. Studio reacts when the CLI modifies preview sites:
+3. Studio reacts when the CLI changes state:
 
-   - Studio spawns the `_events` CLI command when the application starts.
-   - The `_events` command runs a local IPC server that other CLI processes send events to. Those events are passed back to Studio over standard `process.send` IPC.
-   - Studio parses and validates the events and emits `snapshot-event` events to the renderer process.
-   - State handlers in the renderer process (primarily Redux slices) listen to `snapshot-event` events and update the state accordingly.
+   - CLI processes publish events with `emitCliEvent` to the events socket (`~/.studio/daemon/events.sock`, a named pipe on Windows): sites created, updated or deleted, site operations claimed or released, snapshot changes, auth changes, and sync activity (a push, pull or preview's progress and result).
+   - Every Studio host runs the `_events` CLI command: the desktop app when it starts, and the `studio ui` server. The first one to bind the events socket is the hub and rebroadcasts each event to the others; they follow it and take over when it exits (`apps/cli/lib/event-hub.ts`). `_events` also turns the process-manager daemon's site-process events into site events.
+   - `_events` passes each event back to its host over `process.send` IPC. The desktop relays them to the renderer over Electron IPC (`site-event`, `snapshot-event`, `auth-updated`, `sync-activity`); the `studio ui` server relays them on its SSE stream (`site-event`, `auth-event`, `sync-activity`).
+   - The agentic UI refetches its data on site events and renders sync activity from its activity store, so a sync started by the agent, a terminal or another window shows the same progress and result as one started from a button. The legacy renderer listens to `site-event` in its site details hook and to `snapshot-event` in its snapshot Redux slice.
 
 ## Implementation details
 
@@ -80,7 +80,7 @@ Rather than a written stage cursor, "where do I continue from?" is computed from
 
 ### Studio calling the CLI
 
-Studio instantiates CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through node IPC calls (using the `process.send` API).
+Studio instantiates CLI child processes to execute site operations: creating, starting and stopping sites, import and export, push and pull, and preview sites, as well as running the agent. The CLI communicates with Studio through node IPC calls (using the `process.send` API).
 
 This approach of forking CLI processes to run business logic has both pros and cons.
 

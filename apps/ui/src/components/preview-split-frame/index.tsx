@@ -24,6 +24,9 @@ interface PreviewSplitFrameProps {
 	// Full preview: the preview takes the whole frame and the content column
 	// collapses to zero width (kept mounted so chat state survives).
 	previewFullscreen?: boolean;
+	// Whether the preview shows a live site. Its webview reaches the frame's
+	// edges (scrollbar included), so a flush frame keeps drag handles off it.
+	previewLive?: boolean;
 	onContainerWidthChange?: ( containerWidth: number | null ) => void;
 	children?: ReactNode;
 }
@@ -32,6 +35,7 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	previewFullscreen = false,
+	previewLive = false,
 	onContainerWidthChange,
 	children,
 }: PreviewSplitFrameProps ) {
@@ -147,10 +151,36 @@ export function PreviewSplitFrame( {
 				{ isResizing ? <ResizeOverlay /> : null }
 			</div>
 			{ isSidebarCollapsed ? (
-				<div
-					className={ clsx( styles.dragStrip, styles.dragStripTop, styles.dragStripEdge ) }
-					aria-hidden="true"
-				/>
+				<>
+					<div
+						className={ clsx( styles.dragStrip, styles.dragStripTop, styles.dragStripEdge ) }
+						aria-hidden="true"
+					/>
+					{ ! showFullscreen ? (
+						<div
+							className={ clsx( styles.dragStrip, styles.dragStripStart, styles.dragStripEdge ) }
+							aria-hidden="true"
+						/>
+					) : null }
+					{ ! showFullscreen || ! previewLive ? (
+						<div
+							className={ clsx(
+								styles.dragStrip,
+								styles.dragStripBottom,
+								styles.dragStripEdge,
+								showPreview && previewLive && styles.dragStripContentOnly
+							) }
+							style={ rootStyle }
+							aria-hidden="true"
+						/>
+					) : null }
+					{ showPreview && ! previewLive ? (
+						<div
+							className={ clsx( styles.dragStrip, styles.dragStripEnd, styles.dragStripEdge ) }
+							aria-hidden="true"
+						/>
+					) : null }
+				</>
 			) : (
 				<>
 					<div

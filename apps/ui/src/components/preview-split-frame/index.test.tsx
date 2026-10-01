@@ -150,31 +150,57 @@ describe( 'PreviewSplitFrame', () => {
 	} );
 
 	describe( 'window drag strips', () => {
-		function renderStrips( sidebarCollapsed: boolean ) {
+		function renderStrips(
+			sidebarCollapsed: boolean,
+			props: Partial< ComponentProps< typeof PreviewSplitFrame > > = {}
+		) {
 			const { container } = render(
 				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
-					<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+					<PreviewSplitFrame
+						previewOpen
+						preview={ () => <aside aria-label="Site preview" /> }
+						{ ...props }
+					>
 						<span data-testid="content">Content</span>
 					</PreviewSplitFrame>
 				</SidebarCollapsedContext.Provider>
 			);
 			return Array.from( container.querySelectorAll( '[class*="dragStrip"]' ) ).map(
-				( strip ) => strip.className
+				( strip ) =>
+					[ 'Top', 'Bottom', 'Start', 'End' ].find( ( edge ) =>
+						strip.className.includes( `dragStrip${ edge }` )
+					) + ( strip.className.includes( 'dragStripContentOnly' ) ? ':content' : '' )
 			);
 		}
 
 		it( 'covers the chrome gaps around the inset frame', () => {
-			const strips = renderStrips( false );
-			expect( strips ).toHaveLength( 3 );
-			expect( strips.join( ' ' ) ).toMatch( /dragStripTop/ );
-			expect( strips.join( ' ' ) ).toMatch( /dragStripBottom/ );
-			expect( strips.join( ' ' ) ).toMatch( /dragStripEnd/ );
+			expect( renderStrips( false ) ).toEqual( [ 'Top', 'Bottom', 'End' ] );
 		} );
 
-		it( 'falls back to the top window edge when the frame is flush', () => {
-			const strips = renderStrips( true );
-			expect( strips ).toHaveLength( 1 );
-			expect( strips[ 0 ] ).toMatch( /dragStripEdge/ );
+		it( 'uses every window edge of a flush frame around a stopped site', () => {
+			expect( renderStrips( true ) ).toEqual( [ 'Top', 'Start', 'Bottom', 'End' ] );
+		} );
+
+		it( 'keeps the edge handles off a live preview', () => {
+			expect( renderStrips( true, { previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom:content',
+			] );
+		} );
+
+		it( 'runs the bottom handle full width with the preview closed', () => {
+			expect( renderStrips( true, { previewOpen: false, previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom',
+			] );
+		} );
+
+		it( 'leaves only the top edge over a live full preview', () => {
+			expect( renderStrips( true, { previewFullscreen: true, previewLive: true } ) ).toEqual( [
+				'Top',
+			] );
 		} );
 	} );
 

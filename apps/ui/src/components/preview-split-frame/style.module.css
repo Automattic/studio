@@ -71,17 +71,36 @@
 	inset-block-end: 0;
 }
 
-.dragStripEnd {
+.dragStripEnd,
+.dragStripStart {
 	inset-block: 0;
-	inset-inline-end: 0;
 	width: 12px;
 }
 
-/* A flush frame leaves no chrome gap, so the window's top edge becomes the
-   handle instead. Kept above the header and toolbar controls, which start
-   8px down. */
-.dragStripEdge {
+.dragStripEnd {
+	inset-inline-end: 0;
+}
+
+.dragStripStart {
+	inset-inline-start: 0;
+}
+
+/* A flush frame leaves no chrome gap, so the window's own edges become the
+   handles instead, kept narrow enough to clear the controls along them. */
+.dragStripEdge.dragStripTop,
+.dragStripEdge.dragStripBottom {
 	height: 8px;
+}
+
+.dragStripEdge.dragStripStart,
+.dragStripEdge.dragStripEnd {
+	width: 8px;
+}
+
+/* Stops short of a live preview, whose webview runs to the window edge. */
+.dragStripContentOnly {
+	inset-inline-end: auto;
+	width: var(--preview-frame-content-width);
 }
 
 /* Opaque and above the preview slot so it fully covers the (still mounted)

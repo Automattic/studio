@@ -24,7 +24,7 @@ function runSyncCommand(
 			try {
 				killChild( child );
 			} catch ( error ) {
-				console.error( `[${ args[ 0 ] }] Failed to stop the CLI process`, error );
+				console.error( 'Failed to stop the CLI process for', args[ 0 ], error );
 			}
 			reject( new SyncCancelledError() );
 		};

@@ -22,7 +22,7 @@ import styles from './style.module.css';
 import { getSiteDropdownSecondary } from './trigger-secondary';
 import { deriveSiteStatus, ensureProtocol, pickLatestSnapshot, pickLiveSite } from './utils';
 import type { TreeNode } from '@/components/selective-sync/tree-view';
-import type { SiteDetails } from '@/data/core';
+import type { SiteDetails, SyncSite } from '@/data/core';
 
 type Props = {
 	site: SiteDetails;
@@ -51,7 +51,11 @@ export function SiteDropdown( {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const reopenAfterDialogRef = useRef( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
-	const [ syncDialogType, setSyncDialogType ] = useState< 'push' | 'pull' | null >( null );
+	const [ disconnectSite, setDisconnectSite ] = useState< SyncSite | null >( null );
+	const [ syncDialog, setSyncDialog ] = useState< {
+		type: 'push' | 'pull';
+		liveSite: SyncSite;
+	} | null >( null );
 
 	const connector = useConnector();
 	const pushSiteToLive = usePushSiteToLive();
@@ -70,8 +74,6 @@ export function SiteDropdown( {
 	const operation = useSiteOperation( site );
 	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping, operation );
 
-	// Only needed here so the disconnect dialog can reference the current live
-	// site. MainView fetches the same data independently for its action row.
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const { data: snapshots } = useSnapshots();
 	const activity = useSiteSyncActivity( site.id );
@@ -91,23 +93,24 @@ export function SiteDropdown( {
 		[ activity, activeEnvironment, liveSite, previewSnapshot ]
 	);
 
-	const handleDisconnectClick = () => {
+	const handleDisconnectClick = ( target: SyncSite ) => {
 		// Close the dropdown before showing the confirmation dialog so the two
 		// overlays don't stack.
 		setMenuOpen( false );
+		setDisconnectSite( target );
 		setDisconnectOpen( true );
 	};
 
-	const openSyncDialog = ( type: 'push' | 'pull' ) => {
+	const openSyncDialog = ( type: 'push' | 'pull', target: SyncSite ) => {
 		// Same overlay rule as the disconnect dialog: dropdown closes first.
 		setMenuOpen( false );
-		setSyncDialogType( type );
+		setSyncDialog( { type, liveSite: target } );
 	};
 
 	const startSyncFromDialog = ( start: () => void ) => {
 		start();
 		reopenAfterDialogRef.current = true;
-		setSyncDialogType( null );
+		setSyncDialog( null );
 	};
 
 	// Reopen the dropdown once the dialog is gone, so the sync progress and its
@@ -117,33 +120,35 @@ export function SiteDropdown( {
 	// outside it. Running in an effect (rather than a timer) guarantees the modal
 	// has unmounted and returned focus first — cleanups run before this.
 	useEffect( () => {
-		if ( syncDialogType !== null || ! reopenAfterDialogRef.current ) {
+		if ( syncDialog !== null || ! reopenAfterDialogRef.current ) {
 			return;
 		}
 		reopenAfterDialogRef.current = false;
 		rootRef.current?.querySelector< HTMLElement >( '[aria-haspopup="menu"]' )?.click();
-	}, [ syncDialogType ] );
+	}, [ syncDialog ] );
 
 	const handleDialogPush = ( tree: TreeNode[] ) => {
-		if ( ! liveSite ) return;
+		if ( ! syncDialog ) return;
+		const target = syncDialog.liveSite;
 		const options = convertTreeToPushOptions( tree );
 		startSyncFromDialog( () =>
 			pushSiteToLive.mutate(
-				{ siteId: site.id, remoteSiteId: liveSite.id, options, syncSite: liveSite },
-				{ onSuccess: () => void connector.openExternalUrl( ensureProtocol( liveSite.url ) ) }
+				{ siteId: site.id, remoteSiteId: target.id, options, syncSite: target },
+				{ onSuccess: () => void connector.openExternalUrl( ensureProtocol( target.url ) ) }
 			)
 		);
 	};
 
 	const handleDialogPull = ( tree: TreeNode[] ) => {
-		if ( ! liveSite ) return;
+		if ( ! syncDialog ) return;
+		const target = syncDialog.liveSite;
 		const { optionsToSync, include_path_list: includePathList } = convertTreeToPullOptions( tree );
 		startSyncFromDialog( () =>
 			pullSiteFromLive.mutate( {
 				siteId: site.id,
-				remoteSiteId: liveSite.id,
+				remoteSiteId: target.id,
 				options: { optionsToSync, includePathList },
-				syncSite: liveSite,
+				syncSite: target,
 			} )
 		);
 	};
@@ -187,30 +192,30 @@ export function SiteDropdown( {
 							activity={ activity }
 							onSetupClick={ () => setView( 'picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
-							onPullClick={ () => openSyncDialog( 'pull' ) }
-							onPushClick={ () => openSyncDialog( 'push' ) }
+							onPullClick={ ( target ) => openSyncDialog( 'pull', target ) }
+							onPushClick={ ( target ) => openSyncDialog( 'push', target ) }
 						/>
 					) : (
 						<PublishPickerView site={ site } onClose={ () => setView( 'main' ) } />
 					) }
 				</Menu.Popup>
 			</Menu.Root>
-			{ liveSite ? (
+			{ disconnectSite ? (
 				<DisconnectSiteDialog
 					localSiteId={ site.id }
-					liveSite={ liveSite }
+					liveSite={ disconnectSite }
 					open={ disconnectOpen }
 					onOpenChange={ setDisconnectOpen }
 				/>
 			) : null }
-			{ liveSite && syncDialogType ? (
+			{ syncDialog ? (
 				<SyncDialog
-					type={ syncDialogType }
+					type={ syncDialog.type }
 					localSite={ site }
-					remoteSite={ liveSite }
+					remoteSite={ syncDialog.liveSite }
 					onPush={ handleDialogPush }
 					onPull={ handleDialogPull }
-					onRequestClose={ () => setSyncDialogType( null ) }
+					onRequestClose={ () => setSyncDialog( null ) }
 				/>
 			) : null }
 		</div>

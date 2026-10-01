@@ -8,7 +8,6 @@ import {
 	external,
 	Icon,
 	moreHorizontal,
-	plus,
 	rotateRight,
 	scheduled,
 	trash,
@@ -20,7 +19,8 @@ import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
-import styles from './previews-section.module.css';
+import { EnvironmentSection } from './environment-section';
+import styles from './environment-section.module.css';
 import {
 	ensureProtocol,
 	getSnapshotExpiredLabel,
@@ -116,34 +116,22 @@ export function PreviewsSection( {
 	};
 
 	return (
-		<section className={ styles.section } aria-label={ __( 'Previews' ) }>
-			<div className={ styles.header }>
-				<div className={ styles.title }>
-					{ __( 'Previews' ) }
-					{ snapshots.length > 0 ? (
-						<span className={ styles.count }>{ snapshots.length }</span>
-					) : null }
-				</div>
-				<Button
-					variant="outline"
-					tone="neutral"
-					size="compact"
-					className={ styles.newButton }
-					disabled={ ! canPublish || ! canCreate || pending !== null }
-					onClick={ () => publish() }
-				>
-					<Icon icon={ plus } size={ 16 } aria-hidden="true" />
-					{ __( 'New preview' ) }
-				</Button>
-			</div>
-
-			{ creatingActivity ? (
-				<div className={ styles.creating } role="status" aria-live="polite">
-					<PreviewProgress activity={ creatingActivity } />
-				</div>
-			) : null }
-			{ notice && ! creatingActivity ? <p className={ styles.notice }>{ notice }</p> : null }
-
+		<EnvironmentSection
+			title={ __( 'Previews' ) }
+			count={ snapshots.length }
+			actionLabel={ __( 'New preview' ) }
+			actionDisabled={ ! canPublish || ! canCreate || pending !== null }
+			onAction={ () => publish() }
+			status={
+				creatingActivity ? (
+					<div className={ styles.creating } role="status" aria-live="polite">
+						<PreviewProgress activity={ creatingActivity } />
+					</div>
+				) : (
+					notice
+				)
+			}
+		>
 			{ snapshots.map( ( snapshot ) => {
 				if ( snapshot.url === updatingHostname && pending ) {
 					return (
@@ -202,7 +190,7 @@ export function PreviewsSection( {
 					/>
 				);
 			} ) }
-		</section>
+		</EnvironmentSection>
 	);
 }
 

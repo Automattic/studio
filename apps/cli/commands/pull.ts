@@ -82,7 +82,7 @@ export async function runCommand(
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 		siteId = site.id;
-		stopReportingProgress = reportPullProgress( site.id, logger );
+		stopReportingProgress = reportPullProgress( site.id, logger, () => remoteSite?.id );
 
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
@@ -307,7 +307,11 @@ export async function runCommand(
 	}
 }
 
-function reportPullProgress( siteId: string, logger: Logger< LoggerAction > ) {
+function reportPullProgress(
+	siteId: string,
+	logger: Logger< LoggerAction >,
+	getRemoteSiteId: () => number | undefined
+) {
 	void reportSyncActivity( siteId, { kind: 'pending', direction: 'pull' } );
 	let lastMessage = '';
 	return logger.observeProgress( ( message, action ) => {
@@ -320,6 +324,7 @@ function reportPullProgress( siteId: string, logger: Logger< LoggerAction > ) {
 		void reportSyncActivity( siteId, {
 			kind: 'pending',
 			direction: 'pull',
+			remoteSiteId: getRemoteSiteId(),
 			message,
 			...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),
 			...( action ? { action } : {} ),

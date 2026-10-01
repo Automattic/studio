@@ -96,6 +96,13 @@
 	color: var(--wpds-color-foreground-content-neutral);
 }
 
+.nameLine {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
 .nameInput {
 	box-sizing: border-box;
 	width: 100%;
@@ -217,6 +224,10 @@ button.url:hover {
 .moreMenuTrigger {
 	justify-content: center;
 	color: var(--wpds-color-foreground-interactive-neutral);
+}
+
+.moreMenuTrigger:is([data-disabled], :disabled) {
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
 }
 
 .moreMenuTrigger svg {

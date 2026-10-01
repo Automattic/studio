@@ -383,6 +383,31 @@ describe( 'MainView', () => {
 		expect( deleteSnapshotMutate ).toHaveBeenCalledWith( { hostname: 'preview.example.com' } );
 	} );
 
+	it( 'lists every connected site and syncs the one picked', () => {
+		const staging = { ...liveSite, id: 456, name: 'Staging Site', isStaging: true };
+		connectedSites.splice( 0, connectedSites.length, liveSite, staging );
+		const onPullClick = vi.fn();
+
+		render(
+			<Menu.Root open>
+				<Menu.Popup>
+					<MainView
+						site={ site }
+						activity={ null }
+						onSetupClick={ vi.fn() }
+						onDisconnectClick={ vi.fn() }
+						onPullClick={ onPullClick }
+						onPushClick={ vi.fn() }
+					/>
+				</Menu.Popup>
+			</Menu.Root>
+		);
+
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Pull from live' } )[ 1 ] );
+		expect( onPullClick ).toHaveBeenCalledWith( staging );
+	} );
+
 	it( 'labels the live sync controls with plain actions while idle', () => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
@@ -410,7 +435,12 @@ describe( 'MainView', () => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView( {
-			activity: { kind: 'pending', direction: 'push', phase: 'uploading' },
+			activity: {
+				kind: 'pending',
+				direction: 'push',
+				phase: 'uploading',
+				remoteSiteId: liveSite.id,
+			},
 		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel push' } ) );
@@ -488,7 +518,7 @@ describe( 'MainView', () => {
 	] as const )( 'keeps the live sync controls busy during a %s', ( direction, busyLabel ) => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
-		renderMainView( { activity: { kind: 'pending', direction } } );
+		renderMainView( { activity: { kind: 'pending', direction, remoteSiteId: liveSite.id } } );
 
 		expect( screen.getByRole( 'button', { name: busyLabel } ) ).toHaveAttribute(
 			'aria-disabled',

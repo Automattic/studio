@@ -19,6 +19,8 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 		action: z.string().optional(),
 		// The preview site a preview update is refreshing; absent while creating one.
 		hostname: z.string().optional(),
+		// The connected site a push or pull targets, once the command knows it.
+		remoteSiteId: z.number().optional(),
 	} ),
 	z.object( { kind: z.literal( 'success' ), direction: syncDirectionSchema } ),
 	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),

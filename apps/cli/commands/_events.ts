@@ -6,6 +6,7 @@
  * stdout key-value pairs that Studio parses.
  */
 
+import fs from 'fs';
 import {
 	AUTH_EVENTS,
 	SITE_EVENTS,
@@ -26,12 +27,13 @@ import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
-	SITE_EVENTS_SOCKET_PATH,
+	EVENTS_SOCKET_PATHS,
+	type EventsListener,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
-import { joinEventHub } from 'cli/lib/event-hub';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
+import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -116,25 +118,10 @@ const emitSingleSnapshotEvent = sequential(
 	}
 );
 
-export async function runCommand(): Promise< void > {
-	let leaveEventHub = async () => {};
-
-	async function cleanup() {
-		await leaveEventHub();
-
-		try {
-			await disconnectFromDaemon();
-		} catch ( err ) {
-			// Do nothing
-		}
-
-		process.exit();
-	}
-
-	process.on( 'SIGINT', () => void cleanup() );
-	process.on( 'SIGTERM', () => void cleanup() );
-
-	leaveEventHub = await joinEventHub( SITE_EVENTS_SOCKET_PATH, ( packet ) => {
+export async function runCommand( listener: EventsListener = 'desktop' ): Promise< void > {
+	const socketPath = EVENTS_SOCKET_PATHS[ listener ];
+	const eventsSocketServer = new SocketServer( socketPath, 2500 );
+	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
 			const parsed = socketEventSchema.parse( packet );
 
@@ -169,6 +156,40 @@ export async function runCommand(): Promise< void > {
 			// Do nothing
 		}
 	} );
+
+	async function cleanup() {
+		await eventsSocketServer.close();
+
+		try {
+			await disconnectFromDaemon();
+		} catch ( err ) {
+			// Do nothing
+		}
+
+		process.exit();
+	}
+
+	process.on( 'SIGINT', () => void cleanup() );
+	process.on( 'SIGTERM', () => void cleanup() );
+
+	// Remove any stale socket from a previous session. Each Studio app is single-instance,
+	// so an existing socket for this listener belongs to a dead session and must be replaced.
+	if ( process.platform !== 'win32' ) {
+		try {
+			fs.unlinkSync( socketPath );
+		} catch ( err ) {
+			// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
+		}
+	}
+
+	try {
+		await eventsSocketServer.listen();
+	} catch ( error ) {
+		console.error( 'Failed to bind to events socket', error );
+
+		await cleanup();
+		return;
+	}
 
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 	await connectToDaemon();
@@ -210,9 +231,9 @@ export async function runCommand(): Promise< void > {
 	} );
 }
 
-export async function commandHandler() {
+export async function commandHandler( listener?: EventsListener ) {
 	try {
-		await runCommand();
+		await runCommand( listener );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

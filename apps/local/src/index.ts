@@ -436,8 +436,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
-	// browser through the same `_events` stream the Desktop subscribes to.
-	const [ cliEvents ] = execute( [ '_events' ], { output: 'capture' } );
+	// browser through `_events`, listening on the socket kept for `studio ui`.
+	const [ cliEvents ] = execute( [ '_events', '--listener', 'ui' ], { output: 'capture' } );
 	cliEvents.on( 'error', ( { error } ) => console.error( 'CLI events subscriber failed:', error ) );
 	cliEvents.on( 'data', ( { data } ) => {
 		const siteEvent = cliSiteEventSchema.safeParse( data );

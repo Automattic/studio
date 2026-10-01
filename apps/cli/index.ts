@@ -314,10 +314,17 @@ async function main() {
 		.command( {
 			command: '_events',
 			describe: false, // Hidden command
-			handler: async () => {
+			builder: ( yargs ) =>
+				yargs.option( 'listener', {
+					type: 'string',
+					choices: [ 'desktop', 'ui' ] as const,
+					default: 'desktop' as const,
+					hidden: true,
+				} ),
+			handler: async ( argv ) => {
 				const { commandHandler: eventsCommandHandler } = await import( 'cli/commands/_events' );
 
-				return eventsCommandHandler();
+				return eventsCommandHandler( argv.listener );
 			},
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )

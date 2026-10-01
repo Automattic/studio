@@ -2,7 +2,9 @@ import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import {
 	createSnapshotManager,
 	fetchSnapshots as fetchSnapshotsFromCli,
+	deletePreviewSite as deletePreviewSiteViaCli,
 	publishPreviewSite as publishPreviewSiteViaCli,
+	renamePreviewSite as renamePreviewSiteViaCli,
 	type SnapshotManager,
 	type SnapshotOutput,
 } from '@studio/common/sites/snapshots';
@@ -61,9 +63,22 @@ export async function fetchSnapshots(): Promise< Snapshot[] > {
 export async function publishPreviewSite(
 	_event: IpcMainInvokeEvent,
 	siteFolder: string,
-	hostname?: string
+	hostname?: string,
+	name?: string
 ): Promise< { url: string } > {
-	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname );
+	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name );
+}
+
+export async function deletePreviewSite( _event: IpcMainInvokeEvent, hostname: string ) {
+	return deletePreviewSiteViaCli( executeCliCommand, hostname );
+}
+
+export async function renamePreviewSite(
+	_event: IpcMainInvokeEvent,
+	hostname: string,
+	name: string
+) {
+	return renamePreviewSiteViaCli( executeCliCommand, hostname, name );
 }
 
 export async function createSnapshot(

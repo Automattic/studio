@@ -17,6 +17,8 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 		phase: z.enum( PUSH_PHASES ).optional(),
 		// The CLI logger action behind a pull's message; gates cancelling it (`canCancelPull`).
 		action: z.string().optional(),
+		// The preview site a preview update is refreshing; absent while creating one.
+		hostname: z.string().optional(),
 	} ),
 	z.object( { kind: z.literal( 'success' ), direction: syncDirectionSchema } ),
 	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),

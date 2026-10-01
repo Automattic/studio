@@ -1,10 +1,9 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, close, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { arrowDown, arrowUp, close, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -14,7 +13,6 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -33,13 +31,13 @@ import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
+import { PreviewsSection } from './previews-section';
 import { getPullLabel, getPushLabel, getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
 	getSiteStatusName,
 	ensureProtocol,
-	getSnapshotHostname,
-	pickLatestSnapshot,
+	getSiteSnapshots,
 	pickLiveSite,
 	stripProtocol,
 } from './utils';
@@ -83,12 +81,13 @@ function useSyncsStartedHere( siteId: string ): { push: boolean; pull: boolean }
 	return { push, pull };
 }
 
-function getPreviewPanelCopy(
+// Why there is nothing to list yet, or why a new preview can't be created.
+function getPreviewsNotice(
 	agenticEnabled: boolean,
 	isOffline: boolean,
-	isPreviewExpired: boolean,
+	hasPreviews: boolean,
 	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
-): string {
+): string | null {
 	if ( agenticEnabled ) {
 		if ( snapshotUsage?.siteCreationBlocked ) {
 			return __( 'Preview sites are not available for your account.' );
@@ -100,9 +99,7 @@ function getPreviewPanelCopy(
 				snapshotUsage.siteLimit
 			);
 		}
-		return isPreviewExpired
-			? __( 'The previous preview has expired.' )
-			: __( 'Share a review link for this version.' );
+		return hasPreviews ? null : __( 'Share a review link for this version.' );
 	}
 	if ( isOffline ) {
 		return __( 'Go online to share a review link.' );
@@ -136,11 +133,10 @@ export function MainView( {
 	const { data: snapshotUsage } = useSnapshotUsage();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
-	const previewSnapshot = useMemo(
-		() => pickLatestSnapshot( snapshots, site.id ),
+	const siteSnapshots = useMemo(
+		() => getSiteSnapshots( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
-	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 	const lastSyncedLabel = [ getPullLabel( liveSite ), getPushLabel( liveSite ) ]
 		.filter( Boolean )
@@ -148,7 +144,6 @@ export function MainView( {
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const publishPreviewSite = usePublishPreviewSite();
 	const cancelSync = useCancelSync();
 
 	const isStarting = useIsSiteStarting( site.id );
@@ -209,27 +204,6 @@ export function MainView( {
 		return idle;
 	};
 
-	const handlePreviewClick = () => {
-		if ( isPreviewPending ) return;
-		publishPreviewSite.mutate(
-			{
-				siteId: site.id,
-				// The CLI cannot update an expired preview site — create a new one.
-				existingHostname:
-					previewSnapshot && ! isPreviewExpired
-						? getSnapshotHostname( previewSnapshot )
-						: undefined,
-			},
-			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
-		);
-	};
-
-	const handleCopyPreviewClick = ( url: string ) => {
-		void connector.copyText( url ).catch( ( error ) => {
-			console.error( 'Failed to copy preview URL:', error );
-		} );
-	};
-
 	const handleStartLocalClick = () => {
 		if ( isOperationInProgress || site.running ) return;
 		startSite.mutate( site.id );
@@ -284,7 +258,7 @@ export function MainView( {
 
 	return (
 		<div className={ styles.rows }>
-			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
+			{ ( activity?.kind === 'pending' && ! isPreviewPending ) || activity?.kind === 'error' ? (
 				<SyncActivityDetails
 					activity={ activity }
 					showCancel={ canStopSync }
@@ -332,58 +306,20 @@ export function MainView( {
 				}
 			/>
 
-			{ previewSnapshot && ! isPreviewExpired ? (
-				<PopoverRow
-					label={ __( 'Preview' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( previewSnapshot.url ),
-						url: ensureProtocol( previewSnapshot.url ),
-						label: __( 'Open preview site in your browser' ),
-					} ) }
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ copy }
-								label={ __( 'Copy preview URL' ) }
-								className={ styles.rowActionButton }
-								onClick={ () => handleCopyPreviewClick( ensureProtocol( previewSnapshot.url ) ) }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncActionLabel(
-									__( 'Update preview site' ),
-									__( 'Updating preview…' ),
-									isPreviewPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPreviewPending }
-								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePreviewClick }
-							/>
-						</div>
-					}
-				/>
-			) : (
-				<EnvironmentActionPanel
-					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired, snapshotUsage ) }
-					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
-					variant="outline"
-					tone="neutral"
-					loading={ isPreviewPending }
-					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSiteBusy || ! agenticEnabled || isPreviewLimitReached }
-					onClick={ handlePreviewClick }
-				/>
-			) }
+			<PreviewsSection
+				site={ site }
+				snapshots={ siteSnapshots }
+				activity={ activity }
+				notice={ getPreviewsNotice(
+					agenticEnabled,
+					isOffline,
+					siteSnapshots.length > 0,
+					snapshotUsage
+				) }
+				canPublish={ ! isSiteBusy && agenticEnabled }
+				canCreate={ ! isPreviewLimitReached }
+				getPublishLabel={ ( idle ) => getSyncActionLabel( idle, __( 'Updating preview…' ), false ) }
+			/>
 
 			{ liveSite ? (
 				<PopoverRow

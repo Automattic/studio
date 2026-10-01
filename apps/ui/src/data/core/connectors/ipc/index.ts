@@ -41,7 +41,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
-import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
@@ -474,11 +474,19 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAllSnapshots();
 		},
 
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname ) ) as {
+			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname, name ) ) as {
 				url: string;
 			};
+		},
+
+		async deleteSnapshot( hostname ): Promise< void > {
+			await ipcApi.deletePreviewSite( hostname );
+		},
+
+		async renameSnapshot( hostname, name ): Promise< void > {
+			await ipcApi.renamePreviewSite( hostname, name );
 		},
 
 		// Connected WPCom sites
@@ -900,6 +908,15 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', ( _event: unknown, siteEvent: SiteEvent ) =>
 				listener( siteEvent )
+			);
+		},
+
+		onSnapshotEvent( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'snapshot-event',
+				( _event: unknown, snapshotEvent: SnapshotEvent ) => listener( snapshotEvent )
 			);
 		},
 

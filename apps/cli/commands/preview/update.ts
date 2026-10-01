@@ -59,7 +59,6 @@ export async function runCommand(
 	let siteId: string | undefined;
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
@@ -68,8 +67,19 @@ export async function runCommand(
 		}
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
-		siteId = ( await getSiteByFolder( siteFolder ) ).id;
-		void reportSyncActivity( siteId, { kind: 'pending', direction: 'preview' } );
+		const site = await getSiteByFolder( siteFolder );
+		siteId = site.id;
+		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			logger.reportStart( action, message );
+			void reportSyncActivity( site.id, {
+				kind: 'pending',
+				direction: 'preview',
+				message,
+				progress,
+				hostname: snapshotToUpdate.url,
+			} );
+		};
+		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
@@ -77,13 +87,13 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
 
-		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
+		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
 			archiveSiteContent( siteFolder, archivePath )
 		);
 		logger.reportSuccess( __( 'Archive created' ) );
 
-		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
+		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		const wordpressVersion = getWordPressVersion( siteFolder );
 		const uploadResponse = await uploadArchive(
 			archivePath,
@@ -93,13 +103,13 @@ export async function runCommand(
 		);
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		logger.reportStart( LoggerAction.READY, __( 'Updating preview site…' ) );
+		reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
 		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
 		);
 
-		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
+		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );

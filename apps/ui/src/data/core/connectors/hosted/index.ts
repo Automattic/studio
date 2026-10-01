@@ -256,6 +256,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new UnsupportedError( 'publishPreviewSite' );
 		},
+		async deleteSnapshot() {
+			throw new UnsupportedError( 'deleteSnapshot' );
+		},
+		async renameSnapshot() {
+			throw new UnsupportedError( 'renameSnapshot' );
+		},
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
@@ -500,6 +506,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onSiteEvent() {
+			return () => {};
+		},
+		onSnapshotEvent() {
 			return () => {};
 		},
 		onToggleSitePreview() {

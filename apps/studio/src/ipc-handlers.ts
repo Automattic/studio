@@ -261,8 +261,10 @@ export {
 	createSnapshot,
 	deleteSnapshot,
 	deleteAllSnapshots,
+	deletePreviewSite,
 	fetchSnapshots,
 	publishPreviewSite,
+	renamePreviewSite,
 	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';

@@ -5,7 +5,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
-import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -284,10 +284,18 @@ export interface Connector {
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
 	confirmDeleteAllPreviewSites(): Promise< boolean >;
-	// Creates a new preview snapshot for the given site, or refreshes the
-	// existing one when `existingHostname` is supplied. Resolves with the
-	// final preview URL when the CLI command completes.
-	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
+	// Creates a new preview snapshot for the given site (named `name` when
+	// given), or refreshes the existing one when `existingHostname` is
+	// supplied. Resolves with the final preview URL when the CLI command
+	// completes.
+	publishPreviewSite(
+		siteId: string,
+		existingHostname?: string,
+		name?: string
+	): Promise< { url: string } >;
+	// Deletes one preview site, both on WordPress.com and from the local list.
+	deleteSnapshot( hostname: string ): Promise< void >;
+	renameSnapshot( hostname: string, name: string ): Promise< void >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.
@@ -550,6 +558,8 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
+	// Fires whenever a preview site is created, updated or deleted, by anyone.
+	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.

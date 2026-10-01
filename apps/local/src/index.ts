@@ -46,6 +46,7 @@ import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-
 import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
+	cliSnapshotEventSchema,
 	cliSyncEventSchema,
 	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
@@ -111,7 +112,12 @@ import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
-import { fetchSnapshots, publishPreviewSite } from '@studio/common/sites/snapshots';
+import {
+	deletePreviewSite,
+	fetchSnapshots,
+	publishPreviewSite,
+	renamePreviewSite,
+} from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
@@ -441,6 +447,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const syncEvent = cliSyncEventSchema.safeParse( data );
 		if ( syncEvent.success ) {
 			sseSend( { channel: 'sync-activity', payload: syncEvent.data.value } );
+			return;
+		}
+		const snapshotEvent = cliSnapshotEventSchema.safeParse( data );
+		if ( snapshotEvent.success ) {
+			sseSend( { channel: 'snapshot-event', payload: snapshotEvent.data.value } );
 			return;
 		}
 		const authEvent = cliAuthEventSchema.safeParse( data );
@@ -1518,14 +1529,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname } = req.body as { hostname?: string };
+			const { hostname, name } = req.body as { hostname?: string; name?: string };
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+		} )
+	);
+
+	api.delete(
+		'/snapshots/:hostname',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await deletePreviewSite( execute, req.params.hostname );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.patch(
+		'/snapshots/:hostname',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { name } = req.body as { name?: string };
+			if ( ! name?.trim() ) {
+				res.status( 400 ).json( { error: 'name is required' } );
+				return;
+			}
+			await renamePreviewSite( execute, req.params.hostname, name );
+			res.sendStatus( 204 );
 		} )
 	);
 

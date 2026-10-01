@@ -64,11 +64,10 @@ type Props = {
 	onPushClick: () => void;
 };
 
-// Counts in-flight push/pull mutations for this site across hook instances.
-// Needed because the parent kicks off a push from the publish-picker flow via
-// its own mutation instance — this component's Push button would otherwise
-// report "idle" while the picker-initiated push is still running.
-function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
+// Push/pull mutations this window has in flight for the site, across hook
+// instances. Only those can be cancelled: a sync the agent or a terminal runs is
+// out of this window's reach.
+function useSyncsStartedHere( siteId: string ): { push: boolean; pull: boolean } {
 	const push =
 		useIsMutating( {
 			mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
@@ -153,15 +152,17 @@ export function MainView( {
 	const isStopping = useIsSiteStopping( site.id );
 	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending =
-		publishPreviewSite.isPending ||
-		( activity?.kind === 'pending' && activity.direction === 'preview' );
+	const startedHere = useSyncsStartedHere( site.id );
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime. An import replaces that site's
 	// files and database outright, so it locks them out too.
-	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
-	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
+	const syncing = activity?.kind === 'pending' ? activity.direction : null;
+	const isSyncing = syncing !== null;
+	const isPreviewPending = syncing === 'preview';
+	const isPushPending = syncing === 'push';
+	const isPullPending = syncing === 'pull';
+	const canStopSync =
+		( isPushPending && startedHere.push ) || ( isPullPending && startedHere.pull );
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
@@ -283,6 +284,7 @@ export function MainView( {
 			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
 				<SyncActivityDetails
 					activity={ activity }
+					showCancel={ canStopSync }
 					onCancel={
 						liveSite && canCancelSyncActivity( activity )
 							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
@@ -484,14 +486,15 @@ function XdebugBadge( { running }: { running: boolean } ) {
 
 function SyncActivityDetails( {
 	activity,
+	showCancel,
 	onCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
+	showCancel: boolean;
 	onCancel?: () => void;
 } ) {
-	// Same wording as the classic renderer, and the same source the trigger's
-	// always-visible cancel uses, so the two never disagree.
-	const cancel = getSyncCancelLabels( activity );
+	// Same wording as the classic renderer.
+	const cancel = showCancel ? getSyncCancelLabels( activity ) : null;
 	const blockedLabel = cancel && ! cancel.enabled ? cancel.label : null;
 
 	return (

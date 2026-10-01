@@ -305,6 +305,7 @@ describe( 'MainView', () => {
 	} );
 
 	it( 'offers to stop an in-flight push and reports the site being stopped', () => {
+		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView( {
@@ -321,6 +322,7 @@ describe( 'MainView', () => {
 	} );
 
 	it( 'stops offering to cancel a push once the remote import has started', () => {
+		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView( {
@@ -367,6 +369,7 @@ describe( 'MainView', () => {
 	} );
 
 	it( 'stops offering to cancel a pull once the local import has started', () => {
+		vi.mocked( useIsMutating ).mockReturnValue( 1 );
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
 		renderMainView( {
@@ -393,13 +396,13 @@ describe( 'MainView', () => {
 		);
 	} );
 
-	it( 'reflects an in-flight pull on both live sync controls', () => {
-		vi.mocked( useIsMutating ).mockImplementation( ( filters ) =>
-			filters?.mutationKey?.[ 0 ] === 'pull-site-from-live' ? 1 : 0
-		);
+	// The agent or a terminal started it: no mutation of this window's is in flight.
+	it( 'reflects a pull it did not start on the live sync controls, without offering to cancel', () => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );
 
-		renderMainView();
+		renderMainView( {
+			activity: { kind: 'pending', direction: 'pull', action: 'initiateBackup' },
+		} );
 
 		const pullButton = screen.getByRole( 'button', { name: 'Pulling from live…' } );
 		expect( pullButton ).toHaveAttribute( 'aria-disabled', 'true' );
@@ -410,5 +413,6 @@ describe( 'MainView', () => {
 		expect(
 			screen.getByRole( 'button', { name: 'Update preview site (sync in progress)' } )
 		).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Cancel pull' } ) ).not.toBeInTheDocument();
 	} );
 } );

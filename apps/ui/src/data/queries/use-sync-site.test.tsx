@@ -240,95 +240,57 @@ describe( 'sync Tracks events', () => {
 		vi.clearAllMocks();
 	} );
 
-	it( 'records a successful pull with its duration and sync type', async () => {
+	const directions = [
+		[ 'Pull', 'pullSiteFromLive', 'studio_sync_pull' ],
+		[ 'Push', 'pushSiteToLive', 'studio_sync_push' ],
+	] as const;
+
+	it.each( directions )(
+		'records a successful %s with its duration and sync type',
+		async ( button, method, event ) => {
+			const trackEvent = renderSync( { [ method ]: vi.fn().mockResolvedValue( undefined ) } );
+
+			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
+
+			await waitFor( () =>
+				expect( trackEvent ).toHaveBeenCalledWith( event, {
+					success: true,
+					sync_type: 'pressable',
+					time_ms: expect.any( Number ),
+				} )
+			);
+		}
+	);
+
+	it.each( directions )(
+		'records a failed %s with a classified reason',
+		async ( button, method, event ) => {
+			const trackEvent = renderSync( {
+				[ method ]: vi.fn().mockRejectedValue( new Error( 'ENOSPC: no space left on device' ) ),
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
+
+			await waitFor( () =>
+				expect( trackEvent ).toHaveBeenCalledWith( event, {
+					success: false,
+					sync_type: 'pressable',
+					time_ms: expect.any( Number ),
+					failure_reason: 'disk_full',
+				} )
+			);
+		}
+	);
+
+	it.each( directions )( 'records nothing when a %s is cancelled', async ( button, method ) => {
 		const trackEvent = renderSync( {
-			pullSiteFromLive: vi.fn().mockResolvedValue( undefined ),
+			[ method ]: vi.fn().mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) ),
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith( 'studio_sync_pull', {
-				success: true,
-				sync_type: 'pressable',
-				time_ms: expect.any( Number ),
-			} )
-		);
-		expect( trackEvent.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'failure_reason' );
-	} );
-
-	it( 'records a failed pull with a classified reason', async () => {
-		const trackEvent = renderSync( {
-			pullSiteFromLive: vi.fn().mockRejectedValue( new Error( 'ENOSPC: no space left on device' ) ),
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith( 'studio_sync_pull', {
-				success: false,
-				sync_type: 'pressable',
-				time_ms: expect.any( Number ),
-				failure_reason: 'disk_full',
-			} )
-		);
-	} );
-
-	it( 'records nothing when a pull is cancelled', async () => {
-		const trackEvent = renderSync( {
-			pullSiteFromLive: vi.fn().mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) ),
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 		await passReportGrace();
 
-		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Pull cancelled' ) );
-		expect( trackEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'records a successful push with its duration and sync type', async () => {
-		const trackEvent = renderSync( {
-			pushSiteToLive: vi.fn().mockResolvedValue( undefined ),
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith( 'studio_sync_push', {
-				success: true,
-				sync_type: 'pressable',
-				time_ms: expect.any( Number ),
-			} )
-		);
-		expect( trackEvent.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'failure_reason' );
-	} );
-
-	it( 'records a failed push with a classified reason', async () => {
-		const trackEvent = renderSync( {
-			pushSiteToLive: vi.fn().mockRejectedValue( new Error( 'read ECONNRESET' ) ),
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith( 'studio_sync_push', {
-				success: false,
-				sync_type: 'pressable',
-				time_ms: expect.any( Number ),
-				failure_reason: 'network',
-			} )
-		);
-	} );
-
-	it( 'records nothing when a push is cancelled', async () => {
-		const trackEvent = renderSync( {
-			pushSiteToLive: vi.fn().mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) ),
-		} );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
-		await passReportGrace();
-
-		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( 'Push cancelled' ) );
+		await waitFor( () => expect( toast.success ).toHaveBeenCalledWith( `${ button } cancelled` ) );
 		expect( trackEvent ).not.toHaveBeenCalled();
 	} );
 

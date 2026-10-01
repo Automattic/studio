@@ -17,7 +17,7 @@ import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
-	createOrReuseAiSession,
+	createHydratedAiSession,
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
@@ -1755,8 +1755,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			// Bind the new chat to the requested local site (the same way the
-			// desktop does), so "new chat" on a site is placed under it. An empty
-			// existing draft for that site is reused instead of piling up orphans.
+			// desktop does), so "new chat" on a site is placed under it.
 			const { siteId } = req.body as { siteId?: string };
 			let site;
 			if ( siteId ) {
@@ -1765,19 +1764,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			// `created` is an analytics signal, not part of the session shape.
-			const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
-				site,
-			} );
+			const summary = await createHydratedAiSession( sessionsRoot, { site } );
 			res.json( summary );
 
-			// Created in-process here, as in the desktop's Main. Reused drafts don't count.
-			if ( created ) {
-				trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
-					...getAiTracksIdentity( summary.id ),
-					has_site: Boolean( site ),
-				} );
-			}
+			// Created in-process here, as in the desktop's Main.
+			trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+				...getAiTracksIdentity( summary.id ),
+				has_site: Boolean( site ),
+			} );
 		} )
 	);
 

@@ -28,6 +28,15 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+.offline {
+	display: flex;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.offline svg {
+	fill: currentColor;
+}
+
 .userName {
 	color: var(--wpds-color-foreground-content-neutral-weak);
 	overflow: hidden;

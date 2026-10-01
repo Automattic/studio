@@ -4,6 +4,7 @@
 import { vi } from 'vitest';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { SiteServer } from 'src/site-server';
+import type { SiteListItem } from '@studio/common/lib/cli-events';
 
 // Electron's Node.js environment provides `btoa`/`atob`, but Vitest's does not
 vi.mock( '@studio/common/lib/passwords' );
@@ -87,7 +88,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-1',
 				port: 8765,
 				running: false,
-			} );
+			} as SiteListItem );
 
 			const { server, details } = await SiteServer.create( {
 				siteId: 'create-port-1',
@@ -105,7 +106,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-2',
 				port: 9100,
 				running: true,
-			} );
+			} as SiteListItem );
 
 			const { server, details } = await SiteServer.create( {
 				siteId: 'create-port-2',
@@ -126,7 +127,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-3',
 				port: 8881,
 				running: true,
-			} );
+			} as SiteListItem );
 
 			const { details } = await SiteServer.create( {
 				siteId: 'create-port-3',

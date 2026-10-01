@@ -21,7 +21,8 @@ const mocks = vi.hoisted( () => ( {
 	setAiProvider: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/cli-process', () => ( {
+vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
 	killChild: vi.fn(),
 	createCliRunner: vi.fn( () => ( {
 		executeCliCommand: mocks.execute,
@@ -341,17 +342,27 @@ describe( 'local web server Connect contracts', () => {
 	it( 'creates the Connect shell with --no-start', async () => {
 		const siteId = '00000000-0000-4000-8000-000000000001';
 		const randomUuid = vi.spyOn( crypto, 'randomUUID' ).mockReturnValue( siteId as never );
-		vi.mocked( listSites ).mockResolvedValueOnce( [
-			{
-				id: siteId,
-				name: 'Remote site',
-				path: '/sites/remote-site',
-				port: 8882,
-				url: 'http://localhost:8882',
-				phpVersion: '8.4',
-				running: false,
-			},
-		] );
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () => {
+				emitter.emit( 'data', {
+					data: {
+						action: 'result',
+						value: {
+							id: siteId,
+							name: 'Remote site',
+							path: '/sites/remote-site',
+							port: 8882,
+							url: 'http://localhost:8882',
+							phpVersion: '8.4',
+							running: false,
+						},
+					},
+				} );
+				emitter.emit( 'success' );
+			} );
+			return [ emitter, {} ];
+		} );
 
 		try {
 			const response = await fetch(

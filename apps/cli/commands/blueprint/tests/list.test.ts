@@ -2,7 +2,6 @@ import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { vi } from 'vitest';
-import { mockReportKeyValuePair } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
 vi.mock( '@studio/common/lib/network-utils' );
@@ -15,7 +14,6 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = vi.fn();
 		reportProgress = vi.fn();
 		reportWarning = vi.fn();
-		reportKeyValuePair = mockReportKeyValuePair;
 		spinner = {};
 		currentAction = null;
 	},
@@ -55,6 +53,7 @@ describe( 'CLI: studio blueprint list', () => {
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
+		vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 	} );
 
 	afterEach( () => {
@@ -62,23 +61,16 @@ describe( 'CLI: studio blueprint list', () => {
 	} );
 
 	it( 'should list blueprints in table format', async () => {
-		const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
 		await runCommand( 'table' );
 
 		expect( fetchStudioBlueprints ).toHaveBeenCalled();
-		expect( consoleSpy ).toHaveBeenCalled();
-
-		consoleSpy.mockRestore();
+		expect( console.log ).toHaveBeenCalled();
 	} );
 
 	it( 'should list blueprints in json format', async () => {
 		await runCommand( 'json' );
 
-		expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-			'blueprints',
-			JSON.stringify( testBlueprints )
-		);
+		expect( console.log ).toHaveBeenCalledWith( JSON.stringify( testBlueprints ) );
 	} );
 
 	it( 'should throw when offline', async () => {
@@ -100,31 +92,25 @@ describe( 'CLI: studio blueprint list', () => {
 
 		await runCommand( 'json' );
 
-		expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'blueprints', '[]' );
+		expect( console.log ).toHaveBeenCalledWith( '[]' );
 	} );
 
 	it( 'should filter by category', async () => {
 		await runCommand( 'json', 'ecommerce' );
 
-		expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-			'blueprints',
-			JSON.stringify( [ testBlueprints[ 1 ] ] )
-		);
+		expect( console.log ).toHaveBeenCalledWith( JSON.stringify( [ testBlueprints[ 1 ] ] ) );
 	} );
 
 	it( 'should filter by category case-insensitively', async () => {
 		await runCommand( 'json', 'Ecommerce' );
 
-		expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-			'blueprints',
-			JSON.stringify( [ testBlueprints[ 1 ] ] )
-		);
+		expect( console.log ).toHaveBeenCalledWith( JSON.stringify( [ testBlueprints[ 1 ] ] ) );
 	} );
 
 	it( 'should return empty results for non-matching category', async () => {
 		await runCommand( 'json', 'nonexistent' );
 
-		expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'blueprints', '[]' );
+		expect( console.log ).toHaveBeenCalledWith( '[]' );
 	} );
 
 	it( 'should pass locale from shared config', async () => {

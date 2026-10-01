@@ -47,8 +47,9 @@ import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
 	cliSyncEventSchema,
+	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
-import { createCliRunner } from '@studio/common/lib/cli-process';
+import { createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -965,6 +966,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
 			let cleanupCreateArgs: () => void = () => undefined;
+			let created: SiteListItem;
 			// If the blueprint has a bundle_url (API blueprints with bundled resources
 			// like theme zips), download and extract the bundle so the CLI can resolve
 			// relative paths. Mirrors the desktop app's ipc-handlers.ts logic.
@@ -994,12 +996,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					originalBlueprintPath: blueprintFilePath,
 				} );
 				cleanupCreateArgs = cleanup;
-				await new Promise< void >( ( resolve, reject ) => {
-					const [ emitter ] = execute( args, { output: 'capture' } );
-					emitter.on( 'success', () => resolve() );
-					emitter.on( 'failure', ( { error } ) => reject( error ) );
-					emitter.on( 'error', ( { error } ) => reject( error ) );
-				} );
+				created = await runCliCommand( execute, args, siteListItemSchema );
 			} finally {
 				cleanupCreateArgs();
 				if ( body.blueprint?.filePath ) {
@@ -1012,11 +1009,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 
-			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
-			if ( ! created ) {
-				res.status( 500 ).json( { error: 'Site was created but could not be found.' } );
-				return;
-			}
 			res.json( toSiteDetails( created ) );
 		} )
 	);
@@ -1170,18 +1162,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
 			} );
-			await new Promise< void >( ( resolve, reject ) => {
-				const [ emitter ] = execute( args, { output: 'capture' } );
-				emitter.on( 'success', () => resolve() );
-				emitter.on( 'failure', ( { error } ) => reject( error ) );
-				emitter.on( 'error', ( { error } ) => reject( error ) );
-			} );
-
-			const created = ( await listSites( execute ) ).find( ( s ) => s.id === newId );
+			const created = await runCliCommand( execute, args, siteListItemSchema );
 			// The copied database still points at the source site's URL, so the copy
 			// would 301-redirect back to the source. Rewrite the URL across the DB to
 			// the copy's own — the same search-replace the desktop's updateSiteUrl does.
-			if ( created?.url && source.url && created.url !== source.url ) {
+			if ( created.url && source.url && created.url !== source.url ) {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
 						[
@@ -1200,7 +1185,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			res.json( toSiteDetails( created ?? source ) );
+			res.json( toSiteDetails( created ) );
 		} )
 	);
 

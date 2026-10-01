@@ -16,6 +16,10 @@ The CLI runs every site operation: creating, starting and stopping sites, import
 4. **Operations hold the site while they touch it.** While a command is writing to a site's files or database, or reading them into an archive, it holds the site. Other operations on that site are refused with a clear reason instead of racing it. Waits on the network don't hold the site.
 5. **Site changes go through the CLI.** Site configuration is only changed by CLI commands, which keeps locking and invariants in one place.
 
+## Results
+
+A command that produces something the caller needs (a created site, a list of sites, a preview URL) sends it back once, as a single structured message, when it finishes. The app that started the command reads it with one shared helper that checks it against a schema shared with the CLI, so a command that succeeds without its result, or with a malformed one, fails loudly instead of leaving the app with empty data. Progress travels separately, as published events.
+
 ## How events reach the apps
 
 Each running Studio app runs the hidden `_events` command, which listens on a socket of its own. A CLI process sends each event to every app's socket, skipping apps that aren't running. Each app relays the events to its UI, which refreshes the state that changed and updates the activity shown on the site. Two copies of the same app (for example two `studio ui` servers) would share one socket, so only the newest receives events.

@@ -90,7 +90,7 @@ function displaySiteList(
 		// stdout is for scripts, logs, and agents, so it only carries public fields. The
 		// desktop app reads the full record, credentials included, over IPC.
 		console.log( JSON.stringify( data.jsonEntries.map( pickPublicSiteFields ) ) );
-		logger.reportKeyValuePair( 'sites', JSON.stringify( data.jsonEntries ) );
+		logger.reportResult( data.jsonEntries );
 	}
 }
 

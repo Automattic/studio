@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "wordpress-studio": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/launch-mcp"
+    }
+  }
+}

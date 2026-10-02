@@ -1,0 +1,23 @@
+{
+	"name": "@studio/mcp-ui",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"lint": "eslint src",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@tanstack/react-query": "^5.75.5",
+		"@tanstack/react-router": "^1.120.14",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.15",
+		"@types/react-dom": "^19.2.3",
+		"typescript": "~6.0.3",
+		"vite": "^8.2.1"
+	}
+}

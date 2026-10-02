@@ -4,7 +4,7 @@ import {
 	MCP_SERVER_NAME,
 } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
-import { startMcpStdioServer } from 'cli/ai/mcp-server';
+import { startMcpStdioServer } from 'cli/ai/runtimes/mcp';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -38,6 +38,10 @@ function printInstallationInstructions(): void {
 		'',
 		`  ${ __( 'Codex' ) }`,
 		`    codex mcp add ${ MCP_SERVER_NAME } -- ${ launchCommand }`,
+		'',
+		`  ${ __( 'Codex plugin, with the Studio skill (Claude Code: /plugin)' ) }`,
+		'    codex plugin marketplace add Automattic/studio',
+		'    codex plugin add studio-code',
 		'',
 		__(
 			'For other AI assistants, add the following under the "mcpServers" key in their MCP configuration:'

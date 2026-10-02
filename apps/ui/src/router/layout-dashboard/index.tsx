@@ -24,6 +24,7 @@ import {
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
+	useSessionUIDispatch,
 } from '@/hooks/use-session-ui';
 import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
@@ -163,6 +164,17 @@ function DashboardLayoutContent() {
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const previewFullscreen = preview.fullscreen && showPreview;
 	const { setOpen: setPreviewOpen } = preview;
+	const dispatchSessionUI = useSessionUIDispatch();
+	useEffect(
+		() =>
+			connector.onSitePreviewReload?.( ( { siteId } ) => {
+				if ( siteId === previewSiteId ) {
+					setPreviewOpen( true );
+					dispatchSessionUI( { type: 'preview/reload' } );
+				}
+			} ),
+		[ connector, previewSiteId, setPreviewOpen, dispatchSessionUI ]
+	);
 	const { sidebarCollapsed, setSidebarCollapsed, openSidebar, onPreviewContainerWidthChange } =
 		useResponsivePanels( {
 			connector,

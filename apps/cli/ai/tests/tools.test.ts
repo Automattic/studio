@@ -23,6 +23,7 @@ import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import {
@@ -346,13 +347,89 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'cannot be asked in this session' );
 	} );
 
-	it( 'exposes refresh_browser only when a Studio UI is attached', () => {
+	it( 'adds the host-dependent tools only when the host provides them', () => {
+		const names = ( host?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			resolveStudioToolDefinitions( host ).map( ( tool ) => tool.name );
+		const hostOnly = [ 'AskUserQuestion', 'present_design_options', 'Skill', 'import_images' ];
+		for ( const name of hostOnly ) {
+			expect( names() ).not.toContain( name );
+		}
+		expect(
+			names( {
+				askUser: async () => ( {} ),
+				designPreviews: 'return',
+				skills: true,
+				importImages: true,
+			} )
+		).toEqual( expect.arrayContaining( hostOnly ) );
+	} );
+
+	it( 'pick_design points host agents at present_design_options when it draws several options', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			canAskUser: true,
+			designPreviews: 'return',
+		} ).find( ( candidate ) => candidate.name === 'pick_design' )!;
+		const text =
+			getTextContent( await executeTool( tool, { catalog: 'layouts', options: 2 } ) ) ?? '';
+		expect( text ).toContain( 'present_design_options next' );
+	} );
+
+	it( 'hands image prompts to a host that renders images itself', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			hostImageTool: 'image_gen',
+			importImages: true,
+		} ).find( ( candidate ) => candidate.name === 'generate_images' )!;
+		const text =
+			getTextContent(
+				await executeTool( tool, {
+					images: [
+						{ path: path.join( STUDIO_SITES_ROOT, 'farm/hero.png' ), subject: 'A barn at dawn' },
+					],
+				} )
+			) ?? '';
+		expect( generateImages ).not.toHaveBeenCalled();
+		expect( text ).toContain( 'with image_gen' );
+		expect( text ).toContain( 'A barn at dawn' );
+		expect( text ).toContain( 'import_images' );
+		expect( text ).toContain( 'never render them in a turn that ends with present_design_options' );
+		expect( tool.promptGuidelines?.join( ' ' ) ).toContain( 'end of your turn' );
+	} );
+
+	it( 'asks for the look image before the first site question when the host renders images', async () => {
+		const skillText = async ( host: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
+			getTextContent(
+				await executeTool(
+					resolveStudioToolDefinitions( host ).find( ( candidate ) => candidate.name === 'Skill' )!,
+					{ name: 'site-spec' }
+				)
+			) ?? '';
+		expect( await skillText( { skills: true, hostImageTool: 'image_gen' } ) ).toContain(
+			'Before you ask your first question, make the look image'
+		);
+		expect( await skillText( { skills: true } ) ).not.toContain( 'make the look image' );
+	} );
+
+	it( 'renders handed-off images with Studio when the host asks for its fallback', async () => {
+		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
+		vi.mocked( generateImages ).mockResolvedValue( [] );
+		const tool = resolveStudioToolDefinitions( {
+			hostImageTool: 'image_gen',
+			imageGeneration: true,
+		} ).find( ( candidate ) => candidate.name === 'generate_images' )!;
+		await executeTool( tool, {
+			images: [ { path: path.join( STUDIO_SITES_ROOT, 'farm/theme.png' ), subject: 'A barn' } ],
+			renderWithStudio: true,
+		} );
+		expect( generateImages ).toHaveBeenCalled();
+	} );
+
+	it( 'exposes refresh_browser only when a site preview is attached', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'refresh_browser' );
-		const namesWithArtifacts = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
+		const namesWithPreview = resolveStudioToolDefinitions( {
+			reloadPreview: async () => undefined,
 		} ).map( ( tool ) => tool.name );
-		expect( namesWithArtifacts ).toContain( 'refresh_browser' );
+		expect( namesWithPreview ).toContain( 'refresh_browser' );
 	} );
 
 	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
@@ -557,7 +634,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	it( 'emits a site preview artifact when site_create succeeds with chat artifacts enabled', async () => {
 		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
+			chatArtifacts: true,
 		} ).find( ( definition ) => definition.name === 'site_create' );
 		expect( tool ).toBeDefined();
 

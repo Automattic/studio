@@ -44,7 +44,51 @@ export const EVENTS_SOCKET_PATHS = {
 			: path.join( PROCESS_MANAGER_HOME, 'events-ui.sock' ),
 } as const;
 
-export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS;
+// `studio mcp` runs once per agent session, so each process gets its own events
+// socket, named after the pid of the `_events` command that owns it.
+const MCP_EVENTS_SOCKET = /^(?:studio-)?events-mcp-(\d+)\.sock$/;
+const MCP_EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
+
+export function mcpEventsSocketPath( pid = process.pid ): string {
+	return process.platform === 'win32'
+		? `\\\\.\\pipe\\studio-events-mcp-${ pid }.sock`
+		: path.join( PROCESS_MANAGER_HOME, `events-mcp-${ pid }.sock` );
+}
+
+function isProcessAlive( pid: number ): boolean {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch ( error ) {
+		return isErrnoException( error ) && error.code === 'EPERM';
+	}
+}
+
+// The live `studio mcp` event sockets. A socket left behind by a process that
+// died without cleaning up is removed (named pipes go away with their process).
+export function liveMcpEventsSocketPaths(): string[] {
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( MCP_EVENTS_SOCKET_DIR );
+	} catch {
+		return [];
+	}
+	return entries.flatMap( ( entry ) => {
+		const pid = Number( MCP_EVENTS_SOCKET.exec( entry )?.[ 1 ] );
+		if ( ! pid ) {
+			return [];
+		}
+		if ( isProcessAlive( pid ) ) {
+			return [ mcpEventsSocketPath( pid ) ];
+		}
+		if ( process.platform !== 'win32' ) {
+			fs.rmSync( mcpEventsSocketPath( pid ), { force: true } );
+		}
+		return [];
+	} );
+}
+
+export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS | 'mcp';
 
 function ensureProcessManagerHome() {
 	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
@@ -361,7 +405,12 @@ const eventsSocketClients = Object.values( EVENTS_SOCKET_PATHS ).map(
  * Emit a CLI event to every Studio app's `_events` command. Apps that aren't running are skipped.
  */
 export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
+	const mcpClients = liveMcpEventsSocketPaths().map(
+		( socketPath ) => new SocketRequestClient( socketPath )
+	);
 	await Promise.all(
-		eventsSocketClients.map( ( client ) => client.send( payload ).catch( () => undefined ) )
+		[ ...eventsSocketClients, ...mcpClients ].map( ( client ) =>
+			client.send( payload ).catch( () => undefined )
+		)
 	);
 }

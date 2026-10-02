@@ -1,5 +1,6 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -163,27 +164,34 @@ async function resolveRequestBody(
 }
 
 /**
- * Creates a generic WP.com REST API tool for managing a remote WordPress.com site.
+ * Creates a generic WP.com REST API tool for managing the user's WordPress.com sites.
  * Instead of hardcoding individual endpoints, this provides a single flexible tool
  * that can call any WP.com REST API endpoint. The AI agent determines the correct
  * endpoints based on its knowledge of the WordPress.com REST API.
+ *
+ * Without a `token`, each call uses the user's stored WordPress.com login.
  */
-export function createWpcomRequestTool(
-	token: string,
-	siteId: number,
-	options: WpcomRequestToolOptions = {}
-) {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+export function createWpcomRequestTool( token?: string, options: WpcomRequestToolOptions = {} ) {
 	const bodyFilesRoot = options.bodyFilesRoot ?? getConfigDirectory();
+	const client = async () => {
+		const accessToken = token ?? ( await readAuthToken() )?.accessToken;
+		if ( ! accessToken ) {
+			throw new Error(
+				'Not logged in to WordPress.com. Ask the user to log in from the WordPress tab or with `studio auth login`.'
+			);
+		}
+		return wpcomFactory( accessToken, wpcomXhrRequest );
+	};
 
 	return defineTool(
 		'wpcom_request',
-		`Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for site ${ siteId }. ` +
+		'Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for the WordPress.com site `siteId`. ' +
 			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
 			'media, plugins, themes, settings, and any other site resource. ' +
 			'The path is relative to /sites/{siteId}/ — for example, pass "/posts" to call /wp/v2/sites/{siteId}/posts. ' +
 			'For non-site endpoints, start the path with "!" (e.g., "!/me") to use an absolute path.',
 		{
+			siteId: Type.Number( { description: 'The WordPress.com site ID.' } ),
 			method: Type.Enum( [ 'GET', 'POST', 'PUT', 'DELETE' ], {
 				description: 'HTTP method for the request.',
 			} ),
@@ -232,7 +240,7 @@ export function createWpcomRequestTool(
 					fullPath = args.path.slice( 1 );
 				} else {
 					const relativePath = args.path.startsWith( '/' ) ? args.path : `/${ args.path }`;
-					fullPath = `/sites/${ siteId }${ relativePath }`;
+					fullPath = `/sites/${ args.siteId }${ relativePath }`;
 				}
 
 				// Default to wp/v2 namespace (WordPress REST API).
@@ -243,6 +251,7 @@ export function createWpcomRequestTool(
 					queryParams.apiNamespace = apiNamespace;
 				}
 
+				const wpcom = await client();
 				let result: ApiResponse;
 				switch ( args.method ) {
 					case 'GET':
@@ -286,6 +295,13 @@ export function createWpcomRequestTool(
 					) }`
 				);
 			}
+		},
+		{
+			promptSnippet:
+				"Manage one of the user's WordPress.com sites through the WordPress and WordPress.com REST APIs",
+			promptGuidelines: [
+				"To change a WordPress.com site, load the `wpcom-remote-management` skill and follow it, passing the site's ID as siteId.",
+			],
 		}
 	);
 }

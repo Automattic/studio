@@ -50,8 +50,8 @@ import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-pr
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
-import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
+import { emitPreviewReload } from 'cli/ai/tools/refresh-browser';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
@@ -670,10 +670,6 @@ function buildAgentTools(
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
 	const tracks = { sessionId: config.session.getSessionId() };
-	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && chatArtifactsEnabled
-			? [ createPresentDesignOptionsTool( config.onAskUser, tracks ) as unknown as AgentToolAny ]
-			: [];
 
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
@@ -697,7 +693,7 @@ function buildAgentTools(
 			pullSiteTool,
 		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
 		return [
-			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
+			createWpcomRequestTool( config.wpcomAccessToken! ),
 			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
@@ -717,13 +713,17 @@ function buildAgentTools(
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	const studioTools = resolveStudioToolDefinitions( {
-		emitChatArtifacts: chatArtifactsEnabled,
+		chatArtifacts: chatArtifactsEnabled,
+		reloadPreview: chatArtifactsEnabled ? emitPreviewReload : undefined,
+		askUser: config.onAskUser,
+		canAskUser: Boolean( config.onAskUser ),
+		designPreviews: config.onAskUser && chatArtifactsEnabled ? 'ask' : undefined,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
-		canAskUser: Boolean( config.onAskUser ),
+		skills: true,
 		tracks,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
+	return [ ...studioTools, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

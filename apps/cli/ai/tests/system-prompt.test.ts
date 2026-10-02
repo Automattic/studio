@@ -28,6 +28,14 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
+	it( 'addresses an external agent without Studio Code identity or pi cadence', () => {
+		const external = buildSystemPrompt( { host: 'external' } );
+		expect( external ).toContain( 'Edit site files with your own file tools' );
+		expect( external ).not.toContain( 'You are WordPress Studio Code' );
+		expect( external ).not.toContain( '## Working cadence' );
+		expect( buildSystemPrompt() ).toContain( '## Working cadence' );
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -118,7 +126,8 @@ describe( 'buildSystemPrompt', () => {
 
 	it( 'lists the same tools the hand-written list did', () => {
 		const listed = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
+			chatArtifacts: true,
+			reloadPreview: async () => undefined,
 			imageGeneration: true,
 		} )
 			.filter( ( tool ) => tool.promptSnippet )

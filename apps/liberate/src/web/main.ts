@@ -314,10 +314,9 @@ const done = ( job: JobView ) => `
 				<a href="https://developer.wordpress.com/studio/">Studio</a>, the free WordPress app,
 				check your site, then <a href="https://developer.wordpress.com/docs/developer-tools/studio/sync/">push it</a>
 				to your new host.</li>
-			<li><strong>Any other host:</strong> the zip is a standard WordPress backup
-				(your wp-content folder and a database dump). Restore it with your host’s migration tools.</li>
-			<li><strong>Content only:</strong> on any WordPress site, including free WordPress.com sites,
-				go to Tools › Import › WordPress and upload the content.xml file it contains.</li>
+			<li><strong>Any other host:</strong> the zip holds your wp-content folder and an SQLite
+				database. Hosts that run the SQLite integration take it as it is; everywhere else,
+				open it in Studio first and export or push from there.</li>
 		</ul>
 	</details>
 	<p class="fine">Your files are deleted ${ expiry(

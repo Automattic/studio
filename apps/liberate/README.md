@@ -1,6 +1,6 @@
 # liberate.sh
 
-Paste a website's address and get it back as a WordPress site you can host anywhere. liberate.sh asks WordPress.com to copy the site — `POST /wpcom/v2/static-site-import-preview`, which captures it with [Data Liberation](https://github.com/Automattic/data-liberation-agent) and rebuilds it as WordPress with the Static Site Importer — then hands the visitor the archive as `<host>-wordpress.zip`. It opens in [Studio](https://developer.wordpress.com/studio/), which can push it to WordPress.com or Pressable, and restores on any host.
+Paste a website's address and get it back as a WordPress site you can host anywhere. liberate.sh asks WordPress.com to copy the site — `POST /wpcom/v2/static-site-import-preview`, which captures it with [Data Liberation](https://github.com/Automattic/data-liberation-agent) and rebuilds it as WordPress with the Static Site Importer — then hands the visitor the archive as `<host>-wordpress.zip`: the site's `wp-content` and an SQLite database, including a theme that carries the original look. It opens in [Studio](https://developer.wordpress.com/studio/), which can push it to WordPress.com or Pressable. Hosts running the SQLite integration take it as it is; anywhere else, Studio is the way in.
 
 The server copies nothing itself: no browser, no PHP, no WordPress. It validates the address, queues the request, follows the capture and serves the archive.
 
@@ -73,4 +73,5 @@ Keep one replica: jobs and downloads live on the volume.
 
 - Fidelity is whatever the capture and the Static Site Importer manage on their own: no AI is involved, and complex layouts come back imperfect.
 - A liberated site is large, mostly media and the WordPress install itself.
+- The archive is a Playground-shaped site folder, not a SQL dump, so a host without SQLite support needs Studio in between.
 - Twenty-five captures a day is the whole service's ceiling until the registered budget is raised.

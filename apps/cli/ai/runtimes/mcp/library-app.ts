@@ -3,7 +3,7 @@
 // Built from apps/mcp-ui into one self-contained document; the host renders it
 // in a sandboxed iframe.
 import { createHash } from 'crypto';
-import LIBRARY_APP_HTML from 'virtual:mcp-ui';
+import BUILT_LIBRARY_HTML from 'virtual:mcp-ui';
 
 // The sidebar entry's icon: the WordPress logo from @wordpress/icons,
 // monochrome in currentColor as the host asks.
@@ -28,7 +28,12 @@ export const LIBRARY_APP_META = {
 	},
 };
 
-export { LIBRARY_APP_HTML };
+// The plugin's id in the host's marketplace (`<plugin>@<marketplace>`), from the
+// plugin's MCP config: the page's prompts mention it so the host routes them here.
+const PLUGIN_ID = process.env.STUDIO_PLUGIN_ID || 'studio-code@studio';
+
+export const LIBRARY_APP_HTML =
+	BUILT_LIBRARY_HTML.split( '__STUDIO_PLUGIN_ID__' ).join( PLUGIN_ID );
 
 // Hosts cache app resources by URI: a content hash makes each version a new one.
 export const LIBRARY_APP_URI = `ui://wordpress-studio/library-${ createHash( 'sha256' )

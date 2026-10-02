@@ -1,13 +1,31 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "studio",
+  "description": "Official WordPress Studio plugins for Claude Code.",
   "owner": {
-    "name": "Automattic"
+    "name": "Automattic",
+    "url": "https://automattic.com"
   },
   "plugins": [
     {
       "name": "studio-code",
-      "source": "./plugins/studio-code",
-      "description": "Build, design, and manage local WordPress sites with WordPress Studio: create sites, design block themes with Studio's design skills, validate blocks, check the result visually, and publish to WordPress.com."
+      "displayName": "WordPress Studio",
+      "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, open your Studio and WordPress.com sites from the WordPress tab, preview them, and publish to WordPress.com.",
+      "author": {
+        "name": "Automattic",
+        "url": "https://automattic.com"
+      },
+      "category": "development",
+      "homepage": "https://developer.wordpress.com/studio/",
+      "keywords": [
+        "wordpress",
+        "wordpress-studio",
+        "wordpress-com",
+        "site-builder",
+        "block-theme",
+        "local-development"
+      ],
+      "source": "./plugins/studio-code"
     },
     {
       "name": "data-liberation",

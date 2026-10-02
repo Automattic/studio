@@ -18,7 +18,7 @@ If the WordPress Studio desktop app is installed, its CLI works too; keep it. Th
 
 ## 2. Log in to WordPress.com (recommended)
 
-Run `studio auth status`. If the user is not logged in, explain that a free WordPress.com account lets Studio generate images for their sites, share preview links, and publish to WordPress.com, and ask whether to log in now. If they agree, run `studio auth login`: it opens their browser to approve the login. Local site building works without it.
+Run `studio auth status`. If the user is not logged in, explain that a free WordPress.com account lets Studio generate images for their sites, share preview links, and publish to WordPress.com, and ask whether to log in now. If they agree, run `studio auth login`: it opens their browser to approve the login and asks for the token WordPress.com shows. In ChatGPT and Codex they can also log in from the WordPress tab. Local site building works without it.
 
 ## 3. Install the plugin
 
@@ -26,10 +26,15 @@ Run `studio auth status`. If the user is not logged in, explain that a free Word
 
 ```bash
 codex plugin marketplace add Automattic/studio
-codex plugin add studio-code
+codex plugin add studio-code@studio
 ```
 
-**Claude Code:** run `/plugin marketplace add Automattic/studio`, then `/plugin install studio-code@studio`.
+**Claude Code:**
+
+```bash
+claude plugin marketplace add Automattic/studio
+claude plugin install studio-code@studio
+```
 
 **Any other MCP client:** add a stdio server named `wordpress-studio` that runs `studio mcp` (`studio mcp` in a terminal prints the configuration).
 

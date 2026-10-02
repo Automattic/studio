@@ -40,7 +40,13 @@ const LOG_LINES = 12;
 const WORDPRESS_LOGO_SVG =
 	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M 22 12 C 22 6.49 17.51 2 12 2 C 6.48 2 2 6.49 2 12 C 2 17.52 6.48 22 12 22 C 17.51 22 22 17.52 22 12 M 9.78 17.37 L 6.37 8.22 C 6.92 8.2 7.54 8.14 7.54 8.14 C 8.04 8.08 7.98 7.01 7.48 7.03 C 7.48 7.03 6.03 7.14 5.11 7.14 C 4.93 7.14 4.74 7.14 4.53 7.13 C 6.12 4.69 8.87 3.11 12 3.11 C 14.33 3.11 16.45 3.98 18.05 5.45 C 17.37 5.34 16.4 5.84 16.4 7.03 C 16.4 7.77 16.85 8.39 17.3 9.13 C 17.65 9.74 17.85 10.49 17.85 11.59 C 17.85 13.08 16.45 16.59 16.45 16.59 L 13.42 8.22 C 13.96 8.2 14.24 8.05 14.24 8.05 C 14.74 8 14.68 6.8 14.18 6.83 C 14.18 6.83 12.74 6.95 11.8 6.95 C 10.93 6.95 9.47 6.83 9.47 6.83 C 8.97 6.8 8.91 8.03 9.41 8.05 L 10.33 8.13 L 11.59 11.54 L 9.78 17.37 M 19.41 12 C 19.65 11.36 20.15 10.13 19.84 7.75 C 20.54 9.04 20.89 10.46 20.89 12 C 20.89 15.29 19.16 18.24 16.49 19.78 C 17.46 17.19 18.43 14.58 19.41 12 M 8.1 20.09 C 5.12 18.65 3.11 15.53 3.11 12 C 3.11 10.7 3.34 9.52 3.83 8.41 C 5.25 12.3 6.67 16.2 8.1 20.09 M 12.13 13.46 L 14.71 20.44 C 13.85 20.73 12.95 20.89 12 20.89 C 11.21 20.89 10.43 20.78 9.71 20.56 C 10.52 18.18 11.33 15.82 12.13 13.46 L 12.13 13.46" /></svg>';
 
-const setup = { state: 'installing', step: 'Starting', startedAt: Date.now(), log: [], downloadedBytes: 0 };
+const setup = {
+	state: 'installing',
+	step: 'Starting',
+	startedAt: Date.now(),
+	log: [],
+	downloadedBytes: 0,
+};
 let studio = null; // how to run the Studio CLI: { command, args, updates }
 let child = null; // the running `studio mcp`
 let relaying = false; // host messages go straight to `studio mcp`
@@ -63,7 +69,7 @@ const textResult = ( text, structuredContent ) => ( {
 	...( structuredContent ? { structuredContent } : {} ),
 } );
 
-const status = () => ( {
+const setupStatus = () => ( {
 	view: 'setup',
 	state: setup.state,
 	step: setup.step,
@@ -113,7 +119,8 @@ const SETUP_TOOLS = [
 	},
 	{
 		name: 'studio_library_page',
-		description: 'Returns the WordPress library page once Studio is installed. Only the setup page calls it.',
+		description:
+			'Returns the WordPress library page once Studio is installed. Only the setup page calls it.',
 		inputSchema: { type: 'object', properties: {} },
 		_meta: { ui: { resourceUri: SETUP_URI, visibility: [ 'app' ] } },
 	},
@@ -121,7 +128,10 @@ const SETUP_TOOLS = [
 
 const SETUP_META = {
 	ui: { prefersBorder: true },
-	'openai/ui': { preferredDisplayMode: 'fullscreen', availableDisplayModes: [ 'inline', 'fullscreen' ] },
+	'openai/ui': {
+		preferredDisplayMode: 'fullscreen',
+		availableDisplayModes: [ 'inline', 'fullscreen' ],
+	},
 };
 
 // The installer's archive lands in a staging folder; its size is the download's progress.
@@ -148,7 +158,13 @@ function watchDownload() {
 }
 
 function install() {
-	Object.assign( setup, { state: 'installing', step: 'Downloading', startedAt: Date.now(), log: [], downloadedBytes: 0 } );
+	Object.assign( setup, {
+		state: 'installing',
+		step: 'Downloading',
+		startedAt: Date.now(),
+		log: [],
+		downloadedBytes: 0,
+	} );
 	log( `Installing the Studio CLI from ${ INSTALLER_URL }` );
 	watchDownload();
 	const installer = spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], {
@@ -199,7 +215,9 @@ function findStudio() {
 		return { command: process.execPath, args: [ process.env.STUDIO_CLI_BIN ], updates: false };
 	}
 	const candidates = [
-		...( process.env.PATH ?? '' ).split( path.delimiter ).map( ( dir ) => path.join( dir, 'studio' ) ),
+		...( process.env.PATH ?? '' )
+			.split( path.delimiter )
+			.map( ( dir ) => path.join( dir, 'studio' ) ),
 		STUDIO_BIN,
 		path.join( homedir(), '.local', 'bin', 'studio' ),
 		'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh',
@@ -253,7 +271,11 @@ function startStudio( { afterSetup = false, afterUpdate = false } = {} ) {
 		const own = pending.get( message.id );
 		if ( own ) {
 			pending.delete( message.id );
-			message.error ? own.reject( new Error( message.error.message ) ) : own.resolve( message.result );
+			if ( message.error ) {
+				own.reject( new Error( message.error.message ) );
+			} else {
+				own.resolve( message.result );
+			}
 			return;
 		}
 		if ( message.id !== undefined && ! message.method ) {
@@ -274,10 +296,13 @@ function startStudio( { afterSetup = false, afterUpdate = false } = {} ) {
 		}
 	)
 		.then( async () => {
-			child.stdin.write( JSON.stringify( { jsonrpc: '2.0', method: 'notifications/initialized' } ) + '\n' );
+			child.stdin.write(
+				JSON.stringify( { jsonrpc: '2.0', method: 'notifications/initialized' } ) + '\n'
+			);
 			if ( afterSetup ) {
 				const { tools } = await requestChild( 'tools/list', {} );
-				const uri = tools.find( ( tool ) => tool.name === 'open_wordpress' )?._meta?.ui?.resourceUri;
+				const uri = tools.find( ( tool ) => tool.name === 'open_wordpress' )?._meta?.ui
+					?.resourceUri;
 				if ( uri ) {
 					const { contents } = await requestChild( 'resources/read', { uri } );
 					libraryHtml = contents?.[ 0 ]?.text ?? null;
@@ -432,21 +457,31 @@ function scheduleUpdateCheck( delay ) {
 function answerSetup( message ) {
 	const { id, method, params } = message;
 	if ( method === 'tools/call' && params?.name === 'studio_setup_status' ) {
-		reply( id, textResult( describeStatus(), status() ) );
+		reply( id, textResult( describeStatus(), setupStatus() ) );
 		return true;
 	}
 	if ( method === 'tools/call' && params?.name === 'studio_setup_retry' ) {
 		if ( setup.state === 'failed' ) install();
-		reply( id, textResult( describeStatus(), status() ) );
+		reply( id, textResult( describeStatus(), setupStatus() ) );
 		return true;
 	}
 	if ( method === 'tools/call' && params?.name === 'studio_library_page' ) {
-		reply( id, textResult( libraryHtml ? 'Library page ready.' : 'Not ready.', { html: libraryHtml } ) );
+		reply(
+			id,
+			textResult( libraryHtml ? 'Library page ready.' : 'Not ready.', { html: libraryHtml } )
+		);
 		return true;
 	}
 	if ( method === 'resources/read' && params?.uri === SETUP_URI ) {
 		reply( id, {
-			contents: [ { uri: SETUP_URI, mimeType: 'text/html;profile=mcp-app', text: SETUP_HTML, _meta: SETUP_META } ],
+			contents: [
+				{
+					uri: SETUP_URI,
+					mimeType: 'text/html;profile=mcp-app',
+					text: SETUP_HTML,
+					_meta: SETUP_META,
+				},
+			],
 		} );
 		return true;
 	}
@@ -473,7 +508,16 @@ function handleWhileInstalling( message ) {
 			reply( id, { tools: SETUP_TOOLS } );
 			return;
 		case 'resources/list':
-			reply( id, { resources: [ { uri: SETUP_URI, name: 'WordPress Studio setup', mimeType: 'text/html;profile=mcp-app', _meta: SETUP_META } ] } );
+			reply( id, {
+				resources: [
+					{
+						uri: SETUP_URI,
+						name: 'WordPress Studio setup',
+						mimeType: 'text/html;profile=mcp-app',
+						_meta: SETUP_META,
+					},
+				],
+			} );
 			return;
 		case 'resources/templates/list':
 			reply( id, { resourceTemplates: [] } );
@@ -483,7 +527,7 @@ function handleWhileInstalling( message ) {
 			return;
 		case 'tools/call':
 			if ( params?.name === 'open_wordpress' ) {
-				reply( id, textResult( describeStatus(), status() ) );
+				reply( id, textResult( describeStatus(), setupStatus() ) );
 				return;
 			}
 			reply( id, { isError: true, content: [ { type: 'text', text: describeStatus() } ] } );

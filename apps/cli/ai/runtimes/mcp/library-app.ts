@@ -28,12 +28,15 @@ export const LIBRARY_APP_META = {
 	},
 };
 
-// The plugin's id in the host's marketplace (`<plugin>@<marketplace>`), from the
-// plugin's MCP config: the page's prompts mention it so the host routes them here.
-const PLUGIN_ID = process.env.STUDIO_PLUGIN_ID || 'studio-code@studio';
+// The plugin's id in the host's marketplace (`<plugin>@<marketplace>`), set by
+// the plugin's MCP config: the page's prompts mention it so the host routes them
+// here. Run outside a plugin, there is nothing to mention.
+const pluginId = process.env.STUDIO_PLUGIN_ID;
+const pluginMention = pluginId ? `[@WordPress Studio](plugin://${ pluginId })` : '';
 
-export const LIBRARY_APP_HTML =
-	BUILT_LIBRARY_HTML.split( '__STUDIO_PLUGIN_ID__' ).join( PLUGIN_ID );
+export const LIBRARY_APP_HTML = BUILT_LIBRARY_HTML.split( '__STUDIO_PLUGIN_MENTION__' ).join(
+	pluginMention
+);
 
 // Hosts cache app resources by URI: a content hash makes each version a new one.
 export const LIBRARY_APP_URI = `ui://wordpress-studio/library-${ createHash( 'sha256' )

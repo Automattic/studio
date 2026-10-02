@@ -22,7 +22,7 @@ export function useSendPrompt() {
 			const targeted = canTargetMessages( capabilities );
 			const asDraft = !! draft && targeted;
 			// OpenAI hosts route a message to a plugin through a mention link.
-			const mention = targeted ? `${ PLUGIN_MENTION } ` : '';
+			const mention = targeted && PLUGIN_MENTION ? `${ PLUGIN_MENTION } ` : '';
 			return connector.sendMessage( {
 				text: mention + ( asDraft ? draft : prompt + DATA_NOTE ),
 				openaiTarget: targeted

@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { useConnector, type Library, type SiteEntry } from '@/data/core';
-import { EMPTY_LIBRARY, LIBRARY_QUERY_KEY } from '@/data/queries/use-library';
+import { useConnector, type SiteEntry } from '@/data/core';
+import { readCachedLibrary } from '@/data/queries/use-library';
 import { findEntry, parseDeepLink, text } from '@/lib/sites';
 import { useOpenSite } from './use-open-site';
 
@@ -14,7 +14,7 @@ export function useLiveTools() {
 	const openSite = useOpenSite();
 
 	useEffect( () => {
-		const library = () => queryClient.getQueryData< Library >( LIBRARY_QUERY_KEY ) ?? EMPTY_LIBRARY;
+		const library = () => readCachedLibrary( queryClient );
 		const view = ( selected: SiteEntry | null ) => {
 			const { localSites, wpcom } = library();
 			const content = {

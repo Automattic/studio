@@ -1,8 +1,10 @@
+import { fork, type ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { unlink, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import { cliSiteEventSchema } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { Type } from 'typebox';
@@ -85,6 +87,57 @@ async function readLibrary() {
 	};
 }
 
+const SITE_CHANGES_WAIT_MS = 50_000;
+const SITE_CHANGES_SETTLE_MS = 300;
+
+// Site changes made anywhere (the agent, a terminal, the desktop app) arrive
+// through `_events`, as for the desktop app and `studio ui`. The library page
+// waits on them with wait_for_site_changes: each settled burst bumps `revision`.
+function createSiteWatcher() {
+	let revision = 0;
+	let events: ChildProcess | undefined;
+	let settling: NodeJS.Timeout | undefined;
+	const waiters = new Set< () => void >();
+
+	const start = () => {
+		if ( events ) {
+			return;
+		}
+		events = fork( process.argv[ 1 ], [ '_events', '--listener', 'mcp' ], {
+			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+		} );
+		events.on( 'message', ( message ) => {
+			if ( ! cliSiteEventSchema.safeParse( message ).success ) {
+				return;
+			}
+			clearTimeout( settling );
+			settling = setTimeout( () => {
+				revision += 1;
+				waiters.forEach( ( wake ) => wake() );
+			}, SITE_CHANGES_SETTLE_MS );
+		} );
+		events.on( 'exit', () => {
+			events = undefined;
+		} );
+	};
+
+	return async ( since?: number ) => {
+		start();
+		if ( since !== undefined && since === revision ) {
+			await new Promise< void >( ( resolve ) => {
+				const wake = () => {
+					clearTimeout( timer );
+					waiters.delete( wake );
+					resolve();
+				};
+				const timer = setTimeout( wake, SITE_CHANGES_WAIT_MS );
+				waiters.add( wake );
+			} );
+		}
+		return revision;
+	};
+}
+
 // The desktop app keeps a screenshot of each site.
 function desktopThumbnailPath( siteId: string ): string {
 	const appData =
@@ -140,12 +193,6 @@ export function createLibraryTools() {
 		{},
 		readLibrary
 	);
-	const read = defineTool(
-		'read_wordpress_library',
-		"Reads the user's local Studio sites and WordPress.com sites for the open WordPress library. Only the library calls it.",
-		{},
-		readLibrary
-	);
 	const preview = defineTool(
 		'read_site_preview',
 		"Returns a small screenshot of a local Studio site's front page for the WordPress library. Only the library calls it.",
@@ -182,6 +229,42 @@ export function createLibraryTools() {
 			};
 		}
 	);
-	const appOnly = [ read, preview, loginUrl, login ];
+	const readLocal = defineTool(
+		'read_local_sites',
+		"Reads the user's local Studio sites for the WordPress library. Only the library calls it.",
+		{},
+		async () => {
+			const localSites = await readLocalSites();
+			return {
+				...textResult( `${ localSites.length } local sites.` ),
+				structuredContent: { localSites },
+			};
+		}
+	);
+	const readWpcom = defineTool(
+		'read_wpcom_sites',
+		"Reads the user's WordPress.com sites for the WordPress library. Only the library calls it.",
+		{},
+		async () => {
+			const wpcom = await readWpcomSites();
+			return {
+				...textResult( `${ wpcom.sites.length } WordPress.com sites.` ),
+				structuredContent: { wpcom },
+			};
+		}
+	);
+	const waitForSiteChanges = createSiteWatcher();
+	const siteChanges = defineTool(
+		'wait_for_site_changes',
+		'Waits until a local Studio site is created, changed, started, stopped or deleted, then returns the new revision; returns the current revision right away when `since` is missing or out of date. Only the WordPress library calls it.',
+		{
+			since: Type.Optional( Type.Number( { description: 'The revision the library last saw.' } ) ),
+		},
+		async ( args ) => {
+			const revision = await waitForSiteChanges( args.since );
+			return { ...textResult( `Revision ${ revision }.` ), structuredContent: { revision } };
+		}
+	);
+	const appOnly = [ readLocal, readWpcom, siteChanges, preview, loginUrl, login ];
 	return { open, appOnly, all: [ open, ...appOnly ] };
 }

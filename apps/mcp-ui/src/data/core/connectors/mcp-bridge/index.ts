@@ -41,23 +41,35 @@ export function unwrap( value: unknown ): ToolResult {
 	return payload as ToolResult;
 }
 
-export function libraryFrom( value: unknown ): Library {
-	const payload = unwrap( value );
-	const content = record( payload.structuredContent );
-	if ( payload.isError || content.view !== 'library' ) {
-		throw new Error( LOAD_FAILED );
-	}
+const localSitesFrom = ( content: JsonRecord ): Library[ 'localSites' ] =>
+	( Array.isArray( content.localSites ) ? content.localSites : [] ).filter( ( site ) =>
+		text( record( site ).id )
+	);
+
+const wpcomFrom = ( content: JsonRecord ): Library[ 'wpcom' ] => {
 	const wpcom = record( content.wpcom );
 	return {
-		localSites: ( Array.isArray( content.localSites ) ? content.localSites : [] ).filter(
-			( site ) => text( record( site ).id )
-		),
-		wpcom: {
-			signedIn: wpcom.signedIn === true,
-			sites: Array.isArray( wpcom.sites ) ? wpcom.sites : [],
-			error: text( wpcom.error ),
-		},
+		signedIn: wpcom.signedIn === true,
+		sites: Array.isArray( wpcom.sites ) ? wpcom.sites : [],
+		error: text( wpcom.error ),
 	};
+};
+
+// A tool result's structured content, or the library's failure message.
+const contentOf = ( value: unknown ): JsonRecord => {
+	const payload = unwrap( value );
+	if ( payload.isError ) {
+		throw new Error( LOAD_FAILED );
+	}
+	return record( payload.structuredContent );
+};
+
+export function libraryFrom( value: unknown ): Library {
+	const content = contentOf( value );
+	if ( content.view !== 'library' ) {
+		throw new Error( LOAD_FAILED );
+	}
+	return { localSites: localSitesFrom( content ), wpcom: wpcomFrom( content ) };
 }
 
 interface Pending {
@@ -205,8 +217,20 @@ export function createMcpBridgeConnector( host: Window = window.parent ): Connec
 		setLiveTools( tools ) {
 			liveTools = tools;
 		},
-		async readLibrary() {
-			return libraryFrom( await callTool( 'read_wordpress_library' ) );
+		async readLocalSites() {
+			return localSitesFrom( contentOf( await callTool( 'read_local_sites' ) ) );
+		},
+		async readWpcomSites() {
+			return wpcomFrom( contentOf( await callTool( 'read_wpcom_sites' ) ) );
+		},
+		async waitForSiteChanges( since ) {
+			// The server answers within a minute even when nothing changes.
+			const result = await callTool(
+				'wait_for_site_changes',
+				since === undefined ? {} : { since },
+				90000
+			);
+			return Number( record( result.structuredContent ).revision ) || 0;
 		},
 		readSitePreview( siteId ) {
 			// Studio captures one preview at a time.

@@ -75,7 +75,9 @@ export interface Connector {
 	subscribeHostState( listener: () => void ): () => void;
 	onLibraryResult( listener: ( read: () => Library ) => void ): () => void;
 	setLiveTools( tools: LiveTool[] ): void;
-	readLibrary(): Promise< Library >;
+	readLocalSites(): Promise< Library[ 'localSites' ] >;
+	readWpcomSites(): Promise< Library[ 'wpcom' ] >;
+	waitForSiteChanges( since?: number ): Promise< number >;
 	readSitePreview( siteId: string ): Promise< string | null >;
 	setSiteRunning( sitePath: string, running: boolean ): Promise< void >;
 	readLoginUrl(): Promise< string >;

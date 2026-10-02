@@ -3,7 +3,7 @@ import { useConnector, type SiteEntry } from '@/data/core';
 import { useHostState } from '@/hooks/use-host-state';
 import { canTargetMessages } from '@/lib/host-capabilities';
 import { DATA_NOTE, PLUGIN_MENTION } from '@/lib/next-steps';
-import { LIBRARY_QUERY_KEY } from './use-library';
+import { LOCAL_SITES_QUERY_KEY, WPCOM_SITES_QUERY_KEY } from './use-library';
 
 const BUSY_KEY = 'busy';
 
@@ -47,10 +47,7 @@ export function useSetSiteRunning() {
 			entry: SiteEntry & { kind: 'local' };
 			running: boolean;
 		} ) => connector.setSiteRunning( entry.site.path, running ),
-		onSettled: () =>
-			queryClient
-				.fetchQuery( { queryKey: LIBRARY_QUERY_KEY, queryFn: () => connector.readLibrary() } )
-				.catch( () => undefined ),
+		onSettled: () => queryClient.invalidateQueries( { queryKey: LOCAL_SITES_QUERY_KEY } ),
 	} );
 }
 
@@ -59,11 +56,7 @@ export function useLogIn() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( token: string ) => connector.logIn( token ),
-		onSuccess: () =>
-			queryClient.fetchQuery( {
-				queryKey: LIBRARY_QUERY_KEY,
-				queryFn: () => connector.readLibrary(),
-			} ),
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: WPCOM_SITES_QUERY_KEY } ),
 	} );
 }
 

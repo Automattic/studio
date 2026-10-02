@@ -9,6 +9,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
+import { RemoteSiteBadges } from './remote-site-badges';
 import { stripProtocol } from './utils';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
@@ -87,7 +88,7 @@ export function PublishPickerView( { site, onClose }: Props ) {
 					label={ __( 'Back' ) }
 					onClick={ onClose }
 				/>
-				<span className={ styles.title }>{ __( 'Publish this site' ) }</span>
+				<span className={ styles.title }>{ __( 'Connect a live site' ) }</span>
 			</div>
 			{ authUser ? (
 				<div className={ styles.body }>
@@ -95,22 +96,29 @@ export function PublishPickerView( { site, onClose }: Props ) {
 						<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
 					) : pickableSites.data && pickableSites.data.length > 0 ? (
 						<ul className={ styles.list }>
-							{ pickableSites.data.map( ( candidate ) => (
-								<li key={ candidate.id }>
-									<button
-										type="button"
-										className={ styles.item }
-										onClick={ () => void handlePickSite( candidate ) }
-									>
-										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
-										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
-									</button>
-								</li>
-							) ) }
+							{ pickableSites.data.map( ( candidate ) => {
+								return (
+									<li key={ candidate.id }>
+										<button
+											type="button"
+											className={ styles.item }
+											onClick={ () => void handlePickSite( candidate ) }
+										>
+											<span className={ styles.itemHeader }>
+												<span className={ styles.itemName }>
+													{ candidate.name || candidate.url }
+												</span>
+												<RemoteSiteBadges site={ candidate } />
+											</span>
+											<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
+										</button>
+									</li>
+								);
+							} ) }
 						</ul>
 					) : (
 						<div className={ styles.status }>
-							{ __( 'No WordPress.com sites available to publish to.' ) }
+							{ __( 'No WordPress.com sites available to connect.' ) }
 						</div>
 					) }
 				</div>

@@ -1,20 +1,17 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowDown, arrowUp, close, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { close, external, Icon } from '@wordpress/icons';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
-import * as Menu from '@/components/menu';
 import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -31,23 +28,14 @@ import {
 } from '@/data/queries/use-sync-site';
 import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
+import { LiveSitesSection } from './live-sites-section';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
+import { PreviewsSection } from './previews-section';
 import { getSyncActivityLabel } from './trigger-secondary';
-import {
-	deriveSiteStatus,
-	getSiteStatusName,
-	ensureProtocol,
-	getSnapshotHostname,
-	pickLatestSnapshot,
-	pickLiveSite,
-	stripProtocol,
-} from './utils';
-import type { SiteDetails } from '@/data/core';
+import { deriveSiteStatus, getSiteStatusName, getSiteSnapshots } from './utils';
+import type { SiteDetails, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
-import type { ComponentProps } from 'react';
-
-type ButtonProps = ComponentProps< typeof Button >;
 
 type Props = {
 	site: SiteDetails;
@@ -57,18 +45,17 @@ type Props = {
 	onSetupClick: () => void;
 	// Opens the disconnect-site confirmation dialog; owned by the parent so the
 	// dialog persists after the dropdown closes.
-	onDisconnectClick: () => void;
+	onDisconnectClick: ( liveSite: SyncSite ) => void;
 	// Open the selective-sync dialog for pull/push; owned by the parent for the
 	// same reason as the disconnect dialog.
-	onPullClick: () => void;
-	onPushClick: () => void;
+	onPullClick: ( liveSite: SyncSite ) => void;
+	onPushClick: ( liveSite: SyncSite ) => void;
 };
 
-// Counts in-flight push/pull mutations for this site across hook instances.
-// Needed because the parent kicks off a push from the publish-picker flow via
-// its own mutation instance — this component's Push button would otherwise
-// report "idle" while the picker-initiated push is still running.
-function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
+// Push/pull mutations this window has in flight for the site, across hook
+// instances. Only those can be cancelled: a sync the agent or a terminal runs is
+// out of this window's reach.
+function useSyncsStartedHere( siteId: string ): { push: boolean; pull: boolean } {
 	const push =
 		useIsMutating( {
 			mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
@@ -84,12 +71,13 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-function getPreviewPanelCopy(
+// Why there is nothing to list yet, or why a new preview can't be created.
+function getPreviewsNotice(
 	agenticEnabled: boolean,
 	isOffline: boolean,
-	isPreviewExpired: boolean,
+	hasPreviews: boolean,
 	snapshotUsage?: { siteCount: number; siteLimit: number; siteCreationBlocked: boolean } | null
-): string {
+): string | null {
 	if ( agenticEnabled ) {
 		if ( snapshotUsage?.siteCreationBlocked ) {
 			return __( 'Preview sites are not available for your account.' );
@@ -101,9 +89,7 @@ function getPreviewPanelCopy(
 				snapshotUsage.siteLimit
 			);
 		}
-		return isPreviewExpired
-			? __( 'The previous preview has expired.' )
-			: __( 'Share a review link for this version.' );
+		return hasPreviews ? null : __( 'Share a review link for this version.' );
 	}
 	if ( isOffline ) {
 		return __( 'Go online to share a review link.' );
@@ -116,9 +102,9 @@ function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string
 		return __( 'No connected site.' );
 	}
 	if ( isOffline ) {
-		return __( 'Go online to publish your site.' );
+		return __( 'Go online to connect a live site.' );
 	}
-	return __( 'Sign in to publish your site.' );
+	return __( 'Sign in to connect a live site.' );
 }
 
 export function MainView( {
@@ -137,32 +123,30 @@ export function MainView( {
 	const { data: snapshotUsage } = useSnapshotUsage();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
-	const previewSnapshot = useMemo(
-		() => pickLatestSnapshot( snapshots, site.id ),
+	const siteSnapshots = useMemo(
+		() => getSiteSnapshots( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
-	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
-	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
-	const publishPreviewSite = usePublishPreviewSite();
 	const cancelSync = useCancelSync();
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const isOperationInProgress = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending =
-		publishPreviewSite.isPending ||
-		( activity?.kind === 'pending' && activity.direction === 'preview' );
+	const startedHere = useSyncsStartedHere( site.id );
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime. An import replaces that site's
-	// files and database outright, so it locks them out too — and the CLI won't
-	// refuse it, since import is deliberately not a tracked site operation.
-	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
-	const isSyncing = isPreviewPending || isPushPending || isPullPending || isImporting;
+	// files and database outright, so it locks them out too.
+	const syncing = activity?.kind === 'pending' ? activity.direction : null;
+	const isSyncing = syncing !== null;
+	const isPreviewPending = syncing === 'preview';
+	const isPushPending = syncing === 'push';
+	const isPullPending = syncing === 'pull';
+	const canStopSync =
+		( isPushPending && startedHere.push ) || ( isPullPending && startedHere.pull );
 	// …and none of them can run while the CLI holds the site either. Gate the
 	// controls on both, so an operation the agent took disables them visibly rather
 	// than leaving buttons that swallow the click.
@@ -206,45 +190,14 @@ export function MainView( {
 		return idle;
 	};
 
-	const handlePreviewClick = () => {
-		if ( isPreviewPending ) return;
-		publishPreviewSite.mutate(
-			{
-				siteId: site.id,
-				// The CLI cannot update an expired preview site — create a new one.
-				existingHostname:
-					previewSnapshot && ! isPreviewExpired
-						? getSnapshotHostname( previewSnapshot )
-						: undefined,
-			},
-			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
-		);
-	};
-
-	const handleCopyPreviewClick = ( url: string ) => {
-		void connector.copyText( url ).catch( ( error ) => {
-			console.error( 'Failed to copy preview URL:', error );
-		} );
-	};
-
 	const handleStartLocalClick = () => {
-		if ( isOperationInProgress || isSyncing || site.running ) return;
+		if ( isOperationInProgress || site.running ) return;
 		startSite.mutate( site.id );
 	};
 
 	const handleStopLocalClick = () => {
-		if ( isOperationInProgress || isSyncing || ! site.running ) return;
+		if ( isOperationInProgress || ! site.running ) return;
 		stopSite.mutate( site.id );
-	};
-
-	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
-		onPullClick();
-	};
-
-	const handlePushClick = () => {
-		if ( ! liveSite || isSyncing || isOperationInProgress ) return;
-		onPushClick();
 	};
 
 	const renderUrlLink = ( {
@@ -281,12 +234,19 @@ export function MainView( {
 
 	return (
 		<div className={ styles.rows }>
-			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
+			{ ( activity?.kind === 'pending' && ! isPreviewPending ) || activity?.kind === 'error' ? (
 				<SyncActivityDetails
 					activity={ activity }
+					showCancel={ canStopSync }
 					onCancel={
-						liveSite && canCancelSyncActivity( activity )
-							? () => cancelSync.mutate( { siteId: site.id, remoteSiteId: liveSite.id } )
+						activity.kind === 'pending' &&
+						activity.remoteSiteId !== undefined &&
+						canCancelSyncActivity( activity )
+							? () =>
+									cancelSync.mutate( {
+										siteId: site.id,
+										remoteSiteId: activity.remoteSiteId as number,
+									} )
 							: undefined
 					}
 				/>
@@ -322,143 +282,41 @@ export function MainView( {
 						starting={ isStarting }
 						stopping={ isStopping }
 						operation={ operation }
-						disabled={ isSyncing }
 						onStart={ handleStartLocalClick }
 						onStop={ handleStopLocalClick }
 					/>
 				}
 			/>
 
-			{ previewSnapshot && ! isPreviewExpired ? (
-				<PopoverRow
-					label={ __( 'Preview' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( previewSnapshot.url ),
-						url: ensureProtocol( previewSnapshot.url ),
-						label: __( 'Open preview site in your browser' ),
-					} ) }
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ copy }
-								label={ __( 'Copy preview URL' ) }
-								className={ styles.rowActionButton }
-								onClick={ () => handleCopyPreviewClick( ensureProtocol( previewSnapshot.url ) ) }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncActionLabel(
-									__( 'Update preview site' ),
-									__( 'Updating preview…' ),
-									isPreviewPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPreviewPending }
-								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePreviewClick }
-							/>
-						</div>
-					}
-				/>
-			) : (
-				<EnvironmentActionPanel
-					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired, snapshotUsage ) }
-					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
-					variant="outline"
-					tone="neutral"
-					loading={ isPreviewPending }
-					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSiteBusy || ! agenticEnabled || isPreviewLimitReached }
-					onClick={ handlePreviewClick }
-				/>
-			) }
+			<PreviewsSection
+				site={ site }
+				snapshots={ siteSnapshots }
+				activity={ activity }
+				notice={ getPreviewsNotice(
+					agenticEnabled,
+					isOffline,
+					siteSnapshots.length > 0,
+					snapshotUsage
+				) }
+				canPublish={ ! isSiteBusy && agenticEnabled }
+				canCreate={ ! isPreviewLimitReached }
+				getPublishLabel={ ( idle ) => getSyncActionLabel( idle, __( 'Updating preview…' ), false ) }
+			/>
 
-			{ liveSite ? (
-				<PopoverRow
-					label={ __( 'Live' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( liveSite.url ),
-						url: ensureProtocol( liveSite.url ),
-						label: __( 'Open live site in your browser' ),
-					} ) }
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowDown }
-								label={ getSyncActionLabel(
-									__( 'Pull from live' ),
-									__( 'Pulling from live…' ),
-									isPullPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPullPending }
-								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePullClick }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ getSyncActionLabel(
-									__( 'Push to live' ),
-									__( 'Pushing to live…' ),
-									isPushPending
-								) }
-								className={ styles.rowActionButton }
-								loading={ isPushPending }
-								loadingAnnouncement={ __( 'Pushing to live' ) }
-								disabled={ isSiteBusy || ! agenticEnabled }
-								focusableWhenDisabled
-								onClick={ handlePushClick }
-							/>
-							<Menu.SubmenuRoot>
-								<Menu.SubmenuTrigger
-									className={ styles.moreMenuTrigger }
-									disabled={ isSiteBusy || ! agenticEnabled }
-									aria-label={ __( 'More live site actions' ) }
-								>
-									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
-								</Menu.SubmenuTrigger>
-								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item
-										disabled={ isSiteBusy || ! agenticEnabled }
-										onClick={ onDisconnectClick }
-									>
-										{ __( 'Disconnect' ) }
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.SubmenuRoot>
-						</div>
-					}
-				/>
-			) : (
-				<EnvironmentActionPanel
-					title={ __( 'Live' ) }
-					copy={ getLivePanelCopy( agenticEnabled, isOffline ) }
-					buttonLabel={ agenticEnabled || isOffline ? __( 'Publish' ) : __( 'Log in' ) }
-					variant="solid"
-					tone="brand"
-					loading={ ! agenticEnabled && login.isPending }
-					loadingAnnouncement={ __( 'Opening login page' ) }
-					disabled={ isSiteBusy || isOffline }
-					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
-				/>
-			) }
+			<LiveSitesSection
+				liveSites={ connectedSites ?? [] }
+				activity={ activity }
+				notice={ getLivePanelCopy( agenticEnabled, isOffline ) }
+				actionLabel={ agenticEnabled || isOffline ? __( 'Connect site' ) : __( 'Log in' ) }
+				actionDisabled={ isSiteBusy || isOffline }
+				actionLoading={ ! agenticEnabled && login.isPending }
+				onAction={ agenticEnabled ? onSetupClick : () => login.mutate() }
+				canSync={ ! isSiteBusy && agenticEnabled }
+				getSyncLabel={ getSyncActionLabel }
+				onPull={ onPullClick }
+				onPush={ onPushClick }
+				onDisconnect={ onDisconnectClick }
+			/>
 		</div>
 	);
 }
@@ -486,14 +344,15 @@ function XdebugBadge( { running }: { running: boolean } ) {
 
 function SyncActivityDetails( {
 	activity,
+	showCancel,
 	onCancel,
 }: {
 	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
+	showCancel: boolean;
 	onCancel?: () => void;
 } ) {
-	// Same wording as the classic renderer, and the same source the trigger's
-	// always-visible cancel uses, so the two never disagree.
-	const cancel = getSyncCancelLabels( activity );
+	// Same wording as the classic renderer.
+	const cancel = showCancel ? getSyncCancelLabels( activity ) : null;
 	const blockedLabel = cancel && ! cancel.enabled ? cancel.label : null;
 
 	return (
@@ -554,7 +413,6 @@ function LocalServerControl( {
 	starting,
 	stopping,
 	operation,
-	disabled,
 	onStart,
 	onStop,
 }: {
@@ -564,16 +422,14 @@ function LocalServerControl( {
 	// A CLI operation (an agent settings change, another window's delete). Blocks
 	// the toggle and names itself in the tooltip, so a dead control explains why.
 	operation: SiteOperationKind | null;
-	disabled: boolean;
 	onStart: () => void;
 	onStop: () => void;
 } ) {
-	const pending = starting || stopping || operation !== null;
-	const targetRunning = getTargetRunning( running, starting, stopping );
 	// aria-disabled rather than disabled: a natively disabled button suppresses
 	// the pointer events the tooltip listens for, hiding the status exactly
 	// while the site is transitioning.
-	const inert = disabled || pending;
+	const pending = starting || stopping || operation !== null;
+	const targetRunning = getTargetRunning( running, starting, stopping );
 	const statusLabel = sprintf(
 		__( 'Site status: %s' ),
 		getSiteStatusName( { running, starting, stopping, operation } )
@@ -592,14 +448,14 @@ function LocalServerControl( {
 							pending && styles.localServerControl_pending
 						) }
 						aria-label={
-							inert ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
+							pending ? statusLabel : sprintf( __( '%1$s. %2$s' ), statusLabel, actionLabel )
 						}
 						role="switch"
 						aria-checked={ targetRunning }
 						aria-busy={ pending || undefined }
-						aria-disabled={ inert || undefined }
+						aria-disabled={ pending || undefined }
 						onClick={ () => {
-							if ( inert ) {
+							if ( pending ) {
 								return;
 							}
 							if ( targetRunning ) {
@@ -624,51 +480,5 @@ function LocalServerControl( {
 				{ statusLabel }
 			</Tooltip.Popup>
 		</Tooltip.Root>
-	);
-}
-
-function EnvironmentActionPanel( {
-	title,
-	copy,
-	buttonLabel,
-	variant,
-	tone,
-	loading,
-	loadingAnnouncement,
-	disabled,
-	onClick,
-}: {
-	title: string;
-	copy: string;
-	buttonLabel: string;
-	variant: ButtonProps[ 'variant' ];
-	tone: ButtonProps[ 'tone' ];
-	loading?: boolean;
-	loadingAnnouncement?: string;
-	disabled: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<div className={ styles.environmentActionRow }>
-			<div className={ styles.environmentActionText }>
-				<div className={ styles.environmentActionTitle }>{ title }</div>
-				<p className={ styles.environmentActionCopy }>{ copy }</p>
-			</div>
-			<Button
-				variant={ variant }
-				tone={ tone }
-				size="compact"
-				className={ clsx(
-					styles.environmentActionButton,
-					variant === 'outline' && styles.environmentActionButton_outline
-				) }
-				loading={ loading }
-				loadingAnnouncement={ loadingAnnouncement }
-				disabled={ disabled }
-				onClick={ onClick }
-			>
-				{ buttonLabel }
-			</Button>
-		</div>
 	);
 }

@@ -55,6 +55,7 @@ import {
 	loadImportedRuntimeStartOptions,
 	loadImportedRuntimeStartOptionsNative,
 } from 'cli/lib/pull/runtime-start-options';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
@@ -370,171 +371,172 @@ export async function runCommand(
 			return;
 		}
 
-		// Persist the durable origin onto the site record: where it syncs
-		// from, the remote's self-reported siteurl, and the table prefix.
-		// The Reprint secret is intentionally rotated for each run, not
-		// stored for later reuse.
-		const origin = {
-			remoteUrl: normalizedRemoteUrl,
-			remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
-			tablePrefix: preflight.table_prefix || undefined,
-		};
-		site.status = 'pulling';
-		site.reprintOrigin = origin;
-		await updateSiteRecord( site.id, ( record ) => {
-			record.status = 'pulling';
-			record.reprintOrigin = origin;
-		} );
-
-		// db-apply (run inside `pull-db`) rewrites the remote site URL to
-		// the local one the Studio server already serves —
-		// `studioMetadata.localUrl` comes from the existing site's port, so
-		// no port allocation is needed here.
-
-		// The pull pipeline runs as separate reprint commands (pull-files →
-		// pull-db → flat-docroot → apply-runtime) so the selection can skip
-		// the database step entirely; see runFullPull. Always re-invoked:
-		// every command is idempotent and reprint resumes its own pipeline
-		// from `.import-state.json`, so there is no Studio-side guard.
-		await runFullPull(
-			SITE_RUNTIME_NATIVE_PHP,
-			studioMetadata,
-			apiUrl,
-			secret,
-			verbose,
-			! isRepull,
-			selection,
-			reprintMetadata
-		);
-
-		// The site record already exists (created via `studio create`) and its
-		// `technicalSiteDirectory` was recorded at pull start; the pull now
-		// wires the generated runtime Blueprint onto it so `studio start` and
-		// the daemon serve the imported runtime rather than the original blank
-		// install. Idempotent — re-writing the same value on a resume is harmless.
-		logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
-		site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
-		await updateSiteRecord( site.id, ( record ) => {
-			record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
-		} );
-		logger.reportSuccess( `Site "${ site.name }" updated` );
-		logger.reportKeyValuePair( 'id', site.id );
-
-		// Imported sites' databases come from the remote dump, which lacks
-		// the local admin user. Without this, the auto-login mu-plugin can't
-		// find an admin user (it falls back to looking for "admin" which
-		// doesn't exist in the imported database).
-		if ( ! site.adminPassword ) {
-			const adminPassword = encodePassword( crypto.randomBytes( 24 ).toString( 'base64url' ) );
-			site.adminPassword = adminPassword;
+		await withSiteOperation( site.path, 'import', async () => {
+			// Persist the durable origin onto the site record: where it syncs
+			// from, the remote's self-reported siteurl, and the table prefix.
+			// The Reprint secret is intentionally rotated for each run, not
+			// stored for later reuse.
+			const origin = {
+				remoteUrl: normalizedRemoteUrl,
+				remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
+				tablePrefix: preflight.table_prefix || undefined,
+			};
+			site.status = 'pulling';
+			site.reprintOrigin = origin;
 			await updateSiteRecord( site.id, ( record ) => {
-				record.adminPassword = adminPassword;
+				record.status = 'pulling';
+				record.reprintOrigin = origin;
 			} );
-		}
 
-		let runtimeStartOptions: StartServerOptions;
-		if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-			const nativeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
-			if ( ! nativeStartOptions ) {
-				throw new LoggerError(
-					`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+			// db-apply (run inside `pull-db`) rewrites the remote site URL to
+			// the local one the Studio server already serves —
+			// `studioMetadata.localUrl` comes from the existing site's port, so
+			// no port allocation is needed here.
+
+			// The pull pipeline runs as separate reprint commands (pull-files →
+			// pull-db → flat-docroot → apply-runtime) so the selection can skip
+			// the database step entirely; see runFullPull. Always re-invoked:
+			// every command is idempotent and reprint resumes its own pipeline
+			// from `.import-state.json`, so there is no Studio-side guard.
+			await runFullPull(
+				SITE_RUNTIME_NATIVE_PHP,
+				studioMetadata,
+				apiUrl,
+				secret,
+				verbose,
+				! isRepull,
+				selection,
+				reprintMetadata
+			);
+
+			// The site record already exists (created via `studio create`) and its
+			// `technicalSiteDirectory` was recorded at pull start; the pull now
+			// wires the generated runtime Blueprint onto it so `studio start` and
+			// the daemon serve the imported runtime rather than the original blank
+			// install. Idempotent — re-writing the same value on a resume is harmless.
+			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
+			site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
+			await updateSiteRecord( site.id, ( record ) => {
+				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
+			} );
+			logger.reportSuccess( `Site "${ site.name }" updated` );
+
+			// Imported sites' databases come from the remote dump, which lacks
+			// the local admin user. Without this, the auto-login mu-plugin can't
+			// find an admin user (it falls back to looking for "admin" which
+			// doesn't exist in the imported database).
+			if ( ! site.adminPassword ) {
+				const adminPassword = encodePassword( crypto.randomBytes( 24 ).toString( 'base64url' ) );
+				site.adminPassword = adminPassword;
+				await updateSiteRecord( site.id, ( record ) => {
+					record.adminPassword = adminPassword;
+				} );
+			}
+
+			let runtimeStartOptions: StartServerOptions;
+			if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
+				const nativeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
+				if ( ! nativeStartOptions ) {
+					throw new LoggerError(
+						`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+					);
+				}
+				runtimeStartOptions = nativeStartOptions;
+			} else {
+				await ensureImportedSiteSqliteReady(
+					studioMetadata.runtimeBlueprintPath,
+					reprintMetadata.sourceSite.contentDirectory
+				);
+				runtimeStartOptions = await loadImportedRuntimeStartOptions(
+					studioMetadata.runtimeBlueprintPath,
+					reprintMetadata.sourceSite.extraDirectories
 				);
 			}
-			runtimeStartOptions = nativeStartOptions;
-		} else {
-			await ensureImportedSiteSqliteReady(
-				studioMetadata.runtimeBlueprintPath,
-				reprintMetadata.sourceSite.contentDirectory
-			);
-			runtimeStartOptions = await loadImportedRuntimeStartOptions(
-				studioMetadata.runtimeBlueprintPath,
-				reprintMetadata.sourceSite.extraDirectories
-			);
-		}
 
-		// Persist the computed start options so `studio site start` and
-		// the daemon can re-read them without recomputing (which spins
-		// up PHP WASM to extract runtime.php constants).
-		const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
-		fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
+			// Persist the computed start options so `studio site start` and
+			// the daemon can re-read them without recomputing (which spins
+			// up PHP WASM to extract runtime.php constants).
+			const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
+			fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
 
-		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
-		try {
-			await connectToDaemon();
+			try {
+				await connectToDaemon();
 
-			const runningProcess = await isProcessRunning( getProcessName( site.id ) );
+				const runningProcess = await isProcessRunning( getProcessName( site.id ) );
 
-			if ( ! isRepull && wasRunning ) {
-				// The live process is still serving the blank install whose
-				// runtime the pull just replaced on disk, so restart it to load
-				// the imported runtime.
-				if ( runningProcess ) {
-					await stopWordPressServer( site.id );
-				}
-				await startWordPressServer( site, logger, runtimeStartOptions );
-				logger.reportSuccess( __( 'WordPress server restarted' ) );
-			} else {
-				// On a re-pull, the site's server is often already running.
-				// The synced files and database are picked up live (PHP
-				// opens them per request), so there's nothing to restart —
-				// but db-apply rebuilt the database from the remote dump,
-				// wiping the local admin user and the studio_admin_username
-				// option that /studio-auto-login depends on.  A server start
-				// re-applies the credentials; when we skip the restart we
-				// must re-apply them over the running site's admin API.
-				// A connection failure means the daemon's view is stale and
-				// the server is actually down, so fall through to a start
-				// (which re-applies the credentials itself).
-				const credentialsResult = runningProcess
-					? await reapplyAdminCredentials( site )
-					: 'unreachable';
-				if ( runningProcess && credentialsResult !== 'unreachable' ) {
-					logger.reportSuccess( __( 'WordPress server already running' ) );
-					// Mirror the start branch (and `studio site start`'s
-					// already-running path): refresh latestCliPid so
-					// running-status checks match the live process.
-					if ( runningProcess.status === 'online' ) {
-						await updateSiteLatestCliPid( site.id, runningProcess.pid );
+				if ( ! isRepull && wasRunning ) {
+					// The live process is still serving the blank install whose
+					// runtime the pull just replaced on disk, so restart it to load
+					// the imported runtime.
+					if ( runningProcess ) {
+						await stopWordPressServer( site.id );
 					}
-				} else {
 					await startWordPressServer( site, logger, runtimeStartOptions );
-					logger.reportSuccess( __( 'WordPress server started' ) );
+					logger.reportSuccess( __( 'WordPress server restarted' ) );
+				} else {
+					// On a re-pull, the site's server is often already running.
+					// The synced files and database are picked up live (PHP
+					// opens them per request), so there's nothing to restart —
+					// but db-apply rebuilt the database from the remote dump,
+					// wiping the local admin user and the studio_admin_username
+					// option that /studio-auto-login depends on.  A server start
+					// re-applies the credentials; when we skip the restart we
+					// must re-apply them over the running site's admin API.
+					// A connection failure means the daemon's view is stale and
+					// the server is actually down, so fall through to a start
+					// (which re-applies the credentials itself).
+					const credentialsResult = runningProcess
+						? await reapplyAdminCredentials( site )
+						: 'unreachable';
+					if ( runningProcess && credentialsResult !== 'unreachable' ) {
+						logger.reportSuccess( __( 'WordPress server already running' ) );
+						// Mirror the start branch (and `studio site start`'s
+						// already-running path): refresh latestCliPid so
+						// running-status checks match the live process.
+						if ( runningProcess.status === 'online' ) {
+							await updateSiteLatestCliPid( site.id, runningProcess.pid );
+						}
+					} else {
+						await startWordPressServer( site, logger, runtimeStartOptions );
+						logger.reportSuccess( __( 'WordPress server started' ) );
+					}
 				}
+			} catch ( serverError ) {
+				throw new LoggerError(
+					__( 'Failed to start the WordPress server for the pulled site.' ),
+					serverError
+				);
+			} finally {
+				await disconnectFromDaemon();
 			}
-		} catch ( serverError ) {
-			throw new LoggerError(
-				__( 'Failed to start the WordPress server for the pulled site.' ),
-				serverError
-			);
-		} finally {
-			await disconnectFromDaemon();
-		}
 
-		if ( studioMetadata.localUrl ) {
+			if ( studioMetadata.localUrl ) {
+				console.log( '' );
+				console.log( `Site "${ site.name }" is ready.` );
+				console.log( '' );
+				printSiteUrls( studioMetadata.localUrl );
+			}
+
+			// The pull is done: drop the selection sidecar so the next pull asks
+			// again instead of silently reusing this run's choice.
+			clearPullSelection( studioMetadata );
+
+			site.importComplete = true;
+			site.status = 'ready';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.importComplete = true;
+				record.status = 'ready';
+			} );
+
 			console.log( '' );
-			console.log( `Site "${ site.name }" is ready.` );
+			console.log( `Site "${ site.name }" pulled successfully.` );
 			console.log( '' );
-			printSiteUrls( studioMetadata.localUrl );
-		}
-
-		// The pull is done: drop the selection sidecar so the next pull asks
-		// again instead of silently reusing this run's choice.
-		clearPullSelection( studioMetadata );
-
-		site.importComplete = true;
-		site.status = 'ready';
-		await updateSiteRecord( site.id, ( record ) => {
-			record.importComplete = true;
-			record.status = 'ready';
+			if ( studioMetadata.localUrl ) {
+				printSiteUrls( studioMetadata.localUrl );
+			}
 		} );
-
-		console.log( '' );
-		console.log( `Site "${ site.name }" pulled successfully.` );
-		console.log( '' );
-		if ( studioMetadata.localUrl ) {
-			printSiteUrls( studioMetadata.localUrl );
-		}
 
 		process.exit( 0 );
 	} catch ( error ) {

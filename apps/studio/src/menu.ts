@@ -19,12 +19,6 @@ import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { applyAppZoomCommand } from 'src/lib/app-zoom';
 import {
-	BetaFeatureDefinition,
-	getBetaFeatures,
-	getBetaFeaturesDefinition,
-	updateBetaFeature,
-} from 'src/lib/beta-features';
-import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
 	getFeatureFlagFromEnv,
@@ -33,10 +27,10 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getPreferredStudioUiMode, setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
+import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getMainWindow } from 'src/main-window';
 import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
@@ -78,47 +72,6 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 	const window = await getMainWindow();
 	const menu = await getAppMenu( window );
 	menu.popup( { window: window ?? undefined, ...position } );
-}
-
-async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
-	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
-		( [ key, definition ] ) => {
-			// On Windows, use the description as the label for a more compact display
-			const label =
-				process.platform === 'win32' && definition.description
-					? definition.description
-					: definition.label;
-
-			return {
-				label,
-				type: 'checkbox' as const,
-				checked: currentBetaFeatures[ key as keyof BetaFeatures ],
-				// Only use sublabel on macOS where it displays nicely
-				sublabel: process.platform === 'darwin' ? definition.description : undefined,
-				click: async ( menuItem: MenuItem ) => {
-					await updateBetaFeature(
-						key as keyof BetaFeatures,
-						menuItem.checked,
-						key === 'enableAgenticUi' ? 'menu' : undefined
-					);
-					if ( key === 'enableAgenticUi' ) {
-						setAgenticUiEnabled( menuItem.checked );
-						const mainWindow = await getMainWindow();
-						if ( mainWindow && ! mainWindow.isDestroyed() ) {
-							// The renderer is being replaced; it fetches fresh state on boot,
-							// and messaging the dying page fails IPC sender validation.
-							setTimeout( () => {
-								void loadMainWindowRenderer( mainWindow );
-							}, 0 );
-							return;
-						}
-					}
-					void sendIpcEventToRenderer( 'beta-features-updated' );
-				},
-			};
-		}
-	);
 }
 
 export function buildViewMenuItems( {
@@ -254,8 +207,6 @@ async function getAppMenu(
 		},
 	} ) );
 
-	const betaFeaturesMenu = await buildBetaFeaturesMenu();
-
 	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
 	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
 	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
@@ -286,11 +237,6 @@ async function getAppMenu(
 					click: async () => {
 						void sendIpcEventToRenderer( 'user-settings', { tabName: 'general' } );
 					},
-				},
-				{
-					label: __( 'Beta Features' ),
-					submenu: betaFeaturesMenu,
-					enabled: betaFeaturesMenu.length > 0,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'

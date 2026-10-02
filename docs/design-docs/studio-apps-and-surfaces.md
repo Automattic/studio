@@ -35,7 +35,7 @@ Two of these surfaces run **on the user's machine and own real local WordPress s
    └───────────────┬──┘ └──────────┬─────┘ └──────────────────┘
                    │               │
    ┌───────────────┴───────────────┴─────────────────────────────┐
-   │                  @studio/common (tools/common)               │   Shared, Electron-free
+   │                  @studio/common (packages/common)            │   Shared, Electron-free
    │   ai/sessions/*   sites/*   lib/*   (business logic)         │   business logic
    └───────────────┬─────────────────────────────────────────────┘
                    │ forks the binary (createCliRunner)
@@ -48,7 +48,7 @@ Two of these surfaces run **on the user's machine and own real local WordPress s
 Reading the stack bottom-up:
 
 1. **`apps/cli` — the execution engine.** Everything that actually boots WordPress (Playground / PHP-WASM), creates/starts/stops sites, imports/exports, and runs the agent lives here. It is invoked directly as the `studio` command, and it is also the thing every machine-local surface delegates to.
-2. **`@studio/common` (`tools/common`) — shared business logic.** Transport-agnostic, Electron-free TypeScript: session management, site operations, snapshots, sync, the REST proxy, app detection, OAuth URL building, etc. It is the layer that makes the desktop and the local web server run *the same code*.
+2. **`@studio/common` (`packages/common`) — shared business logic.** Transport-agnostic, Electron-free TypeScript: session management, site operations, snapshots, sync, the REST proxy, app detection, OAuth URL building, etc. It is the layer that makes the desktop and the local web server run *the same code*.
 3. **Per-surface shells.** Thin adapters that expose `@studio/common` over a transport: `apps/studio` over Electron IPC, `apps/local` over HTTP/SSE, `apps/hosted` over its cloud API.
 4. **`apps/ui` — the shared agentic UI.** One React application that talks to whichever shell it's running against through a single **Connector** seam.
 
@@ -122,9 +122,11 @@ Everything else is shared in `@studio/common`. Concretely:
 Shared modules are constructed with two injected dependencies and nothing Electron-specific:
 
 - **`executeCliCommand`** — produced by `createCliRunner({ cliBinary, nodeBinary })` in `lib/cli-process.ts`. The binary resolves once, from `STUDIO_CLI_BIN ?? process.argv[1]` (the CLI launching the server via `studio ui`), with an env override for development.
-- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `snapshot`, `sync`). There are no per-feature setter functions.
+- **`emit`** — a single event sink. The desktop wires it to `webContents.send` on named IPC channels; the local server wires it to SSE channels (`agent`, `placement`, `sync-connect`). There are no per-feature setter functions.
 
 So the agent run-manager, for instance, is `createAgentRunManager({ cliBinary, emit, surface, … })`: the desktop and the local server build it with their own `emit`, and the orchestration code is identical.
+
+Changes the CLI makes from anywhere (sites, auth, and the progress of a push, pull or preview) reach both surfaces the same way: each runs `studio _events`, which receives the CLI's events (see [cli.md](./cli.md)), and forwards them to its UI over its own transport.
 
 ### What is converged (shared, both surfaces)
 
@@ -155,6 +157,8 @@ Some things are *inherently* runtime-specific and are **not** forced into the sh
 ## The CLI as the convergence point
 
 Convergence is possible *because* the heavy lifting already lives in one place. The CLI owns Playground/PHP-WASM and the site lifecycle, so the machine-local surfaces don't reimplement any of it — they **fork the binary** and stream its structured events. That makes the desktop's IPC handlers and the local server's HTTP routes both thin: resolve inputs, call a `@studio/common` function, forward the CLI's events over the surface's transport.
+
+How the CLI reports what it does back to these surfaces, whoever started the work, is described in [How the CLI and Studio apps communicate](./cli-host-communication.md).
 
 One deliberate exception (matching the desktop's existing behavior): **session-store and shared-config reads** are plain `~/.studio` file access via `@studio/common` in-process, not a CLI spawn. Only true site/agent operations fork the binary.
 

@@ -1,5 +1,11 @@
+import { DAY_MS } from '@studio/common/constants';
 import { describe, expect, it } from 'vitest';
-import { deriveSiteStatus, getSiteStatusName } from './utils';
+import {
+	deriveSiteStatus,
+	getSiteStatusName,
+	getSnapshotExpiredLabel,
+	getSnapshotTimesLabel,
+} from './utils';
 import type { SiteDetails } from '@/data/core';
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -70,6 +76,26 @@ describe( 'getSiteStatusName', () => {
 	it( 'names an operation over everything else', () => {
 		expect( getSiteStatusName( { ...base, running: true, operation: 'settings' } ) ).toBe(
 			'Saving settings'
+		);
+	} );
+} );
+
+describe( 'getSnapshotTimesLabel', () => {
+	const now = Date.parse( '2026-10-01T12:00:00Z' );
+	const snapshot = { url: 'a.example.com', atomicSiteId: 1, localSiteId: 'site-1' };
+
+	it( 'states when a preview was updated and when it expires', () => {
+		expect( getSnapshotTimesLabel( { ...snapshot, date: now - 23 * 60_000 }, now ) ).toBe(
+			'Updated 23 min. ago · expires in 7 days'
+		);
+		expect( getSnapshotTimesLabel( { ...snapshot, date: now }, now ) ).toBe(
+			'Updated now · expires in 7 days'
+		);
+	} );
+
+	it( 'states how long ago an expired preview expired', () => {
+		expect( getSnapshotExpiredLabel( { ...snapshot, date: now - 10 * DAY_MS }, now ) ).toBe(
+			'Expired 3 days ago'
 		);
 	} );
 } );

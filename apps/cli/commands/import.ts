@@ -10,6 +10,7 @@ import {
 	ImportIpcEvent,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
+import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -24,7 +25,9 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyImportFailure, untildify } from 'cli/lib/utils';
 import {
@@ -65,63 +68,79 @@ function sendIpcEvent( eventTuple: ImportEventTuple ) {
 	process.send!( ipcEvent );
 }
 
-function handleImportIpc( emitter: ImportExportEventEmitter ) {
+function forwardImportEvents(
+	emitter: ImportExportEventEmitter,
+	send: ( eventTuple: ImportEventTuple ) => void
+) {
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_START, () => {
-		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_START, undefined ] );
+		send( [ ValidatorEvents.IMPORT_VALIDATION_START, undefined ] );
 	} );
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_COMPLETE, () => {
-		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_COMPLETE, undefined ] );
+		send( [ ValidatorEvents.IMPORT_VALIDATION_COMPLETE, undefined ] );
 	} );
 	emitter.on( ValidatorEvents.IMPORT_VALIDATION_ERROR, ( error ) => {
-		sendIpcEvent( [ ValidatorEvents.IMPORT_VALIDATION_ERROR, error ] );
+		send( [ ValidatorEvents.IMPORT_VALIDATION_ERROR, error ] );
 	} );
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_START, () => {
-		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_START, undefined ] );
+		send( [ BackupExtractEvents.BACKUP_EXTRACT_START, undefined ] );
 	} );
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, ( progressData ) => {
-		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, progressData ] );
+		send( [ BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, progressData ] );
 	} );
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, () => {
-		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, undefined ] );
+		send( [ BackupExtractEvents.BACKUP_EXTRACT_COMPLETE, undefined ] );
 	} );
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_WARNING, ( warningMessage ) => {
-		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_WARNING, warningMessage ] );
+		send( [ BackupExtractEvents.BACKUP_EXTRACT_WARNING, warningMessage ] );
 	} );
 	emitter.on( BackupExtractEvents.BACKUP_EXTRACT_ERROR, ( error ) => {
-		sendIpcEvent( [ BackupExtractEvents.BACKUP_EXTRACT_ERROR, error ] );
+		send( [ BackupExtractEvents.BACKUP_EXTRACT_ERROR, error ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_START, ( importerType ) => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_START, importerType ] );
+		send( [ ImporterEvents.IMPORT_START, importerType ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_DATABASE_START, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_START, undefined ] );
+		send( [ ImporterEvents.IMPORT_DATABASE_START, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_DATABASE_PROGRESS, ( progressData ) => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_PROGRESS, progressData ] );
+		send( [ ImporterEvents.IMPORT_DATABASE_PROGRESS, progressData ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_DATABASE_COMPLETE, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_DATABASE_COMPLETE, undefined ] );
+		send( [ ImporterEvents.IMPORT_DATABASE_COMPLETE, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_START, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_START, undefined ] );
+		send( [ ImporterEvents.IMPORT_WP_CONTENT_START, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, ( progressData ) => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, progressData ] );
+		send( [ ImporterEvents.IMPORT_WP_CONTENT_PROGRESS, progressData ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, undefined ] );
+		send( [ ImporterEvents.IMPORT_WP_CONTENT_COMPLETE, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_META_START, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_META_START, undefined ] );
+		send( [ ImporterEvents.IMPORT_META_START, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_META_COMPLETE, () => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_META_COMPLETE, undefined ] );
+		send( [ ImporterEvents.IMPORT_META_COMPLETE, undefined ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_COMPLETE, ( importerType ) => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_COMPLETE, importerType ] );
+		send( [ ImporterEvents.IMPORT_COMPLETE, importerType ] );
 	} );
 	emitter.on( ImporterEvents.IMPORT_ERROR, ( error ) => {
-		sendIpcEvent( [ ImporterEvents.IMPORT_ERROR, error ] );
+		send( [ ImporterEvents.IMPORT_ERROR, error ] );
+	} );
+}
+
+// Publishes the import's progress as sync activity, so every Studio UI shows it whoever started it.
+function reportImportProgress( siteId: string, emitter: ImportExportEventEmitter ) {
+	let lastMessage = '';
+	forwardImportEvents( emitter, ( eventTuple ) => {
+		const message = getImportStatusMessage( eventTuple );
+		// Extraction reports once per stream chunk; only publish what changes.
+		if ( message && message !== lastMessage ) {
+			lastMessage = message;
+			void reportSyncActivity( siteId, { kind: 'pending', direction: 'import', message } );
+		}
 	} );
 }
 
@@ -264,6 +283,18 @@ export async function runCommand(
 	suppressTracksEvent = false,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
+	return withSiteOperation( siteFolder, 'import', () =>
+		importBackup( siteFolder, importFile, alwaysStartServer, suppressTracksEvent, logger )
+	);
+}
+
+async function importBackup(
+	siteFolder: string,
+	importFile: string,
+	alwaysStartServer: boolean,
+	suppressTracksEvent: boolean,
+	logger: Logger< LoggerAction >
+): Promise< void > {
 	const startedAt = Date.now();
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -279,6 +310,7 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
+		void reportSyncActivity( site.id, { kind: 'pending', direction: 'import' } );
 
 		if ( ! fs.existsSync( importFile ) ) {
 			throw new LoggerError(
@@ -313,10 +345,11 @@ export async function runCommand(
 			importerType = type;
 		} );
 		if ( process.send ) {
-			handleImportIpc( importer );
+			forwardImportEvents( importer, sendIpcEvent );
 		} else {
 			handleImportEvents( importer, logger );
 		}
+		reportImportProgress( site.id, importer );
 		const importResult = await importer.import( site );
 		const importedPhpVersion = importResult.meta?.phpVersion;
 		if ( importedPhpVersion && importedPhpVersion !== site.phpVersion ) {
@@ -351,6 +384,20 @@ export async function runCommand(
 		} finally {
 			await disconnectFromDaemon();
 		}
+	}
+
+	const failure = importError ?? restartSiteError;
+	if ( site ) {
+		await reportSyncActivity(
+			site.id,
+			failure === undefined
+				? { kind: 'success', direction: 'import' }
+				: {
+						kind: 'error',
+						direction: 'import',
+						message: failure instanceof Error ? failure.message : String( failure ),
+				  }
+		);
 	}
 
 	// Record before the LoggerError merge below — merging the restart error into `previousError`

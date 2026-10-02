@@ -1,43 +1,14 @@
 import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
 import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
-import type { PullSiteProgress, PushPhase } from '@/data/core';
+import type { SyncActivity } from '@studio/common/lib/sync/activity';
+import type { PushPhase } from '@studio/common/types/sync';
 
-// Structurally what `PullSiteProgress` already is, named for the wider set of
-// operations that report through here.
-type ActivityProgress = PullSiteProgress;
+export type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 
-// Tracks in-flight and recently completed live-site sync operations so the
-// Site Details header can surface a cross-page indicator. Uses a module-
-// level store (rather than React context) so the state survives component
-// remounts during navigation — e.g. pushing from the session view and then
-// switching to the site settings page still shows the in-progress icon.
-
-// `preview` covers creating or refreshing the WordPress.com-hosted preview
-// snapshot. Grouped in here alongside push/pull so the dropdown's single
-// activity indicator can surface any live-sync-like operation consistently.
-//
-// `import` is not a live-site operation at all, but it is the same shape of
-// thing from the UI's point of view: long-running, scoped to one site, and it
-// rewrites that site underneath you. It lives here so a site being imported
-// reads the same way in the sidebar and dropdown as one being pulled — and so
-// two concurrent imports stay told apart by site, which a global toast can't do.
-export type SyncDirection = 'push' | 'pull' | 'preview' | 'import';
-
-export type SyncActivity =
-	| {
-			kind: 'pending';
-			direction: SyncDirection;
-			message?: string;
-			progress?: number;
-			// How far a push has got; drives the cancel gate. Pull reports the
-			// equivalent through the CLI `action` behind its progress message.
-			phase?: PushPhase;
-			action?: string;
-	  }
-	| { kind: 'success'; direction: SyncDirection }
-	| { kind: 'cancelled'; direction: SyncDirection }
-	| { kind: 'error'; direction: SyncDirection; message: string };
+// In-flight and recently finished syncs and imports per site, fed by the
+// activity the CLI publishes. Module-level so it survives remounts during
+// navigation.
 
 // How long success/error stay visible before the indicator vanishes.
 // Matches the 30s requirement from the UX spec.
@@ -76,22 +47,6 @@ function scheduleExpiry( siteId: string ) {
 	timers.set( siteId, timer );
 }
 
-export function reportSyncPending( siteId: string, direction: SyncDirection ): void {
-	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction } );
-	emit();
-}
-
-export function reportSyncProgress(
-	siteId: string,
-	direction: Extract< SyncDirection, 'pull' | 'import' >,
-	progress: ActivityProgress
-): void {
-	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction, ...progress } );
-	emit();
-}
-
 // Same wording as the classic renderer's push states, so a user moving between
 // the two UIs reads the same thing. The percentage goes in the message because
 // that is how a pull already reads here — the CLI puts it in its own text.
@@ -107,20 +62,30 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 	return progress ? sprintf( '%1$s (%2$d%%)', message, Math.round( progress ) ) : message;
 }
 
-export function reportPushPhase( siteId: string, phase: PushPhase, progress?: number ): void {
-	const current = entries.get( siteId );
-	if ( current?.kind !== 'pending' || current.direction !== 'push' ) {
-		return;
+/**
+ * Records what a site's sync is doing. Returns whether this settled a sync that
+ * was still pending, so each result is announced once however many times it is
+ * reported.
+ */
+export function applySyncActivity( siteId: string, activity: SyncActivity ): boolean {
+	const wasPending = entries.get( siteId )?.kind === 'pending';
+	if ( activity.kind === 'pending' ) {
+		clearExpiryTimer( siteId );
+		entries.set(
+			siteId,
+			activity.phase
+				? { ...activity, message: getPushPhaseMessage( activity.phase, activity.progress ) }
+				: activity
+		);
+	} else {
+		if ( ! wasPending ) {
+			return false;
+		}
+		entries.set( siteId, activity );
+		scheduleExpiry( siteId );
 	}
-	clearExpiryTimer( siteId );
-	entries.set( siteId, { ...current, phase, message: getPushPhaseMessage( phase, progress ) } );
 	emit();
-}
-
-export function reportSyncCancelled( siteId: string, direction: SyncDirection ): void {
-	entries.set( siteId, { kind: 'cancelled', direction } );
-	scheduleExpiry( siteId );
-	emit();
+	return activity.kind !== 'pending';
 }
 
 /**
@@ -139,18 +104,6 @@ export function canCancelSyncActivity( activity: SyncActivity | null ): boolean 
 		return canCancelPull( activity.action );
 	}
 	return false;
-}
-
-export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {
-	entries.set( siteId, { kind: 'success', direction } );
-	scheduleExpiry( siteId );
-	emit();
-}
-
-export function reportSyncError( siteId: string, direction: SyncDirection, message: string ): void {
-	entries.set( siteId, { kind: 'error', direction, message } );
-	scheduleExpiry( siteId );
-	emit();
 }
 
 function subscribe( listener: () => void ): () => void {

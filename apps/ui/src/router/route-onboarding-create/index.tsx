@@ -398,7 +398,6 @@ export function CreateSitePage() {
 							ref={ composerRef }
 							variant="field"
 							busy={ false }
-							error={ null }
 							model={ model }
 							onModelChange={ setModel }
 							onSend={ async () => undefined }

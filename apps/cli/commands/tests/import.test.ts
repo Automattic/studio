@@ -1,7 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { isWordPressDirectory, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
-import { ImporterEvents, ValidatorEvents } from '@studio/common/lib/import-export-events';
+import {
+	BackupExtractEvents,
+	ImporterEvents,
+	ValidatorEvents,
+} from '@studio/common/lib/import-export-events';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
@@ -9,7 +13,9 @@ import { getSiteByFolder, updateSitePhpVersion } from 'cli/lib/cli-config/sites'
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -44,6 +50,11 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
+
+vi.mock( 'cli/lib/sync-activity' );
+vi.mock( 'cli/lib/site-operations', () => ( {
+	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
+} ) );
 
 describe( 'CLI: studio import', () => {
 	const testSitePath = '/test/site';
@@ -116,7 +127,37 @@ describe( 'CLI: studio import', () => {
 			},
 			DEFAULT_IMPORTER_OPTIONS
 		);
+		expect( withSiteOperation ).toHaveBeenCalledWith(
+			testSitePath,
+			'import',
+			expect.any( Function )
+		);
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	// Extraction reports once per stream chunk, so only changes in the text are published.
+	it( 'publishes its progress, once per change, then its result', async () => {
+		const importer = createImporter( async () => {
+			for ( let processedFiles = 1; processedFiles <= 500; processedFiles++ ) {
+				importer.emit( BackupExtractEvents.BACKUP_EXTRACT_PROGRESS, {
+					processedFiles: processedFiles <= 250 ? 1 : 2,
+					totalFiles: 10,
+				} );
+			}
+			return importResult;
+		} );
+		vi.mocked( getImporter ).mockReturnValue( importer as never );
+
+		await runCommand( testSitePath, testImportPath );
+
+		expect(
+			vi.mocked( reportSyncActivity ).mock.calls.map( ( [ , activity ] ) => activity )
+		).toEqual( [
+			{ kind: 'pending', direction: 'import' },
+			{ kind: 'pending', direction: 'import', message: '10% · Extracting…' },
+			{ kind: 'pending', direction: 'import', message: '20% · Extracting…' },
+			{ kind: 'success', direction: 'import' },
+		] );
 	} );
 
 	it( 'updates site PHP version from import metadata when available', async () => {

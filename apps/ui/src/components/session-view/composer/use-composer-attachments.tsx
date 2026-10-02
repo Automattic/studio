@@ -10,6 +10,7 @@ import {
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
@@ -24,7 +25,6 @@ export function useComposerAttachments(
 	const connector = useConnector();
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
-	const [ error, setError ] = useState< string | null >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
 	const setTrackedAttachments = useCallback( ( next: ComposerAttachment[] ) => {
@@ -40,10 +40,7 @@ export function useComposerAttachments(
 		} );
 	}, [] );
 
-	const clear = useCallback( () => {
-		setTrackedAttachments( [] );
-		setError( null );
-	}, [ setTrackedAttachments ] );
+	const clear = useCallback( () => setTrackedAttachments( [] ), [ setTrackedAttachments ] );
 
 	// Put a batch back after a failed send so the user doesn't lose them.
 	const restore = useCallback(
@@ -59,7 +56,6 @@ export function useComposerAttachments(
 			if ( disabled || list.length === 0 ) {
 				return;
 			}
-			setError( null );
 			const messages = {
 				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
 				imageReadFailed: __( 'Failed to read the attached image.' ),
@@ -83,22 +79,23 @@ export function useComposerAttachments(
 				existingAttachments: attachmentsRef.current,
 			} );
 			if ( prepared.error ) {
-				setError( prepared.error );
+				toast.error( prepared.error );
 			}
 			if ( prepared.attachments.length === 0 ) {
 				return;
 			}
 
-			setAttachments( ( current ) => {
-				const merged = mergeComposerAttachments( current, prepared.attachments, messages );
-				if ( merged.error ) {
-					setError( merged.error );
-				}
-				attachmentsRef.current = merged.attachments;
-				return merged.attachments;
-			} );
+			const merged = mergeComposerAttachments(
+				attachmentsRef.current,
+				prepared.attachments,
+				messages
+			);
+			if ( merged.error ) {
+				toast.error( merged.error );
+			}
+			setTrackedAttachments( merged.attachments );
 		},
-		[ connector, disabled ]
+		[ connector, disabled, setTrackedAttachments ]
 	);
 
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {
@@ -142,7 +139,6 @@ export function useComposerAttachments(
 
 	return {
 		attachments,
-		error,
 		isDraggingOver,
 		addFiles,
 		removeAttachment,

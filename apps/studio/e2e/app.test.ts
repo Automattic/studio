@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
 
 test.describe( 'Electron app', () => {
 	const session = new E2ESession();
 
 	test.beforeAll( async () => {
-		await session.launch();
+		await session.launch( {}, { firstRun: true } );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
@@ -18,12 +17,18 @@ test.describe( 'Electron app', () => {
 	} );
 
 	test( 'should ensure app title is correct.', async () => {
-		const title = await session.mainWindow.title();
-		expect( title ).toBe( 'WordPress Studio' );
+		expect( await session.mainWindow.title() ).toBe( 'Studio' );
 	} );
 
 	test( 'first screen displayed is onboarding', async () => {
-		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
+		await expect(
+			session.mainWindow.getByRole( 'heading', { name: 'WordPress Studio', level: 1 } )
+		).toBeVisible();
+		await session.mainWindow.getByRole( 'button', { name: 'Skip' } ).click();
+		await session.mainWindow.getByRole( 'button', { name: 'Continue' } ).click();
+		await session.mainWindow.getByRole( 'button', { name: 'Skip log in' } ).click();
+		await expect(
+			session.mainWindow.getByRole( 'heading', { name: 'Add a site', level: 1 } )
+		).toBeVisible();
 	} );
 } );

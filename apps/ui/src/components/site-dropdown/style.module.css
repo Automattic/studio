@@ -65,6 +65,9 @@
 		#3858e9 50%,
 		var(--site-dropdown-menu-foreground)
 	);
+	/* Literal for the same reason: status colors tuned for the near-black surface. */
+	--site-dropdown-menu-warning: #f0b849;
+	--site-dropdown-menu-error: #f86368;
 	--wpds-color-background-surface-neutral: var(--site-dropdown-menu-surface-subtle);
 	--wpds-color-background-surface-neutral-strong: var(--site-dropdown-menu-surface);
 	--wpds-color-background-interactive-neutral-weak: transparent;

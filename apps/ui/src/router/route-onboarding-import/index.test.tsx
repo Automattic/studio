@@ -1,10 +1,9 @@
-import { BackupExtractEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { applySyncActivity } from '@/data/sync-activity';
 import { clearPendingBackup, peekPendingBackup, setPendingBackup } from '@/lib/pending-backup';
 import { OnboardingImportPage } from './index';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
@@ -145,13 +144,16 @@ describe( 'OnboardingImportPage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 		await screen.findByText( 'Studio could not import this backup.' );
 
+		// The import starts the site; a running site's WP-CLI lookups would race it.
+		expect( mocks.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { skipStart: true } )
+		);
 		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
 		expect( mocks.importSite ).toHaveBeenNthCalledWith(
 			1,
 			expect.objectContaining( {
 				siteId: 'site-1',
 				backupPath: '/tmp/studio-upload-first/backup.zip',
-				onProgress: expect.any( Function ),
 			} )
 		);
 		expect( mocks.formProps?.isSubmitting ).toBe( false );
@@ -171,7 +173,6 @@ describe( 'OnboardingImportPage', () => {
 			expect.objectContaining( {
 				siteId: 'site-2',
 				backupPath: '/tmp/studio-upload-second/backup.zip',
-				onProgress: expect.any( Function ),
 			} )
 		);
 		expect( mocks.navigate ).toHaveBeenLastCalledWith( {
@@ -181,27 +182,25 @@ describe( 'OnboardingImportPage', () => {
 		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
 	} );
 
-	it( 'shows detailed importer progress in the onboarding notification', async () => {
-		mocks.importSite.mockImplementationOnce(
-			async ( input: { onProgress?: ( event: ImportEventTuple ) => void } ) => {
-				input.onProgress?.( [
-					BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
-					{ processedFiles: 1, totalFiles: 4 },
-				] );
-				input.onProgress?.( [
-					ImporterEvents.IMPORT_DATABASE_PROGRESS,
-					{ processedFiles: 1, totalFiles: 2 },
-				] );
-			}
-		);
+	it( 'shows the import progress the CLI publishes in the onboarding notification', async () => {
+		let finishImport = () => {};
+		mocks.importSite.mockImplementationOnce( ( { siteId }: { siteId: string } ) => {
+			applySyncActivity( siteId, {
+				kind: 'pending',
+				direction: 'import',
+				message: '25% · Extracting…',
+			} );
+			return new Promise< void >( ( resolve ) => {
+				finishImport = resolve;
+			} );
+		} );
 		await renderConfiguredImport();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
 
-		await waitFor( () => {
-			expect( mocks.setProgress ).toHaveBeenCalledWith( '25% · Extracting…' );
-			expect( mocks.setProgress ).toHaveBeenCalledWith( '50% · Database…' );
-		} );
+		await waitFor( () => expect( mocks.setProgress ).toHaveBeenCalledWith( '25% · Extracting…' ) );
+		finishImport();
+		await waitFor( () => expect( mocks.setProgress ).toHaveBeenLastCalledWith( null ) );
 	} );
 
 	it( 'restores interaction when resolving the selected File fails', async () => {

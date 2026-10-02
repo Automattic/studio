@@ -1,6 +1,8 @@
 import EventEmitter from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { killChild } from '@studio/common/lib/cli-process';
+import { z } from 'zod';
+import { killChild, runCliCommand } from '@studio/common/lib/cli-process';
+import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { ChildProcess } from 'node:child_process';
 
 // `killChild` branches on the platform: signals on POSIX, `taskkill /F /T` on
@@ -62,5 +64,57 @@ describe( 'killChild', () => {
 		vi.advanceTimersByTime( 5000 );
 
 		expect( child.signals ).toEqual( [ 'SIGTERM' ] );
+	} );
+} );
+
+describe( 'runCliCommand', () => {
+	const schema = z.object( { url: z.string() } );
+
+	function fakeCli( ...messages: unknown[] ) {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => {
+			queueMicrotask( () => {
+				for ( const data of messages ) {
+					emitter.emit( 'data', { data } );
+				}
+				emitter.emit( 'success' );
+			} );
+			return [ emitter, {} ];
+		} ) as unknown as ExecuteCliCommand;
+		return execute;
+	}
+
+	it( 'resolves with the reported result and forwards progress', async () => {
+		const onProgress = vi.fn();
+		const execute = fakeCli(
+			{ action: 'upload', status: 'inprogress', message: 'Uploading…' },
+			{ action: 'result', value: { url: 'https://a.example' } }
+		);
+
+		await expect(
+			runCliCommand( execute, [ 'preview', 'create' ], schema, { onProgress } )
+		).resolves.toEqual( { url: 'https://a.example' } );
+		expect( onProgress ).toHaveBeenCalledWith( 'Uploading…' );
+	} );
+
+	it.each( [
+		[ 'reports no result', fakeCli(), /reported no result/ ],
+		[ 'reports a malformed result', fakeCli( { action: 'result', value: { url: 1 } } ), /url/ ],
+	] )( 'rejects when the command %s', async ( _case, execute, error ) => {
+		await expect( runCliCommand( execute, [ 'preview', 'create' ], schema ) ).rejects.toThrow(
+			error
+		);
+	} );
+
+	it( 'rejects with the command error when it fails', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => {
+			queueMicrotask( () => emitter.emit( 'failure', { error: new Error( 'Upload failed' ) } ) );
+			return [ emitter, {} ];
+		} ) as unknown as ExecuteCliCommand;
+
+		await expect( runCliCommand( execute, [ 'preview', 'create' ], schema ) ).rejects.toThrow(
+			'Upload failed'
+		);
 	} );
 } );

@@ -17,7 +17,7 @@ import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
-	createOrReuseAiSession,
+	createHydratedAiSession,
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
@@ -43,7 +43,14 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
-import { createCliRunner } from '@studio/common/lib/cli-process';
+import {
+	cliAuthEventSchema,
+	cliSiteEventSchema,
+	cliSnapshotEventSchema,
+	cliSyncEventSchema,
+	siteListItemSchema,
+} from '@studio/common/lib/cli-events';
+import { createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -59,7 +66,6 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
@@ -106,7 +112,12 @@ import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
-import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
+import {
+	deletePreviewSite,
+	fetchSnapshots,
+	publishPreviewSite,
+	renamePreviewSite,
+} from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
@@ -423,11 +434,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
 	} );
 
-	// Preview snapshots stream their progress on the `snapshot` channel, the
-	// same shared manager + emit the desktop wires to IPC.
-	const snapshotManager = createSnapshotManager( {
-		executeCliCommand: execute,
-		emit: ( output ) => sseSend( { channel: 'snapshot', payload: output } ),
+	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
+	// browser through `_events`, listening on the socket kept for `studio ui`.
+	const [ cliEvents ] = execute( [ '_events', '--listener', 'ui' ], { output: 'capture' } );
+	cliEvents.on( 'error', ( { error } ) => console.error( 'CLI events subscriber failed:', error ) );
+	cliEvents.on( 'data', ( { data } ) => {
+		const siteEvent = cliSiteEventSchema.safeParse( data );
+		if ( siteEvent.success ) {
+			sseSend( { channel: 'site-event', payload: siteEvent.data.value } );
+			return;
+		}
+		const syncEvent = cliSyncEventSchema.safeParse( data );
+		if ( syncEvent.success ) {
+			sseSend( { channel: 'sync-activity', payload: syncEvent.data.value } );
+			return;
+		}
+		const snapshotEvent = cliSnapshotEventSchema.safeParse( data );
+		if ( snapshotEvent.success ) {
+			sseSend( { channel: 'snapshot-event', payload: snapshotEvent.data.value } );
+			return;
+		}
+		const authEvent = cliAuthEventSchema.safeParse( data );
+		if ( authEvent.success ) {
+			sseSend( { channel: 'auth-event', payload: authEvent.data.value } );
+		}
 	} );
 
 	const app = express();
@@ -954,6 +984,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
 			let cleanupCreateArgs: () => void = () => undefined;
+			let created: SiteListItem;
 			// If the blueprint has a bundle_url (API blueprints with bundled resources
 			// like theme zips), download and extract the bundle so the CLI can resolve
 			// relative paths. Mirrors the desktop app's ipc-handlers.ts logic.
@@ -983,12 +1014,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					originalBlueprintPath: blueprintFilePath,
 				} );
 				cleanupCreateArgs = cleanup;
-				await new Promise< void >( ( resolve, reject ) => {
-					const [ emitter ] = execute( args, { output: 'capture' } );
-					emitter.on( 'success', () => resolve() );
-					emitter.on( 'failure', ( { error } ) => reject( error ) );
-					emitter.on( 'error', ( { error } ) => reject( error ) );
-				} );
+				created = await runCliCommand( execute, args, siteListItemSchema );
 			} finally {
 				cleanupCreateArgs();
 				if ( body.blueprint?.filePath ) {
@@ -1001,11 +1027,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 
-			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
-			if ( ! created ) {
-				res.status( 500 ).json( { error: 'Site was created but could not be found.' } );
-				return;
-			}
 			res.json( toSiteDetails( created ) );
 		} )
 	);
@@ -1159,18 +1180,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
 			} );
-			await new Promise< void >( ( resolve, reject ) => {
-				const [ emitter ] = execute( args, { output: 'capture' } );
-				emitter.on( 'success', () => resolve() );
-				emitter.on( 'failure', ( { error } ) => reject( error ) );
-				emitter.on( 'error', ( { error } ) => reject( error ) );
-			} );
-
-			const created = ( await listSites( execute ) ).find( ( s ) => s.id === newId );
+			const created = await runCliCommand( execute, args, siteListItemSchema );
 			// The copied database still points at the source site's URL, so the copy
 			// would 301-redirect back to the source. Rewrite the URL across the DB to
 			// the copy's own — the same search-replace the desktop's updateSiteUrl does.
-			if ( created?.url && source.url && created.url !== source.url ) {
+			if ( created.url && source.url && created.url !== source.url ) {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
 						[
@@ -1189,7 +1203,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			res.json( toSiteDetails( created ?? source ) );
+			res.json( toSiteDetails( created ) );
 		} )
 	);
 
@@ -1307,15 +1321,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 						],
 						{ output: 'capture' }
 					);
-					emitter.on( 'data', ( { data } ) => {
-						const parsed = importIpcEventSchema.safeParse( data );
-						if ( parsed.success ) {
-							sseSend( {
-								channel: 'import',
-								payload: { siteId: site.id, event: parsed.data.event },
-							} );
-						}
-					} );
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );
@@ -1519,8 +1524,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- Preview sites (snapshots) --------------------------------------------
-	// Kick off the CLI command and return its operationId immediately; progress
-	// + the final url/success stream over the SSE `snapshot` channel.
+	// Publishing responds with the preview's URL once it's live; its progress
+	// streams as sync activity.
 	api.get(
 		'/snapshots',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1538,17 +1543,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			const { operationId } = hostname
-				? snapshotManager.updateSnapshot( site.path, hostname )
-				: snapshotManager.createSnapshot( site.path, name );
-			res.json( { operationId } );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
 		} )
 	);
 
-	api.delete( '/snapshots/:hostname', ( req: Request, res: Response ) => {
-		const { operationId } = snapshotManager.deleteSnapshot( req.params.hostname );
-		res.json( { operationId } );
-	} );
+	api.delete(
+		'/snapshots/:hostname',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await deletePreviewSite( execute, req.params.hostname );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.patch(
+		'/snapshots/:hostname',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { name } = req.body as { name?: string };
+			if ( ! name?.trim() ) {
+				res.status( 400 ).json( { error: 'name is required' } );
+				return;
+			}
+			await renamePreviewSite( execute, req.params.hostname, name );
+			res.sendStatus( 204 );
+		} )
+	);
 
 	// --- Sync: pull from a connected WordPress.com live site ------------------
 	api.post(
@@ -1569,19 +1587,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pullSite(
-					execute,
-					site.path,
-					remoteSiteId,
-					( progress ) => {
-						sseSend( {
-							channel: 'sync-pull',
-							payload: { ...progress, siteId: req.params.id, remoteSiteId },
-						} );
-					},
-					options,
-					release.signal
-				);
+				await pullSite( execute, site.path, remoteSiteId, options, release.signal );
 			} catch ( error ) {
 				// A user cancel is an intentional stop, not a server error — report it
 				// as a result so it doesn't surface as a 500.
@@ -1687,8 +1693,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Push the local site to its connected WordPress.com live site. Long-running
-	// (export → upload → import); progress streams on the SSE `sync` channel.
-	// Responds once the remote import has finished.
+	// (export → upload → import); progress streams on the SSE `sync-activity`
+	// channel. Responds once the remote import has finished.
 	api.post(
 		'/sites/:id/push',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1700,11 +1706,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
 			}
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.status( 401 ).json( { error: 'Authentication required to push.' } );
-				return;
-			}
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
@@ -1712,18 +1713,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const release = registerSyncAbort( req.params.id, remoteSiteId );
 			try {
-				await pushSite(
-					{
-						executeCliCommand: execute,
-						accessToken: token.accessToken,
-						emit: ( output ) =>
-							sseSend( {
-								channel: 'sync-push',
-								payload: { ...output, siteId: req.params.id, remoteSiteId },
-							} ),
-					},
-					{ sitePath: site.path, remoteSiteId, options, signal: release.signal }
-				);
+				await pushSite( execute, site.path, remoteSiteId, options, release.signal );
 			} catch ( error ) {
 				if ( ! isSyncCancelledError( error ) ) {
 					throw error;
@@ -1772,8 +1762,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			// Bind the new chat to the requested local site (the same way the
-			// desktop does), so "new chat" on a site is placed under it. An empty
-			// existing draft for that site is reused instead of piling up orphans.
+			// desktop does), so "new chat" on a site is placed under it.
 			const { siteId } = req.body as { siteId?: string };
 			let site;
 			if ( siteId ) {
@@ -1782,19 +1771,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					site = { id: found.id, name: found.name, path: found.path };
 				}
 			}
-			// `created` is an analytics signal, not part of the session shape.
-			const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
-				site,
-			} );
+			const summary = await createHydratedAiSession( sessionsRoot, { site } );
 			res.json( summary );
 
-			// Created in-process here, as in the desktop's Main. Reused drafts don't count.
-			if ( created ) {
-				trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
-					...getAiTracksIdentity( summary.id ),
-					has_site: Boolean( site ),
-				} );
-			}
+			// Created in-process here, as in the desktop's Main.
+			trackEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+				...getAiTracksIdentity( summary.id ),
+				has_site: Boolean( site ),
+			} );
 		} )
 	);
 

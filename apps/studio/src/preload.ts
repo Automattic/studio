@@ -62,6 +62,10 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
+	publishPreviewSite: ( siteFolder, hostname, name ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
+	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
@@ -91,8 +95,6 @@ const api: IpcApi = {
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
 		ipcRendererInvoke( 'enableAgenticUi', surface ),
-	disableAgenticUi: ( surface?: AgenticUiSurface ) =>
-		ipcRendererInvoke( 'disableAgenticUi', surface ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),

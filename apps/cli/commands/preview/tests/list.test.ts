@@ -13,7 +13,7 @@ import {
 	mockReportError,
 	mockReportProgress,
 	mockReportWarning,
-	mockReportKeyValuePair,
+	mockReportResult,
 } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
@@ -43,7 +43,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = mockReportError;
 		reportProgress = mockReportProgress;
 		reportWarning = mockReportWarning;
-		reportKeyValuePair = mockReportKeyValuePair;
+		reportResult = mockReportResult;
 		spinner = {};
 		currentAction = null;
 	},
@@ -389,7 +389,7 @@ describe( 'Preview List Command', () => {
 			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 			const json = JSON.stringify( mockSnapshots );
 			expect( consoleLogSpy ).toHaveBeenCalledWith( json );
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'snapshots', json );
+			expect( mockReportResult ).toHaveBeenCalledWith( mockSnapshots );
 		} );
 
 		it( 'should output an empty array without erroring when logged out', async () => {
@@ -399,7 +399,7 @@ describe( 'Preview List Command', () => {
 
 			expect( getSnapshotsFromConfig ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( '[]' );
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'snapshots', '[]' );
+			expect( mockReportResult ).toHaveBeenCalledWith( [] );
 			expect( mockReportError ).not.toHaveBeenCalled();
 		} );
 	} );

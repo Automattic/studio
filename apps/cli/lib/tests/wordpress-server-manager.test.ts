@@ -11,6 +11,7 @@ import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
+import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -28,6 +29,12 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 } ) );
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sqlite-collations', () => ( {
+	getSiteDatabasePath: vi.fn(
+		( sitePath: string ) => `${ sitePath }/wp-content/database/.ht.sqlite`
+	),
+	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {
 	resetSqliteJournalModeToRollback: vi.fn().mockResolvedValue( undefined ),
@@ -256,6 +263,36 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
 				mockSiteData.path
+			);
+		} );
+
+		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
+			setupIpcMocks();
+			const existsSync = fs.existsSync;
+			vi.spyOn( fs, 'existsSync' ).mockImplementation(
+				( filePath ) =>
+					filePath === `${ mockSiteData.path }/wp-content/database/.ht.sqlite` ||
+					existsSync( filePath )
+			);
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 1 );
+			expect( vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'should replace MySQL 8-only collations again after WordPress is installed on first start', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 2 );
+			expect(
+				vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 1 ]
+			).toBeGreaterThan(
+				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
 			);
 		} );
 

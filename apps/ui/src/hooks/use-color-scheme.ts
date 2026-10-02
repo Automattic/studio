@@ -1,5 +1,5 @@
+import { useMediaQuery } from '@wordpress/compose';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 
 /**
  * The active color scheme that should drive theming.
@@ -14,7 +14,7 @@ import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
  * {@link useUserPreferences}).
  */
 export function useColorScheme(): 'light' | 'dark' {
-	const osScheme = usePrefersColorScheme();
+	const osScheme = useMediaQuery( '(prefers-color-scheme: dark)' ) ? 'dark' : 'light';
 	const { data: preferences } = useUserPreferences();
 	const saved = preferences?.colorScheme ?? 'system';
 	if ( saved === 'dark' ) {

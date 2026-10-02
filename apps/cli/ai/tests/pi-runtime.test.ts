@@ -22,6 +22,8 @@ vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 		...actual,
 		getAiModelFamily: ( id: string ) =>
 			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'studio',
+		getAiModel: ( id: string ) =>
+			actual.isAiModelId( id ) ? actual.getAiModel( id ) : { id, label: id, family: 'studio' },
 	};
 } );
 
@@ -262,7 +264,7 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
-	it( 'routes the capability tiers to the wpcom Chat Completions path', async () => {
+	it( 'routes the fast tier to the wpcom Chat Completions path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -272,12 +274,12 @@ describe( 'pi runtime', () => {
 					'X-WPCOM-Session-ID': 'session-2',
 				} ),
 			},
-			model: 'balanced',
+			model: 'fast',
 			session: newSession(),
 		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
-		expect( options.model?.id ).toBe( 'balanced' );
+		expect( options.model?.id ).toBe( 'fast' );
 		expect( options.model?.provider ).toBe( 'studio-wpcom' );
 		expect( options.model?.api ).toBe( 'openai-completions' );
 		const modelRegistry = new ModelRegistry( options.modelRuntime! );
@@ -311,14 +313,14 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	// `strong` resolves to a reasoning model that rejects the Chat Completions
+	// `balanced` resolves to a reasoning model that rejects the Chat Completions
 	// dialect's tools-plus-reasoning combination, so it rides the Responses
 	// path — the plain OpenAI dialect, with no compat overrides.
-	it( 'routes the strong tier to the wpcom Responses path', async () => {
+	it( 'routes the balanced tier to the wpcom Responses path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: WPCOM_ENV,
-			model: 'strong',
+			model: 'balanced',
 			session: newSession(),
 		} );
 
@@ -327,6 +329,67 @@ describe( 'pi runtime', () => {
 		expect( model.provider ).toBe( 'studio-wpcom' );
 		expect( model.compat ).toBeUndefined();
 	} );
+
+	it.each( [
+		[ 'balanced', 'https://proxy.example.com/v1/responses', 'balanced-2' ],
+		[ 'strong', 'https://proxy.example.com/v1/messages', 'strong-2' ],
+	] as const )(
+		'sends the %s tier to the proxy under its API model name',
+		async ( model, expectedUrl, expectedModel ) => {
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockResolvedValue( new Response( '{}', { status: 400 } ) );
+
+			let request: Parameters< typeof fetch > | undefined;
+			try {
+				await options
+					.modelRuntime!.streamSimple(
+						options.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				request = fetchSpy.mock.calls[ 0 ];
+			} finally {
+				fetchSpy.mockRestore();
+			}
+
+			const [ url, init ] = request!;
+			expect( String( url ) ).toBe( expectedUrl );
+			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
+			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
+			expect( options.model!.id ).toBe( model );
+		}
+	);
+
+	it.each( [ 'fast', 'balanced', 'strong' ] as const )(
+		'surfaces the proxy cost cap on the %s tier as a usage-cap error',
+		async ( model ) => {
+			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const body = JSON.stringify( {
+				error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
+			} );
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockImplementation( async () => new Response( body, { status: 429 } ) );
+
+			try {
+				const result = await options
+					.modelRuntime!.streamSimple(
+						options.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
+			} finally {
+				fetchSpy.mockRestore();
+			}
+		}
+	);
 
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {

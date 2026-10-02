@@ -135,21 +135,21 @@ where the sender actually runs — see Testing below for what fires in which bui
   `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
   events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
   commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
-  import, browser-UI import route), sync-pull imports, and sync-push exports — pass a hidden
+  import, browser-UI import route), sync-pull imports, and Classic's sync-push exports — pass a hidden
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
 - **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
-  **three independent implementations** — Classic's Redux thunks and pollers
-  (`apps/studio/src/stores/sync/sync-operations-slice.ts`), the agentic UI's mutation hooks
-  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), and the CLI
-  `push`/`pull` commands — sharing only the connected-sites storage and the WordPress.com endpoints.
-  Classic never invokes the CLI for either operation, so there is no funnel to emit from; each surface
-  emits its own event and `channel`/`ui_version` identify it. The one overlap is **pull**: an
-  agentic-UI pull *is* a forked `studio pull`, so `pullSite` (`packages/common/sites/sync.ts`) passes
-  the same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
-  `channel=studio-cli` `studio_sync_pull` row is therefore always a genuine standalone run. Push needs
-  no flag: an agentic-UI push runs the CLI `export` command, not CLI `push`. **Cancels emit nothing**
+  **two independent implementations** — Classic's Redux thunks and pollers
+  (`apps/studio/src/stores/sync/sync-operations-slice.ts`) and the CLI `push`/`pull` commands —
+  sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
+  CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
+  `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
+  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and emits from its own mutation hooks
+  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), so it passes the
+  same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
+  `channel=studio-cli` `studio_sync_push`/`studio_sync_pull` row is therefore always a run no UI
+  started. **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -395,7 +395,7 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
-| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
+| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
 | `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |
 | `studio_sync_create_site` | Classic Create-site button + agentic UI onboarding connect | (none — opens WordPress.com checkout) |

@@ -45,6 +45,64 @@
 	border-radius: 0;
 }
 
+/* Window drag handles over the chrome gaps around the frame. Electron maps
+   app regions without clipping, so no-drag content inside the frame (scrolled
+   chat, the preview webview) still cuts into the chrome's drag region. Painted
+   on top, these strips re-add the gaps after anything beneath them. Sized to
+   --panel-frame-gap. */
+.dragStrip {
+	position: absolute;
+	z-index: 120;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragStripTop,
+.dragStripBottom {
+	inset-inline: 0;
+	height: 12px;
+}
+
+.dragStripTop {
+	inset-block-start: 0;
+}
+
+.dragStripBottom {
+	inset-block-end: 0;
+}
+
+.dragStripEnd,
+.dragStripStart {
+	inset-block: 0;
+	width: 12px;
+}
+
+.dragStripEnd {
+	inset-inline-end: 0;
+}
+
+.dragStripStart {
+	inset-inline-start: 0;
+}
+
+/* A flush frame leaves no chrome gap, so the window's own edges become the
+   handles instead, kept narrow enough to clear the controls along them. */
+.dragStripEdge.dragStripTop,
+.dragStripEdge.dragStripBottom {
+	height: 8px;
+}
+
+.dragStripEdge.dragStripStart,
+.dragStripEdge.dragStripEnd {
+	width: 8px;
+}
+
+/* Stops short of a live preview, whose webview runs to the window edge. */
+.dragStripContentOnly {
+	inset-inline-end: auto;
+	width: var(--preview-frame-content-width);
+}
+
 /* Opaque and above the preview slot so it fully covers the (still mounted)
    preview while the panel is toggled off. Scrolls itself so routes taller
    than the viewport (e.g. settings) keep working under the fixed-height

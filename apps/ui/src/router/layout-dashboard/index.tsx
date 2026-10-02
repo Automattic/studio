@@ -270,6 +270,7 @@ function DashboardLayoutContent() {
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				previewFullscreen={ previewFullscreen }
+				previewLive={ !! previewSite?.running }
 				preview={ renderPreview }
 				onContainerWidthChange={ onPreviewContainerWidthChange }
 			>

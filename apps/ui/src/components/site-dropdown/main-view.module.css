@@ -36,7 +36,7 @@
 	text-wrap: pretty;
 }
 
-/* Matches .moreMenuTrigger: the popup is an inverted surface, so the design
+/* The popup is an inverted surface, so the design
    system's own disabled colour lands on the wrong background and the button
    reads as enabled. */
 .cancelSyncButton {
@@ -112,12 +112,6 @@
 .xdebugGlyph {
 	width: 16px;
 	height: 16px;
-}
-
-.rowActions {
-	display: flex;
-	align-items: center;
-	gap: 2px;
 }
 
 /* Derived from the popup's remapped tokens so the control tracks the
@@ -309,92 +303,6 @@
 .urlLink svg {
 	flex: 0 0 auto;
 	fill: currentColor;
-}
-
-.environmentActionRow {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-gap-md);
-	min-height: 40px;
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-}
-
-.environmentActionText {
-	flex: 1 1 auto;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 0;
-}
-
-.environmentActionTitle {
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: 1.25;
-	font-weight: 500;
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.environmentActionCopy {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1.4;
-	color: var(--wpds-color-foreground-content-neutral-weak);
-}
-
-.environmentActionButton {
-	flex: 0 0 auto;
-	align-self: center;
-}
-
-.rowActionButton,
-.environmentActionButton_outline {
-	border-radius: var(--wpds-border-radius-md);
-}
-
-.rowActionButton {
-	height: 28px;
-	width: 28px;
-	padding: 0;
-}
-
-/* Only recolor enabled buttons — an unconditional `color` here sits outside
-   the wp-ui layers and would override the design system's disabled dimming
-   and the loading spinner's transparent-text state. */
-.rowActionButton:not([data-disabled]) {
-	color: var(--wpds-color-foreground-interactive-neutral);
-}
-
-.rowActionButton svg {
-	width: 14px;
-	height: 14px;
-	fill: currentColor;
-}
-
-.environmentActionButton_outline {
-	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
-	--wp-ui-button-background-color-active: var(--wpds-color-background-surface-neutral);
-	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
-	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
-}
-
-.moreMenuTrigger {
-	width: 28px;
-	height: 28px;
-	padding: 0;
-	justify-content: center;
-	color: var(--wpds-color-foreground-interactive-neutral);
-}
-
-.moreMenuTrigger:is([data-disabled], :disabled) {
-	color: var(--wpds-color-foreground-interactive-neutral-disabled);
-}
-
-.moreMenuTrigger svg {
-	fill: currentColor;
-}
-
-.moreMenuPopup {
-	min-width: 148px;
 }
 
 @keyframes localServerGlyphPulse {

@@ -12,7 +12,9 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure, normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -54,9 +56,9 @@ export async function runCommand(
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
 	);
 	const startedAt = Date.now();
+	let siteId: string | undefined;
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
@@ -65,6 +67,19 @@ export async function runCommand(
 		}
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
+		const site = await getSiteByFolder( siteFolder );
+		siteId = site.id;
+		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			logger.reportStart( action, message );
+			void reportSyncActivity( site.id, {
+				kind: 'pending',
+				direction: 'preview',
+				message,
+				progress,
+				hostname: snapshotToUpdate.url,
+			} );
+		};
+		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
@@ -72,11 +87,13 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
 
-		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
-		await archiveSiteContent( siteFolder, archivePath );
+		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+		await withSiteOperation( siteFolder, 'export', () =>
+			archiveSiteContent( siteFolder, archivePath )
+		);
 		logger.reportSuccess( __( 'Archive created' ) );
 
-		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
+		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		const wordpressVersion = getWordPressVersion( siteFolder );
 		const uploadResponse = await uploadArchive(
 			archivePath,
@@ -86,21 +103,28 @@ export async function runCommand(
 		);
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		logger.reportStart( LoggerAction.READY, __( 'Updating preview site…' ) );
+		reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
 		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
 		);
 
-		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
+		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
-		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
-		logger.reportKeyValuePair( 'url', snapshot.url );
+		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
 	} catch ( error ) {
+		if ( siteId ) {
+			await reportSyncActivity( siteId, {
+				kind: 'error',
+				direction: 'preview',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		}
 		await recordPreviewUpdateEvent( {
 			success: false,
 			failure_reason: classifyPreviewFailure( error ),

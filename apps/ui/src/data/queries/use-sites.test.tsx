@@ -1,9 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAutoStartSites, useStartSite, useStopSite } from './use-sites';
+import {
+	useAutoStartSites,
+	useSites,
+	useStartSite,
+	useStopSite,
+	useSyncSitesWithEvents,
+} from './use-sites';
 import type { StartSiteOptions } from './use-sites';
 import type { Connector, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -167,5 +173,43 @@ describe( 'useStartSite', () => {
 
 		await expect( result.current.start.mutateAsync( 'site-1' ) ).resolves.toBe( true );
 		expect( startSite ).toHaveBeenCalledWith( 'site-1' );
+	} );
+} );
+
+describe( 'useSyncSitesWithEvents', () => {
+	it( 'refetches after an in-flight fetch that predates the event', async () => {
+		const pendingFetches: Array< ( sites: SiteDetails[] ) => void > = [];
+		let emitSiteEvent: ( event: { event: string } ) => void = () => {};
+		useConnectorMock.mockReturnValue( {
+			getSites: vi.fn(
+				() => new Promise< SiteDetails[] >( ( resolve ) => pendingFetches.push( resolve ) )
+			),
+			onSiteEvent: ( listener: typeof emitSiteEvent ) => {
+				emitSiteEvent = listener;
+				return () => {};
+			},
+		} as unknown as Connector );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+		const { result } = renderHook(
+			() => {
+				useSyncSitesWithEvents();
+				return useSites();
+			},
+			{
+				wrapper: ( { children }: { children: ReactNode } ) => (
+					<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+				),
+			}
+		);
+
+		// The release event lands while the fetch is still reading the busy site.
+		act( () => emitSiteEvent( { event: 'site-operations-changed' } ) );
+		await act( async () =>
+			pendingFetches[ 0 ]( [ createSite( { operation: { pid: 1, kind: 'import' } } ) ] )
+		);
+		await waitFor( () => expect( pendingFetches ).toHaveLength( 2 ) );
+		await act( async () => pendingFetches[ 1 ]( [ createSite( {} ) ] ) );
+
+		await waitFor( () => expect( result.current.data?.[ 0 ].operation ).toBeUndefined() );
 	} );
 } );

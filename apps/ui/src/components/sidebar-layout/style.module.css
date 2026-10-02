@@ -86,11 +86,6 @@
    so notices sit directly above the Settings row and its bell.
    Margin, not padding: this class lands on the bubble itself, which owns its
    own padding. */
-.sidebarBeta {
-	margin: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg)
-		var(--wpds-dimension-padding-xs);
-}
-
 /* Sidebar-specific indicator treatment: match the content card's vertical
    extent instead of running through the frame gaps above/below it (keep the
    12px in sync with --panel-frame-gap in preview-split-frame). The handle is

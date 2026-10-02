@@ -44,14 +44,23 @@ export class Logger< T extends string > {
 	public spinner: Spinner;
 	private currentAction: string | null = null;
 	private onProgress: ProgressCallback | null;
+	private readonly progressObservers = new Set<
+		( message: string, action: string | null ) => void
+	>();
 
 	constructor( options?: { onProgress?: ProgressCallback } ) {
 		this.spinner = new Spinner();
 		this.onProgress = options?.onProgress ?? null;
 	}
 
+	public observeProgress( observer: ( message: string, action: string | null ) => void ) {
+		this.progressObservers.add( observer );
+		return () => this.progressObservers.delete( observer );
+	}
+
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
+		this.progressObservers.forEach( ( observer ) => observer( message, action ) );
 
 		if ( this.onProgress ) {
 			this.onProgress( message );
@@ -68,6 +77,7 @@ export class Logger< T extends string > {
 	}
 
 	public reportProgress( message: string ) {
+		this.progressObservers.forEach( ( observer ) => observer( message, this.currentAction ) );
 		if ( this.onProgress ) {
 			this.onProgress( message, true );
 		} else if ( canSend() ) {
@@ -133,6 +143,13 @@ export class Logger< T extends string > {
 		}
 
 		this.currentAction = null;
+	}
+
+	/** Sends the command's result to the host that started it. Hosts read it with `runCliCommand`. */
+	public reportResult( value: unknown ) {
+		if ( canSend() ) {
+			process.send!( { action: 'result', value } );
+		}
 	}
 
 	public reportKeyValuePair( key: string, value: string ) {

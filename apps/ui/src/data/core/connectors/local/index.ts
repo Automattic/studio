@@ -19,7 +19,6 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
-	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -31,8 +30,8 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
-import type { PushOutput } from '@studio/common/types/sync';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -47,32 +46,16 @@ interface LocalConnectorOptions {
 	apiBaseUrl: string;
 }
 
-// One snapshot (preview-site) command's progress, correlated by operationId —
-// the browser-side view of the server's shared SnapshotOutput. Only the fields
-// the connector reacts to are modelled.
-type SnapshotSseOutput =
-	| { kind: 'key-value'; operationId: string; data: { key: string; value: string } }
-	| { kind: 'fatal-error'; operationId: string; data: { message: string } }
-	| { kind: 'success'; operationId: string }
-	| { kind: 'output' | 'error'; operationId: string };
-
-type PullProgressSseOutput = PullSiteProgress & {
-	siteId: string;
-	remoteSiteId: number;
-};
-type ImportSseOutput = { siteId: string; event: ImportEventTuple };
-type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
-
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
-	| { channel: 'snapshot'; payload: SnapshotSseOutput }
-	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
-	| { channel: 'sync-push'; payload: PushSseOutput }
-	| { channel: 'import'; payload: ImportSseOutput }
+	| { channel: 'sync-activity'; payload: SyncEvent }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
+	| { channel: 'site-event'; payload: SiteEvent }
+	| { channel: 'snapshot-event'; payload: SnapshotEvent }
+	| { channel: 'auth-event'; payload: unknown }
 	| { channel: 'site-preview'; payload: { siteId: string } };
 
 /**
@@ -94,13 +77,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
-	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
-	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
-	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
-	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
+	const syncActivityListeners = new Set< ( event: SyncEvent ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const siteEventListeners = new Set< ( event: SiteEvent ) => void >();
+	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
+	const authListeners = new Set< () => void >();
 	const sitePreviewListeners = new Set< ( event: { siteId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
@@ -186,34 +169,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return site.url;
 	}
 
-	// Resolve when the snapshot command with this operationId finishes, with its
-	// published URL — correlating the `snapshot` SSE stream by operationId, the
-	// same way the IPC connector correlates the snapshot-* events.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
-		return new Promise( ( resolve, reject ) => {
-			let capturedUrl: string | undefined;
-			const listener = ( output: SnapshotSseOutput ) => {
-				if ( output.operationId !== operationId ) {
-					return;
-				}
-				if ( output.kind === 'key-value' && output.data.key === 'url' ) {
-					capturedUrl = output.data.value;
-				} else if ( output.kind === 'success' ) {
-					snapshotListeners.delete( listener );
-					if ( capturedUrl ) {
-						resolve( { url: capturedUrl } );
-					} else {
-						reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
-					}
-				} else if ( output.kind === 'fatal-error' ) {
-					snapshotListeners.delete( listener );
-					reject( new Error( output.data.message ) );
-				}
-			};
-			snapshotListeners.add( listener );
-		} );
-	}
-
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -230,16 +185,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'snapshot' ) {
-					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-pull' ) {
-					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-push' ) {
-					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'import' ) {
-					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-activity' ) {
+					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'site-event' ) {
+					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'snapshot-event' ) {
+					snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'auth-event' ) {
+					authListeners.forEach( ( listener ) => listener() );
 				} else if ( parsed.channel === 'site-preview' ) {
 					sitePreviewListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
@@ -257,7 +212,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: false,
-			switchToClassicUi: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -345,8 +299,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async logout() {
 			await api( '/auth/logout', { method: 'POST' } );
 		},
-		onAuthStateChanged() {
-			return () => {};
+		onAuthStateChanged( listener ) {
+			authListeners.add( listener );
+			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
 			return true;
@@ -519,21 +474,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
-			const listener = onProgress
-				? ( output: ImportSseOutput ) => {
-						if ( output.siteId === siteId ) onProgress( output.event );
-				  }
-				: undefined;
-			if ( listener ) importListeners.add( listener );
-			try {
-				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-					method: 'POST',
-					body: JSON.stringify( { path: backupPath } ),
-				} );
-			} finally {
-				if ( listener ) importListeners.delete( listener );
-			}
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+				method: 'POST',
+				body: JSON.stringify( { path: backupPath } ),
+			} );
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
@@ -560,15 +505,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
 		},
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
-			// The server returns an operationId; progress + the final URL arrive on
-			// the `snapshot` SSE channel.
-			const { operationId } = await api< { operationId: string } >(
-				`/sites/${ encodeURIComponent( siteId ) }/preview`,
-				{ method: 'POST', body: JSON.stringify( { hostname: existingHostname } ) }
-			);
-			return awaitSnapshotOperation( operationId );
+			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
+				method: 'POST',
+				body: JSON.stringify( { hostname: existingHostname, name } ),
+			} );
+		},
+		async deleteSnapshot( hostname ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, { method: 'DELETE' } );
+		},
+		async renameSnapshot( hostname, name ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, {
+				method: 'PATCH',
+				body: JSON.stringify( { name } ),
+			} );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
@@ -607,24 +558,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
-			const listener = ( output: PushSseOutput ) => {
-				if ( output.siteId === siteId && output.kind === 'phase' ) {
-					onPhase?.( output.phase, output.progress );
-				}
-			};
-			if ( onPhase ) {
-				pushOutputListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pushOutputListeners.delete( listener );
-			}
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/push`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
 			if ( result?.cancelled ) {
@@ -638,32 +576,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
-			const listener = ( output: PullProgressSseOutput ) => {
-				if ( output.siteId === siteId ) {
-					onProgress?.( {
-						message: output.message,
-						...( output.progress === undefined ? {} : { progress: output.progress } ),
-						// Drives the cancel gate — without it every pull looks cancellable.
-						...( output.action === undefined ? {} : { action: output.action } ),
-					} );
-				}
-			};
-			if ( onProgress ) {
-				pullProgressListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pullProgressListeners.delete( listener );
-			}
+		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
+		},
+		onSyncActivity( listener ) {
+			syncActivityListeners.add( listener );
+			return () => syncActivityListeners.delete( listener );
 		},
 		async getLatestRewindId( remoteSiteId ) {
 			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
@@ -919,8 +843,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onFullscreenChange() {
 			return () => {};
 		},
-		onSiteEvent() {
-			return () => {};
+		onSiteEvent( listener ) {
+			siteEventListeners.add( listener );
+			return () => siteEventListeners.delete( listener );
+		},
+		onSnapshotEvent( listener ) {
+			snapshotEventListeners.add( listener );
+			return () => snapshotEventListeners.delete( listener );
 		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.
@@ -954,9 +883,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
-		},
-		async disableAgenticUi() {
-			// No-op in the browser.
 		},
 		async getOnboardingHints() {
 			return readOnboardingHints();

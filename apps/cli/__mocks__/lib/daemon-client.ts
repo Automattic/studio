@@ -16,4 +16,4 @@ export const subscribeSiteEvents = vi.fn().mockResolvedValue( undefined );
 export const subscribeDaemonKillEvent = vi.fn().mockResolvedValue( undefined );
 export const isProcessRunning = vi.fn().mockResolvedValue( false );
 
-export const SITE_EVENTS_SOCKET_PATH = '/test/events.sock';
+export const EVENTS_SOCKET_PATHS = { desktop: '/test/events.sock', ui: '/test/events-ui.sock' };

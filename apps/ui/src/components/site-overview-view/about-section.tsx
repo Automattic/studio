@@ -28,19 +28,10 @@ function formatBytes( bytes: number ): string {
 	}`;
 }
 
-export function AboutSection( {
-	site,
-	wpVersion,
-	themeDetails = site.themeDetails,
-}: {
-	site: SiteDetails;
-	wpVersion?: string;
-	themeDetails?: SiteDetails[ 'themeDetails' ];
-} ) {
+export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersion?: string } ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
-	const themeName = themeDetails?.name || themeDetails?.slug || '—';
 	const thumbnail = useSiteThumbnail( site.id );
 	const storage = useSiteStorageUsage( site.id );
 	const wpLabel = wpVersion
@@ -68,7 +59,7 @@ export function AboutSection( {
 
 	return (
 		<CardSection>
-			<div className={ styles.themeSummary }>
+			<div className={ styles.summary }>
 				<button
 					type="button"
 					className={ styles.thumbnail }
@@ -92,15 +83,11 @@ export function AboutSection( {
 						<Icon icon={ external } size={ 16 } />
 					</span>
 				</button>
-				<div className={ styles.themeDetails }>
-					<span className={ styles.tileLabel }>{ __( 'Theme' ) }</span>
-					<span className={ styles.themeValue }>{ themeName }</span>
-					<span className={ styles.themeMeta }>
-						<span>{ wpLabel }</span>
-						<span aria-hidden="true">•</span>
-						<span>{ phpLabel }</span>
-					</span>
-				</div>
+				<span className={ styles.versions }>
+					<span>{ wpLabel }</span>
+					<span aria-hidden="true">•</span>
+					<span>{ phpLabel }</span>
+				</span>
 			</div>
 			<div className={ styles.storageSection }>
 				<div className={ styles.storageHeader }>

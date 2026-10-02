@@ -319,7 +319,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		hasActiveRun,
 		isInterrupting,
 		startedAt,
-		error: runError,
 		pendingQuestions,
 		pendingAnswers,
 		queuedPrompts,
@@ -676,7 +675,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							awaitingAnswer={ pendingQuestions.length > 0 }
 							canSubmit={ ! isOutOfCredits }
 							isInterrupting={ isInterrupting }
-							error={ runError }
 							model={ currentModel }
 							onSend={ sendMessage }
 							onAnswer={ targetQuestion ? answerTargetQuestion : undefined }

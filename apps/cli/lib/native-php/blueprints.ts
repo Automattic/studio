@@ -6,10 +6,41 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+// blueprints.phar caps each download at 30 s in total, so large plugins (e.g. Gutenberg) fail
+// on slow connections. Remove once the bundled phar includes WordPress/php-toolkit#322.
+export const BLUEPRINT_HTTP_TIMEOUT_MS = 10 * 60 * 1000;
+
+// Hooks the runner's `blueprint.http_client` filter through the `$wp_filter` global its
+// polyfilled `apply_filters()` reads, since the phar exposes no CLI option for the timeout.
+// A phar with `idle_timeout_ms` already fails only stalled downloads, so its client is kept.
+export function getBlueprintRunnerPrependContent(): string {
+	return `<?php
+$GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
+	'function'      => function ( $client ) {
+		if ( property_exists( '\\WordPress\\HttpClient\\ClientState', 'idle_timeout_ms' ) ) {
+			return $client;
+		}
+		return new \\WordPress\\HttpClient\\Client( array( 'timeout_ms' => ${ BLUEPRINT_HTTP_TIMEOUT_MS } ) );
+	},
+	'accepted_args' => 1,
+);
+`;
+}
+
+function writeBlueprintRunnerPrependFile(): string {
+	const dir = fs.mkdtempSync(
+		path.join( getFullyResolvedTmpDirPath(), 'studio-blueprint-prepend-' )
+	);
+	const prependPath = path.join( dir, 'prepend.php' );
+	fs.writeFileSync( prependPath, getBlueprintRunnerPrependContent() );
+	return prependPath;
+}
 
 function isWriteAccessError( error: unknown ): boolean {
 	const code = ( error as NodeJS.ErrnoException )?.code;
@@ -167,6 +198,8 @@ export async function runBlueprint(
 		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
+	const prependPath = writeBlueprintRunnerPrependFile();
+
 	try {
 		await runPhpCommand(
 			[
@@ -182,6 +215,7 @@ export async function runBlueprint(
 			{
 				phpVersion,
 				signal,
+				autoPrependFile: prependPath,
 				// blueprints.phar runs `wp-cli` steps by shelling out to `php` on the
 				// PATH. Expose the bundled binary so blueprints work on machines
 				// without a system PHP install (e.g. CI and most users).
@@ -199,6 +233,9 @@ export async function runBlueprint(
 		throw error;
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
+		await fs.promises
+			.rm( path.dirname( prependPath ), { recursive: true, force: true } )
+			.catch( () => {} );
 		if ( fallbackTempDir ) {
 			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
 		}

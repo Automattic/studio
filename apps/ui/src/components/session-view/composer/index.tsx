@@ -246,7 +246,6 @@ interface ComposerProps {
 	// so a run already in flight keeps its Stop control.
 	canSubmit?: boolean;
 	isInterrupting?: boolean;
-	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
 	onAnswer?: ( answer: string ) => void;
@@ -355,7 +354,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		awaitingAnswer = false,
 		canSubmit = true,
 		isInterrupting = false,
-		error,
 		model,
 		onSend,
 		onAnswer,
@@ -450,7 +448,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// base64 content blocks; other files are referenced by disk path.
 	const {
 		attachments,
-		error: attachmentError,
 		isDraggingOver,
 		addFiles,
 		removeAttachment,
@@ -587,7 +584,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
 			// Restore the draft and attachments so the user can retry; the parent
-			// surfaces the error message via `error`. Queued sends never throw from
+			// reports the failure in a toast. Queued sends never throw from
 			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
 			// Saved directly (not left to the state-sync effect) so the retry isn't
@@ -884,7 +881,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			<Icon icon={ plus } size={ 16 } />
 		</Tooltip.Trigger>
 	);
-	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
 		? __( 'Stopping… click again to force stop' )
 		: __( 'Stop' );
@@ -1309,11 +1305,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				</div>
-				{ composerError ? (
-					<div className={ styles.meta }>
-						<span className={ styles.error }>{ composerError }</span>
-					</div>
-				) : null }
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

@@ -25,7 +25,7 @@ import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
-	createOrReuseAiSession,
+	createHydratedAiSession,
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
@@ -261,7 +261,10 @@ export {
 	createSnapshot,
 	deleteSnapshot,
 	deleteAllSnapshots,
+	deletePreviewSite,
 	fetchSnapshots,
+	publishPreviewSite,
+	renamePreviewSite,
 	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
@@ -348,10 +351,7 @@ export async function createAiSession(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 
-	// Binds the session to the site and reuses an existing empty draft for it
-	// instead of piling up orphans — the shared logic the `studio ui` server
-	// uses too.
-	const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+	const summary = await createHydratedAiSession( sessionsRoot, {
 		site: server && {
 			id: server.details.id,
 			name: server.details.name,
@@ -359,14 +359,12 @@ export async function createAiSession(
 		},
 	} );
 
-	// Fires from Main, not the CLI: sessions are created in-process. Reused drafts don't count.
+	// Fires from Main, not the CLI: sessions are created in-process.
 	// `studio ui` emits the same event from its own session route.
-	if ( created ) {
-		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
-			...getAiTracksIdentity( summary.id ),
-			has_site: Boolean( server ),
-		} );
-	}
+	await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+		...getAiTracksIdentity( summary.id ),
+		has_site: Boolean( server ),
+	} );
 
 	return summary;
 }
@@ -1729,18 +1727,6 @@ export async function enableAgenticUi(
 	// agentic workbench, so record it here for the orientation guide's migrating
 	// copy. Must land before the renderer reloads below so the guide sees it.
 	await recordAgenticUiMigration();
-	const mainWindow = await getMainWindow();
-	if ( mainWindow && ! mainWindow.isDestroyed() ) {
-		await loadMainWindowRenderer( mainWindow );
-	}
-}
-
-export async function disableAgenticUi(
-	_event: IpcMainInvokeEvent,
-	surface: AgenticUiSurface = 'settings'
-): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', false, surface );
-	setAgenticUiEnabled( false );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		await loadMainWindowRenderer( mainWindow );

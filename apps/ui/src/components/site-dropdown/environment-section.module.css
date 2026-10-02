@@ -1,0 +1,268 @@
+.section {
+	display: flex;
+	flex-direction: column;
+	padding-bottom: var(--wpds-dimension-padding-sm);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+}
+
+.title {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.25;
+	font-weight: 500;
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.count {
+	min-width: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--site-dropdown-menu-surface-active);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 20px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+.newButton,
+.cancelButton {
+	border-radius: var(--wpds-border-radius-md);
+	--wp-ui-button-background-color: var(--wpds-color-background-surface-neutral-strong);
+	--wp-ui-button-background-color-active: var(--wpds-color-background-surface-neutral);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
+}
+
+.newButton svg {
+	fill: currentColor;
+}
+
+.notice {
+	margin: 0;
+	padding: 0 var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.creating {
+	display: flex;
+	flex-direction: column;
+	padding: 0 var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-md);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+}
+
+.row_active {
+	background: var(--wpds-color-background-surface-neutral);
+}
+
+.row_danger {
+	padding-block: var(--wpds-dimension-padding-md);
+	background: color-mix(in srgb, var(--site-dropdown-menu-error) 10%, transparent);
+}
+
+.rowText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	font-weight: 400;
+	color: var(--wpds-color-foreground-content-neutral);
+}
+
+.nameLine {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.nameInput {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0 0 0 -6px;
+	padding: 1px 5px;
+	border: var(--wpds-border-width-xs) solid var(--site-dropdown-menu-brand);
+	border-radius: var(--wpds-border-radius-sm);
+	outline: none;
+	background: var(--site-dropdown-menu-surface);
+	color: var(--wpds-color-foreground-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+}
+
+.url {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+	text-align: left;
+}
+
+button.url {
+	cursor: var(--wpds-cursor-control);
+}
+
+button.url:hover {
+	color: var(--wpds-color-foreground-content-neutral);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.url span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.url svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.meta {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+	color: var(--wpds-color-foreground-content-neutral-weak);
+	font-variant-numeric: tabular-nums;
+}
+
+.row_expired .name,
+.url_expired {
+	color: var(--site-dropdown-menu-foreground-disabled);
+}
+
+.url_expired span {
+	text-decoration: line-through;
+}
+
+.meta_expired {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--site-dropdown-menu-warning);
+}
+
+.meta_expired svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.actions {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.actionButton,
+.moreMenuTrigger {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border-radius: var(--wpds-border-radius-md);
+}
+
+/* Enabled buttons only, so the design system's disabled dimming still applies. */
+.actionButton:not([data-disabled]) {
+	color: var(--wpds-color-foreground-interactive-neutral);
+}
+
+.actionButton svg {
+	width: 16px;
+	height: 16px;
+	fill: currentColor;
+}
+
+.actionButton_destructive:not([data-disabled]) {
+	color: var(--site-dropdown-menu-error);
+}
+
+.actionButton_confirm:not([data-disabled]) {
+	color: var(--studio-color-status-running);
+}
+
+.moreMenuTrigger {
+	justify-content: center;
+	color: var(--wpds-color-foreground-interactive-neutral);
+}
+
+.moreMenuTrigger:is([data-disabled], :disabled) {
+	color: var(--wpds-color-foreground-interactive-neutral-disabled);
+}
+
+.moreMenuTrigger svg {
+	fill: currentColor;
+}
+
+.moreMenuPopup {
+	min-width: 148px;
+}
+
+.confirmActions {
+	flex-shrink: 0;
+	display: flex;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.deleteButton {
+	border-radius: var(--wpds-border-radius-md);
+	--wp-ui-button-background-color: #cc1818;
+	--wp-ui-button-background-color-active: #b31515;
+	--wp-ui-button-foreground-color: #fff;
+	--wp-ui-button-foreground-color-active: #fff;
+}
+
+.progressTrack {
+	height: 4px;
+	margin-top: 6px;
+	border-radius: 2px;
+	background: var(--site-dropdown-menu-surface-active);
+	overflow: hidden;
+}
+
+.progressBar {
+	height: 100%;
+	border-radius: inherit;
+	background: var(--site-dropdown-menu-brand);
+	transition: width 400ms ease;
+}

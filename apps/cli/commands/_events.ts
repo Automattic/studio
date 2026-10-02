@@ -11,6 +11,7 @@ import {
 	AUTH_EVENTS,
 	SITE_EVENTS,
 	SNAPSHOT_EVENTS,
+	SYNC_EVENTS,
 	siteDetailsSchema,
 	socketEventSchema,
 	SiteEvent,
@@ -26,7 +27,8 @@ import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
-	SITE_EVENTS_SOCKET_PATH,
+	EVENTS_SOCKET_PATHS,
+	type EventsListener,
 	getDaemonBus,
 } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
@@ -116,8 +118,9 @@ const emitSingleSnapshotEvent = sequential(
 	}
 );
 
-export async function runCommand(): Promise< void > {
-	const eventsSocketServer = new SocketServer( SITE_EVENTS_SOCKET_PATH, 2500 );
+export async function runCommand( listener: EventsListener = 'desktop' ): Promise< void > {
+	const socketPath = EVENTS_SOCKET_PATHS[ listener ];
+	const eventsSocketServer = new SocketServer( socketPath, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
 			const parsed = socketEventSchema.parse( packet );
@@ -144,6 +147,10 @@ export async function runCommand(): Promise< void > {
 				case SITE_EVENTS.OPERATIONS_CHANGED:
 					void emitSiteEvent( parsed.event, parsed.data.siteId );
 					break;
+
+				case SYNC_EVENTS.ACTIVITY:
+					logger.reportKeyValuePair( 'sync-event', JSON.stringify( parsed.data ) );
+					break;
 			}
 		} catch ( error ) {
 			// Do nothing
@@ -165,11 +172,11 @@ export async function runCommand(): Promise< void > {
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
 
-	// Remove any stale socket from a previous Studio session. Studio is single-instance,
-	// so any existing events.sock belongs to a dead session and must be replaced.
+	// Remove any stale socket from a previous session. Each Studio app is single-instance,
+	// so an existing socket for this listener belongs to a dead session and must be replaced.
 	if ( process.platform !== 'win32' ) {
 		try {
-			fs.unlinkSync( SITE_EVENTS_SOCKET_PATH );
+			fs.unlinkSync( socketPath );
 		} catch ( err ) {
 			// ENOENT is fine — socket didn't exist. Any other error is unexpected but non-fatal.
 		}
@@ -224,9 +231,9 @@ export async function runCommand(): Promise< void > {
 	} );
 }
 
-export async function commandHandler() {
+export async function commandHandler( listener?: EventsListener ) {
 	try {
-		await runCommand();
+		await runCommand( listener );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

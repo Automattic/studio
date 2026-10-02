@@ -5,8 +5,10 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type AiModelFamily = 'anthropic' | 'studio';
 
 export interface AiModel {
-	/** Stable model id sent to the upstream provider. */
+	/** Stable model id, kept in settings and session history. */
 	id: string;
+	/** Model name sent to the upstream provider when it differs from `id`. */
+	apiModelId?: string;
 	/** Human-readable label shown in the model picker. */
 	label: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
@@ -31,8 +33,20 @@ export interface AiModel {
 // `anthropic` family exists for the direct Anthropic · API key provider only.
 export const AI_MODELS = [
 	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
-	{ id: 'balanced', label: 'Balanced', family: 'studio', requiresPaidAiCredits: true },
-	{ id: 'strong', label: 'Strong', family: 'studio', requiresPaidAiCredits: true },
+	{
+		id: 'balanced',
+		apiModelId: 'balanced-2',
+		label: 'Balanced',
+		family: 'studio',
+		requiresPaidAiCredits: true,
+	},
+	{
+		id: 'strong',
+		apiModelId: 'strong-2',
+		label: 'Strong',
+		family: 'studio',
+		requiresPaidAiCredits: true,
+	},
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 ] as const satisfies readonly AiModel[];

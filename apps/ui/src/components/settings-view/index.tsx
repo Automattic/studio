@@ -4,7 +4,7 @@ import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-set
 import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
-import { Button, IconButton, SelectControl } from '@wordpress/ui';
+import { IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -255,30 +255,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 	);
 }
 
-function StudioExperienceSection() {
-	const connector = useConnector();
-	if ( ! connector.capabilities.switchToClassicUi ) {
-		return null;
-	}
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<PreferenceRow
-				title={ __( 'Studio experience' ) }
-				description={ __( 'You are using the new Studio experience.' ) }
-			>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.disableAgenticUi() }
-				>
-					{ __( 'Switch to classic' ) }
-				</Button>
-			</PreferenceRow>
-		</section>
-	);
-}
-
 function PreferencesPanel( {
 	data,
 	installedApps,
@@ -357,7 +333,6 @@ function PreferencesPanel( {
 			<AccountSection />
 			<WapuuScore />
 			<StudioCliSection />
-			<StudioExperienceSection />
 		</div>
 	);
 }

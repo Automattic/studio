@@ -5,8 +5,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
-import type { SiteEvent } from '@studio/common/lib/cli-events';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -19,6 +18,7 @@ import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -28,13 +28,7 @@ import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type {
-	PullSiteProgress,
-	PullSyncOptions,
-	PushPhase,
-	PushSyncOptions,
-	SyncSite,
-} from '@studio/common/types/sync';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { DesignFix } from '@studio/design-md';
@@ -49,13 +43,7 @@ export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type {
-	PullSiteProgress,
-	PullSyncOptions,
-	PushPhase,
-	PushSyncOptions,
-	SyncSite,
-} from '@studio/common/types/sync';
+export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -168,10 +156,6 @@ export interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
-	// The host can switch this window back to the classic Studio UI
-	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
-	// in a browser there is nothing to switch to.
-	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -274,11 +258,8 @@ export interface Connector {
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
-	importSiteFromBackup(
-		siteId: string,
-		backupPath: string,
-		onProgress?: ( event: ImportEventTuple ) => void
-	): Promise< void >;
+	// Its progress and result arrive as sync activity (`onSyncActivity`).
+	importSiteFromBackup( siteId: string, backupPath: string ): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
@@ -299,10 +280,18 @@ export interface Connector {
 	// Asks the user to confirm deleting every preview site on their account.
 	// Resolves `true` only when they explicitly confirm.
 	confirmDeleteAllPreviewSites(): Promise< boolean >;
-	// Creates a new preview snapshot for the given site, or refreshes the
-	// existing one when `existingHostname` is supplied. Resolves with the
-	// final preview URL when the CLI command completes.
-	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
+	// Creates a new preview snapshot for the given site (named `name` when
+	// given), or refreshes the existing one when `existingHostname` is
+	// supplied. Resolves with the final preview URL when the CLI command
+	// completes.
+	publishPreviewSite(
+		siteId: string,
+		existingHostname?: string,
+		name?: string
+	): Promise< { url: string } >;
+	// Deletes one preview site, both on WordPress.com and from the local list.
+	deleteSnapshot( hostname: string ): Promise< void >;
+	renameSnapshot( hostname: string, name: string ): Promise< void >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.
@@ -326,8 +315,7 @@ export interface Connector {
 	pushSiteToLive(
 		siteId: string,
 		remoteSiteId: number,
-		options?: PushSyncOptions,
-		onPhase?: ( phase: PushPhase, progress?: number ) => void
+		options?: PushSyncOptions
 	): Promise< void >;
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site, or only the selection described by
@@ -336,9 +324,10 @@ export interface Connector {
 	pullSiteFromLive(
 		siteId: string,
 		remoteSiteId: number,
-		onProgress?: ( progress: PullSiteProgress ) => void,
 		options?: PullSyncOptions
 	): Promise< void >;
+	// Every push, pull and preview, whoever started it, as published by the CLI.
+	onSyncActivity( listener: ( event: SyncEvent ) => void ): () => void;
 	// Stops an in-flight push or pull, rejecting the operation with a cancelled
 	// error. A no-op once the operation is past the point where stopping is safe
 	// (`canCancelPush` / `canCancelPull`), and when nothing is running.
@@ -569,6 +558,8 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
+	// Fires whenever a preview site is created, updated or deleted, by anyone.
+	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
@@ -590,9 +581,6 @@ export interface Connector {
 	// top-up (wp-studio://ai-credits-purchased). Desktop only — a browser tab
 	// can't receive a custom scheme.
 	onAiCreditsPurchased( listener: () => void ): () => void;
-
-	// Switches back to the legacy (classic) Studio UI.
-	disableAgenticUi(): Promise< void >;
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
@@ -681,8 +669,7 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all. Unrelated to which
-	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	// Whether chat/agent features are offered at all.
 	agenticFeaturesEnabled: boolean;
 }
 

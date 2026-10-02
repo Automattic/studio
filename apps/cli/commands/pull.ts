@@ -17,10 +17,11 @@ import {
 } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
+import { withSiteOperation } from 'cli/lib/site-operations';
+import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -52,14 +53,15 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	suppressTracksEvent = false
+	suppressTracksEvent = false,
+	confirmLargeBackup?: () => Promise< boolean >
 ): Promise< void > {
-	let site: SiteData | undefined;
-	let wasServerRunning = false;
 	let pullError: unknown;
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
 	let pullCompleted = false;
+	let siteId: string | undefined;
+	let stopReportingProgress = () => {};
 	const startedAt = Date.now();
 
 	try {
@@ -77,8 +79,10 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		site = await getSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
+		siteId = site.id;
+		stopReportingProgress = reportPullProgress( site.id, logger, () => remoteSite?.id );
 
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
@@ -166,18 +170,20 @@ export async function runCommand(
 		// Check backup size before downloading
 		const backupFileSize = await checkBackupSize( downloadUrl );
 		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			logger.spinner.stop();
-			const shouldContinue = await confirm( {
-				message: sprintf(
-					__(
-						"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
-					),
-					SYNC_PUSH_SIZE_LIMIT_GB
-				),
-				default: true,
-			} );
-			if ( ! shouldContinue ) {
-				return;
+			if ( confirmLargeBackup ) {
+				logger.spinner.stop();
+				if ( ! ( await confirmLargeBackup() ) ) {
+					return;
+				}
+			} else {
+				logger.reportWarning(
+					sprintf(
+						__(
+							"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
+						),
+						SYNC_PUSH_SIZE_LIMIT_GB
+					)
+				);
 			}
 		}
 
@@ -190,32 +196,45 @@ export async function runCommand(
 			const destPath = path.join( tempDir, `pull-${ remoteSite.id }-${ Date.now() }.tar.gz` );
 			await downloadBackup( downloadUrl, destPath );
 
-			wasServerRunning = !! ( await isServerRunning( site.id ) );
+			await withSiteOperation( site.path, 'import', async () => {
+				const wasServerRunning = !! ( await isServerRunning( site.id ) );
+				try {
+					if ( wasServerRunning ) {
+						logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
+						await stopWordPressServer( site.id );
+						await clearSiteLatestCliPid( site.id );
+						logger.reportSuccess( __( 'WordPress server stopped' ) );
+					}
 
-			if ( wasServerRunning ) {
-				logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
-				await stopWordPressServer( site.id );
-				await clearSiteLatestCliPid( site.id );
-				logger.reportSuccess( __( 'WordPress server stopped' ) );
-			}
+					const importer = getImporter(
+						{ path: destPath, type: 'application/gzip' },
+						DEFAULT_IMPORTER_OPTIONS
+					);
+					handleImportEvents( importer, logger );
+					try {
+						await importer.import( site );
+					} catch ( error ) {
+						// Tagged so the failure is attributed to the local import rather than
+						// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
+						throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
+					}
 
-			const importer = getImporter(
-				{ path: destPath, type: 'application/gzip' },
-				DEFAULT_IMPORTER_OPTIONS
-			);
-			handleImportEvents( importer, logger );
-			try {
-				await importer.import( site );
-			} catch ( error ) {
-				// Tagged so the failure is attributed to the local import rather than
-				// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
-				throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
-			}
-
-			// Something in Playground makes it so the front-end of the site sometimes returns an error page
-			// on the first request. Send that first request from here to hide the error from the user.
-			const siteUrl = getSiteUrl( site );
-			await fetch( siteUrl ).catch( () => {} );
+					// Something in Playground makes it so the front-end of the site sometimes returns an error page
+					// on the first request. Send that first request from here to hide the error from the user.
+					const siteUrl = getSiteUrl( site );
+					await fetch( siteUrl ).catch( () => {} );
+				} finally {
+					if ( wasServerRunning ) {
+						try {
+							logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
+							await startWordPressServer( site, logger );
+							logger.reportSuccess( __( 'WordPress server started' ) );
+						} catch ( error ) {
+							restartSiteError = error;
+						}
+					}
+				}
+			} );
 
 			// Remember this connection so future push/pull runs (and the Desktop UI)
 			// can surface it without re-selecting from the full site list.
@@ -236,17 +255,22 @@ export async function runCommand(
 	} catch ( error ) {
 		pullError = error;
 	} finally {
-		try {
-			if ( site && wasServerRunning ) {
-				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-				await startWordPressServer( site, logger );
-				logger.reportSuccess( __( 'WordPress server started' ) );
-			}
-		} catch ( error ) {
-			restartSiteError = error;
-		} finally {
-			await disconnectFromDaemon();
-		}
+		stopReportingProgress();
+		await disconnectFromDaemon();
+	}
+
+	const failure = pullError ?? restartSiteError;
+	if ( siteId ) {
+		await reportSyncActivity(
+			siteId,
+			failure !== undefined
+				? {
+						kind: 'error',
+						direction: 'pull',
+						message: failure instanceof Error ? failure.message : String( failure ),
+				  }
+				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
+		);
 	}
 
 	// Emitted before the restart error is merged below: merging would put a secondary failure at the
@@ -281,6 +305,31 @@ export async function runCommand(
 	if ( restartSiteError instanceof Error ) {
 		throw restartSiteError;
 	}
+}
+
+function reportPullProgress(
+	siteId: string,
+	logger: Logger< LoggerAction >,
+	getRemoteSiteId: () => number | undefined
+) {
+	void reportSyncActivity( siteId, { kind: 'pending', direction: 'pull' } );
+	let lastMessage = '';
+	return logger.observeProgress( ( message, action ) => {
+		// The importer reports once per stream chunk; only forward what changes.
+		if ( message === lastMessage ) {
+			return;
+		}
+		lastMessage = message;
+		const percent = /\((\d+)%\)/.exec( message )?.[ 1 ];
+		void reportSyncActivity( siteId, {
+			kind: 'pending',
+			direction: 'pull',
+			remoteSiteId: getRemoteSiteId(),
+			message,
+			...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),
+			...( action ? { action } : {} ),
+		} );
+	} );
 }
 
 async function recordSyncPullEvent( props: SyncEventProps ): Promise< void > {
@@ -327,6 +376,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			exitOnCancel();
 			try {
 				await runCommand(
 					argv.path,
@@ -334,7 +384,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.remoteSite,
 					argv.includePathList as string[] | undefined,
 					defaultLogger,
-					argv.suppressTracksEvent
+					argv.suppressTracksEvent,
+					process.stdin.isTTY
+						? () =>
+								confirm( {
+									message: sprintf(
+										__(
+											"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
+										),
+										SYNC_PUSH_SIZE_LIMIT_GB
+									),
+									default: true,
+								} )
+						: undefined
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

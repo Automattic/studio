@@ -1,18 +1,39 @@
-// Stands in for `studio mcp` while the Studio CLI installs, so the host gets a
-// server (and the WordPress page) right away. It installs the CLI in the
-// background, then starts `studio mcp` and relays every message to it.
+// The plugin's MCP server: it runs `studio mcp` and relays every message to it.
+// Without a Studio CLI, it stands in for it while one installs in the background,
+// so the host gets a server (and the WordPress page) right away. A CLI it
+// installed is kept up to date: new versions are installed aside and swapped in
+// when Studio is idle.
 // No dependencies: it runs with any Node.js before Studio is on the machine.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { execFile, spawn } from 'node:child_process';
+import {
+	accessSync,
+	constants,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	renameSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 
 const INSTALLER_URL = process.env.STUDIO_INSTALLER_URL || 'https://wordpress.studio/install.sh';
+const UPDATES_URL =
+	process.env.STUDIO_UPDATES_URL || 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
 const STUDIO_HOME = process.env.STUDIO_CLI_HOME || path.join( homedir(), '.studio' );
 const STUDIO_BIN = path.join( STUDIO_HOME, 'bin', 'studio' );
+const UPDATE_STATE = path.join( STUDIO_HOME, 'plugin-update.json' );
+const UPDATE_STAGING = path.join( STUDIO_HOME, '.plugin-update' );
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const FIRST_UPDATE_CHECK_MS = 30_000;
+const IDLE_RETRY_MS = 60_000;
 const SETUP_URI = 'ui://wordpress-studio/setup.html';
 const LOG_LINES = 12;
 
@@ -20,9 +41,14 @@ const WORDPRESS_LOGO_SVG =
 	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M 22 12 C 22 6.49 17.51 2 12 2 C 6.48 2 2 6.49 2 12 C 2 17.52 6.48 22 12 22 C 17.51 22 22 17.52 22 12 M 9.78 17.37 L 6.37 8.22 C 6.92 8.2 7.54 8.14 7.54 8.14 C 8.04 8.08 7.98 7.01 7.48 7.03 C 7.48 7.03 6.03 7.14 5.11 7.14 C 4.93 7.14 4.74 7.14 4.53 7.13 C 6.12 4.69 8.87 3.11 12 3.11 C 14.33 3.11 16.45 3.98 18.05 5.45 C 17.37 5.34 16.4 5.84 16.4 7.03 C 16.4 7.77 16.85 8.39 17.3 9.13 C 17.65 9.74 17.85 10.49 17.85 11.59 C 17.85 13.08 16.45 16.59 16.45 16.59 L 13.42 8.22 C 13.96 8.2 14.24 8.05 14.24 8.05 C 14.74 8 14.68 6.8 14.18 6.83 C 14.18 6.83 12.74 6.95 11.8 6.95 C 10.93 6.95 9.47 6.83 9.47 6.83 C 8.97 6.8 8.91 8.03 9.41 8.05 L 10.33 8.13 L 11.59 11.54 L 9.78 17.37 M 19.41 12 C 19.65 11.36 20.15 10.13 19.84 7.75 C 20.54 9.04 20.89 10.46 20.89 12 C 20.89 15.29 19.16 18.24 16.49 19.78 C 17.46 17.19 18.43 14.58 19.41 12 M 8.1 20.09 C 5.12 18.65 3.11 15.53 3.11 12 C 3.11 10.7 3.34 9.52 3.83 8.41 C 5.25 12.3 6.67 16.2 8.1 20.09 M 12.13 13.46 L 14.71 20.44 C 13.85 20.73 12.95 20.89 12 20.89 C 11.21 20.89 10.43 20.78 9.71 20.56 C 10.52 18.18 11.33 15.82 12.13 13.46 L 12.13 13.46" /></svg>';
 
 const setup = { state: 'installing', step: 'Starting', startedAt: Date.now(), log: [], downloadedBytes: 0 };
-let initializeRequest = null;
-let child = null; // the real `studio mcp`, once installed
+let studio = null; // how to run the Studio CLI: { command, args, updates }
+let child = null; // the running `studio mcp`
+let relaying = false; // host messages go straight to `studio mcp`
+let swapping = false; // `studio mcp` is restarting on a new version
+let hostInitialize = null; // the host's initialize params, replayed on restarts
 let libraryHtml = null;
+const queued = []; // host messages that arrive while `studio mcp` restarts
+const inFlight = new Set(); // host requests `studio mcp` has not answered yet
 
 const write = ( message ) => process.stdout.write( JSON.stringify( message ) + '\n' );
 const reply = ( id, result ) => write( { jsonrpc: '2.0', id, result } );
@@ -140,12 +166,49 @@ function install() {
 	installer.on( 'exit', ( code ) => {
 		if ( code === 0 && existsSync( STUDIO_BIN ) ) {
 			setup.step = 'Starting';
-			startStudio();
+			studio = { command: STUDIO_BIN, args: [], updates: true };
+			startStudio( { afterSetup: true } );
 		} else {
 			setup.state = 'failed';
 			log( `The installer stopped (exit code ${ code }).` );
 		}
 	} );
+}
+
+const isExecutable = ( file ) => {
+	try {
+		accessSync( file, constants.X_OK );
+		return statSync( file ).isFile();
+	} catch {
+		return false;
+	}
+};
+const realpath = ( file ) => {
+	try {
+		return realpathSync( file );
+	} catch {
+		return file;
+	}
+};
+
+// A development build (STUDIO_CLI_BIN), the `studio` command, then the known
+// install locations. Only the CLI this plugin installs (in ~/.studio) is
+// updated here: the desktop app and npm update theirs.
+function findStudio() {
+	if ( process.env.STUDIO_CLI_BIN ) {
+		return { command: process.execPath, args: [ process.env.STUDIO_CLI_BIN ], updates: false };
+	}
+	const candidates = [
+		...( process.env.PATH ?? '' ).split( path.delimiter ).map( ( dir ) => path.join( dir, 'studio' ) ),
+		STUDIO_BIN,
+		path.join( homedir(), '.local', 'bin', 'studio' ),
+		'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh',
+		'/usr/lib/studio/resources/bin/studio-cli.sh',
+	];
+	const command = candidates.find( isExecutable );
+	return command
+		? { command, args: [], updates: realpath( command ) === realpath( STUDIO_BIN ) }
+		: null;
 }
 
 const pending = new Map(); // our own requests to `studio mcp`, by id
@@ -158,9 +221,25 @@ function requestChild( method, params ) {
 	} );
 }
 
-function startStudio() {
-	child = spawn( STUDIO_BIN, [ 'mcp' ], { env: process.env, stdio: [ 'pipe', 'pipe', 'inherit' ] } );
+function forward( line, message ) {
+	if ( message.id !== undefined && message.method ) {
+		inFlight.add( message.id );
+	}
+	child.stdin.write( line + '\n' );
+}
+
+// Starts `studio mcp`. On a plain start the host's own messages, initialize
+// included, go straight to it. After setup or an update, the host has already
+// initialized, so its handshake is replayed before relaying resumes.
+function startStudio( { afterSetup = false, afterUpdate = false } = {} ) {
+	child = spawn( studio.command, [ ...studio.args, 'mcp' ], {
+		env: process.env,
+		stdio: [ 'pipe', 'pipe', 'inherit' ],
+	} );
 	child.on( 'exit', ( code ) => {
+		if ( swapping ) {
+			return;
+		}
 		log( `studio mcp exited (code ${ code }).` );
 		process.exit( code ?? 1 );
 	} );
@@ -177,20 +256,40 @@ function startStudio() {
 			message.error ? own.reject( new Error( message.error.message ) ) : own.resolve( message.result );
 			return;
 		}
+		if ( message.id !== undefined && ! message.method ) {
+			inFlight.delete( message.id );
+		}
 		process.stdout.write( line + '\n' );
 	} );
-	requestChild( 'initialize', initializeRequest ?? { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'unknown', version: '0' } } )
+	if ( ! afterSetup && ! afterUpdate ) {
+		relaying = true;
+		return;
+	}
+	requestChild(
+		'initialize',
+		hostInitialize ?? {
+			protocolVersion: '2025-06-18',
+			capabilities: {},
+			clientInfo: { name: 'unknown', version: '0' },
+		}
+	)
 		.then( async () => {
 			child.stdin.write( JSON.stringify( { jsonrpc: '2.0', method: 'notifications/initialized' } ) + '\n' );
-			const { tools } = await requestChild( 'tools/list', {} );
-			const uri = tools.find( ( tool ) => tool.name === 'open_wordpress' )?._meta?.ui?.resourceUri;
-			if ( uri ) {
-				const { contents } = await requestChild( 'resources/read', { uri } );
-				libraryHtml = contents?.[ 0 ]?.text ?? null;
+			if ( afterSetup ) {
+				const { tools } = await requestChild( 'tools/list', {} );
+				const uri = tools.find( ( tool ) => tool.name === 'open_wordpress' )?._meta?.ui?.resourceUri;
+				if ( uri ) {
+					const { contents } = await requestChild( 'resources/read', { uri } );
+					libraryHtml = contents?.[ 0 ]?.text ?? null;
+				}
+				setup.state = 'ready';
+				setup.step = 'Ready';
+				log( 'WordPress Studio is ready.' );
+				scheduleUpdateCheck( FIRST_UPDATE_CHECK_MS );
 			}
-			setup.state = 'ready';
-			setup.step = 'Ready';
-			log( 'WordPress Studio is ready.' );
+			relaying = true;
+			swapping = false;
+			queued.splice( 0 ).forEach( ( entry ) => forward( entry.line, entry.message ) );
 			write( { jsonrpc: '2.0', method: 'notifications/tools/list_changed' } );
 			write( { jsonrpc: '2.0', method: 'notifications/resources/list_changed' } );
 		} )
@@ -198,6 +297,135 @@ function startStudio() {
 			setup.state = 'failed';
 			log( `studio mcp did not start: ${ error.message }` );
 		} );
+}
+
+// --- Updates ------------------------------------------------------------------
+
+const readUpdateState = () => {
+	try {
+		return JSON.parse( readFileSync( UPDATE_STATE, 'utf8' ) );
+	} catch {
+		return {};
+	}
+};
+const writeUpdateState = ( state ) => {
+	try {
+		writeFileSync( UPDATE_STATE, JSON.stringify( { ...readUpdateState(), ...state }, null, '\t' ) );
+	} catch {
+		// Next start checks again.
+	}
+};
+
+const runStudio = ( args ) =>
+	new Promise( ( resolve ) => {
+		execFile( studio.command, [ ...studio.args, ...args ], { timeout: 60_000 }, ( error, stdout ) =>
+			resolve( error ? null : stdout.trim() )
+		);
+	} );
+
+// The same endpoint and product the CLI's own update notifier checks: 204 when
+// the running version is current, otherwise the latest version.
+async function fetchLatestVersion( current ) {
+	const url = new URL( UPDATES_URL );
+	url.searchParams.set( 'product', 'wordpress-com-studio-cli' );
+	url.searchParams.set( 'platform', process.platform );
+	url.searchParams.set( 'studioArch', process.arch );
+	url.searchParams.set( 'version', current );
+	const response = await fetch( url, { signal: AbortSignal.timeout( 10_000 ) } );
+	if ( response.status === 204 || ! response.ok ) {
+		return null;
+	}
+	const { version } = await response.json();
+	return typeof version === 'string' && version !== current ? version : null;
+}
+
+// Installs a version aside: the official installer, pointed at a staging home
+// so it neither stops the running sites nor touches the user's PATH.
+function stageUpdate( version ) {
+	rmSync( UPDATE_STAGING, { recursive: true, force: true } );
+	mkdirSync( path.join( UPDATE_STAGING, 'home' ), { recursive: true } );
+	return new Promise( ( resolve ) => {
+		const installer = spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], {
+			env: {
+				...process.env,
+				HOME: path.join( UPDATE_STAGING, 'home' ),
+				STUDIO_CLI_HOME: path.join( UPDATE_STAGING, 'studio' ),
+				STUDIO_CLI_VERSION: `v${ version }`,
+			},
+			stdio: [ 'ignore', 'ignore', 'ignore' ],
+		} );
+		installer.on( 'exit', ( code ) =>
+			resolve( code === 0 && existsSync( path.join( UPDATE_STAGING, 'studio', 'bin', 'studio' ) ) )
+		);
+	} );
+}
+
+async function sitesRunning() {
+	const output = await runStudio( [ 'site', 'list', '--format', 'json' ] );
+	try {
+		return JSON.parse( output ).some( ( site ) => site.running );
+	} catch {
+		return true;
+	}
+}
+
+// Swaps the staged version in once no request is waiting on `studio mcp` and no
+// site runs (their servers run from the files being replaced).
+async function swapWhenIdle( version ) {
+	if ( inFlight.size > 0 || swapping || ( await sitesRunning() ) || inFlight.size > 0 ) {
+		setTimeout( () => void swapWhenIdle( version ), IDLE_RETRY_MS );
+		return;
+	}
+	swapping = true;
+	relaying = false;
+	const previous = child;
+	const stopped = new Promise( ( resolve ) => previous.once( 'exit', resolve ) );
+	previous.stdin.end();
+	const forceStop = setTimeout( () => previous.kill(), 5000 );
+	await stopped;
+	clearTimeout( forceStop );
+	for ( const dir of [ 'bin', 'cli' ] ) {
+		rmSync( path.join( STUDIO_HOME, dir ), { recursive: true, force: true } );
+		renameSync( path.join( UPDATE_STAGING, 'studio', dir ), path.join( STUDIO_HOME, dir ) );
+	}
+	rmSync( UPDATE_STAGING, { recursive: true, force: true } );
+	writeUpdateState( { staged: null, updatedTo: version, updatedAt: Date.now() } );
+	log( `Updated the Studio CLI to ${ version }.` );
+	startStudio( { afterUpdate: true } );
+	scheduleUpdateCheck( UPDATE_CHECK_INTERVAL_MS );
+}
+
+async function checkForUpdate() {
+	const state = readUpdateState();
+	if ( state.staged && existsSync( path.join( UPDATE_STAGING, 'studio', 'bin', 'studio' ) ) ) {
+		void swapWhenIdle( state.staged );
+		return;
+	}
+	const sinceLastCheck = Date.now() - ( state.lastChecked ?? 0 );
+	if ( sinceLastCheck < UPDATE_CHECK_INTERVAL_MS ) {
+		scheduleUpdateCheck( UPDATE_CHECK_INTERVAL_MS - sinceLastCheck );
+		return;
+	}
+	try {
+		const current = await runStudio( [ '--version' ] );
+		const latest = current ? await fetchLatestVersion( current ) : null;
+		writeUpdateState( { lastChecked: Date.now() } );
+		if ( latest && ( await stageUpdate( latest ) ) ) {
+			writeUpdateState( { staged: latest } );
+			log( `Studio CLI ${ latest } is ready to install.` );
+			void swapWhenIdle( latest );
+			return;
+		}
+	} catch ( error ) {
+		log( `Update check failed: ${ error.message }` );
+	}
+	scheduleUpdateCheck( UPDATE_CHECK_INTERVAL_MS );
+}
+
+function scheduleUpdateCheck( delay ) {
+	if ( studio?.updates ) {
+		setTimeout( () => void checkForUpdate(), delay ).unref();
+	}
 }
 
 // Requests the setup server answers itself, before and after Studio is ready.
@@ -230,7 +458,6 @@ function handleWhileInstalling( message ) {
 	if ( id === undefined ) return; // notifications
 	switch ( method ) {
 		case 'initialize':
-			initializeRequest = params;
 			reply( id, {
 				protocolVersion: params?.protocolVersion ?? '2025-06-18',
 				capabilities: { tools: { listChanged: true }, resources: { listChanged: true } },
@@ -273,9 +500,16 @@ readline.createInterface( { input: process.stdin } ).on( 'line', ( line ) => {
 	} catch {
 		return;
 	}
+	if ( message.method === 'initialize' ) {
+		hostInitialize = message.params;
+	}
 	if ( message.id !== undefined && answerSetup( message ) ) return;
-	if ( setup.state === 'ready' && child ) {
-		child.stdin.write( line + '\n' );
+	if ( relaying ) {
+		forward( line, message );
+		return;
+	}
+	if ( swapping ) {
+		queued.push( { line, message } );
 		return;
 	}
 	handleWhileInstalling( message );
@@ -422,4 +656,10 @@ const SETUP_HTML = `<!doctype html>
 </body>
 </html>`;
 
-install();
+studio = findStudio();
+if ( studio ) {
+	startStudio();
+	scheduleUpdateCheck( FIRST_UPDATE_CHECK_MS );
+} else {
+	install();
+}

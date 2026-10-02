@@ -1,10 +1,10 @@
 #!/bin/sh
-# Starts the Studio MCP server (`studio mcp`). Desktop agents often start plugin
-# servers without the user's shell PATH, so this looks past it: a development
-# build via STUDIO_CLI_BIN (a CLI main.mjs, run with STUDIO_NODE or the first
-# Node.js found), the `studio` command, then the known install locations. With
-# no Studio CLI at all, it starts a small setup server that installs one in the
-# background and then hands over to it (or, without Node.js, installs it first).
+# Starts the plugin's MCP server: bootstrap-mcp.mjs, which finds the Studio CLI
+# (installing it when there is none, keeping that install up to date) and runs
+# `studio mcp` behind it. Desktop agents often start plugin servers without the
+# user's shell PATH, so this looks past it for a Node.js. Without one, it runs a
+# Studio CLI directly: the `studio` command, then the known install locations,
+# installing one first when there is none.
 #
 # stdout carries the MCP messages: anything else must go to stderr.
 
@@ -36,8 +36,9 @@ start_installed() {
 	done
 }
 
-if [ -n "$STUDIO_CLI_BIN" ]; then
-	exec "$(find_node)" "$STUDIO_CLI_BIN" mcp
+NODE="$(find_node)"
+if [ -n "$NODE" ] && [ -x "$NODE" ]; then
+	exec "$NODE" "$(dirname "$0")/bootstrap-mcp.mjs"
 fi
 
 if command -v studio >/dev/null 2>&1; then
@@ -45,11 +46,6 @@ if command -v studio >/dev/null 2>&1; then
 fi
 
 start_installed
-
-NODE="$(find_node)"
-if [ -n "$NODE" ] && [ -x "$NODE" ]; then
-	exec "$NODE" "$(dirname "$0")/bootstrap-mcp.mjs"
-fi
 
 echo 'WordPress Studio CLI not found: installing it into ~/.studio (a download of about 260 MB)...' >&2
 if curl -fsSL "$INSTALLER_URL" | sh >&2; then

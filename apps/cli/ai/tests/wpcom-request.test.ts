@@ -53,8 +53,9 @@ describe( 'wpcom_request', () => {
 		};
 		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
 
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
+		const tool = createWpcomRequestTool( 'token', { bodyFilesRoot: rootDir } );
 		const result = await tool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/pages/4',
 			body: { status: 'publish' },
@@ -73,6 +74,7 @@ describe( 'wpcom_request', () => {
 
 		mocks.req.post.mockClear();
 		await tool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
 			bodyFile: bodyPath,

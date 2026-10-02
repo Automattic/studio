@@ -67,6 +67,11 @@ export function nextSteps( entry: SiteEntry ): NextStep[] {
 	})`;
 	return [
 		{
+			title: 'Make a change live',
+			copy: 'Edit its content, design or settings on the live site.',
+			prompt: `I want to change ${ name } live. Ask me what to change first, then make the change directly on the live site with the WordPress Studio tools (the wpcom-remote-management skill), and show me the result.`,
+		},
+		{
 			title: 'Work on it locally',
 			copy: 'Pull it into a new Studio site on this computer.',
 			prompt: `Pull ${ name } into a new local Studio site so I can work on it locally. Confirm with me before overwriting anything.`,

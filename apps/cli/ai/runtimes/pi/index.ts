@@ -693,7 +693,7 @@ function buildAgentTools(
 			pullSiteTool,
 		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
 		return [
-			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
+			createWpcomRequestTool( config.wpcomAccessToken! ),
 			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,

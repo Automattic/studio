@@ -21,6 +21,7 @@ import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, type HostCapabilities } from 'cli/ai/tools';
 import { defineTool, type AnyStudioAgentTool, type ToolResult } from 'cli/ai/tools/define-tool';
 import { resolveSite, textResult } from 'cli/ai/tools/utils';
+import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { openBrowser } from 'cli/lib/browser';
 import { ensureStudioUiServer, reloadSitePreview } from './companion-ui';
 import {
@@ -219,6 +220,8 @@ export async function startMcpStdioServer(): Promise< void > {
 				} )
 			),
 			openStudioUiTool,
+			// Works on any of the user's WordPress.com sites, with their stored login.
+			createWpcomRequestTool(),
 			...( client.apps ? library.all : [] ),
 		] as AnyStudioAgentTool[];
 	}

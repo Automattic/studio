@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { E2ESession } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
-import SiteContent from './page-objects/site-content';
+import AddSite from './page-objects/add-site';
+import Sidebar from './page-objects/sidebar';
+import SiteOverview from './page-objects/site-overview';
 
 test.describe( 'Sandbox runtime', () => {
 	const session = new E2ESession();
@@ -14,32 +15,21 @@ test.describe( 'Sandbox runtime', () => {
 
 	test( 'create and run a site with the Sandbox runtime', async () => {
 		// Playground sites download the PHP WASM build and WordPress on first
-		// run, so allow extra room on top of the launch + onboarding steps.
+		// run, so allow extra room on top of the launch + create steps.
 		test.setTimeout( 300_000 );
 
 		await session.launch();
-
-		const onboarding = new Onboarding( session.mainWindow );
-		const { siteName } = await onboarding.completeOnboarding( {
-			customSiteName: 'Sandbox-Site',
+		const siteName = await new AddSite( session.mainWindow ).createSite( {
+			siteName: 'Sandbox-Site',
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		await onboarding.closeWhatsNew();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName, 180_000 );
 
-		// The site boots under the Playground runtime.
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 180_000 } );
-		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
+		const overview = new SiteOverview( session.mainWindow );
+		await overview.open( siteName, 'Settings' );
+		await expect( overview.runtimeRadio( 'Sandbox' ) ).toBeChecked();
 
-		// The Settings tab reports the site as running on the Sandbox runtime.
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-		await expect( settingsTab.phpRuntimeDisplay ).toContainText( 'Sandbox' );
-
-		// The Sandbox site actually serves its home page over HTTP.
-		await expect( siteContent.frontendButton ).toBeVisible();
-		const frontendUrl = await siteContent.frontendButton.textContent();
-		expect( frontendUrl ).not.toBeNull();
-		const response = await fetch( `http://${ frontendUrl }` );
+		const response = await fetch( await session.getSiteUrl( siteName ) );
 		expect( [ 200, 302 ] ).toContain( response.status );
 		expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 	} );

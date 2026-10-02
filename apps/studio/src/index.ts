@@ -30,7 +30,6 @@ import {
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
-import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -426,8 +425,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-		const betaFeatures = await getBetaFeatures();
-		setAgenticUiEnabled( betaFeatures.enableAgenticUi );
+		setAgenticUiEnabled( true );
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,

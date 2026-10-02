@@ -1,8 +1,5 @@
-import { test, expect, chromium } from '@playwright/test';
-import { E2ESession } from '../../../apps/studio/e2e/e2e-helpers';
-import Onboarding from '../../../apps/studio/e2e/page-objects/onboarding';
-import SiteContent from '../../../apps/studio/e2e/page-objects/site-content';
-import WhatsNewModal from '../../../apps/studio/e2e/page-objects/whats-new-modal';
+import { test, chromium } from '@playwright/test';
+import { E2ESession, launchWithSite } from '../../../apps/studio/e2e/e2e-helpers';
 import { getUrlWithAutoLogin } from '../../../apps/studio/e2e/utils';
 import { median } from '../utils';
 
@@ -29,28 +26,8 @@ test.describe( 'Site Editor Load Metrics', () => {
 	} );
 
 	test( 'measure site editor load time', async () => {
-		let wpAdminUrl = '';
-		await session.launch();
-
-		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible( { timeout: 120_000 } );
-
-		// Wait for store initialization to complete (provider constants loading)
-		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
-		await onboarding.completeOnboarding( { customSiteName: siteName } );
-		await onboarding.closeWhatsNew();
-
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-
-		// Site creation can take a while, use explicit timeout matching E2E tests
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		// Get the WordPress admin URL from settings
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-		wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
-		// Remove trailing slash if present
-		wpAdminUrl = wpAdminUrl.replace( /\/$/, '' );
+		await launchWithSite( session, { siteName } );
+		const wpAdminUrl = `${ await session.getSiteUrl( siteName ) }/wp-admin`;
 
 		// Initialize the results array
 		results.load = [];

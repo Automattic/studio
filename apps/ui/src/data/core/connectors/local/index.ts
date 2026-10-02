@@ -208,7 +208,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: false,
-			switchToClassicUi: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -876,9 +875,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
-		},
-		async disableAgenticUi() {
-			// No-op in the browser.
 		},
 		async getOnboardingHints() {
 			return readOnboardingHints();

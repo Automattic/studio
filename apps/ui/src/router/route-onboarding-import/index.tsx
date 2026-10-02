@@ -115,6 +115,9 @@ export function OnboardingImportPage() {
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+				// A running site's WP-CLI lookups race the database import; the import starts the
+				// site once it's done. A WXR import needs the site's database to exist first.
+				skipStart: ! backupPath.toLowerCase().endsWith( '.xml' ),
 				flowType: 'import',
 			} );
 			createdSiteId = site.id;

@@ -95,8 +95,6 @@ const api: IpcApi = {
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
 		ipcRendererInvoke( 'enableAgenticUi', surface ),
-	disableAgenticUi: ( surface?: AgenticUiSurface ) =>
-		ipcRendererInvoke( 'disableAgenticUi', surface ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),

@@ -126,7 +126,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			agentInstructions: false,
 			aiSettings: false,
 			studioLogs: false,
-			switchToClassicUi: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -533,9 +532,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
-		},
-		async disableAgenticUi() {
-			// No-op in the browser.
 		},
 		async getOnboardingHints() {
 			return readOnboardingHints();

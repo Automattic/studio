@@ -1,6 +1,6 @@
 ---
 name: wordpress-studio
-description: Build, design, redesign, and manage local WordPress sites with WordPress Studio (the wordpress-studio MCP tools). Use whenever the user wants to create or build a WordPress site, a landing page or blog, change a site's design, content, theme or plugins, preview it, or publish it to WordPress.com.
+description: Build, design, redesign, and manage websites with WordPress Studio (the wordpress-studio MCP tools), which runs them on the user's computer as WordPress sites. Use whenever the user asks for a local site or a site on their computer, a WordPress site, or a Studio site — a website, landing page, blog, portfolio or store — to change one of their Studio or WordPress.com sites (design, content, theme, plugins), to preview it, or to publish it to WordPress.com.
 ---
 
 # WordPress Studio

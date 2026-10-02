@@ -15,9 +15,14 @@
     "wordpress",
     "wordpress-studio",
     "wordpress-com",
+    "local site",
+    "website",
+    "landing page",
+    "blog",
+    "portfolio",
+    "online store",
     "site-builder",
-    "block-theme",
-    "local-development"
+    "block-theme"
   ],
   "mcpServers": "./.mcp.json"
 }

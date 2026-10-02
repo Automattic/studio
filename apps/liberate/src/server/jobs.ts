@@ -31,8 +31,6 @@ export interface JobResult {
 }
 
 export interface RunContext {
-	/** Empty working directory owned by this run. */
-	workDir: string;
 	/** Where the runner must write the `<kind>.zip` downloads. */
 	filesDir: string;
 	signal: AbortSignal;
@@ -214,7 +212,6 @@ export class JobQueue extends EventEmitter {
 
 	private async start( job: JobRecord, controller: AbortController ) {
 		const jobDir = path.join( this.options.dir, job.id );
-		const workDir = path.join( jobDir, 'work' );
 		const filesDir = path.join( jobDir, 'files' );
 		Object.assign( job, {
 			status: 'running',
@@ -231,13 +228,10 @@ export class JobQueue extends EventEmitter {
 		] );
 		const shutdown = () => controller.signal.reason === 'shutdown';
 		try {
-			await fs.rm( workDir, { recursive: true, force: true } );
 			await fs.rm( filesDir, { recursive: true, force: true } );
-			await fs.mkdir( workDir, { recursive: true } );
 			await fs.mkdir( filesDir, { recursive: true } );
 			signal.throwIfAborted();
 			const result = await this.options.run( job, {
-				workDir,
 				filesDir,
 				signal,
 				report: ( progress ) => {
@@ -291,7 +285,6 @@ export class JobQueue extends EventEmitter {
 		} finally {
 			this.running.delete( job.id );
 			if ( ! shutdown() ) {
-				await fs.rm( workDir, { recursive: true, force: true } ).catch( () => undefined );
 				this.persist( job );
 				this.pump();
 			}

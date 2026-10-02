@@ -5,10 +5,6 @@
 		"dockerfilePath": "apps/liberate/Dockerfile",
 		"watchPatterns": [
 			"apps/liberate/**",
-			"apps/cli/**",
-			"apps/local/**",
-			"packages/**",
-			"scripts/**",
 			"package-lock.json"
 		]
 	},

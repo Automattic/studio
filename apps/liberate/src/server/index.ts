@@ -2,14 +2,16 @@ import path from 'node:path';
 import { createApp } from './app.ts';
 import { loadConfig } from './config.ts';
 import { JobQueue } from './jobs.ts';
-import { createPipeline, fakePipeline, prepareStudio } from './pipeline.ts';
+import { createPipeline, fakePipeline } from './pipeline.ts';
 
 const log = ( event: string, data: Record< string, unknown > = {} ) =>
 	console.log( JSON.stringify( { time: new Date().toISOString(), event, ...data } ) );
 
 const config = loadConfig();
-if ( ! config.fakePipeline ) {
-	await prepareStudio( config );
+if ( ! config.fakePipeline && ! config.wpcom ) {
+	throw new Error(
+		'Set WPCOM_CLIENT_ID and WPCOM_CLIENT_SECRET, or LIBERATE_FAKE_PIPELINE=1 to simulate jobs.'
+	);
 }
 
 const queue = new JobQueue( {

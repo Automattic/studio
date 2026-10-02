@@ -495,6 +495,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		res.json( { status: 'ok' } );
 	} );
 
+	// Agents driving Studio from outside the app (`studio mcp`) reload the site
+	// preview the user opened with them.
+	api.post( '/sites/:siteId/preview/reload', ( req: Request, res: Response ) => {
+		sseSend( { channel: 'site-preview', payload: { siteId: req.params.siteId } } );
+		res.sendStatus( 204 );
+	} );
+
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
 	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
 	api.post( '/analytics/event', ( req: Request, res: Response ) => {

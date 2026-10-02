@@ -1,0 +1,35 @@
+{
+  "name": "studio-code",
+  "description": "Build, design, and manage local WordPress sites with WordPress Studio: create sites, design block themes with Studio's design skills, validate blocks, check the result visually, and publish to WordPress.com.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Automattic"
+  },
+  "homepage": "https://developer.wordpress.com/studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.codex.json",
+  "interface": {
+    "displayName": "WordPress Studio",
+    "shortDescription": "Build and design local WordPress sites",
+    "longDescription": "Create local WordPress sites and build them with Studio's site-building workflow: design directions, block themes, block validation, visual checks, and one-step publishing to WordPress.com.",
+    "developerName": "Automattic",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://developer.wordpress.com/studio/",
+    "defaultPrompt": [
+      "Build a WordPress site for my bakery",
+      "Redesign my Studio site",
+      "Publish my site to WordPress.com"
+    ],
+    "screenshots": [],
+    "brandColor": "#101517",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png"
+  }
+}

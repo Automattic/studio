@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports -- a pure diff helper, no agent runtime
 import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';

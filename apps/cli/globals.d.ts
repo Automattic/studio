@@ -6,3 +6,8 @@ declare const __MINIMUM_NODE_VERSION__: string;
 
 declare module 'wpcom-xhr-request';
 declare module '@wp-playground/blueprints/blueprint-schema-validator';
+
+declare module 'virtual:mcp-ui' {
+	const html: string;
+	export default html;
+}

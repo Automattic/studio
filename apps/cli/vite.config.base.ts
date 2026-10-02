@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
+import { mcpUiPlugin } from './vite-plugin-mcp-ui.ts';
 
 const __dirname = import.meta.dirname;
 const packageJson = createRequire( import.meta.url )( './package.json' ) as {
@@ -78,6 +79,7 @@ export const baseConfig = defineConfig( {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
 	},
 	plugins: [
+		mcpUiPlugin(),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',

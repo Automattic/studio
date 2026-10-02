@@ -1,0 +1,18 @@
+{
+  "name": "studio-code",
+  "description": "Build, design, and manage local WordPress sites with WordPress Studio: create sites, design block themes with Studio's design skills, validate blocks, check the result visually, and publish to WordPress.com.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Automattic"
+  },
+  "homepage": "https://developer.wordpress.com/studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "wordpress",
+    "studio",
+    "site-builder",
+    "block-theme"
+  ],
+  "mcpServers": "./.mcp.json"
+}

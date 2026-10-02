@@ -72,7 +72,8 @@ type ServerEvent =
 	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
 	| { channel: 'sync-push'; payload: PushSseOutput }
 	| { channel: 'import'; payload: ImportSseOutput }
-	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
+	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
+	| { channel: 'site-preview'; payload: { siteId: string } };
 
 /**
  * The `studio ui` data source: the browser analog of the Electron IPC
@@ -100,6 +101,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const sitePreviewListeners = new Set< ( event: { siteId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -238,6 +240,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'site-preview' ) {
+					sitePreviewListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
 			};
 		},
@@ -759,6 +763,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAgentEvent( listener ) {
 			agentListeners.add( listener );
 			return () => agentListeners.delete( listener );
+		},
+		onSitePreviewReload( listener ) {
+			sitePreviewListeners.add( listener );
+			return () => sitePreviewListeners.delete( listener );
 		},
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );

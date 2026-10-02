@@ -1,10 +1,16 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
+import { createAskUserQuestionTool } from './ask-user-question';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
-import { generateImagesTool } from './generate-images';
+import {
+	createImageHandoffTool,
+	generateImagesTool,
+	importImagesTool,
+	lookImageFirst,
+} from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -14,12 +20,14 @@ import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { createPickDesignTool, pickDesignTool } from './pick-design';
+import { createPresentDesignOptionsTool } from './present-design-options';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
-import { refreshBrowserTool } from './refresh-browser';
+import { createRefreshBrowserTool, refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
+import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
@@ -28,7 +36,7 @@ import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
-import type { DesignTracksContext } from 'cli/ai/design-tracks';
+import type { HostCapabilities } from './host-capabilities';
 
 export { captureCommandOutput } from './utils';
 
@@ -63,51 +71,61 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	waitForAnnotationsTool,
 ];
 
-export interface CreateStudioToolsOptions {
-	// Enable automatic chat artifact emission from tool results. Desktop agent
-	// runs set this; standalone CLI/MCP runs leave it off so visual artifacts are
-	// ignored instead of leaking into terminal transcripts.
-	emitChatArtifacts?: boolean;
-	// Enable generate_images. Callers resolve isImageGenerationAvailable()
-	// (async) and pass it; when off, sessions behave exactly as before the tool
-	// existed (no tool, no imagery prompt sections).
-	imageGeneration?: boolean;
-	// False for models that cannot view images. Defaults to true.
-	visionEnabled?: boolean;
-	// Lets pick_design offer options to pick from. Defaults to false.
-	canAskUser?: boolean;
-	// The chat session the design tools record Tracks events for; absent for the MCP server.
-	tracks?: DesignTracksContext;
-}
+export type { HostCapabilities } from './host-capabilities';
 
-export function resolveStudioToolDefinitions(
-	options: CreateStudioToolsOptions = {}
-): AnyStudioAgentTool[] {
-	return studioToolDefinitions.flatMap( ( candidate ) => {
-		// refresh_browser only makes sense when a Studio UI with a preview pane
-		// is attached to consume the preview.reload event; emitChatArtifacts is
-		// the existing "UI attached" signal (process.send available).
-		if ( candidate.name === refreshBrowserTool.name && options.emitChatArtifacts !== true ) {
+export function resolveStudioToolDefinitions( host: HostCapabilities = {} ): AnyStudioAgentTool[] {
+	const tools = studioToolDefinitions.flatMap( ( candidate ): AnyStudioAgentTool[] => {
+		if ( candidate.name === refreshBrowserTool.name ) {
+			return host.reloadPreview ? [ createRefreshBrowserTool( host.reloadPreview ) ] : [];
+		}
+		if ( candidate.name === generateImagesTool.name && host.hostImageTool ) {
+			return [ createImageHandoffTool( host.hostImageTool, host.imageGeneration === true ) ];
+		}
+		if ( candidate.name === generateImagesTool.name && ! host.imageGeneration ) {
 			return [];
 		}
-		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
-			return [];
+		if ( candidate.name === takeScreenshotTool.name && host.visionEnabled === false ) {
+			return [ createTakeScreenshotTool( { visionEnabled: false } ) ];
 		}
-		let tool = candidate;
-		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
-			tool = createTakeScreenshotTool( { visionEnabled: false } );
+		if ( candidate.name === inspectDesignTool.name && host.visionEnabled === false ) {
+			return [ createInspectDesignTool( { visionEnabled: false } ) ];
 		}
-		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
-			tool = createInspectDesignTool( { visionEnabled: false } );
+		if ( candidate.name === pickDesignTool.name && ( host.canAskUser || host.tracks ) ) {
+			return [
+				createPickDesignTool( {
+					canAskUser: host.canAskUser === true,
+					presentsOptions: host.designPreviews === 'return',
+					tracks: host.tracks,
+				} ),
+			];
 		}
-		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
-			tool = createPickDesignTool( {
-				canAskUser: options.canAskUser === true,
-				tracks: options.tracks,
-			} );
-		}
-		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
+		return [ candidate ];
 	} );
+	if ( host.importImages ) {
+		tools.push( importImagesTool );
+	}
+	if ( host.askUser ) {
+		tools.push( createAskUserQuestionTool( host.askUser ) );
+	}
+	if ( host.designPreviews ) {
+		tools.push(
+			createPresentDesignOptionsTool( {
+				askUser: host.designPreviews === 'ask' ? host.askUser : undefined,
+				displayDirectory: host.displayDirectory,
+				picker: host.designPicker,
+				tracks: host.tracks,
+			} ) as unknown as AnyStudioAgentTool
+		);
+	}
+	const skillTool = host.skills
+		? createSkillTool(
+				host.hostImageTool ? { 'site-spec': lookImageFirst( host.hostImageTool ) } : undefined
+		  )
+		: null;
+	if ( skillTool ) {
+		tools.push( skillTool as unknown as AnyStudioAgentTool );
+	}
+	return tools.map( ( tool ) => withChatArtifactEmission( tool, host.chatArtifacts === true ) );
 }
 
 export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(

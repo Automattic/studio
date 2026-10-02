@@ -2,12 +2,10 @@ import { Type } from 'typebox';
 import { renderDesignCatalogIndex } from 'cli/ai/design-catalog';
 import { findSkill, loadSkills } from 'cli/ai/skills';
 import { defineTool } from './define-tool';
-import type { AgentTool } from '@earendil-works/pi-agent-core';
-import type { TSchema } from 'typebox';
 
 // Returns `null` when no skills are discovered so the caller skips
-// registering the tool entirely.
-export function createSkillTool(): AgentTool< TSchema > | null {
+// registering the tool entirely. `notes` adds host-specific steps to a skill.
+export function createSkillTool( notes: Record< string, string > = {} ) {
 	const skills = loadSkills();
 	if ( skills.length === 0 ) return null;
 
@@ -25,8 +23,10 @@ export function createSkillTool(): AgentTool< TSchema > | null {
 			if ( ! skill ) {
 				throw new Error( `Unknown skill: ${ args.name }` );
 			}
+			const body = renderDesignCatalogIndex( skill.body );
+			const note = notes[ skill.name ];
 			return {
-				content: [ { type: 'text' as const, text: renderDesignCatalogIndex( skill.body ) } ],
+				content: [ { type: 'text' as const, text: note ? `${ body }\n\n${ note }` : body } ],
 			};
 		}
 	);

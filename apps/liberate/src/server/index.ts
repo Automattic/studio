@@ -16,7 +16,18 @@ if ( ! config.fakePipeline && ! config.wpcom ) {
 
 const store = fileStore( path.join( config.dataDir, 'jobs' ) );
 const client = config.fakePipeline ? fakeClient() : previewClient( config );
-const prune = async () => log( 'pruned', { records: await store.prune() } );
+
+// An expired record's session is let go too, so a finished capture never holds a slot
+// longer than the link it belongs to.
+const prune = async () => {
+	const gone = await store.prune();
+	for ( const id of gone ) {
+		await client.revoke( id ).catch( () => undefined );
+	}
+	if ( gone.length ) {
+		log( 'pruned', { records: gone.length } );
+	}
+};
 await prune();
 const sweeper = setInterval( () => void prune(), 60 * 60_000 );
 

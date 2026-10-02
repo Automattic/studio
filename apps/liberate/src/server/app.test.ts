@@ -16,18 +16,22 @@ let server: Server;
 let base: string;
 let session: Session;
 let refuse: Error | undefined;
+let revoked: string[];
 
 const client: PreviewClient = {
 	async create() {
 		if ( refuse ) {
-			throw refuse;
+			const thrown = refuse;
+			refuse = undefined;
+			throw thrown;
 		}
 		return session;
 	},
 	async status() {
 		return session;
 	},
-	async revoke() {
+	async revoke( id ) {
+		revoked.push( id );
 		return session;
 	},
 	async sizeOf() {
@@ -38,6 +42,7 @@ const client: PreviewClient = {
 beforeEach( async () => {
 	session = { session_id: ID, state: 'capturing', progress: { pages_captured: 2, pages_total: 8 } };
 	refuse = undefined;
+	revoked = [];
 	dir = fs.mkdtempSync( path.join( os.tmpdir(), 'liberate-app-' ) );
 	const config = loadConfig( {
 		NODE_ENV: 'production',
@@ -115,6 +120,33 @@ describe( 'POST /api/jobs', () => {
 		const response = await create( { url: 'mysite.com', consent: true } );
 		expect( response.status ).toBe( 503 );
 		await expect( response.json() ).resolves.toMatchObject( { error: /capacity/ } );
+	} );
+
+	it( 'frees the slot an older finished capture is holding, rather than refusing', async () => {
+		// A capture that is already done, holding one of the app's three slots.
+		session = { session_id: ID, state: 'preview_ready' };
+		await create( { url: 'mysite.com', consent: true } );
+
+		refuse = Object.assign( new Error( 'full' ), {
+			code: 'static_site_import_session_limit_exceeded',
+		} );
+		const response = await create( { url: 'other.com', consent: true } );
+
+		expect( response.status ).toBe( 201 );
+		expect( revoked ).toEqual( [ ID ] );
+	} );
+
+	it( 'still refuses when every slot is held by a capture that is running', async () => {
+		session = { session_id: ID, state: 'capturing' };
+		await create( { url: 'mysite.com', consent: true } );
+
+		refuse = Object.assign( new Error( 'full' ), {
+			code: 'static_site_import_session_limit_exceeded',
+		} );
+		const response = await create( { url: 'other.com', consent: true } );
+
+		expect( response.status ).toBe( 503 );
+		expect( revoked ).toEqual( [] );
 	} );
 } );
 

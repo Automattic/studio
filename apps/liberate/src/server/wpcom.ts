@@ -61,17 +61,21 @@ class ApiError extends Error {
 	}
 }
 
+/** True when WordPress.com is holding all of this app's capture slots. */
+export const isSessionLimit = ( error: unknown ) =>
+	( error as { code?: string } )?.code === 'static_site_import_session_limit_exceeded';
+
 /** Turn an API refusal into what the visitor should be told. */
 export function asUserError( error: unknown ) {
-	if ( error instanceof ApiError ) {
-		if ( error.code === 'invalid_static_site_source_url' ) {
-			return new UserError( 'That site needs to be reachable at a public https:// address.' );
-		}
-		if ( BUSY_CODES.has( error.code ) || error.status === 429 ) {
-			return new UserError( BUSY, 503 );
-		}
+	// Read the shape rather than the class: an API refusal can reach here from anywhere.
+	const { code, status } = ( error ?? {} ) as { code?: string; status?: number };
+	if ( typeof code !== 'string' ) {
+		return error;
 	}
-	return error;
+	if ( code === 'invalid_static_site_source_url' ) {
+		return new UserError( 'That site needs to be reachable at a public https:// address.' );
+	}
+	return BUSY_CODES.has( code ) || status === 429 ? new UserError( BUSY, 503 ) : error;
 }
 
 /**

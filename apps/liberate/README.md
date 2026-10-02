@@ -14,6 +14,8 @@ All this app keeps is a few hundred bytes per job: the address, the host, the si
 
 That record goes through a small `JobStore` interface (`src/server/store.ts`): one file per job on Railway, and a table wherever there is no disk, without the rest of the app noticing.
 
+A finished capture keeps holding one of the app's three slots until it is revoked or expires, and revoking it takes the visitor's download with it. So nothing is revoked while a link is alive: when WordPress.com reports every slot busy, the oldest capture that has already finished is released to make room, and the hourly prune releases whatever has outlived its record. A download can therefore disappear before its three days are up, but only when new visitors need the capacity.
+
 The importer records its own verdict (`preview_summary.quality_pass`, and the comparison's `fidelity.pass`) instead of refusing a copy that came out badly. When either says no, the download is still handed over, with a line saying some pages may be missing pieces: a site with gaps beats no site.
 
 ## The registered app

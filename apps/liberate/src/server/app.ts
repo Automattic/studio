@@ -4,7 +4,14 @@ import { rateLimit } from 'express-rate-limit';
 import { isJobId, type PublicConfig } from '../shared.ts';
 import { APP_ROOT, type Config } from './config.ts';
 import { assertPublicHost, parseSiteUrl, UserError, verifyTurnstile } from './guards.ts';
-import { asUserError, fetchTitle, siteNameFrom, viewFrom, type PreviewClient } from './wpcom.ts';
+import {
+	asUserError,
+	fetchTitle,
+	isSessionLimit,
+	siteNameFrom,
+	viewFrom,
+	type PreviewClient,
+} from './wpcom.ts';
 import type { JobStore } from './store.ts';
 
 type Log = ( event: string, data: Record< string, unknown > ) => void;
@@ -109,7 +116,12 @@ export async function createApp( {
 				const siteName = await fetchTitle( url.href )
 					.then( siteNameFrom )
 					.catch( () => undefined );
-				const session = await client.create( url.href ).catch( ( error ) => {
+				const session = await client.create( url.href ).catch( async ( error ) => {
+					// A ready capture holds one of the app's three slots until it is let go, so
+					// the oldest finished one makes way rather than turning visitors away.
+					if ( isSessionLimit( error ) && ( await releaseOldest() ) ) {
+						return client.create( url.href );
+					}
 					log( 'create_failed', { host: url.hostname, error: String( error ) } );
 					throw asUserError( error );
 				} );
@@ -131,6 +143,19 @@ export async function createApp( {
 			}
 		}
 	);
+
+	/** Give back the slot held by the oldest capture that has already finished. */
+	const releaseOldest = async () => {
+		for ( const record of await store.list() ) {
+			const session = await client.status( record.id ).catch( () => undefined );
+			if ( session?.state === 'preview_ready' ) {
+				await client.revoke( record.id ).catch( () => undefined );
+				log( 'slot_released', { id: record.id } );
+				return true;
+			}
+		}
+		return false;
+	};
 
 	/** Read the session behind a job, or answer for a link that no longer resolves. */
 	const load = async ( id: string ) => {

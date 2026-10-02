@@ -21,8 +21,10 @@ export interface JobRecord {
 export interface JobStore {
 	put( record: JobRecord ): Promise< void >;
 	get( id: string ): Promise< JobRecord | undefined >;
-	/** Forget records past their expiry; returns how many went. */
-	prune( now?: number ): Promise< number >;
+	/** Live records, oldest first. */
+	list(): Promise< JobRecord[] >;
+	/** Forget records past their expiry; returns the ids that went. */
+	prune( now?: number ): Promise< string[] >;
 }
 
 /**
@@ -56,10 +58,28 @@ export function fileStore( dir: string ): JobStore {
 			return undefined;
 		},
 
+		async list() {
+			await ready;
+			const names = await fs.readdir( dir ).catch( () => [] );
+			const records = await Promise.all(
+				names
+					.filter( ( name ) => name.endsWith( '.json' ) )
+					.map( ( name ) =>
+						fs
+							.readFile( path.join( dir, name ), 'utf8' )
+							.then( ( contents ) => JSON.parse( contents ) as JobRecord )
+							.catch( () => undefined )
+					)
+			);
+			return records
+				.filter( ( record ) => record && record.expiresAt > Date.now() )
+				.sort( ( a, b ) => a!.createdAt - b!.createdAt ) as JobRecord[];
+		},
+
 		async prune( now = Date.now() ) {
 			await ready;
 			const names = await fs.readdir( dir ).catch( () => [] );
-			let gone = 0;
+			const gone: string[] = [];
 			for ( const name of names.filter( ( entry ) => entry.endsWith( '.json' ) ) ) {
 				const record = await fs
 					.readFile( path.join( dir, name ), 'utf8' )
@@ -67,7 +87,7 @@ export function fileStore( dir: string ): JobStore {
 					.catch( () => undefined );
 				if ( ! record || record.expiresAt <= now ) {
 					await fs.rm( path.join( dir, name ), { force: true } );
-					gone++;
+					gone.push( record?.id ?? name.replace( /\.json$/, '' ) );
 				}
 			}
 			return gone;

@@ -18,10 +18,6 @@ vi.mock( '@/components/collapsed-site-switcher', () => ( {
 	CollapsedSiteSwitcher: ( { trigger }: { trigger: ReactElement } ) => trigger,
 } ) );
 
-vi.mock( '@/components/studio-beta-menu', () => ( {
-	StudioBetaMenu: () => null,
-} ) );
-
 vi.mock( '@/components/site-list', () => ( {
 	SiteList: () => <div data-testid="site-list" />,
 	SeenSessionTimestampsProvider: ( { children }: { children: ReactNode } ) => children,

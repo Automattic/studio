@@ -4,8 +4,8 @@
  * reprint.phar is plain PHP, so any PHP runtime can execute it. The
  * `playground` runtime runs it inside a PHP WASM child process; the
  * `native-php` runtime spawns the bundled native `php` binary directly.
- * Either way the command is re-run while it exits with code 2 (partial)
- * until it exits with code 0 (success) or code 1 (error).
+ * Both runtimes resume exit 2 immediately and retry exit 3 after a bounded
+ * delay. Only exit 0 completes the command; other exit codes are errors.
  */
 import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
@@ -16,9 +16,12 @@ import {
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { SITE_RUNTIME_NATIVE_PHP, SiteRuntime } from '@studio/common/lib/site-runtime';
+import { __, sprintf } from '@wordpress/i18n';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-process';
+
+const RETRY_DELAYS_MS = [ 15_000, 45_000 ];
 
 export interface ReprintProcessResult {
 	stdout: string;
@@ -37,13 +40,14 @@ function getBundledReprintPhar(): string {
 
 /**
  * Runs a reprint.phar command with the runtime selected by `STUDIO_RUNTIME`,
- * automatically retrying on partial completion.
+ * resuming partial work and retrying temporary failures.
  *
  * The `playground` runtime runs reprint inside a PHP WASM child process; the
  * `native-php` runtime spawns the bundled native `php` binary. Reprint
- * commands exit with code 2 when they've made progress but need another pass
- * (e.g., large file downloads that stream in chunks). This function loops
- * until the command exits with 0 (success) or throws on exit code 1 (error).
+ * commands exit with code 2 when work is unfinished and should resume
+ * immediately (e.g., a bounded download pass). Newer versions use
+ * exit 3 for temporary failures. Studio allows two delayed retries per
+ * command, even if partial work or a reset Reprint failure count follows.
  */
 export async function runReprintCommandUntilComplete(
 	stateDir: string,
@@ -77,9 +81,11 @@ export async function runReprintCommandUntilComplete(
 	const progress = createProgressReporter( label, startTime, onProgress );
 
 	let lastResult: ReprintProcessResult | undefined;
+	let retryAttempts = 0;
 
 	try {
 		do {
+			progress.setRetryMessage( null );
 			lastResult =
 				runtime === SITE_RUNTIME_NATIVE_PHP
 					? await runReprintCommandNative( pharPath, nativePhpVersion!, args, options, progress )
@@ -93,16 +99,27 @@ export async function runReprintCommandUntilComplete(
 							progress
 					  );
 
-			if ( lastResult.exitCode === 1 ) {
+			if ( lastResult.exitCode === 3 && retryAttempts < RETRY_DELAYS_MS.length ) {
+				const delay = RETRY_DELAYS_MS[ retryAttempts++ ];
+				progress.setRetryMessage(
+					sprintf(
+						__( 'The remote request failed. Retrying in %d seconds (%d/%d)…' ),
+						delay / 1000,
+						retryAttempts,
+						RETRY_DELAYS_MS.length
+					)
+				);
+				await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
+			} else if ( lastResult.exitCode !== 0 && lastResult.exitCode !== 2 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
 				throw new Error(
 					details ||
-						`reprint.phar exited with code 1 (command: ${
+						`reprint.phar exited with code ${ lastResult.exitCode } (command: ${
 							args[ 0 ] ?? 'unknown'
 						}). No output was captured.`
 				);
 			}
-		} while ( lastResult.exitCode === 2 );
+		} while ( lastResult.exitCode === 2 || lastResult.exitCode === 3 );
 
 		return lastResult;
 	} finally {
@@ -343,6 +360,7 @@ interface ProgressSnapshot {
 }
 
 interface ProgressReporter {
+	setRetryMessage: ( message: string | null ) => void;
 	pushStdoutChunk: ( chunk: string ) => void;
 	flush: () => void;
 	cleanup: () => void;
@@ -366,6 +384,7 @@ function createProgressReporter(
 ): ProgressReporter {
 	let lineBuffer = '';
 	let snapshot: ProgressSnapshot = {};
+	let retryMessage: string | null = null;
 
 	const reportLines = ( lines: string[] ) => {
 		if ( ! onProgress ) {
@@ -389,13 +408,19 @@ function createProgressReporter(
 	const ticker =
 		onProgress &&
 		setInterval( () => {
-			const msg = formatSnapshot( snapshot, label, elapsedSeconds() );
+			const msg = retryMessage ?? formatSnapshot( snapshot, label, elapsedSeconds() );
 			if ( msg ) {
 				onProgress( msg );
 			}
 		}, 250 );
 
 	return {
+		setRetryMessage( message: string | null ) {
+			retryMessage = message;
+			if ( message ) {
+				onProgress?.( message );
+			}
+		},
 		pushStdoutChunk( chunk: string ) {
 			lineBuffer += chunk;
 			const lines = lineBuffer.split( '\n' );

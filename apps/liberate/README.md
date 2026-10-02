@@ -43,7 +43,7 @@ Then open http://localhost:8080. In development the server runs Vite as middlewa
 | `LIBERATE_DATA_DIR` | `$RAILWAY_VOLUME_MOUNT_PATH`, else `apps/liberate/.data` (`.data/simulated` for simulated jobs) | Job records and downloads. Must be persistent. |
 | `LIBERATE_CONCURRENCY` | `1` | Jobs running at once. The app's own limit is three captures. |
 | `LIBERATE_MAX_QUEUED` | `20` | New jobs are refused beyond this. |
-| `LIBERATE_TIMEOUT_MINUTES` | `60` | Per job. |
+| `LIBERATE_TIMEOUT_MINUTES` | `80` | Per job. WordPress.com gives a capture about 75 minutes before it times out. |
 | `LIBERATE_POLL_SECONDS` | `5` | How often a running capture is polled. |
 | `LIBERATE_RETENTION_HOURS` | `24` | How long downloads are kept. |
 | `LIBERATE_JOBS_PER_HOUR` | `3` | Per IP. Visitors also get one active job at a time. |

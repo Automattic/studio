@@ -11,6 +11,13 @@ import type { JobProgress, Runner } from './jobs.ts';
 type Log = ( event: string, data: Record< string, unknown > ) => void;
 
 const SCOPE = 'static-site-import-preview';
+/** Tokens last 15 minutes and the response carries no reliable expiry. */
+const TOKEN_TTL_MS = 14 * 60_000;
+/** Codes that mean "not now" rather than "not ever". */
+const RETRY_CODES = new Set( [
+	'static_site_import_preview_busy',
+	'static_site_import_preview_unavailable',
+] );
 /** A poll can fail without the capture failing; only a run of failures ends the job. */
 const POLL_FAILURES_ALLOWED = 3;
 
@@ -28,6 +35,8 @@ export interface Session {
 	/** Signed, and refreshed on every poll, so it is fetched as soon as it appears. */
 	archive_url?: string;
 	archive_hash?: string;
+	/** Carries the reason on a failed session. */
+	receipt?: { success?: boolean; code?: string };
 	/** Bounded evidence about the copy: counts, the importer's own verdict, no source text. */
 	preview_summary?: {
 		pages?: number;
@@ -44,10 +53,9 @@ export interface Session {
 /** Capacity, not a bad address: worth another try later. */
 const BUSY_CODES = new Set( [
 	'static_site_import_preview_daily_limit',
-	'static_site_import_preview_busy',
 	'static_site_import_session_limit_exceeded',
-	'static_site_import_preview_unavailable',
 	'static_site_import_preview_storage_failed',
+	...RETRY_CODES,
 ] );
 
 const UNUSABLE_SOURCE = 'We couldn’t copy this site. It may block automated visits.';
@@ -92,8 +100,7 @@ function previewApi( config: Config ) {
 		if ( ! response.ok || typeof body.access_token !== 'string' ) {
 			throw new Error( `Could not get an app token: ${ response.status } ${ body.error ?? '' }` );
 		}
-		const seconds = typeof body.expires_in === 'number' ? body.expires_in : 900;
-		token = { value: body.access_token, expiresAt: Date.now() + seconds * 1_000 };
+		token = { value: body.access_token, expiresAt: Date.now() + TOKEN_TTL_MS };
 		return token.value;
 	};
 
@@ -101,7 +108,8 @@ function previewApi( config: Config ) {
 		method: string,
 		route: string,
 		signal: AbortSignal,
-		body?: Record< string, string >
+		body?: Record< string, string >,
+		retried = false
 	): Promise< Session > => {
 		const response = await fetch( `${ apiBase }/wpcom/v2/static-site-import-preview${ route }`, {
 			method,
@@ -114,9 +122,10 @@ function previewApi( config: Config ) {
 		} );
 		const json = ( await response.json().catch( () => ( {} ) ) ) as Record< string, unknown >;
 		if ( ! response.ok ) {
-			// A rejected token is stale rather than wrong: drop it so the next call mints one.
-			if ( response.status === 401 ) {
+			// A rejected token is stale rather than wrong: mint a fresh one and try once more.
+			if ( response.status === 401 && ! retried ) {
 				token = undefined;
+				return call( method, route, signal, body, true );
 			}
 			throw new ApiError(
 				String( json.code ?? `http_${ response.status }` ),
@@ -129,6 +138,7 @@ function previewApi( config: Config ) {
 
 	return {
 		create: ( url: string, signal: AbortSignal ) => call( 'POST', '', signal, { source_url: url } ),
+		retryable: ( error: unknown ) => error instanceof ApiError && RETRY_CODES.has( error.code ),
 		status: ( id: string, signal: AbortSignal ) => call( 'GET', `/${ id }`, signal ),
 		revoke: ( id: string, signal: AbortSignal ) => call( 'DELETE', `/${ id }`, signal ),
 	};
@@ -235,10 +245,11 @@ async function download( url: string, target: string, signal: AbortSignal ) {
 
 function asJobError( error: unknown ) {
 	if ( error instanceof ApiError ) {
+		if ( error.code === 'invalid_static_site_source_url' ) {
+			return new UserError( 'That site needs to be reachable at a public https:// address.' );
+		}
 		return BUSY_CODES.has( error.code ) || error.status === 429
 			? new UserError( BUSY, 503 )
-			: error.status === 400
-			? new UserError( UNUSABLE_SOURCE )
 			: error;
 	}
 	return error;
@@ -257,13 +268,23 @@ export function createPipeline( config: Config, log: Log ): Runner {
 			report( { siteName } );
 		}
 
-		let session: Session;
-		try {
-			session = await api.create( job.url, signal );
-		} catch ( error ) {
-			log( 'create_failed', { id: job.id, error: String( error ) } );
-			throw asJobError( error );
-		}
+		// "Busy" and "unavailable" mean another start is in flight or a deploy is passing
+		// through, both of which clear on their own.
+		const start = async (): Promise< Session > => {
+			for ( let attempt = 1; ; attempt++ ) {
+				try {
+					return await api.create( job.url, signal );
+				} catch ( error ) {
+					if ( api.retryable( error ) && attempt < 3 ) {
+						await sleep( config.pollMs, undefined, { signal } );
+						continue;
+					}
+					log( 'create_failed', { id: job.id, error: String( error ) } );
+					throw asJobError( error );
+				}
+			}
+		};
+		let session = await start();
 		log( 'session_created', { id: job.id, session: session.session_id } );
 
 		try {
@@ -271,6 +292,11 @@ export function createPipeline( config: Config, log: Log ): Runner {
 			let failures = 0;
 			while ( session.state !== 'preview_ready' ) {
 				if ( session.state === 'failed' ) {
+					log( 'capture_failed', {
+						id: job.id,
+						session: session.session_id,
+						reason: session.receipt?.code,
+					} );
 					throw new UserError( UNUSABLE_SOURCE );
 				}
 				await sleep( config.pollMs, undefined, { signal } );

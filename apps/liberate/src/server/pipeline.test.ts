@@ -175,6 +175,68 @@ describe( 'createPipeline', () => {
 		await expect( run() ).rejects.toThrow( /couldn’t copy this site/ );
 	} );
 
+	it( 'mints a fresh token and retries once when the old one is rejected', async () => {
+		let rejected = false;
+		const calls: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: string | URL, options: RequestInit = {} ) => {
+				const method = options.method ?? 'GET';
+				url = String( url );
+				calls.push( `${ method } ${ url.replace( 'https://api.test', '' ) }` );
+				if ( url.endsWith( '/oauth2/token' ) ) {
+					return json( { access_token: 'token' } );
+				}
+				if ( url.startsWith( 'https://mysite.com' ) ) {
+					return new Response( '<title>Sonora</title>' );
+				}
+				if ( url.startsWith( 'https://archives.example.com' ) ) {
+					return new Response( ZIP );
+				}
+				if ( method === 'POST' && ! rejected ) {
+					rejected = true;
+					return json( { code: 'oauth2_invalid_token', message: 'expired' }, 401 );
+				}
+				return json( method === 'POST' ? ready( { pages: 2 } ) : ready( { pages: 2 } ) );
+			} )
+		);
+		const { result } = await run();
+
+		expect( result ).toMatchObject( { counts: { pages: 2 } } );
+		expect( calls.filter( ( call ) => call.endsWith( '/oauth2/token' ) ) ).toHaveLength( 2 );
+	} );
+
+	it( 'waits and starts again when another capture is being started', async () => {
+		let busy = true;
+		const calls: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: string | URL, options: RequestInit = {} ) => {
+				const method = options.method ?? 'GET';
+				url = String( url );
+				calls.push( `${ method } ${ url.replace( 'https://api.test', '' ) }` );
+				if ( url.endsWith( '/oauth2/token' ) ) {
+					return json( { access_token: 'token' } );
+				}
+				if ( url.startsWith( 'https://mysite.com' ) ) {
+					return new Response( '<title>Sonora</title>' );
+				}
+				if ( url.startsWith( 'https://archives.example.com' ) ) {
+					return new Response( ZIP );
+				}
+				if ( method === 'POST' && busy ) {
+					busy = false;
+					return json( { code: 'static_site_import_preview_busy', message: 'busy' }, 429 );
+				}
+				return json( ready( { pages: 1 } ) );
+			} )
+		);
+		await expect( run() ).resolves.toMatchObject( { result: { counts: { pages: 1 } } } );
+		expect(
+			calls.filter( ( call ) => call === 'POST /wpcom/v2/static-site-import-preview' )
+		).toHaveLength( 2 );
+	} );
+
 	/** Serve the token, then the given session states in order, then the archive. */
 	function stubApi( states: Session[], refuse?: { code: string; status: number } ) {
 		const calls: string[] = [];

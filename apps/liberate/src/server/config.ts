@@ -45,7 +45,7 @@ export function loadConfig( env: NodeJS.ProcessEnv = process.env ): Config {
 		),
 		concurrency: Math.max( 1, number( 'LIBERATE_CONCURRENCY', 1 ) ),
 		maxQueued: number( 'LIBERATE_MAX_QUEUED', 20 ),
-		timeoutMs: number( 'LIBERATE_TIMEOUT_MINUTES', 60 ) * 60_000,
+		timeoutMs: number( 'LIBERATE_TIMEOUT_MINUTES', 80 ) * 60_000,
 		retentionMs: number( 'LIBERATE_RETENTION_HOURS', 24 ) * 3_600_000,
 		jobsPerHour: number( 'LIBERATE_JOBS_PER_HOUR', 3 ),
 		minFreeDiskBytes: number( 'LIBERATE_MIN_FREE_DISK_GB', 1 ) * 1024 ** 3,

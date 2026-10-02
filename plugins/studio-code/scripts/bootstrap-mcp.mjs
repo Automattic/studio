@@ -218,8 +218,9 @@ function findStudio() {
 		...( process.env.PATH ?? '' )
 			.split( path.delimiter )
 			.map( ( dir ) => path.join( dir, 'studio' ) ),
-		STUDIO_BIN,
+		// The installer links the CLI it installed last here, wherever it put it.
 		path.join( homedir(), '.local', 'bin', 'studio' ),
+		STUDIO_BIN,
 		'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh',
 		'/usr/lib/studio/resources/bin/studio-cli.sh',
 	];

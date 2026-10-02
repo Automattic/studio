@@ -1,26 +1,22 @@
-import { createHash, randomBytes } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
-import express, { type ErrorRequestHandler, type Request } from 'express';
+import express, { type ErrorRequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { isJobId, type FileKind, type JobView, type PublicConfig } from '../shared.ts';
+import { isJobId, type PublicConfig } from '../shared.ts';
 import { APP_ROOT, type Config } from './config.ts';
 import { assertPublicHost, parseSiteUrl, UserError, verifyTurnstile } from './guards.ts';
-import type { JobQueue } from './jobs.ts';
+import { asUserError, fetchTitle, siteNameFrom, viewFrom, type PreviewClient } from './wpcom.ts';
+import type { JobStore } from './store.ts';
 
 type Log = ( event: string, data: Record< string, unknown > ) => void;
 
 interface AppOptions {
 	config: Config;
-	queue: JobQueue;
+	store: JobStore;
+	client: PreviewClient;
 	log: Log;
 	/** Injectable for tests. */
 	checkHost?: ( hostname: string ) => Promise< void >;
 }
-
-const FILE_NAMES: Record< FileKind, ( host: string ) => string > = {
-	site: ( host ) => `${ host }-wordpress.zip`,
-};
 
 const CSP = [
 	"default-src 'self'",
@@ -36,7 +32,8 @@ const CSP = [
 
 export async function createApp( {
 	config,
-	queue,
+	store,
+	client,
 	log,
 	checkHost = assertPublicHost,
 }: AppOptions ) {
@@ -60,7 +57,7 @@ export async function createApp( {
 	} );
 
 	app.get( '/healthz', ( _req, res ) => {
-		res.json( { ok: true, ...queue.stats() } );
+		res.json( { ok: true } );
 	} );
 
 	const api = express.Router();
@@ -82,14 +79,6 @@ export async function createApp( {
 		};
 		res.json( body );
 	} );
-
-	const salt = randomBytes( 16 );
-	const clientKey = ( req: Request ) =>
-		createHash( 'sha256' )
-			.update( salt )
-			.update( req.ip ?? '' )
-			.digest( 'base64url' )
-			.slice( 0, 16 );
 
 	api.post(
 		'/jobs',
@@ -115,70 +104,85 @@ export async function createApp( {
 					throw new UserError( 'We couldn’t verify that you’re human. Please try again.', 403 );
 				}
 				await checkHost( url.hostname );
-				const { bavail, bsize } = await fs.promises.statfs( config.dataDir );
-				if ( bavail * bsize < config.minFreeDiskBytes ) {
-					log( 'disk_low', { free: bavail * bsize } );
-					throw new UserError(
-						'liberate.sh is out of room right now. Please try again later.',
-						503
-					);
-				}
-				res.status( 201 ).json( queue.create( url.href, clientKey( req ) ) );
+
+				// The headline wants the site's own name, and a title that never arrives costs nothing.
+				const siteName = await fetchTitle( url.href )
+					.then( siteNameFrom )
+					.catch( () => undefined );
+				const session = await client.create( url.href ).catch( ( error ) => {
+					log( 'create_failed', { host: url.hostname, error: String( error ) } );
+					throw asUserError( error );
+				} );
+
+				const now = Date.now();
+				const record = {
+					id: session.session_id,
+					url: url.href,
+					host: url.hostname,
+					siteName,
+					createdAt: now,
+					expiresAt: now + config.retentionMs,
+				};
+				await store.put( record );
+				log( 'job_created', { id: record.id, host: record.host } );
+				res.status( 201 ).json( viewFrom( record, session ) );
 			} catch ( error ) {
 				next( error );
 			}
 		}
 	);
 
-	api.param( 'id', ( _req, res, next, id: string ) => {
-		if ( isJobId( id ) && queue.get( id ) ) {
-			next();
-		} else {
-			res.status( 404 ).json( { error: 'This link has expired or never existed.' } );
+	/** Read the session behind a job, or answer for a link that no longer resolves. */
+	const load = async ( id: string ) => {
+		const record = isJobId( id ) ? await store.get( id ) : undefined;
+		if ( ! record ) {
+			throw new UserError( 'This link has expired or never existed.', 404 );
 		}
-	} );
-
-	api.get( '/jobs/:id', ( req, res ) => {
-		res.set( 'Cache-Control', 'no-store' ).json( queue.view( req.params.id ) );
-	} );
-
-	api.get( '/jobs/:id/events', ( req, res ) => {
-		const { id } = req.params;
-		res.set( {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-store, no-transform',
-			Connection: 'keep-alive',
-			'X-Accel-Buffering': 'no',
-		} );
-		res.flushHeaders();
-		const send = ( view: JobView | undefined ) => {
-			if ( view?.id === id ) {
-				res.write( `data: ${ JSON.stringify( view ) }\n\n` );
-			}
+		return {
+			record,
+			session: await client.status( id ).catch( ( error ) => {
+				throw asUserError( error );
+			} ),
 		};
-		send( queue.view( id ) );
-		queue.on( 'update', send );
-		const ping = setInterval( () => res.write( ': ping\n\n' ), 20_000 );
-		req.on( 'close', () => {
-			clearInterval( ping );
-			queue.off( 'update', send );
-		} );
+	};
+
+	api.get( '/jobs/:id', async ( req, res, next ) => {
+		try {
+			const { record, session } = await load( req.params.id );
+			// The size is worth one extra request, once, so the button can promise a number.
+			if ( ! record.bytes && session.archive_url ) {
+				record.bytes = await client.sizeOf( session.archive_url );
+				if ( record.bytes ) {
+					await store.put( record );
+				}
+			}
+			res.set( 'Cache-Control', 'no-store' ).json( viewFrom( record, session ) );
+		} catch ( error ) {
+			next( error );
+		}
 	} );
 
-	api.get( '/jobs/:id/files/:kind', ( req, res, next ) => {
-		const job = queue.get( req.params.id )!;
-		const kind = req.params.kind as FileKind;
-		if ( job.status !== 'done' || ! Object.hasOwn( FILE_NAMES, kind ) || ! job.files?.[ kind ] ) {
-			res.status( 404 ).json( { error: 'This file isn’t available.' } );
-			return;
-		}
-		log( 'download', { id: job.id, kind } );
-		res.download( queue.filePath( job.id, kind ), FILE_NAMES[ kind ]( job.host ), ( error ) => {
-			if ( error && ! res.headersSent ) {
-				next( error );
+	api.get( '/jobs/:id/files/site', async ( req, res, next ) => {
+		try {
+			const { record, session } = await load( req.params.id );
+			if ( ! session.archive_url ) {
+				throw new UserError( 'This file isn’t available.', 404 );
 			}
-		} );
+			log( 'download', { id: record.id } );
+			// Signed and short-lived, which is why it is read fresh on every click.
+			res.redirect( 302, session.archive_url );
+		} catch ( error ) {
+			next( error );
+		}
 	} );
+
+	if ( config.fakePipeline ) {
+		api.get( '/simulated.zip', ( _req, res ) => {
+			res
+				.type( 'application/zip' )
+				.send( 'A placeholder from a simulated liberate.sh run (LIBERATE_FAKE_PIPELINE=1).\n' );
+		} );
+	}
 
 	app.use( '/api', api );
 

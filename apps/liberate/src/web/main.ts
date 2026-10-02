@@ -30,7 +30,12 @@ const STEP_LABELS: Record< Step, string > = {
 	package: 'zip',
 };
 
-let config: PublicConfig = { retentionHours: 24 };
+let config: PublicConfig = { retentionHours: 72 };
+
+const retention = () =>
+	config.retentionHours >= 48
+		? `${ Math.round( config.retentionHours / 24 ) } days`
+		: `${ config.retentionHours } hours`;
 let teardown = () => {};
 
 const escape = ( text: string ) =>
@@ -86,7 +91,7 @@ function showForm( prefill: string ) {
 		</form>
 		<p class="fine">
 			Your pages, images and the look, packed into a WordPress site you own. It’s free, and
-			your files are deleted after ${ config.retentionHours } hours.
+			your files are deleted after ${ retention() }.
 		</p>`;
 
 	const word = stage.querySelector( '.x' )!;
@@ -191,8 +196,8 @@ function loadTurnstile() {
 
 function watchJob( id: string ) {
 	let phase: 'working' | 'done' | 'failed' | undefined;
-	let source: EventSource | undefined;
-	let retry: number | undefined;
+	let timer: number | undefined;
+	let stopped = false;
 
 	const render = ( job: JobView ) => {
 		const next = job.status === 'done' || job.status === 'failed' ? job.status : 'working';
@@ -204,36 +209,33 @@ function watchJob( id: string ) {
 		}
 		if ( next === 'working' ) {
 			updateProgress( job );
-		} else {
-			source?.close();
+		}
+		return next;
+	};
+
+	const poll = async () => {
+		const response = await fetch( `/api/jobs/${ id }` ).catch( () => undefined );
+		if ( stopped ) {
+			return;
+		}
+		if ( response?.status === 404 ) {
+			stage.innerHTML = missing();
+			return;
+		}
+		const working = response?.ok ? render( await response.json() ) === 'working' : true;
+		if ( working ) {
+			timer = window.setTimeout( poll, 3000 );
 		}
 	};
-
-	const connect = () => {
-		source = new EventSource( `/api/jobs/${ id }/events` );
-		source.onmessage = ( message ) => render( JSON.parse( message.data ) );
-		source.onerror = async () => {
-			if ( source?.readyState !== EventSource.CLOSED ) {
-				return; // The browser reconnects by itself.
-			}
-			const response = await fetch( `/api/jobs/${ id }` ).catch( () => undefined );
-			if ( response?.status === 404 ) {
-				stage.innerHTML = missing();
-			} else {
-				retry = window.setTimeout( connect, 3000 );
-			}
-		};
-	};
-	connect();
+	void poll();
 
 	teardown = () => {
-		source?.close();
-		window.clearTimeout( retry );
+		stopped = true;
+		window.clearTimeout( timer );
 	};
 }
 
-const platformLabel = ( job: JobView ) =>
-	job.platform ?? platformFromHost( job.host ) ?? 'the old platform';
+const platformLabel = ( job: JobView ) => platformFromHost( job.host ) ?? 'the old platform';
 
 /** The site's own name when it has a usable one, else its address. */
 const siteLabel = ( job: JobView ) => job.siteName ?? job.host;
@@ -251,17 +253,14 @@ const working = ( job: JobView ) => `
 	</ol>
 	<p class="fine">
 		This page updates by itself. You can close it and come back: bookmark it, and your files
-		will wait here for ${ config.retentionHours } hours once they’re ready.
+		will wait here for ${ retention() } once they’re ready.
 	</p>`;
 
 function updateProgress( job: JobView ) {
 	const word = stage.querySelector< HTMLElement >( '.x' )!;
 	word.textContent = platformLabel( job );
 	word.style.setProperty( '--p', String( job.progress ) );
-	stage.querySelector( '.status' )!.textContent =
-		job.status === 'queued'
-			? `You’re #${ job.queuePosition ?? 1 } in line. We’ll start soon.`
-			: job.detail ?? 'Working…';
+	stage.querySelector( '.status' )!.textContent = job.detail ?? 'Working…';
 	const steps = stage.querySelector( '.steps' )!;
 	steps.setAttribute( 'aria-valuenow', String( Math.round( job.progress * 100 ) ) );
 	const current = job.step ? STEPS.indexOf( job.step ) : -1;
@@ -292,13 +291,17 @@ function expiry( timestamp: number | undefined ) {
 }
 
 const done = ( job: JobView ) => `
-	${ job.platform ? `<p class="was" aria-hidden="true">${ strike( job.platform ) }</p>` : '' }
+	${
+		platformFromHost( job.host )
+			? `<p class="was" aria-hidden="true">${ strike( platformFromHost( job.host )! ) }</p>`
+			: ''
+	}
 	<h1 class="headline">${ siteHeading( job ) }<br>is free.</h1>
 	<p class="summary">${ summarize( job ) }</p>
 	${ job.warning ? `<p class="note">${ escape( job.warning ) }</p>` : '' }
 	<div class="actions">
 		<a class="button primary" href="/api/jobs/${ job.id }/files/site" download>
-			Download your site <small>.zip · ${ megabytes( job.files?.site ) }</small>
+			Download your site <small>.zip · ${ megabytes( job.bytes ) }</small>
 		</a>
 	</div>
 	<p class="hosts">
@@ -332,7 +335,7 @@ const failed = ( job: JobView ) => `
 
 const missing = () => `
 	<h1 class="headline">Nothing here<br>anymore.</h1>
-	<p class="status">Liberated sites are deleted after ${ config.retentionHours } hours, and this one is gone.</p>
+	<p class="status">Liberated sites are deleted after ${ retention() }, and this one is gone.</p>
 	<div class="actions"><a class="button primary" href="/">Liberate a site</a></div>`;
 
 async function start() {

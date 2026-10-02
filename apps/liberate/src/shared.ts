@@ -1,6 +1,6 @@
 // Types and helpers shared by the server and the browser bundle.
 
-export type JobStatus = 'queued' | 'running' | 'done' | 'failed';
+export type JobStatus = 'running' | 'done' | 'failed';
 
 export const STEPS = [ 'scan', 'capture', 'import', 'package' ] as const;
 export type Step = ( typeof STEPS )[ number ];
@@ -8,8 +8,6 @@ export type Step = ( typeof STEPS )[ number ];
 export interface JobCounts {
 	pages: number;
 }
-
-export type FileKind = 'site';
 
 /** What the API exposes about a job. */
 export interface JobView {
@@ -26,14 +24,12 @@ export interface JobView {
 	progress: number;
 	/** One human-readable line about what is happening right now. */
 	detail?: string;
-	/** 1-based position in the queue while queued. */
-	queuePosition?: number;
 	counts?: JobCounts;
 	/** Set when the copy finished with known gaps. */
 	warning?: string;
 	error?: string;
-	/** Sizes in bytes of the downloadable files. */
-	files?: Partial< Record< FileKind, number > >;
+	/** Size of the download in bytes, once it is known. */
+	bytes?: number;
 	createdAt: number;
 	expiresAt?: number;
 }
@@ -58,11 +54,6 @@ const PLATFORMS: Record< string, string > = {
 
 export const PLATFORM_NAMES = Object.values( PLATFORMS );
 
-/** Display name for a data-liberation platform id; undefined for unknown/generic sites. */
-export function platformName( id: string | undefined ): string | undefined {
-	return id ? PLATFORMS[ id ] : undefined;
-}
-
 const HOSTED_SUFFIXES: [ string, string ][] = [
 	[ 'wixsite.com', 'Wix' ],
 	[ 'wixstudio.com', 'Wix' ],
@@ -85,6 +76,7 @@ export function platformFromHost( host: string ): string | undefined {
 	)?.[ 1 ];
 }
 
+/** A WordPress.com capture session id, which is also a job's id here. */
 export function isJobId( value: string ): boolean {
-	return /^[A-Za-z0-9_-]{22}$/.test( value );
+	return /^[a-f0-9]{32}$/.test( value );
 }

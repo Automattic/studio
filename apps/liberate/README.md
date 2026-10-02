@@ -2,18 +2,19 @@
 
 Paste a website's address and get it back as a WordPress site you can host anywhere. liberate.sh asks WordPress.com to copy the site — `POST /wpcom/v2/static-site-import-preview`, which captures it with [Data Liberation](https://github.com/Automattic/data-liberation-agent) and rebuilds it as WordPress with the Static Site Importer — then hands the visitor the archive as `<host>-wordpress.zip`: the site's `wp-content` and an SQLite database, including a theme that carries the original look. It opens in [Studio](https://developer.wordpress.com/studio/), which can push it to WordPress.com or Pressable. Hosts running the SQLite integration take it as it is; anywhere else, Studio is the way in.
 
-The server copies nothing itself: no browser, no PHP, no WordPress. It validates the address, queues the request, follows the capture and serves the archive.
+The server copies nothing and stores nothing heavy: no browser, no PHP, no WordPress, no archives on disk. A capture session at WordPress.com *is* the job — it has the state, the progress, the concurrency limits and the archive — so this app validates the address, starts a session, reads it back for the page, and sends the visitor to the signed download.
 
 ## How a job runs
 
-1. `POST /api/jobs` validates the address (public `http(s)` host on a default port, resolving only to public IPs), then queues a job.
-2. The worker reads the source page's `<title>` for the headline — WordPress.com reports only bounded counts about a capture, never the site's own text — then mints an app token (OAuth2 `client_credentials`, scope `static-site-import-preview`, 15 minutes, no user or blog behind it) and creates a preview session for the URL.
-3. It polls the session until `preview_ready`, mapping its states onto the four steps on the page — scan, copy, rebuild, zip — which stream to it over SSE (`/api/jobs/:id/events`).
-4. The archive is downloaded from the session's signed `archive_url`, checked against its `archive_hash`, and kept until it expires. The session is then revoked, which gives the app's slot back.
+1. `POST /api/jobs` validates the address (public `http(s)` host on a default port, resolving only to public IPs), reads the source page's `<title>` for the headline, then mints an app token (OAuth2 `client_credentials`, scope `static-site-import-preview`, 15 minutes, no user or blog behind it) and creates a capture session. The session's id becomes the job's id.
+2. The page polls `GET /api/jobs/:id`. Each read is one call to the session, mapped onto the four steps — scan, copy, rebuild, zip — from its `state` and `progress`.
+3. `GET /api/jobs/:id/files/site` reads the session once more and redirects to its signed `archive_url`, which is minted fresh on every click.
+
+All this app keeps is a few hundred bytes per job: the address, the host, the site's name and when the link expires. The session reports a digest of the source rather than its address, so without that record a bookmarked link could not say which site it belonged to. Everything else — the capture, its progress, the three-day archive, the concurrency and daily limits — belongs to WordPress.com, which is the only thing that can enforce them anyway.
+
+That record goes through a small `JobStore` interface (`src/server/store.ts`): one file per job on Railway, and a table wherever there is no disk, without the rest of the app noticing.
 
 The importer records its own verdict (`preview_summary.quality_pass`, and the comparison's `fidelity.pass`) instead of refusing a copy that came out badly. When either says no, the download is still handed over, with a line saying some pages may be missing pieces: a site with gaps beats no site.
-
-Storing our own copy is deliberate: WordPress.com expires ready artifacts after three days and its signed URLs sooner, while a visitor's link here keeps working for as long as this app says it does.
 
 ## The registered app
 
@@ -40,14 +41,9 @@ Then open http://localhost:8080. In development the server runs Vite as middlewa
 | `PORT` | `8080` | |
 | `WPCOM_CLIENT_ID`, `WPCOM_CLIENT_SECRET` | unset | The registered app. Required unless jobs are simulated. |
 | `WPCOM_API_BASE` | `https://public-api.wordpress.com` | For a sandbox. |
-| `LIBERATE_DATA_DIR` | `$RAILWAY_VOLUME_MOUNT_PATH`, else `apps/liberate/.data` (`.data/simulated` for simulated jobs) | Job records and downloads. Must be persistent. |
-| `LIBERATE_CONCURRENCY` | `1` | Jobs running at once. The app's own limit is three captures. |
-| `LIBERATE_MAX_QUEUED` | `20` | New jobs are refused beyond this. |
-| `LIBERATE_TIMEOUT_MINUTES` | `80` | Per job. WordPress.com gives a capture about 75 minutes before it times out. |
-| `LIBERATE_POLL_SECONDS` | `5` | How often a running capture is polled. |
-| `LIBERATE_RETENTION_HOURS` | `24` | How long downloads are kept. |
+| `LIBERATE_DATA_DIR` | `$RAILWAY_VOLUME_MOUNT_PATH`, else `apps/liberate/.data` (`.data/simulated` for simulated jobs) | The small per-job records. Must be persistent. |
+| `LIBERATE_RETENTION_HOURS` | `72` | How long a job's link keeps working. WordPress.com holds a ready archive for about three days. |
 | `LIBERATE_JOBS_PER_HOUR` | `3` | Per IP. Visitors also get one active job at a time. |
-| `LIBERATE_MIN_FREE_DISK_GB` | `1` | New jobs are refused below this. |
 | `LIBERATE_TRUST_PROXY` | `1` | Proxy hops in front of the app, for client IPs. |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | unset | Set both to require a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check. |
 
@@ -64,8 +60,8 @@ Keep one replica: jobs and downloads live on the volume.
 
 - Addresses must be public: no credentials, no custom ports, no private or reserved IPs, checked after DNS resolution. WordPress.com validates the address again on its side.
 - The only request this server makes to a visitor's site is the one that reads its title. It follows at most three redirects and re-checks each hop against the same public-address rules.
-- Per-IP rate limits, one active job per visitor, a queue cap, a per-job timeout, a free-disk check, and optional Turnstile — all of which exist to keep the app's daily budget for real visitors.
-- Job IDs are random 128-bit values. Knowing one is the only way to reach a job and its downloads, and everything is deleted after the retention period.
+- Per-IP rate limits and optional Turnstile, which exist to keep the app's daily budget for real visitors.
+- A job's id is its WordPress.com session id, 128 random bits. Knowing one is the only way to reach a job or its download.
 - Visitors confirm they own the site or have permission to copy it.
 - The app token carries one scope and no WordPress.com user or blog permissions, so a compromised server cannot touch anyone's site.
 

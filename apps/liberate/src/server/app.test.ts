@@ -4,43 +4,51 @@ import path from 'node:path';
 import { createApp } from './app.ts';
 import { loadConfig } from './config.ts';
 import { UserError } from './guards.ts';
-import { JobQueue } from './jobs.ts';
+import { fileStore } from './store.ts';
+import type { PreviewClient, Session } from './wpcom.ts';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
+const ID = 'a'.repeat( 32 );
 
 let dir: string;
 let server: Server;
 let base: string;
-let finish: ( () => void ) | undefined;
+let session: Session;
+let refuse: Error | undefined;
+
+const client: PreviewClient = {
+	async create() {
+		if ( refuse ) {
+			throw refuse;
+		}
+		return session;
+	},
+	async status() {
+		return session;
+	},
+	async revoke() {
+		return session;
+	},
+	async sizeOf() {
+		return 1024;
+	},
+};
 
 beforeEach( async () => {
-	finish = undefined;
+	session = { session_id: ID, state: 'capturing', progress: { pages_captured: 2, pages_total: 8 } };
+	refuse = undefined;
 	dir = fs.mkdtempSync( path.join( os.tmpdir(), 'liberate-app-' ) );
-	const config = {
-		...loadConfig( { NODE_ENV: 'production', LIBERATE_DATA_DIR: dir } ),
-		minFreeDiskBytes: 0,
-	};
-	const queue = new JobQueue( {
-		dir: path.join( dir, 'jobs' ),
-		concurrency: 1,
-		maxQueued: 10,
-		timeoutMs: 60_000,
-		retentionMs: 60_000,
-		run: ( _job, { filesDir } ) =>
-			new Promise( ( resolve ) => {
-				finish = () => {
-					fs.writeFileSync( path.join( filesDir, 'site.zip' ), 'zip' );
-					resolve( {
-						counts: { pages: 1 },
-						files: { site: 3 },
-					} );
-				};
-			} ),
+	const config = loadConfig( {
+		NODE_ENV: 'production',
+		LIBERATE_DATA_DIR: dir,
+		WPCOM_CLIENT_ID: '149292',
+		WPCOM_CLIENT_SECRET: 'secret',
 	} );
-	await queue.load();
 	const app = await createApp( {
 		config,
-		queue,
+		store: fileStore( path.join( dir, 'jobs' ) ),
+		client,
 		log: () => {},
 		checkHost: async ( host ) => {
 			if ( host === 'intranet.corp.com' ) {
@@ -50,58 +58,115 @@ beforeEach( async () => {
 	} );
 	server = app.listen( 0 );
 	base = `http://127.0.0.1:${ ( server.address() as AddressInfo ).port }`;
+	// Only the app's own outbound calls are stubbed; requests to it go through.
+	const realFetch = globalThis.fetch;
+	vi.stubGlobal(
+		'fetch',
+		vi.fn( async ( input: RequestInfo | URL, init?: RequestInit ) => {
+			const url = String( input instanceof Request ? input.url : input );
+			return url.startsWith( base )
+				? realFetch( input, init )
+				: new Response( '<title>Sonora</title>' );
+		} )
+	);
 } );
 
 afterEach( () => {
 	server.close();
+	vi.unstubAllGlobals();
 	fs.rmSync( dir, { recursive: true, force: true } );
 } );
 
-const createJob = ( body: object ) =>
+const create = ( body: unknown ) =>
 	fetch( `${ base }/api/jobs`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify( body ),
 	} );
 
-describe( 'API', () => {
-	it( 'rejects jobs without consent, with bad URLs, or for private hosts', async () => {
-		for ( const body of [
-			{ url: 'mysite.com' },
-			{ url: 'ftp://mysite.com', consent: true },
-			{ url: 'intranet.corp.com', consent: true },
-		] ) {
-			const response = await createJob( body );
-			expect( response.status ).toBe( 400 );
-			expect( ( await response.json() ).error ).toBeTruthy();
-		}
-	} );
-
-	it( 'creates a job, reports it, and serves its download once done', async () => {
-		const response = await createJob( { url: 'mysite.com', consent: true } );
+describe( 'POST /api/jobs', () => {
+	it( 'starts a capture and answers with the job', async () => {
+		const response = await create( { url: 'mysite.com', consent: true } );
 		expect( response.status ).toBe( 201 );
-		const { id, status } = await response.json();
-		expect( status ).toBe( 'running' );
-
-		const files = `${ base }/api/jobs/${ id }/files`;
-		expect( ( await fetch( `${ files }/site` ) ).status ).toBe( 404 );
-
-		await vi.waitFor( () => expect( finish ).toBeDefined() );
-		finish!();
-		await vi.waitFor( async () =>
-			expect( ( await ( await fetch( `${ base }/api/jobs/${ id }` ) ).json() ).status ).toBe(
-				'done'
-			)
-		);
-		const download = await fetch( `${ files }/site` );
-		expect( download.headers.get( 'content-disposition' ) ).toContain( 'mysite.com-wordpress.zip' );
-		expect( await download.text() ).toBe( 'zip' );
-		expect( ( await fetch( `${ files }/content` ) ).status ).toBe( 404 );
-		expect( ( await fetch( `${ files }/constructor` ) ).status ).toBe( 404 );
+		await expect( response.json() ).resolves.toMatchObject( {
+			id: ID,
+			host: 'mysite.com',
+			siteName: 'Sonora',
+			status: 'running',
+			step: 'capture',
+			counts: { pages: 2 },
+		} );
 	} );
 
-	it( 'returns 404 for unknown or malformed job ids', async () => {
-		expect( ( await fetch( `${ base }/api/jobs/${ 'a'.repeat( 22 ) }` ) ).status ).toBe( 404 );
-		expect( ( await fetch( `${ base }/api/jobs/..%2F..%2Fetc` ) ).status ).toBe( 404 );
+	it.each( [
+		[ 'without consent', { url: 'mysite.com' }, /own this site/ ],
+		[ 'for a address that is not a site', { url: 'not a url', consent: true }, /address/i ],
+		[ 'for a private host', { url: 'intranet.corp.com', consent: true }, /public website/ ],
+	] )( 'refuses %s', async ( _case, body, message ) => {
+		const response = await create( body );
+		expect( response.status ).toBe( 400 );
+		await expect( response.json() ).resolves.toMatchObject( {
+			error: expect.stringMatching( message ),
+		} );
+	} );
+
+	it( 'passes on what WordPress.com says when it will not start one', async () => {
+		refuse = new UserError( 'liberate.sh is at capacity right now. Please try again later.', 503 );
+		const response = await create( { url: 'mysite.com', consent: true } );
+		expect( response.status ).toBe( 503 );
+		await expect( response.json() ).resolves.toMatchObject( { error: /capacity/ } );
+	} );
+} );
+
+describe( 'GET /api/jobs/:id', () => {
+	it( 'reports the session behind a known job, with the name it was given', async () => {
+		await create( { url: 'mysite.com', consent: true } );
+		session = {
+			session_id: ID,
+			state: 'preview_ready',
+			archive_url: 'https://archives.example.com/site.zip',
+			preview_summary: { pages: 9, quality_pass: false },
+		};
+
+		const view = await fetch( `${ base }/api/jobs/${ ID }` ).then( ( response ) =>
+			response.json()
+		);
+		expect( view ).toMatchObject( {
+			status: 'done',
+			progress: 1,
+			siteName: 'Sonora',
+			counts: { pages: 9 },
+			bytes: 1024,
+			warning: expect.stringContaining( 'didn’t convert cleanly' ),
+		} );
+	} );
+
+	it.each( [
+		[ 'an id this app never issued', 'b'.repeat( 32 ) ],
+		[ 'something that is not an id', 'nope' ],
+	] )( 'answers 404 for %s', async ( _case, id ) => {
+		const response = await fetch( `${ base }/api/jobs/${ id }` );
+		expect( response.status ).toBe( 404 );
+	} );
+} );
+
+describe( 'GET /api/jobs/:id/files/site', () => {
+	it( 'sends the visitor to the signed archive', async () => {
+		await create( { url: 'mysite.com', consent: true } );
+		session = {
+			session_id: ID,
+			state: 'preview_ready',
+			archive_url: 'https://archives.example.com/site.zip',
+		};
+
+		const response = await fetch( `${ base }/api/jobs/${ ID }/files/site`, { redirect: 'manual' } );
+		expect( response.status ).toBe( 302 );
+		expect( response.headers.get( 'location' ) ).toBe( 'https://archives.example.com/site.zip' );
+	} );
+
+	it( 'answers 404 while there is no archive yet', async () => {
+		await create( { url: 'mysite.com', consent: true } );
+		const response = await fetch( `${ base }/api/jobs/${ ID }/files/site`, { redirect: 'manual' } );
+		expect( response.status ).toBe( 404 );
 	} );
 } );

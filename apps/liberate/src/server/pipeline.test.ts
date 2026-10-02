@@ -6,7 +6,7 @@ import { loadConfig } from './config.ts';
 import { UserError } from './guards.ts';
 import {
 	createPipeline,
-	describeSource,
+	fetchTitle,
 	progressFrom,
 	siteNameFrom,
 	type Session,
@@ -53,16 +53,47 @@ describe( 'progressFrom', () => {
 	} );
 } );
 
-describe( 'describeSource', () => {
-	it( 'reads the name and platform the capture recorded', () => {
-		expect(
-			describeSource( { capture: { title: 'Sonora', source: { platform: 'squarespace' } } } )
-		).toEqual( { title: 'Sonora', platform: 'Squarespace' } );
+describe( 'fetchTitle', () => {
+	afterEach( () => vi.unstubAllGlobals() );
+
+	it( 'reads the title the source page gives itself', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => new Response( '<html><head><title>Tom &amp; Jerry</title></head>' ) )
+		);
+		expect( await fetchTitle( 'https://mysite.com/', AbortSignal.timeout( 5_000 ) ) ).toBe(
+			'Tom & Jerry'
+		);
 	} );
 
-	it( 'says nothing when the summary does not carry them', () => {
-		expect( describeSource( {} ) ).toEqual( { title: undefined, platform: undefined } );
-		expect( describeSource( undefined ) ).toEqual( { title: undefined, platform: undefined } );
+	it( 'follows a redirect, and checks where it lands', async () => {
+		const seen: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: URL ) => {
+				seen.push( url.href );
+				return seen.length === 1
+					? new Response( null, { status: 301, headers: { location: 'https://www.mysite.com/' } } )
+					: new Response( '<title>Acme</title>' );
+			} )
+		);
+		expect( await fetchTitle( 'https://mysite.com/', AbortSignal.timeout( 5_000 ) ) ).toBe(
+			'Acme'
+		);
+		expect( seen ).toEqual( [ 'https://mysite.com/', 'https://www.mysite.com/' ] );
+	} );
+
+	it( 'refuses a redirect into a private address', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response( null, { status: 302, headers: { location: 'http://127.0.0.1/' } } )
+			)
+		);
+		await expect(
+			fetchTitle( 'https://mysite.com/', AbortSignal.timeout( 5_000 ) )
+		).rejects.toThrow();
 	} );
 } );
 
@@ -100,23 +131,26 @@ describe( 'createPipeline', () => {
 	it( 'creates a session, follows it, saves the archive and gives the slot back', async () => {
 		const calls = stubApi( [
 			session( 'capturing', { pages_captured: 4, pages_total: 8 } ),
-			ready( { capture: { title: 'Sonora | Home', source: { platform: 'squarespace' } } } ),
+			ready( { pages: 13, quality_pass: false } ),
 		] );
 		const { result, progress } = await run();
 
 		expect( result ).toMatchObject( {
 			siteName: 'Sonora',
-			platform: 'Squarespace',
-			counts: { pages: 4 },
+			counts: { pages: 13 },
+			warning: expect.stringContaining( 'didn’t convert cleanly' ),
 			files: { site: ZIP.length },
 		} );
-		expect( progress.map( ( step ) => step.step ) ).toEqual( [
+		// The name reaches the page as soon as it is known, before the copy is done.
+		expect( progress[ 1 ] ).toEqual( { siteName: 'Sonora' } );
+		expect( progress.map( ( step ) => step.step ).filter( Boolean ) ).toEqual( [
 			'scan',
 			'capture',
 			'package',
 			'package',
 		] );
 		expect( calls ).toEqual( [
+			'GET https://mysite.com/',
 			'POST /oauth2/token',
 			'POST /wpcom/v2/static-site-import-preview',
 			'GET /wpcom/v2/static-site-import-preview/abc',
@@ -147,14 +181,18 @@ describe( 'createPipeline', () => {
 		const queue = [ ...states ];
 		vi.stubGlobal(
 			'fetch',
-			vi.fn( async ( url: string, options: RequestInit = {} ) => {
+			vi.fn( async ( url: string | URL, options: RequestInit = {} ) => {
 				const method = options.method ?? 'GET';
-				calls.push( `${ method } ${ url.replace( 'https://api.test', '' ) }` );
+				calls.push( `${ method } ${ String( url ).replace( 'https://api.test', '' ) }` );
+				url = String( url );
 				if ( url.endsWith( '/oauth2/token' ) ) {
 					return json( { access_token: 'token', expires_in: 900 } );
 				}
 				if ( url.startsWith( 'https://archives.example.com' ) ) {
 					return new Response( ZIP );
+				}
+				if ( url.startsWith( 'https://mysite.com' ) ) {
+					return new Response( '<title>Sonora | Home</title>' );
 				}
 				if ( refuse ) {
 					return json( { code: refuse.code, message: 'no' }, refuse.status );

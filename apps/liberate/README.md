@@ -7,9 +7,11 @@ The server copies nothing itself: no browser, no PHP, no WordPress. It validates
 ## How a job runs
 
 1. `POST /api/jobs` validates the address (public `http(s)` host on a default port, resolving only to public IPs), then queues a job.
-2. The worker mints an app token (OAuth2 `client_credentials`, scope `static-site-import-preview`, 15 minutes, no user or blog behind it) and creates a preview session for the URL.
+2. The worker reads the source page's `<title>` for the headline — WordPress.com reports only bounded counts about a capture, never the site's own text — then mints an app token (OAuth2 `client_credentials`, scope `static-site-import-preview`, 15 minutes, no user or blog behind it) and creates a preview session for the URL.
 3. It polls the session until `preview_ready`, mapping its states onto the four steps on the page — scan, copy, rebuild, zip — which stream to it over SSE (`/api/jobs/:id/events`).
 4. The archive is downloaded from the session's signed `archive_url`, checked against its `archive_hash`, and kept until it expires. The session is then revoked, which gives the app's slot back.
+
+The importer records its own verdict (`preview_summary.quality_pass`, and the comparison's `fidelity.pass`) instead of refusing a copy that came out badly. When either says no, the download is still handed over, with a line saying some pages may be missing pieces: a site with gaps beats no site.
 
 Storing our own copy is deliberate: WordPress.com expires ready artifacts after three days and its signed URLs sooner, while a visitor's link here keeps working for as long as this app says it does.
 
@@ -61,6 +63,7 @@ Keep one replica: jobs and downloads live on the volume.
 ## Abuse protection
 
 - Addresses must be public: no credentials, no custom ports, no private or reserved IPs, checked after DNS resolution. WordPress.com validates the address again on its side.
+- The only request this server makes to a visitor's site is the one that reads its title. It follows at most three redirects and re-checks each hop against the same public-address rules.
 - Per-IP rate limits, one active job per visitor, a queue cap, a per-job timeout, a free-disk check, and optional Turnstile — all of which exist to keep the app's daily budget for real visitors.
 - Job IDs are random 128-bit values. Knowing one is the only way to reach a job and its downloads, and everything is deleted after the retention period.
 - Visitors confirm they own the site or have permission to copy it.

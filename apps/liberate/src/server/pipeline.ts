@@ -4,8 +4,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline as pump } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { platformName } from '../shared.ts';
-import { UserError } from './guards.ts';
+import { assertPublicHost, UserError } from './guards.ts';
 import type { Config } from './config.ts';
 import type { JobProgress, Runner } from './jobs.ts';
 
@@ -29,7 +28,12 @@ export interface Session {
 	/** Signed, and refreshed on every poll, so it is fetched as soon as it appears. */
 	archive_url?: string;
 	archive_hash?: string;
-	preview_summary?: Record< string, unknown >;
+	/** Bounded evidence about the copy: counts, the importer's own verdict, no source text. */
+	preview_summary?: {
+		pages?: number;
+		quality_pass?: boolean;
+		fidelity?: { measured?: boolean; pass?: boolean };
+	};
 	progress?: {
 		finding_pages?: boolean;
 		pages_captured?: number;
@@ -47,6 +51,8 @@ const BUSY_CODES = new Set( [
 ] );
 
 const UNUSABLE_SOURCE = 'We couldn’t copy this site. It may block automated visits.';
+const QUALITY_WARNING =
+	'Parts of this site didn’t convert cleanly, so some pages may be missing pieces.';
 const BUSY = 'liberate.sh is at capacity right now. Please try again later.';
 
 class ApiError extends Error {
@@ -152,24 +158,49 @@ export function progressFrom( session: Session ): JobProgress | undefined {
 	}
 }
 
+const ENTITIES: Record< string, string > = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+const decode = ( text: string ) =>
+	text.replace( /&(#\d+|[a-z]+);/gi, ( entity, name: string ) =>
+		name.startsWith( '#' )
+			? String.fromCodePoint( Number( name.slice( 1 ) ) )
+			: ENTITIES[ name.toLowerCase() ] ?? entity
+	);
+
 /**
- * What the capture recorded about the source site. `preview_summary` is the capture's own
- * evidence, so both keys are read where it reports them and the page falls back to the
- * address when they are missing.
+ * The source page's own title, for the headline. WordPress.com reports only bounded
+ * counts about a capture, never the site's text, so the name is read here instead.
+ * Redirects are followed by hand because every hop has to be a public address too.
  */
-export function describeSource( summary: Session[ 'preview_summary' ] ) {
-	const capture = ( summary?.capture ?? summary ?? {} ) as Record< string, unknown >;
-	const source = ( capture.source ?? {} ) as Record< string, unknown >;
-	return {
-		title: typeof capture.title === 'string' ? capture.title : undefined,
-		platform: platformName(
-			typeof source.platform === 'string'
-				? source.platform
-				: typeof capture.platform === 'string'
-				? capture.platform
-				: undefined
-		),
-	};
+export async function fetchTitle( url: string, signal: AbortSignal ) {
+	let next = url;
+	for ( let hop = 0; hop < 3; hop++ ) {
+		const target = new URL( next );
+		await assertPublicHost( target.hostname );
+		const response = await fetch( target, {
+			redirect: 'manual',
+			signal: AbortSignal.any( [ signal, AbortSignal.timeout( 10_000 ) ] ),
+			headers: { accept: 'text/html' },
+		} );
+		const location = response.headers.get( 'location' );
+		if ( response.status >= 300 && response.status < 400 && location ) {
+			next = new URL( location, target ).href;
+			continue;
+		}
+		if ( ! response.ok || ! response.body ) {
+			return undefined;
+		}
+		// The title is in the head, so the rest of the page is never read.
+		let head = '';
+		for await ( const chunk of response.body ) {
+			head += Buffer.from( chunk ).toString( 'utf8' );
+			if ( head.length > 64_000 || /<\/title>/i.test( head ) ) {
+				break;
+			}
+		}
+		return decode( head.match( /<title[^>]*>([^<]*)</i )?.[ 1 ] ?? '' );
+	}
+	return undefined;
 }
 
 const GENERIC_TITLE = /^(home|home ?page|welcome|index|untitled|imported site)$/i;
@@ -218,6 +249,14 @@ export function createPipeline( config: Config, log: Log ): Runner {
 
 	return async ( job, { filesDir, signal, report } ) => {
 		report( { step: 'scan', progress: 0.02, detail: 'Looking at your site…' } );
+		// The headline wants the site's own name, and a title that never arrives costs nothing.
+		const siteName = await fetchTitle( job.url, signal )
+			.then( siteNameFrom )
+			.catch( () => undefined );
+		if ( siteName ) {
+			report( { siteName } );
+		}
+
 		let session: Session;
 		try {
 			session = await api.create( job.url, signal );
@@ -261,11 +300,16 @@ export function createPipeline( config: Config, log: Log ): Runner {
 				throw new Error( `Archive for ${ session.session_id } does not match its hash.` );
 			}
 
-			const source = describeSource( session.preview_summary );
+			const summary = session.preview_summary ?? {};
 			return {
-				siteName: siteNameFrom( source.title ),
-				platform: source.platform,
-				counts: { pages },
+				siteName,
+				counts: { pages: summary.pages ?? pages },
+				// The importer reports its own verdict rather than refusing the copy, so a
+				// site that converted badly is still handed over, with that said plainly.
+				warning:
+					summary.quality_pass === false || summary.fidelity?.pass === false
+						? QUALITY_WARNING
+						: undefined,
 				files: { site: fs.statSync( siteZip ).size },
 			};
 		} finally {

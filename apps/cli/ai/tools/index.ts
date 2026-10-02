@@ -112,7 +112,7 @@ export function resolveStudioToolDefinitions( host: HostCapabilities = {} ): Any
 			createPresentDesignOptionsTool( {
 				askUser: host.designPreviews === 'ask' ? host.askUser : undefined,
 				displayDirectory: host.displayDirectory,
-				picker: host.designPicker,
+				view: host.designOptionsView,
 				tracks: host.tracks,
 			} ) as unknown as AnyStudioAgentTool
 		);

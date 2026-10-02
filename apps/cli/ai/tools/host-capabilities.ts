@@ -18,9 +18,11 @@ export interface HostCapabilities {
 	// waits for the pick through `askUser`; `return` hands them back for the
 	// host's agent to show and ask about. Absent: previews cannot be shown.
 	designPreviews?: 'ask' | 'return';
-	// The host shows returned previews as a clickable picker of its own (an
-	// MCP App), attached to present_design_options.
-	designPicker?: boolean;
+	// How the host shows returned previews: `picker`, as a clickable picker of
+	// its own (an MCP App) attached to present_design_options; `widget`, as an
+	// inline HTML widget its agent renders with a tool of its own. Absent: as a
+	// grid image, with the question asked in the agent's reply.
+	designOptionsView?: 'picker' | 'widget';
 	// A folder the host can display images from in its conversation; images
 	// meant for the user are copied there. Absent: they are shown from where
 	// they were saved.

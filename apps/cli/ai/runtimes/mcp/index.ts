@@ -39,16 +39,24 @@ import {
 const MCP_APPS_EXTENSION = 'io.modelcontextprotocol/ui';
 
 interface ClientSupport {
+	// The client renders MCP Apps (the WordPress library, the design picker).
 	apps: boolean;
 	// The client shares its workspace folders (MCP roots).
 	roots: boolean;
-	// The client generates images itself; Studio's image API is its fallback.
-	ownImages: boolean;
+	// The client's own image tool; Studio's image API is its fallback.
+	imageTool?: string;
+	// The client renders inline HTML widgets with a tool of its own.
+	widgets: boolean;
 }
 
-// Codex ships a built-in image_gen tool on the user's own plan, and its desktop
-// app renders MCP Apps without always declaring the extension.
-const CODEX_CLIENT = 'codex-mcp-client';
+// What known clients support beyond what they declare: Codex renders MCP Apps
+// without always declaring the extension and ships image_gen on the user's own
+// plan; Claude's apps render inline HTML widgets with their visualize tool.
+const KNOWN_CLIENTS: Record< string, Partial< ClientSupport > > = {
+	'codex-mcp-client': { apps: true, imageTool: 'image_gen' },
+	'claude-code': { widgets: true },
+	'claude-ai': { widgets: true },
+};
 
 interface CompanionUi {
 	url: string;
@@ -69,11 +77,11 @@ export function mcpHostCapabilities(
 		// tool: the desktop apps dismiss MCP elicitation forms unseen.
 		canAskUser: true,
 		designPreviews: 'return',
-		designPicker: client.apps,
+		designOptionsView: client.apps ? 'picker' : client.widgets ? 'widget' : undefined,
 		displayDirectory: client.roots ? options.displayDirectory : undefined,
 		reloadPreview: options.companion ? options.reloadPreview : undefined,
 		imageGeneration: options.imageGeneration,
-		hostImageTool: client.ownImages ? 'image_gen' : undefined,
+		hostImageTool: client.imageTool,
 		importImages: true,
 		skills: true,
 	};
@@ -91,12 +99,12 @@ function readClientSupport( server: Server ): ClientSupport {
 	const capabilities = server.getClientCapabilities() as
 		| ( Record< string, unknown > & { extensions?: Record< string, unknown > } )
 		| undefined;
+	const known = KNOWN_CLIENTS[ server.getClientVersion()?.name ?? '' ] ?? {};
 	return {
-		apps:
-			Boolean( capabilities?.extensions?.[ MCP_APPS_EXTENSION ] ) ||
-			server.getClientVersion()?.name === CODEX_CLIENT,
+		apps: Boolean( capabilities?.extensions?.[ MCP_APPS_EXTENSION ] ) || known.apps === true,
 		roots: Boolean( capabilities?.roots ),
-		ownImages: server.getClientVersion()?.name === CODEX_CLIENT,
+		imageTool: known.imageTool,
+		widgets: known.widgets === true,
 	};
 }
 
@@ -124,7 +132,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	const imageGeneration = await isImageGenerationAvailable();
 	let companion: CompanionUi | undefined;
 	let tools: AnyStudioAgentTool[] = [];
-	let client: ClientSupport = { apps: false, roots: false, ownImages: false };
+	let client: ClientSupport = { apps: false, roots: false, widgets: false };
 
 	// The instructions are sent before the client says what it supports, so
 	// they describe the full tool set.

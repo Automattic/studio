@@ -6,7 +6,7 @@ describe( 'mcpHostCapabilities', () => {
 		imageGeneration: false,
 		reloadPreview: async () => undefined,
 	};
-	const client = { apps: false, roots: false, ownImages: false };
+	const client = { apps: false, roots: false, widgets: false };
 
 	it( 'leaves questions and design previews to the host agent', () => {
 		const host = mcpHostCapabilities( client, options );
@@ -15,10 +15,20 @@ describe( 'mcpHostCapabilities', () => {
 		expect( host.designPreviews ).toBe( 'return' );
 	} );
 
+	it( 'shows design options the way each client can', () => {
+		expect( mcpHostCapabilities( { ...client, apps: true }, options ).designOptionsView ).toBe(
+			'picker'
+		);
+		expect( mcpHostCapabilities( { ...client, widgets: true }, options ).designOptionsView ).toBe(
+			'widget'
+		);
+		expect( mcpHostCapabilities( client, options ).designOptionsView ).toBeUndefined();
+	} );
+
 	it( 'leaves image generation to clients that have their own', () => {
 		const withImages = { ...options, imageGeneration: true };
 		expect( mcpHostCapabilities( client, withImages ).imageGeneration ).toBe( true );
-		const host = mcpHostCapabilities( { ...client, ownImages: true }, withImages );
+		const host = mcpHostCapabilities( { ...client, imageTool: 'image_gen' }, withImages );
 		expect( host.hostImageTool ).toBe( 'image_gen' );
 	} );
 

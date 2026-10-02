@@ -11,6 +11,7 @@ import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
+import type { HostCapabilities } from './host-capabilities';
 import type { AskUserHandler } from 'cli/ai/types';
 
 const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
@@ -211,15 +212,14 @@ export async function handOverOptions( {
 	options,
 	displayDirectory,
 	note,
-	picker,
+	view,
 }: {
 	question: string;
 	catalog: string;
 	options: RenderedDesignOption[];
 	displayDirectory?: () => Promise< string | undefined >;
 	note?: string;
-	// The host shows the options as a clickable picker under the tool call.
-	picker?: boolean;
+	view?: HostCapabilities[ 'designOptionsView' ];
 } ): Promise< ToolResult > {
 	const directory = await resolveScreenshotDirectory();
 	const gridPage = path.join( directory, `design-options-${ Date.now() }.html` );
@@ -257,7 +257,14 @@ export async function handOverOptions( {
 		data: grid.buffer.toString( 'base64' ),
 		mimeType: 'image/jpeg',
 	};
-	if ( picker ) {
+	const askInReply = [
+		`1. Start your message with this line, verbatim, so the grid shows in the conversation: ![${ question }](${ gridPath })`,
+		`2. Right after that text, call your AskUserQuestion tool (a question tool with clickable options; if you have none, ask in your reply and end your turn: their pick arrives as their next message) with the question "${ question }" and one option per line below, labels verbatim:`,
+		...choices.map( ( choice ) => `   - ${ choice }` ),
+		'',
+		`Build what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`,
+	];
+	if ( view === 'picker' ) {
 		return {
 			content: [
 				gridImage,
@@ -274,26 +281,38 @@ export async function handOverOptions( {
 			structuredContent,
 		};
 	}
+	if ( view === 'widget' ) {
+		return {
+			content: [
+				gridImage,
+				{
+					type: 'text' as const,
+					text: [
+						`Rendered the ${ options.length } options as a clickable widget (the HTML below) and as one numbered grid image (above). The user cannot see tool results, only what you show them.`,
+						...( note ? [ '', note ] : [] ),
+						'',
+						"Show them the widget: load mcp__visualize__show_widget (or your other tool that renders HTML inline in the conversation) if it is deferred, and call it now with the HTML below, verbatim, as the widget code, then end your turn. The widget is the question: do not also call AskUserQuestion or list the options, since clicking a card sends the user's pick as their message. The widget already follows the widget tool's design rules, so skip its read_me.",
+						'',
+						'Only if you have no such tool, do this instead, in this same turn:',
+						...askInReply,
+					].join( '\n' ),
+				},
+				{ type: 'text' as const, text: renderOptionsWidget( question, options ) },
+			],
+			structuredContent,
+		};
+	}
 	return {
 		content: [
 			gridImage,
 			{
 				type: 'text' as const,
 				text: [
-					`Rendered the ${ options.length } options as a clickable widget (the HTML below) and as one numbered grid image (above). The user cannot see tool results, only what you show them.`,
-					...( note ? [ '', note ] : [] ),
-					'',
-					"Show them the widget whenever you can: if mcp__visualize__show_widget, or any other tool that renders HTML inline in the conversation, is among your tools, loaded or deferred, load it if needed and call it now with the HTML below, verbatim, as the widget code, then end your turn. The widget is the question: do not also call AskUserQuestion or list the options, since clicking a card sends the user's pick as their message. The widget already follows the widget tool's design rules, so skip its read_me.",
-					'',
-					'Only if you have no such tool, do this instead, in this same turn:',
-					`1. Start your message with this line, verbatim, so the grid shows in the conversation: ![${ question }](${ gridPath })`,
-					`2. Right after that text, call your AskUserQuestion tool (a question tool with clickable options; if you have none, ask in your reply and end your turn: their pick arrives as their next message) with the question "${ question }" and one option per line below, labels verbatim:`,
-					...choices.map( ( choice ) => `   - ${ choice }` ),
-					'',
-					`Build what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`,
+					`Rendered the ${ options.length } options as one numbered grid image (above). The user cannot see tool results, only what you show them, so in this same turn:`,
+					...( note ? [ '', note, '' ] : [] ),
+					...askInReply,
 				].join( '\n' ),
 			},
-			{ type: 'text' as const, text: renderOptionsWidget( question, options ) },
 		],
 		structuredContent,
 	};
@@ -302,14 +321,14 @@ export async function handOverOptions( {
 export function createPresentDesignOptionsTool( {
 	askUser,
 	displayDirectory,
-	picker,
+	view,
 	tracks,
 }: {
 	// Waits for the pick; without it the previews are returned for the host's
 	// agent to show and ask about in its own conversation.
 	askUser?: AskUserHandler;
 	displayDirectory?: () => Promise< string | undefined >;
-	picker?: boolean;
+	view?: HostCapabilities[ 'designOptionsView' ];
 	tracks?: DesignTracksContext;
 } ) {
 	return defineTool(
@@ -317,7 +336,11 @@ export function createPresentDesignOptionsTool( {
 		`Shows the user the options drawn by pick_design as rendered previews and ${
 			askUser
 				? 'waits for their pick'
-				: 'returns them as a numbered grid image and a clickable widget for you to show, since the user does not see tool results: the result says how'
+				: view === 'picker'
+				? 'shows them to the user as a clickable picker under the tool call'
+				: `returns them as a numbered grid image${
+						view === 'widget' ? ' and a clickable widget' : ''
+				  } for you to show, since the user does not see tool results: the result says how`
 		}. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${
 			PREVIEW_VIEWPORT.width
 		}×${
@@ -372,7 +395,7 @@ export function createPresentDesignOptionsTool( {
 					catalog: args.catalog,
 					options,
 					displayDirectory,
-					picker,
+					view,
 				} );
 			}
 

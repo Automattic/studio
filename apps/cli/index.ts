@@ -4,6 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
+import { registerCommand as registerExportStaticCommand } from 'cli/commands/export-static';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
@@ -218,6 +219,7 @@ async function main() {
 
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
+	registerExportStaticCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
 	registerUninstallCommand( studioArgv );

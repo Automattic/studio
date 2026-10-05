@@ -413,6 +413,10 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	// Optional: fires when an agent outside the app (e.g. Codex through
+	// `studio mcp`) asks the preview of a site to reload. Only `studio ui` has
+	// such agents attached.
+	onSitePreviewReload?( listener: ( event: { siteId: string } ) => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;

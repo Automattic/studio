@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "studio-code",
+  "displayName": "WordPress Studio",
+  "version": "0.1.0",
+  "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, open your Studio and WordPress.com sites from the WordPress tab, preview them, and publish to WordPress.com.",
+  "author": {
+    "name": "Automattic",
+    "url": "https://automattic.com"
+  },
+  "homepage": "https://developer.wordpress.com/studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "wordpress",
+    "wordpress-studio",
+    "wordpress-com",
+    "local site",
+    "website",
+    "landing page",
+    "blog",
+    "portfolio",
+    "online store",
+    "site-builder",
+    "block-theme"
+  ],
+  "mcpServers": "./.mcp.json"
+}

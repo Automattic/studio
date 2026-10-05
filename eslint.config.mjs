@@ -43,6 +43,8 @@ export default defineConfig(
 						'apps/studio/forge.config.ts',
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
+						'apps/mcp-ui/vite.config.ts',
+						'plugins/studio-code/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
 						'eslint.config.mjs',
@@ -63,6 +65,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/mcp-ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
@@ -102,6 +105,7 @@ export default defineConfig(
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
 						'@modelcontextprotocol/sdk/client/index\\.js$',
 						'@modelcontextprotocol/sdk/client/stdio\\.js$',
+						'^virtual:',
 					],
 				},
 			],
@@ -165,6 +169,26 @@ export default defineConfig(
 				{
 					name: '__filename',
 					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
+		},
+	},
+	{
+		// The Studio tools and prompt are shared by the pi runtime (Studio Code)
+		// and the MCP runtime (Codex and other agents), so they stay runtime-neutral.
+		files: [ 'apps/cli/ai/tools/**/*.ts', 'apps/cli/ai/system-prompt.ts' ],
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@earendil-works/*' ],
+							message:
+								'Keep the Studio tools runtime-neutral: pi belongs in apps/cli/ai/runtimes/pi.',
+							allowTypeImports: true,
+						},
+					],
 				},
 			],
 		},

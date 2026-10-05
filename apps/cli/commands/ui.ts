@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { clearUiServerState, writeUiServerState } from 'cli/lib/ui-server-state';
 import { StudioArgv } from 'cli/types';
 
 export const registerCommand = ( yargs: StudioArgv ) => {
@@ -78,8 +79,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await openBrowser( server.url ).catch( () => undefined );
 			}
 
+			await writeUiServerState( { pid: process.pid, url: server.url } ).catch( () => undefined );
+
 			const shutdown = () => {
-				void server.close().finally( () => process.exit( 0 ) );
+				void clearUiServerState( process.pid )
+					.catch( () => undefined )
+					.then( () => server.close() )
+					.finally( () => process.exit( 0 ) );
 			};
 			process.on( 'SIGINT', shutdown );
 			process.on( 'SIGTERM', shutdown );

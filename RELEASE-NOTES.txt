@@ -1,6 +1,94 @@
 Unreleased
 ==========
 
+1.23.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Studio Code: stop concurrent block validations from logging each other out #4874
+* build(deps): bump anthropics/claude-code-action from 1.0.219 to 1.0.226 #4879
+* Evals: resolve validate_blocks file paths against the site root in the single-page build check #4878
+* Studio Code: render scaffolded header and footer template parts as header and footer elements #4885
+* Studio Code: bound the visual-polish loop to one fix batch per page and keep it to defects #4883
+* Studio Code: import generated content images into the media library and return the scaffolded theme files #4877
+* Agentic UI: send chat attachments from the browser app #4867
+* Use the runner's preinstalled PHP to run static-php-cli on macOS #4889
+* Ship the SOAP extension with the native PHP runtime #4888
+* Stop SIGPIPE from failing the macOS PHP verification step #4890
+* build(deps): bump fastlane from 2.239.0 to 2.240.0 in the ruby-minor-and-patch group #4881
+* Show each annotation as its own chat message with element context #4828
+* Agentic UI: show generated images from site folders in the browser app #4892
+* Studio Code: remove the gap at the top of sidebar and other side-by-side layouts #4894
+* Studio Code: describe the block gap as WordPress renders it and drop inspect_design's unused block-gap readout #4895
+* Studio Code: generate images in the background so the build goes on while they render #4893
+* build(deps): bump ruby/setup-ruby from 1.321.0 to 1.323.0 #4880
+* build(deps): bump fastlane from 2.240.0 to 2.240.1 in the ruby-minor-and-patch group #4899
+* Polish release notes for 1.22.0 #4901
+* Keep PHP diagnostics out of WP-CLI stdout #4731
+* Update PHP 8.4.25-studio-3 metadata #4891
+* Lighten the create-site link in the publish picker #4909
+* Poll for PHP file changes during error recovery to avoid exhausting file descriptors #4911
+* Convert SQLite out of WAL mode on native PHP site starts too #4912
+* Stop failing pushes after 10 minutes while the live site is still importing #4913
+* Clarify preview annotation actions #4851
+* Only pass --experimental-wasm-jspi when the running Node needs it #4914
+* Format AI credit prices for the UI locale #4915
+* Route studio create --from URLs through Data Liberation #3952
+* Allow Studio's browser UI to embed WP Admin and phpMyAdmin in the site preview #4920
+* build(deps): bump anthropics/claude-code-action from 1.0.226 to 1.0.231 #4924
+* Self-host DESIGN.md fonts in scaffolded themes #4928
+* Restore PHP runtime controls in the Agentic UI create-site flow #4926
+* Remove the Desks widget catalog and the studio_present tool #4930
+* Agentic UI: Keep headers clear of the Windows/Linux window controls when the sidebar is collapsed #4921
+* Log WP-CLI SQLite errors when database export fails #4927
+* build(deps): bump aws-sdk-cloudfront from 1.154.0 to 1.155.0 in the ruby-minor-and-patch group #4934
+* Studio Code: generate images through the AI proxy's OpenAI image lane #4916
+* Update PHP 8.2.34-studio-1 metadata #4938
+* Update PHP 8.5.11-studio-1 metadata #4939
+* Align the macOS traffic lights with the site preview toolbar in full preview #4935
+* Share one floating surface across menus and popovers #4942
+* Add a Design system tab to the site preview #4929
+* Update PHP 8.3.35-studio-1 metadata #4940
+* Update PHP 8.4.26-studio-1 metadata #4941
+* Redact admin passwords from default studio list JSON #4730
+* Only exclude wp-content/cache from exports and sync, not every folder named cache #4936
+* fix(cli): name imported sites from captured title #4948
+* Studio Code: ask the design questions unless the brief names a catalog entry #4949
+* Fix unresponsive titlebar menu and modal close button on Linux/Windows add-site screens #4944
+* Add a WP Admin entry to the Open in… menu #4946
+* build(deps): bump ruby/setup-ruby from 1.323.0 to 1.325.0 #4925
+* Block site start/stop and other site actions while a sync, import or export is touching the site #4954
+* Let every Studio host receive CLI events, so the browser UI sees changes made elsewhere #4955
+* Publish sync activity from the CLI so every UI shows syncs however they were started #4956
+* Give each Studio app its own events socket instead of electing a hub #4975
+* Remove the theme name from the Overview About card #4964
+* Update design docs for the CLI events hub and CLI-run sync #4974
+* Replace MySQL 8-only collations so pushes to WordPress.com don't fail #4918
+* Agentic UI: log sidebar cards in the notification history #4953
+* Allow slow Blueprint downloads on the native PHP runtime #4937
+* Tone down the dot-grid click ripple in the New Site flow #4965
+* Show a plain-language message when a backup import fails #4966
+* Show Pressable vs WordPress.com in the publish site picker #4968
+* Say "Connect" instead of "Publish" when a site has no live site yet #4969
+* Show when a site was last pulled and pushed on the sync buttons #4972
+* Unify how the agentic UI hears from CLI commands: import activity and preview results #4978
+* Show a persistent offline indicator in the Agentic UI sidebar #4971
+* Show composer attachment and send errors as toasts #4973
+* Don't leave a site looking busy after a quick operation #4977
+* Keep the window draggable around the content frame and when the sidebar is hidden #4979
+* Stop large-site pulls from hanging without a terminal #4980
+* Restore translations for the Pressable and WP.com provider labels #4982
+* Return CLI command results as one typed message #4984
+* Don't hold site events behind a started site's theme and icon lookups #4985
+* Studio Code: point the Balanced and Strong tiers at the proxy's balanced-2 and strong-2 lanes #4957
+* Agentic UI: list every preview site with create, update, rename and delete #4983
+* Agentic UI: list every connected live site #4986
+* Create new chats and open sessions without scanning the whole session library #4987
+* build(deps): bump anthropics/claude-code-action from 1.0.231 to 1.0.237 #4990
+* Make the agentic UI the only Studio UI #4988
+* Move the trunk performance baseline to the agentic-only UI #4992
+* @costasovo made their first contribution in https://github.com/Automattic/studio/pull/4888
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.22.0...v1.23.0
+
 1.22.0
 =====
 * Studio Code now lets you pick your site's design before it builds: four looks, then four layouts previewed in the look you chose, each shown as a rendered sneak peek with real imagery. Your pick is saved as `DESIGN.md` at the site root, which later sessions and other coding agents follow #4813, #4833, #4780, #4804, #4839, #4841, #4855, #4832, #4849

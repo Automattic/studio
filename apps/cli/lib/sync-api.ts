@@ -8,6 +8,7 @@ import {
 	downloadBackup as downloadBackupBase,
 	fetchLatestRewindId as fetchLatestRewindIdBase,
 	fetchRemoteFileTree as fetchRemoteFileTreeBase,
+	isNoBackupsFoundError,
 } from '@studio/common/lib/sync/sync-api';
 import { syncOptionSchema } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
@@ -64,6 +65,13 @@ export async function initiateBackup(
 	try {
 		return await initiateBackupBase( token, remoteSiteId, options );
 	} catch ( error ) {
+		if ( isNoBackupsFoundError( error ) ) {
+			throw new LoggerError(
+				__( "Your site's first backup hasn't been created yet. Wait a few minutes and try again." ),
+				undefined,
+				'remote_backup'
+			);
+		}
 		throw wrapError( __( 'Failed to initiate backup' ), error, 'remote_backup' );
 	}
 }

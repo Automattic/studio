@@ -76,6 +76,15 @@ export async function initiateBackup(
 	return response.backup_id;
 }
 
+// The endpoint answers 500 with `{ success: false, error: 'No backups found for site <id>' }` until
+// the site's first Jetpack backup exists; wp-error copies the body's `error` onto the thrown error.
+export function isNoBackupsFoundError( error: unknown ): boolean {
+	if ( ! ( error instanceof Error ) || ! ( 'error' in error ) ) {
+		return false;
+	}
+	return typeof error.error === 'string' && /^No backups found for site\b/i.test( error.error );
+}
+
 export type BackupStatus = {
 	status: 'in-progress' | 'finished' | 'failed';
 	downloadUrl: string | null;

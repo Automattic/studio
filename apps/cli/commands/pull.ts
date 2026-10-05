@@ -44,6 +44,7 @@ import { StudioArgv } from 'cli/types';
 import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -105,15 +106,27 @@ export async function runCommand(
 			includePathList = syncIncludePathList;
 		} else {
 			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
-			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
+			let tree: TreeNode[] | undefined;
+			try {
+				( { tree } = await fetchPullTree( token.accessToken, remoteSite.id ) );
+			} catch {
+				// No rewind ID yet (e.g. the first backup is still running): item selection needs it.
+				logger.reportWarning(
+					__( 'Selecting individual items is unavailable until the first backup completes.' )
+				);
+			}
 			logger.spinner.stop();
 
-			const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
-			if ( ! selection ) {
-				return;
+			if ( tree ) {
+				const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
+				if ( ! selection ) {
+					return;
+				}
+				optionsToSync = selection.optionsToSync;
+				includePathList = selection.includePathList;
+			} else {
+				optionsToSync = [ 'all' ];
 			}
-			optionsToSync = selection.optionsToSync;
-			includePathList = selection.includePathList;
 		}
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)

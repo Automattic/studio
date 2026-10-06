@@ -39,10 +39,6 @@ function writeBlueprint( env: CliEnv, blueprint: Record< string, unknown > ): st
 
 /**
  * Creates a site from the given Blueprint file without starting the server.
- * `--runtime sandbox` (bundled Playground/WASM) keeps this hermetic: native PHP
- * would download its ~25 MB binary into the config dir on first run. Blueprint
- * coverage under the native runtime is a follow-up (needs CI to provision that
- * binary).
  */
 function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprintPath: string ) {
 	return runCli(
@@ -55,8 +51,6 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 			path.join( env.sitesDir, slug ),
 			'--wp',
 			'latest',
-			'--runtime',
-			'sandbox',
 			'--blueprint',
 			blueprintPath,
 			'--no-start',
@@ -180,7 +174,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 		}
 	);
 
-	it(
+	// blueprints.phar runs wp-cli steps by executing wp-cli.phar directly, relying on its
+	// `#!/usr/bin/env php` shebang, which Windows ignores, so the step never runs there.
+	it.skipIf( process.platform === 'win32' )(
 		'creates a site from a Blueprint that runs WP-CLI commands',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
@@ -188,11 +184,12 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			const sitePath = path.join( env.sitesDir, 'bp-wp-cli' );
 			// `wp eval` writes a marker into wp-content: asserting it on disk proves the
 			// wp-cli step actually ran (a skipped/no-op step would still exit 0).
+			// WP_CONTENT_DIR resolves to the real site folder on every platform.
 			const blueprintPath = writeBlueprint( env, {
 				steps: [
 					{
 						step: 'wp-cli',
-						command: `wp eval "file_put_contents( '/wordpress/wp-content/blueprint-wpcli-marker.txt', 'ok' );"`,
+						command: `wp eval "file_put_contents( WP_CONTENT_DIR . '/blueprint-wpcli-marker.txt', 'ok' );"`,
 					},
 				],
 			} );

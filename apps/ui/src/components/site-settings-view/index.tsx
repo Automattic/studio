@@ -7,7 +7,6 @@ import {
 	encodePassword,
 } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime } from '@studio/common/lib/site-runtime';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { CheckboxControl } from '@wordpress/components';
@@ -28,12 +27,10 @@ import {
 	enableXdebugField,
 	environmentTypeField,
 	fileAccessField,
-	phpRuntimeField,
 	phpVersionField,
 	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
-import { effectiveFileAccess } from '@/components/site-fields/runtime-control';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
@@ -51,7 +48,6 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { TracksPanel } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
@@ -62,7 +58,6 @@ type TabId = 'overview' | 'general' | 'debugging';
 interface FormData {
 	name: string;
 	phpVersion: SupportedPHPVersion;
-	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
 	// Empty string means "auto-update"; anything else pins the site to that
 	// version. Only forwarded on save when the user actually changed it.
@@ -95,7 +90,6 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 	return {
 		name: site.name,
 		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
-		runtime: getSiteRuntime( site ),
 		fileAccess: getSiteFileAccess( site ),
 		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
 		useCustomDomain: Boolean( site.customDomain ),
@@ -229,7 +223,6 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		() => [
 			{ ...siteNameField< FormData >(), Edit: SiteNameControl },
 			phpVersionField< FormData >(),
-			phpRuntimeField< FormData >(),
 			fileAccessField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				latestValue: '',
@@ -294,7 +287,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 					id: 'phpEnvironment',
 					label: __( 'PHP environment' ),
 					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion', 'runtime', 'fileAccess' ],
+					children: [ 'phpVersion', 'fileAccess' ],
 				},
 				{
 					id: 'wordpressAdmin',
@@ -378,10 +371,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			...site,
 			name: data.name,
 			phpVersion: data.phpVersion,
-			runtime: data.runtime,
-			// The sandbox can only reach the site directory, so never submit a
-			// stale `all-files` left over from a previous native run.
-			fileAccess: effectiveFileAccess( data ),
+			fileAccess: data.fileAccess,
 			isWpAutoUpdating: ! wpPinned,
 			customDomain: usedCustomDomain,
 			enableHttps: !! usedCustomDomain && data.enableHttps,

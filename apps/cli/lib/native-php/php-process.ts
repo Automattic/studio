@@ -71,6 +71,12 @@ function formatCommandOutputTail( label: string, output: string ): string | unde
 	return `${ label }:\n${ tail }`;
 }
 
+// Studio runs WP-CLI on sites it manages, so it skips WP-CLI's root check like the Playground
+// runtime did; otherwise every WP-CLI call fails when Studio runs as root (Docker, Linux CI).
+export function getPhpChildEnv( env?: NodeJS.ProcessEnv ): NodeJS.ProcessEnv {
+	return withoutOversizedEnvValues( { ...process.env, WP_CLI_ALLOW_ROOT: '1', ...env } );
+}
+
 export function spawnPhpProcess(
 	args: string[],
 	{
@@ -95,7 +101,7 @@ export function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: withoutOversizedEnvValues( env ? { ...process.env, ...env } : process.env ),
+		env: getPhpChildEnv( env ),
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 		detached,

@@ -23,10 +23,6 @@ export default class SiteOverview {
 		return this.page.getByRole( 'combobox', { name: 'PHP version' } );
 	}
 
-	runtimeRadio( name: 'Native' | 'Sandbox' ) {
-		return this.page.getByRole( 'group', { name: 'PHP runtime' } ).getByRole( 'radio', { name } );
-	}
-
 	async saveSettings() {
 		await this.page.getByRole( 'button', { name: 'Save settings' } ).click();
 		await expect( this.page.getByText( 'Settings saved' ) ).toBeVisible( { timeout: 120_000 } );

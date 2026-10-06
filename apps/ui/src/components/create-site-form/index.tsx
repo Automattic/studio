@@ -6,7 +6,6 @@ import {
 	generatePassword,
 } from '@studio/common/lib/passwords';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
@@ -23,13 +22,11 @@ import {
 	adminUsernameField,
 	customDomainField,
 	fileAccessField,
-	phpRuntimeField,
 	phpVersionField,
 	siteNameField,
 	customDomainToggleField,
 	wpVersionField,
 } from '@/components/site-fields';
-import { effectiveFileAccess } from '@/components/site-fields/runtime-control';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
@@ -37,7 +34,6 @@ import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
 	DataFormControlProps,
@@ -53,7 +49,6 @@ export interface CreateSiteFormValues {
 	name: string;
 	path: string;
 	phpVersion: SupportedPHPVersion;
-	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	customDomain?: string;
@@ -95,7 +90,6 @@ interface FormData {
 	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
-	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -109,7 +103,6 @@ interface FormData {
 const SIMPLE_FIELDS = [
 	'name',
 	'phpVersion',
-	'runtime',
 	'fileAccess',
 	'wpVersion',
 	'enableHttps',
@@ -127,7 +120,6 @@ function createDefaultFormData(): FormData {
 		pathError: '',
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
-		runtime: SITE_RUNTIME_NATIVE_PHP,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
@@ -166,7 +158,6 @@ function applyInitialValues(
 			isPathPending: defaults.isPathPending,
 		},
 		phpVersion: { phpVersion: defaults.phpVersion },
-		runtime: { runtime: defaults.runtime },
 		fileAccess: { fileAccess: defaults.fileAccess },
 		wpVersion: { wpVersion: defaults.wpVersion },
 		customDomain: {
@@ -493,7 +484,6 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			phpRuntimeField< FormData >(),
 			fileAccessField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
 				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
@@ -539,7 +529,7 @@ export function CreateSiteForm( {
 					id: 'phpEnvironment',
 					label: __( 'PHP environment' ),
 					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion', 'runtime', 'fileAccess' ],
+					children: [ 'phpVersion', 'fileAccess' ],
 				},
 				{
 					id: 'wordpressAdmin',
@@ -628,8 +618,7 @@ export function CreateSiteForm( {
 			name: data.name.trim(),
 			path: data.path,
 			phpVersion: data.phpVersion,
-			runtime: data.runtime,
-			fileAccess: effectiveFileAccess( data ),
+			fileAccess: data.fileAccess,
 			wpVersion: data.wpVersion,
 			customDomain: data.useCustomDomain
 				? data.customDomain || generateCustomDomainFromSiteName( data.name )

@@ -165,6 +165,13 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
+function isCoreLanguagePackInstalled( sitePath: string, locale: string ): boolean {
+	const languagesDir = path.join( sitePath, 'wp-content', 'languages' );
+	return [ `${ locale }.l10n.php`, `${ locale }.mo` ].some( ( file ) =>
+		fs.existsSync( path.join( languagesDir, file ) )
+	);
+}
+
 export async function installWordPress(
 	config: ServerConfig,
 	phpVersion: NativePhpSupportedVersion,
@@ -204,10 +211,30 @@ export async function installWordPress(
 		{ phpVersion, signal }
 	);
 
-	// WP-CLI's --locale flag may silently fall back to English when it can't
-	// download the language pack (e.g. offline, wordpress.org unreachable).
-	// Force WPLANG so the site respects the configured language even when
-	// translation files aren't available yet.
+	// `core install --locale` doesn't download translations, and WordPress only accepts a WPLANG
+	// whose pack is installed, so fetch the core pack when Studio didn't bundle it for this locale.
+	if ( locale && ! isCoreLanguagePackInstalled( config.sitePath, locale ) ) {
+		try {
+			await runPhpCommand(
+				[
+					getWpCliPharPath(),
+					'language',
+					'core',
+					'install',
+					locale,
+					`--path=${ config.sitePath }`,
+				],
+				{ phpVersion, signal }
+			);
+		} catch ( error ) {
+			logToConsole(
+				`Failed to install the ${ locale } language pack: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+
 	if ( locale ) {
 		try {
 			await runPhpCommand(

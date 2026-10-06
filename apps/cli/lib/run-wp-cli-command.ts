@@ -36,6 +36,7 @@ import { ensurePhpBinaryAvailable } from './dependency-management/php-binary';
 import { getDefaultPhpArgs } from './native-php/config';
 import {
 	DETACH_FOR_GROUP_KILL,
+	getPhpChildEnv,
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
@@ -270,6 +271,7 @@ async function runNativeWpCliCommand(
 		],
 		{
 			cwd: site.path,
+			env: getPhpChildEnv(),
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
 			detached: DETACH_FOR_GROUP_KILL,
 		}

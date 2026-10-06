@@ -57,6 +57,7 @@ vi.mock( 'cli/lib/native-php/config', () => ( {
 
 vi.mock( 'cli/lib/native-php/php-process', () => ( {
 	DETACH_FOR_GROUP_KILL: false,
+	getPhpChildEnv: () => ( {} ),
 	killPhpProcessTree: vi.fn(),
 	reapPhpTreeOnInterrupt: () => () => {},
 } ) );

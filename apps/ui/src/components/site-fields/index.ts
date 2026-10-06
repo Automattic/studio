@@ -16,13 +16,9 @@ import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import {
 	getAllFilesFileAccessLabel,
 	getFileAccessDescription,
-	getNativeRuntimeLabel,
-	getRuntimeDescription,
-	getSandboxRuntimeLabel,
 	getSiteDirectoryFileAccessLabel,
 } from '@studio/common/lib/site-runtime-labels';
 import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
@@ -38,18 +34,12 @@ import {
 } from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
-import { createElement } from 'react';
 import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
-import {
-	PhpRuntimeLearnMore,
-	RuntimeChoiceControl,
-	effectiveFileAccess,
-} from '@/components/site-fields/runtime-control';
+import { RuntimeChoiceControl } from '@/components/site-fields/runtime-control';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
 import type { RuntimeChoiceOption } from '@/components/site-fields/runtime-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -279,31 +269,7 @@ export function customDomainField<
 	};
 }
 
-export function phpRuntimeField< T extends { runtime: SiteRuntime } >(): Field< T > {
-	return {
-		id: 'runtime',
-		type: 'text',
-		label: __( 'PHP runtime' ),
-		description: createElement( PhpRuntimeLearnMore ),
-		elements: [
-			{
-				value: SITE_RUNTIME_NATIVE_PHP,
-				label: getNativeRuntimeLabel(),
-				optionDescription: getRuntimeDescription( SITE_RUNTIME_NATIVE_PHP ),
-			},
-			{
-				value: SITE_RUNTIME_PLAYGROUND,
-				label: getSandboxRuntimeLabel(),
-				optionDescription: getRuntimeDescription( SITE_RUNTIME_PLAYGROUND ),
-			},
-		] as RuntimeChoiceOption[],
-		Edit: RuntimeChoiceControl,
-	};
-}
-
-export function fileAccessField<
-	T extends { runtime: SiteRuntime; fileAccess: SiteFileAccess },
->(): Field< T > {
+export function fileAccessField< T extends { fileAccess: SiteFileAccess } >(): Field< T > {
 	return {
 		id: 'fileAccess',
 		type: 'text',
@@ -312,24 +278,14 @@ export function fileAccessField<
 			{
 				value: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				label: getSiteDirectoryFileAccessLabel(),
-				optionDescription: getFileAccessDescription(
-					SITE_RUNTIME_NATIVE_PHP,
-					SITE_FILE_ACCESS_SITE_DIRECTORY
-				),
+				optionDescription: getFileAccessDescription( SITE_FILE_ACCESS_SITE_DIRECTORY ),
 			},
 			{
 				value: SITE_FILE_ACCESS_ALL_FILES,
 				label: getAllFilesFileAccessLabel(),
-				optionDescription: getFileAccessDescription(
-					SITE_RUNTIME_NATIVE_PHP,
-					SITE_FILE_ACCESS_ALL_FILES
-				),
+				optionDescription: getFileAccessDescription( SITE_FILE_ACCESS_ALL_FILES ),
 			},
 		] as RuntimeChoiceOption[],
-		// The sandbox can only reach the site directory, so the choice is shown
-		// but held there, with the reason on hover or keyboard focus.
-		isDisabled: ( { item }: { item: T } ) => item.runtime === SITE_RUNTIME_PLAYGROUND,
-		getValue: ( { item }: { item: T } ) => effectiveFileAccess( item ),
 		Edit: RuntimeChoiceControl,
 	};
 }

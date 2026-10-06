@@ -13,11 +13,6 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import {
 	RecommendedPHPVersion,
@@ -39,7 +34,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -102,18 +97,9 @@ export const CreateSiteForm = ( {
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
-	// New sites default to the native PHP runtime.
-	const [ selectedRuntime, setSelectedRuntime ] =
-		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		SITE_FILE_ACCESS_SITE_DIRECTORY
 	);
-	// The sandbox only has access to the site directory, so "all files" is
-	// forced back to "site directory" when the sandbox mode is selected.
-	const usedFileAccess =
-		selectedRuntime === SITE_RUNTIME_PLAYGROUND
-			? SITE_FILE_ACCESS_SITE_DIRECTORY
-			: selectedFileAccess;
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -344,8 +330,7 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
-			runtime: selectedRuntime,
-			fileAccess: usedFileAccess,
+			fileAccess: selectedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -358,8 +343,7 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
-			selectedRuntime,
-			usedFileAccess,
+			selectedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -534,35 +518,12 @@ export const CreateSiteForm = ( {
 										/>
 									</div>
 									<div className="flex flex-col gap-1.5 leading-4">
-										<label className="font-semibold" htmlFor="php-runtime-select">
-											{ __( 'PHP runtime' ) }
-										</label>
-										<SelectControl< SiteRuntime >
-											id="php-runtime-select"
-											value={ selectedRuntime }
-											options={ [
-												/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
-												{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
-												/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
-												{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
-											] }
-											onChange={ ( value ) => setSelectedRuntime( value ) }
-											__next40pxDefaultSize
-											__nextHasNoMarginBottom
-										/>
-										<span className="text-frame-text-secondary text-xs">
-											<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
-										</span>
-									</div>
-
-									<div className="flex flex-col gap-1.5 leading-4">
 										<label className="font-semibold" htmlFor="file-access-select">
 											{ __( 'File access' ) }
 										</label>
 										<SelectControl< SiteFileAccess >
 											id="file-access-select"
-											disabled={ selectedRuntime === SITE_RUNTIME_PLAYGROUND }
-											value={ usedFileAccess }
+											value={ selectedFileAccess }
 											options={ [
 												{
 													label: __( 'Site directory' ),
@@ -575,10 +536,7 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 										<span className="text-frame-text-secondary text-xs">
-											<FileAccessDescription
-												runtime={ selectedRuntime }
-												fileAccess={ usedFileAccess }
-											/>
+											<FileAccessDescription fileAccess={ selectedFileAccess } />
 										</span>
 									</div>
 								</div>

@@ -627,49 +627,28 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
-	it( 'defaults the runtime and file access radios to the site values', () => {
+	it( 'defaults the file access radios to the site value without a PHP runtime choice', () => {
 		renderView( 'general' );
 
-		// Sites predating the setting count as native with site-directory access.
-		expect( screen.getByRole( 'radio', { name: 'Native' } ) ).toBeChecked();
+		// Sites predating the setting count as site-directory access.
 		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
 		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeEnabled();
+		expect( screen.queryByRole( 'radio', { name: 'Native' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Sandbox' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'holds file access at the site directory under the sandbox runtime', () => {
-		useSitesMock.mockReturnValue( {
-			data: [ createSite( { running: true, runtime: 'playground', fileAccess: 'all-files' } ) ],
-			isLoading: false,
-		} );
-
-		renderView( 'general' );
-
-		expect( screen.getByRole( 'radio', { name: 'Sandbox' } ) ).toBeChecked();
-		// The sandbox can only reach the site directory, so the stored
-		// `all-files` is shown coerced rather than as a live selection.
-		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
-		expect( screen.getByRole( 'radio', { name: 'All files' } ) ).toBeDisabled();
-	} );
-
-	it( 'saves a runtime switch, coercing file access the sandbox cannot honor', () => {
+	it( 'saves a file access switch', () => {
 		const updateSiteMutate = vi.fn();
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
-		useSitesMock.mockReturnValue( {
-			data: [ createSite( { running: true, fileAccess: 'all-files' } ) ],
-			isLoading: false,
-		} );
 
 		renderView( 'general' );
 
-		fireEvent.click( screen.getByRole( 'radio', { name: 'Sandbox' } ) );
+		fireEvent.click( screen.getByRole( 'radio', { name: 'All files' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
 		expect( updateSiteMutate ).toHaveBeenCalledWith(
 			expect.objectContaining( {
-				site: expect.objectContaining( {
-					runtime: 'playground',
-					fileAccess: 'site-directory',
-				} ),
+				site: expect.objectContaining( { fileAccess: 'all-files' } ),
 			} ),
 			expect.anything()
 		);

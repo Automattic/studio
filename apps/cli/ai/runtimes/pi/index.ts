@@ -643,7 +643,12 @@ function buildAgentTools(
 	const tracks = { sessionId: config.session.getSessionId() };
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
-			? [ createPresentDesignOptionsTool( config.onAskUser, tracks ) as unknown as AgentToolAny ]
+			? [
+					createPresentDesignOptionsTool( {
+						onAskUser: config.onAskUser,
+						tracks,
+					} ) as unknown as AgentToolAny,
+			  ]
 			: [];
 
 	const skillToolDef = createSkillTool();

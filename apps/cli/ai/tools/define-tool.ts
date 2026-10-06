@@ -25,6 +25,8 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 export interface ToolResult {
 	content: ToolContent[];
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	// Machine-readable result for hosts that render it in an MCP App.
+	structuredContent?: Record< string, unknown >;
 	// Work the tool leaves running after it returns, settling with an optional
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.

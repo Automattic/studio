@@ -80,12 +80,13 @@ function escapeHtml( text: string ): string {
 	return text.replace( /[&<>"]/g, ( char ) => `&#${ char.charCodeAt( 0 ) };` );
 }
 
-// Without a way to ask, the previews go back to the agent as one numbered grid
-// image, for it to show and ask about in its own conversation.
+// Without a way to ask, the previews go back to the agent: for a picker the host
+// shows, or as one numbered grid image for it to show and ask about.
 async function handOverOptions(
 	question: string,
-	options: { label: string; description: string; image: string }[],
-	imageLink: ( file: string ) => string
+	options: { label: string; description: string; image: string; buffer: Buffer }[],
+	imageLink: ( file: string ) => string,
+	picker: boolean
 ): Promise< ToolResult > {
 	const figures = options
 		.map(
@@ -115,9 +116,34 @@ async function handOverOptions(
 		viewportType: 'design-options',
 		format: 'jpeg',
 	} );
+	const nextStep = `Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`;
+	const gridImage = {
+		type: 'image' as const,
+		data: grid.buffer.toString( 'base64' ),
+		mimeType: 'image/jpeg',
+	};
+	if ( picker ) {
+		return {
+			content: [
+				gridImage,
+				{
+					type: 'text',
+					text: `The ${ options.length } options (the grid above) are shown to the user under this tool call as a clickable picker with their previews. Do not show or list them again, and ask nothing else: end your turn now. The user's pick arrives as their next message.\n\n${ nextStep }`,
+				},
+			],
+			structuredContent: {
+				question,
+				options: options.map( ( { label, description, buffer } ) => ( {
+					label,
+					description,
+					image: `data:image/jpeg;base64,${ buffer.toString( 'base64' ) }`,
+				} ) ),
+			},
+		};
+	}
 	return {
 		content: [
-			{ type: 'image', data: grid.buffer.toString( 'base64' ), mimeType: 'image/jpeg' },
+			gridImage,
 			{
 				type: 'text',
 				text: [
@@ -131,7 +157,7 @@ async function handOverOptions(
 					),
 					`   - ${ OTHER_OPTIONS }: new ones, none of these again.`,
 					'',
-					`Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`,
+					nextStep,
 				].join( '\n' ),
 			},
 		],
@@ -140,17 +166,30 @@ async function handOverOptions(
 
 // Rendering and asking live in one tool so the model cannot attach preview
 // images to unrelated questions.
-export function createPresentDesignOptionsTool(
-	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >,
-	tracks?: DesignTracksContext,
+export function createPresentDesignOptionsTool( {
+	onAskUser,
+	tracks,
+	imageLink = ( file ) => file,
+	picker = false,
+}: {
+	// Asks the user in Studio's own UI and waits for the pick. Without it, the
+	// options go back to the agent to show.
+	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
+	tracks?: DesignTracksContext;
 	// How a local image is linked in the agent's reply so the host shows it to the user.
-	imageLink: ( file: string ) => string = ( file ) => file
-) {
+	imageLink?: ( file: string ) => string;
+	// The host shows the options under the tool call as a clickable picker (an MCP App).
+	picker?: boolean;
+} = {} ) {
+	// Previews sent to a picker travel in the conversation, so keep them light.
+	const previewFormat = picker ? 'jpeg' : 'png';
 	return defineTool(
 		'present_design_options',
 		`Shows the user the options drawn by pick_design as rendered previews and ${
 			onAskUser
 				? 'waits for their pick'
+				: picker
+				? 'shows them to the user under this call as a clickable picker'
 				: 'returns them as one numbered grid image for you to show and ask about, since the user does not see tool results'
 		}. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${
 			PREVIEW_VIEWPORT.width
@@ -219,7 +258,11 @@ export function createPresentDesignOptionsTool(
 						capture = await captureScreenshotBuffer(
 							pathToFileURL( htmlPath ).href,
 							PREVIEW_VIEWPORT,
-							{ fullPage: false, format: 'png' }
+							{
+								fullPage: false,
+								format: previewFormat,
+								deviceScaleFactor: picker ? 0.5 : undefined,
+							}
 						);
 						await unlink( htmlPath );
 						if ( ! isDesignBoard && capture.contentHeight < PREVIEW_VIEWPORT.height ) {
@@ -236,19 +279,28 @@ export function createPresentDesignOptionsTool(
 					}
 					const file = await saveScreenshotFile( capture.buffer, {
 						viewportType: `preview-${ index + 1 }`,
-						format: 'png',
+						format: previewFormat,
 					} );
-					return { label: option.label, description: option.description, image: file.path };
+					return {
+						label: option.label,
+						description: option.description,
+						image: file.path,
+						buffer: capture.buffer,
+					};
 				} )
 			);
 			if ( ! onAskUser ) {
-				return handOverOptions( args.question, options, imageLink );
+				return handOverOptions( args.question, options, imageLink, picker );
 			}
 			const answers = await onAskUser( [
 				{
 					question: args.question,
 					options: [
-						...options,
+						...options.map( ( { label, description, image } ) => ( {
+							label,
+							description,
+							image,
+						} ) ),
 						{ label: OTHER_OPTIONS, description: 'New ones, none of these again.' },
 					],
 					allowFreeForm: true,

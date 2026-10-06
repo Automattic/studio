@@ -1,4 +1,7 @@
+import { copyFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Type } from 'typebox';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -53,10 +56,10 @@ function getCaptureListLabel(
 }
 
 const TEXT_ONLY_NOTE =
-	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design, and use the saved file path when a screenshot file is needed (e.g. the theme screenshot).';
+	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design.';
 
-// Text-only models still get the tool (the saved file is the theme screenshot)
-// but no image block, which they would otherwise describe without seeing.
+// Text-only models still get the tool (it sets the theme screenshot) but no
+// image block, which they would otherwise describe without seeing.
 export function createTakeScreenshotTool( {
 	visionEnabled,
 	imageLink,
@@ -95,10 +98,25 @@ export function createTakeScreenshotTool( {
 						'Y-offset in CSS pixels for the capture region. Defaults to 0 (top of page). When a previous call reports the page was clipped, pass `offset` equal to where that capture ended to fetch the next slice.',
 				} )
 			),
+			themeScreenshot: Type.Optional(
+				Type.String( {
+					description:
+						"The absolute path of a theme's directory in a Studio site (`<site path>/wp-content/themes/<slug>`): also saves the desktop capture there as screenshot.jpg, the theme's thumbnail in Appearance → Themes.",
+				} )
+			),
 		},
 		async ( args, context ) => {
 			try {
+				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
+				if ( themeDirectory && ! themeDirectory.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
+					throw new Error(
+						`themeScreenshot must be the absolute path of a theme directory in a Studio site (${ STUDIO_SITES_ROOT }/<site>/wp-content/themes/<slug>).`
+					);
+				}
 				const viewportTypes = resolveViewportTypes( args.viewport );
+				if ( themeDirectory && ! viewportTypes.includes( 'desktop' ) ) {
+					throw new Error( 'themeScreenshot needs a desktop capture.' );
+				}
 				const colorSchemes = resolveColorSchemes( args.colorScheme );
 				const captureTargets = viewportTypes.flatMap( ( viewportType ) =>
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
@@ -173,8 +191,6 @@ export function createTakeScreenshotTool( {
 					}
 					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
-				// The saved path lets the agent reuse a capture as a file — e.g. copying
-				// the final desktop capture to a scaffolded theme's screenshot.jpg.
 				const captureLines = captures.map(
 					( capture ) => `${ describeCapture( capture ) } Saved to ${ capture.path }`
 				);
@@ -182,6 +198,14 @@ export function createTakeScreenshotTool( {
 					captures.length === 1
 						? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
+				const desktop = captures.find( ( capture ) => capture.viewportType === 'desktop' );
+				if ( themeDirectory && desktop ) {
+					const themeScreenshot = path.join( themeDirectory, 'screenshot.jpg' );
+					await copyFile( desktop.path, themeScreenshot );
+					textLines.push(
+						`Saved the desktop capture as the theme screenshot: ${ themeScreenshot }`
+					);
+				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
@@ -223,7 +247,7 @@ export function createTakeScreenshotTool( {
 			settlesPendingWork: true,
 			promptSnippet: visionEnabled
 				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
-				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image; the result reports the saved file path, which you need for the theme screenshot.',
+				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
 		}
 	);
 }

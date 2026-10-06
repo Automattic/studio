@@ -143,8 +143,8 @@ describe( 'buildSystemPrompt', () => {
 
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( polishStep );
-		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
-		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );
+		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
+		expect( textOnly ).toContain( 'pass its directory as `themeScreenshot`' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
 	} );
 

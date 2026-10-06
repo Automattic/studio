@@ -341,10 +341,10 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
-      # Workflow step 8: the build must finish by copying the final desktop
-      # take_screenshot capture to the scaffolded theme's screenshot.jpg (the
-      # Appearance → Themes thumbnail). The capture files are JPEGs, so the
-      # copied file must carry a real JPEG signature — a hand-crafted or
+      # Workflow step 7: the home page's desktop take_screenshot captures, with
+      # the scaffolded theme's directory as `themeScreenshot`, set its
+      # screenshot.jpg (the Appearance → Themes thumbnail). Captures are JPEGs,
+      # so the file must carry a real JPEG signature — a hand-crafted or
       # generated placeholder fails.
       - type: javascript
         value: |

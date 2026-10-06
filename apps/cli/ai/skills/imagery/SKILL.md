@@ -73,7 +73,7 @@ When `generate_images` is not available but you have an image tool of your own (
 - **Content imagery**: copy the files into the site's `tmp/` folder and import them in one `wp_cli` call, `media import tmp/<a>.png tmp/<b>.png --porcelain`, which prints their attachment IDs in order; `post list --post_type=attachment --post__in=<ids> --fields=ID,guid` gives their URLs.
 - **Theme imagery**: copy the file to its path in the theme's `assets/images`.
 
-For the look image, pass the imported file's path in the site as each look's `image`.
+For the look image, pass the file where your tool saved it as each look's `image`; import it only if the site uses it.
 
 ## No decorative or transparent images
 

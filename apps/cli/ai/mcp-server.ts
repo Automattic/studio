@@ -27,6 +27,9 @@ interface ClientSupport {
 	// Shows a local image in its conversation only from a file:// link; Claude's
 	// desktop app blocks those and opens a bare path in its side panel instead.
 	fileImageLinks: boolean;
+	// Makes images with a tool of its own, on the user's plan, which the
+	// runbooks use when generate_images is left out.
+	ownImageTool: boolean;
 }
 
 function describeClient( server: Server ): ClientSupport {
@@ -38,6 +41,7 @@ function describeClient( server: Server ): ClientSupport {
 		// Codex renders MCP Apps without declaring the extension.
 		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
+		ownImageTool: codex,
 	};
 }
 
@@ -45,7 +49,11 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): StudioA
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
 	const studioTools = [
-		...resolveStudioToolDefinitions( { imageGeneration, canAskUser: true, imageLink } ),
+		...resolveStudioToolDefinitions( {
+			imageGeneration: imageGeneration && ! client.ownImageTool,
+			canAskUser: true,
+			imageLink,
+		} ),
 		createPresentDesignOptionsTool( { imageLink, picker: client.apps } ),
 	];
 	// Fetched on demand rather than sent as the server's instructions, which

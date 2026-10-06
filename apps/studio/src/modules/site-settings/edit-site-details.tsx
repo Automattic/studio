@@ -17,12 +17,6 @@ import {
 } from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
-import {
 	getWpEnvironmentType,
 	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
 	WP_ENVIRONMENT_TYPE_LOCAL,
@@ -55,7 +49,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
@@ -102,18 +96,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ adminEmail, setAdminEmail ] = useState(
 		selectedSite?.adminEmail || 'admin@localhost.com'
 	);
-	const [ selectedRuntime, setSelectedRuntime ] = useState< SiteRuntime >(
-		getSiteRuntime( selectedSite ?? {} )
-	);
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		getSiteFileAccess( selectedSite ?? {} )
 	);
-	// The sandbox only has access to the site directory, so "all files" is
-	// forced back to "site directory" when the sandbox mode is selected.
-	const usedFileAccess =
-		selectedRuntime === SITE_RUNTIME_PLAYGROUND
-			? SITE_FILE_ACCESS_SITE_DIRECTORY
-			: selectedFileAccess;
 	const selectedSitePhpVersion = selectedSite?.phpVersion;
 	const resolvedSitePhpVersion = resolvePhpVersion( selectedSitePhpVersion );
 	const phpVersionWarning =
@@ -221,8 +206,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
 		selectedSite.phpVersion === selectedPhpVersion &&
-		getSiteRuntime( selectedSite ) === selectedRuntime &&
-		getSiteFileAccess( selectedSite ) === usedFileAccess &&
+		getSiteFileAccess( selectedSite ) === selectedFileAccess &&
 		getEffectiveWpVersion() === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
@@ -248,7 +232,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedRuntime( getSiteRuntime( selectedSite ) );
 		setSelectedFileAccess( getSiteFileAccess( selectedSite ) );
 		setSelectedPhpVersion( resolvePhpVersion( selectedSite.phpVersion ) );
 		setSelectedWpVersion( getEffectiveWpVersion() );
@@ -296,8 +279,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-		const hasRuntimeChanged = selectedRuntime !== getSiteRuntime( selectedSite );
-		const hasFileAccessChanged = usedFileAccess !== getSiteFileAccess( selectedSite );
+		const hasFileAccessChanged = selectedFileAccess !== getSiteFileAccess( selectedSite );
 		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
@@ -321,7 +303,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				httpsChanged: hasHttpsChanged,
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
-				runtimeChanged: hasRuntimeChanged,
 				fileAccessChanged: hasFileAccessChanged,
 				xdebugChanged: hasXdebugChanged,
 				credentialsChanged: hasCredentialsChanged,
@@ -344,8 +325,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					...selectedSite,
 					name: siteName,
 					phpVersion: selectedPhpVersion,
-					runtime: selectedRuntime,
-					fileAccess: usedFileAccess,
+					fileAccess: selectedFileAccess,
 					isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
@@ -500,40 +480,14 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 												<div className="flex flex-col gap-4 mt-4">
 													<label
-														htmlFor="php-runtime-select"
-														className="flex flex-col gap-1.5 leading-4"
-													>
-														<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
-														<SelectControl< SiteRuntime >
-															id="php-runtime-select"
-															disabled={ isEditingSite }
-															value={ selectedRuntime }
-															options={ [
-																/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
-																{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
-																/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
-																{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
-															] }
-															onChange={ ( value ) => setSelectedRuntime( value ) }
-															__next40pxDefaultSize
-															__nextHasNoMarginBottom
-														/>
-														<span className="text-frame-text-secondary text-xs">
-															<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
-														</span>
-													</label>
-
-													<label
 														htmlFor="file-access-select"
 														className="flex flex-col gap-1.5 leading-4"
 													>
 														<span className="font-semibold">{ __( 'File access' ) }</span>
 														<SelectControl< SiteFileAccess >
 															id="file-access-select"
-															disabled={
-																isEditingSite || selectedRuntime === SITE_RUNTIME_PLAYGROUND
-															}
-															value={ usedFileAccess }
+															disabled={ isEditingSite }
+															value={ selectedFileAccess }
 															options={ [
 																{
 																	label: __( 'Site directory' ),
@@ -546,10 +500,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															__nextHasNoMarginBottom
 														/>
 														<span className="text-frame-text-secondary text-xs">
-															<FileAccessDescription
-																runtime={ selectedRuntime }
-																fileAccess={ usedFileAccess }
-															/>
+															<FileAccessDescription fileAccess={ selectedFileAccess } />
 														</span>
 													</label>
 												</div>

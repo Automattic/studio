@@ -84,7 +84,6 @@ const formValues: CreateSiteFormValues = {
 	name: 'My Store',
 	path: '/sites/my-store',
 	phpVersion: '8.3',
-	runtime: 'playground',
 	fileAccess: 'site-directory',
 	wpVersion: 'latest',
 	enableHttps: false,

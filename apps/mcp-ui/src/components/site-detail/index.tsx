@@ -12,7 +12,7 @@ import {
 import { useHostState } from '@/hooks/use-host-state';
 import { canAttach, canMessage, isPage } from '@/lib/host-capabilities';
 import { hostname, liveUrl, siteName } from '@/lib/sites';
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 
 type Fact = [ label: string, value: string | undefined, mono?: boolean ];
 

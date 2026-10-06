@@ -1,5 +1,5 @@
 import { text } from './sites';
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 
 export interface NextStep {
 	title: string;

@@ -1,4 +1,4 @@
-import type { HostCapabilities, HostContext, DisplayMode } from '@/data/core';
+import type { HostCapabilities, HostContext, DisplayMode } from '@/data/types';
 
 const owns = ( value: unknown, key: string ) =>
 	!! value && typeof value === 'object' && Object.prototype.hasOwnProperty.call( value, key );

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useConnector } from '@/data/core';
+import { onLocalSitesResult, readLocalSites, waitForSiteChanges } from '@/data/bridge';
 import { useHostState } from '@/hooks/use-host-state';
 
 export const LOCAL_SITES_QUERY_KEY = [ 'local-sites' ] as const;
@@ -23,10 +23,9 @@ function useReadsEnabled() {
 }
 
 export function useLocalSites() {
-	const connector = useConnector();
 	return useQuery( {
 		queryKey: LOCAL_SITES_QUERY_KEY,
-		queryFn: () => connector.readLocalSites(),
+		queryFn: readLocalSites,
 		enabled: useReadsEnabled(),
 	} );
 }
@@ -35,20 +34,19 @@ export function useLocalSites() {
 // fresh: any site change, from the agent, a terminal or the desktop app,
 // refetches them.
 export function useSyncSitesWithHost() {
-	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { status } = useHostState();
 
 	useEffect(
 		() =>
-			connector.onLocalSitesResult( ( read ) => {
+			onLocalSitesResult( ( read ) => {
 				try {
 					queryClient.setQueryData( LOCAL_SITES_QUERY_KEY, read() );
 				} catch {
 					// The direct read takes over once the grace period ends.
 				}
 			} ),
-		[ connector, queryClient ]
+		[ queryClient ]
 	);
 
 	useEffect( () => {
@@ -60,7 +58,7 @@ export function useSyncSitesWithHost() {
 		const watch = async () => {
 			while ( ! stopped ) {
 				try {
-					const revision = await connector.waitForSiteChanges( since );
+					const revision = await waitForSiteChanges( since );
 					if ( since !== undefined && revision !== since ) {
 						void queryClient.invalidateQueries( { queryKey: LOCAL_SITES_QUERY_KEY } );
 					}
@@ -74,5 +72,5 @@ export function useSyncSitesWithHost() {
 		return () => {
 			stopped = true;
 		};
-	}, [ status, connector, queryClient ] );
+	}, [ status, queryClient ] );
 }

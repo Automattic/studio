@@ -1,5 +1,5 @@
 import { useSitePreview } from '@/data/queries/use-site-preview';
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 
 // A front-page preview on a quiet ground, with a hairline edge.
 export function SitePrint( { site }: { site: LocalSite } ) {

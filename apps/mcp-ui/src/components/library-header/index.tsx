@@ -1,5 +1,5 @@
 import { WordPressLogo } from '@/components/wordpress-logo';
-import { useConnector } from '@/data/core';
+import { requestDisplayMode } from '@/data/bridge';
 import { useHostState } from '@/hooks/use-host-state';
 import { canDisplay, isPage } from '@/lib/host-capabilities';
 
@@ -9,7 +9,6 @@ interface LibraryHeaderProps {
 }
 
 export function LibraryHeader( { query, onQueryChange }: LibraryHeaderProps ) {
-	const connector = useConnector();
 	const { context } = useHostState();
 	const page = isPage( context );
 	const mode = page ? 'inline' : 'fullscreen';
@@ -28,7 +27,7 @@ export function LibraryHeader( { query, onQueryChange }: LibraryHeaderProps ) {
 					data-kind="quiet"
 					data-size="sm"
 					hidden={ ! canDisplay( context, mode ) }
-					onClick={ () => void connector.requestDisplayMode( mode ).catch( () => undefined ) }
+					onClick={ () => void requestDisplayMode( mode ).catch( () => undefined ) }
 				>
 					{ page ? 'Collapse' : 'Expand' }
 				</button>

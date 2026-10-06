@@ -1,5 +1,5 @@
 import { nextSteps } from '@/lib/next-steps';
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 
 interface NextStepsProps {
 	site: LocalSite;

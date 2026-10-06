@@ -122,7 +122,7 @@ Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-ap
 
 Site changes reach each `studio mcp` process through an `_events` socket of its own (see [How the CLI and Studio apps communicate](./cli-host-communication.md)); the library waits on them to refresh its list.
 
-`apps/mcp-ui` is not another target of `apps/ui`: hosts load a page as one small document with nothing to fetch, while `apps/ui` is a whole app for other backends. It follows `apps/ui`'s conventions (React, TanStack Query, a data layer behind a connector) but shares no code.
+`apps/mcp-ui` is not another target of `apps/ui`: hosts load a page as one small document with nothing to fetch, while `apps/ui` is a whole app for other backends. It follows `apps/ui`'s conventions (React, TanStack Query, a data layer apart from the components) but shares no code, and has no connectors: there is one host to reach, through one bridge (`apps/mcp-ui/src/data/bridge.ts`).
 
 ## Convergence: local ↔ desktop
 
@@ -190,7 +190,7 @@ All surfaces read the same WordPress.com token from `~/.studio/shared.json`, so 
 
 - **`apps/ui`** builds twice (`STUDIO_TARGET=local|hosted`) into `dist-local` / `dist-hosted`; the desktop bundles it with the `ipc` connector.
 - **`apps/local`** has no build of its own — the CLI's Vite build folds its source in (via an alias) and copies `dist-local` next to the CLI bundle, so `studio ui` is self-contained.
-- **`apps/mcp-ui`** is built by the CLI's Vite build (`apps/cli/vite-plugin-mcp-ui.ts`) and inlined into the CLI bundle as one HTML document.
+- **`apps/mcp-ui`** builds into one HTML document, which the CLI's Vite build copies next to the CLI bundle as for `apps/ui`: release builds build it first, and `npm run cli:build:mcp-ui` does for development builds.
 - **`apps/cli`** is bundled with Vite and shipped inside the desktop app (and standalone to npm). See [cli.md](./cli.md) for installation details.
 - **`apps/studio`** is packaged per platform with electron-forge.
 

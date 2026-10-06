@@ -36,19 +36,3 @@ export interface UserMessage {
 	text: string;
 	openaiTarget?: { target: 'new' } | { target: 'active'; send: true };
 }
-
-export interface Connector {
-	initialize(): Promise< void >;
-	getHostState(): HostState;
-	subscribeHostState( listener: () => void ): () => void;
-	onLocalSitesResult( listener: ( read: () => LocalSite[] ) => void ): () => void;
-	readLocalSites(): Promise< LocalSite[] >;
-	waitForSiteChanges( since?: number ): Promise< number >;
-	readSitePreview( siteId: string ): Promise< string | null >;
-	setSiteRunning( sitePath: string, running: boolean ): Promise< void >;
-	sendMessage( message: UserMessage ): Promise< void >;
-	updateModelContext( text: string, title: string ): Promise< void >;
-	openLink( url: string ): Promise< void >;
-	requestDisplayMode( mode: DisplayMode ): Promise< void >;
-	notifySize( height: number ): void;
-}

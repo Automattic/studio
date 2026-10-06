@@ -1,4 +1,4 @@
-import { useConnector } from '@/data/core';
+import { openLink } from '@/data/bridge';
 import type { AnchorHTMLAttributes } from 'react';
 
 // Hosts open links themselves; a sandboxed frame cannot navigate away.
@@ -6,7 +6,6 @@ export function ExternalLink( {
 	href,
 	...props
 }: AnchorHTMLAttributes< HTMLAnchorElement > & { href: string } ) {
-	const connector = useConnector();
 	return (
 		<a
 			{ ...props }
@@ -15,7 +14,7 @@ export function ExternalLink( {
 			rel="noopener noreferrer"
 			onClick={ ( event ) => {
 				event.preventDefault();
-				void connector.openLink( href );
+				void openLink( href );
 			} }
 		/>
 	);

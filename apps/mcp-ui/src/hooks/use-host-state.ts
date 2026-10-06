@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import { useConnector, type HostState } from '@/data/core';
+import { getHostState, subscribeHostState } from '@/data/bridge';
+import type { HostState } from '@/data/types';
 
 export function useHostState(): HostState {
-	const connector = useConnector();
-	return useSyncExternalStore( connector.subscribeHostState, connector.getHostState );
+	return useSyncExternalStore( subscribeHostState, getHostState );
 }

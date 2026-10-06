@@ -3,7 +3,7 @@ import { SitePrint } from '@/components/site-print';
 import { useIsBusy, useSendPrompt } from '@/data/queries/use-host-actions';
 import { NEW_SITE_DRAFT, NEW_SITE_PROMPT } from '@/lib/next-steps';
 import { hostname, liveUrl, siteName } from '@/lib/sites';
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 import type { ReactNode } from 'react';
 
 interface SiteSectionProps {

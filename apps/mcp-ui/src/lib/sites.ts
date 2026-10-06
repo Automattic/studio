@@ -1,4 +1,4 @@
-import type { LocalSite } from '@/data/core';
+import type { LocalSite } from '@/data/types';
 
 export const text = ( value: unknown ) => ( typeof value === 'string' ? value : '' );
 

@@ -9,10 +9,7 @@ import {
 
 const mocks = vi.hoisted( () => ( {
 	req: {
-		get: vi.fn(),
 		post: vi.fn(),
-		put: vi.fn(),
-		del: vi.fn(),
 	},
 	readAuthToken: vi.fn(),
 	configDirectory: '',

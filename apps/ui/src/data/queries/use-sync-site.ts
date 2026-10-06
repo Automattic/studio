@@ -14,11 +14,7 @@ import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { applySyncActivity } from '@/data/sync-activity';
 import type { Connector, PullSyncOptions, PushSyncOptions } from '@/data/core';
-import type {
-	SyncActivity,
-	SyncDirection,
-	SyncErrorReason,
-} from '@studio/common/lib/sync/activity';
+import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
@@ -37,7 +33,7 @@ export function useSettleSync() {
 			const canOpenLogs = connector.capabilities.studioLogs;
 			const plainMessage =
 				activity.kind === 'error'
-					? getPlainErrorMessage( activity.direction, canOpenLogs, activity.reason )
+					? getPlainErrorMessage( activity.direction, canOpenLogs )
 					: undefined;
 			const settled =
 				activity.kind === 'error' && plainMessage
@@ -106,16 +102,7 @@ export function useSettleSync() {
 
 // Pull and import failures carry the CLI's raw error. The UI shows plain
 // language instead, and the raw error goes to the logs.
-function getPlainErrorMessage(
-	direction: SyncDirection,
-	canOpenLogs: boolean,
-	reason?: SyncErrorReason
-) {
-	if ( reason === 'no-remote-backup' ) {
-		return __(
-			"The live site's first backup hasn't been created yet. Wait a few minutes and try again."
-		);
-	}
+function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(

@@ -26,7 +26,6 @@ import {
 	checkBackupSize,
 	fetchSyncableSites,
 	initiateBackup,
-	NoRemoteBackupError,
 	parseSyncOptions,
 	pollBackupStatus,
 	downloadBackup,
@@ -45,7 +44,6 @@ import { StudioArgv } from 'cli/types';
 import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
-import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -107,27 +105,15 @@ export async function runCommand(
 			includePathList = syncIncludePathList;
 		} else {
 			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
-			let tree: TreeNode[] | undefined;
-			try {
-				( { tree } = await fetchPullTree( token.accessToken, remoteSite.id ) );
-			} catch {
-				// No rewind ID yet (e.g. the first backup is still running): item selection needs it.
-				logger.reportWarning(
-					__( 'Selecting individual items is unavailable until the first backup completes.' )
-				);
-			}
+			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
 			logger.spinner.stop();
 
-			if ( tree ) {
-				const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
-				if ( ! selection ) {
-					return;
-				}
-				optionsToSync = selection.optionsToSync;
-				includePathList = selection.includePathList;
-			} else {
-				optionsToSync = [ 'all' ];
+			const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
+			if ( ! selection ) {
+				return;
 			}
+			optionsToSync = selection.optionsToSync;
+			includePathList = selection.includePathList;
 		}
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
@@ -282,7 +268,6 @@ export async function runCommand(
 						kind: 'error',
 						direction: 'pull',
 						message: failure instanceof Error ? failure.message : String( failure ),
-						...( failure instanceof NoRemoteBackupError && { reason: 'no-remote-backup' } ),
 				  }
 				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
 		);

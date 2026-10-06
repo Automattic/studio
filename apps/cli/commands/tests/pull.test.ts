@@ -5,14 +5,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import {
-	checkBackupSize,
-	fetchSyncableSites,
-	initiateBackup,
-	NoRemoteBackupError,
-	pollBackupStatus,
-} from 'cli/lib/sync-api';
-import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
+import { checkBackupSize, fetchSyncableSites, pollBackupStatus } from 'cli/lib/sync-api';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -48,7 +41,6 @@ vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	checkBackupSize: vi.fn(),
 	downloadBackup: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/sync-selector' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
 const site = { id: 'site-1', path: '/test/site', port: 8080 } as SiteData;
@@ -135,33 +127,5 @@ describe( 'CLI: studio pull', () => {
 
 		expect( steps.includes( 'import' ) ).toBe( imported );
 		expect( messages.some( ( message ) => message.includes( 'exceeds' ) ) ).toBe( ! confirm );
-	} );
-
-	it( 'falls back to a full pull when the remote file tree is unavailable', async () => {
-		vi.mocked( fetchPullTree ).mockRejectedValue( new Error( 'No backups found for site 42' ) );
-		const messages: string[] = [];
-		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
-
-		await runCommand( site.path, undefined, String( remoteSite.id ), undefined, logger, true );
-
-		expect( selectSyncItemsForPull ).not.toHaveBeenCalled();
-		expect( initiateBackup ).toHaveBeenCalledWith( 'token', remoteSite.id, {
-			optionsToSync: [ 'all' ],
-			includePathList: undefined,
-		} );
-		expect( messages.some( ( message ) => message.includes( 'first backup' ) ) ).toBe( true );
-	} );
-
-	it( 'tells the UI when the remote site has no backup yet', async () => {
-		vi.mocked( initiateBackup ).mockRejectedValue( new NoRemoteBackupError() );
-
-		await expect(
-			runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
-		).rejects.toThrow( NoRemoteBackupError );
-
-		expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
-			site.id,
-			expect.objectContaining( { kind: 'error', reason: 'no-remote-backup' } ),
-		] );
 	} );
 } );

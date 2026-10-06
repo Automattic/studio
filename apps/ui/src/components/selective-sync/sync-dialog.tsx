@@ -241,7 +241,7 @@ export function SyncDialog( {
 		syncToText = localSite.name;
 		tooltipNoRewindId = createInterpolateElement(
 			__(
-				'Selecting individual items to pull will be enabled automatically once your first backup is complete.<br/>Wait a few minutes and try again.'
+				'Selecting individual items to pull will be enabled automatically once your first backup is complete.<br/>Wait a few minutes or run a full sync in the meantime.'
 			),
 			{ br: <br /> }
 		);

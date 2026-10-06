@@ -24,18 +24,11 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 	} ),
 	z.object( { kind: z.literal( 'success' ), direction: syncDirectionSchema } ),
 	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),
-	z.object( {
-		kind: z.literal( 'error' ),
-		direction: syncDirectionSchema,
-		message: z.string(),
-		// A known failure the UI explains in its own words instead of the generic error.
-		reason: z.enum( [ 'no-remote-backup' ] ).optional(),
-	} ),
+	z.object( { kind: z.literal( 'error' ), direction: syncDirectionSchema, message: z.string() } ),
 ] );
 
 export type SyncActivity = z.infer< typeof syncActivitySchema >;
 export type SyncDirection = z.infer< typeof syncDirectionSchema >;
-export type SyncErrorReason = NonNullable< Extract< SyncActivity, { kind: 'error' } >[ 'reason' ] >;
 
 export const syncEventSchema = z.object( {
 	siteId: z.string(),

@@ -4,8 +4,9 @@ import { useConnector } from '@/data/core';
 import { useSiteStorageUsage } from '@/data/queries/use-site-storage-usage';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './cards.module.css';
-import { CardSection } from './overview-card';
+import { CardSection, CopyableRow } from './overview-card';
 import type { SiteDetails, SiteStorageUsage } from '@/data/core';
 
 const STORAGE_PARTS = [
@@ -34,6 +35,7 @@ export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersio
 	const isStarting = useIsSiteStarting( site.id );
 	const thumbnail = useSiteThumbnail( site.id );
 	const storage = useSiteStorageUsage( site.id );
+	const siteUrl = getSiteUrl( site );
 	const wpLabel = wpVersion
 		? sprintf(
 				/* translators: %s: WordPress version number */
@@ -89,6 +91,20 @@ export function AboutSection( { site, wpVersion }: { site: SiteDetails; wpVersio
 					<span>{ phpLabel }</span>
 				</span>
 			</div>
+			<CopyableRow
+				label={ __( 'Site URL' ) }
+				displayValue={ siteUrl }
+				copyText={ siteUrl }
+				copyLabel={ __( 'Copy site URL' ) }
+			/>
+			{ connector.capabilities.openInOS && (
+				<CopyableRow
+					label={ __( 'Local path' ) }
+					displayValue={ site.path }
+					copyText={ site.path }
+					copyLabel={ __( 'Copy local path' ) }
+				/>
+			) }
 			<div className={ styles.storageSection }>
 				<div className={ styles.storageHeader }>
 					<span className={ styles.tileLabel }>{ __( 'Disk' ) }</span>

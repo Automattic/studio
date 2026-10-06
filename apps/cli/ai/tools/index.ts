@@ -27,6 +27,7 @@ import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
+import { wpcomRequestTool } from './wpcom-request';
 import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 import type { DesignTracksContext } from 'cli/ai/design-tracks';
 
@@ -55,6 +56,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
+	wpcomRequestTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,

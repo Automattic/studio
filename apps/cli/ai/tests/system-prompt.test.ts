@@ -8,12 +8,6 @@ import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
 import { resolveStudioToolDefinitions } from '../tools';
 
-const remoteSite = {
-	name: 'Remote Studio Test',
-	url: 'https://example.wordpress.com',
-	id: 123,
-};
-
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
@@ -46,16 +40,14 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'core/post-content' );
 	} );
 
-	it( 'routes remote WordPress.com endpoint recipes to the remote management skill', () => {
-		const prompt = buildSystemPrompt( { remoteSite } );
+	it( 'routes WordPress.com sites to the remote management skill', () => {
+		const prompt = buildSystemPrompt( {} );
 
-		expect( prompt ).toContain( 'wpcom-remote-management' );
-		expect( prompt ).toContain( 'Before doing ANY work, you MUST first check the site' );
-		expect( prompt ).not.toContain( '## API Namespace Guide' );
+		expect( prompt ).toContain( 'load the `wpcom-remote-management` skill first' );
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
-	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
 		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
@@ -63,23 +55,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
 	} );
 
-	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (remote)', () => {
-		const prompt = buildSystemPrompt( { remoteSite } );
-
-		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
-		expect( prompt ).toContain( 'Do NOT answer from memory' );
-		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
-	} );
-
 	it( 'references only bundled skills', () => {
-		const prompts = [
-			buildSystemPrompt( { chatArtifactsEnabled: true } ),
-			buildSystemPrompt( { remoteSite } ),
-		];
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
-		const missingSkillNames = prompts
-			.flatMap( extractReferencedSkillNames )
-			.filter( ( skillName ) => ! availableSkillNames.has( skillName ) );
+		const missingSkillNames = extractReferencedSkillNames(
+			buildSystemPrompt( { chatArtifactsEnabled: true } )
+		).filter( ( skillName ) => ! availableSkillNames.has( skillName ) );
 
 		expect( missingSkillNames ).toEqual( [] );
 	} );
@@ -116,47 +96,8 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'lists the same tools the hand-written list did', () => {
-		const listed = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-			imageGeneration: true,
-		} )
-			.filter( ( tool ) => tool.promptSnippet )
-			.map( ( tool ) => tool.name );
-		expect( listed ).toEqual( [
-			'site_create',
-			'site_list',
-			'site_info',
-			'site_start',
-			'site_stop',
-			'site_delete',
-			'preview_create',
-			'preview_list',
-			'preview_update',
-			'preview_delete',
-			'wp_cli',
-			'refresh_browser',
-			'scaffold_theme',
-			'validate_blocks',
-			'take_screenshot',
-			'inspect_design',
-			'generate_images',
-			'need_for_speed',
-			'rank_me_up',
-			'site_connected_remote_sites',
-			'site_push',
-			'site_pull',
-			'site_import',
-			'site_export',
-		] );
-	} );
-
-	it.each( [
-		[ 'local', {} ],
-		[ 'remote', { remoteSite } ],
-	] )( 'lists the registered tools and their guidelines (%s)', ( _, options ) => {
+	it( 'lists the registered tools and their guidelines', () => {
 		const prompt = buildSystemPrompt( {
-			...options,
 			tools: [
 				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
 				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
@@ -168,7 +109,7 @@ describe( 'buildSystemPrompt', () => {
 		);
 		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
 		expect( prompt ).not.toContain( '- hidden' );
-		expect( buildSystemPrompt( options ) ).not.toContain( '## Tool guidelines' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
 	} );
 
 	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {
@@ -200,26 +141,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( withVision ).toContain( 'Pair with take_screenshot' );
 		expect( withVision ).not.toContain( 'You cannot view' );
 
-		const textOnly = buildSystemPrompt( {
-			visionEnabled: false,
-			tools: toolsFor( { visionEnabled: false } ),
-		} );
+		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( polishStep );
 		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
 		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
-	} );
-
-	it( 'verifies remote sites from the rendered DOM without vision', () => {
-		expect( buildSystemPrompt( { remoteSite } ) ).toContain(
-			'**Verify the result**: Use take_screenshot with `viewport: "all"`'
-		);
-
-		const textOnly = buildSystemPrompt( { remoteSite, visionEnabled: false } );
-		expect( textOnly ).toContain(
-			'**Verify the result**: You cannot view images, so verify from the rendered DOM'
-		);
-		expect( textOnly ).not.toContain( 'Use take_screenshot with `viewport: "all"`' );
 	} );
 
 	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
@@ -228,23 +154,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 
-	it( 'appends the user global instructions for local and remote sessions', () => {
-		const variants = [ { chatArtifactsEnabled: true }, { remoteSite } ];
-		for ( const variant of variants ) {
-			const prompt = buildSystemPrompt( {
-				...variant,
-				userInstructions: 'Always answer in French.',
-			} );
-			expect( prompt ).toContain( "## User's global instructions" );
-			expect( prompt ).toContain( 'Always answer in French.' );
-		}
-	} );
-
-	it( 'omits the global instructions section when none are set', () => {
-		const prompts = [ buildSystemPrompt( {} ), buildSystemPrompt( { remoteSite } ) ];
-		for ( const prompt of prompts ) {
-			expect( prompt ).not.toContain( "## User's global instructions" );
-		}
+	it( 'appends the user global instructions when set', () => {
+		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
+		expect( prompt ).toContain( "## User's global instructions" );
+		expect( prompt ).toContain( 'Always answer in French.' );
+		expect( buildSystemPrompt( {} ) ).not.toContain( "## User's global instructions" );
 	} );
 
 	it( 'truncates oversized global instructions with a visible notice', () => {

@@ -42,19 +42,14 @@ import {
 	SITE_RUNTIME_NATIVE_PHP,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
-import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
-import { createSiteTool } from 'cli/ai/tools/create-site';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
-import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
-import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
@@ -82,8 +77,6 @@ type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ]
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
-const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
-const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -97,7 +90,6 @@ export interface StudioAgentTurnConfig {
 	env?: Record< string, string >;
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
-	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
@@ -123,9 +115,6 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
-	}
-	if ( resolvedConfig.activeSite?.remote ) {
-		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
@@ -305,12 +294,11 @@ async function createStudioAgentSession(
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
-	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
-		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+		resolveActiveSiteRuntime( config.activeSite ),
 		isImageGenerationAvailable(),
 	] );
 
@@ -321,17 +309,9 @@ async function createStudioAgentSession(
 		visionEnabled
 	);
 	const systemPrompt = buildSystemPrompt( {
-		...( isRemoteSite
-			? {
-					remoteSite: {
-						name: config.activeSite!.name,
-						url: config.activeSite!.url ?? '',
-						id: config.activeSite!.wpcomSiteId!,
-					},
-			  }
-			: { chatArtifactsEnabled, runtime } ),
+		chatArtifactsEnabled,
+		runtime,
 		userInstructions,
-		visionEnabled,
 		tools: tools.map( toolPromptContribution ),
 	} );
 
@@ -657,10 +637,6 @@ function buildAgentTools(
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean
 ): AgentToolAny[] {
-	const isRemoteSite = Boolean(
-		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
-	);
-
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
@@ -677,28 +653,6 @@ function buildAgentTools(
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
-
-	const remoteScratchTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
-		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
-	];
-
-	if ( isRemoteSite ) {
-		const remoteStudioTools = [
-			visionEnabled ? takeScreenshotTool : createTakeScreenshotTool( { visionEnabled: false } ),
-			createSiteTool,
-			pullSiteTool,
-		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
-		return [
-			wpcomRequestTool,
-			...remoteStudioTools,
-			...remoteScratchTools,
-			...askUserTool,
-			...skillTool,
-		];
-	}
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;

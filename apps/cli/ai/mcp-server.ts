@@ -20,16 +20,17 @@ import { textResult } from 'cli/ai/tools/utils';
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
+	// The ChatGPT desktop app (Codex) shows a local image only from a file:// link;
+	// Claude's desktop app opens a bare path in its side panel but blocks file:// links.
+	const imageLink = ( file: string ) =>
+		server.getClientVersion()?.name === 'codex-mcp-client' ? pathToFileURL( file ).href : file;
 	const studioTools = [
 		...resolveStudioToolDefinitions( {
 			imageGeneration: await isImageGenerationAvailable(),
 			canAskUser: true,
+			imageLink,
 		} ),
-		// The ChatGPT desktop app (Codex) shows a local image only from a file:// link;
-		// Claude's desktop app opens a bare path in its side panel but blocks file:// links.
-		createPresentDesignOptionsTool( undefined, undefined, ( file ) =>
-			server.getClientVersion()?.name === 'codex-mcp-client' ? pathToFileURL( file ).href : file
-		),
+		createPresentDesignOptionsTool( undefined, undefined, imageLink ),
 	];
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.

@@ -174,7 +174,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 		}
 	);
 
-	it(
+	// blueprints.phar runs wp-cli steps by executing wp-cli.phar directly, relying on its
+	// `#!/usr/bin/env php` shebang, which Windows ignores, so the step never runs there.
+	it.skipIf( process.platform === 'win32' )(
 		'creates a site from a Blueprint that runs WP-CLI commands',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {

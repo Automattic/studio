@@ -3,8 +3,8 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	createWpcomRequestTool,
 	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR,
+	wpcomRequestTool,
 } from 'cli/ai/tools/wpcom-request';
 
 const mocks = vi.hoisted( () => ( {
@@ -15,6 +15,7 @@ const mocks = vi.hoisted( () => ( {
 		del: vi.fn(),
 	},
 	readAuthToken: vi.fn(),
+	configDirectory: '',
 } ) );
 
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
@@ -29,6 +30,10 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: mocks.readAuthToken,
 } ) );
 
+vi.mock( '@studio/common/lib/well-known-paths', () => ( {
+	getConfigDirectory: () => mocks.configDirectory,
+} ) );
+
 describe( 'wpcom_request', () => {
 	let rootDir: string;
 
@@ -39,6 +44,8 @@ describe( 'wpcom_request', () => {
 			recursive: true,
 		} );
 		mocks.req.post.mockResolvedValue( { ok: true } );
+		mocks.readAuthToken.mockResolvedValue( { accessToken: 'token' } );
+		mocks.configDirectory = rootDir;
 	} );
 
 	afterEach( async () => {
@@ -58,8 +65,7 @@ describe( 'wpcom_request', () => {
 		};
 		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
 
-		const tool = createWpcomRequestTool( 'token', { bodyFilesRoot: rootDir } );
-		const result = await tool.rawHandler( {
+		const result = await wpcomRequestTool.rawHandler( {
 			siteId: 123,
 			method: 'POST',
 			path: '/pages/4',
@@ -78,7 +84,7 @@ describe( 'wpcom_request', () => {
 		expect( result.content[ 0 ] ).toEqual( { type: 'text', text: '{"ok":true}' } );
 
 		mocks.req.post.mockClear();
-		await tool.rawHandler( {
+		await wpcomRequestTool.rawHandler( {
 			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
@@ -92,16 +98,14 @@ describe( 'wpcom_request', () => {
 		);
 	} );
 
-	it( 'uses the stored WordPress.com login when it has no token of its own', async () => {
-		const tool = createWpcomRequestTool();
+	it( 'needs a stored WordPress.com login', async () => {
 		mocks.req.get.mockResolvedValue( [] );
-		mocks.readAuthToken.mockResolvedValue( { accessToken: 'stored' } );
-		await tool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } );
+		await wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } );
 		expect( mocks.req.get ).toHaveBeenCalledWith( '/sites/456/posts', { apiNamespace: 'wp/v2' } );
 
 		mocks.readAuthToken.mockResolvedValue( undefined );
 		await expect(
-			tool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
+			wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
 		).rejects.toThrow( 'Not logged in to WordPress.com' );
 	} );
 } );

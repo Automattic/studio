@@ -54,7 +54,7 @@ import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-opti
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
-import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
@@ -697,7 +697,7 @@ function buildAgentTools(
 			pullSiteTool,
 		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
 		return [
-			createWpcomRequestTool( config.wpcomAccessToken! ),
+			wpcomRequestTool,
 			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,

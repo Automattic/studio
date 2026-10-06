@@ -1,6 +1,6 @@
 # Site Editor Performance Benchmark
 
-Benchmarks site editor performance across Studio, Playground CLI, Playground Web, and custom WordPress environments, with optional plugin and multi-worker configurations.
+Benchmarks site editor performance across Studio, Playground Web, and custom WordPress environments, with optional plugin and multi-worker configurations.
 
 ## Related Issue
 
@@ -26,10 +26,6 @@ The benchmark launches a headless Chromium browser against each environment, mea
 | Studio + MW                   | `studio-mw`         | Studio with multi-worker support enabled        |
 | Studio + Plugins              | `studio-plugins`    | Studio with 10 plugins installed                |
 | Studio + MW + Plugins         | `studio-mw-plugins` | Studio with multi-worker and 10 plugins         |
-| Playground CLI                | `pg-cli`            | Bare Playground CLI site                        |
-| Playground CLI + MW           | `pg-cli-mw`         | Playground CLI with multi-worker                |
-| Playground CLI + Plugins      | `pg-cli-plugins`    | Playground CLI with 10 plugins                  |
-| Playground CLI + MW + Plugins | `pg-cli-mw-plugins` | Playground CLI with multi-worker and 10 plugins |
 | Playground Web                | `pg-web`            | playground.wordpress.net (bare)                 |
 | Playground Web + Plugins      | `pg-web-plugins`    | playground.wordpress.net with 10 plugins        |
 | Custom                        | user-defined        | Any running WordPress site via `--custom`       |
@@ -62,7 +58,6 @@ npm run benchmark
 ```
 --rounds=N                                    Number of benchmark runs per environment (default: 1)
 --skip-studio                                 Skip Studio environments
---skip-playground-cli                         Skip Playground CLI environments
 --skip-playground-web                         Skip Playground web environments
 --custom=<name>,<url>[,<user>,<password>]     Add a custom WordPress site (repeatable)
                                                 user defaults to "admin", password to "password"
@@ -81,9 +76,6 @@ npm run benchmark -- --only=studio,studio-plugins
 
 # Full comparison without Playground Web (faster, no network dependency)
 npm run benchmark -- --skip-playground-web --rounds=3
-
-# Only Playground CLI environments
-npm run benchmark -- --skip-studio --skip-playground-web
 
 # Single specific environment
 npm run benchmark -- --only=studio-mw-plugins --rounds=5

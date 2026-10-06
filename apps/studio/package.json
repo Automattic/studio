@@ -4,7 +4,7 @@
 	"private": true,
 	"productName": "Studio",
 	"version": "1.23.0",
-	"description": "Local WordPress development environment using Playgrounds",
+	"description": "Local WordPress development environment",
 	"homepage": "https://developer.wordpress.com/studio/",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",

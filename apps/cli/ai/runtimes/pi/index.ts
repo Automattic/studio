@@ -42,7 +42,6 @@ import {
 	SITE_RUNTIME_NATIVE_PHP,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
-import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -78,7 +77,6 @@ type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ]
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
-const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -118,7 +116,6 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
-	fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;

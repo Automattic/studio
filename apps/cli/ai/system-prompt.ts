@@ -35,7 +35,7 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 	const visionEnabled = options?.visionEnabled ?? true;
 	const toolSections = renderToolSections( options?.tools ?? [] );
 
-	return `${ buildLocalIntro( {
+	return `${ buildIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		runtime: options?.runtime,
 		visionEnabled,
@@ -43,7 +43,7 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 		external: options?.external ?? false,
 	} ) }
 
-${ LOCAL_SKILL_ROUTING }${ userInstructionsSection }
+${ SKILL_ROUTING }${ userInstructionsSection }
 `;
 }
 
@@ -129,7 +129,7 @@ One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`si
 
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one file per turn.`;
 
-function buildLocalIntro( options: {
+function buildIntro( options: {
 	chatArtifactsEnabled: boolean;
 	runtime?: SiteRuntime;
 	visionEnabled: boolean;
@@ -237,7 +237,7 @@ Never call \`site_pull\` without explicit user confirmation, as the local site w
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
-const LOCAL_SKILL_ROUTING = `## Skill routing
+const SKILL_ROUTING = `## Skill routing
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

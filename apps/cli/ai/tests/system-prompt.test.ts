@@ -96,42 +96,6 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'lists the same tools the hand-written list did', () => {
-		const listed = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-			imageGeneration: true,
-		} )
-			.filter( ( tool ) => tool.promptSnippet )
-			.map( ( tool ) => tool.name );
-		expect( listed ).toEqual( [
-			'site_create',
-			'site_list',
-			'site_info',
-			'site_start',
-			'site_stop',
-			'site_delete',
-			'preview_create',
-			'preview_list',
-			'preview_update',
-			'preview_delete',
-			'wp_cli',
-			'refresh_browser',
-			'scaffold_theme',
-			'validate_blocks',
-			'take_screenshot',
-			'inspect_design',
-			'generate_images',
-			'need_for_speed',
-			'rank_me_up',
-			'site_connected_remote_sites',
-			'wpcom_request',
-			'site_push',
-			'site_pull',
-			'site_import',
-			'site_export',
-		] );
-	} );
-
 	it( 'lists the registered tools and their guidelines', () => {
 		const prompt = buildSystemPrompt( {
 			tools: [

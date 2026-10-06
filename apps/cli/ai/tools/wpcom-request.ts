@@ -174,7 +174,6 @@ async function wpcomClient() {
  * Instead of hardcoding individual endpoints, this provides a single flexible tool
  * that can call any WP.com REST API endpoint. The AI agent determines the correct
  * endpoints based on its knowledge of the WordPress.com REST API.
- * Each call uses the user's stored WordPress.com login.
  */
 export const wpcomRequestTool = defineTool(
 	'wpcom_request',
@@ -236,7 +235,6 @@ export const wpcomRequestTool = defineTool(
 				fullPath = `/sites/${ args.siteId }${ relativePath }`;
 			}
 
-			// Default to wp/v2 namespace (WordPress REST API).
 			// An empty string means "use WP.com REST API v1.1" (no apiNamespace → isRestAPI=true in wpcom-xhr-request).
 			const apiNamespace = args.apiNamespace ?? 'wp/v2';
 			const queryParams: Record< string, unknown > = { ...( args.query ?? {} ) };

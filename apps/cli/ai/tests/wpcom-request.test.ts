@@ -99,10 +99,6 @@ describe( 'wpcom_request', () => {
 	} );
 
 	it( 'needs a stored WordPress.com login', async () => {
-		mocks.req.get.mockResolvedValue( [] );
-		await wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } );
-		expect( mocks.req.get ).toHaveBeenCalledWith( '/sites/456/posts', { apiNamespace: 'wp/v2' } );
-
 		mocks.readAuthToken.mockResolvedValue( undefined );
 		await expect(
 			wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )

@@ -889,11 +889,6 @@ export async function createSite(
 
 		return server.details;
 	} catch ( error ) {
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		const contexts: Record< string, Record< string, unknown > > = {
 			site: {
 				hasBlueprint: !! blueprint,
@@ -911,10 +906,10 @@ export async function createSite(
 
 		const processManagerLogs = readProcessManagerLogs( siteId );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -926,7 +921,7 @@ export async function createSite(
 
 		// If the error message is generic, try to surface a more useful message from
 		// the process manager logs. The detailed error is often captured in stdout
-		// (e.g. blueprint execution errors logged by playground-cli).
+		// (e.g. Blueprint execution errors).
 		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
 		if ( logErrorMessage ) {
 			throw new Error( logErrorMessage );
@@ -1053,11 +1048,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			// Ignore errors persisting auto-start state
 		}
 
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
@@ -1120,10 +1110,10 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const processManagerLogs = readProcessManagerLogs( id );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -1133,9 +1123,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		if ( errorMessageContains( error, '"unreachable" WASM instruction executed' ) ) {
-			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
-		}
 		throw error;
 	}
 

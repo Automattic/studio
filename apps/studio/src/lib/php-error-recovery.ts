@@ -16,7 +16,7 @@ const activeRecoveries = new Map<
 
 /**
  * Determines if an error from a site start failure is caused by user PHP code
- * (themes/plugins) rather than an infrastructure issue (WASM memory, port conflicts, etc.).
+ * (themes/plugins) rather than an infrastructure issue (port conflicts, aborted starts, etc.).
  *
  * Uses an exclusion list: known infrastructure errors return false, everything else
  * is treated as a PHP user error.
@@ -29,10 +29,7 @@ export function isPhpUserError( error: unknown ): boolean {
 	const message = error.message;
 
 	const isInfrastructureError =
-		message.includes( 'Cannot allocate Wasm memory' ) ||
-		message.includes( 'EADDRINUSE' ) ||
-		message.includes( 'Operation aborted' ) ||
-		message.includes( '"unreachable" WASM instruction' );
+		message.includes( 'EADDRINUSE' ) || message.includes( 'Operation aborted' );
 
 	return ! isInfrastructureError;
 }
@@ -40,7 +37,7 @@ export function isPhpUserError( error: unknown ): boolean {
 /**
  * Extract the actual PHP error from PM2 log output.
  *
- * Playground outputs PHP errors in HTML format like:
+ * PHP errors can appear in HTML format like:
  *   <b>Fatal error</b>:  Uncaught Error: Call to undefined function foo() in /path/file.php:12
  */
 export function parsePhpError( logContent: string ): string {

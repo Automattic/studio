@@ -108,8 +108,7 @@ export interface CliRunnerConfig {
 	// host is itself a Node process, like the CLI). The desktop overrides this
 	// with its bundled Node, since its own `execPath` is Electron.
 	nodeBinary?: string;
-	// Extra V8/Node flags for the child. The agent runs WordPress Playground, so
-	// the default enables JSPI.
+	// Extra V8/Node flags for the child.
 	execArgv?: string[];
 	// Optional error sink (the desktop wires Sentry here).
 	onError?: ( error: Error ) => void;

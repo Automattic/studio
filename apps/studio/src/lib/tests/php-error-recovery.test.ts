@@ -60,16 +60,10 @@ describe( 'isPhpUserError', () => {
 	} );
 
 	test( 'returns false for known infrastructure errors', () => {
-		expect( isPhpUserError( new Error( 'Cannot allocate Wasm memory for new instance' ) ) ).toBe(
-			false
-		);
 		expect( isPhpUserError( new Error( 'listen EADDRINUSE: address already in use' ) ) ).toBe(
 			false
 		);
 		expect( isPhpUserError( new Error( 'Operation aborted' ) ) ).toBe( false );
-		expect( isPhpUserError( new Error( '"unreachable" WASM instruction executed' ) ) ).toBe(
-			false
-		);
 	} );
 
 	test( 'treats any other Error as a user PHP error', () => {

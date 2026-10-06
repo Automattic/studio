@@ -4,7 +4,6 @@ import { defineConfig } from 'electron-vite';
 import { normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import wasm from 'vite-plugin-wasm';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { getSentryReleaseInfo } from './src/lib/sentry-release';
 
@@ -78,7 +77,6 @@ export default defineConfig( {
 		},
 		plugins: [
 			react(),
-			wasm(),
 			viteStaticCopy( {
 				targets: [
 					{
@@ -110,7 +108,6 @@ export default defineConfig( {
 			devSourcemap: true,
 			postcss: resolve( __dirname, 'postcss.config.js' ),
 		},
-		assetsInclude: [ '**/*.wasm' ],
 		optimizeDeps: {
 			include: [ '@wordpress/i18n' ],
 			rolldownOptions: {

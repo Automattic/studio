@@ -392,8 +392,8 @@ async function appBoot() {
 				// The agentic UI's design system view loads DESIGN.md fonts.
 				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'
-					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
-					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*"
+					: "script-src 'self'",
 				// Site preview uses `<webview>` to host local WordPress sites
 				// served from arbitrary localhost ports and (optionally) HTTPS
 				// custom domains.

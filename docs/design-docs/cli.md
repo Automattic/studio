@@ -83,6 +83,6 @@ Studio instantiates CLI child processes to execute site operations: creating, st
 
 This approach of forking CLI processes to run business logic has both pros and cons.
 
-The biggest pro is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
+The biggest pro is that the site runtime dependencies live entirely in the CLI, so they aren't bundled twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
 
 The biggest con is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around the `process.send` IPC calls.

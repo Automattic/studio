@@ -7,9 +7,9 @@
 import fs from 'fs';
 import path from 'path';
 import {
-	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
-	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
-	PLAYGROUND_CLI_MAX_TIMEOUT,
+	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
+	SITE_SERVER_INACTIVITY_TIMEOUT,
+	SITE_SERVER_MAX_TIMEOUT,
 } from '@studio/common/constants';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
@@ -420,7 +420,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 		return new Promise< void >( ( resolve, reject ) => {
 			timeoutId = setTimeout( () => {
 				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
-			}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
+			}, SITE_SERVER_INACTIVITY_TIMEOUT );
 			abortListener = () => {
 				reject( new Error( 'Operation aborted' ) );
 			};
@@ -484,7 +484,7 @@ export async function sendMessage(
 	message: ManagerMessagePayload,
 	options: SendMessageOptions = {}
 ): Promise< unknown > {
-	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
+	const { maxTotalElapsedTime = SITE_SERVER_MAX_TIMEOUT, logger } = options;
 	const bus = await getDaemonBus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
@@ -502,20 +502,20 @@ export async function sendMessage(
 			const totalElapsedTime = now - startTime;
 
 			if (
-				timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
+				timeSinceLastActivity > SITE_SERVER_INACTIVITY_TIMEOUT ||
 				totalElapsedTime > maxTotalElapsedTime
 			) {
 				const timeoutReason =
 					totalElapsedTime > maxTotalElapsedTime
 						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
-						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
+						: `No activity for ${ SITE_SERVER_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
 					new Error(
 						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }`
 					)
 				);
 			}
-		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
+		}, SITE_SERVER_ACTIVITY_CHECK_INTERVAL );
 
 		messageActivityTrackers.set( messageId, {
 			activityCheckIntervalId,

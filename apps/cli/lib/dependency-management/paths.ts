@@ -44,20 +44,17 @@ export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
 
-// reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time) and is
-// mounted into the PHP-wasm VFS at `/tmp/reprint.phar` by the reprint child process.
+// reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time).
 export function getReprintPharPath(): string {
 	return path.join( getWpFilesPath(), 'reprint', 'reprint.phar' );
 }
 
-// WP-CLI ships read-only with the CLI bundle and is mounted into the PHP-wasm VFS at
-// `/tmp/wp-cli.phar`. No writable cache needed.
+// WP-CLI ships read-only with the CLI bundle. No writable cache needed.
 export function getWpCliPharPath(): string {
 	return path.join( getWpFilesPath(), 'wp-cli', WP_CLI_PHAR_FILENAME );
 }
 
-// SQLite command ships read-only with the CLI bundle and is mounted into the PHP-wasm
-// VFS at `/tmp/sqlite-command`. No writable cache needed.
+// SQLite command ships read-only with the CLI bundle. No writable cache needed.
 export function getSqliteCommandPath(): string {
 	return path.join( getWpFilesPath(), SQLITE_COMMAND_DIRNAME );
 }
@@ -75,8 +72,7 @@ export function getAiInstructionsPath(): string {
 	return path.join( getWpFilesPath(), 'skills' );
 }
 
-// phpMyAdmin ships read-only with the CLI bundle and is mounted into the PHP-wasm VFS at
-// `/tools/phpmyadmin`. No writable cache needed.
+// phpMyAdmin ships read-only with the CLI bundle. No writable cache needed.
 export function getPhpMyAdminPath(): string {
 	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }

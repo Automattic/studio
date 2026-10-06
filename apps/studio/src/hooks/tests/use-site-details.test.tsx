@@ -207,30 +207,6 @@ describe( 'useSiteDetails', () => {
 			);
 		} );
 
-		it( 'should include site name in error title for WASM memory error', async () => {
-			const { showErrorMessageBox } = setupStartServerError(
-				new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
-			);
-
-			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
-
-			await waitFor( () => {
-				expect( result.current.loadingSites ).toBe( false );
-			} );
-
-			vi.mocked( getIpcApi().startServer ).mockClear();
-
-			await act( async () => {
-				await result.current.startServer( mockSites[ 0 ] as SiteDetails );
-			} );
-
-			expect( showErrorMessageBox ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					title: "Not enough memory to start 'Site 1'",
-				} )
-			);
-		} );
-
 		it( 'should include site name in error title for port-in-use error', async () => {
 			const { showErrorMessageBox } = setupStartServerError(
 				new Error( 'ERROR_PORT_IN_USE 8080' )

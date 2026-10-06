@@ -51,7 +51,7 @@ export interface AgentRunManagerConfig {
 	// Node binary to fork with. Defaults to `process.execPath`. The desktop
 	// overrides this with its bundled Node (its own `execPath` is Electron).
 	nodeBinary?: string;
-	// Extra Node flags for the child; the agent runs Playground, so JSPI is on.
+	// Extra Node flags for the child.
 	execArgv?: string[];
 	// Where run output goes. The host adapts this to its transport.
 	emit: ( output: RunManagerOutput ) => void;

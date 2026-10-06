@@ -171,6 +171,13 @@ describe( 'buildSystemPrompt', () => {
 		expect( buildSystemPrompt( options ) ).not.toContain( '## Tool guidelines' );
 	} );
 
+	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {
+		const prompt = buildSystemPrompt( { external: true } );
+		expect( prompt ).toContain( 'Edit site files with your own file tools' );
+		expect( prompt ).not.toContain( 'WordPress Studio Code' );
+		expect( prompt ).not.toContain( '## Working cadence' );
+	} );
+
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {
 		const attachedPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 		expect( attachedPrompt ).toContain( 'refresh_browser' );

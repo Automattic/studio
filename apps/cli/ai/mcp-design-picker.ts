@@ -40,7 +40,7 @@ function say( text ) {
 // Codex hands the tool result over wrapped as JSON text.
 function optionsFrom( result ) {
 	if ( ! result ) return null;
-	if ( result.structuredContent && Array.isArray( result.structuredContent.options ) ) return result.structuredContent;
+	if ( result._meta && Array.isArray( result._meta.options ) ) return result._meta;
 	for ( const block of result.content || [] ) {
 		if ( block.type !== 'text' ) continue;
 		try {
@@ -91,7 +91,15 @@ request( 'ui/initialize', {
 	appInfo: { name: 'studio-design-picker', version: '1.0.0' },
 	appCapabilities: {},
 	protocolVersion: '2026-01-26',
-} ).then( () => window.parent.postMessage( { jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} }, '*' ) );
+} ).then( () => {
+	window.parent.postMessage( { jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} }, '*' );
+	// The host fits the frame to the page, so it never scrolls.
+	new ResizeObserver( () => window.parent.postMessage( {
+		jsonrpc: '2.0',
+		method: 'ui/notifications/size-changed',
+		params: { width: window.innerWidth, height: Math.ceil( document.body.getBoundingClientRect().height ) },
+	}, '*' ) ).observe( document.body );
+} );
 </script>
 </body>
 </html>`;

@@ -34,14 +34,14 @@ describe( 'present_design_options', () => {
 			'![Which layout should I build?](/tmp/design-options.jpg)'
 		);
 		expect( textOf( result ) ).toContain( '2. Collage: Overlapping photos.' );
-		expect( result.structuredContent ).toBeUndefined();
+		expect( result._meta ).toBeUndefined();
 	} );
 
 	it( 'gives a picker the previews and tells the agent to end its turn', async () => {
 		const result = await createPresentDesignOptionsTool( { picker: true } ).rawHandler( args );
 
 		expect( textOf( result ) ).toContain( 'end your turn now' );
-		expect( result.structuredContent ).toEqual( {
+		expect( result._meta ).toEqual( {
 			question: 'Which layout should I build?',
 			options: [
 				expect.objectContaining( {

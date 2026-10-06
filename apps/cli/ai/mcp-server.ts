@@ -131,7 +131,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				content: report
 					? [ ...result.content, { type: 'text' as const, text: report } ]
 					: result.content,
-				structuredContent: result.structuredContent,
+				_meta: result._meta,
 				isError: false,
 			};
 		} catch ( error ) {

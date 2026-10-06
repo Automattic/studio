@@ -58,13 +58,12 @@ function isProcessAlive( pid: number ): boolean {
 	try {
 		process.kill( pid, 0 );
 		return true;
-	} catch ( error ) {
-		return isErrnoException( error ) && error.code === 'EPERM';
+	} catch {
+		return false;
 	}
 }
 
-// The live `studio mcp` event sockets. A socket left behind by a process that
-// died without cleaning up is removed (named pipes go away with their process).
+// Also removes the sockets dead processes left behind; named pipes go away with their process.
 function liveMcpEventsSocketPaths(): string[] {
 	let entries: string[];
 	try {

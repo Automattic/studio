@@ -118,18 +118,8 @@ describe( 'process manager daemon client', () => {
 		expect( createConnectionMock ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'emitCliEvent() sends each event to every Studio app', async () => {
-		const { emitCliEvent, EVENTS_SOCKET_PATHS } = await import( '../daemon-client' );
-
-		await emitCliEvent( { event: 'auth-logout', data: {} } as never );
-
-		expect( createConnectionMock.mock.calls.map( ( [ peer ] ) => peer ) ).toEqual(
-			Object.values( EVENTS_SOCKET_PATHS )
-		);
-	} );
-
 	it.skipIf( process.platform === 'win32' )(
-		'emitCliEvent() also sends to live studio mcp sockets and removes dead ones',
+		'emitCliEvent() sends each event to every Studio app and live studio mcp process',
 		async () => {
 			const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pm-' ) );
 			process.env.STUDIO_PROCESS_MANAGER_HOME = home;

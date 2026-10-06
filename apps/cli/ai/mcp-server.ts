@@ -7,20 +7,27 @@ import {
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { createSkillTool } from 'cli/ai/tools/skill';
 import type { StudioAgentTool } from 'cli/ai/tools/define-tool';
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
-	const tools = resolveStudioToolDefinitions( {
-		imageGeneration: await isImageGenerationAvailable(),
-	} ) as StudioAgentTool[];
+	const skillTool = createSkillTool();
+	const tools = [
+		...resolveStudioToolDefinitions( { imageGeneration: await isImageGenerationAvailable() } ),
+		...( skillTool ? [ skillTool ] : [] ),
+	] as StudioAgentTool[];
 	const toolsByName = new Map( tools.map( ( tool ) => [ tool.name, tool ] ) );
 
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
-		{ capabilities: { tools: {} } }
+		{
+			capabilities: { tools: {} },
+			instructions: buildSystemPrompt( { external: true, tools } ),
+		}
 	);
 
 	server.setRequestHandler( ListToolsRequestSchema, async () => ( {

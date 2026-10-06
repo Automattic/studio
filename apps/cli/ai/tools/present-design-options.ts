@@ -122,7 +122,7 @@ async function handOverOptions(
 				text: [
 					`Rendered the ${ options.length } options as one numbered grid image (above). The user does not see tool results, only your reply, so in this same turn:`,
 					`1. Show the grid: start your reply with ![${ question }](${ gridFile.path })`,
-					`2. Ask "${ question }" with these options, labels verbatim, then end your turn: the user's pick arrives as their next message.`,
+					`2. Ask "${ question }" with one option per line below, label and description verbatim. Use your own question tool if you have one, such as AskUserQuestion (if it takes fewer options, leave out "${ OTHER_OPTIONS }": the user can still ask in their own words). Otherwise ask in your reply and end your turn: the user's pick arrives as their next message.`,
 					...options.map(
 						( option, index ) => `   ${ index + 1 }. ${ option.label }: ${ option.description }`
 					),

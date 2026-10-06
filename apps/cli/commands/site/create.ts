@@ -38,19 +38,10 @@ import {
 } from '@studio/common/lib/remove-default-db-constants';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
-	isFileAccessAllowedForRuntime,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import {
-	getSiteRuntime,
-	SITE_MODE_NATIVE,
-	SITE_MODE_SANDBOX,
-	SITE_RUNTIME_NATIVE_PHP,
-	siteRuntimeFromMode,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
@@ -87,10 +78,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
-import {
-	runWpCliCommandWithMessaging,
-	type RunWpCliCommandOptions,
-} from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand, type RunWpCliCommandOptions } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -160,7 +148,6 @@ export type CreateCommandOptions = {
 	siteId?: string;
 	wpVersion: string;
 	phpVersion: SupportedPHPVersion;
-	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
 	customDomain?: string;
 	enableHttps: boolean;
@@ -728,7 +715,7 @@ async function runWpCli(
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< WpCliResult > {
-	await using command = await runWpCliCommandWithMessaging( site, args, options );
+	await using command = await runWpCliCommand( site, args, options );
 	const [ exitCode, stdout, stderr ] = await Promise.all( [
 		command.response.exitCode,
 		command.response.stdoutText,
@@ -910,7 +897,6 @@ async function runStaticSiteImport(
 
 	let result: WpCliResult;
 	try {
-		const liveOutput = getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP;
 		result = await runWpCli(
 			site,
 			[
@@ -918,7 +904,7 @@ async function runStaticSiteImport(
 				'import',
 				`--request=${ path.posix.join( STATIC_SITE_IMPORT_DIR, STATIC_SITE_IMPORT_REQUEST_FILE ) }`,
 			],
-			liveOutput ? { liveOutput, onLiveOutput: () => logger.spinner.stop() } : {}
+			{ liveOutput: true, onLiveOutput: () => logger.spinner.stop() }
 		);
 	} finally {
 		clearInterval( progressTimer );
@@ -1019,14 +1005,6 @@ export async function runCommand(
 	options: CreateCommandOptions,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
-	const siteRuntime = options.runtime;
-	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
-		throw new LoggerError(
-			__(
-				'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
-			)
-		);
-	}
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 	const staticSiteImport = options.blueprint?.staticSiteImport;
@@ -1185,7 +1163,7 @@ export async function runCommand(
 					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
 				)
 			);
-		} else if ( siteRuntime === SITE_RUNTIME_NATIVE_PHP && ! isWordPressDirResult ) {
+		} else if ( ! isWordPressDirResult ) {
 			logger.reportStart(
 				LoggerAction.SETUP_WORDPRESS,
 				sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
@@ -1209,7 +1187,7 @@ export async function runCommand(
 			const sharedConfig = await readSharedConfig();
 			const selectedSkills = sharedConfig.selectedSkills ?? [];
 			await installAiInstructionsToSite(
-				{ path: sitePath, runtime: siteRuntime },
+				{ path: sitePath },
 				getAiInstructionsPath(),
 				selectedSkills
 			);
@@ -1267,7 +1245,6 @@ export async function runCommand(
 			adminEmail,
 			port,
 			phpVersion,
-			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
 			running: false,
 			status: 'ready',
@@ -1527,19 +1504,9 @@ export const registerCommand = (
 					choices: SupportedPHPVersions,
 					defaultDescription: RecommendedPHPVersion,
 				} )
-				.option( 'runtime', {
-					type: 'string',
-					describe: __(
-						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
-					),
-					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ] as const,
-					default: SITE_MODE_NATIVE,
-				} )
 				.option( 'file-access', {
 					type: 'string',
-					describe: __(
-						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
-					),
+					describe: __( 'Which files PHP can access: the site directory only, or all files' ),
 					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ] as const,
 					default: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				} )
@@ -1670,18 +1637,7 @@ export const registerCommand = (
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
-			const runtime = siteRuntimeFromMode( argv.runtime );
 			const fileAccess = argv.fileAccess;
-			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
-				defaultLogger.reportError(
-					new LoggerError(
-						__(
-							'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
-						)
-					)
-				);
-				return;
-			}
 
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
@@ -1850,7 +1806,6 @@ export const registerCommand = (
 				siteId: argv.id,
 				wpVersion,
 				phpVersion: phpVersion ?? RecommendedPHPVersion,
-				runtime,
 				fileAccess,
 				customDomain,
 				enableHttps,

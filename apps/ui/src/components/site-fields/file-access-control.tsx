@@ -3,7 +3,7 @@ import { useId } from 'react';
 import styles from './style.module.css';
 import type { DataFormControlProps, Option } from '@wordpress/dataviews';
 
-export type RuntimeChoiceOption = Option & {
+export type FileAccessChoiceOption = Option & {
 	/** Explanation rendered under the choice, like the WordPress update radios. */
 	optionDescription?: string;
 };
@@ -13,7 +13,7 @@ export type RuntimeChoiceOption = Option & {
  * explanation changes with the selection, which a dropdown can only show after
  * the fact — the radios put both explanations on screen at once (STU-2401).
  */
-export function RuntimeChoiceControl< Item >( {
+export function FileAccessChoiceControl< Item >( {
 	data,
 	field,
 	onChange,
@@ -24,7 +24,7 @@ export function RuntimeChoiceControl< Item >( {
 	const groupName = useId();
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
-	const options = ( field.elements ?? [] ) as RuntimeChoiceOption[];
+	const options = ( field.elements ?? [] ) as FileAccessChoiceOption[];
 
 	return (
 		<BaseControl

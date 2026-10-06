@@ -11,12 +11,6 @@ import os from 'os';
 import path from 'path';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	SiteRuntime,
-	getSiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
@@ -50,11 +44,7 @@ import {
 	mapCliOnlyToReprint,
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
-import {
-	ensureImportedSiteSqliteReady,
-	loadImportedRuntimeStartOptions,
-	loadImportedRuntimeStartOptionsNative,
-} from 'cli/lib/pull/runtime-start-options';
+import { loadImportedRuntimeStartOptionsNative } from 'cli/lib/pull/runtime-start-options';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -63,7 +53,6 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 	isServerRunning,
-	StartServerOptions,
 	getProcessName,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -338,18 +327,10 @@ export async function runCommand(
 	} );
 
 	try {
-		const preflight = await runPreflight(
-			SITE_RUNTIME_NATIVE_PHP,
-			studioMetadata,
-			apiUrl,
-			secret,
-			verbose
-		);
+		const preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
-			rawDirectory: studioMetadata.rawDirectory,
-			runtime: SITE_RUNTIME_NATIVE_PHP,
 			verbose,
 		} );
 		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
@@ -399,7 +380,6 @@ export async function runCommand(
 			// every command is idempotent and reprint resumes its own pipeline
 			// from `.import-state.json`, so there is no Studio-side guard.
 			await runFullPull(
-				SITE_RUNTIME_NATIVE_PHP,
 				studioMetadata,
 				apiUrl,
 				secret,
@@ -433,29 +413,15 @@ export async function runCommand(
 				} );
 			}
 
-			let runtimeStartOptions: StartServerOptions;
-			if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-				const nativeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
-				if ( ! nativeStartOptions ) {
-					throw new LoggerError(
-						`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
-					);
-				}
-				runtimeStartOptions = nativeStartOptions;
-			} else {
-				await ensureImportedSiteSqliteReady(
-					studioMetadata.runtimeBlueprintPath,
-					reprintMetadata.sourceSite.contentDirectory
-				);
-				runtimeStartOptions = await loadImportedRuntimeStartOptions(
-					studioMetadata.runtimeBlueprintPath,
-					reprintMetadata.sourceSite.extraDirectories
+			const runtimeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
+			if ( ! runtimeStartOptions ) {
+				throw new LoggerError(
+					`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
 				);
 			}
 
 			// Persist the computed start options so `studio site start` and
-			// the daemon can re-read them without recomputing (which spins
-			// up PHP WASM to extract runtime.php constants).
+			// the daemon can re-read them.
 			const startOptionsPath = path.join( studioMetadata.runtimeDirectory, 'start-options.json' );
 			fs.writeFileSync( startOptionsPath, JSON.stringify( runtimeStartOptions, null, 2 ) + '\n' );
 
@@ -734,7 +700,6 @@ async function applySelection( params: {
  * on the metadata before the download stages begin.
  */
 async function runPreflight(
-	runtime: SiteRuntime,
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
 	sourceSiteSecret: string,
@@ -756,8 +721,6 @@ async function runPreflight(
 	let preflightResult: ReprintProcessResult;
 	try {
 		preflightResult = await runReprintCommandUntilComplete(
-			sessionMetadata.stateDirectory,
-			sessionMetadata.rawDirectory,
 			[
 				'preflight',
 				sourceSiteApiUrl,
@@ -767,10 +730,7 @@ async function runPreflight(
 				`--fs-root=${ sessionMetadata.rawDirectory }`,
 			],
 			undefined,
-			{
-				verboseCommands: verbose,
-				runtime,
-			}
+			{ verboseCommands: verbose }
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -924,14 +884,11 @@ export function ensureScopedPullWpConfig(
  *     `rawDirectory/wp-content`; a database-excluded pull keeps the
  *     existing database at `sitePath/wp-content`.
  *
- * The site and runtime output directories are mounted up front so the
- * forks can write them onto the host filesystem. Every command is
- * resumable (exit code 2 → retry loop in
+ * Every command is resumable (exit code 2 → retry loop in
  * {@link runReprintCommandUntilComplete}) and idempotent, so this always
  * re-invokes the whole sequence with no Studio-side completion guard.
  */
 export async function runFullPull(
-	runtime: SiteRuntime,
 	metadata: PullSession,
 	apiUrl: string,
 	secret: string,
@@ -966,25 +923,13 @@ export async function runFullPull(
 			sqlitePath = existingSqlitePath;
 		}
 	}
-	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
-		runReprintCommandUntilComplete(
-			metadata.stateDirectory,
-			metadata.rawDirectory,
-			args,
-			( progress ) => logger.reportProgress( progress ),
-			{
-				progressLabel,
-				mounts: [
-					{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
-					{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
-				],
-				verboseCommands: verbose,
-				runtime,
-			}
-		);
+		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
+			progressLabel,
+			verboseCommands: verbose,
+		} );
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
@@ -1055,7 +1000,7 @@ export async function runFullPull(
 	await runStep( __( 'Preparing runtime' ), [
 		'apply-runtime',
 		apiUrl,
-		`--runtime=${ reprintRuntime }`,
+		'--runtime=nginx-fpm',
 		'--target-engine=sqlite',
 		`--target-sqlite-path=${ sqlitePath }`,
 		`--output-dir=${ metadata.runtimeDirectory }`,
@@ -1332,15 +1277,10 @@ export async function reapplyAdminCredentials(
 }
 
 function printSiteUrls( localUrl: string ): void {
-	// Pulled sites always run on the Playground runtime today.
-	console.log( __( 'Site URL: ' ), buildAutoLoginUrl( SITE_RUNTIME_PLAYGROUND, localUrl ) );
+	console.log( __( 'Site URL: ' ), buildAutoLoginUrl( localUrl ) );
 	console.log(
 		__( 'WP Admin: ' ),
-		buildAutoLoginUrl(
-			SITE_RUNTIME_PLAYGROUND,
-			localUrl,
-			new URL( '/wp-admin/', localUrl ).toString()
-		)
+		buildAutoLoginUrl( localUrl, new URL( '/wp-admin/', localUrl ).toString() )
 	);
 	console.log( '' );
 }

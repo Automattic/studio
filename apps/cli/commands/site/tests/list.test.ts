@@ -136,6 +136,7 @@ describe( 'CLI: studio site list', () => {
 					{
 						...testCliConfig.sites[ 0 ],
 						adminPassword: encodedPassword,
+						// Legacy field from configs written before the runtime switch was removed.
 						runtime: 'native-php',
 						latestCliPid: 4242,
 						// Unknown fields pass through the loose config schema; they must stay hidden.
@@ -159,10 +160,10 @@ describe( 'CLI: studio site list', () => {
 				path: '/path/to/site1',
 				port: 8080,
 				phpVersion: '8.0',
-				runtime: 'native-php',
 				url: 'http://localhost:8080',
 				running: false,
 			} );
+			expect( parsed[ 0 ] ).not.toHaveProperty( 'runtime' );
 
 			for ( const key of Object.keys( parsed[ 0 ] ) ) {
 				expect( SITE_LIST_PUBLIC_FIELDS ).toContain( key );

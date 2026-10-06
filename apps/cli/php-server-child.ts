@@ -829,10 +829,6 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await next;
 				break;
 			}
-			case 'wp-cli-command':
-				throw new Error(
-					`Message "${ validMessage.topic }" is not supported by the native PHP runtime`
-				);
 			default:
 				throw new Error( `Unknown message.` );
 		}

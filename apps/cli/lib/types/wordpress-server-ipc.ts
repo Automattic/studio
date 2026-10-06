@@ -1,20 +1,8 @@
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { z } from 'zod';
-import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
-const mountSchema = z.object( {
-	hostPath: z.string(),
-	vfsPath: z.string(),
-} );
-
-const wordpressInstallModeSchema: z.ZodType< WordPressInstallMode > = z.enum( [
-	'download-and-install',
-	'install-from-existing-files',
-	'install-from-existing-files-if-needed',
-	'do-not-attempt-installing',
-] );
 
 export const serverConfigSchema = z.object( {
 	siteId: z.string(),
@@ -41,11 +29,6 @@ export const serverConfigSchema = z.object( {
 			uri: z.string(),
 		} )
 		.optional(),
-	mounts: z.array( mountSchema ).optional(),
-	mountsBeforeInstall: z.array( mountSchema ).optional(),
-	wordpressInstallMode: wordpressInstallModeSchema.optional(),
-	skipSqliteSetup: z.boolean().optional(),
-	useExactMountLayout: z.boolean().optional(),
 	autoPrependFile: z.string().optional(),
 	openBasedirAllowList: z.array( z.string() ).optional(),
 } );
@@ -76,19 +59,11 @@ const managerMessageStopServer = z.object( {
 	data: z.object( {} ),
 } );
 
-const managerMessageWpCliCommand = z.object( {
-	topic: z.literal( 'wp-cli-command' ),
-	data: z.object( {
-		args: z.array( z.string() ),
-	} ),
-} );
-
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageAbort,
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
-	managerMessageWpCliCommand,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
 
@@ -98,7 +73,6 @@ export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.extend( managerMessageStartServer.shape ),
 	managerMessageBase.extend( managerMessageRunBlueprint.shape ),
 	managerMessageBase.extend( managerMessageStopServer.shape ),
-	managerMessageBase.extend( managerMessageWpCliCommand.shape ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
@@ -132,7 +106,6 @@ const childMessageError = z.object( {
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
-	cliArgs: z.record( z.string(), z.unknown() ).optional(),
 } );
 
 const childMessageConsole = z.object( {

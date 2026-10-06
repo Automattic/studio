@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promi
 import os from 'os';
 import path from 'path';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
@@ -22,7 +21,7 @@ import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import {
@@ -114,7 +113,7 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 } ) );
 
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
-	runWpCliCommandWithMessaging: vi.fn(),
+	runWpCliCommand: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/site-paths', async () => ( {
@@ -842,7 +841,6 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -853,7 +851,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /does not run in a shell/ );
 
-		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
@@ -862,9 +860,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -875,7 +872,7 @@ describe( 'Studio AI MCP tools', () => {
 <!-- /wp:paragraph -->`,
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -891,9 +888,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -902,7 +898,7 @@ describe( 'Studio AI MCP tools', () => {
 			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -917,9 +913,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -929,7 +924,7 @@ describe( 'Studio AI MCP tools', () => {
 				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -945,9 +940,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -956,7 +950,7 @@ describe( 'Studio AI MCP tools', () => {
 			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -972,7 +966,6 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -983,7 +976,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /typographic dash/ );
 
-		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
@@ -1001,7 +994,7 @@ describe( 'Studio AI MCP tools', () => {
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 		] );
-		vi.mocked( runWpCliCommandWithMessaging )
+		vi.mocked( runWpCliCommand )
 			.mockResolvedValueOnce(
 				mockWpCliResponse( {
 					stdout: JSON.stringify( [
@@ -1033,7 +1026,7 @@ describe( 'Studio AI MCP tools', () => {
 				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )
 			).resolves.toBe( 'jpeg' );
 			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
-			const finalize = vi.mocked( runWpCliCommandWithMessaging ).mock.calls[ 1 ][ 1 ][ 1 ];
+			const finalize = vi.mocked( runWpCliCommand ).mock.calls[ 1 ][ 1 ][ 1 ];
 			expect(
 				JSON.parse(
 					Buffer.from( finalize.match( /base64_decode\( '([^']+)' \)/ )![ 1 ], 'base64' ).toString()
@@ -1292,9 +1285,8 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCliResponse( { stdout: "Success: Switched to 'Acme Studio' theme." } ) as never
 			);
 
@@ -1303,7 +1295,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
+			expect( runWpCliCommand ).toHaveBeenCalledWith( scaffoldSite, [
 				'theme',
 				'activate',
 				'acme-studio',
@@ -1320,7 +1312,6 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
@@ -1329,7 +1320,7 @@ describe( 'Studio AI MCP tools', () => {
 				activate: false,
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain(
 				'Activate with: wp theme activate acme-studio'
 			);
@@ -1343,7 +1334,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain( 'Activation skipped:' );
 			expect( getTextContent( result ) ).toContain( 'Site is not running' );
 			expect( getTextContent( result ) ).toContain(
@@ -1357,9 +1348,8 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCliResponse( { stderr: 'Error: stylesheet missing.', exitCode: 1 } ) as never
 			);
 

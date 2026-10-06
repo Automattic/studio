@@ -89,24 +89,10 @@ describe( 'CLI: studio config get', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith( '' );
 		} );
 
-		it( 'reports the user-facing runtime mode, not the internal runtime', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( {
-				...testSite,
-				runtime: 'playground',
-			} );
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'runtime', 'table' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith( 'sandbox' );
-		} );
-
-		it( 'defaults runtime to native when unset', async () => {
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'runtime', 'table' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith( 'native' );
+		it( 'rejects the removed runtime key', async () => {
+			await expect( runCommand( '/path/to/site', 'runtime', 'table' ) ).rejects.toThrow(
+				/Unknown config key "runtime"/
+			);
 		} );
 
 		it( 'reports the file access value', async () => {
@@ -142,7 +128,6 @@ describe( 'CLI: studio config get', () => {
 						https: true,
 						php: '8.0',
 						wp: '6.4',
-						runtime: 'native',
 						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'root',
@@ -178,7 +163,6 @@ describe( 'CLI: studio config get', () => {
 						https: false,
 						php: '8.2',
 						wp: '6.4',
-						runtime: 'native',
 						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'admin',

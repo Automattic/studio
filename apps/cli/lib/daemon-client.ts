@@ -26,7 +26,6 @@ import {
 	childMessageFromProcessManagerSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 import type { SocketEvent } from '@studio/common/lib/cli-events';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
@@ -362,7 +361,6 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 type StartProcessOptions = {
 	env?: NodeJS.ProcessEnv;
 	args?: string[];
-	runtime?: SiteRuntime;
 };
 
 export async function startProcess(
@@ -376,7 +374,6 @@ export async function startProcess(
 		scriptPath,
 		env: options.env ?? process.env,
 		args: options.args ?? [],
-		runtime: options.runtime,
 	} );
 	return daemonStartProcessSuccessResponseSchema.parse( response ).process;
 }

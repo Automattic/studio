@@ -56,7 +56,7 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
@@ -91,7 +91,6 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -820,7 +819,6 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
-		runtime?: SiteRuntime;
 		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
@@ -838,7 +836,6 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
-		runtime,
 		fileAccess,
 		adminUsername,
 		adminPassword,
@@ -869,7 +866,6 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
-				runtime,
 				fileAccess,
 				customDomain,
 				enableHttps,
@@ -907,11 +903,6 @@ export async function createSite(
 				httpsEnabled: !! enableHttps,
 			},
 		};
-
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
 
 		const debugLog = readWordPressDebugLog( path );
 		if ( debugLog && debugLog.length > 0 ) {
@@ -989,10 +980,6 @@ export async function updateSite(
 
 	if ( wpVersion ) {
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
-	}
-
-	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
-		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
 	}
 
 	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
@@ -1125,11 +1112,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 				httpsEnabled: !! server.details.enableHttps,
 			},
 		};
-
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
 
 		const debugLog = readWordPressDebugLog( server.details.path );
 		if ( debugLog && debugLog.length > 0 ) {
@@ -1316,9 +1298,6 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		// Copies keep the source site's runtime settings rather than picking up
-		// the default for new sites.
-		runtime: getSiteRuntime( sourceSite ),
 		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
@@ -1329,8 +1308,7 @@ export async function copySite(
 		flowType: 'duplicate',
 	} );
 
-	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
-	// explicitly update that option
+	// The copy keeps the source site's siteurl, so point it at the new port
 	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)

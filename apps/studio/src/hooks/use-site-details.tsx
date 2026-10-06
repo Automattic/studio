@@ -40,7 +40,6 @@ interface SiteDetailsContext {
 		adminUsername?: string,
 		adminPassword?: string,
 		adminEmail?: string,
-		runtime?: SiteRuntime,
 		fileAccess?: SiteFileAccess,
 		flowType?: TracksSiteCreateFlowType
 	) => Promise< SiteDetails | void >;
@@ -317,7 +316,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			adminUsername?: string,
 			adminPassword?: string,
 			adminEmail?: string,
-			runtime?: SiteRuntime,
 			fileAccess?: SiteFileAccess,
 			flowType?: TracksSiteCreateFlowType
 		) => {
@@ -392,7 +390,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					enableHttps,
 					siteId: tempSiteId,
 					phpVersion,
-					runtime,
 					fileAccess,
 					blueprint,
 					adminUsername,

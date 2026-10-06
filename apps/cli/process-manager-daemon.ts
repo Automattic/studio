@@ -3,12 +3,6 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
-import { getJspiExecArgv } from '@studio/common/lib/jspi';
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
@@ -34,15 +28,9 @@ const STOP_TIMEOUT_MS = 2_500;
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
 
-// Weighted capacity limit for site processes. Playground (PHP WASM) sites use ~6x more memory
-// than native PHP sites (~720 MB vs ~120 MB), so they carry a heavier weight. The cap of 36
-// allows up to 36 native-PHP sites or 6 Playground sites (or a mix).
+// Cap on concurrently running site processes, at roughly 120 MB of memory each.
 const SITE_PROCESS_PREFIX = 'studio-site-';
-const CAPACITY_WEIGHTS: Record< SiteRuntime, number > = {
-	[ SITE_RUNTIME_NATIVE_PHP ]: 1,
-	[ SITE_RUNTIME_PLAYGROUND ]: 6,
-};
-const MAX_WEIGHTED_CAPACITY = 36;
+const MAX_RUNNING_SITES = 36;
 
 type ManagedProcessBase = {
 	pmId: number;
@@ -50,8 +38,6 @@ type ManagedProcessBase = {
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
-	// Used by clients to decide whether WP-CLI commands can run through this process.
-	runtime: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -170,8 +156,7 @@ export class ProcessManagerDaemon {
 					request.processName,
 					request.scriptPath,
 					request.env ?? {},
-					request.args ?? [],
-					request.runtime
+					request.args ?? []
 				);
 				return {
 					type: 'result',
@@ -217,22 +202,21 @@ export class ProcessManagerDaemon {
 		return undefined;
 	}
 
-	private getWeightedCapacityUsage(): number {
-		let usage = 0;
+	private getRunningSiteCount(): number {
+		let count = 0;
 		for ( const proc of this.managedProcesses.values() ) {
 			if ( proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX ) ) {
-				usage += CAPACITY_WEIGHTS[ proc.runtime ];
+				count++;
 			}
 		}
-		return usage;
+		return count;
 	}
 
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
 		env: NodeJS.ProcessEnv,
-		args: string[],
-		runtime: SiteRuntime = SITE_RUNTIME_PLAYGROUND
+		args: string[]
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
@@ -240,14 +224,11 @@ export class ProcessManagerDaemon {
 		}
 
 		if ( processName.startsWith( SITE_PROCESS_PREFIX ) ) {
-			const weight = CAPACITY_WEIGHTS[ runtime ];
-			const currentUsage = this.getWeightedCapacityUsage();
-			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
-				const errorMessage =
-					runtime === SITE_RUNTIME_PLAYGROUND
-						? `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Sandbox sites count as ${ weight } units. Stop some running sites first.`
-						: `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Stop some running sites first.`;
-				throw new Error( `CAPACITY_LIMIT_REACHED: ${ errorMessage }` );
+			const runningSites = this.getRunningSiteCount();
+			if ( runningSites >= MAX_RUNNING_SITES ) {
+				throw new Error(
+					`CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (${ runningSites }/${ MAX_RUNNING_SITES }). Stop some running sites first.`
+				);
 			}
 		}
 
@@ -255,7 +236,7 @@ export class ProcessManagerDaemon {
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
-		const child = spawn( process.execPath, [ ...getJspiExecArgv(), scriptPath, ...args ], {
+		const child = spawn( process.execPath, [ scriptPath, ...args ], {
 			// Trimmed at the spawn rather than in the client, so every request is covered whichever
 			// process sent it.
 			env: withoutOversizedEnvValues( env ),
@@ -270,7 +251,6 @@ export class ProcessManagerDaemon {
 			scriptPath,
 			args,
 			env,
-			runtime,
 			child,
 			// `child.pid` is only undefined if there's an error, in which case our error handler
 			// immediately changes the status and deletes the process from the map
@@ -457,7 +437,6 @@ export class ProcessManagerDaemon {
 				name: managedProcess.name,
 				pmId: managedProcess.pmId,
 				status: managedProcess.status,
-				runtime: managedProcess.runtime,
 			};
 		}
 
@@ -466,7 +445,6 @@ export class ProcessManagerDaemon {
 			pmId: managedProcess.pmId,
 			status: managedProcess.status,
 			pid: managedProcess.pid,
-			runtime: managedProcess.runtime,
 		};
 	}
 

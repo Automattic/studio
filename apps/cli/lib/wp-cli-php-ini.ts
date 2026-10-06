@@ -24,15 +24,3 @@ export function getWpCliPhpIniArgs(): string[] {
 		`${ key }=${ value }`,
 	] );
 }
-
-/**
- * Builds the `php` argv for a WP-CLI invocation. The ini flags must precede the phar path,
- * otherwise PHP passes them through to WP-CLI as script arguments.
- */
-export function buildWpCliPhpArgv(
-	pharPath: string,
-	documentRoot: string,
-	args: string[]
-): string[] {
-	return [ 'php', ...getWpCliPhpIniArgs(), pharPath, `--path=${ documentRoot }`, ...args ];
-}

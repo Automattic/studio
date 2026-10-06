@@ -37,11 +37,6 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
@@ -55,7 +50,6 @@ import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
@@ -279,25 +273,6 @@ async function runAgentSessionTurn(
 	}
 }
 
-// Resolve the runtime of the active local site so the system prompt can drop
-// Playground-specific WP-CLI guidance for native PHP sites. The active site
-// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
-// config. Falls back to native-php (the default runtime) for unknown, remote,
-// or unreadable sites.
-async function resolveActiveSiteRuntime(
-	activeSite: SiteInfo | null | undefined
-): Promise< SiteRuntime > {
-	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-	try {
-		const site = await getSiteByFolder( activeSite.path );
-		return getSiteRuntime( site );
-	} catch {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-}
-
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -308,9 +283,8 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
-		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
 		isImageGenerationAvailable(),
 	] );
 
@@ -329,7 +303,7 @@ async function createStudioAgentSession(
 						id: config.activeSite!.wpcomSiteId!,
 					},
 			  }
-			: { chatArtifactsEnabled, runtime } ),
+			: { chatArtifactsEnabled } ),
 		userInstructions,
 		visionEnabled,
 		tools: tools.map( toolPromptContribution ),

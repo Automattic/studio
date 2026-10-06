@@ -341,7 +341,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					name: params.name,
 					path: params.path,
 					phpVersion: params.phpVersion,
-					runtime: params.runtime,
 					fileAccess: params.fileAccess,
 					wpVersion: params.wpVersion,
 					customDomain: params.customDomain,

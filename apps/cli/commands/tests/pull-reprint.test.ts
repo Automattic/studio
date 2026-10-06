@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
@@ -271,7 +270,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'runs pull-files → pull-db → merge-wp-content → flat-docroot → apply-runtime with the sqlite target and mounts', async () => {
+	it( 'runs pull-files → pull-db → merge-wp-content → flat-docroot → apply-runtime with the sqlite target', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-' )
 		);
@@ -303,7 +302,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		} as never;
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
@@ -321,7 +319,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 
 		// The pipeline runs as separate commands so the selection can skip steps.
 		expect( reprint ).toHaveBeenCalledTimes( 5 );
-		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 0 ] as string[] )[ 0 ] );
 		expect( commands ).toEqual( [
 			'pull-files',
 			'pull-db',
@@ -331,7 +329,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		] );
 
 		const [ filesArgs, dbArgs, mergeArgs, flattenArgs, runtimeArgs ] = reprint.mock.calls.map(
-			( call ) => call[ 2 ] as string[]
+			( call ) => call[ 0 ] as string[]
 		);
 		expect( filesArgs ).toEqual( [
 			'pull-files',
@@ -386,7 +384,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( runtimeArgs ).toEqual( [
 			'apply-runtime',
 			'https://example.com/?reprint-api',
-			'--runtime=playground-cli',
+			'--runtime=nginx-fpm',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ path.join(
 				rawDirectory,
@@ -401,13 +399,11 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 		] );
 
-		// Every step mounts the flattened site and runtime output dirs so the
-		// forks can write them to the host filesystem.
 		for ( const call of reprint.mock.calls ) {
-			expect( ( call[ 4 ] as { mounts?: unknown } )?.mounts ).toEqual( [
-				{ hostPath: sitePath, vfsPath: sitePath },
-				{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
-			] );
+			expect( call[ 2 ] ).toEqual( {
+				progressLabel: expect.any( String ),
+				verboseCommands: false,
+			} );
 		}
 
 		// No Studio-owned progress file is written: resume is by derivation
@@ -449,7 +445,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				sitePath,
 				technicalSiteDirectory,
@@ -466,14 +461,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			{ skipDatabase: true }
 		);
 
-		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 0 ] as string[] )[ 0 ] );
 		// A delta re-pull neither merges nor forces: the site's wp-content is
 		// already a symlink into the fs-root, and a live site must not be
 		// replaced.
 		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
-		const flattenArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
+		const flattenArgs = reprint.mock.calls[ 1 ][ 0 ] as string[];
 		expect( flattenArgs ).not.toContain( '--force' );
-		const runtimeArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
+		const runtimeArgs = reprint.mock.calls[ 2 ][ 0 ] as string[];
 		expect( runtimeArgs ).toContain( '--target-engine=sqlite' );
 		expect( runtimeArgs ).toContain( `--target-sqlite-path=${ legacySqlitePath }` );
 
@@ -498,7 +493,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				sitePath: path.join( technicalSiteDirectory, 'site' ),
 				technicalSiteDirectory,
@@ -515,13 +509,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			{ fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ] }
 		);
 
-		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		const filesArgs = reprint.mock.calls[ 0 ][ 0 ] as string[];
 		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
 		expect( filesArgs ).toContain( '--only=:wp-plugins:' );
 		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/akismet' );
 		expect( filesArgs ).not.toContain( '--filter=essential-files' );
 		// The database step still runs (only files were restricted).
-		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 0 ] as string[] )[ 0 ] );
 		expect( commands ).toContain( 'pull-db' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
@@ -541,7 +535,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				stateDirectory,
 				rawDirectory,
@@ -558,7 +551,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			{ fileOnlyPaths: [ ':wp-content:/plugins', ':wp-content:/themes' ] }
 		);
 
-		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		const filesArgs = reprint.mock.calls[ 0 ][ 0 ] as string[];
 		expect( filesArgs ).toContain( '--only=:wp-content:/plugins' );
 		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
 		expect( filesArgs ).not.toContain( '--exclude=:wp-uploads:' );
@@ -588,7 +581,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				sitePath: path.join( technicalSiteDirectory, 'site' ),
 				technicalSiteDirectory,
@@ -614,7 +606,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			JSON.parse( fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' ) )
 		).toEqual( { command: 'files-pull', status: 'complete', preflight: { data: {} } } );
 		// The pull is still passed to Reprint in its default mode.
-		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		const filesArgs = reprint.mock.calls[ 0 ][ 0 ] as string[];
 		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
 		expect( filesArgs.some( ( a ) => a.includes( 'preserve-local' ) ) ).toBe( false );
 
@@ -643,7 +635,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		} );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				sitePath: path.join( technicalSiteDirectory, 'site' ),
 				technicalSiteDirectory,
@@ -693,7 +684,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
 
 		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
 			{
 				sitePath: path.join( technicalSiteDirectory, 'site' ),
 				technicalSiteDirectory,
@@ -709,7 +699,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			true
 		);
 
-		const passedArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		const passedArgs = reprint.mock.calls[ 0 ][ 0 ] as string[];
 		expect( passedArgs ).not.toContain( '--no-db' );
 		expect( passedArgs.some( ( a ) => a.startsWith( '--only' ) ) ).toBe( false );
 
@@ -754,34 +744,21 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 
 		// force=false models a delta re-pull, which must not force-overwrite
 		// the live site.
-		await runFullPull(
-			SITE_RUNTIME_PLAYGROUND,
-			metadata,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
-			false,
-			false
-		);
+		await runFullPull( metadata, 'https://example.com/?reprint-api', 'hmac-secret', false, false );
 
 		// With no content dir from preflight, the database target stays in
 		// the raw scratch directory so flat-docroot can link it later.
-		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
+		const dbArgs = reprint.mock.calls[ 1 ][ 0 ] as string[];
 		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
 		expect( dbArgs ).toContain(
 			`--target-sqlite-path=${ path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' ) }`
 		);
 		// A delta re-pull (isFirstPull=false) skips the merge and leaves the
 		// flatten unforced, so it can never overwrite the live site.
-		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 0 ] as string[] )[ 0 ] );
 		expect( commands ).not.toContain( 'merge-wp-content' );
-		const flattenArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];
+		const flattenArgs = reprint.mock.calls[ 2 ][ 0 ] as string[];
 		expect( flattenArgs ).not.toContain( '--force' );
-		// The site + runtime dirs are always mounted for every fork.
-		const dbOptions = reprint.mock.calls[ 1 ][ 4 ] as { mounts?: unknown };
-		expect( dbOptions?.mounts ).toEqual( [
-			{ hostPath: sitePath, vfsPath: sitePath },
-			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
-		] );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -823,7 +800,6 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 
 		await expect(
 			runFullPull(
-				SITE_RUNTIME_PLAYGROUND,
 				metadata as never,
 				'https://example.com/?reprint-api',
 				'hmac-secret',
@@ -1156,7 +1132,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 
 		// The pipeline reached the remote (preflight is its first reprint call).
 		expect( reprintSpy ).toHaveBeenCalled();
-		expect( reprintSpy.mock.calls[ 0 ][ 2 ][ 0 ] ).toBe( 'preflight' );
+		expect( reprintSpy.mock.calls[ 0 ][ 0 ][ 0 ] ).toBe( 'preflight' );
 
 		// Messaging is driven off the existing record's name and path.
 		const logged = logSpy.mock.calls.flat().join( '\n' );
@@ -1266,7 +1242,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		// A delta re-pull re-enters the pipeline (preflight is its first call)
 		// rather than short-circuiting on the existing import.
 		expect( reprintSpy ).toHaveBeenCalled();
-		expect( reprintSpy.mock.calls[ 0 ][ 2 ][ 0 ] ).toBe( 'preflight' );
+		expect( reprintSpy.mock.calls[ 0 ][ 0 ][ 0 ] ).toBe( 'preflight' );
 
 		const config = readSeededCliConfig( fakeHome );
 		// The durable importComplete marker is preserved across the re-pull…
@@ -1305,7 +1281,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
 			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
-			.mockImplementation( async ( _stateDir, _rawDir, args ) => {
+			.mockImplementation( async ( args ) => {
 				if ( args[ 0 ] === 'preflight' ) {
 					return {
 						stdout: JSON.stringify( {
@@ -1347,7 +1323,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 			/stop after files pull invocation/
 		);
 
-		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
+		expect( reprintSpy.mock.calls.map( ( call ) => call[ 0 ][ 0 ] ) ).toEqual( [
 			'preflight',
 			'import-metadata',
 			'pull-files',
@@ -1390,7 +1366,6 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
 		const technicalSiteDirectory = path.join( pullsRoot, 'fresh-id' );
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
-		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
 		const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
 
 		seedCliConfigSite( fakeHome, [
@@ -1420,7 +1395,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
 			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
-			.mockImplementation( async ( _stateDir, _rawDir, args ) => {
+			.mockImplementation( async ( args ) => {
 				if ( args[ 0 ] === 'preflight' ) {
 					return {
 						stdout: JSON.stringify( {
@@ -1481,7 +1456,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 
 		// No pull-db: the database was skipped. CLI selections do not need a
 		// remote tree lookup.
-		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
+		expect( reprintSpy.mock.calls.map( ( call ) => call[ 0 ][ 0 ] ) ).toEqual( [
 			'preflight',
 			'import-metadata',
 			'pull-files',
@@ -1491,7 +1466,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 
 		// The include-list carries the live core root (the ancestor root
 		// holding other core versions is dropped) plus the selection.
-		const filesArgs = reprintSpy.mock.calls[ 2 ][ 2 ] as string[];
+		const filesArgs = reprintSpy.mock.calls[ 2 ][ 0 ] as string[];
 		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
 		expect( filesArgs ).not.toContain( '--only=/wordpress/core' );
 		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );

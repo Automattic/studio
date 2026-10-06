@@ -24,7 +24,6 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
@@ -165,7 +164,6 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 				name: activeSite.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
 				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				enableHttps: false,
 				noStart: true,

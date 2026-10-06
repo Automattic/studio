@@ -22,10 +22,8 @@
 			"entry": [
 				"index.ts",
 				"php-server-child.ts",
-				"playground-server-child.ts",
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",
-				"reprint-child.ts",
 				"logger.ts",
 				"ai/eval-runner.ts",
 				"commands/**/*.ts",
@@ -55,7 +53,6 @@
 	},
 	"ignoreDependencies": [
 		"@sentry/react",
-		"@wp-playground/cli",
 		"@automattic/wp-babel-makepot"
 	],
 	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]

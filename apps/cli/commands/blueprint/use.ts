@@ -10,7 +10,6 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -129,7 +128,6 @@ export async function runCommand(
 			name: options.name,
 			wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
 			phpVersion: options.phpVersion ?? DEFAULT_PHP_VERSION,
-			runtime: SITE_RUNTIME_NATIVE_PHP,
 			fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,

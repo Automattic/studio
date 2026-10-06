@@ -8,6 +8,7 @@ describe( 'pickPublicSiteFields', () => {
 			path: '/path/to/site',
 			port: 8881,
 			phpVersion: '8.4',
+			// Legacy field from configs written before the runtime switch was removed.
 			runtime: 'native-php',
 			url: 'http://localhost:8881',
 			running: true,
@@ -23,7 +24,6 @@ describe( 'pickPublicSiteFields', () => {
 			path: '/path/to/site',
 			port: 8881,
 			phpVersion: '8.4',
-			runtime: 'native-php',
 			url: 'http://localhost:8881',
 			running: true,
 			adminUsername: 'admin',

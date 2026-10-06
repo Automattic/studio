@@ -1,11 +1,8 @@
-// Studio offers the same PHP versions for both runtimes: the versions the
-// bundled native PHP binaries are built for. Playground (PHP WASM) supports
-// older versions at runtime, which keeps existing sites stored on a
-// no-longer-offered version working until they are edited.
+// The PHP versions the bundled native PHP binaries are built for. Sites stored
+// on an older version run with the closest supported one.
 export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2' ] as const;
 export const NativePhpSupportedVersions = SupportedPHPVersions;
 
-export const LatestSupportedPHPVersion = '8.5' as const;
 export const LatestNativePhpSupportedVersion = NativePhpSupportedVersions[ 0 ];
 
 /**

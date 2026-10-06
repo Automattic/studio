@@ -6,7 +6,6 @@ import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
-import { getSiteRuntime } from '@studio/common/lib/site-runtime';
 import {
 	RecommendedPHPVersion,
 	SupportedPHPVersions,
@@ -254,7 +253,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 		}
 
-		if ( getSiteRuntime( site ) === 'native-php' && ! site.runtimeBlueprintPath ) {
+		if ( ! site.runtimeBlueprintPath ) {
 			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
 		}
 	}
@@ -309,9 +308,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		await keepSqliteIntegrationUpdated( site.path );
-		if ( getSiteRuntime( site ) === 'native-php' ) {
-			await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
-		}
+		await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}

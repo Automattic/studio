@@ -3,7 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -17,7 +16,6 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
-	sendWpCliCommand,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
@@ -70,7 +68,6 @@ describe( 'WordPress Server Manager', () => {
 		pmId: 5,
 		status: 'online',
 		pid: 12345,
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	} as const;
 
 	let mockBus: EventEmitter;
@@ -144,7 +141,6 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 5,
 				status: 'online',
 				pid: 12345,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} as const;
 
 			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
@@ -154,22 +150,6 @@ describe( 'WordPress Server Manager', () => {
 			expect( vi.mocked( daemonClient.isProcessRunning ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
-			expect( result ).toEqual( mockProcess );
-		} );
-
-		it( 'should preserve runtime from a running site process', async () => {
-			const mockProcess = {
-				name: 'studio-site-test-site-id',
-				pmId: 5,
-				status: 'online',
-				pid: 12345,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-			} as const;
-
-			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
-
-			const result = await isServerRunning( 'test-site-id' );
-
 			expect( result ).toEqual( mockProcess );
 		} );
 
@@ -183,18 +163,14 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	describe( 'startWordPressServer', () => {
-		it( 'should start WordPress server with basic configuration', async () => {
+		it( 'should start WordPress server with the native PHP child script', async () => {
 			setupIpcMocks();
 
-			const result = await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_PLAYGROUND },
-				mockLogger
-			);
+			const result = await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /playground-server-child\.mjs$/ ),
-				{ runtime: SITE_RUNTIME_PLAYGROUND }
+				expect.stringMatching( /php-server-child\.mjs$/ )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
@@ -216,7 +192,6 @@ describe( 'WordPress Server Manager', () => {
 			vi.mocked( daemonClient.startProcess ).mockResolvedValue( {
 				name: mockProcessDescription.name,
 				pmId: mockProcessDescription.pmId,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 				status: 'stopped',
 			} );
 
@@ -225,41 +200,10 @@ describe( 'WordPress Server Manager', () => {
 			expect( vi.mocked( updateSiteLatestCliPid ) ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should use the native-php child script when the site runtime is native-php', async () => {
+		it( 'should convert the SQLite database out of WAL mode before starting', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
-				mockLogger
-			);
-
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id',
-				expect.stringMatching( /php-server-child\.mjs$/ ),
-				{ runtime: SITE_RUNTIME_NATIVE_PHP }
-			);
-		} );
-
-		it( 'should convert the SQLite database out of WAL mode before starting Playground', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_PLAYGROUND },
-				mockLogger
-			);
-
-			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
-				mockSiteData.path
-			);
-		} );
-
-		it( 'should convert the SQLite database out of WAL mode before starting native PHP', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
-				mockLogger
-			);
+			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
 				mockSiteData.path
@@ -296,13 +240,10 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {
+		it( 'should resolve older stored PHP versions to the closest native PHP version', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, phpVersion: '7.4' },
-				mockLogger
-			);
+			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger );
 
 			expect( vi.mocked( ensurePhpBinaryAvailable ) ).toHaveBeenCalledWith(
 				'8.2',
@@ -319,25 +260,10 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should default to the native-php child script when the site has no runtime set', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id',
-				expect.stringMatching( /php-server-child\.mjs$/ ),
-				{ runtime: SITE_RUNTIME_NATIVE_PHP }
-			);
-		} );
-
 		it( 'should include the file access setting in the server config', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, fileAccess: 'all-files' },
-				mockLogger
-			);
+			await startWordPressServer( { ...mockSiteData, fileAccess: 'all-files' }, mockLogger );
 
 			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
 				mockProcessDescription.pmId,
@@ -353,13 +279,10 @@ describe( 'WordPress Server Manager', () => {
 		it( 'records site runtime usage after a successful start', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
-				mockLogger
-			);
+			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( recordSiteRuntimeUsage ) ).toHaveBeenCalledWith(
-				expect.objectContaining( { id: mockSiteData.id, runtime: SITE_RUNTIME_NATIVE_PHP } )
+				expect.objectContaining( { id: mockSiteData.id } )
 			);
 		} );
 
@@ -565,53 +488,6 @@ describe( 'WordPress Server Manager', () => {
 		} );
 	} );
 
-	describe( 'sendWpCliCommand', () => {
-		it( 'should send WP-CLI commands to a running playground process', async () => {
-			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
-				name: 'studio-site-test-site-id',
-				pmId: 1,
-				status: 'online',
-				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
-			} );
-
-			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( processId, message ) => {
-				setImmediate( () => {
-					mockBus.emit( 'process-message', {
-						process: { name: 'studio-site-test-site-id', pm_id: processId },
-						raw: {
-							topic: 'result',
-							originalMessageId: message.messageId,
-							result: { stdout: 'ok', stderr: '', exitCode: 0 },
-						},
-					} );
-				} );
-
-				return Promise.resolve();
-			} );
-
-			await expect(
-				sendWpCliCommand( 'test-site-id', [ 'option', 'get', 'siteurl' ] )
-			).resolves.toEqual( { stdout: 'ok', stderr: '', exitCode: 0 } );
-		} );
-
-		it( 'should not send WP-CLI commands to a running native PHP process', async () => {
-			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
-				name: 'studio-site-test-site-id',
-				pmId: 1,
-				status: 'online',
-				pid: 1234,
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-			} );
-
-			await expect(
-				sendWpCliCommand( 'test-site-id', [ 'option', 'get', 'siteurl' ] )
-			).rejects.toThrow( 'Running WordPress server does not support WP-CLI commands' );
-
-			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).not.toHaveBeenCalled();
-		} );
-	} );
-
 	describe( 'stopWordPressServer', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
 			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( {
@@ -619,7 +495,6 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( processId, message ) => {
@@ -656,7 +531,6 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			};
 
 			// Still listed as online for the first polls after the SIGKILL, then gone.
@@ -686,7 +560,6 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( daemonClient.sendMessageToProcess ).mockRejectedValue(
 				new Error( 'Failed to send stop message' )

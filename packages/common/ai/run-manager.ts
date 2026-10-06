@@ -11,7 +11,6 @@ import {
 } from '@studio/common/ai/sessions/placement';
 import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
-import { getJspiExecArgv, JSPI_FLAG } from '@studio/common/lib/jspi';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
@@ -99,13 +98,7 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 }
 
 export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRunManager {
-	const {
-		cliBinary,
-		nodeBinary,
-		execArgv = nodeBinary ? [ JSPI_FLAG ] : getJspiExecArgv(),
-		surface,
-		getTracksOrigin,
-	} = config;
+	const { cliBinary, nodeBinary, execArgv = [], surface, getTracksOrigin } = config;
 
 	// Two subprocesses resuming the same session id would race on the JSONL
 	// recorder, so we reject the second one here.

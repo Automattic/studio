@@ -15,7 +15,6 @@ import type {
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -77,7 +76,6 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
@@ -697,7 +695,6 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: SupportedPHPVersion;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	customDomain?: string;

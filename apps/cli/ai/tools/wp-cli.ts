@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/wp-cli-post-content';
 import { defineTool } from './define-tool';
 import { resolveSite } from './utils';
 
@@ -142,7 +142,7 @@ export const runWpCliTool = defineTool(
 					throw new Error( unsupportedPostContentMessage );
 				}
 
-				await using command = await runWpCliCommandWithMessaging( site, wpCliArgs );
+				await using command = await runWpCliCommand( site, wpCliArgs );
 				const exitCode = await command.response.exitCode;
 				const stdout = await command.response.stdoutText;
 				const stderr = await command.response.stderrText;

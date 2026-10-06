@@ -6,14 +6,14 @@ type AdminCredentialsConfig = Pick<
 	'adminUsername' | 'adminPassword' | 'adminEmail'
 >;
 
-export type SetAdminCredentialsRequestBody = {
+type SetAdminCredentialsRequestBody = {
 	action: 'set_admin_password';
 	username?: string;
 	password?: string;
 	email?: string;
 };
 
-export type SetAdminCredentialsRequest = {
+type SetAdminCredentialsRequest = {
 	url: '/?studio-admin-api';
 	method: 'POST';
 	body: SetAdminCredentialsRequestBody;

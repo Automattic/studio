@@ -1,7 +1,6 @@
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { z } from 'zod';
 import { isDevRun } from '@studio/common/lib/dev-run';
-import { getJspiExecArgv, JSPI_FLAG } from '@studio/common/lib/jspi';
 import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 
 /** Spawns the Studio CLI binary and relays its lifecycle as typed events. */
@@ -174,12 +173,7 @@ export function killChild( child: ChildProcess ): void {
 }
 
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
-	const {
-		cliBinary,
-		nodeBinary,
-		execArgv = nodeBinary ? [ JSPI_FLAG ] : getJspiExecArgv(),
-		onError,
-	} = config;
+	const { cliBinary, nodeBinary, execArgv = [], onError } = config;
 	const liveChildren = new Set< ChildProcess >();
 
 	function executeCliCommand(

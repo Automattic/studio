@@ -1,7 +1,6 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -26,8 +25,7 @@ interface ConfigEntry {
 // that command's flags so the output round-trips: every key here can be read
 // back with `config get <key>` and written with `config set --<key>`. This is
 // intentionally narrower than the runtime-oriented `status` output (no URLs, no
-// online state). `runtime` is reported as the user-facing mode (`native`/
-// `sandbox`) rather than the internal runtime (`native-php`/`playground`).
+// online state).
 function getConfigEntries( site: SiteData ): ConfigEntry[] {
 	return [
 		{ key: 'name', value: site.name },
@@ -35,7 +33,6 @@ function getConfigEntries( site: SiteData ): ConfigEntry[] {
 		{ key: 'https', value: site.enableHttps ?? false },
 		{ key: 'php', value: site.phpVersion },
 		{ key: 'wp', value: getWordPressVersion( site.path ) },
-		{ key: 'runtime', value: siteModeFromRuntime( getSiteRuntime( site ) ) },
 		{ key: 'file-access', value: getSiteFileAccess( site ) },
 		{ key: 'xdebug', value: site.enableXdebug ?? false },
 		{ key: 'admin-username', value: site.adminUsername ?? 'admin' },

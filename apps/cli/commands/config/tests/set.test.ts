@@ -1,12 +1,6 @@
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
-import {
-	SITE_MODE_NATIVE,
-	SITE_MODE_SANDBOX,
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-} from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -86,7 +80,6 @@ describe( 'CLI: studio config set', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -116,27 +109,7 @@ describe( 'CLI: studio config set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
-			);
-		} );
-
-		it( 'should throw when "all-files" file access is combined with the sandbox runtime', async () => {
-			await expect(
-				runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX, fileAccess: 'all-files' } )
-			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
-
-			expect( saveCliConfig ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should throw when switching an "all-files" site to the sandbox runtime without resetting file access', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( {
-				...getTestSite(),
-				runtime: 'native-php',
-				fileAccess: 'all-files',
-			} );
-
-			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
-				'File access "all-files" requires the native PHP runtime.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			);
 		} );
 
@@ -360,34 +333,8 @@ describe( 'CLI: studio config set', () => {
 		} );
 	} );
 
-	describe( 'Runtime and file access changes', () => {
-		it( 'should update the stored runtime when it changes', async () => {
-			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( { runtime: SITE_RUNTIME_PLAYGROUND } ),
-					] ),
-				} )
-			);
-		} );
-
-		it( 'should restart a running site when the runtime changes', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
-		it( 'should update file access for a native PHP site', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( {
-				...getTestSite(),
-				runtime: SITE_RUNTIME_NATIVE_PHP,
-			} );
-
+	describe( 'File access changes', () => {
+		it( 'should update file access', async () => {
 			await runCommand( testSitePath, { fileAccess: 'all-files' } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
@@ -399,10 +346,13 @@ describe( 'CLI: studio config set', () => {
 			);
 		} );
 
-		it( 'should report no changes when the runtime matches the current one', async () => {
-			await expect( runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } ) ).rejects.toThrow(
-				'No changes to apply. The site already has the specified settings.'
-			);
+		it( 'should restart a running site when the file access changes', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { fileAccess: 'all-files' } );
+
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
 		it( 'should report no changes when the file access matches the default', async () => {

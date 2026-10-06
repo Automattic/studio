@@ -2,7 +2,7 @@
  * WordPress Server Manager for Studio CLI
  *
  * Manages WordPress server processes via process manager daemon. Each site runs in a separate
- * process that spawns Playground CLI.
+ * process that serves it with native PHP.
  */
 import fs from 'fs';
 import path from 'path';
@@ -14,12 +14,6 @@ import {
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -74,42 +68,16 @@ export async function getRunningSiteCount(): Promise< number | undefined > {
 	}
 }
 
-function getChildScriptPath( runtime: SiteRuntime ): string {
-	switch ( runtime ) {
-		case SITE_RUNTIME_NATIVE_PHP:
-			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
-		case SITE_RUNTIME_PLAYGROUND:
-		default:
-			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
-	}
-}
-
-function withSiteRuntime( processDescription: ProcessDescription ): ProcessDescription {
-	return {
-		...processDescription,
-		runtime: processDescription.runtime ?? SITE_RUNTIME_PLAYGROUND,
-	};
-}
+const WORDPRESS_SERVER_CHILD_PATH = path.resolve( import.meta.dirname, 'php-server-child.mjs' );
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
-	const processName = getProcessName( siteId );
-	const runningProcess = await isProcessRunning( processName );
-	return runningProcess ? withSiteRuntime( runningProcess ) : undefined;
-}
-
-function canReuseProcessForWpCli( processDescription: ProcessDescription ): boolean {
-	return processDescription.runtime === SITE_RUNTIME_PLAYGROUND;
+	return isProcessRunning( getProcessName( siteId ) );
 }
 
 const startServerOptionsSchema = serverConfigSchema
 	.pick( {
 		wpVersion: true,
 		siteLanguage: true,
-		mounts: true,
-		mountsBeforeInstall: true,
-		wordpressInstallMode: true,
-		skipSqliteSetup: true,
-		useExactMountLayout: true,
 		autoPrependFile: true,
 		openBasedirAllowList: true,
 	} )
@@ -122,17 +90,13 @@ export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
 	site: SiteData,
-	runtime: SiteRuntime,
 	options?: Partial< StartServerOptions & RunBlueprintOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
 		sitePath: site.path,
 		port: site.port,
-		phpVersion:
-			runtime === SITE_RUNTIME_NATIVE_PHP
-				? resolveNativePhpVersion( site.phpVersion )
-				: site.phpVersion,
+		phpVersion: resolveNativePhpVersion( site.phpVersion ),
 		siteTitle: site.name,
 	};
 
@@ -172,26 +136,6 @@ function buildServerConfig(
 		};
 	}
 
-	if ( options?.mounts ) {
-		serverConfig.mounts = options.mounts;
-	}
-
-	if ( options?.mountsBeforeInstall ) {
-		serverConfig.mountsBeforeInstall = options.mountsBeforeInstall;
-	}
-
-	if ( options?.wordpressInstallMode ) {
-		serverConfig.wordpressInstallMode = options.wordpressInstallMode;
-	}
-
-	if ( options?.skipSqliteSetup !== undefined ) {
-		serverConfig.skipSqliteSetup = options.skipSqliteSetup;
-	}
-
-	if ( options?.useExactMountLayout ) {
-		serverConfig.useExactMountLayout = true;
-	}
-
 	if ( options?.autoPrependFile ) {
 		serverConfig.autoPrependFile = options.autoPrependFile;
 	}
@@ -225,49 +169,20 @@ function buildServerConfig(
 	return serverConfig;
 }
 
-async function ensurePhpBinaryAvailableIfNeeded(
+async function ensureSitePhpBinaryAvailable(
 	site: SiteData,
-	logger: Logger< string >,
-	runtime: SiteRuntime
+	logger: Logger< string >
 ): Promise< void > {
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
-		const phpVersion = resolveNativePhpVersion( site.phpVersion );
-		logger.reportStart(
-			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
-			`Checking PHP ${ phpVersion } binary…`
-		);
-		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
-			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
-			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
-			logger.reportProgress( `Downloading PHP ${ phpVersion } (${ dl } MB${ tot })` );
-		} );
-	}
-}
-
-/**
- * Drops mounts of reprint state files whose host paths no longer exist.
- *
- * reprint's apply-runtime mounts importer state files (under /tmp/reprint
- * in the VFS) for the temporary remote-uploads proxy. Those files are
- * transient — a later sync can empty or remove them — so a persisted
- * start-options.json can reference paths that are gone, and mounting a
- * missing path crashes the server start with ENOENT. Critical site mounts
- * (core, wp-content, wp-config.php) are intentionally NOT filtered: if
- * those are missing, failing loudly is correct.
- */
-function dropStaleReprintStateMounts( options: StartServerOptions ): StartServerOptions {
-	const isStale = ( mount: { hostPath: string; vfsPath: string } ) =>
-		mount.vfsPath.startsWith( '/tmp/reprint/' ) && ! fs.existsSync( mount.hostPath );
-
-	return {
-		...options,
-		...( options.mountsBeforeInstall && {
-			mountsBeforeInstall: options.mountsBeforeInstall.filter( ( m ) => ! isStale( m ) ),
-		} ),
-		...( options.mounts && {
-			mounts: options.mounts.filter( ( m ) => ! isStale( m ) ),
-		} ),
-	};
+	const phpVersion = resolveNativePhpVersion( site.phpVersion );
+	logger.reportStart(
+		SiteCommandLoggerAction.ENSURE_PHP_BINARY,
+		`Checking PHP ${ phpVersion } binary…`
+	);
+	await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
+		const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
+		const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
+		logger.reportProgress( `Downloading PHP ${ phpVersion } (${ dl } MB${ tot })` );
+	} );
 }
 
 /**
@@ -283,10 +198,8 @@ export async function startWordPressServer(
 	logger: Logger< string >,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	// For sites imported via `studio pull-reprint`, the pull command
-	// persists the computed start options to start-options.json so the
-	// daemon doesn't need to recompute them (which would spin up PHP
-	// WASM to extract runtime.php constants from the imported site).
+	// For sites imported via `studio pull-reprint`, the pull command persists
+	// the computed start options to start-options.json next to its runtime files.
 	if ( ! options && site.runtimeBlueprintPath ) {
 		const optionsPath = path.join(
 			path.dirname( site.runtimeBlueprintPath ),
@@ -296,27 +209,23 @@ export async function startWordPressServer(
 			options = startServerOptionsSchema.parse(
 				JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) )
 			);
-			options = dropStaleReprintStateMounts( options );
 		}
 	}
 
-	const runtime = getSiteRuntime( site );
-	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
+	await ensureSitePhpBinaryAvailable( site, logger );
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
 		: __( 'Starting WordPress server…' );
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
-	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, runtime, options );
+	const serverConfig = buildServerConfig( site, options );
 
 	// The SQLite driver leaves the database in WAL mode, whose shared-memory
 	// index is backed by file locks that fail when several processes open one
 	// site's database at once. Convert it back before the server touches the
-	// file — subprocesses (a WP-CLI process per table during an export) hit this
-	// on both runtimes, not just under PHP-WASM's emulated locks.
+	// file — subprocesses (a WP-CLI process per table during an export) hit this.
 	await resetSqliteJournalModeToRollback( site.path );
 	await replaceMysql8OnlyCollations( site.path );
 	// WordPress installs and Blueprints run during the start below and can create new tables.
@@ -334,7 +243,7 @@ export async function startWordPressServer(
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const startedAt = Date.now();
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
+		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
@@ -367,11 +276,10 @@ export async function startWordPressServer(
 			// Best-effort telemetry — never block or fail a site start.
 		}
 
-		const runningProcess = withSiteRuntime( processDesc );
-		if ( runningProcess.status === 'online' ) {
-			await updateSiteLatestCliPid( site.id, runningProcess.pid );
+		if ( processDesc.status === 'online' ) {
+			await updateSiteLatestCliPid( site.id, processDesc.pid );
 		}
-		return runningProcess;
+		return processDesc;
 	} catch ( error ) {
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
@@ -640,14 +548,9 @@ export async function sendMessage(
 					clearTimeout( exitRejectTimeoutId );
 					exitRejectTimeoutId = undefined;
 				}
-				const error = new Error( packet.raw.errorMessage ) as Error & {
-					cliArgs?: Record< string, unknown >;
-				};
+				const error = new Error( packet.raw.errorMessage );
 				if ( packet.raw.errorStack ) {
 					error.stack = packet.raw.errorStack;
-				}
-				if ( packet.raw.cliArgs ) {
-					error.cliArgs = packet.raw.cliArgs;
 				}
 				reject( error );
 			} else if ( packet.raw.topic === 'result' && packet.raw.originalMessageId === messageId ) {
@@ -780,17 +683,15 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const runtime = getSiteRuntime( site );
-	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
+	await ensureSitePhpBinaryAvailable( site, logger );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
-	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, runtime, options );
+	const serverConfig = buildServerConfig( site, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
+		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		try {
 			await readyOrExit.waitFor( processDesc.pmId );
 			await sendMessage(
@@ -809,33 +710,4 @@ export async function runBlueprint(
 	} finally {
 		readyOrExit.dispose();
 	}
-}
-
-const wpCliResultSchema = z.object( {
-	stdout: z.string(),
-	stderr: z.string(),
-	exitCode: z.number(),
-} );
-
-export async function sendWpCliCommand(
-	siteId: string,
-	args: string[]
-): Promise< z.infer< typeof wpCliResultSchema > > {
-	const processName = getProcessName( siteId );
-	const runningProcess = await isServerRunning( siteId );
-
-	if ( ! runningProcess ) {
-		throw new Error( `WordPress server is not running` );
-	}
-
-	if ( ! canReuseProcessForWpCli( runningProcess ) ) {
-		throw new Error( `Running WordPress server does not support WP-CLI commands` );
-	}
-
-	const result = await sendMessage( runningProcess.pmId, processName, {
-		topic: 'wp-cli-command',
-		data: { args },
-	} );
-
-	return wpCliResultSchema.parse( result );
 }

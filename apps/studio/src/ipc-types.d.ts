@@ -5,7 +5,6 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
-type SiteRuntime = 'playground' | 'native-php';
 type SiteFileAccess = 'site-directory' | 'all-files';
 // Mirrors WpEnvironmentType in @studio/common/lib/wp-environment-type. Declared
 // inline because this file is a global declaration file — adding an import
@@ -59,7 +58,6 @@ interface StoppedSiteDetails {
 	environmentType?: WpEnvironmentType;
 	sortOrder?: number;
 	landingPage?: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	operation?: SiteOperation;
 }

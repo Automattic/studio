@@ -1,8 +1,10 @@
 import os from 'node:os';
 import { parse as parsePath } from 'node:path';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import {
+	getClosestSupportedPhpVersion,
+	type SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
 // Coarse, low-cardinality classification of a preview-site create/update failure for the
@@ -86,13 +88,13 @@ export function normalizeHostname( hostname: string ): string {
 		.replace( /\/$/, '' );
 }
 
+// Older stored versions (e.g. 8.0) map to the closest version Studio ships, as they do at site start.
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
-	const phpVersionSchema = z.enum( SupportedPHPVersions );
-	const result = phpVersionSchema.safeParse( rawPhpVersion );
-	if ( ! result.success ) {
+	const phpVersion = getClosestSupportedPhpVersion( rawPhpVersion );
+	if ( ! phpVersion ) {
 		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), rawPhpVersion ) );
 	}
-	return result.data;
+	return phpVersion;
 }
 
 export function getColumnWidths( widthFactors: number[] ) {

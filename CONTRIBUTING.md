@@ -26,8 +26,6 @@ Studio is translated using [GlotPress](https://translate.wordpress.com/projects/
 
 For information on setting up your development environment for contributing code, see the [Code Contributions](./docs/code-contributions.md).
 
-For testing Studio with local WordPress Playground packages, see [Testing with Local Playground](./docs/testing-with-local-playground.md).
-
 We are truly grateful for any pull requests you open, and we assure you of our welcoming and respectful approach. We will review and consider all pull requests, valuing the diverse contributions, but we don’t guarantee that all proposed changes will be merged into the core.
 
 The most desirable pull requests are:

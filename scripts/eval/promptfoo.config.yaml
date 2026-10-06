@@ -285,8 +285,8 @@ tests:
           });
       # Regression: the "Page content" cadence used to tell the agent to apply
       # page blocks via `wp_cli post update --post_content-file=<host path>`.
-      # `wp_cli` runs inside the PHP-WASM filesystem, so host paths silently
-      # resolve to empty content and the post is overwritten with nothing.
+      # `--post_content-file` is not a WP-CLI option, so the file is never read
+      # and the post content is not updated.
       # The fix is `wp_cli eval` + `file_get_contents(ABSPATH . ...)` — this
       # assertion fails if any wp_cli call reintroduces --post_content-file=.
       - type: javascript
@@ -302,7 +302,7 @@ tests:
             });
             if (offending.length > 0) {
               const sample = JSON.stringify(offending[0].input).slice(0, 300);
-              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which silently fails inside PHP-WASM (first: ${sample})` };
+              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which is not a WP-CLI option (first: ${sample})` };
             }
             return { pass: true, score: 1, reason: 'no wp_cli call used --post_content-file=' };
           });

@@ -1,6 +1,6 @@
 # AI Instructions
 
-WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, uses WordPress Playground (PHP WASM) for running sites.
+WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, runs sites with a bundled native PHP binary.
 
 ## Essential Commands
 
@@ -33,7 +33,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Electron 3-Process**: Main (Node.js) → Preload (IPC bridge) → Renderer (React)
 **Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
 **Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
-**CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
+**CLI** (`apps/cli/`): native PHP site servers, yargs commands, child process of desktop app
 **Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
 
 ## Directory Structure
@@ -56,7 +56,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 **Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
 **Main**: Electron
-**CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
+**CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs
 
@@ -133,7 +133,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **IMPORTANT - Gate App-Specific Agent Tools**: The Studio Code agent tools (`apps/cli/ai/tools/`) run in several contexts: forked by the Desktop app or the `studio ui` server (a Studio UI is attached), standalone terminal `studio code` sessions, and the MCP server. A tool or prompt instruction that only makes sense in one of them (e.g. `refresh_browser` reloading the preview pane, which needs a UI attached) **leaks into the other contexts unless explicitly gated** — the model gets told to call a tool that does nothing there. When adding an app- or context-specific tool or behavior, gate BOTH sides on the right flag in `resolveStudioToolDefinitions` (`apps/cli/ai/tools/index.ts`) — `emitChatArtifacts` = UI attached (derived from `process.send`) — AND its mentions in the system prompt (`buildLocalIntro` in `apps/cli/ai/system-prompt.ts`, which receives the same flags). The prompt's tool list itself is generated from the registered tools (each tool's `promptSnippet` and `promptGuidelines`, see `define-tool.ts`), so it never needs gating; only behavioral mentions elsewhere in the prompt do. Add tests for both branches (present when flagged, absent by default); the MCP server calls `resolveStudioToolDefinitions()` with no options, so correct gating covers it automatically.
 
-**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
+**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. WordPress core updates replace those files, so modifications are lost.
 
 **CRITICAL - Config File Locking**: Each config file has its own lockfile and helper pair — ensure that any write operation uses the correct pair for that specific file. Use `lockAppdata()` / `unlockAppdata()` for `app.json`, `lockCliConfig()` / `unlockCliConfig()` for `cli.json`, and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json`. Concurrent unlocked writes will corrupt the file.
 
@@ -147,7 +147,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
-**CRITICAL - Playground/PHP-WASM Package Versions**: Always pin `@wp-playground/*` and `@php-wasm/*` packages to **exact versions** (no `^` or `~` ranges) in all `package.json` files. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict. npm then installs duplicate copies of all PHP WASM packages nested under the conflicting package's `node_modules/`. The `prune-php-wasm` vite plugin only removes top-level asyncify directories and misses nested copies, resulting in ~450 MB of bloat in the app bundle. More critically, different parts of Studio end up running mismatched Playground/PHP-WASM versions, which can cause subtle and hard-to-diagnose runtime failures in core site operations.
+**CRITICAL - Playground Package Versions**: Always pin `@wp-playground/*` packages (and any `@php-wasm/*` they pull in) to **exact versions** (no `^` or `~` ranges) in all `package.json` files, and bump them in lockstep. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict, and npm then installs duplicate nested copies of the shared Playground packages. Studio no longer runs sites on Playground; it only uses `@wp-playground/blueprints` for Blueprint types and schema validation, and `@wp-playground/tools` for the phpMyAdmin files.
 
 ## Detailed Documentation
 
@@ -162,7 +162,7 @@ For in-depth information, see these docs:
 
 ## Quick Reference
 
-**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `validateBlueprintData()` for schema validation
+**Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints applied via `blueprints.phar`, `validateBlueprintData()` for schema validation
 **Sync**: OAuth via `packages/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 

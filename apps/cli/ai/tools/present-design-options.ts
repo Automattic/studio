@@ -6,7 +6,6 @@ import { renderDesignBoard } from 'cli/ai/design-board';
 import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
 import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
 import { defineTool, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
@@ -31,7 +30,8 @@ const LOCAL_IMAGE_REFERENCE =
 	/(src=|url\()(["']?)((?:file:\/\/|\/)[^"')\s]+\.(?:jpe?g|png|webp))\2/gi;
 
 // The preview page is a `file://` document, so referenced images are inlined
-// rather than relying on file-to-file loads; only the sites root qualifies.
+// rather than relying on file-to-file loads. They can live anywhere, such as
+// where an agent's own image tool saved them.
 export async function inlineLocalImages( html: string ): Promise< string > {
 	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
 	const dataUrls = new Map< string, string >();
@@ -42,11 +42,6 @@ export async function inlineLocalImages( html: string ): Promise< string > {
 		const filePath = path.resolve(
 			reference.startsWith( 'file://' ) ? fileURLToPath( reference ) : reference
 		);
-		if ( ! filePath.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
-			throw new Error(
-				`Preview image must be inside the Studio sites directory (${ STUDIO_SITES_ROOT }): ${ reference }`
-			);
-		}
 		let bytes: Buffer;
 		try {
 			bytes = await readFile( filePath );

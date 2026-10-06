@@ -15,6 +15,7 @@ import { defineTool, type StudioAgentTool } from 'cli/ai/tools/define-tool';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { renderSkill } from 'cli/ai/tools/skill';
 import { textResult } from 'cli/ai/tools/utils';
+import { wpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
@@ -25,6 +26,7 @@ export async function startMcpStdioServer(): Promise< void > {
 			canAskUser: true,
 		} ),
 		createPresentDesignOptionsTool(),
+		wpcomRequestTool,
 	];
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.

@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 // eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -19,12 +20,17 @@ import { textResult } from 'cli/ai/tools/utils';
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
+	// The ChatGPT desktop app (Codex) shows a local image only from a file:// link;
+	// Claude's desktop app opens a bare path in its side panel but blocks file:// links.
+	const imageLink = ( file: string ) =>
+		server.getClientVersion()?.name === 'codex-mcp-client' ? pathToFileURL( file ).href : file;
 	const studioTools = [
 		...resolveStudioToolDefinitions( {
 			imageGeneration: await isImageGenerationAvailable(),
 			canAskUser: true,
+			imageLink,
 		} ),
-		createPresentDesignOptionsTool(),
+		createPresentDesignOptionsTool( undefined, undefined, imageLink ),
 	];
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.

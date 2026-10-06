@@ -57,7 +57,13 @@ const TEXT_ONLY_NOTE =
 
 // Text-only models still get the tool (the saved file is the theme screenshot)
 // but no image block, which they would otherwise describe without seeing.
-export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: boolean } ) {
+export function createTakeScreenshotTool( {
+	visionEnabled,
+	imageLink,
+}: {
+	visionEnabled: boolean;
+	imageLink?: ( file: string ) => string;
+} ) {
 	return defineTool(
 		'take_screenshot',
 		'Takes a full-page screenshot of a URL. ' +
@@ -68,7 +74,10 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 			'Use this to verify the site looks correct after building it. ' +
-			'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
+			( imageLink
+				? 'Captures meant for the user come back with image lines to put in your reply, which show them; '
+				: 'Captures are shown to the user in the chat by default; ' ) +
+			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
 			url: Type.String( { description: 'The URL to screenshot' } ),
 			viewport: Type.Optional( screenshotViewportSchema ),
@@ -175,6 +184,15 @@ export function createTakeScreenshotTool( { visionEnabled }: { visionEnabled: bo
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
+				}
+				if ( imageLink && args.display !== false ) {
+					textLines.push(
+						'To show the user, put these lines in your reply:',
+						...captures.map(
+							( capture ) =>
+								`![Screenshot (${ getCaptureLabel( capture ) })](${ imageLink( capture.path ) })`
+						)
+					);
 				}
 				context.onProgress( `Screenshot captured (${ captureLabel })` );
 				return {

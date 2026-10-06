@@ -78,6 +78,9 @@ export interface CreateStudioToolsOptions {
 	canAskUser?: boolean;
 	// The chat session the design tools record Tracks events for; absent for the MCP server.
 	tracks?: DesignTracksContext;
+	// How a local image is linked in the agent's reply so the host shows it to the user.
+	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
+	imageLink?: ( file: string ) => string;
 }
 
 export function resolveStudioToolDefinitions(
@@ -94,8 +97,14 @@ export function resolveStudioToolDefinitions(
 			return [];
 		}
 		let tool = candidate;
-		if ( candidate.name === takeScreenshotTool.name && options.visionEnabled === false ) {
-			tool = createTakeScreenshotTool( { visionEnabled: false } );
+		if (
+			candidate.name === takeScreenshotTool.name &&
+			( options.visionEnabled === false || options.imageLink )
+		) {
+			tool = createTakeScreenshotTool( {
+				visionEnabled: options.visionEnabled !== false,
+				imageLink: options.imageLink,
+			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
 			tool = createInspectDesignTool( { visionEnabled: false } );

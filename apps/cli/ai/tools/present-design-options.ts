@@ -84,7 +84,8 @@ function escapeHtml( text: string ): string {
 // image, for it to show and ask about in its own conversation.
 async function handOverOptions(
 	question: string,
-	options: { label: string; description: string; image: string }[]
+	options: { label: string; description: string; image: string }[],
+	imageLink: ( file: string ) => string
 ): Promise< ToolResult > {
 	const figures = options
 		.map(
@@ -121,7 +122,9 @@ async function handOverOptions(
 				type: 'text',
 				text: [
 					`Rendered the ${ options.length } options as one numbered grid image (above). The user does not see tool results, only your reply, so in this same turn:`,
-					`1. Show the grid: start your reply with ![${ question }](${ gridFile.path })`,
+					`1. Show the grid: start your reply with ![${ question }](${ imageLink(
+						gridFile.path
+					) })`,
 					`2. Ask "${ question }" with one option per line below, label and description verbatim. Use your own question tool if you have one, such as AskUserQuestion (if it takes fewer options, leave out "${ OTHER_OPTIONS }": the user can still ask in their own words). Otherwise ask in your reply and end your turn: the user's pick arrives as their next message.`,
 					...options.map(
 						( option, index ) => `   ${ index + 1 }. ${ option.label }: ${ option.description }`
@@ -139,7 +142,9 @@ async function handOverOptions(
 // images to unrelated questions.
 export function createPresentDesignOptionsTool(
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >,
-	tracks?: DesignTracksContext
+	tracks?: DesignTracksContext,
+	// How a local image is linked in the agent's reply so the host shows it to the user.
+	imageLink: ( file: string ) => string = ( file ) => file
 ) {
 	return defineTool(
 		'present_design_options',
@@ -237,7 +242,7 @@ export function createPresentDesignOptionsTool(
 				} )
 			);
 			if ( ! onAskUser ) {
-				return handOverOptions( args.question, options );
+				return handOverOptions( args.question, options, imageLink );
 			}
 			const answers = await onAskUser( [
 				{

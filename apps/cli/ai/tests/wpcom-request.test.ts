@@ -49,7 +49,7 @@ describe( 'wpcom_request', () => {
 		await rm( rootDir, { recursive: true, force: true } );
 	} );
 
-	it( 'uses staged files for string fields and full JSON request bodies', async () => {
+	it( 'uses staged files, by relative or absolute path, for string fields and full JSON request bodies', async () => {
 		const contentPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html`;
 		await writeFile( path.join( rootDir, contentPath ), '<!-- wp:paragraph --><p>Hello</p>' );
 		const bodyPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/global-styles.json`;
@@ -85,7 +85,7 @@ describe( 'wpcom_request', () => {
 			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
-			bodyFile: bodyPath,
+			bodyFile: path.join( rootDir, bodyPath ),
 		} );
 
 		expect( mocks.req.post ).toHaveBeenCalledWith(

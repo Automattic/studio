@@ -494,15 +494,6 @@ describe( 'pi runtime', () => {
 			env: WPCOM_ENV,
 			model: 'balanced',
 			session: newSession(),
-			activeSite: {
-				name: 'Remote',
-				path: '',
-				running: false,
-				remote: true,
-				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
-			},
-			wpcomAccessToken: 'wpcom-token',
 		} );
 
 		const wpcomRequest = getCreatedTool( 'wpcom_request' );

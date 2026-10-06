@@ -1,12 +1,6 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
-interface RemoteSiteContext {
-	name: string;
-	url: string;
-	id: number;
-}
-
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
 // What a registered tool contributes to the prompt: the one-line entry of the
@@ -18,7 +12,6 @@ export interface ToolPromptContribution {
 }
 
 export interface BuildSystemPromptOptions {
-	remoteSite?: RemoteSiteContext;
 	// The tools registered for this session; the prompt lists them and their
 	// guidelines instead of hand-writing the list.
 	tools?: ToolPromptContribution[];
@@ -41,15 +34,6 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 
 	const visionEnabled = options?.visionEnabled ?? true;
 	const toolSections = renderToolSections( options?.tools ?? [] );
-
-	if ( options?.remoteSite ) {
-		return `${ buildRemoteIntro( options.remoteSite, visionEnabled, toolSections ) }
-
-${ REMOTE_CONTENT_GUIDELINES }
-
-${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
-`;
-	}
 
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
@@ -81,39 +65,6 @@ function buildUserInstructionsSection( userInstructions?: string ): string {
 The user saved these standing instructions in Studio's settings. They apply to every conversation. Follow them unless they conflict with the guidance above or ask you to skip safety, plan, or validation requirements.
 
 ${ instructions }`;
-}
-
-function buildRemoteIntro(
-	site: RemoteSiteContext,
-	visionEnabled: boolean,
-	toolSections: string
-): string {
-	const verifyStep = visionEnabled
-		? `Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.`
-		: `You cannot view images, so verify from the rendered DOM with inspect_design instead. Fix any issues.`;
-	return `${ AGENT_IDENTITY } You manage WordPress.com sites using the WordPress.com REST API.
-
-IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
-IMPORTANT: You MUST use the wpcom_request tool to manage this site. Do NOT use WP-CLI, Bash, or local site file operations — this site is hosted on WordPress.com and cannot be modified through the local filesystem. You may use local Read/Write/Edit/Ls for temporary working files within Studio app data; those files do not affect the remote site until passed to wpcom_request.
-IMPORTANT: Before doing ANY work, you MUST first check the site's plan by calling \`GET /\` (apiNamespace: \`""\`). The \`plan.product_slug\` field indicates the plan. If the site is on a free plan (e.g. \`free_plan\`), you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. Do not proceed with the design task.
-IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
-
-${ toolSections }
-
-## Workflow
-
-1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
-2. **Load remote guidance**: Load the \`wpcom-remote-management\` skill before selecting endpoints, creating or updating content, managing templates, switching themes, or managing plugins.
-3. **Understand and change the site**: Use wpcom_request according to the \`wpcom-remote-management\` skill.
-4. **Verify the result**: ${ verifyStep }
-
-## General rules
-
-- Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
-- When creating content, follow WordPress best practices for block-based content and the remote block content guidelines below.
-- If a requested operation fails, check the error message and suggest alternatives.
-- To bring the site into Studio, create a local site with site_create, then site_pull this site into it.
-- Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.`;
 }
 
 // Guidance for delivering `--post_content` to `wp_cli`. The shared part applies
@@ -199,12 +150,13 @@ This session runs in a terminal, which may not be able to display images. Screen
 
 	const intro = options.external
 		? EXTERNAL_INTRO
-		: `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.`;
+		: `${ AGENT_IDENTITY } You manage and modify local WordPress sites and the user's WordPress.com sites using your Studio tools, and generate content for these sites.`;
 
 	return `${ intro }
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
+IMPORTANT: The user's WordPress.com sites are live. For any question about or change to one — the active-site line says WordPress.com, or the user names one of their WordPress.com sites — load the \`wpcom-remote-management\` skill first and follow it: it starts with a plan check, and such sites change only through wpcom_request, never WP-CLI, Bash, or local files.
 IMPORTANT: For any generated content for the site, these principles are mandatory:
 
 - Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, or motion work. To verify and polish the rendered result, load the \`visual-polish\` skill.
@@ -220,7 +172,8 @@ For any request that involves a WordPress site, you MUST first pick the site to 
 - **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create, load a skill, or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
 - **Explicit "new" / "separate" / "another" site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
 - **No active site + "create" / "build" / "make" a site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
-- **User names a specific existing site**: Call site_list to find it, then site_info to select it.
+- **Active site on WordPress.com** (the active-site line says WordPress.com): Work on that live site with the \`wpcom-remote-management\` skill. Make a local copy only when the user asks for one.
+- **User names a specific existing site**: Call site_list to find it, then site_info to select it. If it is one of their WordPress.com sites instead, work on it with the \`wpcom-remote-management\` skill.
 - **No active site and no request to create one**: Ask the user whether to use an existing site (site_list) or create a new one.
 
 Then continue with:
@@ -281,24 +234,6 @@ When the user asks to push a site to WordPress.com, you MUST resolve the target 
 When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
 Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
-
-const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
-
-- Use only core WordPress blocks. No custom HTML blocks except for inline SVGs.
-- No decorative HTML comments (e.g. \`<!-- Hero Section -->\`). Only block delimiter comments are allowed.
-- Color content from the active theme's palette using block color-slug attributes (e.g. \`{"backgroundColor":"primary","textColor":"base"}\`) rather than hardcoded hex values; only introduce a custom color when the palette genuinely lacks one.
-- No emojis anywhere in generated content.`;
-
-const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
-
-**Free plans** — content only, no design customization:
-- CAN: Create/edit posts, pages, templates, template parts. Switch themes. Upload media.
-- CANNOT: Any visual/design customization including custom CSS, inline styles, style attributes on blocks, global styles, custom JavaScript, animations, custom colors, custom fonts, custom layouts, or plugin management.
-- ACTION: If the user requests ANY design change — even "small" ones like changing a color or font — you MUST refuse, explain it requires a paid plan, and STOP. Do not suggest inline styles, style attributes, or any other workaround. These will produce invalid blocks.
-
-**Paid plans** (Personal, Premium, Business, eCommerce) — progressively more control:
-- Custom CSS, global styles, plugin management, and advanced customization become available.
-- Check the specific plan to determine exact capabilities.`;
 
 const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 

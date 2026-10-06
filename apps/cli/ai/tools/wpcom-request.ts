@@ -12,6 +12,7 @@ import { textResult } from './utils';
 type ApiResponse = any;
 
 export const WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR = 'tmp/ai-payloads';
+const PAYLOADS_DIR = path.join( getConfigDirectory(), WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR );
 const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 /**
@@ -67,26 +68,18 @@ function isRecord( value: unknown ): value is Record< string, unknown > {
 function validateBodyFileFieldName( key: string ): void {
 	if ( ! BODY_FILE_FIELD_NAME_PATTERN.test( key ) ) {
 		throw new Error(
-			`bodyFiles keys must be top-level REST body field names such as "content" or "excerpt", not filenames, nested paths, or JSON paths. Use the value as the file path, for example bodyFiles: { content: "${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html" }.`
+			`bodyFiles keys must be top-level REST body field names such as "content" or "excerpt", not filenames, nested paths, or JSON paths. Use the value as the file path, for example bodyFiles: { content: "${ PAYLOADS_DIR }/home.html" }.`
 		);
 	}
 }
 
 function resolveBodyFilePath( rootDir: string, filePath: string ): string {
-	if ( path.isAbsolute( filePath ) ) {
-		throw new Error(
-			`bodyFile and bodyFiles paths must be relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }.`
-		);
-	}
-
 	const resolvedRoot = path.resolve( rootDir, WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR );
 	const resolvedPath = path.resolve( rootDir, filePath );
 	const relativePath = path.relative( resolvedRoot, resolvedPath );
 
 	if ( ! relativePath || relativePath.startsWith( '..' ) || path.isAbsolute( relativePath ) ) {
-		throw new Error(
-			`bodyFile and bodyFiles paths must be relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }.`
-		);
+		throw new Error( `bodyFile and bodyFiles paths must be files in ${ resolvedRoot }.` );
 	}
 
 	return resolvedPath;
@@ -205,14 +198,14 @@ export const wpcomRequestTool = defineTool(
 		),
 		bodyFile: Type.Optional(
 			Type.String( {
-				description: `Optional full request body file for POST/PUT requests. The file must be valid JSON object stored under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }, and it becomes the entire REST body. Use this for endpoints such as global styles that expect nested JSON objects. Do not combine bodyFile with body or bodyFiles.`,
+				description: `Optional full request body file for POST/PUT requests. The file must be a valid JSON object stored in ${ PAYLOADS_DIR } (pass its absolute path), and it becomes the entire REST body. Use this for endpoints such as global styles that expect nested JSON objects. Do not combine bodyFile with body or bodyFiles.`,
 			} )
 		),
 		bodyFiles: Type.Optional(
 			Type.Record( Type.String(), Type.String(), {
 				description:
-					`Optional file-backed string body fields for POST/PUT requests. Keys must be top-level REST body field names like "content"; do not use filenames, file extensions, nested fields, dots, slashes, or JSON paths as keys. Values must be relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }. ` +
-					`Example: { "content": "${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html" }. Use this for large generated strings instead of inlining them in body.`,
+					`Optional file-backed string body fields for POST/PUT requests. Keys must be top-level REST body field names like "content"; do not use filenames, file extensions, nested fields, dots, slashes, or JSON paths as keys. Values must be absolute paths of files in ${ PAYLOADS_DIR }. ` +
+					`Example: { "content": "${ PAYLOADS_DIR }/home.html" }. Use this for large generated strings instead of inlining them in body.`,
 			} )
 		),
 		apiNamespace: Type.Optional(

@@ -23,7 +23,7 @@ describe( 'present_design_options', () => {
 
 		expect( result.content[ 0 ] ).toMatchObject( { type: 'image', mimeType: 'image/jpeg' } );
 		const text = result.content[ 1 ].type === 'text' ? result.content[ 1 ].text : '';
-		expect( text ).toContain( '![Which layout should I build?](/tmp/design-options.jpg)' );
+		expect( text ).toContain( '![Which layout should I build?](file:///tmp/design-options.jpg)' );
 		expect( text ).toContain( '2. Collage: Overlapping photos.' );
 		expect( text ).toContain( 'end your turn' );
 	} );

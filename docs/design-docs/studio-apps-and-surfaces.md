@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This document maps the different Studio "surfaces" (desktop, CLI, local web, hosted), the architecture of each, and the shared layers that let them run the same product. It focuses on how the **agentic UI**, the **`@studio/common` backend**, and the **CLI execution engine** are reused across surfaces, and on the convergence between the local web server and the desktop app.
+This document maps the different Studio "surfaces" (desktop, CLI, local web, hosted, external agents), the architecture of each, and the shared layers that let them run the same product. It focuses on how the **agentic UI**, the **`@studio/common` backend**, and the **CLI execution engine** are reused across surfaces, and on the convergence between the local web server and the desktop app.
 
 ## Context
 
@@ -18,8 +18,9 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 | **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | WordPress Playground / PHP-WASM | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
 | **Hosted** | `apps/hosted` + `apps/ui` | Node server in the cloud | `apps/ui` (`dist-hosted`) in the browser | Cloud backend (WordPress.com / Telex sandbox agent) | Cloud product; no local machine |
+| **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`, the design picker) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
 
-Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). One targets a **remote backend** with a deliberately reduced scope (hosted).
+Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). One targets a **remote backend** with a deliberately reduced scope (hosted). The last runs on the user's machine too, but **inside someone else's agent app**: Studio provides tools and pages, not the app (external agents).
 
 ## The layers
 
@@ -108,6 +109,21 @@ The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run
 
 A cloud product (see the package for specifics). It targets WordPress.com / a server-side sandbox agent, deliberately has **no `apps/cli` dependency**, and has a reduced scope (no local sites, no OS integration). It reuses `apps/ui` through the `hosted` connector. It is intentionally *not* the model for the local server — `apps/local` mirrors the **desktop**, not hosted.
 
+### External agents — `studio mcp` (`apps/cli` + `apps/mcp-ui`)
+
+`studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client, known once it connects (`apps/cli/ai/mcp-server.ts`).
+
+Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) also show Studio pages: the design picker under `present_design_options`, and the WordPress library (`apps/mcp-ui`), which OpenAI's apps open from their sidebar once the Studio plugin is installed. Each page:
+
+- is one self-contained HTML document, served as a `ui://` resource whose URI carries a hash of its content, since hosts cache pages by URI;
+- talks to the host over JSON-RPC on `postMessage`, and calls the server's tools through it, some of them visible to the page only;
+- gets its data in the tool results' `_meta`, which hosts keep out of the model's context (some show `structuredContent` to the model instead of `content`);
+- reports its height, so the host sizes its frame.
+
+Site changes reach each `studio mcp` process through an `_events` socket of its own (see [How the CLI and Studio apps communicate](./cli-host-communication.md)); the library waits on them to refresh its list.
+
+`apps/mcp-ui` is not another target of `apps/ui`: hosts load a page as one small document with nothing to fetch, while `apps/ui` is a whole app for other backends. It follows `apps/ui`'s conventions (React, TanStack Query, a data layer behind a connector) but shares no code.
+
 ## Convergence: local ↔ desktop
 
 The guiding principle (set by the team): for sites, sessions, and the agent, **the desktop app and the local web server run the exact same code**. The only differences are:
@@ -174,18 +190,19 @@ All surfaces read the same WordPress.com token from `~/.studio/shared.json`, so 
 
 - **`apps/ui`** builds twice (`STUDIO_TARGET=local|hosted`) into `dist-local` / `dist-hosted`; the desktop bundles it with the `ipc` connector.
 - **`apps/local`** has no build of its own — the CLI's Vite build folds its source in (via an alias) and copies `dist-local` next to the CLI bundle, so `studio ui` is self-contained.
+- **`apps/mcp-ui`** is built by the CLI's Vite build (`apps/cli/vite-plugin-mcp-ui.ts`) and inlined into the CLI bundle as one HTML document.
 - **`apps/cli`** is bundled with Vite and shipped inside the desktop app (and standalone to npm). See [cli.md](./cli.md) for installation details.
 - **`apps/studio`** is packaged per platform with electron-forge.
 
 ## Summary
 
-| Concern | Desktop | CLI | Local web | Hosted |
-| --- | --- | --- | --- | --- |
-| UI | `apps/ui` (ipc) | none | `apps/ui` (local) | `apps/ui` (hosted) |
-| Business logic | `@studio/common` | `@studio/common` | `@studio/common` | cloud backend |
-| Site execution | forks CLI | **is** the engine | forks CLI | cloud sandbox |
-| Transport | IPC | process I/O | HTTP/SSE | cloud API |
-| Local sites | yes | yes | yes | no |
-| OS integration | full (Electron) | n/a | server-side adapters | none |
+| Concern | Desktop | CLI | Local web | Hosted | External agents |
+| --- | --- | --- | --- | --- | --- |
+| UI | `apps/ui` (ipc) | none | `apps/ui` (local) | `apps/ui` (hosted) | the agent app + `apps/mcp-ui` pages |
+| Business logic | `@studio/common` | `@studio/common` | `@studio/common` | cloud backend | `@studio/common` |
+| Site execution | forks CLI | **is** the engine | forks CLI | cloud sandbox | **is** the engine |
+| Transport | IPC | process I/O | HTTP/SSE | cloud API | MCP over stdio |
+| Local sites | yes | yes | yes | no | yes |
+| OS integration | full (Electron) | n/a | server-side adapters | none | n/a |
 
 The shape to keep in mind: **one UI, one shared backend, one execution engine — wrapped by thin, surface-specific transports.** New machine-local features should land in `@studio/common` (shared) and the CLI (execution), with each surface contributing only its transport adapter and its genuinely runtime-specific bits.

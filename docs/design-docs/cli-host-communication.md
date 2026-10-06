@@ -22,7 +22,7 @@ A command that produces something the caller needs (a created site, a list of si
 
 ## How events reach the apps
 
-Each running Studio app runs the hidden `_events` command, which listens on a socket of its own. A CLI process sends each event to every app's socket, skipping apps that aren't running. Each app relays the events to its UI, which refreshes the state that changed and updates the activity shown on the site. Two copies of the same app (for example two `studio ui` servers) would share one socket, so only the newest receives events.
+Each running Studio app runs the hidden `_events` command, which listens on a socket of its own. A CLI process sends each event to every app's socket, skipping apps that aren't running. Each app relays the events to its UI, which refreshes the state that changed and updates the activity shown on the site. Two copies of the same app (for example two `studio ui` servers) would share one socket, so only the newest receives events. `studio mcp` is the exception: agent apps start one per conversation, so each process listens on a socket of its own, once its WordPress library is open.
 
 `_events` also reports site processes starting and stopping, which it learns from the process manager that supervises them.
 

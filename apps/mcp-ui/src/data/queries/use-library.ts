@@ -1,0 +1,78 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useConnector } from '@/data/core';
+import { useHostState } from '@/hooks/use-host-state';
+
+export const LOCAL_SITES_QUERY_KEY = [ 'local-sites' ] as const;
+// The host pushes the tool result that opened the library; give it this long
+// before reading the sites directly (a sidebar entry or a restored tab).
+const HOST_RESULT_GRACE_MS = 1500;
+const SITE_CHANGES_RETRY_MS = 5000;
+
+function useReadsEnabled() {
+	const { status } = useHostState();
+	const [ graceOver, setGraceOver ] = useState( false );
+	useEffect( () => {
+		if ( status !== 'ready' ) {
+			return;
+		}
+		const timer = setTimeout( () => setGraceOver( true ), HOST_RESULT_GRACE_MS );
+		return () => clearTimeout( timer );
+	}, [ status ] );
+	return status === 'ready' && graceOver;
+}
+
+export function useLocalSites() {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: LOCAL_SITES_QUERY_KEY,
+		queryFn: () => connector.readLocalSites(),
+		enabled: useReadsEnabled(),
+	} );
+}
+
+// Seeds the sites from the tool result that opened the library, and keeps them
+// fresh: any site change, from the agent, a terminal or the desktop app,
+// refetches them.
+export function useSyncSitesWithHost() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const { status } = useHostState();
+
+	useEffect(
+		() =>
+			connector.onLocalSitesResult( ( read ) => {
+				try {
+					queryClient.setQueryData( LOCAL_SITES_QUERY_KEY, read() );
+				} catch {
+					// The direct read takes over once the grace period ends.
+				}
+			} ),
+		[ connector, queryClient ]
+	);
+
+	useEffect( () => {
+		if ( status !== 'ready' ) {
+			return;
+		}
+		let stopped = false;
+		let since: number | undefined;
+		const watch = async () => {
+			while ( ! stopped ) {
+				try {
+					const revision = await connector.waitForSiteChanges( since );
+					if ( since !== undefined && revision !== since ) {
+						void queryClient.invalidateQueries( { queryKey: LOCAL_SITES_QUERY_KEY } );
+					}
+					since = revision;
+				} catch {
+					await new Promise( ( resolve ) => setTimeout( resolve, SITE_CHANGES_RETRY_MS ) );
+				}
+			}
+		};
+		void watch();
+		return () => {
+			stopped = true;
+		};
+	}, [ status, connector, queryClient ] );
+}

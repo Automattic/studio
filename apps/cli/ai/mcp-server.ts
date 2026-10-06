@@ -13,6 +13,13 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { DESIGN_PICKER_HTML, DESIGN_PICKER_URI, MCP_APP_MIME_TYPE } from 'cli/ai/mcp-design-picker';
+import {
+	createLibraryTools,
+	LIBRARY_APP_HTML,
+	LIBRARY_APP_META,
+	LIBRARY_APP_URI,
+	libraryListing,
+} from 'cli/ai/mcp-library';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -76,7 +83,11 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): StudioA
 					: buildSystemPrompt( { external: true, tools: studioTools } )
 			)
 	);
-	return [ instructionsTool, ...studioTools ] as StudioAgentTool[];
+	return [
+		instructionsTool,
+		...studioTools,
+		...( client.apps ? createLibraryTools() : [] ),
+	] as StudioAgentTool[];
 }
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
@@ -107,6 +118,7 @@ export async function startMcpStdioServer(): Promise< void > {
 			...( client.apps && tool.name === 'present_design_options'
 				? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } }
 				: {} ),
+			...libraryListing( tool.name ),
 		} ) ),
 	} ) );
 
@@ -152,18 +164,30 @@ export async function startMcpStdioServer(): Promise< void > {
 	} );
 
 	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
-		resources: [ { uri: DESIGN_PICKER_URI, name: 'Design options', mimeType: MCP_APP_MIME_TYPE } ],
+		resources: [
+			{ uri: DESIGN_PICKER_URI, name: 'Design options', mimeType: MCP_APP_MIME_TYPE },
+			{
+				uri: LIBRARY_APP_URI,
+				name: 'WordPress',
+				mimeType: MCP_APP_MIME_TYPE,
+				_meta: LIBRARY_APP_META,
+			},
+		],
 	} ) );
 
 	server.setRequestHandler( ReadResourceRequestSchema, async ( request ) => {
-		if ( request.params.uri !== DESIGN_PICKER_URI ) {
-			throw new Error( `Unknown resource: ${ request.params.uri }` );
+		const { uri } = request.params;
+		if ( uri === DESIGN_PICKER_URI ) {
+			return { contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text: DESIGN_PICKER_HTML } ] };
 		}
-		return {
-			contents: [
-				{ uri: DESIGN_PICKER_URI, mimeType: MCP_APP_MIME_TYPE, text: DESIGN_PICKER_HTML },
-			],
-		};
+		if ( uri === LIBRARY_APP_URI ) {
+			return {
+				contents: [
+					{ uri, mimeType: MCP_APP_MIME_TYPE, text: LIBRARY_APP_HTML, _meta: LIBRARY_APP_META },
+				],
+			};
+		}
+		throw new Error( `Unknown resource: ${ uri }` );
 	} );
 
 	const transport = new StdioServerTransport();

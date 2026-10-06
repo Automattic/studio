@@ -141,10 +141,7 @@ describe( 'buildSystemPrompt', () => {
 		expect( withVision ).toContain( 'Pair with take_screenshot' );
 		expect( withVision ).not.toContain( 'You cannot view' );
 
-		const textOnly = buildSystemPrompt( {
-			visionEnabled: false,
-			tools: toolsFor( { visionEnabled: false } ),
-		} );
+		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( polishStep );
 		expect( textOnly ).toContain( 'which you need for the theme screenshot' );
 		expect( textOnly ).toContain( 'copying your final desktop take_screenshot capture' );

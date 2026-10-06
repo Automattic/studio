@@ -167,7 +167,7 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 ## Your tools and Studio's
 
 - Edit site files with your own file tools (read, write, edit, search). Wherever these instructions say Write or Edit, use them; site_info and site_create report the site's directory.
-- Load a skill with the Studio \`Skill\` tool whenever these instructions name one, and follow it: skills are the Studio runbooks.
+- Whenever these instructions name a skill, load it with \`studio_instructions\` (\`skill\` set to its name) and follow it: skills are the Studio runbooks.
 - Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.`;
 
 const WORKING_CADENCE = `

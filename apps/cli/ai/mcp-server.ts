@@ -6,27 +6,50 @@ import {
 	ListToolsRequestSchema,
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
+import { Type } from 'typebox';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
-import { createSkillTool } from 'cli/ai/tools/skill';
-import type { StudioAgentTool } from 'cli/ai/tools/define-tool';
+import { defineTool, type StudioAgentTool } from 'cli/ai/tools/define-tool';
+import { renderSkill } from 'cli/ai/tools/skill';
+import { textResult } from 'cli/ai/tools/utils';
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
-	const skillTool = createSkillTool();
-	const tools = [
-		...resolveStudioToolDefinitions( { imageGeneration: await isImageGenerationAvailable() } ),
-		...( skillTool ? [ skillTool ] : [] ),
-	] as StudioAgentTool[];
+	const studioTools = resolveStudioToolDefinitions( {
+		imageGeneration: await isImageGenerationAvailable(),
+	} );
+	// Fetched on demand rather than sent as the server's instructions, which
+	// hosts keep in context for every conversation and may truncate.
+	const instructionsTool = defineTool(
+		'studio_instructions',
+		"Returns how to build and manage WordPress sites with the Studio tools: the site workflow, when to load which skill, and the rules the result must follow. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead.",
+		{
+			skill: Type.Optional(
+				Type.Enum(
+					loadSkills().map( ( skill ) => skill.name ),
+					{ description: 'A skill the instructions name.' }
+				)
+			),
+		},
+		async ( args ) =>
+			textResult(
+				args.skill
+					? renderSkill( args.skill )
+					: buildSystemPrompt( { external: true, tools: studioTools } )
+			)
+	);
+	const tools = [ instructionsTool, ...studioTools ] as StudioAgentTool[];
 	const toolsByName = new Map( tools.map( ( tool ) => [ tool.name, tool ] ) );
 
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
 		{
 			capabilities: { tools: {} },
-			instructions: buildSystemPrompt( { external: true, tools } ),
+			instructions:
+				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
 		}
 	);
 

@@ -147,7 +147,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
-**CRITICAL - Playground Package Versions**: Always pin `@wp-playground/*` packages (and any `@php-wasm/*` they pull in) to **exact versions** (no `^` or `~` ranges) in all `package.json` files, and bump them in lockstep. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict, and npm then installs duplicate nested copies of the shared Playground packages. Studio no longer runs sites on Playground; it only uses `@wp-playground/blueprints` for Blueprint types and schema validation, and `@wp-playground/tools` for the phpMyAdmin files.
+**CRITICAL - Playground Package Versions**: Always pin `@wp-playground/*` packages (and any `@php-wasm/*` they pull in) to **exact versions** (no `^` or `~` ranges) in all `package.json` files, and bump them in lockstep. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict, and npm then installs duplicate nested copies of the shared Playground packages. Studio no longer runs sites on Playground; it only uses `@wp-playground/blueprints` for Blueprint types and schema validation, and `@wp-playground/tools` for the phpMyAdmin files. Keep `@wp-playground/blueprints` a devDependency everywhere: import only types from it (the schema validator is bundled by Vite, and `__isStepDefinition` lives in `packages/common/lib/blueprint-settings.ts`). A runtime import makes the CLI bundle ship it with ~100 MB of transitive dependencies (Octokit, isomorphic-git).
 
 ## Detailed Documentation
 

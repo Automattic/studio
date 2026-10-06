@@ -9,7 +9,10 @@ import {
 	removeBlueprintTempDir,
 	removeBlueprintTempDirSync,
 } from '@studio/common/lib/blueprint-bundle';
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
+import {
+	__isStepDefinition,
+	extractFormValuesFromBlueprint,
+} from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
@@ -52,7 +55,6 @@ import {
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -99,6 +101,7 @@ import {
 } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 const defaultLogger = new Logger< LoggerAction >();
 // Without an explicit importer, `--from` installs the newest Static Site Importer release (see
@@ -1072,7 +1075,7 @@ export async function runCommand(
 			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
 			const blueprintHasMultisite = blueprint?.steps
-				?.filter( isStepDefinition )
+				?.filter( __isStepDefinition )
 				.some( ( step ) => step.step === 'enableMultisite' );
 
 			if ( blueprintHasMultisite && ! options.customDomain ) {

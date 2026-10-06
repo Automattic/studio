@@ -14,6 +14,7 @@ const mocks = vi.hoisted( () => ( {
 		put: vi.fn(),
 		del: vi.fn(),
 	},
+	readAuthToken: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
@@ -22,6 +23,10 @@ vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 
 vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( {
 	default: vi.fn(),
+} ) );
+
+vi.mock( '@studio/common/lib/shared-config', () => ( {
+	readAuthToken: mocks.readAuthToken,
 } ) );
 
 describe( 'wpcom_request', () => {
@@ -53,8 +58,9 @@ describe( 'wpcom_request', () => {
 		};
 		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
 
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
+		const tool = createWpcomRequestTool( 'token', { bodyFilesRoot: rootDir } );
 		const result = await tool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/pages/4',
 			body: { status: 'publish' },
@@ -73,6 +79,7 @@ describe( 'wpcom_request', () => {
 
 		mocks.req.post.mockClear();
 		await tool.rawHandler( {
+			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
 			bodyFile: bodyPath,
@@ -83,5 +90,18 @@ describe( 'wpcom_request', () => {
 			{ apiNamespace: 'wp/v2' },
 			globalStylesBody
 		);
+	} );
+
+	it( 'uses the stored WordPress.com login when it has no token of its own', async () => {
+		const tool = createWpcomRequestTool();
+		mocks.req.get.mockResolvedValue( [] );
+		mocks.readAuthToken.mockResolvedValue( { accessToken: 'stored' } );
+		await tool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } );
+		expect( mocks.req.get ).toHaveBeenCalledWith( '/sites/456/posts', { apiNamespace: 'wp/v2' } );
+
+		mocks.readAuthToken.mockResolvedValue( undefined );
+		await expect(
+			tool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
+		).rejects.toThrow( 'Not logged in to WordPress.com' );
 	} );
 } );

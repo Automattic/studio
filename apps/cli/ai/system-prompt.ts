@@ -91,7 +91,7 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 
 ## Available Tools
 
-- **wpcom_request**: Manage the active WordPress.com site through WordPress REST API and WordPress.com REST API endpoints.
+- **wpcom_request**: Manage the active WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.
 - **take_screenshot**: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both)
 - **Read/Write/Edit/Ls**: Local scratch-file tools within Studio app data. They do not modify the remote site directly.
 - **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)

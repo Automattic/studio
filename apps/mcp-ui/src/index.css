@@ -3,7 +3,6 @@
 	color-scheme: light dark;
 	--app-page: light-dark(#f6f7f7, #1e1e1e);
 	--app-card: light-dark(#ffffff, #2c2c2c);
-	--app-raised: light-dark(#ffffff, #383838);
 	--app-text: light-dark(#1e1e1e, #f0f0f0);
 	--app-muted: light-dark(#757575, #a7aaad);
 	--app-accent: light-dark(#3858e9, #7a92ff);
@@ -15,7 +14,6 @@
 	--app-success: light-dark(#008a20, #4ab866);
 	--app-success-bg: light-dark(rgb(0 138 32 / 0.12), rgb(74 184 102 / 0.16));
 	--app-danger-bg: light-dark(rgb(204 24 24 / 0.09), rgb(248 99 104 / 0.14));
-	--app-shadow-raised: 0 1px 2px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4)), 0 0 0 0.5px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.06));
 	--app-shadow-card: 0 2px 12px light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.35));
 	--app-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
 	--app-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -88,8 +86,6 @@ button[data-kind]:disabled { cursor: progress; opacity: 0.5; }
 
 .back { justify-self: start; margin-left: -10px; }
 .note { color: var(--app-muted); font-size: var(--app-meta-size); }
-.lists { display: grid; gap: 20px; min-width: 0; }
-.page .lists { gap: 36px; }
 .section { display: grid; gap: 10px; min-width: 0; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .section-title { font-size: var(--app-text-size); font-weight: 600; }

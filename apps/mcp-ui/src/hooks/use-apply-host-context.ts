@@ -3,17 +3,17 @@ import { useHostState } from './use-host-state';
 
 const SIDES = [ 'top', 'right', 'bottom', 'left' ] as const;
 
-// The host's theme, display mode, safe areas and style variables.
+// The host's theme, display mode and safe areas.
 export function useApplyHostContext() {
 	const { context } = useHostState();
-	const { theme, displayMode, safeAreaInsets, styles } = context;
+	const { theme, displayMode, safeAreaInsets } = context;
 
 	useEffect( () => {
 		const root = document.documentElement;
 		if ( theme === 'light' || theme === 'dark' ) {
 			root.dataset.theme = theme;
 		}
-		if ( displayMode && [ 'inline', 'fullscreen', 'pip' ].includes( displayMode ) ) {
+		if ( displayMode ) {
 			root.dataset.displayMode = displayMode;
 		}
 	}, [ theme, displayMode ] );
@@ -27,15 +27,4 @@ export function useApplyHostContext() {
 			);
 		}
 	}, [ safeAreaInsets ] );
-
-	useEffect( () => {
-		const root = document.documentElement;
-		const names = Object.entries( styles?.variables ?? {} )
-			.filter( ( [ name, value ] ) => name.startsWith( '--' ) && typeof value === 'string' )
-			.map( ( [ name, value ] ) => {
-				root.style.setProperty( name, value );
-				return name;
-			} );
-		return () => names.forEach( ( name ) => root.style.removeProperty( name ) );
-	}, [ styles ] );
 }

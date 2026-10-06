@@ -13,12 +13,7 @@ import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { DESIGN_PICKER_HTML, DESIGN_PICKER_URI, MCP_APP_MIME_TYPE } from 'cli/ai/mcp-design-picker';
-import {
-	createLibraryTools,
-	LIBRARY_APP_META,
-	libraryListing,
-	libraryPage,
-} from 'cli/ai/mcp-library';
+import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/mcp-library';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
@@ -51,17 +46,21 @@ function describeClient( server: Server ): ClientSupport {
 	};
 }
 
-function createTools( client: ClientSupport, imageGeneration: boolean ): StudioAgentTool[] {
+interface ServedTool {
+	tool: StudioAgentTool;
+	// What the tools list adds to the tool, such as the MCP App page it opens.
+	listing?: Record< string, unknown >;
+}
+
+function createTools( client: ClientSupport, imageGeneration: boolean ): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
-	const studioTools = [
-		...resolveStudioToolDefinitions( {
-			imageGeneration: imageGeneration && ! client.ownImageTool,
-			canAskUser: true,
-			imageLink,
-		} ),
-		createPresentDesignOptionsTool( { imageLink, picker: client.apps } ),
-	];
+	const definitions = resolveStudioToolDefinitions( {
+		imageGeneration: imageGeneration && ! client.ownImageTool,
+		canAskUser: true,
+		imageLink,
+	} );
+	const designOptions = createPresentDesignOptionsTool( { imageLink, picker: client.apps } );
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
@@ -79,14 +78,27 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): StudioA
 			textResult(
 				args.skill
 					? renderSkill( args.skill )
-					: buildSystemPrompt( { external: true, tools: studioTools } )
+					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
 			)
 	);
+	const library = client.apps ? libraryPage() : null;
 	return [
-		instructionsTool,
-		...studioTools,
-		...( client.apps && libraryPage() ? createLibraryTools() : [] ),
-	] as StudioAgentTool[];
+		...[ instructionsTool, ...definitions ].map( ( tool ) => ( { tool } ) ),
+		{
+			tool: designOptions,
+			listing: client.apps ? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } } : undefined,
+		},
+		...( library ? createLibraryTools( library.uri ) : [] ),
+	] as ServedTool[];
+}
+
+// The MCP App pages: the design picker, and the WordPress library once built.
+function appPages(): AppPage[] {
+	const library = libraryPage();
+	return [
+		{ uri: DESIGN_PICKER_URI, name: 'Design options', text: DESIGN_PICKER_HTML },
+		...( library ? [ library ] : [] ),
+	];
 }
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
@@ -110,19 +122,16 @@ export async function startMcpStdioServer(): Promise< void > {
 	};
 
 	server.setRequestHandler( ListToolsRequestSchema, async () => ( {
-		tools: tools.map( ( tool ) => ( {
+		tools: tools.map( ( { tool, listing } ) => ( {
 			name: tool.name,
 			description: tool.description,
 			inputSchema: tool.parameters as unknown as Record< string, unknown >,
-			...( client.apps && tool.name === 'present_design_options'
-				? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } }
-				: {} ),
-			...libraryListing( tool.name ),
+			...listing,
 		} ) ),
 	} ) );
 
 	server.setRequestHandler( CallToolRequestSchema, async ( request ) => {
-		const tool = tools.find( ( candidate ) => candidate.name === request.params.name );
+		const tool = tools.find( ( served ) => served.tool.name === request.params.name )?.tool;
 		if ( ! tool ) {
 			throw new Error( `Unknown tool: ${ request.params.name }` );
 		}
@@ -162,39 +171,22 @@ export async function startMcpStdioServer(): Promise< void > {
 		}
 	} );
 
-	server.setRequestHandler( ListResourcesRequestSchema, async () => {
-		const library = libraryPage();
-		return {
-			resources: [
-				{ uri: DESIGN_PICKER_URI, name: 'Design options', mimeType: MCP_APP_MIME_TYPE },
-				...( library
-					? [
-							{
-								uri: library.uri,
-								name: 'WordPress',
-								mimeType: MCP_APP_MIME_TYPE,
-								_meta: LIBRARY_APP_META,
-							},
-					  ]
-					: [] ),
-			],
-		};
-	} );
+	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
+		resources: appPages().map( ( { uri, name, _meta } ) => ( {
+			uri,
+			name,
+			mimeType: MCP_APP_MIME_TYPE,
+			_meta,
+		} ) ),
+	} ) );
 
 	server.setRequestHandler( ReadResourceRequestSchema, async ( request ) => {
-		const { uri } = request.params;
-		if ( uri === DESIGN_PICKER_URI ) {
-			return { contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text: DESIGN_PICKER_HTML } ] };
+		const page = appPages().find( ( candidate ) => candidate.uri === request.params.uri );
+		if ( ! page ) {
+			throw new Error( `Unknown resource: ${ request.params.uri }` );
 		}
-		const library = libraryPage();
-		if ( library && uri === library.uri ) {
-			return {
-				contents: [
-					{ uri, mimeType: MCP_APP_MIME_TYPE, text: library.html, _meta: LIBRARY_APP_META },
-				],
-			};
-		}
-		throw new Error( `Unknown resource: ${ uri }` );
+		const { uri, text, _meta } = page;
+		return { contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text, _meta } ] };
 	} );
 
 	const transport = new StdioServerTransport();

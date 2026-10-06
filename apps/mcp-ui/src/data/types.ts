@@ -14,7 +14,6 @@ export interface HostContext {
 	displayMode?: DisplayMode;
 	availableDisplayModes?: DisplayMode[];
 	safeAreaInsets?: Partial< Record< 'top' | 'right' | 'bottom' | 'left', number > >;
-	styles?: { variables?: Record< string, string > };
 	[ key: string ]: unknown;
 }
 

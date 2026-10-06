@@ -8,9 +8,7 @@ export const canTargetMessages = ( capabilities: HostCapabilities ) =>
 	owns( capabilities.experimental, 'openai/message' );
 
 export const canMessage = ( capabilities: HostCapabilities ) =>
-	canTargetMessages( capabilities ) ||
-	owns( capabilities.message, 'text' ) ||
-	owns( capabilities, 'message' );
+	canTargetMessages( capabilities ) || owns( capabilities, 'message' );
 
 export const canAttach = ( capabilities: HostCapabilities ) =>
 	owns( capabilities.experimental, 'openai/modelContext' ) ||

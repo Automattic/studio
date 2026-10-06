@@ -73,9 +73,9 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// `studio mcp` serves the MCP Apps page (apps/mcp-ui `dist`) from
-// `<chunk dir>/mcp-ui`. Built separately (`npm run build --workspace=apps/mcp-ui`)
-// like the browser UI; release configs include `buildMcpUiPlugin`.
+// `studio mcp` serves the WordPress library page (apps/mcp-ui `dist`) from
+// `<chunk dir>/mcp-ui`. Built separately like the browser UI; release configs
+// include `buildMcpUiPlugin`.
 const mcpUiDistPath = resolve( __dirname, '../mcp-ui/dist' );
 
 export function buildMcpUiPlugin() {

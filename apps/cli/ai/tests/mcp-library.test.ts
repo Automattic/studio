@@ -1,13 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createLibraryTools, libraryListing } from 'cli/ai/mcp-library';
+import { createLibraryTools } from 'cli/ai/mcp-library';
 
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
-	readCliConfig: async () => ( {
-		sites: [
-			{ id: 'a1', name: 'Crumb & Co', path: '/sites/crumb', port: 8881, phpVersion: '8.3' },
-		],
-	} ),
+	readCliConfig: async () => ( { sites: [ { id: 'a1', name: 'Crumb', path: '/sites/crumb' } ] } ),
 } ) );
 vi.mock( 'cli/lib/site-utils', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-utils') >() ),
@@ -15,19 +11,15 @@ vi.mock( 'cli/lib/site-utils', async ( importOriginal ) => ( {
 } ) );
 
 describe( 'WordPress library', () => {
-	it( 'opens from the sidebar with the local sites for the page only', async () => {
-		const [ open ] = createLibraryTools();
-		const result = await open.rawHandler( {} as never );
+	it( 'opens from the sidebar with the local sites, for the page only', async () => {
+		const [ open ] = createLibraryTools( 'ui://studio/library.html' );
 
-		expect( result._meta ).toEqual( {
-			localSites: [ expect.objectContaining( { id: 'a1', name: 'Crumb & Co', running: true } ) ],
+		expect( ( await open.tool.rawHandler( {} as never ) )._meta ).toEqual( {
+			localSites: [ expect.objectContaining( { id: 'a1', running: true } ) ],
 		} );
-		expect( libraryListing( open.name ) ).toMatchObject( {
-			title: 'WordPress',
-			_meta: {
-				ui: { visibility: [ 'app' ] },
-				'openai/ui': { entrypoints: [ { type: 'global' }, { type: 'thread' } ] },
-			},
+		expect( open.listing._meta ).toMatchObject( {
+			ui: { visibility: [ 'app' ] },
+			'openai/ui': { entrypoints: [ { type: 'global' }, { type: 'thread' } ] },
 		} );
 	} );
 } );

@@ -1,6 +1,6 @@
 ---
 name: imagery
-description: Generate AI images for a site with generate_images — how to write image specs, pick aspect ratios, place files (theme assets vs media library), and handle failures.
+description: Generate AI images for a site with generate_images, or with an image tool of your own when it is not available — how to write image specs, pick aspect ratios, place files (theme assets vs media library), and handle failures.
 user-invokable: true
 ---
 
@@ -65,6 +65,15 @@ The look is picked on one image and the layout on a set, both from the `site-spe
 - **The look image**: before the look options, one `generate_images` call with a single image, the site's first-screen scene in `landscape`, at `<site>/wp-content/uploads/<scene>.png`, with the call-wide `imageGrade` left out and a neutral, versatile grade in `pageContext` ("natural light, true color, moderate contrast"). Pass the path it reports as each look's `image`. Every look's board shows this same photo under that look's `imagery` treatment from its `DESIGN.md` draft, so the user compares looks rather than photo content. A direction that rejects photography (its Imagery line says none, or type-only) passes no image: its board shows a pattern.
 - **The site's set**: once `DESIGN.md` is written, one `generate_images` call with 3–4 images in the picked look, with its Imagery section as the call-wide `imageGrade` and its `style` if it is not photographic: the first-screen scene again plus distinct supporting subjects (a detail, a place or a person, a product), each in the aspect ratio of the slot it is most likely to fill, at `<site>/wp-content/uploads/<name>.png`. The set is content imagery: the layout sneak peeks use the paths it reports, and the build starts from its attachment IDs and URLs. When a template or template part needs one of its images, copy that file into the theme's `assets/images` and reference the copy. Generate more only for slots the set cannot fill, with the same `imageGrade`. The look image is in the media library too, for a look its treatment reproduced.
 - **A failed or unavailable image** is not a blocker: the board shows a pattern, and a sneak-peek slot a solid color shape.
+
+## Without generate_images
+
+When `generate_images` is not available but you have an image tool of your own (such as `image_gen`), make the same images with it, including the look image and the site's set below: plan them exactly as above, and write what you would pass as `siteContext`, `pageContext`, `style` and `imageGrade` into each image's prompt, with no text in the image. Then put each file where its destination says:
+
+- **Content imagery**: copy the files into the site's `tmp/` folder and import them in one `wp_cli` call, `media import tmp/<a>.png tmp/<b>.png --porcelain`, which prints their attachment IDs in order; `post list --post_type=attachment --post__in=<ids> --fields=ID,guid` gives their URLs.
+- **Theme imagery**: copy the file to its path in the theme's `assets/images`.
+
+For the look image, pass the imported file's path in the site as each look's `image`.
 
 ## No decorative or transparent images
 

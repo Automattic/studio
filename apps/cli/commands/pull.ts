@@ -26,6 +26,7 @@ import {
 	checkBackupSize,
 	fetchSyncableSites,
 	initiateBackup,
+	NoRemoteBackupError,
 	parseSyncOptions,
 	pollBackupStatus,
 	downloadBackup,
@@ -281,6 +282,7 @@ export async function runCommand(
 						kind: 'error',
 						direction: 'pull',
 						message: failure instanceof Error ? failure.message : String( failure ),
+						...( failure instanceof NoRemoteBackupError && { reason: 'no-remote-backup' } ),
 				  }
 				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
 		);

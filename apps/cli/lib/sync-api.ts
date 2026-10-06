@@ -49,6 +49,16 @@ function wrapError( message: string, error: unknown, code?: string ): LoggerErro
 	return new LoggerError( message, error, code );
 }
 
+export class NoRemoteBackupError extends LoggerError {
+	constructor() {
+		super(
+			__( "Your site's first backup hasn't been created yet. Wait a few minutes and try again." ),
+			undefined,
+			'remote_backup'
+		);
+	}
+}
+
 export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
 	try {
 		return await fetchSyncableSitesBase( token );
@@ -66,11 +76,7 @@ export async function initiateBackup(
 		return await initiateBackupBase( token, remoteSiteId, options );
 	} catch ( error ) {
 		if ( isNoBackupsFoundError( error ) ) {
-			throw new LoggerError(
-				__( "Your site's first backup hasn't been created yet. Wait a few minutes and try again." ),
-				undefined,
-				'remote_backup'
-			);
+			throw new NoRemoteBackupError();
 		}
 		throw wrapError( __( 'Failed to initiate backup' ), error, 'remote_backup' );
 	}

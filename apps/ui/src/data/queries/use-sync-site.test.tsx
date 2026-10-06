@@ -205,6 +205,42 @@ describe( 'usePullSiteFromLive', () => {
 			expect( openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
 		}
 	);
+
+	it( 'explains a pull that failed because the live site has no backup yet', () => {
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		useConnectorMock.mockReturnValue( {
+			capabilities: { studioLogs: true },
+			openStudioLogs: vi.fn(),
+			onSyncActivity: ( listener: typeof publish ) => {
+				publish = listener;
+				return () => {};
+			},
+		} as unknown as Connector );
+		render(
+			<QueryClientProvider client={ new QueryClient() }>
+				<SyncActivityEvents />
+				<Harness />
+			</QueryClientProvider>
+		);
+
+		act( () => publish( { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } } ) );
+		act( () =>
+			publish( {
+				siteId: 'site-1',
+				activity: {
+					kind: 'error',
+					direction: 'pull',
+					message: 'Failed to initiate backup',
+					reason: 'no-remote-backup',
+				},
+			} )
+		);
+
+		expect( toast.error ).toHaveBeenCalledWith( "Pull didn't complete", {
+			description: expect.stringContaining( "first backup hasn't been created yet" ),
+			action: { label: 'Open Studio Logs', onClick: expect.any( Function ) },
+		} );
+	} );
 } );
 
 describe( 'sync Tracks events', () => {

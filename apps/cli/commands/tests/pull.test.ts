@@ -9,6 +9,7 @@ import {
 	checkBackupSize,
 	fetchSyncableSites,
 	initiateBackup,
+	NoRemoteBackupError,
 	pollBackupStatus,
 } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
@@ -149,5 +150,18 @@ describe( 'CLI: studio pull', () => {
 			includePathList: undefined,
 		} );
 		expect( messages.some( ( message ) => message.includes( 'first backup' ) ) ).toBe( true );
+	} );
+
+	it( 'tells the UI when the remote site has no backup yet', async () => {
+		vi.mocked( initiateBackup ).mockRejectedValue( new NoRemoteBackupError() );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
+		).rejects.toThrow( NoRemoteBackupError );
+
+		expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
+			site.id,
+			expect.objectContaining( { kind: 'error', reason: 'no-remote-backup' } ),
+		] );
 	} );
 } );

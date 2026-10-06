@@ -1,14 +1,12 @@
 import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 import sharedConfig from '../../vitest.shared.ts';
-import { mcpUiPlugin } from './vite-plugin-mcp-ui.ts';
 
 const __dirname = import.meta.dirname;
 
 export default mergeConfig(
 	sharedConfig,
 	defineProject( {
-		plugins: [ mcpUiPlugin() ],
 		define: {
 			__IS_PACKAGED_FOR_NPM__: true,
 			__IS_PACKAGED_FOR_STANDALONE__: false,

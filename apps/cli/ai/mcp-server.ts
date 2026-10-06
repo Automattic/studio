@@ -15,10 +15,9 @@ import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { DESIGN_PICKER_HTML, DESIGN_PICKER_URI, MCP_APP_MIME_TYPE } from 'cli/ai/mcp-design-picker';
 import {
 	createLibraryTools,
-	LIBRARY_APP_HTML,
 	LIBRARY_APP_META,
-	LIBRARY_APP_URI,
 	libraryListing,
+	libraryPage,
 } from 'cli/ai/mcp-library';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
@@ -86,7 +85,7 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): StudioA
 	return [
 		instructionsTool,
 		...studioTools,
-		...( client.apps ? createLibraryTools() : [] ),
+		...( client.apps && libraryPage() ? createLibraryTools() : [] ),
 	] as StudioAgentTool[];
 }
 
@@ -163,27 +162,35 @@ export async function startMcpStdioServer(): Promise< void > {
 		}
 	} );
 
-	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
-		resources: [
-			{ uri: DESIGN_PICKER_URI, name: 'Design options', mimeType: MCP_APP_MIME_TYPE },
-			{
-				uri: LIBRARY_APP_URI,
-				name: 'WordPress',
-				mimeType: MCP_APP_MIME_TYPE,
-				_meta: LIBRARY_APP_META,
-			},
-		],
-	} ) );
+	server.setRequestHandler( ListResourcesRequestSchema, async () => {
+		const library = libraryPage();
+		return {
+			resources: [
+				{ uri: DESIGN_PICKER_URI, name: 'Design options', mimeType: MCP_APP_MIME_TYPE },
+				...( library
+					? [
+							{
+								uri: library.uri,
+								name: 'WordPress',
+								mimeType: MCP_APP_MIME_TYPE,
+								_meta: LIBRARY_APP_META,
+							},
+					  ]
+					: [] ),
+			],
+		};
+	} );
 
 	server.setRequestHandler( ReadResourceRequestSchema, async ( request ) => {
 		const { uri } = request.params;
 		if ( uri === DESIGN_PICKER_URI ) {
 			return { contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text: DESIGN_PICKER_HTML } ] };
 		}
-		if ( uri === LIBRARY_APP_URI ) {
+		const library = libraryPage();
+		if ( library && uri === library.uri ) {
 			return {
 				contents: [
-					{ uri, mimeType: MCP_APP_MIME_TYPE, text: LIBRARY_APP_HTML, _meta: LIBRARY_APP_META },
+					{ uri, mimeType: MCP_APP_MIME_TYPE, text: library.html, _meta: LIBRARY_APP_META },
 				],
 			};
 		}

@@ -4,7 +4,6 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
-import { mcpUiPlugin } from './vite-plugin-mcp-ui.ts';
 
 const __dirname = import.meta.dirname;
 const packageJson = createRequire( import.meta.url )( './package.json' ) as {
@@ -74,12 +73,31 @@ export function buildLocalUiPlugin() {
 	};
 }
 
+// `studio mcp` serves the MCP Apps page (apps/mcp-ui `dist`) from
+// `<chunk dir>/mcp-ui`. Built separately (`npm run build --workspace=apps/mcp-ui`)
+// like the browser UI; release configs include `buildMcpUiPlugin`.
+const mcpUiDistPath = resolve( __dirname, '../mcp-ui/dist' );
+
+export function buildMcpUiPlugin() {
+	return {
+		name: 'build-mcp-ui',
+		apply: 'build' as const,
+		buildStart() {
+			execSync( 'npx vite build', { cwd: resolve( __dirname, '../mcp-ui' ), stdio: 'inherit' } );
+			if ( ! existsSync( mcpUiDistPath ) ) {
+				throw new Error(
+					`The MCP Apps page build did not produce ${ mcpUiDistPath }; refusing to ship a CLI without it.`
+				);
+			}
+		},
+	};
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
 	},
 	plugins: [
-		mcpUiPlugin(),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
@@ -102,6 +120,9 @@ export const baseConfig = defineConfig( {
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
+				}
+				if ( existsSync( mcpUiDistPath ) ) {
+					cpSync( mcpUiDistPath, resolve( outDir, 'mcp-ui' ), { recursive: true } );
 				}
 			},
 		},

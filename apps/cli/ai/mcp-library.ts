@@ -1,13 +1,12 @@
 import { fork, type ChildProcess } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { unlink, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { cliSiteEventSchema } from '@studio/common/lib/cli-events';
 import { Type } from 'typebox';
-import BUILT_LIBRARY_HTML from 'virtual:mcp-ui';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { defineTool } from 'cli/ai/tools/define-tool';
 import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
@@ -34,15 +33,28 @@ const WORDPRESS_LOGO_SVG =
 // here. Run outside a plugin, there is nothing to mention.
 const pluginId = process.env.STUDIO_PLUGIN_ID;
 
-export const LIBRARY_APP_HTML = BUILT_LIBRARY_HTML.split( '__STUDIO_PLUGIN_MENTION__' ).join(
-	pluginId ? `[@WordPress Studio](plugin://${ pluginId })` : ''
-);
+let page: { html: string; uri: string } | null | undefined;
 
-// Hosts cache an App's page by its URI, so a changed page needs a new one.
-export const LIBRARY_APP_URI = `ui://studio/library-${ createHash( 'sha256' )
-	.update( LIBRARY_APP_HTML )
-	.digest( 'hex' )
-	.slice( 0, 12 ) }.html`;
+// The page, which the CLI build copies next to its chunks once apps/mcp-ui is
+// built (`npm run cli:build:mcp-ui`); without it, there is no library.
+export function libraryPage(): { html: string; uri: string } | null {
+	if ( page === undefined ) {
+		try {
+			const html = readFileSync(
+				path.resolve( import.meta.dirname, 'mcp-ui', 'index.html' ),
+				'utf8'
+			)
+				.split( '__STUDIO_PLUGIN_MENTION__' )
+				.join( pluginId ? `[@WordPress Studio](plugin://${ pluginId })` : '' );
+			// Hosts cache an App's page by its URI, so a changed page needs a new one.
+			const hash = createHash( 'sha256' ).update( html ).digest( 'hex' ).slice( 0, 12 );
+			page = { html, uri: `ui://studio/library-${ hash }.html` };
+		} catch {
+			page = null;
+		}
+	}
+	return page;
+}
 
 export const LIBRARY_APP_META = {
 	ui: { prefersBorder: true },
@@ -52,13 +64,12 @@ export const LIBRARY_APP_META = {
 	},
 };
 
-const APP_ONLY = { ui: { resourceUri: LIBRARY_APP_URI, visibility: [ 'app' ] } };
-
 // What the tools list adds to a library tool: its page, and for the entry tool
 // OpenAI's entrypoints (the sidebar and a conversation tab).
 export function libraryListing( toolName: string ): Record< string, unknown > {
+	const appOnly = { ui: { resourceUri: libraryPage()?.uri, visibility: [ 'app' ] } };
 	if ( toolName !== OPEN_TOOL ) {
-		return toolName === PREVIEW_TOOL || toolName === CHANGES_TOOL ? { _meta: APP_ONLY } : {};
+		return toolName === PREVIEW_TOOL || toolName === CHANGES_TOOL ? { _meta: appOnly } : {};
 	}
 	return {
 		title: 'WordPress',
@@ -72,7 +83,7 @@ export function libraryListing( toolName: string ): Record< string, unknown > {
 			},
 		],
 		_meta: {
-			...APP_ONLY,
+			...appOnly,
 			'openai/ui': { entrypoints: [ { type: 'global' }, { type: 'thread' } ] },
 		},
 	};

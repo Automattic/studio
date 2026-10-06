@@ -104,7 +104,6 @@ export default defineConfig(
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
 						'@modelcontextprotocol/sdk/client/index\\.js$',
 						'@modelcontextprotocol/sdk/client/stdio\\.js$',
-						'^virtual:',
 					],
 				},
 			],

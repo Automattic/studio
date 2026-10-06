@@ -40,7 +40,7 @@ describe( 'initiateBackup', () => {
 		expect( error.code ).toBe( 'remote_backup' );
 	} );
 
-	it( 'keeps the server error for other backup failures', async () => {
+	it( 'logs the server error text for other backup failures', async () => {
 		vi.mocked( initiateBackupBase ).mockRejectedValue(
 			wpcomError( { success: false, error: '502 Bad Gateway' } )
 		);
@@ -50,7 +50,7 @@ describe( 'initiateBackup', () => {
 		);
 
 		expect( error.message ).toBe(
-			'Failed to initiate backup: 500 status code for "POST /sites/42/studio-app/sync/backup"'
+			'Failed to initiate backup: 500 status code for "POST /sites/42/studio-app/sync/backup" (502 Bad Gateway)'
 		);
 	} );
 } );

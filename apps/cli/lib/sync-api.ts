@@ -46,7 +46,19 @@ function wrapError( message: string, error: unknown, code?: string ): LoggerErro
 	if ( error instanceof z.ZodError ) {
 		return new LoggerError( __( 'Invalid API response format' ), error, code );
 	}
-	return new LoggerError( message, error, code );
+	return new LoggerError( message, withServerDetail( error ), code );
+}
+
+// wp-error keeps only the status line in `message`; the server's own `error` text is what explains
+// the failure in the logs.
+function withServerDetail( error: unknown ): unknown {
+	if ( ! ( error instanceof Error ) || ! ( 'error' in error ) || typeof error.error !== 'string' ) {
+		return error;
+	}
+	if ( ! error.error || error.message.includes( error.error ) ) {
+		return error;
+	}
+	return Object.assign( new Error( `${ error.message } (${ error.error })` ), { cause: error } );
 }
 
 export class NoRemoteBackupError extends LoggerError {

@@ -31,28 +31,27 @@ import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
+// Named pipes on Windows share one system-wide namespace, hence the `studio-` prefix.
+const EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
+const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? 'studio-' : '';
+
+function eventsSocketPath( name: string ): string {
+	return path.join( EVENTS_SOCKET_DIR, `${ EVENTS_SOCKET_PREFIX }${ name }.sock` );
+}
+
 // One events socket per kind of Studio app, each owned by that app's `_events`. The
 // desktop keeps the original path, which older desktop builds also listen on.
 export const EVENTS_SOCKET_PATHS = {
-	desktop:
-		process.platform === 'win32'
-			? '\\\\.\\pipe\\studio-events.sock'
-			: path.join( PROCESS_MANAGER_HOME, 'events.sock' ),
-	ui:
-		process.platform === 'win32'
-			? '\\\\.\\pipe\\studio-events-ui.sock'
-			: path.join( PROCESS_MANAGER_HOME, 'events-ui.sock' ),
+	desktop: eventsSocketPath( 'events' ),
+	ui: eventsSocketPath( 'events-ui' ),
 } as const;
 
 // `studio mcp` runs once per agent session, so each process gets its own events
 // socket, named after the pid of the `_events` command that owns it.
-const MCP_EVENTS_SOCKET = /^(?:studio-)?events-mcp-(\d+)\.sock$/;
-const MCP_EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
+const MCP_EVENTS_SOCKET = new RegExp( `^${ EVENTS_SOCKET_PREFIX }events-mcp-(\\d+)\\.sock$` );
 
 export function mcpEventsSocketPath( pid = process.pid ): string {
-	return process.platform === 'win32'
-		? `\\\\.\\pipe\\studio-events-mcp-${ pid }.sock`
-		: path.join( PROCESS_MANAGER_HOME, `events-mcp-${ pid }.sock` );
+	return eventsSocketPath( `events-mcp-${ pid }` );
 }
 
 function isProcessAlive( pid: number ): boolean {
@@ -66,10 +65,10 @@ function isProcessAlive( pid: number ): boolean {
 
 // The live `studio mcp` event sockets. A socket left behind by a process that
 // died without cleaning up is removed (named pipes go away with their process).
-export function liveMcpEventsSocketPaths(): string[] {
+function liveMcpEventsSocketPaths(): string[] {
 	let entries: string[];
 	try {
-		entries = fs.readdirSync( MCP_EVENTS_SOCKET_DIR );
+		entries = fs.readdirSync( EVENTS_SOCKET_DIR );
 	} catch {
 		return [];
 	}

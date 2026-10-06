@@ -30,7 +30,6 @@ import {
 	EVENTS_SOCKET_PATHS,
 	type EventsListener,
 	getDaemonBus,
-	liveMcpEventsSocketPaths,
 	mcpEventsSocketPath,
 } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
@@ -161,9 +160,6 @@ export async function runCommand( listener: EventsListener = 'desktop' ): Promis
 
 	async function cleanup() {
 		await eventsSocketServer.close();
-		if ( listener === 'mcp' && process.platform !== 'win32' ) {
-			fs.rmSync( socketPath, { force: true } );
-		}
 
 		try {
 			await disconnectFromDaemon();
@@ -177,9 +173,8 @@ export async function runCommand( listener: EventsListener = 'desktop' ): Promis
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
 	if ( listener === 'mcp' ) {
-		// Forked by `studio mcp`: stop with it, and clear what dead sessions left behind.
+		// Forked by `studio mcp`: stop with it.
 		process.on( 'disconnect', () => void cleanup() );
-		liveMcpEventsSocketPaths();
 	}
 
 	// Remove any stale socket from a previous session. Each Studio app is single-instance,

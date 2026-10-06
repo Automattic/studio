@@ -39,10 +39,6 @@ function writeBlueprint( env: CliEnv, blueprint: Record< string, unknown > ): st
 
 /**
  * Creates a site from the given Blueprint file without starting the server.
- * `--runtime sandbox` (bundled Playground/WASM) keeps this hermetic: native PHP
- * would download its ~25 MB binary into the config dir on first run. Blueprint
- * coverage under the native runtime is a follow-up (needs CI to provision that
- * binary).
  */
 function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprintPath: string ) {
 	return runCli(
@@ -55,8 +51,6 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 			path.join( env.sitesDir, slug ),
 			'--wp',
 			'latest',
-			'--runtime',
-			'sandbox',
 			'--blueprint',
 			blueprintPath,
 			'--no-start',

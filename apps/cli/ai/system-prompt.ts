@@ -168,8 +168,7 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 
 - Edit site files with your own file tools (read, write, edit, search). Wherever these instructions say Write or Edit, use them; site_info and site_create report the site's directory.
 - Whenever these instructions name a skill, load it with \`studio_instructions\` (\`skill\` set to its name) and follow it: skills are the Studio runbooks.
-- Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.
-- When generate_images is not available, make the site's images with your own image tool if you have one, following the \`imagery\` skill for which images to make, their subjects, aspect ratios, one shared photographic treatment, and where each goes. Copy theme images into place with your file tools. For content images, copy each file into the site's \`tmp/\` folder and add it to the media library with wp_cli \`media import tmp/<file> --porcelain\`, then use the attachment it creates.`;
+- Whenever these instructions or a runbook say to ask the user and wait, end your turn right after asking: the answer arrives as the user's next message. Never sleep or poll for it.`;
 
 const WORKING_CADENCE = `
 

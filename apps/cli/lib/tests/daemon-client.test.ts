@@ -1,4 +1,7 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -115,15 +118,27 @@ describe( 'process manager daemon client', () => {
 		expect( createConnectionMock ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'emitCliEvent() sends each event to every Studio app', async () => {
-		const { emitCliEvent, EVENTS_SOCKET_PATHS } = await import( '../daemon-client' );
+	it.skipIf( process.platform === 'win32' )(
+		'emitCliEvent() sends each event to every Studio app and live studio mcp process',
+		async () => {
+			const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pm-' ) );
+			process.env.STUDIO_PROCESS_MANAGER_HOME = home;
+			const live = path.join( home, `events-mcp-${ process.pid }.sock` );
+			const dead = path.join( home, 'events-mcp-2147483646.sock' );
+			fs.writeFileSync( live, '' );
+			fs.writeFileSync( dead, '' );
+			const { emitCliEvent, EVENTS_SOCKET_PATHS } = await import( '../daemon-client' );
 
-		await emitCliEvent( { event: 'auth-logout', data: {} } as never );
+			await emitCliEvent( { event: 'auth-logout', data: {} } as never );
 
-		expect( createConnectionMock.mock.calls.map( ( [ peer ] ) => peer ) ).toEqual(
-			Object.values( EVENTS_SOCKET_PATHS )
-		);
-	} );
+			expect( createConnectionMock.mock.calls.map( ( [ peer ] ) => peer ) ).toEqual( [
+				...Object.values( EVENTS_SOCKET_PATHS ),
+				live,
+			] );
+			expect( fs.existsSync( dead ) ).toBe( false );
+			fs.rmSync( home, { recursive: true, force: true } );
+		}
+	);
 
 	it( 'connectToDaemon() auto-starts the daemon when the socket is missing', async () => {
 		createConnectionMock.mockImplementationOnce( () => {

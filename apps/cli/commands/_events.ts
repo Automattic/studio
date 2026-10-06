@@ -30,6 +30,7 @@ import {
 	EVENTS_SOCKET_PATHS,
 	type EventsListener,
 	getDaemonBus,
+	mcpEventsSocketPath,
 } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -119,7 +120,7 @@ const emitSingleSnapshotEvent = sequential(
 );
 
 export async function runCommand( listener: EventsListener = 'desktop' ): Promise< void > {
-	const socketPath = EVENTS_SOCKET_PATHS[ listener ];
+	const socketPath = listener === 'mcp' ? mcpEventsSocketPath() : EVENTS_SOCKET_PATHS[ listener ];
 	const eventsSocketServer = new SocketServer( socketPath, 2500 );
 	eventsSocketServer.on( 'message', ( { message: packet } ) => {
 		try {
@@ -171,6 +172,10 @@ export async function runCommand( listener: EventsListener = 'desktop' ): Promis
 
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
+	if ( listener === 'mcp' ) {
+		// Forked by `studio mcp`: stop with it.
+		process.on( 'disconnect', () => void cleanup() );
+	}
 
 	// Remove any stale socket from a previous session. Each Studio app is single-instance,
 	// so an existing socket for this listener belongs to a dead session and must be replaced.

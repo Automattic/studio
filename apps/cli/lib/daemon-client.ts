@@ -31,20 +31,62 @@ import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const CONNECTION_TIMEOUT_MS = 10_000;
 const PROCESS_MANAGER_LOCKFILE_PATH = path.join( PROCESS_MANAGER_HOME, 'pm-connection.lock' );
+// Named pipes on Windows share one system-wide namespace, hence the `studio-` prefix.
+const EVENTS_SOCKET_DIR = process.platform === 'win32' ? '\\\\.\\pipe\\' : PROCESS_MANAGER_HOME;
+const EVENTS_SOCKET_PREFIX = process.platform === 'win32' ? 'studio-' : '';
+
+function eventsSocketPath( name: string ): string {
+	return path.join( EVENTS_SOCKET_DIR, `${ EVENTS_SOCKET_PREFIX }${ name }.sock` );
+}
+
 // One events socket per kind of Studio app, each owned by that app's `_events`. The
 // desktop keeps the original path, which older desktop builds also listen on.
 export const EVENTS_SOCKET_PATHS = {
-	desktop:
-		process.platform === 'win32'
-			? '\\\\.\\pipe\\studio-events.sock'
-			: path.join( PROCESS_MANAGER_HOME, 'events.sock' ),
-	ui:
-		process.platform === 'win32'
-			? '\\\\.\\pipe\\studio-events-ui.sock'
-			: path.join( PROCESS_MANAGER_HOME, 'events-ui.sock' ),
+	desktop: eventsSocketPath( 'events' ),
+	ui: eventsSocketPath( 'events-ui' ),
 } as const;
 
-export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS;
+// `studio mcp` runs once per agent session, so each process gets its own events
+// socket, named after the pid of the `_events` command that owns it.
+const MCP_EVENTS_SOCKET = new RegExp( `^${ EVENTS_SOCKET_PREFIX }events-mcp-(\\d+)\\.sock$` );
+
+export function mcpEventsSocketPath( pid = process.pid ): string {
+	return eventsSocketPath( `events-mcp-${ pid }` );
+}
+
+function isProcessAlive( pid: number ): boolean {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// Also removes the sockets dead processes left behind; named pipes go away with their process.
+function liveMcpEventsSocketPaths(): string[] {
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( EVENTS_SOCKET_DIR );
+	} catch {
+		return [];
+	}
+	return entries.flatMap( ( entry ) => {
+		const pid = Number( MCP_EVENTS_SOCKET.exec( entry )?.[ 1 ] );
+		if ( ! pid ) {
+			return [];
+		}
+		if ( isProcessAlive( pid ) ) {
+			return [ mcpEventsSocketPath( pid ) ];
+		}
+		if ( process.platform !== 'win32' ) {
+			fs.rmSync( mcpEventsSocketPath( pid ), { force: true } );
+		}
+		return [];
+	} );
+}
+
+export type EventsListener = keyof typeof EVENTS_SOCKET_PATHS | 'mcp';
 
 function ensureProcessManagerHome() {
 	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
@@ -361,7 +403,12 @@ const eventsSocketClients = Object.values( EVENTS_SOCKET_PATHS ).map(
  * Emit a CLI event to every Studio app's `_events` command. Apps that aren't running are skipped.
  */
 export async function emitCliEvent( payload: SocketEvent ): Promise< void > {
+	const mcpClients = liveMcpEventsSocketPaths().map(
+		( socketPath ) => new SocketRequestClient( socketPath )
+	);
 	await Promise.all(
-		eventsSocketClients.map( ( client ) => client.send( payload ).catch( () => undefined ) )
+		[ ...eventsSocketClients, ...mcpClients ].map( ( client ) =>
+			client.send( payload ).catch( () => undefined )
+		)
 	);
 }

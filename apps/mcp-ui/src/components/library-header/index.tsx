@@ -1,7 +1,4 @@
 import { WordPressLogo } from '@/components/wordpress-logo';
-import { requestDisplayMode } from '@/data/bridge';
-import { useHostState } from '@/hooks/use-host-state';
-import { canDisplay, isPage } from '@/lib/host-capabilities';
 
 interface LibraryHeaderProps {
 	query: string;
@@ -9,9 +6,6 @@ interface LibraryHeaderProps {
 }
 
 export function LibraryHeader( { query, onQueryChange }: LibraryHeaderProps ) {
-	const { context } = useHostState();
-	const page = isPage( context );
-	const mode = page ? 'inline' : 'fullscreen';
 	return (
 		<header className="header">
 			<div className="brand">
@@ -20,17 +14,6 @@ export function LibraryHeader( { query, onQueryChange }: LibraryHeaderProps ) {
 					<h1 className="title">WordPress</h1>
 					<p className="summary">Your local Studio sites.</p>
 				</div>
-			</div>
-			<div className="actions">
-				<button
-					type="button"
-					data-kind="quiet"
-					data-size="sm"
-					hidden={ ! canDisplay( context, mode ) }
-					onClick={ () => void requestDisplayMode( mode ).catch( () => undefined ) }
-				>
-					{ page ? 'Collapse' : 'Expand' }
-				</button>
 			</div>
 			<div className="search" role="search">
 				<input

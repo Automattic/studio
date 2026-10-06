@@ -50,10 +50,7 @@ export function libraryPage(): AppPage | null {
 				text,
 				_meta: {
 					ui: { prefersBorder: true },
-					'openai/ui': {
-						preferredDisplayMode: 'fullscreen',
-						availableDisplayModes: [ 'inline', 'fullscreen' ],
-					},
+					'openai/ui': { preferredDisplayMode: 'fullscreen' },
 				},
 			};
 		} catch {

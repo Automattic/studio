@@ -42,7 +42,7 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 h1, h2, h3 { min-width: 0; overflow-wrap: anywhere; text-wrap: balance; }
 :where(button, input) { font: inherit; color: inherit; }
 a { color: var(--app-text); font-weight: 500; text-decoration: none; }
-:is(button, a, summary):focus-visible { outline: 2px solid var(--app-focus); outline-offset: 2px; }
+:is(button, a):focus-visible { outline: 2px solid var(--app-focus); outline-offset: 2px; }
 input:focus-visible { outline: 2px solid var(--app-focus); outline-offset: 0; }
 
 :root[data-display-mode="fullscreen"], :root[data-display-mode="fullscreen"] body { min-height: 100%; background: var(--app-page); }
@@ -50,15 +50,12 @@ input:focus-visible { outline: 2px solid var(--app-focus); outline-offset: 0; }
 
 .library { display: grid; align-content: start; gap: 16px; min-width: 0; padding: 16px; }
 .library.page { width: 100%; max-width: 1440px; margin: 0 auto; gap: 24px; padding: 24px clamp(16px, 4cqw, 40px); }
-.header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px 16px; }
-.header .search { grid-column: 1 / -1; }
+.header { display: grid; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand svg { width: 28px; height: 28px; flex: none; }
 .title { font-size: var(--app-title-size); font-weight: 600; line-height: 1.35; }
 /* As a page, the host's title bar already names the library. */
 .page .brand { display: none; }
-.page .header { align-items: center; }
-.page .header .search { grid-row: 1; grid-column: 1; }
 .page-title { font-size: var(--app-page-title-size); font-weight: 600; line-height: 1.2; letter-spacing: -0.02em; }
 .summary { color: var(--app-muted); }
 .search { display: flex; min-width: 0; max-width: 560px; }
@@ -166,11 +163,6 @@ a.detail-host:hover { color: var(--app-text); text-decoration: underline; }
 .facts dt { color: var(--app-muted); font-size: var(--app-meta-size); font-weight: 500; }
 .facts dd { font-weight: 500; overflow-wrap: anywhere; }
 .facts dd[data-mono] { font-family: var(--app-mono); font-size: var(--app-ui-size); font-weight: 400; }
-details > summary { display: inline-flex; align-items: center; gap: 8px; color: var(--app-muted); font-size: var(--app-ui-size); font-weight: 500; list-style: none; cursor: pointer; }
-details > summary::-webkit-details-marker { display: none; }
-details > summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; }
-details[open] > summary::before { transform: rotate(45deg); }
-details[open] > :not(summary) { margin-top: 10px; }
 .next-title { font-weight: 600; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; }
 button.tile { display: grid; align-content: start; gap: 4px; padding: 14px 16px; border: 0; border-radius: var(--app-radius-well); background: var(--app-tint); color: var(--app-text); text-align: left; cursor: pointer; transition: background-color 0.15s; }

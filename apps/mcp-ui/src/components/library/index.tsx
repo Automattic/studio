@@ -4,7 +4,8 @@ import { FailureNotice } from '@/components/failure-notice';
 import { LibraryHeader } from '@/components/library-header';
 import { SiteDetail } from '@/components/site-detail';
 import { SiteSection } from '@/components/site-list';
-import { useLocalSites } from '@/data/queries/use-library';
+import { useLocalSites, useSyncSitesWithHost } from '@/data/queries/use-library';
+import { useApplyHostContext } from '@/hooks/use-apply-host-context';
 import { useAutoResize } from '@/hooks/use-auto-resize';
 import { useHostState } from '@/hooks/use-host-state';
 import { canMessage, isPage } from '@/lib/host-capabilities';
@@ -17,6 +18,8 @@ export function Library() {
 	const [ query, setQuery ] = useState( '' );
 	const [ openId, setOpenId ] = useState< string | null >( null );
 	const resizeRef = useAutoResize();
+	useApplyHostContext();
+	useSyncSitesWithHost();
 	const open = sites.data?.find( ( site ) => site.id === openId );
 
 	const failed = status === 'failed';

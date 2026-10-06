@@ -1,4 +1,4 @@
-import type { DisplayMode, HostState, LocalSite, ToolResult, UserMessage } from './types';
+import type { HostState, LocalSite, ToolResult, UserMessage } from './types';
 
 // The MCP Apps bridge: JSON-RPC over postMessage with the host that frames the
 // page, and through it the `studio mcp` tools the page calls.
@@ -226,11 +226,6 @@ export async function openLink( url: string ) {
 	} catch {
 		window.open( url, '_blank', 'noopener' );
 	}
-}
-
-export async function requestDisplayMode( mode: DisplayMode ) {
-	const result = record( await request( 'ui/request-display-mode', { mode } ) );
-	mergeContext( { displayMode: text( result.mode ) || mode } );
 }
 
 export function notifySize( height: number ) {

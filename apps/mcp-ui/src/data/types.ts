@@ -12,7 +12,6 @@ export type DisplayMode = 'inline' | 'fullscreen' | 'pip';
 export interface HostContext {
 	theme?: 'light' | 'dark';
 	displayMode?: DisplayMode;
-	availableDisplayModes?: DisplayMode[];
 	safeAreaInsets?: Partial< Record< 'top' | 'right' | 'bottom' | 'left', number > >;
 	[ key: string ]: unknown;
 }

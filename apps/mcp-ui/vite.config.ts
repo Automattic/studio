@@ -3,43 +3,33 @@ import { defineConfig, type Plugin } from 'vite';
 
 const __dirname = import.meta.dirname;
 
-// Hosts receive the app as one HTML resource, so the script and styles are inlined.
+// Hosts take the page as one HTML resource, so its one script and one
+// stylesheet go inline.
 const inlineBundle: Plugin = {
 	name: 'inline-bundle',
 	apply: 'build',
 	enforce: 'post',
 	generateBundle( _options, bundle ) {
-		const html = Object.values( bundle ).find( ( file ) => file.fileName.endsWith( '.html' ) );
-		if ( ! html || html.type !== 'asset' ) {
-			return;
+		const files = Object.values( bundle );
+		const html = files.find( ( file ) => file.fileName === 'index.html' );
+		const script = files.find( ( file ) => file.type === 'chunk' );
+		const style = files.find( ( file ) => file.fileName.endsWith( '.css' ) );
+		if ( html?.type !== 'asset' || script?.type !== 'chunk' || style?.type !== 'asset' ) {
+			throw new Error( 'Expected one page, one script and one stylesheet.' );
 		}
-		let source = String( html.source );
-		for ( const file of Object.values( bundle ) ) {
-			if ( file === html ) {
-				continue;
-			}
-			const escaped = file.fileName.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
-			if ( file.type === 'chunk' ) {
-				const code = file.code.replace( /<\/script/gi, '<\\/script' );
-				source = source.replace(
-					new RegExp( `<script[^>]*src="[^"]*${ escaped }"[^>]*></script>` ),
-					() => ''
-				);
-				source = source.replace(
-					'</body>',
-					() => `<script type="module">${ code }</script>\n</body>`
-				);
-			} else if ( file.fileName.endsWith( '.css' ) ) {
-				source = source.replace(
-					new RegExp( `<link[^>]*href="[^"]*${ escaped }"[^>]*>` ),
-					() => `<style>${ String( file.source ) }</style>`
-				);
-			} else {
-				continue;
-			}
-			delete bundle[ file.fileName ];
-		}
-		html.source = source;
+		html.source = String( html.source )
+			.replace( /<script[^>]*><\/script>/, '' )
+			.replace( /<link[^>]*stylesheet[^>]*>/, () => `<style>${ style.source }</style>` )
+			.replace(
+				'</body>',
+				() =>
+					`<script type="module">${ script.code.replace(
+						/<\/script/gi,
+						'<\\/script'
+					) }</script></body>`
+			);
+		delete bundle[ script.fileName ];
+		delete bundle[ style.fileName ];
 	},
 };
 
@@ -52,7 +42,6 @@ export default defineConfig( {
 		outDir: 'dist',
 		// Keeps light-dark(), which follows the host's theme through color-scheme.
 		cssTarget: [ 'chrome123', 'firefox120', 'safari17.5' ],
-		assetsInlineLimit: Number.MAX_SAFE_INTEGER,
 		cssCodeSplit: false,
 		modulePreload: false,
 		rolldownOptions: {

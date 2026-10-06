@@ -14,23 +14,6 @@ import { canAttach, canMessage, isPage } from '@/lib/host-capabilities';
 import { hostname, liveUrl, siteName } from '@/lib/sites';
 import type { LocalSite } from '@/data/types';
 
-type Fact = [ label: string, value: string | undefined, mono?: boolean ];
-
-function Facts( { facts }: { facts: Fact[] } ) {
-	return (
-		<dl className="facts">
-			{ facts
-				.filter( ( [ , value ] ) => value )
-				.map( ( [ label, value, mono ] ) => (
-					<div key={ label }>
-						<dt>{ label }</dt>
-						<dd data-mono={ mono ? '' : undefined }>{ value }</dd>
-					</div>
-				) ) }
-		</dl>
-	);
-}
-
 // An opened site: preview and facts side by side on a wide page, then the next steps.
 export function SiteDetail( { site }: { site: LocalSite } ) {
 	const { context, capabilities } = useHostState();
@@ -41,32 +24,11 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 	const [ status, setStatus ] = useState( '' );
 	const url = liveUrl( site );
 
-	const send = async ( prompt: string ) => {
-		setStatus( 'Sending to chat…' );
-		try {
-			await sendPrompt.mutateAsync( { prompt } );
-			setStatus( 'Sent to chat.' );
-		} catch {
-			setStatus( 'The message could not be sent. Try again.' );
-		}
-	};
-	const toggleRunning = async ( running: boolean ) => {
-		setStatus( running ? 'Starting the site…' : 'Stopping the site…' );
-		try {
-			await setRunning.mutateAsync( { site, running } );
-			setStatus( running ? 'The site is running.' : 'The site is stopped.' );
-		} catch {
-			setStatus( running ? 'The site could not start.' : 'The site could not stop.' );
-		}
-	};
-	const attach = async () => {
-		try {
-			await addToChat.mutateAsync( site );
-			setStatus( 'Added to this chat.' );
-		} catch {
-			setStatus( 'The site could not be added to chat.' );
-		}
-	};
+	const report = ( action: Promise< unknown >, done = '' ) =>
+		void action.then(
+			() => setStatus( done ),
+			( error: Error ) => setStatus( error.message )
+		);
 
 	return (
 		<section className="detail" aria-label="Selected site">
@@ -94,28 +56,26 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 					) }
 				</div>
 				<div className="detail-aside">
-					<Facts
-						facts={ [
-							[ 'Status', site.running ? 'Running' : 'Stopped' ],
-							[ 'Lives on', 'This computer' ],
-							[ 'PHP', site.phpVersion ],
-						] }
-					/>
-					<details>
-						<summary>More details</summary>
-						<Facts
-							facts={ [
-								[ 'Folder', site.path, true ],
-								[ 'Site ID', site.id, true ],
-							] }
-						/>
-					</details>
+					<dl className="facts">
+						{ site.phpVersion && (
+							<div>
+								<dt>PHP</dt>
+								<dd>{ site.phpVersion }</dd>
+							</div>
+						) }
+						<div>
+							<dt>Folder</dt>
+							<dd data-mono="">{ site.path }</dd>
+						</div>
+					</dl>
 					<div className="actions">
 						<button
 							type="button"
 							data-kind={ site.running ? 'secondary' : 'primary' }
 							disabled={ busy }
-							onClick={ () => void toggleRunning( ! site.running ) }
+							onClick={ () =>
+								report( setRunning.mutateAsync( { site, running: ! site.running } ) )
+							}
 						>
 							{ site.running ? 'Stop' : 'Start' }
 						</button>
@@ -128,7 +88,11 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 							</ExternalLink>
 						) }
 						{ canAttach( capabilities ) && (
-							<button type="button" data-kind="secondary" onClick={ () => void attach() }>
+							<button
+								type="button"
+								data-kind="secondary"
+								onClick={ () => report( addToChat.mutateAsync( site ), 'Added to this chat.' ) }
+							>
 								Add to chat
 							</button>
 						) }
@@ -136,7 +100,11 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 				</div>
 			</div>
 			{ canMessage( capabilities ) && (
-				<NextSteps site={ site } disabled={ busy } onSend={ ( prompt ) => void send( prompt ) } />
+				<NextSteps
+					site={ site }
+					disabled={ busy }
+					onSend={ ( prompt ) => report( sendPrompt.mutateAsync( { prompt } ), 'Sent to chat.' ) }
+				/>
 			) }
 			<p className="status-line" role="status" hidden={ ! status }>
 				{ status }

@@ -4,7 +4,7 @@
  * Site Editor Performance Benchmark — Orchestration Script
  *
  * Benchmarks site editor performance across a matrix of environments:
- *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
+ *   - Studio (bare, plugins)
  *   - Playground Web (bare, plugins)
  *   - Custom (any running WordPress site via --custom-url)
  *
@@ -54,7 +54,6 @@ interface EnvironmentConfig {
 	name: string;
 	type: EnvironmentType;
 	plugins: boolean;
-	multiWorker: boolean;
 	/** Base URL for custom environments. */
 	customUrl?: string;
 	/** WordPress admin credentials for custom environments. */
@@ -71,12 +70,10 @@ interface BenchmarkResult {
 // ---------------------------------------------------------------------------
 
 const ALL_ENVIRONMENTS: EnvironmentConfig[] = [
-	{ name: 'studio', type: 'studio', plugins: false, multiWorker: false },
-	{ name: 'studio-mw', type: 'studio', plugins: false, multiWorker: true },
-	{ name: 'studio-plugins', type: 'studio', plugins: true, multiWorker: false },
-	{ name: 'studio-mw-plugins', type: 'studio', plugins: true, multiWorker: true },
-	{ name: 'pg-web', type: 'playground-web', plugins: false, multiWorker: false },
-	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true, multiWorker: false },
+	{ name: 'studio', type: 'studio', plugins: false },
+	{ name: 'studio-plugins', type: 'studio', plugins: true },
+	{ name: 'pg-web', type: 'playground-web', plugins: false },
+	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -278,7 +275,7 @@ function runCommand(
 // Studio environment helpers
 // ---------------------------------------------------------------------------
 
-function createStudioAppdata( appdataDir: string, multiWorker: boolean ): void {
+function createStudioAppdata( appdataDir: string ): void {
 	const studioDir = path.join( appdataDir, 'Studio' );
 	fs.mkdirSync( studioDir, { recursive: true } );
 
@@ -288,7 +285,6 @@ function createStudioAppdata( appdataDir: string, multiWorker: boolean ): void {
 		snapshots: [],
 		betaFeatures: {
 			studioSitesCli: true,
-			multiWorkerSupport: multiWorker,
 		},
 	};
 
@@ -332,7 +328,7 @@ async function setupStudioSite(
 	const appdataDir = createTempDir( `${ env.name }-appdata` );
 	const siteName = `bench-${ env.name }`;
 
-	createStudioAppdata( appdataDir, env.multiWorker );
+	createStudioAppdata( appdataDir );
 
 	const cliEnv = getStudioCliEnv( appdataDir );
 
@@ -582,7 +578,6 @@ async function main() {
 			name: custom.name,
 			type: 'custom',
 			plugins: shouldInstallPlugins,
-			multiWorker: false,
 			customUrl: custom.url,
 			credentials: { username: custom.user, password: custom.password },
 		} );
@@ -642,11 +637,8 @@ async function main() {
 
 	for ( const env of environments ) {
 		console.log( chalk.bold.cyan( `\n  ▶ ${ env.name }` ) );
-		const tags = [ env.plugins ? 'plugins' : null, env.multiWorker ? 'multi-worker' : null ]
-			.filter( Boolean )
-			.join( ', ' );
-		if ( tags ) {
-			console.log( chalk.gray( `    (${ tags })` ) );
+		if ( env.plugins ) {
+			console.log( chalk.gray( '    (plugins)' ) );
 		}
 
 		let benchmarkUrl: string;

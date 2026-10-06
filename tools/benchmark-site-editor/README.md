@@ -1,6 +1,6 @@
 # Site Editor Performance Benchmark
 
-Benchmarks site editor performance across Studio, Playground Web, and custom WordPress environments, with optional plugin and multi-worker configurations.
+Benchmarks site editor performance across Studio, Playground Web, and custom WordPress environments, with an optional plugin configuration.
 
 ## Related Issue
 
@@ -23,9 +23,7 @@ The benchmark launches a headless Chromium browser against each environment, mea
 | Environment                   | Name                | Description                                     |
 | ----------------------------- | ------------------- | ----------------------------------------------- |
 | Studio                        | `studio`            | Bare Studio site                                |
-| Studio + MW                   | `studio-mw`         | Studio with multi-worker support enabled        |
 | Studio + Plugins              | `studio-plugins`    | Studio with 10 plugins installed                |
-| Studio + MW + Plugins         | `studio-mw-plugins` | Studio with multi-worker and 10 plugins         |
 | Playground Web                | `pg-web`            | playground.wordpress.net (bare)                 |
 | Playground Web + Plugins      | `pg-web-plugins`    | playground.wordpress.net with 10 plugins        |
 | Custom                        | user-defined        | Any running WordPress site via `--custom`       |
@@ -78,7 +76,7 @@ npm run benchmark -- --only=studio,studio-plugins
 npm run benchmark -- --skip-playground-web --rounds=3
 
 # Single specific environment
-npm run benchmark -- --only=studio-mw-plugins --rounds=5
+npm run benchmark -- --only=studio-plugins --rounds=5
 
 # Benchmark a single custom WordPress site
 npm run benchmark -- --custom=my-site,http://localhost:10003

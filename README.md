@@ -2,7 +2,7 @@
 
 # WordPress Studio
 
-[WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress Playground](https://developer.wordpress.org/playground/) and [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
+[WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
 
 Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in Studio Code assistant that runs WP-CLI commands natively.
 
@@ -37,12 +37,6 @@ Preview, polish, then hand it off. Share a stable, cloud-hosted preview link tha
 ![WordPress Studio - Studio Code](/docs/assets/wordpress-studio-ai-assistant.png)
 
 Skip the repetitive setup and ask Studio Code to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about Studio Code →](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/)
-
-### Powered by WordPress Playground
-
-![WordPress Studio - Powered by Playground](/docs/assets/wordpress-studio-powered-by-playground.png)
-
-Studio stays aligned with the latest innovations in WordPress development, giving you early access to cutting-edge tools, version support, and experimental features without needing to configure anything manually or run any dependencies.
 
 ## Explore the documentation
 

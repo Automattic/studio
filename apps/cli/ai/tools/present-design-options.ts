@@ -8,7 +8,7 @@ import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
-import { defineTool } from './define-tool';
+import { defineTool, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
@@ -74,15 +74,86 @@ function classifyAnswer( answer: string | undefined, picked: number ): AnswerTyp
 	return 'free_form';
 }
 
+const GRID_WIDTH = 1600;
+
+function escapeHtml( text: string ): string {
+	return text.replace( /[&<>"]/g, ( char ) => `&#${ char.charCodeAt( 0 ) };` );
+}
+
+// Without a way to ask, the previews go back to the agent as one numbered grid
+// image, for it to show and ask about in its own conversation.
+async function handOverOptions(
+	question: string,
+	options: { label: string; description: string; image: string }[]
+): Promise< ToolResult > {
+	const figures = options
+		.map(
+			( option, index ) =>
+				`<figure><img src="${ pathToFileURL( option.image ).href }" alt=""><figcaption><b>${
+					index + 1
+				}</b><span><strong>${ escapeHtml( option.label ) }</strong> ${ escapeHtml(
+					option.description
+				) }</span></figcaption></figure>`
+		)
+		.join( '' );
+	const gridPage = path.join(
+		await resolveScreenshotDirectory(),
+		`design-options-${ Date.now() }.html`
+	);
+	await writeFile(
+		gridPage,
+		`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:24px;width:${ GRID_WIDTH }px;box-sizing:border-box;font:18px/1.4 system-ui,sans-serif;background:#f0f0f0;color:#1e1e1e}main{display:grid;grid-template-columns:1fr 1fr;gap:24px}figure{margin:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15)}img{display:block;width:100%;height:auto}figcaption{display:flex;gap:14px;align-items:center;padding:14px 18px}b{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#1e1e1e;color:#fff;font-size:20px}</style></head><body><main>${ figures }</main></body></html>`
+	);
+	const grid = await captureScreenshotBuffer(
+		pathToFileURL( gridPage ).href,
+		{ width: GRID_WIDTH, height: 600 },
+		{ fullPage: true, format: 'jpeg' }
+	);
+	await unlink( gridPage );
+	const gridFile = await saveScreenshotFile( grid.buffer, {
+		viewportType: 'design-options',
+		format: 'jpeg',
+	} );
+	return {
+		content: [
+			{ type: 'image', data: grid.buffer.toString( 'base64' ), mimeType: 'image/jpeg' },
+			{
+				type: 'text',
+				text: [
+					`Rendered the ${ options.length } options as one numbered grid image (above). The user does not see tool results, only your reply, so in this same turn:`,
+					`1. Show the grid: start your reply with ![${ question }](${ gridFile.path })`,
+					`2. Ask "${ question }" with one option per line below, label and description verbatim. Use your own question tool if you have one, such as AskUserQuestion (if it takes fewer options, leave out "${ OTHER_OPTIONS }": the user can still ask in their own words). Otherwise ask in your reply and end your turn: the user's pick arrives as their next message.`,
+					...options.map(
+						( option, index ) => `   ${ index + 1 }. ${ option.label }: ${ option.description }`
+					),
+					`   - ${ OTHER_OPTIONS }: new ones, none of these again.`,
+					'',
+					`Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`,
+				].join( '\n' ),
+			},
+		],
+	};
+}
+
 // Rendering and asking live in one tool so the model cannot attach preview
 // images to unrelated questions.
 export function createPresentDesignOptionsTool(
-	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >,
+	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >,
 	tracks?: DesignTracksContext
 ) {
 	return defineTool(
 		'present_design_options',
-		`Shows the user the options drawn by pick_design as rendered previews and waits for their pick. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${ PREVIEW_VIEWPORT.width }×${ PREVIEW_VIEWPORT.height } frame that a sneak peek must fill to the bottom: ${ FRAME_FILL_RECIPE }. A sneak peek whose content ends above the bottom of the frame is rejected. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else with AskUserQuestion.`,
+		`Shows the user the options drawn by pick_design as rendered previews and ${
+			onAskUser
+				? 'waits for their pick'
+				: 'returns them as one numbered grid image for you to show and ask about, since the user does not see tool results'
+		}. Pass one option per drawn entry (2–4), in the order pick_design returned them, each with a \`preview\`: for a look, the option's DESIGN.md draft, rendered as a design board with its generated \`image\` if it has one; for a layout, a complete standalone HTML sneak peek — inline CSS, no scripts, optionally a Google Fonts link with a fallback stack; images referenced by absolute path under the site are inlined, otherwise use solid color shapes, never web URLs. Each is rendered in a ${
+			PREVIEW_VIEWPORT.width
+		}×${
+			PREVIEW_VIEWPORT.height
+		} frame that a sneak peek must fill to the bottom: ${ FRAME_FILL_RECIPE }. A sneak peek whose content ends above the bottom of the frame is rejected. The user can also type their own answer, or pick "${ OTHER_OPTIONS }", added for you after the previews: then draw that step again. Use this only for the site design choices; ask everything else ${
+			onAskUser ? 'with AskUserQuestion' : 'in your reply'
+		}.`,
 		{
 			catalog: Type.Union( [ Type.Literal( 'directions' ), Type.Literal( 'layouts' ) ], {
 				description:
@@ -137,7 +208,9 @@ export function createPresentDesignOptionsTool(
 						const html = isDesignBoard
 							? renderDesignBoard( option.preview, option.image )
 							: option.preview;
-						await writeFile( htmlPath, await inlineLocalImages( html ) );
+						// The BOM makes the browser read the file as UTF-8 even when the
+						// sneak peek does not declare a charset.
+						await writeFile( htmlPath, `\ufeff${ await inlineLocalImages( html ) }` );
 						capture = await captureScreenshotBuffer(
 							pathToFileURL( htmlPath ).href,
 							PREVIEW_VIEWPORT,
@@ -163,6 +236,9 @@ export function createPresentDesignOptionsTool(
 					return { label: option.label, description: option.description, image: file.path };
 				} )
 			);
+			if ( ! onAskUser ) {
+				return handOverOptions( args.question, options );
+			}
 			const answers = await onAskUser( [
 				{
 					question: args.question,

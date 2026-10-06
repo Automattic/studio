@@ -12,15 +12,20 @@ import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { defineTool, type StudioAgentTool } from 'cli/ai/tools/define-tool';
+import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { renderSkill } from 'cli/ai/tools/skill';
 import { textResult } from 'cli/ai/tools/utils';
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
-	const studioTools = resolveStudioToolDefinitions( {
-		imageGeneration: await isImageGenerationAvailable(),
-	} );
+	const studioTools = [
+		...resolveStudioToolDefinitions( {
+			imageGeneration: await isImageGenerationAvailable(),
+			canAskUser: true,
+		} ),
+		createPresentDesignOptionsTool(),
+	];
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(

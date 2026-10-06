@@ -320,25 +320,20 @@ async function createStudioAgentSession(
 		imageGenerationEnabled,
 		visionEnabled
 	);
-	const systemPrompt = buildSystemPrompt(
-		isRemoteSite
+	const systemPrompt = buildSystemPrompt( {
+		...( isRemoteSite
 			? {
 					remoteSite: {
 						name: config.activeSite!.name,
 						url: config.activeSite!.url ?? '',
 						id: config.activeSite!.wpcomSiteId!,
 					},
-					userInstructions,
-					visionEnabled,
 			  }
-			: {
-					chatArtifactsEnabled,
-					runtime,
-					userInstructions,
-					visionEnabled,
-					tools: tools.map( toolPromptContribution ),
-			  }
-	);
+			: { chatArtifactsEnabled, runtime } ),
+		userInstructions,
+		visionEnabled,
+		tools: tools.map( toolPromptContribution ),
+	} );
 
 	const pendingWork = getPendingWork( config.session );
 	const toolDefinitions = tools.map( ( tool ) =>

@@ -290,5 +290,9 @@ export const wpcomRequestTool = defineTool(
 				`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage( error ) }`
 			);
 		}
+	},
+	{
+		promptSnippet:
+			'Manage a WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.',
 	}
 );

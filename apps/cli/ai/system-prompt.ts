@@ -19,8 +19,8 @@ export interface ToolPromptContribution {
 
 export interface BuildSystemPromptOptions {
 	remoteSite?: RemoteSiteContext;
-	// The tools registered for this session; the local prompt lists them and
-	// their guidelines instead of hand-writing the list.
+	// The tools registered for this session; the prompt lists them and their
+	// guidelines instead of hand-writing the list.
 	tools?: ToolPromptContribution[];
 	// True when a Studio UI is attached and can receive chat artifact events.
 	chatArtifactsEnabled?: boolean;
@@ -37,9 +37,10 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
 
 	const visionEnabled = options?.visionEnabled ?? true;
+	const toolSections = renderToolSections( options?.tools ?? [] );
 
 	if ( options?.remoteSite ) {
-		return `${ buildRemoteIntro( options.remoteSite, visionEnabled ) }
+		return `${ buildRemoteIntro( options.remoteSite, visionEnabled, toolSections ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
@@ -51,7 +52,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ userInstructionsSection }
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 		runtime: options?.runtime,
 		visionEnabled,
-		tools: options?.tools ?? [],
+		toolSections,
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ userInstructionsSection }
@@ -78,7 +79,11 @@ The user saved these standing instructions in Studio's settings. They apply to e
 ${ instructions }`;
 }
 
-function buildRemoteIntro( site: RemoteSiteContext, visionEnabled: boolean ): string {
+function buildRemoteIntro(
+	site: RemoteSiteContext,
+	visionEnabled: boolean,
+	toolSections: string
+): string {
 	const verifyStep = visionEnabled
 		? `Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.`
 		: `You cannot view images, so verify from the rendered DOM with inspect_design instead. Fix any issues.`;
@@ -89,13 +94,7 @@ IMPORTANT: You MUST use the wpcom_request tool to manage this site. Do NOT use W
 IMPORTANT: Before doing ANY work, you MUST first check the site's plan by calling \`GET /\` (apiNamespace: \`""\`). The \`plan.product_slug\` field indicates the plan. If the site is on a free plan (e.g. \`free_plan\`), you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. Do not proceed with the design task.
 IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 
-## Available Tools
-
-- **wpcom_request**: Manage the active WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.
-- **take_screenshot**: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both)
-- **Read/Write/Edit/Ls**: Local scratch-file tools within Studio app data. They do not modify the remote site directly.
-- **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)
-- **site_pull**: Pull the remote WordPress.com site to a local site. Create a local site first with site_create, then pull into it. Specify sync options (all, sqls, uploads, plugins, themes, contents).
+${ toolSections }
 
 ## Workflow
 
@@ -109,6 +108,7 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 - Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
 - When creating content, follow WordPress best practices for block-based content and the remote block content guidelines below.
 - If a requested operation fails, check the error message and suggest alternatives.
+- To bring the site into Studio, create a local site with site_create, then site_pull this site into it.
 - Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.`;
 }
 
@@ -162,9 +162,8 @@ function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
 	runtime?: SiteRuntime;
 	visionEnabled: boolean;
-	tools: ToolPromptContribution[];
+	toolSections: string;
 } ): string {
-	const toolSections = renderToolSections( options.tools );
 	const postContentGuidance = getPostContentGuidance( options.runtime );
 	const terminalScreenshotSection = `
 
@@ -217,7 +216,7 @@ One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`si
 
 For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
-${ toolSections }${ screenshotSection }
+${ options.toolSections }${ screenshotSection }
 
 ## General rules
 

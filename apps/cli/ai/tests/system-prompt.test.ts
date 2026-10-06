@@ -151,8 +151,12 @@ describe( 'buildSystemPrompt', () => {
 		] );
 	} );
 
-	it( 'lists the registered tools and their guidelines', () => {
+	it.each( [
+		[ 'local', {} ],
+		[ 'remote', { remoteSite } ],
+	] )( 'lists the registered tools and their guidelines (%s)', ( _, options ) => {
 		const prompt = buildSystemPrompt( {
+			...options,
 			tools: [
 				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
 				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
@@ -164,7 +168,7 @@ describe( 'buildSystemPrompt', () => {
 		);
 		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
 		expect( prompt ).not.toContain( '- hidden' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
+		expect( buildSystemPrompt( options ) ).not.toContain( '## Tool guidelines' );
 	} );
 
 	it( 'mentions refresh_browser only when chat artifacts are enabled', () => {

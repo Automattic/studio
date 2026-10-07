@@ -126,11 +126,9 @@ export async function runBlueprint(
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< void > {
-	// blueprints.phar accepts local paths only; remote URIs need the Playground runtime.
+	// blueprints.phar accepts local paths only.
 	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
-		throw new Error(
-			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
-		);
+		throw new Error( `Remote blueprint URIs are not supported: ${ blueprint.uri }` );
 	}
 
 	const enableDebugLog = config.enableDebugLog ?? false;

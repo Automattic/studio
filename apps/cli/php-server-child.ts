@@ -4,8 +4,6 @@
  * Runs a WordPress site as a fixed pool of `php -S … router.php` workers with a
  * Node.js HTTP proxy in front that load-balances requests across them: a cheap
  * stand-in for fpm-style process concurrency, not a real FastCGI process manager.
- *
- * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
 import fs from 'node:fs';

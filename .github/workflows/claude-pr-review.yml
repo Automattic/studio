@@ -77,7 +77,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
-            Perform a code review for WordPress Studio (Electron desktop app, React + TypeScript, WordPress Playground).
+            Perform a code review for WordPress Studio (Electron desktop app, React + TypeScript, native PHP site servers).
             Review priorities are ordered by real-world frequency — earlier categories catch the most issues.
 
             1. **Scope & Intent**

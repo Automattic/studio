@@ -385,9 +385,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		 * Gets the path of the configured Site Icon relative to the
 		 * WordPress install root, or null when no Site Icon is set.
 		 *
-		 * The host (Studio) translates the WordPress-runtime path
-		 * (rooted at the /wordpress mount) into a real filesystem path
-		 * by joining the site folder with the returned relative path.
+		 * The host (Studio) turns it into a real filesystem path by
+		 * joining the site folder with the returned relative path.
 		 *
 		 * ## EXAMPLES
 		 *

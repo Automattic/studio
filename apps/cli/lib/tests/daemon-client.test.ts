@@ -184,6 +184,36 @@ describe( 'process manager daemon client', () => {
 		);
 	} );
 
+	it( 'startProcess() tells older daemons the site runs native PHP', async () => {
+		const requests: Array< Record< string, unknown > > = [];
+		createConnectionMock.mockImplementation( ( peer?: string ) => {
+			if ( isEventsSocketPath( peer ) ) {
+				eventSocket = createMockSocket();
+				return eventSocket;
+			}
+
+			return createMockSocket( ( socket, chunk ) => {
+				const request = JSON.parse( chunk.subarray( 4 ).toString( 'utf8' ) );
+				requests.push( request );
+				const payload =
+					request.type === 'start-process'
+						? { process: { name: 'app', pmId: 1, status: 'online', pid: 1000 } }
+						: {};
+				socket.emit( 'data', frameMessage( createSuccessResponse( request, payload ) ) );
+			} );
+		} );
+
+		const { connectToDaemon, startProcess } = await import( '../daemon-client' );
+		await connectToDaemon();
+		await startProcess( 'app', '/path/script.js' );
+
+		expect( requests.find( ( request ) => request.type === 'start-process' ) ).toMatchObject( {
+			processName: 'app',
+			scriptPath: '/path/script.js',
+			runtime: 'native-php',
+		} );
+	} );
+
 	it( 'isProcessRunning() filters for online processes only', async () => {
 		createConnectionMock.mockImplementation( ( peer?: string ) => {
 			if ( isEventsSocketPath( peer ) ) {

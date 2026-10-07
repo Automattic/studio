@@ -374,6 +374,8 @@ export async function startProcess(
 		scriptPath,
 		env: options.env ?? process.env,
 		args: options.args ?? [],
+		// For daemons left running from older Studio versions; see the request schema.
+		runtime: 'native-php',
 	} );
 	return daemonStartProcessSuccessResponseSchema.parse( response ).process;
 }

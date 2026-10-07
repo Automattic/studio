@@ -53,37 +53,16 @@ const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
 	'set-default-permalinks.php'
 );
 
-// Each `php -S` worker processes one request at a time. Keep waiting requests
-// in the proxy so an occupied worker cannot strand them behind a long operation.
-class PhpWorkerRequestTracker {
-	private readonly counts: number[];
-
-	constructor( size: number ) {
-		this.counts = new Array( size ).fill( 0 );
-	}
-
-	get( index: number ): number {
-		return this.counts[ index ] ?? 0;
-	}
-
-	set( index: number, value: number ): void {
-		if ( index < 0 || index >= this.counts.length ) {
-			return;
-		}
-		this.counts[ index ] = Math.max( 0, value );
-	}
-
-	getFirstFreeWorker(): number | undefined {
-		const index = this.counts.indexOf( 0 );
-		return index === -1 ? undefined : index;
-	}
+// Each `php -S` worker handles one request at a time.
+interface PhpWorker {
+	port: number;
+	busy: boolean;
 }
 
 let phpProcess: ChildProcess | null = null;
 let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
-let phpWorkerPorts: number[] = [];
-let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+let phpWorkers: PhpWorker[] = [];
 const pendingPhpRequests: {
 	config: ServerConfig;
 	req: http.IncomingMessage;
@@ -157,21 +136,13 @@ function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
 	return false;
 }
 
-function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } | undefined {
-	if ( phpWorkerPorts.length === 0 ) {
-		throw new Error( 'No PHP worker ports are available' );
-	}
-
+function pickPhpWorker( req: http.IncomingMessage ): PhpWorker | undefined {
 	if ( shouldUsePrimaryWorker( req ) ) {
-		return phpWorkerRequestTracker.get( 0 ) === 0
-			? { index: 0, port: phpWorkerPorts[ 0 ] }
-			: undefined;
+		const primary = phpWorkers[ 0 ];
+		return primary?.busy ? undefined : primary;
 	}
 
-	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
-	return bestIndex === undefined
-		? undefined
-		: { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
+	return phpWorkers.find( ( worker ) => ! worker.busy );
 }
 
 async function getAvailablePort(): Promise< number > {
@@ -355,8 +326,7 @@ function getCurrentPhpProcesses(): ChildProcess[] {
 async function closePhpProxyServer(): Promise< void > {
 	const proxyServer = phpProxyServer;
 	phpProxyServer = null;
-	phpWorkerPorts = [];
-	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	phpWorkers = [];
 	for ( const { res } of pendingPhpRequests.splice( 0 ) ) {
 		res.writeHead( 503 );
 		res.end( 'Service temporarily unavailable' );
@@ -399,16 +369,13 @@ function processPendingPhpRequests(): void {
 			pendingPhpRequests.splice( i, 1 );
 			continue;
 		}
-		let worker: { index: number; port: number } | undefined;
-		try {
-			worker = pickPhpWorker( req );
-		} catch ( error ) {
-			errorToConsole( 'Failed to select PHP worker:', error );
+		if ( phpWorkers.length === 0 ) {
 			pendingPhpRequests.splice( i, 1 );
 			res.writeHead( 503 );
 			res.end( 'Service temporarily unavailable' );
 			continue;
 		}
+		const worker = pickPhpWorker( req );
 		if ( ! worker ) {
 			++i;
 			continue;
@@ -422,16 +389,16 @@ function dispatchRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
-	worker: { index: number; port: number }
+	worker: PhpWorker
 ): void {
-	phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) + 1 );
+	worker.busy = true;
 	let released = false;
 	const release = () => {
 		if ( released ) {
 			return;
 		}
 		released = true;
-		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
+		worker.busy = false;
 		processPendingPhpRequests();
 	};
 	let upstream: http.IncomingMessage | undefined;
@@ -636,8 +603,7 @@ async function doStartServer(
 			workerPorts.push( await getAvailablePort() );
 		}
 
-		phpWorkerPorts = workerPorts;
-		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
+		phpWorkers = workerPorts.map( ( port ) => ( { port, busy: false } ) );
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
@@ -719,8 +685,7 @@ async function doStartServer(
 				child.kill( 'SIGKILL' );
 			}
 		}
-		phpWorkerPorts = [];
-		phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+		phpWorkers = [];
 		phpWorkerProcesses = [];
 		await stopSymlinkWatcher();
 
@@ -897,8 +862,7 @@ function killPhpProcess(): void {
 
 	phpProcess = null;
 	phpWorkerProcesses = [];
-	phpWorkerPorts = [];
-	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	phpWorkers = [];
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

@@ -550,6 +550,37 @@ describe( 'CLI: studio config set', () => {
 			);
 		} );
 
+		it( 'should restore the previous credentials and restart when applying them fails', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( startWordPressServer )
+				.mockRejectedValueOnce( new Error( 'Sorry, that email address is already used!' ) )
+				.mockResolvedValueOnce( testProcessDescription );
+
+			await expect( runCommand( testSitePath, { adminUsername: 'newadmin' } ) ).rejects.toThrow(
+				'Failed to update the admin credentials. The previous credentials were restored.'
+			);
+
+			const restoredCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 1 ][ 0 ];
+			expect( restoredCliConfig.sites[ 0 ].adminUsername ).toBe( 'admin' );
+			expect( restoredCliConfig.sites[ 0 ].adminPassword ).toBe( 'password123' );
+			expect( startWordPressServer ).toHaveBeenCalledTimes( 2 );
+			expect( vi.mocked( startWordPressServer ).mock.calls[ 1 ][ 0 ].adminUsername ).toBe(
+				'admin'
+			);
+		} );
+
+		it( 'should not touch credentials when a restart without credential changes fails', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( startWordPressServer ).mockRejectedValueOnce( new Error( 'Port unavailable' ) );
+
+			await expect( runCommand( testSitePath, { php: '8.2' } ) ).rejects.toThrow(
+				'Port unavailable'
+			);
+
+			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
+			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
+		} );
+
 		it( 'should update both credentials at once', async () => {
 			await runCommand( testSitePath, { adminUsername: 'newadmin', adminPassword: 'newpass' } );
 

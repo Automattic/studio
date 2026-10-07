@@ -469,6 +469,45 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$user = get_user_by( 'login', $username );
 					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
 
+					// A new username renames the admin Studio manages: inserting a second
+					// administrator would fail on the email it still owns.
+					$previous_username = get_option( 'studio_admin_username' );
+					$previous_user = ! $user && $previous_username ? get_user_by( 'login', $previous_username ) : false;
+					if ( $previous_user ) {
+						global $wpdb;
+						$renamed = array( 'user_login' => $username );
+						$nicename = sanitize_title( mb_substr( $username, 0, 50 ) );
+						if (
+							$previous_user->user_nicename === sanitize_title( mb_substr( $previous_user->user_login, 0, 50 ) ) &&
+							$nicename && ! get_user_by( 'slug', $nicename )
+						) {
+							$renamed['user_nicename'] = $nicename;
+						}
+						if ( $previous_user->display_name === $previous_user->user_login ) {
+							$renamed['display_name'] = $username;
+						}
+						if ( false === $wpdb->update( $wpdb->users, $renamed, array( 'ID' => $previous_user->ID ) ) ) {
+							status_header( 500 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => 'Failed to rename the admin user' ] );
+							exit;
+						}
+						if ( get_user_meta( $previous_user->ID, 'nickname', true ) === $previous_user->user_login ) {
+							update_user_meta( $previous_user->ID, 'nickname', $username );
+						}
+						// Multisite stores super admins by login.
+						if ( is_multisite() ) {
+							$super_admins = get_site_option( 'site_admins', array() );
+							$index = is_array( $super_admins ) ? array_search( $previous_user->user_login, $super_admins, true ) : false;
+							if ( false !== $index ) {
+								$super_admins[ $index ] = $username;
+								update_site_option( 'site_admins', $super_admins );
+							}
+						}
+						clean_user_cache( $previous_user );
+						$user = get_user_by( 'login', $username );
+					}
+
 					if ( $user ) {
 						// Write only a changed password: wp_set_password() stores a new hash
 						// each time and WordPress derives auth cookies from it, so rewriting
@@ -488,9 +527,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 							echo json_encode( [ 'error' => 'Password is required to create a new admin user' ] );
 							exit;
 						}
-						// WordPress doesn't support renaming user_login, so we create a new admin user.
-						// The old user is left intact — this is intentional.
-						// Generate a unique email to avoid conflicts with existing users
+						// No Studio-managed admin to rename (e.g. its database was replaced),
+						// so create one. Generate a unique email to avoid conflicts.
 						$email = $provided_email ? $provided_email : 'admin@localhost.com';
 						if ( ! $provided_email ) {
 							$counter = 1;

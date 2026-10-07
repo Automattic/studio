@@ -240,4 +240,18 @@ describe( 'getMuPlugins admin API', () => {
 		// the wp-admin auth cookie on every site start.
 		expect( content ).toMatch( /!\s*wp_check_password\([^)]*\)[^{]*\{\s*wp_set_password\(/ );
 	} );
+
+	it( 'should rename the Studio-managed admin instead of inserting a second one', async () => {
+		const [ muPluginsDir ] = await getMuPlugins();
+		const content = await readFile( join( muPluginsDir, '0-studio-admin-api.php' ), 'utf8' );
+
+		// A second administrator can't reuse the existing admin's email, which
+		// made every start fail after a username-only change (STU-2516).
+		const renameIndex = content.indexOf( '$wpdb->update( $wpdb->users, $renamed' );
+		const insertIndex = content.indexOf( 'wp_insert_user(' );
+		expect( content ).toContain( "get_user_by( 'login', $previous_username )" );
+		expect( renameIndex ).toBeGreaterThan( -1 );
+		expect( renameIndex ).toBeLessThan( insertIndex );
+		expect( content ).toContain( 'clean_user_cache( $previous_user )' );
+	} );
 } );

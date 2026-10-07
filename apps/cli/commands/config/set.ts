@@ -31,6 +31,7 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
+	type SiteData,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
@@ -261,6 +262,11 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			environmentTypeChanged,
 		} );
 		const oldDomain = site.customDomain;
+		const previousCredentials = {
+			adminUsername: site.adminUsername,
+			adminPassword: site.adminPassword,
+			adminEmail: site.adminEmail,
+		};
 
 		try {
 			await lockCliConfig();
@@ -379,7 +385,22 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-			await startWordPressServer( site, logger );
+			try {
+				await startWordPressServer( site, logger );
+			} catch ( error ) {
+				if ( ! credentialsChanged ) {
+					throw error;
+				}
+				// Every start applies the saved credentials, so keeping ones that
+				// failed to apply would leave the site unable to start.
+				site = await restoreAdminCredentials( site.id, previousCredentials );
+				await stopWordPressServer( site.id );
+				await startWordPressServer( site, logger );
+				throw new LoggerError(
+					__( 'Failed to update the admin credentials. The previous credentials were restored.' ),
+					error
+				);
+			}
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 
@@ -388,6 +409,25 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 	} finally {
 		await disconnectFromDaemon();
+	}
+}
+
+async function restoreAdminCredentials(
+	siteId: string,
+	credentials: Pick< SiteData, 'adminUsername' | 'adminPassword' | 'adminEmail' >
+): Promise< SiteData > {
+	try {
+		await lockCliConfig();
+		const cliConfig = await readCliConfig();
+		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
+		if ( ! site ) {
+			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
+		}
+		Object.assign( site, credentials );
+		await saveCliConfig( cliConfig );
+		return site;
+	} finally {
+		await unlockCliConfig();
 	}
 }
 

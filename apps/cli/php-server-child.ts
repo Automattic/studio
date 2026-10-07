@@ -53,11 +53,8 @@ const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
 	'set-default-permalinks.php'
 );
 
-// Tracks how many proxied requests each PHP worker is currently handling.
-// Each `php -S` worker processes one request at a time, so a non-zero count
-// means the worker is busy and any additional requests are queued at the TCP
-// layer. The picker uses these counts to prefer idle workers, then to balance
-// the queue depth when all are busy.
+// Each `php -S` worker processes one request at a time. Keep waiting requests
+// in the proxy so an occupied worker cannot strand them behind a long operation.
 class PhpWorkerRequestTracker {
 	private readonly counts: number[];
 
@@ -76,14 +73,9 @@ class PhpWorkerRequestTracker {
 		this.counts[ index ] = Math.max( 0, value );
 	}
 
-	getFirstFreeWorker(): number {
-		let bestIndex = 0;
-		for ( let i = 1; i < this.counts.length; i++ ) {
-			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
-				bestIndex = i;
-			}
-		}
-		return bestIndex;
+	getFirstFreeWorker(): number | undefined {
+		const index = this.counts.indexOf( 0 );
+		return index === -1 ? undefined : index;
 	}
 }
 
@@ -92,6 +84,11 @@ let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+const pendingPhpRequests: {
+	config: ServerConfig;
+	req: http.IncomingMessage;
+	res: http.ServerResponse;
+}[] = [];
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
@@ -160,17 +157,21 @@ function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
 	return false;
 }
 
-function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
+function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } | undefined {
 	if ( phpWorkerPorts.length === 0 ) {
 		throw new Error( 'No PHP worker ports are available' );
 	}
 
 	if ( shouldUsePrimaryWorker( req ) ) {
-		return { index: 0, port: phpWorkerPorts[ 0 ] };
+		return phpWorkerRequestTracker.get( 0 ) === 0
+			? { index: 0, port: phpWorkerPorts[ 0 ] }
+			: undefined;
 	}
 
 	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
-	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
+	return bestIndex === undefined
+		? undefined
+		: { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
 async function getAvailablePort(): Promise< number > {
@@ -356,6 +357,10 @@ async function closePhpProxyServer(): Promise< void > {
 	phpProxyServer = null;
 	phpWorkerPorts = [];
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	for ( const { res } of pendingPhpRequests.splice( 0 ) ) {
+		res.writeHead( 503 );
+		res.end( 'Service temporarily unavailable' );
+	}
 
 	if ( ! proxyServer ) {
 		return;
@@ -382,20 +387,43 @@ function proxyRequestToPhpWorker(
 	req: http.IncomingMessage,
 	res: http.ServerResponse
 ): void {
-	let worker: { index: number; port: number };
-	try {
-		worker = pickPhpWorker( req );
-	} catch ( error ) {
-		errorToConsole(
-			`Failed to select PHP worker: ${
-				error instanceof Error ? error.stack ?? error.message : String( error )
-			}`
-		);
-		res.writeHead( 503 );
-		res.end( 'Service temporarily unavailable' );
-		return;
-	}
+	pendingPhpRequests.push( { config, req, res } );
+	res.once( 'close', processPendingPhpRequests );
+	processPendingPhpRequests();
+}
 
+function processPendingPhpRequests(): void {
+	for ( let i = 0; i < pendingPhpRequests.length;  ) {
+		const { config, req, res } = pendingPhpRequests[ i ];
+		if ( res.destroyed ) {
+			pendingPhpRequests.splice( i, 1 );
+			continue;
+		}
+		let worker: { index: number; port: number } | undefined;
+		try {
+			worker = pickPhpWorker( req );
+		} catch ( error ) {
+			errorToConsole( 'Failed to select PHP worker:', error );
+			pendingPhpRequests.splice( i, 1 );
+			res.writeHead( 503 );
+			res.end( 'Service temporarily unavailable' );
+			continue;
+		}
+		if ( ! worker ) {
+			++i;
+			continue;
+		}
+		pendingPhpRequests.splice( i, 1 );
+		dispatchRequestToPhpWorker( config, req, res, worker );
+	}
+}
+
+function dispatchRequestToPhpWorker(
+	config: ServerConfig,
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	worker: { index: number; port: number }
+): void {
 	phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) + 1 );
 	let released = false;
 	const release = () => {
@@ -404,8 +432,13 @@ function proxyRequestToPhpWorker(
 		}
 		released = true;
 		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
+		processPendingPhpRequests();
 	};
-	res.once( 'close', release );
+	let upstream: http.IncomingMessage | undefined;
+	res.once( 'close', () => {
+		upstream?.unpipe( res );
+		upstream?.resume();
+	} );
 
 	const headers = { ...req.headers };
 	headers.host = req.headers.host ?? `localhost:${ config.port }`;
@@ -421,6 +454,16 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			upstream = proxyRes;
+			proxyRes.once( 'end', release );
+			proxyRes.once( 'error', ( error ) => {
+				release();
+				res.destroy( error );
+			} );
+			if ( res.destroyed ) {
+				proxyRes.resume();
+				return;
+			}
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}

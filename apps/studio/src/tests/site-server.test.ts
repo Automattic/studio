@@ -73,10 +73,6 @@ vi.mock( 'src/modules/cli/lib/cli-server-process', () => {
 
 vi.mock( 'src/storage/user-data' );
 
-vi.mock( 'src/lib/beta-features', () => ( {
-	getDefaultSiteRuntime: vi.fn().mockResolvedValue( 'playground' ),
-} ) );
-
 describe( 'SiteServer', () => {
 	describe( 'create', () => {
 		beforeEach( () => {
@@ -174,12 +170,8 @@ describe( 'SiteServer', () => {
 	} );
 
 	describe( 'start', () => {
-		it( 'should throw if the server starts with a non-WordPress mode', async () => {
-			mockStartServer.mockRejectedValue(
-				new Error(
-					"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-				)
-			);
+		it( 'should throw if the server fails to start', async () => {
+			mockStartServer.mockRejectedValue( new Error( 'PHP error during startup' ) );
 
 			const server = SiteServer.register( {
 				id: 'test-id',
@@ -192,9 +184,7 @@ describe( 'SiteServer', () => {
 				themeDetails: undefined,
 			} );
 
-			await expect( server.start() ).rejects.toThrow(
-				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-			);
+			await expect( server.start() ).rejects.toThrow( 'PHP error during startup' );
 		} );
 	} );
 } );

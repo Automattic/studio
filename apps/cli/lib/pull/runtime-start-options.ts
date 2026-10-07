@@ -7,7 +7,7 @@ import path from 'path';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
 
 /**
- * Builds the native-runtime options for an imported site: reprint's generated
+ * Builds the start options for an imported site: reprint's generated
  * `runtime.php` loaded as a PHP `auto_prepend_file` (which wires SQLite the same
  * way the imported site's web server does), plus open_basedir access to the
  * technical site directory.
@@ -17,7 +17,7 @@ import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
  * `studio create` sites (no `runtimeBlueprintPath`) or when `runtime.php` is
  * absent, so callers decide whether that's fatal.
  */
-export function loadImportedRuntimeStartOptionsNative( site: {
+export function loadImportedRuntimeStartOptions( site: {
 	technicalSiteDirectory?: string;
 	runtimeBlueprintPath?: string;
 } ): StartServerOptions | undefined {

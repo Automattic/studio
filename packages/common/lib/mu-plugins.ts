@@ -69,7 +69,7 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
-async function getExistingNativePhpMuPluginsDir(
+async function getExistingMuPluginsDir(
 	loaderPath: string,
 	options: MuPluginOptions
 ): Promise< string | null > {
@@ -629,7 +629,7 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
 }
 
-export async function writeStudioMuPluginsForNativePhpRuntime(
+export async function writeStudioMuPlugins(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
 ): Promise< string > {
@@ -639,7 +639,7 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	const loaderPath = path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 
 	const options: MuPluginOptions = { isWpAutoUpdating };
-	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
+	const existingMuPluginsDir = await getExistingMuPluginsDir( loaderPath, options );
 	if ( existingMuPluginsDir ) {
 		return existingMuPluginsDir;
 	}

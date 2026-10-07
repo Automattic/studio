@@ -33,11 +33,11 @@ vi.mock( 'cli/lib/native-php/php-process', () => ( {
 } ) );
 
 vi.mock( 'cli/lib/pull/runtime-start-options', () => ( {
-	loadImportedRuntimeStartOptionsNative: () => undefined,
+	loadImportedRuntimeStartOptions: () => undefined,
 } ) );
 
 vi.mock( '@studio/common/lib/mu-plugins', () => ( {
-	writeStudioMuPluginsForNativePhpRuntime: vi.fn().mockResolvedValue( undefined ),
+	writeStudioMuPlugins: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 const site: SiteData = {

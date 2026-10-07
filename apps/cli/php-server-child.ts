@@ -13,7 +13,7 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
+import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getSiteFileAccess,
@@ -506,10 +506,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
-			config.sitePath,
-			config.isWpAutoUpdating
-		);
+		const muPluginsPath = await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -803,10 +800,7 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPluginsForNativePhpRuntime(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
-				);
+				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating );
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,

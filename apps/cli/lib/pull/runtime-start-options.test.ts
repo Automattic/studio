@@ -1,11 +1,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { loadImportedRuntimeStartOptionsNative } from './runtime-start-options';
+import { loadImportedRuntimeStartOptions } from './runtime-start-options';
 import type { SiteData } from '../cli-config/core';
 
 describe( 'imported runtime start options', () => {
-	describe( 'loadImportedRuntimeStartOptionsNative', () => {
+	describe( 'loadImportedRuntimeStartOptions', () => {
 		const makeSite = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
 			id: 'test-id',
 			name: 'Test Site',
@@ -27,7 +27,7 @@ describe( 'imported runtime start options', () => {
 				fs.writeFileSync( runtimePhpPath, '<?php' );
 
 				expect(
-					loadImportedRuntimeStartOptionsNative(
+					loadImportedRuntimeStartOptions(
 						makeSite( { runtimeBlueprintPath, technicalSiteDirectory: importRoot } )
 					)
 				).toEqual( {
@@ -40,7 +40,7 @@ describe( 'imported runtime start options', () => {
 		} );
 
 		it( 'returns undefined for a normal site without runtimeBlueprintPath', () => {
-			expect( loadImportedRuntimeStartOptionsNative( makeSite() ) ).toBeUndefined();
+			expect( loadImportedRuntimeStartOptions( makeSite() ) ).toBeUndefined();
 		} );
 
 		it( 'returns undefined (does not throw) when runtime.php is missing', () => {
@@ -52,7 +52,7 @@ describe( 'imported runtime start options', () => {
 				fs.writeFileSync( runtimeBlueprintPath, '{}' );
 				// Intentionally no runtime.php written.
 				expect(
-					loadImportedRuntimeStartOptionsNative( makeSite( { runtimeBlueprintPath } ) )
+					loadImportedRuntimeStartOptions( makeSite( { runtimeBlueprintPath } ) )
 				).toBeUndefined();
 			} finally {
 				fs.rmSync( importRoot, { recursive: true, force: true } );

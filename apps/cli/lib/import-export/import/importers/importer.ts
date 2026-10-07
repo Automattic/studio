@@ -4,7 +4,7 @@ import { createInterface } from 'readline';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
+import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import {
 	RecommendedPHPVersion,
@@ -308,7 +308,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		await keepSqliteIntegrationUpdated( site.path );
-		await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}

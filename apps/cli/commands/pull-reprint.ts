@@ -44,7 +44,7 @@ import {
 	mapCliOnlyToReprint,
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
-import { loadImportedRuntimeStartOptionsNative } from 'cli/lib/pull/runtime-start-options';
+import { loadImportedRuntimeStartOptions } from 'cli/lib/pull/runtime-start-options';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -413,7 +413,7 @@ export async function runCommand(
 				} );
 			}
 
-			const runtimeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
+			const runtimeStartOptions = loadImportedRuntimeStartOptions( studioMetadata );
 			if ( ! runtimeStartOptions ) {
 				throw new LoggerError(
 					`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`

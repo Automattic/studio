@@ -3,7 +3,7 @@ import path from 'node:path';
 import { PassThrough, Readable, Writable } from 'node:stream';
 import { buffer, text } from 'node:stream/consumers';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
+import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getPhpBinaryPath,
@@ -18,7 +18,7 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
-import { loadImportedRuntimeStartOptionsNative } from './pull/runtime-start-options';
+import { loadImportedRuntimeStartOptions } from './pull/runtime-start-options';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -148,9 +148,9 @@ export type RunWpCliCommandOptions = {
 	requireSqliteCliCommand?: boolean;
 	siteUrl?: string;
 	stdio?: 'inherit' | 'pipe';
-	/** Stream native child output to the terminal while retaining a bounded failure tail. */
+	/** Stream child output to the terminal while retaining a bounded failure tail. */
 	liveOutput?: boolean;
-	/** Runs once immediately before the first native live output is written. */
+	/** Runs once immediately before the first live output is written. */
 	onLiveOutput?: () => void;
 };
 
@@ -192,33 +192,36 @@ type DisposableExitCode = Disposable & {
 	exitCode: Promise< number >;
 };
 
-async function runNativeWpCliCommand(
+// Passing `stdio: 'inherit'` connects the child to the parent's terminal fds for
+// piped/interactive stdin, live streaming output and TTY detection (colors), and
+// returns only the exit code.
+export async function runWpCliCommand(
 	site: SiteData,
 	args: string[],
 	options: RunWpCliCommandOptions & { stdio: 'inherit' }
 ): Promise< DisposableExitCode >;
-async function runNativeWpCliCommand(
+export async function runWpCliCommand(
 	site: SiteData,
 	args: string[],
-	options: RunWpCliCommandOptions
+	options?: RunWpCliCommandOptions
 ): Promise< DisposableWpCliResponse >;
-async function runNativeWpCliCommand(
+export async function runWpCliCommand(
 	site: SiteData,
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
 	const autoPrependFile = options.requireSqliteCliCommand
 		? undefined
-		: loadImportedRuntimeStartOptionsNative( site )?.autoPrependFile;
+		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
-	const nativeArgs = applyWpCliCommandOptions( args, options );
+	const wpCliArgs = applyWpCliCommandOptions( args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[
@@ -226,7 +229,7 @@ async function runNativeWpCliCommand(
 			...getWpCliPhpIniArgs(),
 			getWpCliPharPath(),
 			`--path=${ site.path }`,
-			...nativeArgs,
+			...wpCliArgs,
 		],
 		{
 			cwd: site.path,
@@ -278,25 +281,4 @@ async function runNativeWpCliCommand(
 		),
 		[ Symbol.dispose ]: dispose,
 	};
-}
-
-// Passing `stdio: 'inherit'` connects the child to the parent's terminal fds for
-// piped/interactive stdin, live streaming output and TTY detection (colors), and
-// returns only the exit code.
-export async function runWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions & { stdio: 'inherit' }
-): Promise< DisposableExitCode >;
-export async function runWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options?: RunWpCliCommandOptions
-): Promise< DisposableWpCliResponse >;
-export async function runWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions = {}
-): Promise< DisposableWpCliResponse | DisposableExitCode > {
-	return runNativeWpCliCommand( site, args, options );
 }

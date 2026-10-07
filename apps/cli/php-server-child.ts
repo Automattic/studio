@@ -25,7 +25,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
-import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
+import { requestSetAdminCredentials } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
@@ -214,32 +214,13 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 
 async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
-		await requestSetAdminCredentials( config, async ( request ) => {
-			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
-				method: request.method,
-				body: toUrlSearchParams( request.body ),
-				signal,
-			} );
-			if ( ! response.ok ) {
-				throw new Error( await getAdminCredentialsErrorMessage( response ) );
-			}
-		} );
+		await requestSetAdminCredentials( config, signal );
 	} catch ( error ) {
 		throw new Error(
 			`Failed to set admin credentials: ${
 				error instanceof Error ? error.message : String( error )
 			}`
 		);
-	}
-}
-
-async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
-	const text = await response.text();
-	try {
-		const result = JSON.parse( text ) as { error?: string };
-		return result.error ?? text;
-	} catch {
-		return text || response.statusText;
 	}
 }
 

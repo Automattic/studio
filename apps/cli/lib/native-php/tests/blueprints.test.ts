@@ -6,8 +6,10 @@ import {
 	BLUEPRINT_HTTP_TIMEOUT_MS,
 	formatBlueprintRunnerError,
 	getBlueprintRunnerPrependContent,
+	getWpCliCommandForRunner,
 	normalizeBlueprintForRunner,
 	removeOwnedSqliteSymlink,
+	setWpCliCommandForRunner,
 } from 'cli/lib/native-php/blueprints';
 import { PhpCommandError } from 'cli/lib/native-php/php-process';
 
@@ -57,6 +59,63 @@ describe( 'normalizeBlueprintForRunner', () => {
 		const contents: Record< string, unknown > = { features: null, steps: [] };
 
 		expect( () => normalizeBlueprintForRunner( contents ) ).not.toThrow();
+	} );
+} );
+
+describe( 'getWpCliCommandForRunner', () => {
+	it( 'runs wp-cli.phar through the PHP binary with quoted paths on Windows', () => {
+		const command = getWpCliCommandForRunner(
+			'C:\\Users\\Jane Doe\\php\\php.exe',
+			'C:\\Program Files\\Studio\\wp-cli.phar',
+			'win32'
+		);
+
+		expect( command ).toMatch( /^"C:\\Users\\Jane Doe\\php\\php\.exe" / );
+		expect( command ).toContain( '"-d" "display_errors=stderr"' );
+		expect( command ).toMatch( / "C:\\Program Files\\Studio\\wp-cli\.phar"$/ );
+	} );
+
+	it( 'single-quotes paths for sh elsewhere', () => {
+		const command = getWpCliCommandForRunner(
+			"/Users/o'brien/php",
+			'/Applications/Studio.app/wp-cli.phar',
+			'darwin'
+		);
+
+		expect( command ).toMatch( /^'\/Users\/o'\\''brien\/php' / );
+		expect( command ).toMatch( / '\/Applications\/Studio\.app\/wp-cli\.phar'$/ );
+	} );
+} );
+
+describe( 'setWpCliCommandForRunner', () => {
+	it( 'sets the command on every wp-cli step, replacing a Playground path', () => {
+		const contents = {
+			steps: [
+				{ step: 'wp-cli', command: 'wp plugin list' },
+				{ step: 'wp-cli', command: 'wp option get home', wpCliPath: '/tmp/wp-cli.phar' },
+			],
+		};
+
+		setWpCliCommandForRunner( contents, '"php" "wp-cli.phar"' );
+
+		expect( contents.steps.map( ( step ) => step.wpCliPath ) ).toEqual( [
+			'"php" "wp-cli.phar"',
+			'"php" "wp-cli.phar"',
+		] );
+	} );
+
+	it( 'leaves other steps and non-object entries alone', () => {
+		const contents = {
+			steps: [ { step: 'installPlugin' }, 'login', null, false ],
+		};
+
+		setWpCliCommandForRunner( contents, '"php" "wp-cli.phar"' );
+
+		expect( contents.steps ).toEqual( [ { step: 'installPlugin' }, 'login', null, false ] );
+	} );
+
+	it( 'tolerates a Blueprint without steps', () => {
+		expect( () => setWpCliCommandForRunner( {}, '"php"' ) ).not.toThrow();
 	} );
 } );
 

@@ -5,9 +5,14 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import {
+	getBlueprintsPharPath,
+	getPhpBinaryPath,
+	getWpCliPharPath,
+} from 'cli/lib/dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -66,6 +71,44 @@ export function normalizeBlueprintForRunner( contents: Record< string, unknown >
 		contents.features = supported;
 	} else {
 		delete contents.features;
+	}
+}
+
+// The runner joins a step's `wpCliPath` and its arguments into one string run through the shell
+// (`cmd` on Windows, `sh` elsewhere), so each part is quoted for that shell.
+function quoteForShell( arg: string, platform: NodeJS.Platform ): string {
+	return platform === 'win32' ? `"${ arg }"` : `'${ arg.replace( /'/g, `'\\''` ) }'`;
+}
+
+export function getWpCliCommandForRunner(
+	phpBinaryPath: string,
+	wpCliPharPath: string,
+	platform: NodeJS.Platform = process.platform
+): string {
+	return [ phpBinaryPath, ...getWpCliPhpIniArgs(), wpCliPharPath ]
+		.map( ( arg ) => quoteForShell( arg, platform ) )
+		.join( ' ' );
+}
+
+function isWpCliStep( step: unknown ): step is Record< string, unknown > {
+	return (
+		!! step && typeof step === 'object' && ( step as Record< string, unknown > ).step === 'wp-cli'
+	);
+}
+
+// The runner otherwise executes its downloaded wp-cli.phar directly, relying on the
+// `#!/usr/bin/env php` shebang, which Windows ignores, so the step silently does nothing there.
+export function setWpCliCommandForRunner(
+	contents: Record< string, unknown >,
+	wpCliCommand: string
+): void {
+	if ( ! Array.isArray( contents.steps ) ) {
+		return;
+	}
+	for ( const step of contents.steps as unknown[] ) {
+		if ( isWpCliStep( step ) ) {
+			step.wpCliPath = wpCliCommand;
+		}
 	}
 }
 
@@ -150,6 +193,10 @@ export async function runBlueprint(
 		...defaultConstants,
 	};
 	normalizeBlueprintForRunner( blueprint.contents );
+	setWpCliCommandForRunner(
+		blueprint.contents,
+		getWpCliCommandForRunner( getPhpBinaryPath( phpVersion ), getWpCliPharPath() )
+	);
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.
@@ -214,9 +261,8 @@ export async function runBlueprint(
 				phpVersion,
 				signal,
 				autoPrependFile: prependPath,
-				// blueprints.phar runs `wp-cli` steps by shelling out to `php` on the
-				// PATH. Expose the bundled binary so blueprints work on machines
-				// without a system PHP install (e.g. CI and most users).
+				// Expose the bundled binary to anything the runner or WP-CLI starts through
+				// `php` on the PATH, for machines without a system PHP install.
 				env: {
 					PATH: `${ path.dirname( getPhpBinaryPath( phpVersion ) ) }${ path.delimiter }${
 						process.env.PATH ?? ''

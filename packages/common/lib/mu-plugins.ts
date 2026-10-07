@@ -356,18 +356,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// WP-CLI specific: SQLite command support
-	muPlugins.push( {
-		filename: '0-sqlite-command.php',
-		content: `<?php
-		// Ensure SQLite command can find the plugin
-		add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
-			$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
-			return $directories;
-		} );
-		`,
-	} );
-
 	// WP-CLI specific: Studio commands
 	muPlugins.push( {
 		filename: '0-studio-cli-commands.php',

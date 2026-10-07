@@ -44,12 +44,16 @@ export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): strin
 }
 
 /**
- * Opens the site's front page in the browser.
+ * Opens the site in the browser: the Blueprint `landingPage` when the site has one, logged in so
+ * admin landing pages don't bounce to the login screen, and the front page otherwise.
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
-		await openBrowser( `${ siteUrl }/` );
+		const url = site.landingPage
+			? buildAutoLoginUrl( siteUrl, new URL( site.landingPage, siteUrl ).toString() )
+			: `${ siteUrl }/`;
+		await openBrowser( url );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

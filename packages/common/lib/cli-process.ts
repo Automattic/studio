@@ -108,8 +108,6 @@ export interface CliRunnerConfig {
 	// host is itself a Node process, like the CLI). The desktop overrides this
 	// with its bundled Node, since its own `execPath` is Electron.
 	nodeBinary?: string;
-	// Extra V8/Node flags for the child.
-	execArgv?: string[];
 	// Optional error sink (the desktop wires Sentry here).
 	onError?: ( error: Error ) => void;
 }
@@ -172,7 +170,7 @@ export function killChild( child: ChildProcess ): void {
 }
 
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
-	const { cliBinary, nodeBinary, execArgv = [], onError } = config;
+	const { cliBinary, nodeBinary, onError } = config;
 	const liveChildren = new Set< ChildProcess >();
 
 	function executeCliCommand(
@@ -197,7 +195,8 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		const child = fork( cliBinary, [ ...args, '--avoid-telemetry' ], {
 			stdio,
 			execPath: nodeBinary,
-			execArgv,
+			// Don't inherit the host's own Node/V8 flags.
+			execArgv: [],
 			env: { ...process.env, ...options.env },
 		} );
 		liveChildren.add( child );

@@ -51,8 +51,6 @@ export interface AgentRunManagerConfig {
 	// Node binary to fork with. Defaults to `process.execPath`. The desktop
 	// overrides this with its bundled Node (its own `execPath` is Electron).
 	nodeBinary?: string;
-	// Extra Node flags for the child.
-	execArgv?: string[];
 	// Where run output goes. The host adapts this to its transport.
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
@@ -98,7 +96,7 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 }
 
 export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRunManager {
-	const { cliBinary, nodeBinary, execArgv = [], surface, getTracksOrigin } = config;
+	const { cliBinary, nodeBinary, surface, getTracksOrigin } = config;
 
 	// Two subprocesses resuming the same session id would race on the JSONL
 	// recorder, so we reject the second one here.
@@ -196,7 +194,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				? [ 'ignore', 'inherit', 'inherit', 'ipc' ]
 				: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
 			execPath: nodeBinary,
-			execArgv,
+			// Don't inherit the host's own Node/V8 flags.
+			execArgv: [],
 			env: {
 				...process.env,
 				...( getTracksOrigin ? { STUDIO_TRACKS_ORIGIN: getTracksOrigin() } : {} ),

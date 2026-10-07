@@ -6,8 +6,10 @@ import {
 	BLUEPRINT_HTTP_TIMEOUT_MS,
 	formatBlueprintRunnerError,
 	getBlueprintRunnerPrependContent,
+	getWpCliCommandForRunner,
 	normalizeBlueprintForRunner,
 	removeOwnedSqliteSymlink,
+	requoteWpCliCommandsForCmd,
 } from 'cli/lib/native-php/blueprints';
 import { PhpCommandError } from 'cli/lib/native-php/php-process';
 
@@ -60,9 +62,81 @@ describe( 'normalizeBlueprintForRunner', () => {
 	} );
 } );
 
+describe( 'getWpCliCommandForRunner', () => {
+	it( 'runs wp-cli.phar through the PHP binary with quoted paths on Windows', () => {
+		const command = getWpCliCommandForRunner(
+			'C:\\Users\\Jane Doe\\php\\php.exe',
+			'C:\\Program Files\\Studio\\wp-cli.phar',
+			'win32'
+		);
+
+		expect( command ).toMatch( /^"C:\\Users\\Jane Doe\\php\\php\.exe" / );
+		expect( command ).toContain( ' -d display_errors=stderr ' );
+		expect( command ).toMatch( / "C:\\Program Files\\Studio\\wp-cli\.phar"$/ );
+	} );
+
+	it( 'single-quotes paths for sh elsewhere', () => {
+		const command = getWpCliCommandForRunner(
+			"/Users/o'brien/php",
+			'/Applications/Studio.app/wp-cli.phar',
+			'darwin'
+		);
+
+		expect( command ).toMatch( /^'\/Users\/o'\\''brien\/php' / );
+		expect( command ).toMatch( / '\/Applications\/Studio\.app\/wp-cli\.phar'$/ );
+	} );
+} );
+
+describe( 'requoteWpCliCommandsForCmd', () => {
+	function requote( command: string ): unknown {
+		const contents = { steps: [ { step: 'wp-cli', command } ] };
+		requoteWpCliCommandsForCmd( contents );
+		return contents.steps[ 0 ].command;
+	}
+
+	it( 'turns POSIX single quotes into cmd double quotes', () => {
+		expect( requote( "wp option update blogname 'WP-CLI Test Site'" ) ).toBe(
+			'wp option update blogname "WP-CLI Test Site"'
+		);
+	} );
+
+	it( 'keeps double-quoted PHP code as one argument', () => {
+		expect(
+			requote( `wp eval "file_put_contents( WP_CONTENT_DIR . '/marker.txt', 'ok' );"` )
+		).toBe( `wp eval "file_put_contents( WP_CONTENT_DIR . '/marker.txt', 'ok' );"` );
+	} );
+
+	it( 'escapes characters cmd would interpret', () => {
+		expect( requote( `wp option update blogname 'Say "hi" 100% now!'` ) ).toBe(
+			'wp option update blogname "Say ""hi"" 100"^%" now"^!""'
+		);
+	} );
+
+	it( 'keeps variables and globs literal', () => {
+		expect( requote( `wp eval 'echo $foo;'` ) ).toBe( 'wp eval "echo $foo;"' );
+		expect( requote( 'wp post list --fields=*' ) ).toBe( 'wp post list --fields=*' );
+	} );
+
+	it( 'leaves commands with shell operators unchanged', () => {
+		expect( requote( 'wp plugin list | grep akismet' ) ).toBe( 'wp plugin list | grep akismet' );
+	} );
+
+	it( 'leaves other steps and non-object entries alone', () => {
+		const contents = { steps: [ { step: 'runPHP', code: "<?php echo 'a b';" }, 'login', null ] };
+
+		requoteWpCliCommandsForCmd( contents );
+
+		expect( contents.steps ).toEqual( [
+			{ step: 'runPHP', code: "<?php echo 'a b';" },
+			'login',
+			null,
+		] );
+	} );
+} );
+
 describe( 'getBlueprintRunnerPrependContent', () => {
 	it( "overrides the runner's HTTP client with a longer timeout", () => {
-		const content = getBlueprintRunnerPrependContent();
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
 
 		expect( content ).toContain( "$GLOBALS['wp_filter']['blueprint.http_client']" );
 		expect( content ).toContain( 'new \\WordPress\\HttpClient\\Client(' );
@@ -70,12 +144,26 @@ describe( 'getBlueprintRunnerPrependContent', () => {
 	} );
 
 	it( 'keeps the runner client when the bundled HttpClient supports idle timeouts', () => {
-		const content = getBlueprintRunnerPrependContent();
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
 
 		expect( content ).toContain(
 			"property_exists( '\\WordPress\\HttpClient\\ClientState', 'idle_timeout_ms' )"
 		);
 		expect( content ).toContain( 'return $client;' );
+	} );
+
+	it( 'points wp-cli steps of the transpiled Blueprint at the given command', () => {
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
+
+		expect( content ).toContain( "$GLOBALS['wp_filter']['blueprint.resolved']" );
+		expect( content ).toContain( "$blueprint['additionalStepsAfterExecution']" );
+		expect( content ).toContain( `['wpCliPath'] = '\\'php\\' \\'wp-cli.phar\\'';` );
+	} );
+
+	it( 'escapes backslashes in a Windows command for the PHP string', () => {
+		const content = getBlueprintRunnerPrependContent( '"C:\\php\\php.exe" "C:\\wp-cli.phar"' );
+
+		expect( content ).toContain( `['wpCliPath'] = '"C:\\\\php\\\\php.exe" "C:\\\\wp-cli.phar"';` );
 	} );
 
 	it( 'allows far more than the runner default of 30 seconds per download', () => {

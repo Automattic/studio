@@ -5,9 +5,15 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { parse as parseShellCommand } from 'shell-quote';
+import {
+	getBlueprintsPharPath,
+	getPhpBinaryPath,
+	getWpCliPharPath,
+} from 'cli/lib/dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -16,10 +22,14 @@ import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 // on slow connections. Remove once the bundled phar includes WordPress/php-toolkit#322.
 export const BLUEPRINT_HTTP_TIMEOUT_MS = 10 * 60 * 1000;
 
-// Hooks the runner's `blueprint.http_client` filter through the `$wp_filter` global its
-// polyfilled `apply_filters()` reads, since the phar exposes no CLI option for the timeout.
-// A phar with `idle_timeout_ms` already fails only stalled downloads, so its client is kept.
-export function getBlueprintRunnerPrependContent(): string {
+// Hooks the runner's filters through the `$wp_filter` global its polyfilled `apply_filters()`
+// reads, since the phar exposes no CLI options for these.
+// - `blueprint.http_client`: a phar with `idle_timeout_ms` already fails only stalled downloads,
+//   so its client is kept.
+// - `blueprint.resolved`: the runner otherwise executes its downloaded wp-cli.phar directly,
+//   relying on the `#!/usr/bin/env php` shebang, which Windows ignores, so `wp-cli` steps silently
+//   do nothing there. `wpCliPath` is set here because the v1 to v2 transpiler drops it.
+export function getBlueprintRunnerPrependContent( wpCliCommand: string ): string {
 	return `<?php
 $GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
 	'function'      => function ( $client ) {
@@ -30,15 +40,31 @@ $GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
 	},
 	'accepted_args' => 1,
 );
+$GLOBALS['wp_filter']['blueprint.resolved'][10][] = array(
+	'function'      => function ( $blueprint ) {
+		if ( empty( $blueprint['additionalStepsAfterExecution'] ) || ! is_array( $blueprint['additionalStepsAfterExecution'] ) ) {
+			return $blueprint;
+		}
+		foreach ( $blueprint['additionalStepsAfterExecution'] as $index => $step ) {
+			if ( is_array( $step ) && isset( $step['step'] ) && 'wp-cli' === $step['step'] ) {
+				$blueprint['additionalStepsAfterExecution'][ $index ]['wpCliPath'] = ${ toPhpSingleQuotedString(
+					wpCliCommand
+				) };
+			}
+		}
+		return $blueprint;
+	},
+	'accepted_args' => 1,
+);
 `;
 }
 
-function writeBlueprintRunnerPrependFile(): string {
+function writeBlueprintRunnerPrependFile( wpCliCommand: string ): string {
 	const dir = fs.mkdtempSync(
 		path.join( getFullyResolvedTmpDirPath(), 'studio-blueprint-prepend-' )
 	);
 	const prependPath = path.join( dir, 'prepend.php' );
-	fs.writeFileSync( prependPath, getBlueprintRunnerPrependContent() );
+	fs.writeFileSync( prependPath, getBlueprintRunnerPrependContent( wpCliCommand ) );
 	return prependPath;
 }
 
@@ -67,6 +93,81 @@ export function normalizeBlueprintForRunner( contents: Record< string, unknown >
 	} else {
 		delete contents.features;
 	}
+}
+
+const CMD_ESCAPES: Record< string, string > = {
+	'"': '""',
+	'^': '"^^"',
+	'%': '"^%"',
+	'!': '"^!"',
+	'\n': '!LF!',
+};
+
+// Mirrors Symfony Process's Windows `escapeArgument()`: the runner's `prepareWindowsCommandLine()`
+// turns this form into a safe `cmd` command line.
+function escapeForCmd( arg: string ): string {
+	if ( arg === '' ) {
+		return '""';
+	}
+	if ( ! /[/()%!^"<>&|\s]/.test( arg ) ) {
+		return arg;
+	}
+	const escaped = arg
+		.replace( /(\\+)$/, '$1$1' )
+		.replace( /["^%!\n]/g, ( char ) => CMD_ESCAPES[ char ] );
+	return `"${ escaped }"`;
+}
+
+// The runner joins a step's `wpCliPath` and its arguments into one string run through the shell
+// (`cmd` on Windows, `sh` elsewhere), so each part is quoted for that shell.
+function quoteForShell( arg: string, platform: NodeJS.Platform ): string {
+	return platform === 'win32' ? escapeForCmd( arg ) : `'${ arg.replace( /'/g, `'\\''` ) }'`;
+}
+
+export function getWpCliCommandForRunner(
+	phpBinaryPath: string,
+	wpCliPharPath: string,
+	platform: NodeJS.Platform = process.platform
+): string {
+	return [ phpBinaryPath, ...getWpCliPhpIniArgs(), wpCliPharPath ]
+		.map( ( arg ) => quoteForShell( arg, platform ) )
+		.join( ' ' );
+}
+
+function isWpCliStep( step: unknown ): step is Record< string, unknown > {
+	return (
+		!! step && typeof step === 'object' && ( step as Record< string, unknown > ).step === 'wp-cli'
+	);
+}
+
+// Blueprints quote `wp-cli` commands for a POSIX shell, as Playground parses them, but on Windows
+// the runner hands them to `cmd`, which treats `'` as a literal character. Commands using shell
+// operators are left as they are.
+export function requoteWpCliCommandsForCmd( contents: Record< string, unknown > ): void {
+	if ( ! Array.isArray( contents.steps ) ) {
+		return;
+	}
+	for ( const step of contents.steps as unknown[] ) {
+		if ( ! isWpCliStep( step ) || typeof step.command !== 'string' ) {
+			continue;
+		}
+		// Keep `$` literal: Playground runs the command without a shell, so nothing expands it.
+		const tokens = parseShellCommand( step.command, ( key ) => `$${ key }` );
+		const args = tokens.map( ( token ) => {
+			if ( typeof token === 'string' ) {
+				return token;
+			}
+			return 'op' in token && token.op === 'glob' ? token.pattern : null;
+		} );
+		if ( args[ 0 ] !== 'wp' || args.some( ( arg ) => arg === null ) ) {
+			continue;
+		}
+		step.command = ( args as string[] ).map( escapeForCmd ).join( ' ' );
+	}
+}
+
+function toPhpSingleQuotedString( value: string ): string {
+	return `'${ value.replace( /[\\']/g, ( char ) => `\\${ char }` ) }'`;
 }
 
 export async function removeOwnedSqliteSymlink(
@@ -150,6 +251,9 @@ export async function runBlueprint(
 		...defaultConstants,
 	};
 	normalizeBlueprintForRunner( blueprint.contents );
+	if ( process.platform === 'win32' ) {
+		requoteWpCliCommandsForCmd( blueprint.contents );
+	}
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.
@@ -196,7 +300,9 @@ export async function runBlueprint(
 		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
-	const prependPath = writeBlueprintRunnerPrependFile();
+	const prependPath = writeBlueprintRunnerPrependFile(
+		getWpCliCommandForRunner( getPhpBinaryPath( phpVersion ), getWpCliPharPath() )
+	);
 
 	try {
 		await runPhpCommand(
@@ -214,9 +320,8 @@ export async function runBlueprint(
 				phpVersion,
 				signal,
 				autoPrependFile: prependPath,
-				// blueprints.phar runs `wp-cli` steps by shelling out to `php` on the
-				// PATH. Expose the bundled binary so blueprints work on machines
-				// without a system PHP install (e.g. CI and most users).
+				// Expose the bundled binary to anything the runner or WP-CLI starts through
+				// `php` on the PATH, for machines without a system PHP install.
 				env: {
 					PATH: `${ path.dirname( getPhpBinaryPath( phpVersion ) ) }${ path.delimiter }${
 						process.env.PATH ?? ''

@@ -1607,16 +1607,19 @@ export function SitePreview( {
 									? undefined
 									: () => {
 											const safePath = getSafePath( path );
+											const realm = getPreviewRealm( safePath );
 											// Matches the realm on screen (front end / WP Admin / phpMyAdmin)
 											// rather than always the front end.
-											void connector.trackEvent( getRealmOpenEvent( getPreviewRealm( safePath ) ), {
+											void connector.trackEvent( getRealmOpenEvent( realm ), {
 												browser: 'external',
 											} );
-											// Via the host so the URL goes through /studio-auto-login; opening
-											// it raw drops the session and lands admin screens on the login form.
-											void connector.openSiteUrl( site.id, safePath ).catch( ( error ) => {
-												console.error( 'Failed to open site in browser:', error );
-											} );
+											// Admin screens go through /studio-auto-login so they don't land on
+											// the login form; the front end opens logged out.
+											void connector
+												.openSiteUrl( site.id, safePath, { autoLogin: realm !== 'frontend' } )
+												.catch( ( error ) => {
+													console.error( 'Failed to open site in browser:', error );
+												} );
 									  }
 							}
 						/>

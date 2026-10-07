@@ -183,11 +183,13 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			// `wp eval` writes a marker into wp-content: asserting it on disk proves the
 			// wp-cli step actually ran (a skipped/no-op step would still exit 0).
 			// WP_CONTENT_DIR resolves to the real site folder on every platform.
+			// Phar::running() shows which wp-cli.phar ran: the runner's own download only
+			// works through its shebang, so it passes on macOS/Linux but not on Windows.
 			const blueprintPath = writeBlueprint( env, {
 				steps: [
 					{
 						step: 'wp-cli',
-						command: `wp eval "file_put_contents( WP_CONTENT_DIR . '/blueprint-wpcli-marker.txt', 'ok' );"`,
+						command: `wp eval "file_put_contents( WP_CONTENT_DIR . '/blueprint-wpcli-marker.txt', Phar::running( false ) );"`,
 					},
 				],
 			} );
@@ -201,9 +203,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
-			expect(
-				fs.existsSync( path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' ) )
-			).toBe( true );
+			const markerPath = path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' );
+			expect( fs.existsSync( markerPath ) ).toBe( true );
+			expect( fs.readFileSync( markerPath, 'utf8' ).replace( /\\/g, '/' ) ).toContain(
+				'wp-files/wp-cli/wp-cli.phar'
+			);
 		}
 	);
 } );

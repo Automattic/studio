@@ -21,10 +21,14 @@ import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 // on slow connections. Remove once the bundled phar includes WordPress/php-toolkit#322.
 export const BLUEPRINT_HTTP_TIMEOUT_MS = 10 * 60 * 1000;
 
-// Hooks the runner's `blueprint.http_client` filter through the `$wp_filter` global its
-// polyfilled `apply_filters()` reads, since the phar exposes no CLI option for the timeout.
-// A phar with `idle_timeout_ms` already fails only stalled downloads, so its client is kept.
-export function getBlueprintRunnerPrependContent(): string {
+// Hooks the runner's filters through the `$wp_filter` global its polyfilled `apply_filters()`
+// reads, since the phar exposes no CLI options for these.
+// - `blueprint.http_client`: a phar with `idle_timeout_ms` already fails only stalled downloads,
+//   so its client is kept.
+// - `blueprint.resolved`: the runner otherwise executes its downloaded wp-cli.phar directly,
+//   relying on the `#!/usr/bin/env php` shebang, which Windows ignores, so `wp-cli` steps silently
+//   do nothing there. `wpCliPath` is set here because the v1 to v2 transpiler drops it.
+export function getBlueprintRunnerPrependContent( wpCliCommand: string ): string {
 	return `<?php
 $GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
 	'function'      => function ( $client ) {
@@ -35,15 +39,31 @@ $GLOBALS['wp_filter']['blueprint.http_client'][10][] = array(
 	},
 	'accepted_args' => 1,
 );
+$GLOBALS['wp_filter']['blueprint.resolved'][10][] = array(
+	'function'      => function ( $blueprint ) {
+		if ( empty( $blueprint['additionalStepsAfterExecution'] ) || ! is_array( $blueprint['additionalStepsAfterExecution'] ) ) {
+			return $blueprint;
+		}
+		foreach ( $blueprint['additionalStepsAfterExecution'] as $index => $step ) {
+			if ( is_array( $step ) && isset( $step['step'] ) && 'wp-cli' === $step['step'] ) {
+				$blueprint['additionalStepsAfterExecution'][ $index ]['wpCliPath'] = ${ toPhpSingleQuotedString(
+					wpCliCommand
+				) };
+			}
+		}
+		return $blueprint;
+	},
+	'accepted_args' => 1,
+);
 `;
 }
 
-function writeBlueprintRunnerPrependFile(): string {
+function writeBlueprintRunnerPrependFile( wpCliCommand: string ): string {
 	const dir = fs.mkdtempSync(
 		path.join( getFullyResolvedTmpDirPath(), 'studio-blueprint-prepend-' )
 	);
 	const prependPath = path.join( dir, 'prepend.php' );
-	fs.writeFileSync( prependPath, getBlueprintRunnerPrependContent() );
+	fs.writeFileSync( prependPath, getBlueprintRunnerPrependContent( wpCliCommand ) );
 	return prependPath;
 }
 
@@ -90,26 +110,8 @@ export function getWpCliCommandForRunner(
 		.join( ' ' );
 }
 
-function isWpCliStep( step: unknown ): step is Record< string, unknown > {
-	return (
-		!! step && typeof step === 'object' && ( step as Record< string, unknown > ).step === 'wp-cli'
-	);
-}
-
-// The runner otherwise executes its downloaded wp-cli.phar directly, relying on the
-// `#!/usr/bin/env php` shebang, which Windows ignores, so the step silently does nothing there.
-export function setWpCliCommandForRunner(
-	contents: Record< string, unknown >,
-	wpCliCommand: string
-): void {
-	if ( ! Array.isArray( contents.steps ) ) {
-		return;
-	}
-	for ( const step of contents.steps as unknown[] ) {
-		if ( isWpCliStep( step ) ) {
-			step.wpCliPath = wpCliCommand;
-		}
-	}
+function toPhpSingleQuotedString( value: string ): string {
+	return `'${ value.replace( /[\\']/g, ( char ) => `\\${ char }` ) }'`;
 }
 
 export async function removeOwnedSqliteSymlink(
@@ -193,10 +195,6 @@ export async function runBlueprint(
 		...defaultConstants,
 	};
 	normalizeBlueprintForRunner( blueprint.contents );
-	setWpCliCommandForRunner(
-		blueprint.contents,
-		getWpCliCommandForRunner( getPhpBinaryPath( phpVersion ), getWpCliPharPath() )
-	);
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.
@@ -243,7 +241,9 @@ export async function runBlueprint(
 		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
-	const prependPath = writeBlueprintRunnerPrependFile();
+	const prependPath = writeBlueprintRunnerPrependFile(
+		getWpCliCommandForRunner( getPhpBinaryPath( phpVersion ), getWpCliPharPath() )
+	);
 
 	try {
 		await runPhpCommand(

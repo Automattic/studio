@@ -9,7 +9,6 @@ import {
 	getWpCliCommandForRunner,
 	normalizeBlueprintForRunner,
 	removeOwnedSqliteSymlink,
-	setWpCliCommandForRunner,
 } from 'cli/lib/native-php/blueprints';
 import { PhpCommandError } from 'cli/lib/native-php/php-process';
 
@@ -87,41 +86,9 @@ describe( 'getWpCliCommandForRunner', () => {
 	} );
 } );
 
-describe( 'setWpCliCommandForRunner', () => {
-	it( 'sets the command on every wp-cli step, replacing a Playground path', () => {
-		const contents = {
-			steps: [
-				{ step: 'wp-cli', command: 'wp plugin list' },
-				{ step: 'wp-cli', command: 'wp option get home', wpCliPath: '/tmp/wp-cli.phar' },
-			],
-		};
-
-		setWpCliCommandForRunner( contents, '"php" "wp-cli.phar"' );
-
-		expect( contents.steps.map( ( step ) => step.wpCliPath ) ).toEqual( [
-			'"php" "wp-cli.phar"',
-			'"php" "wp-cli.phar"',
-		] );
-	} );
-
-	it( 'leaves other steps and non-object entries alone', () => {
-		const contents = {
-			steps: [ { step: 'installPlugin' }, 'login', null, false ],
-		};
-
-		setWpCliCommandForRunner( contents, '"php" "wp-cli.phar"' );
-
-		expect( contents.steps ).toEqual( [ { step: 'installPlugin' }, 'login', null, false ] );
-	} );
-
-	it( 'tolerates a Blueprint without steps', () => {
-		expect( () => setWpCliCommandForRunner( {}, '"php"' ) ).not.toThrow();
-	} );
-} );
-
 describe( 'getBlueprintRunnerPrependContent', () => {
 	it( "overrides the runner's HTTP client with a longer timeout", () => {
-		const content = getBlueprintRunnerPrependContent();
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
 
 		expect( content ).toContain( "$GLOBALS['wp_filter']['blueprint.http_client']" );
 		expect( content ).toContain( 'new \\WordPress\\HttpClient\\Client(' );
@@ -129,12 +96,26 @@ describe( 'getBlueprintRunnerPrependContent', () => {
 	} );
 
 	it( 'keeps the runner client when the bundled HttpClient supports idle timeouts', () => {
-		const content = getBlueprintRunnerPrependContent();
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
 
 		expect( content ).toContain(
 			"property_exists( '\\WordPress\\HttpClient\\ClientState', 'idle_timeout_ms' )"
 		);
 		expect( content ).toContain( 'return $client;' );
+	} );
+
+	it( 'points wp-cli steps of the transpiled Blueprint at the given command', () => {
+		const content = getBlueprintRunnerPrependContent( `'php' 'wp-cli.phar'` );
+
+		expect( content ).toContain( "$GLOBALS['wp_filter']['blueprint.resolved']" );
+		expect( content ).toContain( "$blueprint['additionalStepsAfterExecution']" );
+		expect( content ).toContain( `['wpCliPath'] = '\\'php\\' \\'wp-cli.phar\\'';` );
+	} );
+
+	it( 'escapes backslashes in a Windows command for the PHP string', () => {
+		const content = getBlueprintRunnerPrependContent( '"C:\\php\\php.exe" "C:\\wp-cli.phar"' );
+
+		expect( content ).toContain( `['wpCliPath'] = '"C:\\\\php\\\\php.exe" "C:\\\\wp-cli.phar"';` );
 	} );
 
 	it( 'allows far more than the runner default of 30 seconds per download', () => {

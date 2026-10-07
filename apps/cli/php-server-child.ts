@@ -477,6 +477,17 @@ function dispatchRequestToPhpWorker(
 		res.end( `PHP worker proxy error: ${ error.message }` );
 	} );
 
+	req.once( 'aborted', () => {
+		if ( ! req.complete ) {
+			proxyReq.destroy();
+		}
+	} );
+	req.once( 'error', ( error ) => {
+		if ( ! req.complete ) {
+			proxyReq.destroy( error );
+		}
+	} );
+
 	req.pipe( proxyReq );
 }
 

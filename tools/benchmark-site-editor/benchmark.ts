@@ -4,8 +4,7 @@
  * Site Editor Performance Benchmark — Orchestration Script
  *
  * Benchmarks site editor performance across a matrix of environments:
- *   - Studio (bare, multi-worker, plugins, multi-worker+plugins)
- *   - Playground CLI (bare, multi-worker, plugins, multi-worker+plugins)
+ *   - Studio (bare, plugins)
  *   - Playground Web (bare, plugins)
  *   - Custom (any running WordPress site via --custom-url)
  *
@@ -17,7 +16,6 @@
  * Options:
  *   --rounds=N              Number of benchmark runs per environment (default: 1)
  *   --skip-studio           Skip Studio environments
- *   --skip-playground-cli   Skip Playground CLI environments
  *   --skip-playground-web   Skip Playground web environments
  *   --custom=<name>,<url>[,<user>,<password>]  Add a custom WordPress site (repeatable)
  *   --install-plugins[=<name1>,<name2>]        Install plugins from blueprint via WP REST API
@@ -25,7 +23,7 @@
  *   --help                  Show help
  */
 
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -41,32 +39,21 @@ import { measureSiteEditor, METRIC_NAMES, type MeasurementResult } from './measu
 
 const STUDIO_ROOT = path.resolve( import.meta.dirname, '../..' );
 const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'apps/cli/dist/cli/main.mjs' );
-const PLAYGROUND_CLI_BIN =
-	process.platform === 'win32' ? 'wp-playground-cli.cmd' : 'wp-playground-cli';
-const PLAYGROUND_CLI_PATH = path.resolve(
-	import.meta.dirname,
-	'node_modules/.bin',
-	PLAYGROUND_CLI_BIN
-);
 const PLUGINS_BLUEPRINT_PATH = path.resolve( import.meta.dirname, 'plugins-blueprint.json' );
 const ARTIFACTS_PATH = path.resolve( STUDIO_ROOT, 'metrics', 'artifacts' );
 
 const PLAYGROUND_WEB_BASE_URL = 'https://playground.wordpress.net';
 
-// Port offset for Playground CLI servers — avoids collisions with dev servers
-const PLAYGROUND_CLI_PORT_BASE = 9500;
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type EnvironmentType = 'studio' | 'playground-cli' | 'playground-web' | 'custom';
+type EnvironmentType = 'studio' | 'playground-web' | 'custom';
 
 interface EnvironmentConfig {
 	name: string;
 	type: EnvironmentType;
 	plugins: boolean;
-	multiWorker: boolean;
 	/** Base URL for custom environments. */
 	customUrl?: string;
 	/** WordPress admin credentials for custom environments. */
@@ -83,21 +70,10 @@ interface BenchmarkResult {
 // ---------------------------------------------------------------------------
 
 const ALL_ENVIRONMENTS: EnvironmentConfig[] = [
-	{ name: 'studio', type: 'studio', plugins: false, multiWorker: false },
-	{ name: 'studio-mw', type: 'studio', plugins: false, multiWorker: true },
-	{ name: 'studio-plugins', type: 'studio', plugins: true, multiWorker: false },
-	{ name: 'studio-mw-plugins', type: 'studio', plugins: true, multiWorker: true },
-	{ name: 'pg-cli', type: 'playground-cli', plugins: false, multiWorker: false },
-	{ name: 'pg-cli-mw', type: 'playground-cli', plugins: false, multiWorker: true },
-	{ name: 'pg-cli-plugins', type: 'playground-cli', plugins: true, multiWorker: false },
-	{
-		name: 'pg-cli-mw-plugins',
-		type: 'playground-cli',
-		plugins: true,
-		multiWorker: true,
-	},
-	{ name: 'pg-web', type: 'playground-web', plugins: false, multiWorker: false },
-	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true, multiWorker: false },
+	{ name: 'studio', type: 'studio', plugins: false },
+	{ name: 'studio-plugins', type: 'studio', plugins: true },
+	{ name: 'pg-web', type: 'playground-web', plugins: false },
+	{ name: 'pg-web-plugins', type: 'playground-web', plugins: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -114,7 +90,6 @@ interface CustomEnvInput {
 interface Options {
 	rounds: number;
 	skipStudio: boolean;
-	skipPlaygroundCli: boolean;
 	skipPlaygroundWeb: boolean;
 	only: string[];
 	headed: boolean;
@@ -150,11 +125,6 @@ function parseArgs(): Options {
 			type: 'boolean',
 			default: false,
 			describe: 'Skip Studio environments',
-		} )
-		.option( 'skip-playground-cli', {
-			type: 'boolean',
-			default: false,
-			describe: 'Skip Playground CLI environments',
 		} )
 		.option( 'skip-playground-web', {
 			type: 'boolean',
@@ -217,7 +187,6 @@ function parseArgs(): Options {
 	return {
 		rounds: argv.rounds,
 		skipStudio: argv[ 'skip-studio' ],
-		skipPlaygroundCli: argv[ 'skip-playground-cli' ],
 		skipPlaygroundWeb: argv[ 'skip-playground-web' ],
 		only: argv.only ? argv.only.split( ',' ).map( ( s: string ) => s.trim() ) : [],
 		headed: argv.headed,
@@ -250,42 +219,6 @@ function cleanupDir( dir: string ): void {
 	if ( fs.existsSync( dir ) ) {
 		fs.rmSync( dir, { recursive: true, force: true } );
 	}
-}
-
-async function waitForServer( url: string, timeoutMs = 60_000 ): Promise< boolean > {
-	const start = Date.now();
-	while ( Date.now() - start < timeoutMs ) {
-		try {
-			const response = await fetch( url );
-			if ( response.ok || response.status === 302 || response.status === 301 ) {
-				return true;
-			}
-		} catch {
-			// Server not ready yet
-		}
-		await sleep( 1000 );
-	}
-	return false;
-}
-
-async function killProcessOnPort( port: number ): Promise< void > {
-	return new Promise( ( resolve ) => {
-		try {
-			if ( process.platform === 'win32' ) {
-				execSync(
-					`for /f "tokens=5" %a in ('netstat -aon ^| find ":${ port }"') do taskkill /F /PID %a`,
-					{ stdio: 'ignore' }
-				);
-			} else {
-				execSync( `lsof -ti:${ port } | xargs kill -9 2>/dev/null || true`, {
-					stdio: 'ignore',
-				} );
-			}
-		} catch {
-			// Process may not exist
-		}
-		setTimeout( resolve, 500 );
-	} );
 }
 
 function sleep( ms: number ): Promise< void > {
@@ -342,7 +275,7 @@ function runCommand(
 // Studio environment helpers
 // ---------------------------------------------------------------------------
 
-function createStudioAppdata( appdataDir: string, multiWorker: boolean ): void {
+function createStudioAppdata( appdataDir: string ): void {
 	const studioDir = path.join( appdataDir, 'Studio' );
 	fs.mkdirSync( studioDir, { recursive: true } );
 
@@ -352,7 +285,6 @@ function createStudioAppdata( appdataDir: string, multiWorker: boolean ): void {
 		snapshots: [],
 		betaFeatures: {
 			studioSitesCli: true,
-			multiWorkerSupport: multiWorker,
 		},
 	};
 
@@ -396,7 +328,7 @@ async function setupStudioSite(
 	const appdataDir = createTempDir( `${ env.name }-appdata` );
 	const siteName = `bench-${ env.name }`;
 
-	createStudioAppdata( appdataDir, env.multiWorker );
+	createStudioAppdata( appdataDir );
 
 	const cliEnv = getStudioCliEnv( appdataDir );
 
@@ -465,88 +397,6 @@ async function teardownStudioSite( siteDir: string, appdataDir: string ): Promis
 }
 
 // ---------------------------------------------------------------------------
-// Playground CLI environment helpers
-// ---------------------------------------------------------------------------
-
-async function setupPlaygroundCliSite(
-	env: EnvironmentConfig,
-	port: number
-): Promise< { url: string; process: ChildProcess; siteDir: string } > {
-	const siteDir = createTempDir( env.name );
-
-	await killProcessOnPort( port );
-
-	const args = [ 'server', `--port=${ port }`, '--wp=latest', '--php=8.2' ];
-
-	// Mount the site dir
-	if ( process.platform === 'win32' ) {
-		args.push( '--mount-dir-before-install', siteDir, '/wordpress' );
-	} else {
-		args.push( `--mount-before-install=${ siteDir }:/wordpress` );
-	}
-
-	if ( env.plugins ) {
-		args.push( `--blueprint=${ PLUGINS_BLUEPRINT_PATH }` );
-	}
-
-	if ( env.multiWorker ) {
-		const workerCount = Math.max( 1, os.cpus().length - 1 );
-		args.push( `--experimental-multi-worker=${ workerCount }` );
-	}
-
-	console.log( chalk.gray( `    Starting Playground CLI on port ${ port }` ) );
-
-	const proc = spawn( PLAYGROUND_CLI_PATH, args, {
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-		env: { ...process.env, FORCE_COLOR: '0' },
-		detached: process.platform !== 'win32',
-		shell: process.platform === 'win32',
-	} );
-
-	// Log stderr output for debugging if the server fails to start
-	let pgStderr = '';
-	proc.stderr?.on( 'data', ( data ) => {
-		pgStderr += data.toString();
-	} );
-
-	const url = `http://127.0.0.1:${ port }`;
-
-	// Wait for server to be ready
-	const ready = await waitForServer( url, 180_000 );
-	if ( ! ready ) {
-		proc.kill( 'SIGKILL' );
-		if ( pgStderr ) {
-			console.error( chalk.gray( pgStderr.slice( 0, 500 ) ) );
-		}
-		throw new Error( `Playground CLI server failed to start on port ${ port }` );
-	}
-
-	console.log( chalk.gray( `    Playground CLI running at ${ url }` ) );
-	return { url, process: proc, siteDir };
-}
-
-async function teardownPlaygroundCliSite(
-	proc: ChildProcess,
-	port: number,
-	siteDir: string
-): Promise< void > {
-	try {
-		if ( proc.pid ) {
-			if ( process.platform === 'win32' ) {
-				execSync( `taskkill /F /T /PID ${ proc.pid }`, { stdio: 'ignore' } );
-			} else {
-				process.kill( -proc.pid, 'SIGTERM' );
-			}
-		}
-	} catch {
-		// Process may have already exited
-	}
-	await killProcessOnPort( port );
-	await sleep( 1000 );
-	cleanupDir( siteDir );
-}
-
-// ---------------------------------------------------------------------------
 // Playground Web environment helpers
 // ---------------------------------------------------------------------------
 
@@ -578,7 +428,6 @@ async function runBenchmark(
 
 	const parsedBenchmarkUrl = new URL( benchmarkUrl );
 	const isPlaygroundWeb = parsedBenchmarkUrl.hostname === 'playground.wordpress.net';
-	const isPlaygroundCli = parsedBenchmarkUrl.hostname === '127.0.0.1';
 	const allMeasurements: MeasurementResult[] = [];
 
 	for ( let round = 1; round <= rounds; round++ ) {
@@ -590,7 +439,6 @@ async function runBenchmark(
 				measureSiteEditor( {
 					url: benchmarkUrl,
 					isPlaygroundWeb,
-					isPlaygroundCli,
 					credentials: env.credentials,
 					headed,
 				} ),
@@ -730,7 +578,6 @@ async function main() {
 			name: custom.name,
 			type: 'custom',
 			plugins: shouldInstallPlugins,
-			multiWorker: false,
 			customUrl: custom.url,
 			credentials: { username: custom.user, password: custom.password },
 		} );
@@ -741,9 +588,6 @@ async function main() {
 	} else {
 		if ( opts.skipStudio ) {
 			environments = environments.filter( ( e ) => e.type !== 'studio' );
-		}
-		if ( opts.skipPlaygroundCli ) {
-			environments = environments.filter( ( e ) => e.type !== 'playground-cli' );
 		}
 		if ( opts.skipPlaygroundWeb ) {
 			environments = environments.filter( ( e ) => e.type !== 'playground-web' );
@@ -790,15 +634,11 @@ async function main() {
 
 	// Run benchmarks
 	const allResults: BenchmarkResult[] = [];
-	let playgroundCliPortOffset = 0;
 
 	for ( const env of environments ) {
 		console.log( chalk.bold.cyan( `\n  ▶ ${ env.name }` ) );
-		const tags = [ env.plugins ? 'plugins' : null, env.multiWorker ? 'multi-worker' : null ]
-			.filter( Boolean )
-			.join( ', ' );
-		if ( tags ) {
-			console.log( chalk.gray( `    (${ tags })` ) );
+		if ( env.plugins ) {
+			console.log( chalk.gray( '    (plugins)' ) );
 		}
 
 		let benchmarkUrl: string;
@@ -810,11 +650,6 @@ async function main() {
 				const setup = await setupStudioSite( env );
 				benchmarkUrl = setup.url;
 				teardownFn = () => teardownStudioSite( setup.siteDir, setup.appdataDir );
-			} else if ( env.type === 'playground-cli' ) {
-				const port = PLAYGROUND_CLI_PORT_BASE + playgroundCliPortOffset++;
-				const setup = await setupPlaygroundCliSite( env, port );
-				benchmarkUrl = setup.url;
-				teardownFn = () => teardownPlaygroundCliSite( setup.process, port, setup.siteDir );
 			} else if ( env.type === 'custom' ) {
 				benchmarkUrl = env.customUrl!;
 				console.log( chalk.gray( `    URL: ${ benchmarkUrl }` ) );

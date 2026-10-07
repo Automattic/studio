@@ -7,11 +7,11 @@
  * Media caveat: attachments are downloaded over HTTP from the `attachment_url`
  * baked into the WXR, so they only import when that URL is reachable AND
  * trusted from the import runtime. Exports from a public site work. Exports
- * from another *local Studio* site do NOT: their URLs use a `.wp.local` host
- * that resolves only via the OS `/etc/hosts` + Studio's proxy (neither is
- * available inside the PHP-WASM runtime this runs in) and serve a self-signed
- * cert that the runtime's CA bundle doesn't trust. In that case posts import
- * but images keep pointing at the source site. A future follow-up could stage
+ * from another *local Studio* site only work while that site is running: their
+ * URLs point at its local port or a `.wp.local` custom domain served through
+ * Studio's proxy, and an HTTPS custom domain uses Studio's local certificate,
+ * which isn't in PHP's CA bundle. Otherwise posts import but images keep
+ * pointing at the source site. A future follow-up could stage
  * the source site's uploads locally and short-circuit the fetch via a
  * `pre_http_request` filter — see the data-liberation-agent's import-wxr.php.
  *

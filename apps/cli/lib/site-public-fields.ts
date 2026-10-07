@@ -10,7 +10,6 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'status',
 	'operation',
 	'phpVersion',
-	'runtime',
 	'fileAccess',
 	'customDomain',
 	'enableHttps',

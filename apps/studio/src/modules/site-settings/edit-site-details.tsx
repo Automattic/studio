@@ -49,7 +49,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { FileAccessDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription } from 'src/lib/site-file-access-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {

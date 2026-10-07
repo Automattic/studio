@@ -1,5 +1,5 @@
 import {
-	resolveNativePhpVersion,
+	resolveSupportedPhpVersion,
 	getConfiguredPhpBinaryPackageId,
 	getConfiguredPhpBinaryPackageVersion,
 	getConfiguredPhpBinaryVersion,
@@ -51,7 +51,7 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 	} );
 
 	it( 'resolves older supported PHP versions to the closest native PHP version', () => {
-		expect( resolveNativePhpVersion( '8.0' ) ).toBe( '8.2' );
+		expect( resolveSupportedPhpVersion( '8.0' ) ).toBe( '8.2' );
 	} );
 } );
 

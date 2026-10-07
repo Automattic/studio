@@ -6,7 +6,7 @@ import {
 	cleanupLegacyMuPlugins,
 	getMuPlugins,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
-	writeStudioMuPluginsForNativePhpRuntime,
+	writeStudioMuPlugins,
 } from '@studio/common/lib/mu-plugins';
 
 describe( 'cleanupLegacyMuPlugins', () => {
@@ -90,7 +90,7 @@ describe( 'cleanupLegacyMuPlugins', () => {
 	} );
 } );
 
-describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
+describe( 'writeStudioMuPlugins', () => {
 	let sitePath: string;
 
 	beforeEach( async () => {
@@ -98,7 +98,7 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 	} );
 
 	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
-		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true );
+		await writeStudioMuPlugins( sitePath, true );
 
 		const loaderPath = join(
 			sitePath,
@@ -123,7 +123,7 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		// that as auto-updating, so the mu-plugins must agree (STU-2348).
 		[ 'enables them when the flag is unset', undefined, '0-enable-auto-updates.php' ],
 	] )( 'auto-updates: %s', async ( _label, flag, expected ) => {
-		const muPluginsDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, flag );
+		const muPluginsDir = await writeStudioMuPlugins( sitePath, flag );
 		const generatedPlugins = await readdir( muPluginsDir );
 
 		const other =
@@ -135,20 +135,20 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 	} );
 
 	it( 'should reuse the existing mu-plugins directory when contents are up to date', async () => {
-		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
-		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const firstDir = await writeStudioMuPlugins( sitePath, false );
+		const secondDir = await writeStudioMuPlugins( sitePath, false );
 
 		expect( secondDir ).toBe( firstDir );
 	} );
 
 	it( 'should regenerate mu-plugins when an existing file has stale content', async () => {
-		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const firstDir = await writeStudioMuPlugins( sitePath, false );
 
 		const pluginFilename = '0-deactivate-jetpack-modules.php';
 		const expectedContent = await readFile( join( firstDir, pluginFilename ), 'utf8' );
 		writeFileSync( join( firstDir, pluginFilename ), '<?php // stale content from older Studio' );
 
-		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const secondDir = await writeStudioMuPlugins( sitePath, false );
 		const regeneratedContent = await readFile( join( secondDir, pluginFilename ), 'utf8' );
 
 		expect( secondDir ).not.toBe( firstDir );
@@ -156,7 +156,7 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 	} );
 
 	it( 'should disable Jetpack modules that affect local development', async () => {
-		await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		await writeStudioMuPlugins( sitePath, false );
 
 		const loaderPath = join(
 			sitePath,

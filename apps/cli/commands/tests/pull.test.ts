@@ -53,7 +53,6 @@ describe( 'CLI: studio pull', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		steps.length = 0;
-		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( undefined ) );
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );

@@ -1,8 +1,9 @@
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
+import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
 import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
-import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { openSiteInBrowser, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
@@ -13,6 +14,7 @@ vi.mock( 'cli/lib/cli-config/core', async () => {
 		readCliConfig: vi.fn(),
 	};
 } );
+vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
@@ -141,5 +143,34 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 		expect( isServerRunning ).not.toHaveBeenCalledWith( 'stopped-site' );
 		expect( stopProxyProcess ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'openSiteInBrowser', () => {
+	const site: SiteData = {
+		id: 'site-1',
+		name: 'Site',
+		path: '/sites/site',
+		port: 8881,
+		phpVersion: '8.4',
+	};
+
+	beforeEach( () => {
+		vi.mocked( openBrowser ).mockReset();
+	} );
+
+	it( 'opens the front page when the site has no landing page', async () => {
+		await openSiteInBrowser( site );
+
+		expect( openBrowser ).toHaveBeenCalledWith( 'http://localhost:8881/' );
+	} );
+
+	it( 'opens the Blueprint landing page through auto-login', async () => {
+		await openSiteInBrowser( { ...site, landingPage: '/wp-admin/edit.php' } );
+
+		expect( openBrowser ).toHaveBeenCalledWith(
+			'http://localhost:8881/studio-auto-login?redirect_to=' +
+				encodeURIComponent( 'http://localhost:8881/wp-admin/edit.php' )
+		);
 	} );
 } );

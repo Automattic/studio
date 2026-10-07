@@ -1,5 +1,4 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
-import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
@@ -17,9 +16,6 @@ export interface BuildSystemPromptOptions {
 	tools?: ToolPromptContribution[];
 	// True when a Studio UI is attached and can receive chat artifact events.
 	chatArtifactsEnabled?: boolean;
-	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
-	// constraints that the native PHP runtime does not. Defaults to native-php.
-	runtime?: SiteRuntime;
 	// The user's global instructions (~/.studio/knowledge/instructions.md).
 	userInstructions?: string;
 	// Another agent (Codex, Claude Code, …) drives the Studio tools over MCP,
@@ -29,7 +25,6 @@ export interface BuildSystemPromptOptions {
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
 	const chatArtifactsEnabled = options.chatArtifactsEnabled ?? false;
-	const postContentGuidance = getPostContentGuidance( options.runtime );
 	const screenshotSection = chatArtifactsEnabled
 		? ''
 		: `
@@ -76,7 +71,7 @@ Then continue with:
 2. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools plus a content/wide layout width and root-padding-aware horizontal padding, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. When the site has a DESIGN.md, the scaffold fills theme.json from it — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under DESIGN.md's names — and downloads its Google Fonts into assets/fonts, declared in theme.json, so edit theme.json only for what DESIGN.md does not cover. Keep the scaffolded \`settings.layout\`, \`settings.useRootPaddingAwareAlignments\`, and \`styles.spacing.padding\` when you edit theme.json — retune their values to suit the design, but do not drop them, or content will render against the viewport edge. To customize an installed third-party theme, call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug — it creates and activates a child theme that inherits the parent's look; put every customization in the child. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins, or for themes Studio Code created on this site (blank scaffolds and child themes), use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 3. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 4. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Theme \`templates/*.html\` and \`parts/*.html\` files are block content too and are live the moment they are written, so validate each one with \`filePath\` right after writing or editing it. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
-5. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
+5. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ POST_CONTENT_GUIDANCE }
 6. **Check and polish the result**: You MUST load the \`visual-polish\` skill and follow its instructions to do so. The design must match your original expectations. Do not inspect the design or take a screenshot before loading the skill.
 7. **Set the theme screenshot**: When the active theme was scaffolded by Studio Code, pass its directory as \`themeScreenshot\` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.${
 		options.external ? '' : WORKING_CADENCE
@@ -152,23 +147,11 @@ The user saved these standing instructions in Studio's settings. They apply to e
 ${ instructions }`;
 }
 
-// Guidance for delivering `--post_content` to `wp_cli`. The shared part applies
-// to both runtimes (the tool never runs a shell). The runtime-specific part
-// differs: Playground runs in a WASM sandbox that cannot see the host
-// filesystem, so content must be passed inline and Studio rewrites large
-// content to a virtual temp file. The native PHP runtime reads the real
-// filesystem, so a scratch file is allowed and is the better choice for large
-// content (inline args can hit the OS command-length limit).
-function getPostContentGuidance( runtime?: SiteRuntime ): string {
-	const shared =
-		'The `wp_cli` tool takes literal arguments, not shell commands — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content.';
-
-	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
-		return `${ shared } Do not use host temp-file paths for post content — this site runs in a sandbox that cannot read your machine's filesystem. Pass the content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.`;
-	}
-
-	return `${ shared } For large post content, write the validated markup to a scratch file inside the site directory and pass its path to \`wp post create <file>\` (or \`wp post update <id> <file>\`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with \`--post_content=...\` as the final argument.`;
-}
+// Guidance for delivering `--post_content` to `wp_cli` (the tool never runs a shell). A scratch
+// file is the better choice for large content: inline args can hit the OS command-length limit.
+const POST_CONTENT_GUIDANCE =
+	'The `wp_cli` tool takes literal arguments, not shell commands — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
+	`For large post content, write the validated markup to a scratch file inside the site directory and pass its path to \`wp post create <file>\` (or \`wp post update <id> <file>\`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with \`--post_content=...\` as the final argument.`;
 
 function renderToolSections( tools: ToolPromptContribution[] ): string {
 	const list = tools

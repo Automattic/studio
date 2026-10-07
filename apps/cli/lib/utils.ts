@@ -1,9 +1,9 @@
 import os from 'node:os';
 import { parse as parsePath } from 'node:path';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { __, sprintf } from '@wordpress/i18n';
-import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Coarse, low-cardinality classification of a preview-site create/update failure for the
 // `failure_reason` Tracks prop. Never send the raw error message: it can carry site URLs and
@@ -87,12 +87,11 @@ export function normalizeHostname( hostname: string ): string {
 }
 
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
-	const phpVersionSchema = z.enum( SupportedPHPVersions );
-	const result = phpVersionSchema.safeParse( rawPhpVersion );
-	if ( ! result.success ) {
+	try {
+		return resolveSupportedPhpVersion( rawPhpVersion );
+	} catch {
 		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), rawPhpVersion ) );
 	}
-	return result.data;
 }
 
 export function getColumnWidths( widthFactors: number[] ) {

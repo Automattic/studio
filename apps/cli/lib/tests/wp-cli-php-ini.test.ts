@@ -1,12 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { setPhpIniEntries } from '@php-wasm/universal';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	buildWpCliPhpArgv,
-	getWpCliPhpIniArgs,
-	WP_CLI_PHP_INI_ENTRIES,
-} from 'cli/lib/wp-cli-php-ini';
+import { getWpCliPhpIniArgs, WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const spawnMock = vi.fn();
@@ -15,31 +10,6 @@ vi.mock( 'node:child_process', () => {
 	const mockedModule = { spawn: spawnMock, spawnSync: vi.fn() };
 	return { ...mockedModule, default: mockedModule };
 } );
-
-vi.mock( '@php-wasm/universal', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@php-wasm/universal') >();
-	return {
-		...actual,
-		setPhpIniEntries: vi.fn().mockResolvedValue( undefined ),
-		PHP: class {
-			setSapiName = vi.fn().mockResolvedValue( undefined );
-			defineConstant = vi.fn();
-			mkdir = vi.fn();
-			chdir = vi.fn();
-			writeFile = vi.fn();
-			mount = vi.fn().mockResolvedValue( undefined );
-			exit = vi.fn();
-			// Stops the launcher right after the ini entries are applied, so the test
-			// never has to stand up a real WordPress mount to observe them.
-			setSpawnHandler = vi.fn().mockRejectedValue( new Error( 'stop after ini' ) );
-		},
-	};
-} );
-
-vi.mock( '@php-wasm/node', () => ( {
-	loadNodeRuntime: vi.fn().mockResolvedValue( 1 ),
-	createNodeFsMountHandler: vi.fn(),
-} ) );
 
 vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 	getPhpBinaryPath: () => '/fake/php',
@@ -63,13 +33,11 @@ vi.mock( 'cli/lib/native-php/php-process', () => ( {
 } ) );
 
 vi.mock( 'cli/lib/pull/runtime-start-options', () => ( {
-	loadImportedRuntimeStartOptionsNative: () => undefined,
+	loadImportedRuntimeStartOptions: () => undefined,
 } ) );
 
 vi.mock( '@studio/common/lib/mu-plugins', () => ( {
-	writeStudioMuPluginsForNativePhpRuntime: vi.fn().mockResolvedValue( undefined ),
-	cleanupLegacyMuPlugins: vi.fn().mockResolvedValue( undefined ),
-	getMuPlugins: vi.fn().mockResolvedValue( [ '/fake/mu', '/fake/loader.php' ] ),
+	writeStudioMuPlugins: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 const site: SiteData = {
@@ -77,7 +45,6 @@ const site: SiteData = {
 	name: 'Site',
 	path: '/fake/site',
 	port: 8881,
-	runtime: 'native-php',
 	fileAccess: 'site-directory',
 	phpVersion: '8.5',
 };
@@ -154,41 +121,5 @@ describe( 'WP-CLI launchers apply the PHP ini policy', () => {
 		expect( argv.indexOf( '/fake/wp-cli.phar' ) ).toBeGreaterThan(
 			argv.lastIndexOf( 'display_errors=stderr' )
 		);
-	} );
-
-	it( 'sets the policy on a fresh Playground instance', async () => {
-		const { runWpCliCommand } = await import( 'cli/lib/run-wp-cli-command' );
-
-		await expect(
-			runWpCliCommand( { ...site, runtime: 'playground' }, [ 'plugin', 'list' ] )
-		).rejects.toThrow();
-
-		expect( setPhpIniEntries ).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.objectContaining( {
-				error_reporting: '32767',
-				display_errors: 'stderr',
-				log_errors: 0,
-			} )
-		);
-	} );
-
-	// The running Playground server reaches WP-CLI through `server.playground.cli()`
-	// (playground-server-child.ts). That module rewires `console` and `process.stdout` at
-	// import time, so it cannot be imported here; `buildWpCliPhpArgv` is the argv it passes.
-	it( 'passes the -d arguments to the running Playground server', () => {
-		expect( buildWpCliPhpArgv( '/tmp/wp-cli.phar', '/wordpress', [ 'plugin', 'list' ] ) ).toEqual( [
-			'php',
-			'-d',
-			'error_reporting=32767',
-			'-d',
-			'display_errors=stderr',
-			'-d',
-			'log_errors=0',
-			'/tmp/wp-cli.phar',
-			'--path=/wordpress',
-			'plugin',
-			'list',
-		] );
 	} );
 } );

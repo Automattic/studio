@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"productName": "Studio",
-	"description": "Local WordPress development environment using Playgrounds",
+	"description": "Local WordPress development environment",
 	"license": "GPL-2.0-or-later",
 	"packageManager": "npm@11.13.0",
 	"devEngines": {

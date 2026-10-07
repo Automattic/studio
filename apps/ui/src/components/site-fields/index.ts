@@ -20,7 +20,7 @@ import {
 	getAllFilesFileAccessLabel,
 	getFileAccessDescription,
 	getSiteDirectoryFileAccessLabel,
-} from '@studio/common/lib/site-runtime-labels';
+} from '@studio/common/lib/site-file-access-labels';
 import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import {
 	isWordPressBetaVersion,
@@ -35,9 +35,9 @@ import {
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { CompactSelectControl } from '@/components/site-fields/compact-select-control';
-import { RuntimeChoiceControl } from '@/components/site-fields/runtime-control';
+import { FileAccessChoiceControl } from '@/components/site-fields/file-access-control';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
-import type { RuntimeChoiceOption } from '@/components/site-fields/runtime-control';
+import type { FileAccessChoiceOption } from '@/components/site-fields/file-access-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -285,8 +285,8 @@ export function fileAccessField< T extends { fileAccess: SiteFileAccess } >(): F
 				label: getAllFilesFileAccessLabel(),
 				optionDescription: getFileAccessDescription( SITE_FILE_ACCESS_ALL_FILES ),
 			},
-		] as RuntimeChoiceOption[],
-		Edit: RuntimeChoiceControl,
+		] as FileAccessChoiceOption[],
+		Edit: FileAccessChoiceControl,
 	};
 }
 

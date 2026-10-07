@@ -38,7 +38,7 @@ export function simplifyErrorToFirstSentence( error: unknown ): Error {
 
 /**
  * Extract a user-facing error message from process manager logs. The child process often logs
- * detailed error information to stdout (via playground-cli) before exiting. This scans log
+ * detailed error information to stdout before exiting. This scans log
  * lines for "Error:" prefixed entries which typically contain the root cause.
  */
 export function extractErrorFromProcessManagerLogs( logs: {

@@ -1,24 +1,15 @@
 /**
- * Runs reprint.phar with the PHP runtime selected by `STUDIO_RUNTIME`.
- *
- * reprint.phar is plain PHP, so any PHP runtime can execute it. The
- * `playground` runtime runs it inside a PHP WASM child process; the
- * `native-php` runtime spawns the bundled native `php` binary directly.
- * Either way the command is re-run while it exits with code 2 (partial)
- * until it exits with code 0 (success) or code 1 (error).
+ * Runs reprint.phar with the bundled native `php` binary. The command is
+ * re-run while it exits with code 2 (partial) until it exits with code 0
+ * (success) or code 1 (error).
  */
-import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import {
-	resolveNativePhpVersion,
-	type NativePhpSupportedVersion,
-} from '@studio/common/lib/php-binary-metadata';
-import { SITE_RUNTIME_NATIVE_PHP, SiteRuntime } from '@studio/common/lib/site-runtime';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-process';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 export interface ReprintProcessResult {
 	stdout: string;
@@ -36,40 +27,27 @@ function getBundledReprintPhar(): string {
 }
 
 /**
- * Runs a reprint.phar command with the runtime selected by `STUDIO_RUNTIME`,
- * automatically retrying on partial completion.
+ * Runs a reprint.phar command, automatically retrying on partial completion.
  *
- * The `playground` runtime runs reprint inside a PHP WASM child process; the
- * `native-php` runtime spawns the bundled native `php` binary. Reprint
- * commands exit with code 2 when they've made progress but need another pass
- * (e.g., large file downloads that stream in chunks). This function loops
- * until the command exits with 0 (success) or throws on exit code 1 (error).
+ * Reprint commands exit with code 2 when they've made progress but need
+ * another pass (e.g., large file downloads that stream in chunks). This
+ * function loops until the command exits with 0 (success) or throws on exit
+ * code 1 (error).
  */
 export async function runReprintCommandUntilComplete(
-	stateDir: string,
-	fsRoot: string,
 	args: string[],
 	onProgress?: ( output: string ) => void,
 	options: {
-		mounts?: Array< { hostPath: string; vfsPath: string } >;
 		progressLabel?: string;
 		verboseCommands?: boolean;
-		runtime?: SiteRuntime;
 	} = {}
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
-	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
-	fs.mkdirSync( tmpDir, { recursive: true } );
 
-	// The native runtime spawns the bundled `php` binary, so make sure it's
-	// downloaded before the first invocation. reprint.phar is PHP-version
-	// agnostic, so any supported native version works.
-	const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
-	let nativePhpVersion: NativePhpSupportedVersion | undefined;
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
-		nativePhpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
-		await ensurePhpBinaryAvailable( nativePhpVersion );
-	}
+	// Make sure the bundled `php` binary is downloaded before the first invocation.
+	// reprint.phar is PHP-version agnostic, so any supported native version works.
+	const phpVersion = resolveSupportedPhpVersion( DEFAULT_PHP_VERSION );
+	await ensurePhpBinaryAvailable( phpVersion );
 
 	const label = options.progressLabel ?? args[ 0 ] ?? 'Working';
 	const startTime = Date.now();
@@ -80,18 +58,7 @@ export async function runReprintCommandUntilComplete(
 
 	try {
 		do {
-			lastResult =
-				runtime === SITE_RUNTIME_NATIVE_PHP
-					? await runReprintCommandNative( pharPath, nativePhpVersion!, args, options, progress )
-					: await runReprintCommandWasm(
-							pharPath,
-							stateDir,
-							fsRoot,
-							tmpDir,
-							args,
-							options,
-							progress
-					  );
+			lastResult = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
 
 			if ( lastResult.exitCode === 1 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
@@ -111,139 +78,13 @@ export async function runReprintCommandUntilComplete(
 }
 
 /**
- * Forks a Node child process to execute a single reprint.phar invocation
- * inside PHP WASM.
- *
- * Communication with the child uses IPC messages: the child sends
- * `stdout`/`stderr` chunks for progress reporting and a final `result`
- * or `error` message. SIGINT is forwarded to the child so Ctrl-C
- * terminates cleanly.
- */
-async function runReprintCommandWasm(
-	pharPath: string,
-	stateDir: string,
-	fsRoot: string,
-	tmpDir: string,
-	args: string[],
-	options: {
-		mounts?: Array< { hostPath: string; vfsPath: string } >;
-		verboseCommands?: boolean;
-	},
-	progress: ProgressReporter
-): Promise< ReprintProcessResult > {
-	const childPath = getReprintChildPath();
-
-	if ( options.verboseCommands ) {
-		const mountsSuffix =
-			options.mounts && options.mounts.length > 0
-				? ` mounts=${ options.mounts.map( ( m ) => `${ m.hostPath }:${ m.vfsPath }` ).join( ',' ) }`
-				: '';
-		console.error( `[reprint] php reprint.phar ${ args.join( ' ' ) }${ mountsSuffix }` );
-	}
-
-	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
-		const child: ChildProcess = fork( childPath, [], {
-			stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
-			env: { ...process.env },
-		} );
-		let settled = false;
-		const childStderrChunks: string[] = [];
-
-		const sigintHandler = () => {
-			child.kill( 'SIGKILL' );
-			process.exit( 130 );
-		};
-
-		const cleanup = () => {
-			process.removeListener( 'SIGINT', sigintHandler );
-		};
-
-		child.stderr?.on( 'data', ( chunk: Buffer ) => {
-			childStderrChunks.push( chunk.toString() );
-		} );
-
-		child.on(
-			'message',
-			( msg: {
-				type: string;
-				stdout?: string;
-				stderr?: string;
-				chunk?: string;
-				exitCode?: number;
-				message?: string;
-			} ) => {
-				if ( msg.type === 'stdout' ) {
-					progress.pushStdoutChunk( msg.chunk || '' );
-					return;
-				}
-
-				if ( msg.type === 'stderr' ) {
-					return;
-				}
-
-				cleanup();
-				settled = true;
-				progress.flush();
-
-				if ( msg.type === 'result' ) {
-					resolve( {
-						stdout: msg.stdout || '',
-						stderr: msg.stderr || '',
-						exitCode: msg.exitCode ?? 1,
-					} );
-					return;
-				}
-
-				if ( msg.type === 'error' ) {
-					reject( new Error( msg.message || 'reprint child process error' ) );
-				}
-			}
-		);
-
-		child.on( 'error', ( err ) => {
-			cleanup();
-			if ( ! settled ) {
-				settled = true;
-				reject( err );
-			}
-		} );
-
-		child.on( 'exit', ( code ) => {
-			cleanup();
-			if ( ! settled ) {
-				settled = true;
-				const childStderr = childStderrChunks.join( '' ).trim();
-				const details = childStderr
-					? `Child process stderr:\n${ childStderr }`
-					: 'No error details available';
-				reject( new Error( `reprint child process exited with code ${ code }. ${ details }` ) );
-			}
-		} );
-
-		process.on( 'SIGINT', sigintHandler );
-
-		child.send( {
-			type: 'run',
-			pharPath,
-			stateDir,
-			fsRoot,
-			tmpDir,
-			args,
-			mounts: options.mounts ?? [],
-		} );
-	} );
-}
-
-/**
  * Executes a single reprint.phar invocation with the bundled native `php`
  * binary.
  *
- * Unlike the WASM path, native PHP has direct access to the host filesystem,
- * so the `--state-dir`, `--fs-root`, and mount paths reprint receives are real
- * paths it can read and write without any VFS mounting — the `mounts` option
- * is therefore unused here. The CA bundle, memory_limit, and proxy settings
- * come from the native `php.ini`/`process.env`, matching how Studio runs the
- * native site server.
+ * Native PHP has direct access to the host filesystem, so the `--state-dir`
+ * and `--fs-root` paths reprint receives are real paths it can read and write.
+ * The CA bundle, memory_limit, and proxy settings come from the native
+ * `php.ini`/`process.env`, matching how Studio runs the native site server.
  *
  * reprint emits thousands of JSON-L progress lines on stdout and can emit
  * megabytes of PHP warnings on stderr, so the child is spawned in `capture`
@@ -253,7 +94,7 @@ async function runReprintCommandWasm(
  */
 async function runReprintCommandNative(
 	pharPath: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	args: string[],
 	options: { verboseCommands?: boolean },
 	progress: ProgressReporter
@@ -631,21 +472,4 @@ function fmtBytes( bytes: number ): string {
 		return `${ ( bytes / 1024 ).toFixed( 0 ) } KB`;
 	}
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
-}
-
-/**
- * Resolves the path to the child process entry point that hosts PHP WASM.
- *
- * Checks for both `.mjs` and `.js` extensions to support different build
- * configurations. Falls back to `.mjs` if neither exists, letting the
- * runtime produce a clear "file not found" error.
- */
-function getReprintChildPath(): string {
-	for ( const filename of [ 'reprint-child.mjs', 'reprint-child.js' ] ) {
-		const candidate = path.resolve( import.meta.dirname, filename );
-		if ( fs.existsSync( candidate ) ) {
-			return candidate;
-		}
-	}
-	return path.resolve( import.meta.dirname, 'reprint-child.mjs' );
 }

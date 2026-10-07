@@ -16,26 +16,11 @@ export interface MuPlugin {
 
 export const STUDIO_ERROR_LOG_FILENAME = 'studio-error.log';
 
-export type MuPluginRuntime = 'playground' | 'native-php';
-
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
-	runtime?: MuPluginRuntime;
 	errorLogPath?: string;
 	errorLogStopAfterBoot?: boolean;
 }
-
-/**
- * MU-plugin filenames that should not be written for native PHP sites.
- * These exist to work around behaviors specific to the Playground/PHP WASM
- * runtime and have no equivalent purpose under native PHP.
- */
-const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
-	'0-allowed-redirect-hosts.php',
-	'0-suppress-dns-get-record-warnings.php',
-	'0-http-request-timeout.php',
-	'0-clear-stat-cache-before-upgrade.php',
-] );
 
 export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -84,7 +69,7 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
-async function getExistingNativePhpMuPluginsDir(
+async function getExistingMuPluginsDir(
 	loaderPath: string,
 	options: MuPluginOptions
 ): Promise< string | null > {
@@ -137,12 +122,9 @@ async function getExistingNativePhpMuPluginsDir(
 /**
  * Create a loader mu-plugin that loads the Studio mu-plugins.
  *
- * The loader is wired to the directory the rest of the mu-plugins live in.
- * For the Playground runtime that's the fixed virtual-filesystem path the
- * Studio mu-plugins are mounted at; for the native PHP runtime it's the
- * on-disk directory created by `createMuPluginsDirectory()`. Routing
- * through this loader keeps the user's `wp-content/mu-plugins/` empty (or
- * close to it) regardless of runtime.
+ * The loader is wired to the on-disk directory created by
+ * `createMuPluginsDirectory()`. Routing through this loader keeps the user's
+ * `wp-content/mu-plugins/` empty (or close to it).
  *
  * @returns The path to the loader mu-plugin
  */
@@ -166,16 +148,6 @@ async function createLoaderMuPlugin( muPluginsDir: string ): Promise< string > {
  */
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
-
-	muPlugins.push( {
-		filename: '0-tmp-fix-qm-plugin-sapi.php',
-		content: `<?php
-		// This is a temporary fix for a Query Monitor plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
-		// See https://github.com/WordPress/wordpress-playground/pull/2424#issuecomment-3686951491
-		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)
-		define('QM_TESTS', true);
-		`,
-	} );
 
 	// Capture PHP errors so a failed site start can show why (STU-1757).
 	if ( options.errorLogPath ) {
@@ -237,26 +209,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			}
 		});
 		`,
-	} );
-
-	// Allowed redirect hosts
-	muPlugins.push( {
-		filename: '0-allowed-redirect-hosts.php',
-		content: `<?php
-	// Needed because gethostbyname( <host> ) returns
-	// a private network IP address for some reason.
-	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
-		$redirect_hosts = array(
-			'wordpress.org',
-			'api.wordpress.org',
-			'downloads.wordpress.org',
-			'themes.svn.wordpress.org',
-			'fonts.gstatic.com',
-		);
-		return array_merge( $hosts, $redirect_hosts );
-	} );
-	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
-	`,
 	} );
 
 	// Studio-specific: Hide admin bar for screenshots and health check
@@ -349,19 +301,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Suppress DNS warnings
-	muPlugins.push( {
-		filename: '0-suppress-dns-get-record-warnings.php',
-		content: `<?php
-		set_error_handler(function($severity, $message, $file, $line) {
-			if ($severity === E_WARNING && strpos($message, "dns_get_record(): dns_get_record() always returns an empty array in PHP.wasm.") === 0) {
-				return true;
-			}
-			return false;
-		});
-		`,
-	} );
-
 	// Only an explicit `false` disables auto-updates. Sites created before this
 	// option existed have no flag, and every other reader treats that as
 	// auto-updating — reading it as falsy here left them pinned for good while
@@ -388,51 +327,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// HTTP request timeout
-	muPlugins.push( {
-		filename: '0-http-request-timeout.php',
-		content: `<?php
-		// Use low-speed timeout instead of hard timeout to handle both large downloads and stalled connections
-		// - Allows large plugin downloads (e.g., Jetpack 33MB) to complete with reasonable internet speeds
-		// - Allows long time-to-first-byte requests (e.g., AI API calls to flagship LLMs) to complete
-		// - Fails fast if connection stalls (speed stays below 1KB/s for 120 seconds)
-		// - Provides quick feedback for genuinely broken/unresponsive servers
-		// Match WordPress core's timeout for plugin downloads (300s)
-		add_filter( 'http_request_timeout', function() {
-			return 300; // 5 minutes - matches WordPress core, low-speed timeout catches stalls
-		} );
-
-		add_action('http_api_curl', function($curl, $url, $options) {
-			// Abort if connection can't be established within 30 seconds
-			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
-
-			// Abort if speed stays below 1KB/s for 120 consecutive seconds.
-			// The 120s window accommodates long time-to-first-byte on AI API requests
-			// (flagship LLMs commonly take 30-90s to emit the first token on long prompts)
-			// while still catching truly stalled connections. The 300s outer cap above
-			// remains the ultimate ceiling for any single request.
-			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 ); // 1KB/s minimum
-			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 120 );   // Must stay above limit for 120s
-			return $curl;
-		}, 1, 3);
-		`,
-	} );
-
-	// Playground's PHP persists stat caches across requests, so a deleted plugin
-	// can still look present and break a reinstall. Clear the cache before each
-	// upgrade. Excluded from native PHP, where every request starts clean.
-	//
-	// @see STU-1931
-	muPlugins.push( {
-		filename: '0-clear-stat-cache-before-upgrade.php',
-		content: `<?php
-		add_filter( 'upgrader_pre_install', function( $result ) {
-			clearstatcache( true );
-			return $result;
-		} );
-		`,
-	} );
-
 	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
@@ -450,18 +344,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				}
 			}
 	`,
-	} );
-
-	// WP-CLI specific: SQLite command support
-	muPlugins.push( {
-		filename: '0-sqlite-command.php',
-		content: `<?php
-		// Ensure SQLite command can find the plugin
-		add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
-			$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
-			return $directories;
-		} );
-		`,
 	} );
 
 	// WP-CLI specific: Studio commands
@@ -503,9 +385,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		 * Gets the path of the configured Site Icon relative to the
 		 * WordPress install root, or null when no Site Icon is set.
 		 *
-		 * The host (Studio) translates the WordPress-runtime path
-		 * (rooted at the /wordpress mount) into a real filesystem path
-		 * by joining the site folder with the returned relative path.
+		 * The host (Studio) turns it into a real filesystem path by
+		 * joining the site folder with the returned relative path.
 		 *
 		 * ## EXAMPLES
 		 *
@@ -710,12 +591,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	if ( options.runtime === 'native-php' ) {
-		return muPlugins.filter(
-			( plugin ) => ! NATIVE_PHP_EXCLUDED_MU_PLUGINS.has( plugin.filename )
-		);
-	}
-
 	return muPlugins;
 }
 
@@ -741,43 +616,36 @@ async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< st
 /**
  * Get mu-plugins for a WordPress instance.
  *
- * Returns `[studioMuPluginsHostPath, loaderMuPluginHostPath]` for both
- * runtimes — only the loader's contents differ. For the `playground`
- * runtime the loader requires plugins from the virtual-filesystem path
- * the mu-plugins are mounted at. For the `native-php` runtime the loader
- * requires plugins from the on-disk temp directory directly, so the
- * caller only needs to drop the loader file into the site's
- * `wp-content/mu-plugins/` for WordPress to pick it up.
+ * Returns `[studioMuPluginsHostPath, loaderMuPluginHostPath]`. The loader
+ * requires plugins from the on-disk temp directory directly, so the caller
+ * only needs to drop the loader file into the site's `wp-content/mu-plugins/`
+ * for WordPress to pick it up.
  */
 export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ string, string ] > {
 	const studioMuPluginsHostPath = await createMuPluginsDirectory( options );
-	const loaderMuPluginHostPath = await createLoaderMuPlugin(
-		options.runtime === 'native-php' ? studioMuPluginsHostPath : '/internal/studio/mu-plugins'
-	);
+	const loaderMuPluginHostPath = await createLoaderMuPlugin( studioMuPluginsHostPath );
 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
 }
 
-export async function writeStudioMuPluginsForNativePhpRuntime(
+export async function writeStudioMuPlugins(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
+	await cleanupLegacyMuPlugins( siteFolder );
 	const loaderPath = path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 
-	const options: MuPluginOptions = {
-		isWpAutoUpdating,
-		runtime: 'native-php',
-	};
-	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
+	const options: MuPluginOptions = { isWpAutoUpdating };
+	const existingMuPluginsDir = await getExistingMuPluginsDir( loaderPath, options );
 	if ( existingMuPluginsDir ) {
 		return existingMuPluginsDir;
 	}
 
 	// `getMuPlugins` writes the plugin files to a temp directory and produces
-	// a loader file that requires them. For the native PHP runtime we only
-	// copy the loader into wp-content/mu-plugins/ — WordPress auto-loads it
+	// a loader file that requires them. We only copy the loader into
+	// wp-content/mu-plugins/ — WordPress auto-loads it
 	// at runtime and it pulls the rest in from the temp directory, keeping
 	// the user's mu-plugins/ nearly empty.
 	const [ tmpMuPluginsDir, loaderHostPath ] = await getMuPlugins( options );
@@ -786,7 +654,7 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 }
 
 /**
- * Filename of the loader mu-plugin that the native PHP runtime drops into
+ * Filename of the loader mu-plugin that Studio drops into
  * the site's `wp-content/mu-plugins/`. It's the only Studio-managed file
  * that ever lands on disk during normal operation, so archive and export
  * filters use this name to skip it.
@@ -833,9 +701,9 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
  * Remove legacy Studio mu-plugin files from a site's wp-content/mu-plugins/ directory.
  *
  * Older Studio versions wrote mu-plugin PHP files directly into the site directory.
- * Newer versions inject them at runtime via the PHP WASM virtual filesystem.
- * Having both copies causes PHP fatal errors like "Cannot redeclare" because
- * the same functions are defined in both the on-disk file and the runtime-injected file.
+ * Newer versions load them through `STUDIO_LOADER_MU_PLUGIN_FILENAME`. Having both
+ * copies causes PHP fatal errors like "Cannot redeclare" because the same functions
+ * are defined in both the on-disk file and the loaded one.
  *
  * @param sitePath - Absolute path to the WordPress site directory
  */

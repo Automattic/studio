@@ -22,10 +22,10 @@ export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;
 
-// Playground CLI timeouts (shared between Studio desktop and CLI)
-export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout
-export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
-export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
+// Site server timeouts
+export const SITE_SERVER_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout
+export const SITE_SERVER_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
+export const SITE_SERVER_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
 
 // Certificate validation — we use these instead of human-readable labels
 // because Windows localizes certutil output on non-English systems.

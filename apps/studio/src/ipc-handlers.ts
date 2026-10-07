@@ -56,7 +56,7 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
@@ -91,7 +91,6 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -820,7 +819,6 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
-		runtime?: SiteRuntime;
 		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
@@ -838,7 +836,6 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
-		runtime,
 		fileAccess,
 		adminUsername,
 		adminPassword,
@@ -869,7 +866,6 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
-				runtime,
 				fileAccess,
 				customDomain,
 				enableHttps,
@@ -893,11 +889,6 @@ export async function createSite(
 
 		return server.details;
 	} catch ( error ) {
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		const contexts: Record< string, Record< string, unknown > > = {
 			site: {
 				hasBlueprint: !! blueprint,
@@ -908,11 +899,6 @@ export async function createSite(
 			},
 		};
 
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
-
 		const debugLog = readWordPressDebugLog( path );
 		if ( debugLog && debugLog.length > 0 ) {
 			contexts.debugLog = { entries: debugLog };
@@ -920,10 +906,10 @@ export async function createSite(
 
 		const processManagerLogs = readProcessManagerLogs( siteId );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -935,7 +921,7 @@ export async function createSite(
 
 		// If the error message is generic, try to surface a more useful message from
 		// the process manager logs. The detailed error is often captured in stdout
-		// (e.g. blueprint execution errors logged by playground-cli).
+		// (e.g. Blueprint execution errors).
 		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
 		if ( logErrorMessage ) {
 			throw new Error( logErrorMessage );
@@ -989,10 +975,6 @@ export async function updateSite(
 
 	if ( wpVersion ) {
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
-	}
-
-	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
-		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
 	}
 
 	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
@@ -1066,11 +1048,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			// Ignore errors persisting auto-start state
 		}
 
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
@@ -1126,11 +1103,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			},
 		};
 
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
-
 		const debugLog = readWordPressDebugLog( server.details.path );
 		if ( debugLog && debugLog.length > 0 ) {
 			contexts.debugLog = { entries: debugLog };
@@ -1138,10 +1110,10 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const processManagerLogs = readProcessManagerLogs( id );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -1151,9 +1123,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		if ( errorMessageContains( error, '"unreachable" WASM instruction executed' ) ) {
-			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
-		}
 		throw error;
 	}
 
@@ -1316,9 +1285,6 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		// Copies keep the source site's runtime settings rather than picking up
-		// the default for new sites.
-		runtime: getSiteRuntime( sourceSite ),
 		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
@@ -1329,8 +1295,7 @@ export async function copySite(
 		flowType: 'duplicate',
 	} );
 
-	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
-	// explicitly update that option
+	// The copy keeps the source site's siteurl, so point it at the new port
 	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)

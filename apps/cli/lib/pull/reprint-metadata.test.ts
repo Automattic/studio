@@ -29,18 +29,14 @@ describe( 'reprint metadata', () => {
 		const metadata = await getReprintMetadata( {
 			apiUrl: 'https://example.com/?reprint-api',
 			stateDirectory: '/state',
-			rawDirectory: '/raw',
-			runtime: 'native-php',
 			verbose: false,
 		} );
 
 		expect( getCoreRoots( metadata ) ).toEqual( [ '/wordpress/core/7.0' ] );
 		expect( migrationClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
-			'/state',
-			'/raw',
 			[ 'import-metadata', 'https://example.com/?reprint-api', '--state-dir=/state' ],
 			undefined,
-			expect.any( Object )
+			{ verboseCommands: false }
 		);
 	} );
 } );

@@ -9,8 +9,8 @@ const E_ALL = 32767;
  * that parse stdout stay correct while the diagnostics remain visible. `log_errors=0` stops
  * PHP from also writing a duplicate copy to stderr through the error log.
  *
- * Apply this per WP-CLI invocation, never to a whole PHP instance: the Playground server
- * instance also serves HTTP requests, and this policy has no business changing those.
+ * Apply this per WP-CLI invocation only: the site server serves HTTP requests, and this
+ * policy has no business changing those.
  */
 export const WP_CLI_PHP_INI_ENTRIES = {
 	error_reporting: String( E_ALL ),
@@ -23,16 +23,4 @@ export function getWpCliPhpIniArgs(): string[] {
 		'-d',
 		`${ key }=${ value }`,
 	] );
-}
-
-/**
- * Builds the `php` argv for a WP-CLI invocation. The ini flags must precede the phar path,
- * otherwise PHP passes them through to WP-CLI as script arguments.
- */
-export function buildWpCliPhpArgv(
-	pharPath: string,
-	documentRoot: string,
-	args: string[]
-): string[] {
-	return [ 'php', ...getWpCliPhpIniArgs(), pharPath, `--path=${ documentRoot }`, ...args ];
 }

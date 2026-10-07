@@ -3,7 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
@@ -80,7 +79,6 @@ describe( 'ProcessManagerDaemon', () => {
 			scriptPath: '/tmp/test-child.js',
 			env: {},
 			args: [],
-			runtime: SITE_RUNTIME_NATIVE_PHP,
 		} );
 
 		expect( response ).toEqual(
@@ -91,7 +89,6 @@ describe( 'ProcessManagerDaemon', () => {
 						name: testProcessName,
 						status: 'online',
 						pid: 4321,
-						runtime: SITE_RUNTIME_NATIVE_PHP,
 					} ),
 				} ),
 			} )
@@ -297,17 +294,13 @@ describe( 'ProcessManagerDaemon', () => {
 		}
 	);
 
-	describe( 'weighted capacity limit', () => {
+	describe( 'capacity limit', () => {
 		type HandleRequestFn = ( request: unknown ) => Promise< {
 			type: string;
 			payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
 		} >;
 
-		async function startSiteProcess(
-			handleRequest: HandleRequestFn,
-			index: number,
-			runtime: string = SITE_RUNTIME_NATIVE_PHP
-		) {
+		async function startSiteProcess( handleRequest: HandleRequestFn, index: number ) {
 			return handleRequest( {
 				type: 'start-process',
 				requestId: String( index ),
@@ -315,11 +308,10 @@ describe( 'ProcessManagerDaemon', () => {
 				scriptPath: '/tmp/test-child.js',
 				env: {},
 				args: [],
-				runtime,
 			} );
 		}
 
-		it( 'rejects a site process when the weighted capacity limit is exceeded', async () => {
+		it( 'rejects a site process when the capacity limit is exceeded', async () => {
 			spawnMock.mockImplementation( () => new MockChildProcess() );
 			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
 
@@ -332,38 +324,14 @@ describe( 'ProcessManagerDaemon', () => {
 				'broadcastEvent'
 			).mockResolvedValue( undefined );
 
-			// Start 36 native-php sites (weight 1 each = 36 total, at the limit)
+			// Start 36 sites (at the limit)
 			for ( let i = 0; i < 36; i++ ) {
 				await startSiteProcess( handleRequest, i );
 			}
 
-			// The 37th native-php site should be rejected
+			// The 37th site should be rejected
 			await expect( startSiteProcess( handleRequest, 37 ) ).rejects.toThrow(
-				'CAPACITY_LIMIT_REACHED'
-			);
-		} );
-
-		it( 'counts playground sites with weight 6', async () => {
-			spawnMock.mockImplementation( () => new MockChildProcess() );
-			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
-
-			const daemon = new ProcessManagerDaemon();
-			const handleRequest = (
-				daemon as unknown as { handleRequest: HandleRequestFn }
-			 ).handleRequest.bind( daemon );
-			vi.spyOn(
-				daemon as unknown as { broadcastEvent: ( event: unknown ) => Promise< void > },
-				'broadcastEvent'
-			).mockResolvedValue( undefined );
-
-			// Start 6 playground sites (weight 6 each = 36 total, at the limit)
-			for ( let i = 0; i < 6; i++ ) {
-				await startSiteProcess( handleRequest, i, SITE_RUNTIME_PLAYGROUND );
-			}
-
-			// The 7th playground site should be rejected
-			await expect( startSiteProcess( handleRequest, 7, SITE_RUNTIME_PLAYGROUND ) ).rejects.toThrow(
-				'CAPACITY_LIMIT_REACHED'
+				'CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (36/36). Stop some running sites first.'
 			);
 		} );
 
@@ -390,7 +358,7 @@ describe( 'ProcessManagerDaemon', () => {
 				args: [],
 			} );
 
-			// Should still be able to start 36 native-php site processes
+			// Should still be able to start 36 site processes
 			for ( let i = 0; i < 36; i++ ) {
 				await startSiteProcess( handleRequest, i );
 			}

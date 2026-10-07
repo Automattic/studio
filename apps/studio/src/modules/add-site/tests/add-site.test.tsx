@@ -217,7 +217,6 @@ describe( 'AddSite', () => {
 			'admin',
 			expect.any( String ),
 			'admin@localhost.com',
-			undefined,
 			'site-directory',
 			undefined // flowType
 		);
@@ -460,13 +459,12 @@ describe( 'AddSite', () => {
 			'admin',
 			expect.any( String ),
 			'admin@localhost.com',
-			undefined,
 			'site-directory',
 			undefined // flowType
 		);
 	} );
 
-	it( 'should allow selecting file access without a runtime choice', async () => {
+	it( 'should allow selecting file access', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -511,7 +509,6 @@ describe( 'AddSite', () => {
 				'admin',
 				expect.any( String ),
 				'admin@localhost.com',
-				undefined,
 				'all-files',
 				undefined // flowType
 			);

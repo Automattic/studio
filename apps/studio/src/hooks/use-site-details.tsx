@@ -40,7 +40,6 @@ interface SiteDetailsContext {
 		adminUsername?: string,
 		adminPassword?: string,
 		adminEmail?: string,
-		runtime?: SiteRuntime,
 		fileAccess?: SiteFileAccess,
 		flowType?: TracksSiteCreateFlowType
 	) => Promise< SiteDetails | void >;
@@ -317,7 +316,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			adminUsername?: string,
 			adminPassword?: string,
 			adminEmail?: string,
-			runtime?: SiteRuntime,
 			fileAccess?: SiteFileAccess,
 			flowType?: TracksSiteCreateFlowType
 		) => {
@@ -392,7 +390,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					enableHttps,
 					siteId: tempSiteId,
 					phpVersion,
-					runtime,
 					fileAccess,
 					blueprint,
 					adminUsername,
@@ -499,17 +496,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
 							message: __(
 								'Please restart Studio and try again. If this problem persists, please contact support.'
-							),
-							showOpenLogs: true,
-						} );
-					} else if (
-						error instanceof Error &&
-						error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
-					) {
-						getIpcApi().showErrorMessageBox( {
-							title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
-							message: __(
-								'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
 							),
 							showOpenLogs: true,
 						} );

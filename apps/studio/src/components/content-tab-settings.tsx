@@ -30,7 +30,7 @@ import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { FileAccessDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription } from 'src/lib/site-file-access-copy';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {

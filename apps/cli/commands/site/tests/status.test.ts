@@ -1,5 +1,4 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -84,7 +83,6 @@ describe( 'CLI: studio site status', () => {
 						status: '🔴 Offline',
 						isOnline: false,
 						phpVersion: '8.0',
-						runtime: 'Native',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -112,7 +110,6 @@ describe( 'CLI: studio site status', () => {
 				siteUrl: 'http://localhost:8080/',
 				sitePath: '/path/to/site',
 				phpVersion: '8.0',
-				runtime: 'Native',
 				wpVersion: '6.4',
 				adminUsername: 'admin',
 			} );
@@ -126,7 +123,6 @@ describe( 'CLI: studio site status', () => {
 				pmId: 0,
 				status: 'online',
 				pid: 12345,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
@@ -142,7 +138,6 @@ describe( 'CLI: studio site status', () => {
 						status: '🟢 Online',
 						isOnline: true,
 						phpVersion: '8.0',
-						runtime: 'Native',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -156,10 +151,9 @@ describe( 'CLI: studio site status', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'should report the native runtime and file access', async () => {
+		it( 'should report the file access', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( {
 				...testSite,
-				runtime: 'native-php',
 				fileAccess: 'all-files',
 			} );
 
@@ -167,7 +161,7 @@ describe( 'CLI: studio site status', () => {
 
 			await runCommand( '/path/to/site', 'json' );
 
-			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( '"runtime": "Native"' ) );
+			expect( consoleSpy ).not.toHaveBeenCalledWith( expect.stringContaining( '"runtime"' ) );
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				expect.stringContaining( '"fileAccess": "All files"' )
 			);
@@ -203,7 +197,6 @@ describe( 'CLI: studio site status', () => {
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
 						isOnline: false,
-						runtime: 'Native',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',

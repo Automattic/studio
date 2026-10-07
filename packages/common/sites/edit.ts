@@ -1,5 +1,4 @@
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
-import type { SiteMode } from '@studio/common/lib/site-runtime';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 
 /** Options accepted by the CLI `site set` command. */
@@ -11,7 +10,6 @@ export interface EditSiteOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
-	runtime?: SiteMode;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
@@ -44,9 +42,6 @@ export function buildSiteSetArgs( options: EditSiteOptions ): string[] {
 	}
 	if ( options.wp !== undefined ) {
 		args.push( '--wp', options.wp );
-	}
-	if ( options.runtime !== undefined ) {
-		args.push( '--runtime', options.runtime );
 	}
 	if ( options.fileAccess !== undefined ) {
 		args.push( '--file-access', options.fileAccess );

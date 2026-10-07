@@ -15,7 +15,7 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 | Surface | Package(s) | Runtime | UI | Backend | Audience |
 | --- | --- | --- | --- | --- | --- |
 | **Desktop** | `apps/studio` | Electron (main/preload/renderer) | `apps/ui` (+ legacy renderer) | `@studio/common` in-process + forks the CLI | End users on macOS/Windows/Linux |
-| **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | WordPress Playground / PHP-WASM | Power users, scripts, and the other surfaces |
+| **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | Native PHP site servers | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
 | **Hosted** | `apps/hosted` + `apps/ui` | Node server in the cloud | `apps/ui` (`dist-hosted`) in the browser | Cloud backend (WordPress.com / Telex sandbox agent) | Cloud product; no local machine |
 | **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`, the design picker) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
@@ -42,13 +42,13 @@ Two of these surfaces run **on the user's machine and own real local WordPress s
                    │ forks the binary (createCliRunner)
    ┌───────────────┴─────────────────────────────────────────────┐
    │                         apps/cli                             │   Execution engine
-   │        WordPress Playground / PHP-WASM, site lifecycle       │   (`studio` command)
+   │        native PHP site servers, site lifecycle               │   (`studio` command)
    └─────────────────────────────────────────────────────────────┘
 ```
 
 Reading the stack bottom-up:
 
-1. **`apps/cli` — the execution engine.** Everything that actually boots WordPress (Playground / PHP-WASM), creates/starts/stops sites, imports/exports, and runs the agent lives here. It is invoked directly as the `studio` command, and it is also the thing every machine-local surface delegates to.
+1. **`apps/cli` — the execution engine.** Everything that actually boots WordPress (native PHP), creates/starts/stops sites, imports/exports, and runs the agent lives here. It is invoked directly as the `studio` command, and it is also the thing every machine-local surface delegates to.
 2. **`@studio/common` (`packages/common`) — shared business logic.** Transport-agnostic, Electron-free TypeScript: session management, site operations, snapshots, sync, the REST proxy, app detection, OAuth URL building, etc. It is the layer that makes the desktop and the local web server run *the same code*.
 3. **Per-surface shells.** Thin adapters that expose `@studio/common` over a transport: `apps/studio` over Electron IPC, `apps/local` over HTTP/SSE, `apps/hosted` over its cloud API.
 4. **`apps/ui` — the shared agentic UI.** One React application that talks to whichever shell it's running against through a single **Connector** seam.
@@ -99,7 +99,7 @@ The classic Electron three-process app: **Main** (Node.js — IPC handlers, site
 
 ### CLI (`apps/cli`)
 
-The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run via Electron's `ELECTRON_RUN_AS_NODE=1` (or standalone from npm). It owns WordPress Playground / PHP-WASM and the on-disk site lifecycle. It exposes commands (`site`, `auth`, `import`/`export`, `pull`/`push`, `wp`, `code`, `mcp`, `ui`, …) and emits structured progress over `process.send` when forked. Crucially, the CLI is **both a user-facing surface and the shared execution engine** the desktop and local web server delegate to.
+The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run via Electron's `ELECTRON_RUN_AS_NODE=1` (or standalone from npm). It owns the native PHP site servers and the on-disk site lifecycle. It exposes commands (`site`, `auth`, `import`/`export`, `pull`/`push`, `wp`, `code`, `mcp`, `ui`, …) and emits structured progress over `process.send` when forked. Crucially, the CLI is **both a user-facing surface and the shared execution engine** the desktop and local web server delegate to.
 
 ### Local web — `studio ui` (`apps/local` + `apps/ui`)
 
@@ -172,7 +172,7 @@ Some things are *inherently* runtime-specific and are **not** forced into the sh
 
 ## The CLI as the convergence point
 
-Convergence is possible *because* the heavy lifting already lives in one place. The CLI owns Playground/PHP-WASM and the site lifecycle, so the machine-local surfaces don't reimplement any of it — they **fork the binary** and stream its structured events. That makes the desktop's IPC handlers and the local server's HTTP routes both thin: resolve inputs, call a `@studio/common` function, forward the CLI's events over the surface's transport.
+Convergence is possible *because* the heavy lifting already lives in one place. The CLI owns the PHP site servers and the site lifecycle, so the machine-local surfaces don't reimplement any of it — they **fork the binary** and stream its structured events. That makes the desktop's IPC handlers and the local server's HTTP routes both thin: resolve inputs, call a `@studio/common` function, forward the CLI's events over the surface's transport.
 
 How the CLI reports what it does back to these surfaces, whoever started the work, is described in [How the CLI and Studio apps communicate](./cli-host-communication.md).
 

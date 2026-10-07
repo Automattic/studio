@@ -2,11 +2,11 @@ import fs from 'fs';
 import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
-import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
 // Studio site. Each entry falls into one of:
@@ -129,11 +129,11 @@ const WINDOWS_PHP_EXTENSIONS = [
 const PHP_INI_FILENAME = 'php.ini';
 const CA_BUNDLE_FILENAME = 'ca-bundle.crt';
 
-function getPhpBinaryDir( phpVersion: NativePhpSupportedVersion ): string {
+function getPhpBinaryDir( phpVersion: SupportedPHPVersion ): string {
 	return path.dirname( getPhpBinaryPath( phpVersion ) );
 }
 
-function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
+function getExtensionDir( phpVersion: SupportedPHPVersion ): string {
 	return path.join( getPhpBinaryDir( phpVersion ), 'ext' );
 }
 
@@ -147,7 +147,7 @@ function toPhpIniPath( filePath: string ): string {
 	return filePath.replace( /[\\"]/g, ( char ) => ( char === '\\' ? '/' : '\\"' ) );
 }
 
-function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {
+function getNativePhpIniPath( phpVersion: SupportedPHPVersion ): string {
 	return path.join( getPhpBinaryDir( phpVersion ), PHP_INI_FILENAME );
 }
 
@@ -157,7 +157,7 @@ function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {
 // and the Mozilla root CA bundle. Windows additionally needs extension_dir +
 // every extension= and zend_extension=opcache. On macOS/Linux, this is not
 // needed, as we link extensions into the PHP binary statically.
-export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion ): string {
+export function getNativePhpIniContents( phpVersion: SupportedPHPVersion ): string {
 	const caBundlePath = toPhpIniPath(
 		path.join( getPhpBinaryDir( phpVersion ), CA_BUNDLE_FILENAME )
 	);
@@ -194,9 +194,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 // through `atomically` so concurrent Studio processes (e.g. a CLI invocation
 // while the daemon is already running) can't expose PHP to a half-written
 // config.
-export async function ensureNativePhpIniFiles(
-	phpVersion: NativePhpSupportedVersion
-): Promise< void > {
+export async function ensureNativePhpIniFiles( phpVersion: SupportedPHPVersion ): Promise< void > {
 	const binDir = getPhpBinaryDir( phpVersion );
 	await writeFile( path.join( binDir, CA_BUNDLE_FILENAME ), rootCertificates.join( os.EOL ), {
 		encoding: 'utf8',
@@ -238,7 +236,7 @@ type DefaultPhpArgsOptions = {
 };
 
 export function getDefaultPhpArgs(
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	{
 		openBasedir = [],
 		disallowRiskyFunctions = false,

@@ -1,8 +1,3 @@
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -64,16 +59,8 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
-	it( 'gives Playground sites the inline post_content guidance', () => {
-		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
-
-		expect( prompt ).toContain( 'rewrite large content to a virtual temp file' );
-		expect( prompt ).toContain( 'cannot read your machine' );
-		expect( prompt ).not.toContain( 'write the validated markup to a scratch file' );
-	} );
-
-	it( 'lets native PHP sites use a scratch file for post_content', () => {
-		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
+	it( 'lets sites use a scratch file for post_content', () => {
+		const prompt = buildSystemPrompt( {} );
 
 		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
 		expect( prompt ).toContain( 'wp post create <file>' );
@@ -81,19 +68,9 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'cannot read your machine' );
 	} );
 
-	it( 'defaults to native PHP post_content guidance when no runtime is given', () => {
+	it( 'keeps the no-shell post_content rule', () => {
 		const prompt = buildSystemPrompt( {} );
-
-		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
-		expect( prompt ).not.toContain( 'virtual temp file' );
-	} );
-
-	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
-		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
-		for ( const runtime of runtimes ) {
-			const prompt = buildSystemPrompt( { runtime } );
-			expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
-		}
+		expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
 	} );
 
 	it( 'lists the registered tools and their guidelines', () => {

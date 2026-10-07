@@ -28,12 +28,12 @@ import {
 } from '../packages/common/lib/php-binary-metadata.ts';
 import { getConfigDirectory } from '../packages/common/lib/well-known-paths.ts';
 import {
-	NativePhpSupportedVersions,
-	type NativePhpSupportedVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
 	RecommendedPHPVersion,
 } from '../packages/common/types/php-versions.ts';
 
-const versionSchema = z.enum( NativePhpSupportedVersions );
+const versionSchema = z.enum( SupportedPHPVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
 const archSchema = z.enum( [ 'x64', 'arm64' ] );
 
@@ -44,7 +44,7 @@ const { positionalArgs, installRoot } = parseArgs( process.argv.slice( 2 ) );
 
 const { version, ...args } = z
 	.tuple( [
-		versionSchema.default( RecommendedPHPVersion as NativePhpSupportedVersion ),
+		versionSchema.default( RecommendedPHPVersion as SupportedPHPVersion ),
 		platformSchema.default( process.platform as Platform ),
 		archSchema.default( process.arch as Arch ),
 	] )

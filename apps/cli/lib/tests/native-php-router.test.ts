@@ -5,13 +5,13 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import nock from 'nock';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 
 const routerPath = path.resolve( import.meta.dirname, '../../php/router.php' );
-const phpBinaryPath = getPhpBinaryPath( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) );
+const phpBinaryPath = getPhpBinaryPath( resolveSupportedPhpVersion( DEFAULT_PHP_VERSION ) );
 const assetContents = 'asset bytes with a literal plus';
 
 let root: string;

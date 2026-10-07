@@ -1,9 +1,8 @@
 // The PHP versions the bundled native PHP binaries are built for. Sites stored
 // on an older version run with the closest supported one.
 export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2' ] as const;
-export const NativePhpSupportedVersions = SupportedPHPVersions;
 
-export const LatestNativePhpSupportedVersion = NativePhpSupportedVersions[ 0 ];
+export const LatestSupportedPHPVersion = SupportedPHPVersions[ 0 ];
 
 /**
  * We don't have an opportunity to retrieve PHP version from Jetpack connected sites,
@@ -14,7 +13,6 @@ export const PressablePHPVersion = '8.5' as const;
 export const SupportedPHPVersionsList: string[] = [ ...SupportedPHPVersions ];
 
 export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];
-export type NativePhpSupportedVersion = ( typeof NativePhpSupportedVersions )[ number ];
 
 function getPhpVersionScore( version: string ): number | undefined {
 	const match = version.match( /^(\d+)\.(\d+)$/ );

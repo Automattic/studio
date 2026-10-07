@@ -1,11 +1,9 @@
 import os from 'node:os';
 import { parse as parsePath } from 'node:path';
-import {
-	getClosestSupportedPhpVersion,
-	type SupportedPHPVersion,
-} from '@studio/common/types/php-versions';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Coarse, low-cardinality classification of a preview-site create/update failure for the
 // `failure_reason` Tracks prop. Never send the raw error message: it can carry site URLs and
@@ -88,13 +86,12 @@ export function normalizeHostname( hostname: string ): string {
 		.replace( /\/$/, '' );
 }
 
-// Older stored versions (e.g. 8.0) map to the closest version Studio ships, as they do at site start.
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
-	const phpVersion = getClosestSupportedPhpVersion( rawPhpVersion );
-	if ( ! phpVersion ) {
+	try {
+		return resolveSupportedPhpVersion( rawPhpVersion );
+	} catch {
 		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), rawPhpVersion ) );
 	}
-	return phpVersion;
 }
 
 export function getColumnWidths( widthFactors: number[] ) {

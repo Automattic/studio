@@ -14,7 +14,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
@@ -486,7 +486,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -585,7 +585,7 @@ async function doStartServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
-	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
 	let proxyServer: http.Server | null = null;
 	// Recorded before spawning so a later rescan can diff against what the workers
@@ -796,7 +796,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveSupportedPhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,

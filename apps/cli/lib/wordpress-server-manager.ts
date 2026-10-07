@@ -13,7 +13,7 @@ import {
 } from '@studio/common/constants';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -96,7 +96,7 @@ function buildServerConfig(
 		siteId: site.id,
 		sitePath: site.path,
 		port: site.port,
-		phpVersion: resolveNativePhpVersion( site.phpVersion ),
+		phpVersion: resolveSupportedPhpVersion( site.phpVersion ),
 		siteTitle: site.name,
 	};
 
@@ -173,7 +173,7 @@ async function ensureSitePhpBinaryAvailable(
 	site: SiteData,
 	logger: Logger< string >
 ): Promise< void > {
-	const phpVersion = resolveNativePhpVersion( site.phpVersion );
+	const phpVersion = resolveSupportedPhpVersion( site.phpVersion );
 	logger.reportStart(
 		SiteCommandLoggerAction.ENSURE_PHP_BINARY,
 		`Checking PHP ${ phpVersion } binary…`

@@ -5,13 +5,11 @@
  */
 import fs from 'node:fs';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import {
-	resolveNativePhpVersion,
-	type NativePhpSupportedVersion,
-} from '@studio/common/lib/php-binary-metadata';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-process';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 export interface ReprintProcessResult {
 	stdout: string;
@@ -48,7 +46,7 @@ export async function runReprintCommandUntilComplete(
 
 	// Make sure the bundled `php` binary is downloaded before the first invocation.
 	// reprint.phar is PHP-version agnostic, so any supported native version works.
-	const phpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+	const phpVersion = resolveSupportedPhpVersion( DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
 
 	const label = options.progressLabel ?? args[ 0 ] ?? 'Working';
@@ -96,7 +94,7 @@ export async function runReprintCommandUntilComplete(
  */
 async function runReprintCommandNative(
 	pharPath: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	args: string[],
 	options: { verboseCommands?: boolean },
 	progress: ProgressReporter

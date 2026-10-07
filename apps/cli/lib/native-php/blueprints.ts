@@ -9,7 +9,7 @@ import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-mana
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { PhpCommandError, runPhpCommand } from './php-process';
-import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 // blueprints.phar caps each download at 30 s in total, so large plugins (e.g. Gutenberg) fail
@@ -123,7 +123,7 @@ export function formatBlueprintRunnerError( error: PhpCommandError ): string {
 export async function runBlueprint(
 	config: ServerConfig,
 	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< void > {
 	// blueprints.phar accepts local paths only; remote URIs need the Playground runtime.

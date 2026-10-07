@@ -1,10 +1,7 @@
 import path from 'path';
-import {
-	getConfiguredPhpBinaryPackageId,
-	NativePhpSupportedVersions,
-	type NativePhpSupportedVersion,
-} from '@studio/common/lib/php-binary-metadata';
+import { getConfiguredPhpBinaryPackageId } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
@@ -16,14 +13,10 @@ function getExactPhpBinaryPath( version: string ): string {
 	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
 }
 
-function isNativePhpSupportedVersion( version: string ): version is NativePhpSupportedVersion {
-	return ( NativePhpSupportedVersions as readonly string[] ).includes( version );
-}
-
 // PHP binaries live in ~/.studio/php-bin/<package-id>/. The default version also ships with
 // Studio and is copied into this writable location by a CLI migration.
-export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
-	if ( ! isNativePhpSupportedVersion( version ) ) {
+export function getPhpBinaryPath( version: SupportedPHPVersion | string ): string {
+	if ( ! isSupportedPHPVersion( version ) ) {
 		return getExactPhpBinaryPath( version );
 	}
 

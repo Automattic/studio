@@ -4,7 +4,7 @@ import { PassThrough, Readable, Writable } from 'node:stream';
 import { buffer, text } from 'node:stream/consumers';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
@@ -207,7 +207,7 @@ async function runNativeWpCliCommand(
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
-	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 

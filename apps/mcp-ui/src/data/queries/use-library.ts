@@ -1,9 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { onLocalSitesResult, readLocalSites, waitForSiteChanges } from '@/data/bridge';
+import {
+	onLocalSitesResult,
+	readLocalSites,
+	readWpcomSites,
+	waitForSiteChanges,
+} from '@/data/bridge';
 import { useHostState } from '@/hooks/use-host-state';
 
 export const LOCAL_SITES_QUERY_KEY = [ 'local-sites' ] as const;
+export const WPCOM_SITES_QUERY_KEY = [ 'wpcom-sites' ] as const;
 // The host pushes the tool result that opened the library; give it this long
 // before reading the sites directly (a sidebar entry or a restored tab).
 const HOST_RESULT_GRACE_MS = 1500;
@@ -30,8 +36,16 @@ export function useLocalSites() {
 	} );
 }
 
+export function useWpcomSites() {
+	return useQuery( {
+		queryKey: WPCOM_SITES_QUERY_KEY,
+		queryFn: readWpcomSites,
+		enabled: useHostState().status === 'ready',
+	} );
+}
+
 // Seeds the sites from the tool result that opened the library, and keeps them
-// fresh: any site change, from the agent, a terminal or the desktop app,
+// fresh: any local site change, from the agent, a terminal or the desktop app,
 // refetches them.
 export function useSyncSitesWithHost() {
 	const queryClient = useQueryClient();

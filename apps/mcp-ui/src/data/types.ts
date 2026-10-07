@@ -7,6 +7,24 @@ export interface LocalSite {
 	phpVersion?: string;
 }
 
+export interface WpcomSite {
+	id: number;
+	name: string;
+	url: string;
+	planName?: string;
+	isStaging?: boolean;
+	lastPullTimestamp?: string | null;
+	lastPushTimestamp?: string | null;
+}
+
+export interface WpcomAccount {
+	signedIn: boolean;
+	sites: WpcomSite[];
+	error: string;
+}
+
+export type SiteEntry = { kind: 'local'; site: LocalSite } | { kind: 'wpcom'; site: WpcomSite };
+
 export type DisplayMode = 'inline' | 'fullscreen' | 'pip';
 
 export interface HostContext {
@@ -32,5 +50,5 @@ export interface ToolResult {
 
 export interface UserMessage {
 	text: string;
-	openaiTarget?: { target: 'new' } | { target: 'active'; send: true };
+	openaiTarget?: { target: 'new'; send: false };
 }

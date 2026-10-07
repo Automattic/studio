@@ -2,35 +2,35 @@ import { SiteBadge } from '@/components/site-badge';
 import { SitePrint } from '@/components/site-print';
 import { useIsBusy, useSendPrompt } from '@/data/queries/use-host-actions';
 import { NEW_SITE_DRAFT, NEW_SITE_PROMPT } from '@/lib/next-steps';
-import { hostname, liveUrl, siteName } from '@/lib/sites';
-import type { LocalSite } from '@/data/types';
+import { entryKey, hostname, liveUrl, siteName } from '@/lib/sites';
+import type { SiteEntry } from '@/data/types';
 import type { ReactNode } from 'react';
 
 interface SiteSectionProps {
 	title: string;
-	sites: LocalSite[];
+	entries: SiteEntry[];
 	empty: ReactNode;
 	withNewSite?: boolean;
-	onOpen: ( site: LocalSite ) => void;
+	onOpen: ( entry: SiteEntry ) => void;
 }
 
 // One card per site: ruled rows in a narrow pane, a grid of previews from 34rem.
-export function SiteSection( { title, sites, empty, withNewSite, onOpen }: SiteSectionProps ) {
+export function SiteSection( { title, entries, empty, withNewSite, onOpen }: SiteSectionProps ) {
 	return (
 		<section className="section">
 			<div className="section-head">
 				<h2 className="section-title">{ title }</h2>
-				{ sites.length > 0 && (
+				{ entries.length > 0 && (
 					<span className="note">
-						{ sites.length } { sites.length === 1 ? 'site' : 'sites' }
+						{ entries.length } { entries.length === 1 ? 'site' : 'sites' }
 					</span>
 				) }
 			</div>
-			{ sites.length || withNewSite ? (
+			{ entries.length || withNewSite ? (
 				<ul className="sites">
-					{ sites.map( ( site ) => (
-						<li key={ site.id }>
-							<SiteCard site={ site } onOpen={ onOpen } />
+					{ entries.map( ( entry ) => (
+						<li key={ entryKey( entry ) }>
+							<SiteCard entry={ entry } onOpen={ onOpen } />
 						</li>
 					) ) }
 					{ withNewSite && (
@@ -46,25 +46,25 @@ export function SiteSection( { title, sites, empty, withNewSite, onOpen }: SiteS
 	);
 }
 
-function SiteCard( { site, onOpen }: { site: LocalSite; onOpen: ( site: LocalSite ) => void } ) {
-	const url = liveUrl( site );
+function SiteCard( { entry, onOpen }: { entry: SiteEntry; onOpen: ( entry: SiteEntry ) => void } ) {
+	const url = liveUrl( entry );
 	return (
 		<button
 			type="button"
 			className="site-card"
-			aria-label={ `Open ${ site.name || 'site' }` }
-			onClick={ () => onOpen( site ) }
+			aria-label={ `Open ${ siteName( entry ) }` }
+			onClick={ () => onOpen( entry ) }
 		>
-			<SitePrint site={ site } />
+			<SitePrint entry={ entry } />
 			<span className="card-copy">
-				<span className="card-title">{ siteName( site ) }</span>
+				<span className="card-title">{ siteName( entry ) }</span>
 				<span className="card-meta">
 					<span className="card-host">{ url ? hostname( url ) : 'Not running' }</span>
-					<SiteBadge site={ site } />
+					<SiteBadge entry={ entry } />
 				</span>
 			</span>
 			<span className="card-end">
-				<SiteBadge site={ site } />
+				<SiteBadge entry={ entry } />
 			</span>
 		</button>
 	);

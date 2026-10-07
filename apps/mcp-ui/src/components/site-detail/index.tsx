@@ -10,19 +10,33 @@ import {
 	useSetSiteRunning,
 } from '@/data/queries/use-host-actions';
 import { useHostState } from '@/hooks/use-host-state';
-import { canAttach, canMessage, isPage } from '@/lib/host-capabilities';
-import { hostname, liveUrl, siteName } from '@/lib/sites';
-import type { LocalSite } from '@/data/types';
+import { canAttach, canMessage, canTargetMessages, isPage } from '@/lib/host-capabilities';
+import { formatDate, hostname, liveUrl, siteName } from '@/lib/sites';
+import type { SiteEntry } from '@/data/types';
+
+type Fact = [ label: string, value: string | undefined, mono?: boolean ];
+
+const factsOf = ( { kind, site }: SiteEntry ): Fact[] =>
+	kind === 'local'
+		? [
+				[ 'PHP', site.phpVersion ],
+				[ 'Folder', site.path, true ],
+		  ]
+		: [
+				[ 'Plan', site.planName ],
+				[ 'Last pulled', formatDate( site.lastPullTimestamp ) ],
+				[ 'Last pushed', formatDate( site.lastPushTimestamp ) ],
+		  ];
 
 // An opened site: preview and facts side by side on a wide page, then the next steps.
-export function SiteDetail( { site }: { site: LocalSite } ) {
+export function SiteDetail( { entry }: { entry: SiteEntry } ) {
 	const { context, capabilities } = useHostState();
 	const busy = useIsBusy();
 	const sendPrompt = useSendPrompt();
 	const setRunning = useSetSiteRunning();
 	const addToChat = useAddToChat();
 	const [ status, setStatus ] = useState( '' );
-	const url = liveUrl( site );
+	const url = liveUrl( entry );
 
 	const report = ( action: Promise< unknown >, done = '' ) =>
 		void action.then(
@@ -34,7 +48,7 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 		<section className="detail" aria-label="Selected site">
 			<div className="detail-heading">
 				<div className="detail-titles">
-					<h2 className={ isPage( context ) ? 'page-title' : 'title' }>{ siteName( site ) }</h2>
+					<h2 className={ isPage( context ) ? 'page-title' : 'title' }>{ siteName( entry ) }</h2>
 					{ url ? (
 						<ExternalLink className="detail-host" href={ url }>
 							{ hostname( url ) }
@@ -43,55 +57,61 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 						<span className="detail-host">Not running</span>
 					) }
 				</div>
-				<SiteBadge site={ site } />
+				<SiteBadge entry={ entry } />
 			</div>
 			<div className="detail-top">
 				<div className="detail-hero">
 					{ url ? (
 						<ExternalLink href={ url } aria-label={ `Open ${ hostname( url ) }` }>
-							<SitePrint site={ site } />
+							<SitePrint entry={ entry } />
 						</ExternalLink>
 					) : (
-						<SitePrint site={ site } />
+						<SitePrint entry={ entry } />
 					) }
 				</div>
 				<div className="detail-aside">
 					<dl className="facts">
-						{ site.phpVersion && (
-							<div>
-								<dt>PHP</dt>
-								<dd>{ site.phpVersion }</dd>
-							</div>
-						) }
-						<div>
-							<dt>Folder</dt>
-							<dd data-mono="">{ site.path }</dd>
-						</div>
+						{ factsOf( entry )
+							.filter( ( [ , value ] ) => value )
+							.map( ( [ label, value, mono ] ) => (
+								<div key={ label }>
+									<dt>{ label }</dt>
+									<dd data-mono={ mono ? '' : undefined }>{ value }</dd>
+								</div>
+							) ) }
 					</dl>
 					<div className="actions">
-						<button
-							type="button"
-							data-kind={ site.running ? 'secondary' : 'primary' }
-							disabled={ busy }
-							onClick={ () =>
-								report( setRunning.mutateAsync( { site, running: ! site.running } ) )
-							}
-						>
-							{ site.running ? 'Stop' : 'Start' }
-						</button>
+						{ entry.kind === 'local' && (
+							<button
+								type="button"
+								data-kind={ entry.site.running ? 'secondary' : 'primary' }
+								disabled={ busy }
+								onClick={ () =>
+									report(
+										setRunning.mutateAsync( { site: entry.site, running: ! entry.site.running } )
+									)
+								}
+							>
+								{ entry.site.running ? 'Stop' : 'Start' }
+							</button>
+						) }
 						{ url && (
 							<ExternalLink
 								data-kind="secondary"
-								href={ `${ url.replace( /\/$/, '' ) }/wp-admin/` }
+								href={
+									entry.kind === 'local'
+										? `${ url.replace( /\/$/, '' ) }/wp-admin/`
+										: `https://wordpress.com/home/${ hostname( url ) }`
+								}
 							>
-								WP Admin ↗
+								{ entry.kind === 'local' ? 'WP Admin ↗' : 'Dashboard ↗' }
 							</ExternalLink>
 						) }
 						{ canAttach( capabilities ) && (
 							<button
 								type="button"
 								data-kind="secondary"
-								onClick={ () => report( addToChat.mutateAsync( site ), 'Added to this chat.' ) }
+								onClick={ () => report( addToChat.mutateAsync( entry ), 'Added to this chat.' ) }
 							>
 								Add to chat
 							</button>
@@ -101,9 +121,14 @@ export function SiteDetail( { site }: { site: LocalSite } ) {
 			</div>
 			{ canMessage( capabilities ) && (
 				<NextSteps
-					site={ site }
+					entry={ entry }
 					disabled={ busy }
-					onSend={ ( prompt ) => report( sendPrompt.mutateAsync( { prompt } ), 'Sent to chat.' ) }
+					onSend={ ( prompt ) =>
+						report(
+							sendPrompt.mutateAsync( { prompt } ),
+							canTargetMessages( capabilities ) ? 'Opened in a new chat.' : 'Sent to chat.'
+						)
+					}
 				/>
 			) }
 			<p className="status-line" role="status" hidden={ ! status }>

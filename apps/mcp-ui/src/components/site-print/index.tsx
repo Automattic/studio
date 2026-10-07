@@ -1,9 +1,9 @@
 import { useSitePreview } from '@/data/queries/use-site-preview';
-import type { LocalSite } from '@/data/types';
+import type { SiteEntry } from '@/data/types';
 
 // A front-page preview on a quiet ground, with a hairline edge.
-export function SitePrint( { site }: { site: LocalSite } ) {
-	const { data } = useSitePreview( site );
+export function SitePrint( { entry }: { entry: SiteEntry } ) {
+	const { data } = useSitePreview( entry );
 	const state = ! data ? 'loading' : data.src ? 'ready' : 'failed';
 	return (
 		<span className="print" data-state={ state }>

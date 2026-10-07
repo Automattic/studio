@@ -1,4 +1,4 @@
-import type { HostState, LocalSite, ToolResult, UserMessage } from './types';
+import type { HostState, LocalSite, ToolResult, UserMessage, WpcomAccount } from './types';
 
 // The MCP Apps bridge: JSON-RPC over postMessage with the host that frames the
 // page, and through it the `studio mcp` tools the page calls.
@@ -175,6 +175,26 @@ export function onLocalSitesResult( listener: ( read: () => LocalSite[] ) => voi
 
 export async function readLocalSites() {
 	return localSitesFrom( await callTool( 'open_wordpress' ) );
+}
+
+export async function readWpcomSites(): Promise< WpcomAccount > {
+	const account = record( metaOf( await callTool( 'read_wpcom_sites' ) ).wpcom );
+	return {
+		signedIn: account.signedIn === true,
+		sites: Array.isArray( account.sites ) ? account.sites : [],
+		error: text( account.error ),
+	};
+}
+
+export async function readLoginUrl() {
+	return text( metaOf( await callTool( 'wpcom_login' ) ).url );
+}
+
+export async function logIn( token: string ) {
+	const result = unwrap( await callTool( 'wpcom_login', { token } ) );
+	if ( result.isError ) {
+		throw new Error( text( result.content?.[ 0 ]?.text ) || 'That token did not work. Try again.' );
+	}
 }
 
 export async function waitForSiteChanges( since?: number ) {

@@ -2,32 +2,46 @@ import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { FailureNotice } from '@/components/failure-notice';
 import { LibraryHeader } from '@/components/library-header';
+import { LoginCard } from '@/components/login-card';
 import { SiteDetail } from '@/components/site-detail';
 import { SiteSection } from '@/components/site-list';
-import { useLocalSites, useSyncSitesWithHost } from '@/data/queries/use-library';
+import { useLocalSites, useSyncSitesWithHost, useWpcomSites } from '@/data/queries/use-library';
 import { useApplyHostContext } from '@/hooks/use-apply-host-context';
 import { useAutoResize } from '@/hooks/use-auto-resize';
 import { useHostState } from '@/hooks/use-host-state';
 import { canMessage, isPage } from '@/lib/host-capabilities';
-import { searchSites } from '@/lib/sites';
+import { entryKey, searchEntries } from '@/lib/sites';
+import type { SiteEntry } from '@/data/types';
+
+const noMatches = <EmptyState title="No matching sites" copy="Try another name." />;
 
 // The library: the user's sites, or one site's page.
 export function Library() {
 	const { status, context, capabilities } = useHostState();
-	const sites = useLocalSites();
+	const local = useLocalSites();
+	const wpcom = useWpcomSites();
 	const [ query, setQuery ] = useState( '' );
-	const [ openId, setOpenId ] = useState< string | null >( null );
+	const [ openKey, setOpenKey ] = useState< string | null >( null );
 	const resizeRef = useAutoResize();
 	useApplyHostContext();
 	useSyncSitesWithHost();
-	const open = sites.data?.find( ( site ) => site.id === openId );
 
+	const localSites = local.data ?? [];
+	const wpcomSites = wpcom.data?.sites ?? [];
+	const all = searchEntries( localSites, wpcomSites, '' );
+	const open = [ ...all.local, ...all.wpcom ].find( ( entry ) => entryKey( entry ) === openKey );
+	const groups = searchEntries( localSites, wpcomSites, query );
 	const failed = status === 'failed';
-	const loading = ! failed && sites.isPending;
+	const loading = ! failed && local.isPending;
 	const failure = failed
 		? 'The host did not start the library. Reopen it.'
-		: sites.error?.message || null;
+		: local.error?.message || null;
+	const wpcomError = wpcom.error?.message || wpcom.data?.error;
 	const searching = query.trim() !== '';
+	const openEntry = ( entry: SiteEntry ) => {
+		setOpenKey( entryKey( entry ) );
+		window.scrollTo( 0, 0 );
+	};
 
 	return (
 		<main ref={ resizeRef } aria-busy={ loading }>
@@ -38,34 +52,30 @@ export function Library() {
 						className="back"
 						data-kind="quiet"
 						data-size="sm"
-						onClick={ () => setOpenId( null ) }
+						onClick={ () => setOpenKey( null ) }
 					>
 						← All sites
 					</button>
 				) : (
 					<LibraryHeader query={ query } onQueryChange={ setQuery } />
 				) }
-				{ failure && <FailureNotice message={ failure } onRetry={ () => void sites.refetch() } /> }
+				{ failure && <FailureNotice message={ failure } onRetry={ () => void local.refetch() } /> }
 				{ loading && (
 					<p className="note" role="status">
 						Loading your sites…
 					</p>
 				) }
-				{ open ? (
-					<SiteDetail key={ open.id } site={ open } />
-				) : (
-					sites.data && (
+				{ open && <SiteDetail key={ entryKey( open ) } entry={ open } /> }
+				{ ! open && local.data && (
+					<div className="lists">
 						<SiteSection
 							title="On this computer"
-							sites={ searchSites( sites.data, query ) }
+							entries={ groups.local }
 							withNewSite={ ! searching && canMessage( capabilities ) }
-							onOpen={ ( site ) => {
-								setOpenId( site.id );
-								window.scrollTo( 0, 0 );
-							} }
+							onOpen={ openEntry }
 							empty={
 								searching ? (
-									<EmptyState title="No matching sites" copy="Try another name." />
+									noMatches
 								) : (
 									<EmptyState
 										title="No local sites yet"
@@ -74,7 +84,30 @@ export function Library() {
 								)
 							}
 						/>
-					)
+						<SiteSection
+							title="On WordPress.com"
+							entries={ groups.wpcom }
+							onOpen={ openEntry }
+							empty={
+								wpcom.isPending ? (
+									<p className="note" role="status">
+										Loading your WordPress.com sites…
+									</p>
+								) : wpcomError ? (
+									<EmptyState title="Your WordPress.com sites could not load" copy={ wpcomError } />
+								) : ! wpcom.data?.signedIn ? (
+									<LoginCard />
+								) : searching ? (
+									noMatches
+								) : (
+									<EmptyState
+										title="No WordPress.com sites yet"
+										copy="Publish a Studio site to WordPress.com to see it here."
+									/>
+								)
+							}
+						/>
+					</div>
 				) }
 			</div>
 		</main>

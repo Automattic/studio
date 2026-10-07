@@ -5,7 +5,7 @@ import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
- * with `isError: true`. `rawHandler` is exposed so `mcp-server.ts` can
+ * with `isError: true`. `rawHandler` is exposed so `runtimes/mcp` can
  * dispatch external calls without pi's `{content, details}` wrapping.
  */
 

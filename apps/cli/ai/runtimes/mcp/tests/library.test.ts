@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createLibraryTools } from 'cli/ai/mcp-library';
+import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
 
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),

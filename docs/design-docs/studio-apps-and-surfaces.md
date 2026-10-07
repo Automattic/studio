@@ -111,7 +111,7 @@ A cloud product (see the package for specifics). It targets WordPress.com / a se
 
 ### External agents — `studio mcp` (`apps/cli` + `apps/mcp-ui`)
 
-`studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client, known once it connects (`apps/cli/ai/mcp-server.ts`).
+`studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client, known once it connects (`apps/cli/ai/runtimes/mcp`).
 
 Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) also show Studio pages: the design picker under `present_design_options`, and the WordPress library (`apps/mcp-ui`), which OpenAI's apps open from their sidebar once the Studio plugin is installed. Each page:
 

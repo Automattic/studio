@@ -12,8 +12,12 @@ import {
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { DESIGN_PICKER_HTML, DESIGN_PICKER_URI, MCP_APP_MIME_TYPE } from 'cli/ai/mcp-design-picker';
-import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/mcp-library';
+import {
+	DESIGN_PICKER_HTML,
+	DESIGN_PICKER_URI,
+	MCP_APP_MIME_TYPE,
+} from 'cli/ai/runtimes/mcp/design-picker';
+import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';

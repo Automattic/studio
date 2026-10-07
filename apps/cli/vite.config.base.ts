@@ -73,6 +73,26 @@ export function buildLocalUiPlugin() {
 	};
 }
 
+// `studio mcp` serves the WordPress library page (apps/mcp-ui `dist`) from
+// `<chunk dir>/mcp-ui`. Built separately like the browser UI; release configs
+// include `buildMcpUiPlugin`.
+const mcpUiDistPath = resolve( __dirname, '../mcp-ui/dist' );
+
+export function buildMcpUiPlugin() {
+	return {
+		name: 'build-mcp-ui',
+		apply: 'build' as const,
+		buildStart() {
+			execSync( 'npx vite build', { cwd: resolve( __dirname, '../mcp-ui' ), stdio: 'inherit' } );
+			if ( ! existsSync( mcpUiDistPath ) ) {
+				throw new Error(
+					`The MCP Apps page build did not produce ${ mcpUiDistPath }; refusing to ship a CLI without it.`
+				);
+			}
+		},
+	};
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
@@ -100,6 +120,9 @@ export const baseConfig = defineConfig( {
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
+				}
+				if ( existsSync( mcpUiDistPath ) ) {
+					cpSync( mcpUiDistPath, resolve( outDir, 'mcp-ui' ), { recursive: true } );
 				}
 			},
 		},

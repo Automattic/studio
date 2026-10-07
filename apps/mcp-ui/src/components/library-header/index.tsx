@@ -12,7 +12,7 @@ export function LibraryHeader( { query, onQueryChange }: LibraryHeaderProps ) {
 				<WordPressLogo />
 				<div>
 					<h1 className="title">WordPress</h1>
-					<p className="summary">Your local Studio sites.</p>
+					<p className="summary">Your Studio sites and WordPress.com sites.</p>
 				</div>
 			</div>
 			<div className="search" role="search">

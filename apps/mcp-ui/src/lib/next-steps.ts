@@ -1,5 +1,5 @@
 import { text } from './sites';
-import type { LocalSite } from '@/data/types';
+import type { SiteEntry } from '@/data/types';
 
 export interface NextStep {
 	title: string;
@@ -19,7 +19,36 @@ export const DATA_NOTE =
 export const NEW_SITE_PROMPT =
 	'Build me a new local WordPress site with WordPress Studio. Ask me what it is for first.';
 export const NEW_SITE_DRAFT = 'Build me a new local site for ';
-export function nextSteps( site: LocalSite ): NextStep[] {
+export function nextSteps( entry: SiteEntry ): NextStep[] {
+	if ( entry.kind === 'wpcom' ) {
+		const { site } = entry;
+		const name = `my WordPress.com site ${ quoted( site.name ) } (${ quoted(
+			site.url
+		) }, site ID ${ site.id })`;
+		return [
+			{
+				title: 'Make a change live',
+				copy: 'Edit its content, design or settings on the live site.',
+				prompt: `I want to change ${ name } live. Ask me what to change first, then make the change on the live site with the WordPress Studio tools, and show me the result.`,
+			},
+			{
+				title: 'Work on it locally',
+				copy: 'Pull it into a new Studio site on this computer.',
+				prompt: `Pull ${ name } into a new local Studio site so I can work on it locally. Confirm with me before overwriting anything.`,
+			},
+			{
+				title: 'Review it',
+				copy: 'Desktop and mobile screenshots, and what to improve.',
+				prompt: `Review ${ name }: take screenshots on desktop and mobile and tell me what to improve.`,
+			},
+			{
+				title: 'Plans and upgrades',
+				copy: 'What its plan includes and what an upgrade adds.',
+				prompt: `What does the plan of ${ name } include, and what would an upgrade add?`,
+			},
+		];
+	}
+	const { site } = entry;
 	const name = `my local Studio site ${ quoted( site.name ) } (folder ${ quoted( site.path ) })`;
 	return [
 		{

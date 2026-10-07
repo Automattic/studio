@@ -1,19 +1,19 @@
 import { nextSteps } from '@/lib/next-steps';
-import type { LocalSite } from '@/data/types';
+import type { SiteEntry } from '@/data/types';
 
 interface NextStepsProps {
-	site: LocalSite;
+	entry: SiteEntry;
 	disabled: boolean;
 	onSend: ( prompt: string ) => void;
 }
 
 // Each step sends the agent a prompt as the user's message.
-export function NextSteps( { site, disabled, onSend }: NextStepsProps ) {
+export function NextSteps( { entry, disabled, onSend }: NextStepsProps ) {
 	return (
 		<section className="section">
 			<h3 className="next-title">Next steps</h3>
 			<div className="tiles">
-				{ nextSteps( site ).map( ( step ) => (
+				{ nextSteps( entry ).map( ( step ) => (
 					<button
 						key={ step.title }
 						type="button"

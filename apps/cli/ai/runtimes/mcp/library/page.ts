@@ -32,7 +32,11 @@ export function libraryPage(): AppPage | null {
 				name: 'WordPress',
 				text,
 				_meta: {
-					ui: { prefersBorder: true },
+					// WordPress.com sites' previews come from mShots.
+					ui: {
+						prefersBorder: true,
+						csp: { resourceDomains: [ 'https://s0.wp.com', 'https://i0.wp.com' ] },
+					},
 					'openai/ui': { preferredDisplayMode: 'fullscreen' },
 				},
 			};

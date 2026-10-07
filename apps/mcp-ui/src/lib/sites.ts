@@ -1,4 +1,4 @@
-import type { LocalSite } from '@/data/types';
+import type { LocalSite, SiteEntry, WpcomSite } from '@/data/types';
 
 export const text = ( value: unknown ) => ( typeof value === 'string' ? value : '' );
 
@@ -19,14 +19,28 @@ export function hostname( value: string ): string {
 	}
 }
 
-export const liveUrl = ( site: LocalSite ) => ( site.running ? safeUrl( site.url ) : null );
+export const liveUrl = ( { kind, site }: SiteEntry ) =>
+	kind === 'local' && ! site.running ? null : safeUrl( site.url );
 
-export const siteName = ( site: LocalSite ) => text( site.name ) || 'Untitled site';
+export const siteName = ( { site }: SiteEntry ) => text( site.name ) || 'Untitled site';
 
-export function searchSites( sites: LocalSite[], query: string ): LocalSite[] {
+export const entryKey = ( { kind, site }: SiteEntry ) => `${ kind }/${ site.id }`;
+
+export function formatDate( value: unknown ): string {
+	const date = new Date( text( value ) );
+	return isNaN( date.getTime() )
+		? ''
+		: date.toLocaleDateString( undefined, { year: 'numeric', month: 'short', day: 'numeric' } );
+}
+
+// The sites as entries, both kinds filtered by the search.
+export function searchEntries( localSites: LocalSite[], wpcomSites: WpcomSite[], query: string ) {
 	const needle = query.trim().toLowerCase();
-	return sites.filter(
-		( site ) =>
-			! needle || `${ text( site.name ) } ${ text( site.url ) }`.toLowerCase().includes( needle )
-	);
+	const matches = ( entry: SiteEntry ) =>
+		! needle ||
+		`${ text( entry.site.name ) } ${ text( entry.site.url ) }`.toLowerCase().includes( needle );
+	return {
+		local: localSites.map( ( site ): SiteEntry => ( { kind: 'local', site } ) ).filter( matches ),
+		wpcom: wpcomSites.map( ( site ): SiteEntry => ( { kind: 'wpcom', site } ) ).filter( matches ),
+	};
 }

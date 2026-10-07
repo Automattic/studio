@@ -1,14 +1,15 @@
 import { Type } from 'typebox';
 import { defineTool } from 'cli/ai/tools/define-tool';
 import { textResult } from 'cli/ai/tools/utils';
+import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';
-import { capturePreview, readLocalSites } from './sites';
+import { capturePreview, readLocalSites, readWpcomSites } from './sites';
 
 export { type AppPage, libraryPage } from './page';
 
-// The WordPress library: an MCP App (apps/mcp-ui) listing the local Studio
-// sites, which OpenAI hosts open from their sidebar. Only the page calls its
-// tools; the model never sees them.
+// The WordPress library: an MCP App (apps/mcp-ui) listing the user's local
+// Studio and WordPress.com sites, which OpenAI hosts open from their sidebar.
+// Only the page calls its tools; the model never sees them.
 
 // The WordPress logo from @wordpress/icons, for the sidebar entry.
 const WORDPRESS_LOGO_SVG =
@@ -67,6 +68,37 @@ export function createLibraryTools( uri: string ) {
 				async ( { since } ) => {
 					const revision = await waitForSiteChanges( since );
 					return { ...textResult( `Revision ${ revision }.` ), _meta: { revision } };
+				}
+			),
+			listing: { _meta: pageOnly },
+		},
+		{
+			// Apart from open_wordpress: WordPress.com takes seconds to answer.
+			tool: defineTool(
+				'read_wpcom_sites',
+				"Reads the user's WordPress.com sites.",
+				{},
+				async () => ( {
+					...textResult( 'WordPress.com sites.' ),
+					_meta: { wpcom: await readWpcomSites() },
+				} )
+			),
+			listing: { _meta: pageOnly },
+		},
+		{
+			tool: defineTool(
+				'wpcom_login',
+				"Returns WordPress.com's authorization page, or stores the token it showed.",
+				{ token: Type.Optional( Type.String() ) },
+				async ( { token } ) => {
+					if ( ! token ) {
+						return {
+							...textResult( 'Authorization page.' ),
+							_meta: { url: await getCliAuthenticationUrl() },
+						};
+					}
+					await storeAuthToken( token.trim() );
+					return textResult( 'Logged in.' );
 				}
 			),
 			listing: { _meta: pageOnly },

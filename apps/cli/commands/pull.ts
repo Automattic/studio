@@ -17,7 +17,7 @@ import {
 } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
+import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
@@ -218,11 +218,6 @@ export async function runCommand(
 						// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
 						throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
 					}
-
-					// Something in Playground makes it so the front-end of the site sometimes returns an error page
-					// on the first request. Send that first request from here to hide the error from the user.
-					const siteUrl = getSiteUrl( site );
-					await fetch( siteUrl ).catch( () => {} );
 				} finally {
 					if ( wasServerRunning ) {
 						try {

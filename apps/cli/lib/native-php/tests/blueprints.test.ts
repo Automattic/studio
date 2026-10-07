@@ -9,6 +9,7 @@ import {
 	getWpCliCommandForRunner,
 	normalizeBlueprintForRunner,
 	removeOwnedSqliteSymlink,
+	requoteWpCliCommandsForCmd,
 } from 'cli/lib/native-php/blueprints';
 import { PhpCommandError } from 'cli/lib/native-php/php-process';
 
@@ -70,7 +71,7 @@ describe( 'getWpCliCommandForRunner', () => {
 		);
 
 		expect( command ).toMatch( /^"C:\\Users\\Jane Doe\\php\\php\.exe" / );
-		expect( command ).toContain( '"-d" "display_errors=stderr"' );
+		expect( command ).toContain( ' -d display_errors=stderr ' );
 		expect( command ).toMatch( / "C:\\Program Files\\Studio\\wp-cli\.phar"$/ );
 	} );
 
@@ -83,6 +84,53 @@ describe( 'getWpCliCommandForRunner', () => {
 
 		expect( command ).toMatch( /^'\/Users\/o'\\''brien\/php' / );
 		expect( command ).toMatch( / '\/Applications\/Studio\.app\/wp-cli\.phar'$/ );
+	} );
+} );
+
+describe( 'requoteWpCliCommandsForCmd', () => {
+	function requote( command: string ): unknown {
+		const contents = { steps: [ { step: 'wp-cli', command } ] };
+		requoteWpCliCommandsForCmd( contents );
+		return contents.steps[ 0 ].command;
+	}
+
+	it( 'turns POSIX single quotes into cmd double quotes', () => {
+		expect( requote( "wp option update blogname 'WP-CLI Test Site'" ) ).toBe(
+			'wp option update blogname "WP-CLI Test Site"'
+		);
+	} );
+
+	it( 'keeps double-quoted PHP code as one argument', () => {
+		expect(
+			requote( `wp eval "file_put_contents( WP_CONTENT_DIR . '/marker.txt', 'ok' );"` )
+		).toBe( `wp eval "file_put_contents( WP_CONTENT_DIR . '/marker.txt', 'ok' );"` );
+	} );
+
+	it( 'escapes characters cmd would interpret', () => {
+		expect( requote( `wp option update blogname 'Say "hi" 100% now!'` ) ).toBe(
+			'wp option update blogname "Say ""hi"" 100"^%" now"^!""'
+		);
+	} );
+
+	it( 'keeps variables and globs literal', () => {
+		expect( requote( `wp eval 'echo $foo;'` ) ).toBe( 'wp eval "echo $foo;"' );
+		expect( requote( 'wp post list --fields=*' ) ).toBe( 'wp post list --fields=*' );
+	} );
+
+	it( 'leaves commands with shell operators unchanged', () => {
+		expect( requote( 'wp plugin list | grep akismet' ) ).toBe( 'wp plugin list | grep akismet' );
+	} );
+
+	it( 'leaves other steps and non-object entries alone', () => {
+		const contents = { steps: [ { step: 'runPHP', code: "<?php echo 'a b';" }, 'login', null ] };
+
+		requoteWpCliCommandsForCmd( contents );
+
+		expect( contents.steps ).toEqual( [
+			{ step: 'runPHP', code: "<?php echo 'a b';" },
+			'login',
+			null,
+		] );
 	} );
 } );
 

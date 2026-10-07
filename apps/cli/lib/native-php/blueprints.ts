@@ -5,6 +5,7 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import { parse as parseShellCommand } from 'shell-quote';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -94,10 +95,33 @@ export function normalizeBlueprintForRunner( contents: Record< string, unknown >
 	}
 }
 
+const CMD_ESCAPES: Record< string, string > = {
+	'"': '""',
+	'^': '"^^"',
+	'%': '"^%"',
+	'!': '"^!"',
+	'\n': '!LF!',
+};
+
+// Mirrors Symfony Process's Windows `escapeArgument()`: the runner's `prepareWindowsCommandLine()`
+// turns this form into a safe `cmd` command line.
+function escapeForCmd( arg: string ): string {
+	if ( arg === '' ) {
+		return '""';
+	}
+	if ( ! /[/()%!^"<>&|\s]/.test( arg ) ) {
+		return arg;
+	}
+	const escaped = arg
+		.replace( /(\\+)$/, '$1$1' )
+		.replace( /["^%!\n]/g, ( char ) => CMD_ESCAPES[ char ] );
+	return `"${ escaped }"`;
+}
+
 // The runner joins a step's `wpCliPath` and its arguments into one string run through the shell
 // (`cmd` on Windows, `sh` elsewhere), so each part is quoted for that shell.
 function quoteForShell( arg: string, platform: NodeJS.Platform ): string {
-	return platform === 'win32' ? `"${ arg }"` : `'${ arg.replace( /'/g, `'\\''` ) }'`;
+	return platform === 'win32' ? escapeForCmd( arg ) : `'${ arg.replace( /'/g, `'\\''` ) }'`;
 }
 
 export function getWpCliCommandForRunner(
@@ -108,6 +132,38 @@ export function getWpCliCommandForRunner(
 	return [ phpBinaryPath, ...getWpCliPhpIniArgs(), wpCliPharPath ]
 		.map( ( arg ) => quoteForShell( arg, platform ) )
 		.join( ' ' );
+}
+
+function isWpCliStep( step: unknown ): step is Record< string, unknown > {
+	return (
+		!! step && typeof step === 'object' && ( step as Record< string, unknown > ).step === 'wp-cli'
+	);
+}
+
+// Blueprints quote `wp-cli` commands for a POSIX shell, as Playground parses them, but on Windows
+// the runner hands them to `cmd`, which treats `'` as a literal character. Commands using shell
+// operators are left as they are.
+export function requoteWpCliCommandsForCmd( contents: Record< string, unknown > ): void {
+	if ( ! Array.isArray( contents.steps ) ) {
+		return;
+	}
+	for ( const step of contents.steps as unknown[] ) {
+		if ( ! isWpCliStep( step ) || typeof step.command !== 'string' ) {
+			continue;
+		}
+		// Keep `$` literal: Playground runs the command without a shell, so nothing expands it.
+		const tokens = parseShellCommand( step.command, ( key ) => `$${ key }` );
+		const args = tokens.map( ( token ) => {
+			if ( typeof token === 'string' ) {
+				return token;
+			}
+			return 'op' in token && token.op === 'glob' ? token.pattern : null;
+		} );
+		if ( args[ 0 ] !== 'wp' || args.some( ( arg ) => arg === null ) ) {
+			continue;
+		}
+		step.command = ( args as string[] ).map( escapeForCmd ).join( ' ' );
+	}
 }
 
 function toPhpSingleQuotedString( value: string ): string {
@@ -195,6 +251,9 @@ export async function runBlueprint(
 		...defaultConstants,
 	};
 	normalizeBlueprintForRunner( blueprint.contents );
+	if ( process.platform === 'win32' ) {
+		requoteWpCliCommandsForCmd( blueprint.contents );
+	}
 
 	// Co-locate the modified blueprint with the original so blueprints.phar can
 	// resolve sibling resources; fall back to a temp dir if that dir is read-only.

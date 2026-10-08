@@ -414,3 +414,87 @@ describe( 'BackupHandlerWpress — damaged archives', () => {
 		).rejects.toMatchObject( { message: expect.stringContaining( 'Failed to extract "clash"' ) } );
 	} );
 } );
+
+describe( 'BackupHandlerWpress — v2 archives (All-in-One WP Migration 7.x)', () => {
+	let tmpDir: string;
+	let extractDir: string;
+	let archivePath: string;
+	let handler: BackupHandlerWpress;
+
+	beforeEach( () => {
+		tmpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-wpress-v2-test-' ) );
+		extractDir = path.join( tmpDir, 'extract' );
+		archivePath = path.join( tmpDir, 'v2.wpress' );
+		fs.mkdirSync( extractDir );
+		handler = new BackupHandlerWpress();
+	} );
+
+	afterEach( () => {
+		fs.rmSync( tmpDir, { recursive: true, force: true } );
+	} );
+
+	/** Mirrors the plugin's `pack( 'a255a14a12a4088a8', … )` header with a CRC32. */
+	function makeV2Header( name: string, size: number, prefix: string, crc32: string ): Buffer {
+		const header = makeHeader( name, size, prefix );
+		header.write( crc32, 4369, 'latin1' );
+		return header;
+	}
+
+	/** Mirrors the plugin's `pack( 'a255a14a4100a8', '', $size, '', $crc )` EOF block. */
+	function makeV2Eof( archiveSize: number, crc32: string ): Buffer {
+		const eof = Buffer.alloc( HEADER_SIZE );
+		eof.write( String( archiveSize ), 255, 'latin1' );
+		eof.write( crc32, 4369, 'latin1' );
+		return eof;
+	}
+
+	function buildV2Wpress( entries: { name: string; prefix: string; content: string }[] ): Buffer {
+		const parts: Buffer[] = [];
+		for ( const { name, prefix, content } of entries ) {
+			const data = Buffer.from( content, 'utf8' );
+			parts.push( makeV2Header( name, data.length, prefix, '1a2b3c4d' ) );
+			parts.push( data );
+		}
+		const archiveSize = parts.reduce( ( total, part ) => total + part.length, 0 );
+		parts.push( makeV2Eof( archiveSize, 'deadbeef' ) );
+		return Buffer.concat( parts );
+	}
+
+	it( 'stops at the v2 EOF marker instead of reading it as a truncated entry', async () => {
+		fs.writeFileSync(
+			archivePath,
+			buildV2Wpress( [
+				{ name: 'database.sql', prefix: '', content: '-- dump\n' },
+				{ name: 'style.css', prefix: 'wp-content/themes/my-theme', content: 'body{}' },
+			] )
+		);
+
+		await expect( handler.listFiles( { path: archivePath, type: 'wpress' } ) ).resolves.toEqual( [
+			'database.sql',
+			path.join( 'wp-content', 'themes', 'my-theme', 'style.css' ),
+		] );
+		await handler.extractFiles( { path: archivePath, type: 'wpress' }, extractDir );
+		expect( fs.readFileSync( path.join( extractDir, 'database.sql' ), 'utf8' ) ).toBe(
+			'-- dump\n'
+		);
+		expect(
+			fs.readFileSync(
+				path.join( extractDir, 'wp-content', 'themes', 'my-theme', 'style.css' ),
+				'utf8'
+			)
+		).toBe( 'body{}' );
+	} );
+
+	it( 'does not read the per-entry CRC32 into the path prefix', async () => {
+		const longPrefix = 'p'.repeat( 4088 );
+		const header = makeV2Header( 'file.txt', 2, longPrefix, 'cafebabe' );
+		fs.writeFileSync(
+			archivePath,
+			Buffer.concat( [ header, Buffer.from( 'ok' ), makeV2Eof( HEADER_SIZE + 2, 'deadbeef' ) ] )
+		);
+
+		await expect( handler.listFiles( { path: archivePath, type: 'wpress' } ) ).resolves.toEqual( [
+			path.join( longPrefix, 'file.txt' ),
+		] );
+	} );
+} );

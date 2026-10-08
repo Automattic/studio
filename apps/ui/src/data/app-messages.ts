@@ -201,17 +201,6 @@ export function showToast( input: ToastInput ): string {
 	return toastMessage.id;
 }
 
-export function openStudioLogsAction( connector: Connector ) {
-	return {
-		label: __( 'Open Studio Logs' ),
-		onClick: () => {
-			void connector.openStudioLogs().catch( ( error ) => {
-				console.error( 'Failed to open Studio logs:', error );
-			} );
-		},
-	};
-}
-
 export function dismissToast( id: string ): void {
 	beginToastExit( id );
 }
@@ -224,6 +213,21 @@ export const toast = {
 	error: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'error', title, ...options } ),
 };
+
+// Only where the host keeps a log file the user can open.
+export function openStudioLogsAction( connector: Connector ): ToastAction | undefined {
+	if ( ! connector.capabilities.studioLogs ) {
+		return undefined;
+	}
+	return {
+		label: __( 'Open Studio Logs' ),
+		onClick: () => {
+			void connector.openStudioLogs().catch( ( error ) => {
+				console.error( 'Failed to open Studio logs:', error );
+			} );
+		},
+	};
+}
 
 // Hover pause — <AppToasts /> calls these on mouse enter/leave. Resuming
 // restarts the full duration; no remaining-time bookkeeping. A toast that is

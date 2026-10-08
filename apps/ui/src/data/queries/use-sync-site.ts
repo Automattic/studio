@@ -72,7 +72,7 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					toast.error( __( "Import didn't complete" ), {
 						description: settled.message,
-						action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+						action: openStudioLogsAction( connector ),
 					} );
 				}
 				return;
@@ -92,7 +92,7 @@ export function useSettleSync() {
 			} else {
 				toast.error( __( "Pull didn't complete" ), {
 					description: settled.message,
-					action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+					action: openStudioLogsAction( connector ),
 				} );
 			}
 		},

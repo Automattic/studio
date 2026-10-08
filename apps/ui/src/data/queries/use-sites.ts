@@ -108,9 +108,7 @@ export function useExportDatabase() {
 }
 
 function toastExportFailure( connector: Connector, title: string ) {
-	toast.error( title, {
-		action: connector.capabilities.studioLogs ? openStudioLogsAction( connector ) : undefined,
-	} );
+	toast.error( title, { action: openStudioLogsAction( connector ) } );
 }
 
 export interface StartSiteOptions {

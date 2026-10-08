@@ -59,6 +59,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import {
 	arePathsEqual,
+	calculateDirectorySizeForArchive,
 	confineToRoot,
 	isEmptyDir,
 	isWordPressDirectory,
@@ -67,6 +68,7 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
@@ -91,6 +93,7 @@ import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -809,6 +812,72 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					return;
 				}
 				throw error;
+			}
+		} )
+	);
+
+	// Selective push: the dialog's file tree, size estimates and multisite warning,
+	// from the helpers the desktop uses. `path` is relative to the site and
+	// confined to it.
+	async function resolveSitePath(
+		req: Request,
+		res: Response
+	): Promise< { sitePath: string; fullPath: string } | null > {
+		const sitePath = await readSitePath( req.params.id );
+		if ( ! sitePath ) {
+			res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+			return null;
+		}
+		const fullPath = confineToRoot( sitePath, String( req.query.path ?? '' ) );
+		if ( ! fullPath ) {
+			res.status( 400 ).json( { error: 'Path is outside the site' } );
+			return null;
+		}
+		return { sitePath, fullPath };
+	}
+
+	api.get(
+		'/sites/:id/file-tree',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json(
+					await listLocalFileTree(
+						resolved.sitePath,
+						path.relative( resolved.sitePath, resolved.fullPath ),
+						Number( req.query.depth ) || undefined
+					)
+				);
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/directory-size',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( await calculateDirectorySizeForArchive( resolved.fullPath ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/file-size',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( getLocalFileSize( resolved.fullPath ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/multisite',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( isMultisite( resolved.sitePath ) );
 			}
 		} )
 	);

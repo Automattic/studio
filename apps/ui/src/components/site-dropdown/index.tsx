@@ -13,6 +13,7 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { consumePendingPush, usePendingPush } from '@/hooks/use-sync-connect-site-listener';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
@@ -106,6 +107,15 @@ export function SiteDropdown( {
 		setMenuOpen( false );
 		setSyncDialog( { type, liveSite: target } );
 	};
+
+	const pendingPushRemoteSiteId = usePendingPush( site.id );
+	useEffect( () => {
+		const target = connectedSites?.find( ( { id } ) => id === pendingPushRemoteSiteId );
+		if ( target && consumePendingPush( site.id ) ) {
+			setMenuOpen( false );
+			setSyncDialog( { type: 'push', liveSite: target } );
+		}
+	}, [ connectedSites, pendingPushRemoteSiteId, site.id ] );
 
 	const startSyncFromDialog = ( start: () => void ) => {
 		start();

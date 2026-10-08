@@ -52,7 +52,10 @@ type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'sync-activity'; payload: SyncEvent }
-	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
+	| {
+			channel: 'sync-connect';
+			payload: { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean };
+	  }
 	| { channel: 'site-event'; payload: SiteEvent }
 	| { channel: 'snapshot-event'; payload: SnapshotEvent }
 	| { channel: 'auth-event'; payload: unknown };

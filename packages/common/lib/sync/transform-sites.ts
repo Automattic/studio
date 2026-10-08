@@ -71,28 +71,24 @@ export function transformSitesResponse(
 }
 
 /**
- * Fills stored connections in from the account's current site list. Stored entries only keep the
- * link and sync times current; their name, URL and sync support are a snapshot from connect time.
- * A connection missing from the list was deleted, or the user lost access to it.
+ * Fills stored connections in from the account's current site list: only the link and the sync
+ * times are read from storage. A connection missing from the list was deleted, or the user lost
+ * access to it.
  */
-export function withWpcomDetails(
-	connections: SyncSite[],
-	wpcomSites: SyncSite[] | undefined
-): SyncSite[] {
-	if ( ! wpcomSites ) {
-		return connections;
-	}
-	return connections.map( ( connection ) => {
-		const site = wpcomSites.find( ( { id } ) => id === connection.id );
-		if ( ! site ) {
-			return { ...connection, syncSupport: 'deleted' };
-		}
+export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[] ): SyncSite[] {
+	return connections.map( ( { id, localSiteId, lastPullTimestamp, lastPushTimestamp } ) => {
+		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
+		const syncSupport = ! site
+			? 'deleted'
+			: site.syncSupport === 'syncable'
+			? 'already-connected'
+			: site.syncSupport;
 		return {
-			...site,
-			localSiteId: connection.localSiteId,
-			lastPullTimestamp: connection.lastPullTimestamp,
-			lastPushTimestamp: connection.lastPushTimestamp,
-			syncSupport: site.syncSupport === 'syncable' ? 'already-connected' : site.syncSupport,
+			...( site ?? { id, name: '', url: '', isStaging: false, isPressable: false } ),
+			localSiteId,
+			syncSupport,
+			lastPullTimestamp,
+			lastPushTimestamp,
 		};
 	} );
 }

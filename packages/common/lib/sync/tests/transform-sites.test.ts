@@ -107,6 +107,6 @@ describe( 'withWpcomDetails', () => {
 			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
 		} );
 		expect( downgraded.syncSupport ).toBe( 'needs-upgrade' );
-		expect( gone ).toMatchObject( { name: 'Old name', syncSupport: 'deleted' } );
+		expect( gone ).toMatchObject( { id: 99, name: '', syncSupport: 'deleted' } );
 	} );
 } );

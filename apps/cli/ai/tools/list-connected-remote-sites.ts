@@ -20,11 +20,11 @@ export const listConnectedRemoteSitesTool = defineTool(
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
-			const token = stored.length ? await readAuthToken() : null;
-			const wpcomSites = token
-				? await fetchSyncableSites( token.accessToken ).catch( () => undefined )
-				: undefined;
-			const connected = withWpcomDetails( stored, wpcomSites );
+			const token = await readAuthToken();
+			const connected =
+				stored.length && token
+					? withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) )
+					: [];
 			const summary = connected.map( ( s ) => ( {
 				type: 'wpcom-remote' as const,
 				id: s.id,

@@ -1,0 +1,13 @@
+/* Fills the window when the whole app failed (route panels clip the excess),
+   and stays draggable since the crashed view took the title bar with it. */
+.root {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: var(--wpds-dimension-padding-2xl);
+	background-color: var(--wpds-color-background-surface-neutral);
+	color: var(--wpds-color-foreground-content-neutral);
+	-webkit-app-region: drag;
+}

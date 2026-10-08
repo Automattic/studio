@@ -318,14 +318,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await ipcApi.importSite( siteId, backupPath, {
 				alwaysStartServer: true,
 				showErrorModal: false,
 				showNotification: false,
-				// Onboarding imports are part of the add-site flow, which `studio_site_imported`
-				// deliberately does not count.
-				suppressTracksEvent: true,
+				suppressTracksEvent: options?.suppressTracksEvent ?? false,
 			} );
 		},
 

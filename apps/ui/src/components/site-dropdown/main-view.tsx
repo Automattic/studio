@@ -11,7 +11,6 @@ import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -26,6 +25,7 @@ import {
 	PUSH_TO_LIVE_MUTATION_KEY,
 	useCancelSync,
 } from '@/data/queries/use-sync-site';
+import { useLiveWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { LiveSitesSection } from './live-sites-section';
@@ -121,7 +121,7 @@ export function MainView( {
 	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
 	const { data: snapshotUsage } = useSnapshotUsage();
-	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const connectedSites = useLiveWpcomSites( site.id );
 
 	const siteSnapshots = useMemo(
 		() => getSiteSnapshots( snapshots, site.id ),
@@ -304,7 +304,7 @@ export function MainView( {
 			/>
 
 			<LiveSitesSection
-				liveSites={ connectedSites ?? [] }
+				liveSites={ connectedSites }
 				activity={ activity }
 				notice={ getLivePanelCopy( agenticEnabled, isOffline ) }
 				actionLabel={ agenticEnabled || isOffline ? __( 'Connect site' ) : __( 'Log in' ) }

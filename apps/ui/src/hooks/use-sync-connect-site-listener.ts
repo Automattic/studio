@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/use-wpcom-sites';
 import type { SyncSite } from '@/data/core';
 
 // Bridges the `wp-studio://sync-connect-site` deep link into apps/ui. The
@@ -23,7 +24,10 @@ export function useSyncConnectSiteListener(): void {
 				// display name / URL in one write. `connectWpcomSites` skips
 				// duplicate (id, localSiteId) tuples, so a second call
 				// wouldn't overwrite a placeholder saved beforehand.
-				const syncable = await connector.fetchSyncableWpcomSites();
+				const syncable = await queryClient.fetchQuery( {
+					queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
+					queryFn: () => connector.fetchSyncableWpcomSites(),
+				} );
 				const fullSite = syncable.find( ( site ) => site.id === remoteSiteId );
 				const siteToSave: SyncSite = fullSite
 					? {

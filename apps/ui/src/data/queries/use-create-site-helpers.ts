@@ -29,15 +29,19 @@ export function useExistingCustomDomains(): string[] {
 }
 
 /**
- * Asks the main process for a randomly-selected, non-colliding site name so
- * the create form can pre-fill "Site name" on first render. Skips until the
- * caller has loaded the current site list.
+ * Asks the main process for a non-colliding site name so the create form can
+ * pre-fill "Site name": `baseName` numbered when it's taken ("Shop 2"), or a
+ * randomly-selected one without it. Skips until the caller has loaded the
+ * current site list.
  */
-export function useProposedSiteName( sites: SiteDetails[] | undefined ) {
+export function useProposedSiteName( sites: SiteDetails[] | undefined, baseName?: string ) {
 	const connector = useConnector();
 	return useQuery( {
-		queryKey: [ ...PROPOSED_SITE_NAME_QUERY_KEY, ( sites ?? [] ).map( ( s ) => s.id ) ],
-		queryFn: () => connector.generateProposedSiteName( sites ?? [] ),
+		queryKey: [ ...PROPOSED_SITE_NAME_QUERY_KEY, baseName, ( sites ?? [] ).map( ( s ) => s.id ) ],
+		queryFn: () =>
+			baseName
+				? connector.generateNumberedSiteName( baseName, sites ?? [] )
+				: connector.generateProposedSiteName( sites ?? [] ),
 		enabled: !! sites,
 		staleTime: Infinity,
 	} );

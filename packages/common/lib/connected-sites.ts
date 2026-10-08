@@ -83,19 +83,19 @@ function removeConnection(
 	}
 }
 
-function applyConnectionUpdates(
-	connections: SyncSite[],
-	localSiteId: string,
-	updates: SyncSite[]
-): void {
-	for ( const existing of connections ) {
-		if ( existing.localSiteId !== localSiteId ) {
-			continue;
-		}
+type ConnectionUpdate = Pick< SyncSite, 'id' | 'localSiteId' > & Partial< SyncSite >;
 
-		const update = updates.find( ( candidate ) => candidate.id === existing.id );
+function applyConnectionUpdates( connections: SyncSite[], updates: ConnectionUpdate[] ): void {
+	for ( const existing of connections ) {
+		const update = updates.find(
+			( candidate ) =>
+				candidate.id === existing.id && candidate.localSiteId === existing.localSiteId
+		);
 		if ( update ) {
-			Object.assign( existing, normalizeStoredSite( { ...existing, ...update }, localSiteId ) );
+			Object.assign(
+				existing,
+				normalizeStoredSite( { ...existing, ...update }, existing.localSiteId )
+			);
 		}
 	}
 }
@@ -223,8 +223,7 @@ export async function removeAllConnectedWpcomSitesForLocalSite(
  * connection are skipped — use `addConnectedWpcomSite` to create new ones.
  */
 export async function updateConnectedWpcomSites(
-	localSiteId: string,
-	updates: SyncSite[]
+	updates: ConnectionUpdate[]
 ): Promise< SyncSite[] > {
 	const userKey = await getCurrentUserKey();
 	if ( ! userKey ) {
@@ -235,7 +234,7 @@ export async function updateConnectedWpcomSites(
 		await lockSharedConfig();
 		const config = await readSharedConfig();
 		const connections = getConnectionsForUser( config, userKey );
-		applyConnectionUpdates( connections, localSiteId, updates );
+		applyConnectionUpdates( connections, updates );
 		await saveSharedConfig( config );
 		return connections;
 	} finally {

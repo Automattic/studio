@@ -2,15 +2,22 @@ import fs from 'fs';
 import { Readable } from 'stream';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import {
+	getAllConnectedWpcomSitesForCurrentUser,
+	updateConnectedWpcomSites,
+} from '@studio/common/lib/connected-sites';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
 	sitesEndpointResponseSchema,
+	sitesEndpointSiteSchema,
 	pullSiteResponseSchema,
 	syncBackupResponseSchema,
 	importResponseSchema,
 } from '@studio/common/types/sync';
 import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
+import { buildSupplementalSyncSite } from './build-supplemental-sync-site';
+import { reconcileConnectedSites } from './reconcile-connected-sites';
 import { transformSitesResponse } from './transform-sites';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
 import type { BackupLsItem } from '@studio/common/types/sync-tree';
@@ -30,7 +37,7 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
-export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
+async function fetchMeSites( token: string ): Promise< unknown[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	const rawResponse = await wpcom.req.get(
@@ -46,8 +53,74 @@ export async function fetchSyncableSites( token: string ): Promise< SyncSite[] >
 		}
 	);
 
-	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites );
+	return sitesEndpointResponseSchema.parse( rawResponse ).sites;
+}
+
+export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
+	return transformSitesResponse( await fetchMeSites( token ) );
+}
+
+/**
+ * Like `fetchSyncableSites`, and also refreshes the current user's stored
+ * connections from the same response (name, URL, environment, sync support).
+ * A connected site missing from it is looked up on its own, and only marked
+ * `deleted` when that lookup 404s.
+ */
+export async function fetchSyncableSitesAndRefreshConnections(
+	token: string
+): Promise< SyncSite[] > {
+	const sites = await fetchMeSites( token );
+	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
+	if ( connectedSites.length > 0 ) {
+		await refreshConnectedSites( token, sites, connectedSites );
+	}
+	return transformSitesResponse( sites );
+}
+
+async function refreshConnectedSites(
+	token: string,
+	sites: unknown[],
+	connectedSites: SyncSite[]
+): Promise< void > {
+	const connectedIds = connectedSites.map( ( { id } ) => id );
+	const freshSites = transformSitesResponse( sites, { connectedSiteIds: connectedIds } );
+	const fetchedIds = new Set( freshSites.map( ( { id } ) => id ) );
+	const verifiedDeletedIds = new Set< number >();
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	await Promise.all(
+		connectedSites
+			.filter( ( { id } ) => ! fetchedIds.has( id ) )
+			.map( async ( storedSite ) => {
+				try {
+					const site = await wpcom.req.get(
+						{ apiNamespace: 'rest/v1.1', path: `/sites/${ storedSite.id }` },
+						{ fields: SITE_FIELDS, options: 'created_at,wpcom_staging_blog_ids' }
+					);
+					freshSites.push(
+						buildSupplementalSyncSite(
+							sitesEndpointSiteSchema.parse( site ),
+							storedSite,
+							connectedIds
+						)
+					);
+				} catch ( error ) {
+					// Any other failure (auth, network, 5xx) leaves the stored state as is.
+					if ( ( error as { statusCode?: number } )?.statusCode === 404 ) {
+						verifiedDeletedIds.add( storedSite.id );
+					}
+				}
+			} )
+	);
+
+	const { updatedConnectedSites } = reconcileConnectedSites(
+		connectedSites,
+		freshSites,
+		verifiedDeletedIds
+	);
+	// Leave the sync timestamps out: a push or pull may have stamped them since the read above.
+	await updateConnectedWpcomSites(
+		updatedConnectedSites.map( ( { lastPullTimestamp, lastPushTimestamp, ...site } ) => site )
+	);
 }
 
 export async function initiateBackup(

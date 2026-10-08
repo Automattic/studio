@@ -26,6 +26,7 @@ import {
 	PUSH_TO_LIVE_MUTATION_KEY,
 	useCancelSync,
 } from '@/data/queries/use-sync-site';
+import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { LiveSitesSection } from './live-sites-section';
@@ -122,6 +123,8 @@ export function MainView( {
 	const { data: snapshots } = useSnapshots();
 	const { data: snapshotUsage } = useSnapshotUsage();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	// Fetching the account's sites refreshes the stored connections shown below.
+	useSyncableWpcomSites( { enabled: !! connectedSites?.length } );
 
 	const siteSnapshots = useMemo(
 		() => getSiteSnapshots( snapshots, site.id ),

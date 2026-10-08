@@ -13,7 +13,10 @@ import {
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchLatestRewindId,
+	fetchSyncableSitesAndRefreshConnections,
+} from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -512,17 +515,7 @@ export async function updateConnectedWpcomSites(
 		throw new Error( 'User not authenticated' );
 	}
 
-	// Group the updates by their local site since our storage is now per-site.
-	const byLocalSite = new Map< string, SyncSite[] >();
-	for ( const site of updatedSites ) {
-		const list = byLocalSite.get( site.localSiteId ) ?? [];
-		list.push( site );
-		byLocalSite.set( site.localSiteId, list );
-	}
-
-	for ( const [ localSiteId, sites ] of byLocalSite ) {
-		await updateConnectedWpcomSitesShared( localSiteId, sites );
-	}
+	await updateConnectedWpcomSitesShared( updatedSites );
 }
 
 // Registered under the legacy renderer's key, so `cancelSyncOperation` stops these too.
@@ -589,7 +582,7 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken );
+	return fetchSyncableSitesAndRefreshConnections( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(

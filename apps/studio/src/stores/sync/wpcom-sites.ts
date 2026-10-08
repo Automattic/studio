@@ -1,5 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
+import { buildSupplementalSyncSite } from '@studio/common/lib/sync/build-supplemental-sync-site';
+import { reconcileConnectedSites } from '@studio/common/lib/sync/reconcile-connected-sites';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import {
 	transformSingleSiteResponse,
@@ -8,8 +10,6 @@ import {
 import { sitesEndpointSiteSchema, sitesEndpointResponseSchema } from '@studio/common/types/sync';
 import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { buildSupplementalSyncSite } from 'src/modules/sync/lib/build-supplemental-sync-site';
-import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
 import type { SyncSite } from '@studio/common/types/sync';

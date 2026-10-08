@@ -1,18 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import type { SyncSite } from '@/data/core';
 
 export const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
 export const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
+const CONNECTED_WPCOM_SITES_PREFIX = connectedWpcomSitesQueryKey( '' ).slice( 0, 1 );
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { data: authUser } = useAuthUser();
 	return useQuery( {
 		queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
-		queryFn: () => connector.fetchSyncableWpcomSites(),
+		queryFn: async () => {
+			const sites = await connector.fetchSyncableWpcomSites();
+			// The fetch also refreshed the stored connections.
+			void queryClient.invalidateQueries( { queryKey: CONNECTED_WPCOM_SITES_PREFIX } );
+			void queryClient.invalidateQueries( { queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } );
+			return sites;
+		},
 		enabled: ( options.enabled ?? true ) && !! authUser,
 		// This query hits the network and the data doesn't change often.
 		// Keep it fresh for a few minutes so opening/closing the picker

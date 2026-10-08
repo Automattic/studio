@@ -91,7 +91,11 @@ import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchLatestRewindId,
+	fetchSyncableSites,
+	fetchSyncableSitesAndRefreshConnections,
+} from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -1471,7 +1475,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json( await fetchSyncableSitesAndRefreshConnections( token.accessToken ) );
 		} )
 	);
 

@@ -91,6 +91,10 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 	useCancelSync: () => ( { mutate: cancelSyncMutate } ),
 } ) );
 
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	useSyncableWpcomSites: vi.fn(),
+} ) );
+
 const liveSite: SyncSite = {
 	id: 123,
 	localSiteId: 'site-1',

@@ -1,7 +1,7 @@
 import { SyncSite } from '@studio/common/types/sync';
 
 /**
- * Generate updated site data to be stored in `appdata-v1.json`:
+ * Refresh the stored connected sites from fresh WordPress.com data:
  * -- Update the list of `connectedSites` with fresh data (name, URL, etc)
  *
  * A connected site only gets marked `deleted` when its ID is in

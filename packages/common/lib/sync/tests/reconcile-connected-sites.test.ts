@@ -1,4 +1,5 @@
-import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
+import { describe, expect, test } from 'vitest';
+import { reconcileConnectedSites } from '../reconcile-connected-sites';
 import type { SyncSite } from '@studio/common/types/sync';
 
 const baseSite = ( overrides: Partial< SyncSite > = {} ): SyncSite => ( {

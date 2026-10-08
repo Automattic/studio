@@ -1,4 +1,5 @@
-import { buildSupplementalSyncSite } from 'src/modules/sync/lib/build-supplemental-sync-site';
+import { describe, expect, test } from 'vitest';
+import { buildSupplementalSyncSite } from '../build-supplemental-sync-site';
 import type { SitesEndpointSite, SyncSite } from '@studio/common/types/sync';
 
 // A rest/v1.1 /sites/{id} response for a Pressable site: the endpoint omits

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { removeAllConnectedWpcomSitesForLocalSite } from '../connected-sites';
+import {
+	removeAllConnectedWpcomSitesForLocalSite,
+	updateConnectedWpcomSites,
+} from '../connected-sites';
 import {
 	lockSharedConfig,
 	readSharedConfig,
@@ -9,6 +12,7 @@ import {
 import type { SyncSite } from '../../types/sync';
 
 vi.mock( '../shared-config', () => ( {
+	getCurrentUserId: vi.fn().mockResolvedValue( 7 ),
 	lockSharedConfig: vi.fn(),
 	readSharedConfig: vi.fn(),
 	saveSharedConfig: vi.fn(),
@@ -63,5 +67,25 @@ describe( 'removeAllConnectedWpcomSitesForLocalSite', () => {
 		await removeAllConnectedWpcomSitesForLocalSite( 'local-a' );
 
 		expect( config ).not.toHaveProperty( 'connectedWpcomSites' );
+	} );
+} );
+
+describe( 'updateConnectedWpcomSites', () => {
+	it( 'updates the connections matching both ids and keeps the fields an update leaves out', async () => {
+		const pushed = { ...connection( 1, 'local-a' ), lastPushTimestamp: '2026-10-01T00:00:00.000Z' };
+		const config = {
+			version: 1 as const,
+			connectedWpcomSites: { '7': [ pushed, connection( 1, 'local-b' ) ] },
+		};
+		vi.mocked( readSharedConfig ).mockResolvedValue( config );
+
+		await updateConnectedWpcomSites( [
+			{ id: 1, localSiteId: 'local-a', name: 'Renamed', syncSupport: 'deleted' },
+		] );
+
+		expect( config.connectedWpcomSites[ '7' ] ).toEqual( [
+			{ ...pushed, name: 'Renamed', syncSupport: 'deleted' },
+			connection( 1, 'local-b' ),
+		] );
 	} );
 } );

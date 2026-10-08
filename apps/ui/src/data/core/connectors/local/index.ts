@@ -349,6 +349,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
+					flowType: params.flowType,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,

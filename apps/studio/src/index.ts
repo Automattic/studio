@@ -9,6 +9,7 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 	shell,
+	type WebContents,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -78,16 +79,78 @@ function getRendererUrl(): string {
 	return getCurrentRendererUrl();
 }
 
-function openExternalWebUrl( url: string ): void {
+function parseWebUrl( url: string ): string | null {
 	try {
 		const parsedUrl = new URL( url );
-		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
-			return;
-		}
-		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+		return [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ? parsedUrl.toString() : null;
 	} catch {
 		// Ignore malformed URLs from untrusted pages.
+		return null;
 	}
+}
+
+function isOtherSiteThanPreview( contents: WebContents, url: string ) {
+	const currentUrl = parseWebUrl( contents.getURL() );
+	return ! currentUrl || new URL( url ).origin !== new URL( currentUrl ).origin;
+}
+
+// Links to the site shown in the pane open in the pane; others open in the
+// user's browser.
+function openSitePreviewPopupUrl( contents: WebContents, url: string ) {
+	if ( contents.isDestroyed() ) {
+		return;
+	}
+	if ( isOtherSiteThanPreview( contents, url ) ) {
+		void shell.openExternal( url ).catch( () => undefined );
+	} else {
+		void contents.loadURL( url ).catch( () => undefined );
+	}
+}
+
+// The site preview is a single pane, so it has nowhere to open new windows.
+// Scripts like the block editor's Preview open a blank window and point it at
+// the real URL later, so those get a hidden window that is followed instead.
+function handleSitePreviewPopups( contents: WebContents ) {
+	contents.setWindowOpenHandler( ( details ) => {
+		const url = parseWebUrl( details.url );
+		if ( url ) {
+			openSitePreviewPopupUrl( contents, url );
+			return { action: 'deny' };
+		}
+		if ( details.url === '' || details.url === 'about:blank' ) {
+			return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+		}
+		return { action: 'deny' };
+	} );
+
+	contents.on( 'did-create-window', ( popup ) => {
+		const closePopup = () => {
+			if ( ! popup.isDestroyed() ) {
+				popup.destroy();
+			}
+		};
+		const followPopup = ( targetUrl: string ) => {
+			const url = parseWebUrl( targetUrl );
+			if ( ! url ) {
+				return false;
+			}
+			closePopup();
+			openSitePreviewPopupUrl( contents, url );
+			return true;
+		};
+		popup.webContents.on( 'will-navigate', ( event ) => {
+			if ( followPopup( event.url ) ) {
+				event.preventDefault();
+			}
+		} );
+		popup.webContents.on( 'did-start-navigation', ( event ) => {
+			if ( event.isMainFrame ) {
+				followPopup( event.url );
+			}
+		} );
+		contents.once( 'did-navigate', closePopup );
+		contents.once( 'destroyed', closePopup );
+	} );
 }
 
 if ( ! process.env.IS_DEV_BUILD ) {
@@ -225,6 +288,11 @@ async function appBoot() {
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {
+				const url = parseWebUrl( navigationUrl );
+				if ( url && parseWebUrl( contents.getURL() ) && isOtherSiteThanPreview( contents, url ) ) {
+					event.preventDefault();
+					void shell.openExternal( url ).catch( () => undefined );
+				}
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
@@ -261,14 +329,11 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( ( details ) => {
-			// Site-preview popups (target="_blank", admin-bar links, …) open
-			// in the user's browser rather than spawning a new Electron window.
-			if ( isSitePreviewWebview ) {
-				openExternalWebUrl( details.url );
-			}
-			return { action: 'deny' };
-		} );
+		if ( isSitePreviewWebview ) {
+			handleSitePreviewPopups( contents );
+		} else {
+			contents.setWindowOpenHandler( () => ( { action: 'deny' } ) );
+		}
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {

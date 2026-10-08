@@ -21,6 +21,7 @@ import {
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
+import { warnIfRunningUnderArm64Translation } from 'src/lib/arm64-translation-warning';
 import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
@@ -258,6 +259,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		// During development the dev tools default to open.
 		setupDevTools( mainWindow, userData.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+		void warnIfRunningUnderArm64Translation();
 	} );
 
 	if ( process.platform === 'darwin' ) {

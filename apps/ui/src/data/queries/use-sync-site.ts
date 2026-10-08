@@ -4,7 +4,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
-import { toast } from '@/data/app-messages';
+import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
@@ -120,17 +120,6 @@ function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) 
 			  );
 	}
 	return undefined;
-}
-
-export function openStudioLogsAction( connector: Connector ) {
-	return {
-		label: __( 'Open Studio Logs' ),
-		onClick: () => {
-			void connector.openStudioLogs().catch( ( error ) => {
-				console.error( 'Failed to open Studio logs:', error );
-			} );
-		},
-	};
 }
 
 // Mount once near the app root.

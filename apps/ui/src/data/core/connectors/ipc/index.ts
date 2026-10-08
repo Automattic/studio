@@ -404,10 +404,11 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			// Success notification and error modal are shown by the main-process
-			// handler, mirroring the legacy renderer's export flow.
+			// The main process announces success; failures surface as a toast,
+			// as they do in the browser.
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'full',
+				showErrorModal: false,
 				showItemInFolder: true,
 				showNotification: true,
 			} );
@@ -436,6 +437,7 @@ export function createIpcConnector(): Connector {
 			}
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'db',
+				showErrorModal: false,
 				showItemInFolder: true,
 				showNotification: true,
 			} );

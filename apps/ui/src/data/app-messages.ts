@@ -1,4 +1,6 @@
+import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
+import type { Connector } from '@/data/core';
 
 // Session-only dismissals for persistent sidebar cards. Lives here rather than in
 // use-app-messages so the update hooks can reset it without an import cycle.
@@ -197,6 +199,17 @@ export function showToast( input: ToastInput ): string {
 
 	emit();
 	return toastMessage.id;
+}
+
+export function openStudioLogsAction( connector: Connector ) {
+	return {
+		label: __( 'Open Studio Logs' ),
+		onClick: () => {
+			void connector.openStudioLogs().catch( ( error ) => {
+				console.error( 'Failed to open Studio logs:', error );
+			} );
+		},
+	};
 }
 
 export function dismissToast( id: string ): void {

@@ -186,3 +186,14 @@ describe( '/api/onboarding-hints', () => {
 		expect( hints ).toEqual( { tourCompletedVersion: 2, migratedFromClassic: true } );
 	} );
 } );
+
+describe( 'GET /api/site-defaults/path', () => {
+	it( "proposes new sites under the desktop's default site directory", async () => {
+		const siteDirectory = path.join( configDir, 'Sites' );
+		writeAppConfig( { defaultSiteDirectory: siteDirectory } );
+
+		const response = await fetch( `${ server.url }/api/site-defaults/path?name=My%20Site` );
+
+		expect( ( await response.json() ).path ).toBe( path.join( siteDirectory, 'my-site' ) );
+	} );
+} );

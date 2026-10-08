@@ -59,7 +59,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -91,9 +90,10 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
-import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import {
+	getLocalFileSize,
+	listLocalFileTree as listSiteFileTree,
+} from '@studio/common/lib/sync/local-file-tree';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -224,7 +224,6 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -2090,15 +2089,7 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const fullPath = nodePath.join( site.details.path, ...filePath );
-	try {
-		return fs.statSync( fullPath ).size;
-	} catch ( error ) {
-		// Dangling symlink or unreadable entry. It's skipped when archiving,
-		// so count it as zero rather than failing the size check.
-		console.warn( `Skipping ${ fullPath }: ${ error }` );
-		return 0;
-	}
+	return getLocalFileSize( nodePath.join( site.details.path, ...filePath ) );
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
@@ -2400,66 +2391,14 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 }
 
 export async function listLocalFileTree(
-	_event: Electron.IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	siteId: string,
 	path: string,
-	maxDepth: number = 3,
-	currentDepth: number = 0,
-	deployIgnore?: Ignore
+	maxDepth: number = 3
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-
-	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_IGNORE_DEFAULTS );
-	}
-
-	const fullPath = nodePath.join( server.details.path, path );
-
-	try {
-		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
-		const result = [];
-
-		for ( const entry of entries ) {
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
-
-			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
-				continue;
-			}
-
-			const isDirectory = entry.isDirectory();
-
-			const directoryEntry: RawDirectoryEntry = {
-				name: entry.name,
-				isDirectory,
-				path: itemPath,
-			};
-
-			const shouldLimit = shouldLimitDepth( itemPath );
-			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
-				try {
-					directoryEntry.children = await listLocalFileTree(
-						_event,
-						siteId,
-						itemPath,
-						maxDepth,
-						currentDepth + 1,
-						deployIgnore
-					);
-				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
-					directoryEntry.children = [];
-				}
-			}
-
-			result.push( directoryEntry );
-		}
-
-		return result;
-	} catch ( err ) {
-		console.error( `Failed to list raw file tree for path ${ path }:`, err );
-		return [];
-	}
+	return listSiteFileTree( server.details.path, path, maxDepth );
 }
 
 export async function validateBlueprint(

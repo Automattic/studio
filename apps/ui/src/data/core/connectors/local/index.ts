@@ -32,6 +32,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -594,21 +595,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				) }&path=${ encodeURIComponent( path ) }`
 			);
 		},
-		// Selective-sync local lookups: the server has no per-file endpoints yet,
-		// so degrade the same way the dialog does elsewhere without this data —
-		// category-level selection works; file trees, size estimates, and
-		// version warnings are simply absent.
-		async listLocalFileTree() {
-			return [];
+		async listLocalFileTree( siteId, path, depth ) {
+			return api< RawDirectoryEntry[] >(
+				`/sites/${ encodeURIComponent( siteId ) }/file-tree?path=${ encodeURIComponent(
+					path
+				) }&depth=${ depth }`
+			);
 		},
-		async getDirectorySize() {
-			return 0;
+		async getDirectorySize( siteId, path ) {
+			return api< number >(
+				`/sites/${ encodeURIComponent( siteId ) }/directory-size?path=${ encodeURIComponent(
+					path.join( '/' )
+				) }`
+			);
 		},
-		async getFileSize() {
-			return 0;
+		async getFileSize( siteId, path ) {
+			return api< number >(
+				`/sites/${ encodeURIComponent( siteId ) }/file-size?path=${ encodeURIComponent(
+					path.join( '/' )
+				) }`
+			);
 		},
-		async getIsMultisite() {
-			return undefined;
+		async getIsMultisite( siteId ) {
+			return api< boolean >( `/sites/${ encodeURIComponent( siteId ) }/multisite` );
 		},
 		async getHostingPhpVersion( remoteSiteId ) {
 			const version = await api< string | null >(

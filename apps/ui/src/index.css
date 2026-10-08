@@ -49,6 +49,14 @@
 	--studio-color-status-sync: #a855f7;
 }
 
+/* Tokens stay light until ThemeProvider sets `data-color-scheme`: on a dark
+   launch, show the window's dark background instead of a light flash. */
+@media ( prefers-color-scheme: dark ) {
+	:root:not( [data-color-scheme] ) body {
+		background-color: transparent;
+	}
+}
+
 body {
 	margin: 0;
 	padding: 0;

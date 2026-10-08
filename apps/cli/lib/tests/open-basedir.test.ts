@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { containsPath, dropCoveredPaths } from '../native-php/open-basedir';
 
 const p = ( ...segments: string[] ) => path.join( path.sep, ...segments );
@@ -78,8 +78,8 @@ describe( 'dropCoveredPaths', () => {
 	} );
 } );
 
-// The cases above use paths that do not exist, so arePathsEqual falls back to
-// string comparison. These exercise the on-disk comparison it prefers.
+// The cases above use paths that do not exist. These exercise how existing paths
+// are resolved through the filesystem.
 describe( 'containsPath against a real filesystem', () => {
 	let root: string;
 	let site: string;
@@ -118,5 +118,24 @@ describe( 'containsPath against a real filesystem', () => {
 		fs.mkdirSync( sibling, { recursive: true } );
 
 		expect( containsPath( site, sibling ) ).toBe( false );
+	} );
+
+	// STU-2472: on Windows, unrelated directories can report the same ino/dev (lossy
+	// 64-bit file IDs, ReFS, network drives), which once dropped router.php from the list.
+	it( 'does not treat unrelated directories with colliding inode numbers as nested', () => {
+		const resources = path.join( root, 'resources', 'cli', 'php' );
+		const temp = path.join( root, 'Temp' );
+		fs.mkdirSync( resources, { recursive: true } );
+		fs.mkdirSync( temp, { recursive: true } );
+
+		const statSpy = vi
+			.spyOn( fs, 'statSync' )
+			.mockReturnValue( { ino: 1, dev: 1 } as unknown as fs.Stats );
+		try {
+			expect( containsPath( temp, resources ) ).toBe( false );
+			expect( dropCoveredPaths( [ site, temp, resources ] ) ).toEqual( [ site, temp, resources ] );
+		} finally {
+			statSpy.mockRestore();
+		}
 	} );
 } );

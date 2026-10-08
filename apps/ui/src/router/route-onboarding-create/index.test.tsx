@@ -325,6 +325,16 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.formProps?.isSubmitDisabled ).toBe( false );
 	} );
 
+	it( 'requires a custom domain for a multisite Blueprint', () => {
+		render( <CreateSitePage /> );
+		const multisite = blueprint( 'Network' );
+		multisite.blueprint.steps = [ { step: 'enableMultisite' } ];
+		selectBlueprint( multisite );
+
+		expect( mocks.formProps?.requiresCustomDomain ).toBe( true );
+		expect( mocks.formProps?.initialValues ).toMatchObject( { customDomain: 'network.wp.local' } );
+	} );
+
 	it( 'submits the selected Blueprint and restores the form after failure', async () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
 		render( <CreateSitePage /> );

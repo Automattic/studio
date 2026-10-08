@@ -3,6 +3,7 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
+import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -27,14 +28,17 @@ import type { CreateSiteFormValues } from '@/components/create-site-form';
 import type { AiModelId } from '@/data/core';
 
 function mapBlueprintSettingsToFormValues(
-	blueprint: SelectedBlueprint
+	blueprint: SelectedBlueprint,
+	settings: ReturnType< typeof extractFormValuesFromBlueprint >
 ): Partial< CreateSiteFormValues > {
-	const settings = extractFormValuesFromBlueprint( blueprint.blueprint );
+	const name = settings.siteName || blueprint.title;
 	return {
-		name: settings.siteName || blueprint.title,
+		name,
 		phpVersion: settings.phpVersion,
 		wpVersion: settings.wpVersion,
-		customDomain: settings.customDomain,
+		customDomain:
+			settings.customDomain ??
+			( settings.requiresCustomDomain ? generateCustomDomainFromSiteName( name ) : undefined ),
 		enableHttps: settings.enableHttps,
 		adminUsername: settings.adminUsername,
 		adminPassword: settings.adminPassword,
@@ -280,12 +284,18 @@ export function CreateSitePage() {
 		[ cleanupBlueprint, setProgress ]
 	);
 
+	const blueprintSettings = useMemo(
+		() => selectedBlueprint && extractFormValuesFromBlueprint( selectedBlueprint.blueprint ),
+		[ selectedBlueprint ]
+	);
 	const initialValues = useMemo(
 		() => ( {
 			...( proposedName ? { name: proposedName } : {} ),
-			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
+			...( selectedBlueprint && blueprintSettings
+				? mapBlueprintSettingsToFormValues( selectedBlueprint, blueprintSettings )
+				: {} ),
 		} ),
-		[ proposedName, selectedBlueprint ]
+		[ proposedName, selectedBlueprint, blueprintSettings ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -376,6 +386,7 @@ export function CreateSitePage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
+				requiresCustomDomain={ !! blueprintSettings?.requiresCustomDomain }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				panelFooter={

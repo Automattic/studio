@@ -482,9 +482,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< Snapshot[] >( '/snapshots' );
 		},
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			// No usage endpoint on the local server yet; callers fall back to
-			// counting snapshots.
-			return null;
+			return api< SnapshotUsage | null >( '/snapshots/usage' );
 		},
 		async getStudioAssistantQuota() {
 			// The server proxies the WordPress.com quota endpoint and returns

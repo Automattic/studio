@@ -350,14 +350,8 @@ export function CreateSitePage() {
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )
 			);
-			if ( blueprint?.tempDir ) {
-				await connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-				transferredTempDirRef.current = null;
-				if ( selectedBlueprintRef.current === blueprint ) {
-					selectedBlueprintRef.current = null;
-					setSelectedBlueprint( null );
-				}
-			}
+			// The server keeps an uploaded bundle when creation fails; it's ours to clean up again.
+			transferredTempDirRef.current = null;
 		}
 	};
 

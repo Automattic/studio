@@ -488,6 +488,21 @@ describe( 'CreateSiteForm', () => {
 		);
 	} );
 
+	it( 'pins a suggested WordPress branch to its newest release', async () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+				{ label: '6.5.13', value: '6.5.13', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'Old Blueprint', wpVersion: '6.5' } );
+		openAdvancedSettings();
+
+		await waitFor( () => expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.5.13' ) );
+		expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+	} );
+
 	// The site does not exist yet, so the description names the version it will
 	// be created with rather than claiming one is already in use.
 	it( 'names the version a new site will be created with', () => {

@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { CatchBoundary, RouterProvider } from '@tanstack/react-router';
 import { StrictMode, Suspense, use, useMemo } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type RootOptions } from 'react-dom/client';
 import { AppErrorFallback } from '@/components/app-error-fallback';
 import { ConnectorProvider, persistPromise, queryClient } from '@/data/core';
 import { useTextContextMenu } from '@/hooks/use-text-context-menu';
@@ -18,9 +18,9 @@ interface AppProps {
 	connector: Connector;
 }
 
-export function startApp( connector: Connector ) {
+export function startApp( connector: Connector, rootOptions?: RootOptions ) {
 	const ready = Promise.all( [ connector.init?.(), applyLocale( connector ), persistPromise ] );
-	createRoot( document.getElementById( 'root' )! ).render(
+	createRoot( document.getElementById( 'root' )!, rootOptions ).render(
 		<StrictMode>
 			<ConnectorProvider connector={ connector }>
 				<QueryClientProvider client={ queryClient }>

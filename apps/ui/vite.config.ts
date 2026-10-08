@@ -1,5 +1,6 @@
 import { createRequire } from 'module';
 import { resolve } from 'path';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
 import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
@@ -34,6 +35,12 @@ const browserConfig: Record< BrowserTarget, { entry: string; outDir: string; por
 };
 const active = isBrowser ? browserConfig[ target as BrowserTarget ] : undefined;
 
+// The Electron renderer reports errors through the desktop app's Sentry
+// client, so release builds upload its source maps under the app's release.
+const uploadSourceMaps =
+	! isBrowser && ! process.env.IS_DEV_BUILD && !! process.env.SENTRY_AUTH_TOKEN;
+const studioVersion = createRequire( import.meta.url )( '../studio/package.json' ).version;
+
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
 // Serve the target's entry instead for any document navigation (`/`, `/sites`,
@@ -60,7 +67,19 @@ const browserDevEntryPlugin: Plugin = {
 };
 
 export default defineConfig( {
-	plugins: [ react(), dsTokenFallbacks(), ...( isBrowser ? [ browserDevEntryPlugin ] : [] ) ],
+	plugins: [
+		react(),
+		dsTokenFallbacks(),
+		...( isBrowser ? [ browserDevEntryPlugin ] : [] ),
+		// Sentry must be the last plugin
+		uploadSourceMaps &&
+			sentryVitePlugin( {
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+				org: 'a8c',
+				project: 'studio',
+				release: { name: `studio@${ studioVersion }` },
+			} ),
+	],
 	css: {
 		postcss: {
 			plugins: [ dsTokenFallbacksPostcss ],
@@ -89,6 +108,7 @@ export default defineConfig( {
 	},
 	build: {
 		outDir: active?.outDir ?? 'dist',
+		sourcemap: ! isBrowser,
 		rolldownOptions: {
 			input: resolve( __dirname, active?.entry ?? 'index.html' ),
 		},

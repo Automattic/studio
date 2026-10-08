@@ -44,6 +44,8 @@
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@sentry/electron": "^7.18.0",
+		"@sentry/vite-plugin": "^5.4.0",
 		"@types/react": "^19.2.15",
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.5",

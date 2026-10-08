@@ -34,11 +34,11 @@ describe( 'portFinder STUDIO_BASE_PORT', () => {
 	} );
 } );
 
-function listenOnLocalhost( port: number ): Promise< net.Server > {
+function listenOnLocalhost( port: number, host = 'localhost' ): Promise< net.Server > {
 	return new Promise( ( resolve, reject ) => {
 		const server = net.createServer();
 		server.once( 'error', reject );
-		server.listen( port, 'localhost', () => resolve( server ) );
+		server.listen( port, host, () => resolve( server ) );
 	} );
 }
 
@@ -70,5 +70,31 @@ describe( 'portFinder availability detection', () => {
 		expect( port ).toBeGreaterThan( occupied );
 		// Binding throws if getOpenPort handed back an occupied port.
 		openServers.push( await listenOnLocalhost( port ) );
+	} );
+
+	it.for( [ '127.0.0.1', '::1' ] )( 'skips a port occupied only on %s', async ( host, context ) => {
+		let occupiedServer: net.Server;
+		try {
+			occupiedServer = await listenOnLocalhost( 0, host );
+		} catch ( error ) {
+			if (
+				host === '::1' &&
+				[ 'EAFNOSUPPORT', 'EADDRNOTAVAIL' ].includes(
+					( error as NodeJS.ErrnoException ).code ?? ''
+				)
+			) {
+				context.skip();
+			}
+			throw error;
+		}
+		openServers.push( occupiedServer );
+		const occupied = ( occupiedServer.address() as net.AddressInfo ).port;
+		process.env.STUDIO_BASE_PORT = String( occupied );
+		vi.resetModules();
+		const { portFinder } = await import( '../port-finder' );
+
+		const port = await portFinder.getOpenPort();
+		expect( port ).toBeGreaterThan( occupied );
+		openServers.push( await listenOnLocalhost( port, host ) );
 	} );
 } );

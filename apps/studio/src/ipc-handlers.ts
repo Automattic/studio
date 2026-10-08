@@ -190,6 +190,7 @@ import {
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -927,7 +928,9 @@ export async function createSite(
 			throw new Error( logErrorMessage );
 		}
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	} finally {
 		if ( bundleTempDir ) {
 			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );

@@ -332,7 +332,11 @@ describe( 'CreateSitePage', () => {
 		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
-		await screen.findByText( 'Creation failed' );
+		await waitFor( () =>
+			expect( mocks.formProps?.submitError ).toEqual(
+				expect.objectContaining( { details: 'Creation failed' } )
+			)
+		);
 		expect( mocks.setProgress ).toHaveBeenCalledWith( 'Creating site…' );
 		expect( mocks.setProgress ).toHaveBeenCalledWith( null );
 		expect( mocks.mutateAsync ).toHaveBeenCalledWith(

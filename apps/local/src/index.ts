@@ -50,7 +50,7 @@ import {
 	cliSyncEventSchema,
 	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
-import { createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
+import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -1000,6 +1000,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
+			} catch ( error ) {
+				throw error instanceof CliCommandError && error.lastErrorMessage
+					? new Error( error.lastErrorMessage )
+					: error;
 			} finally {
 				cleanupCreateArgs();
 				if ( body.blueprint?.filePath ) {

@@ -123,7 +123,6 @@ interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;
-	arm64Translation: boolean;
 	isWindowsStore: boolean;
 }
 

@@ -554,6 +554,8 @@ export interface Connector {
 	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 	// Fires whenever a preview site is created, updated or deleted, by anyone.
 	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
+	// Fires when a new `getSiteThumbnail` capture is ready, e.g. after a start.
+	onSiteThumbnailLoaded( listener: ( siteId: string ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
@@ -324,8 +325,9 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 }
 
 /**
- * Keeps the cached site list in sync with main-process events (site created,
- * updated, started, stopped, deleted). Mount once near the app root.
+ * Keeps the cached site list and thumbnails in sync with main-process events
+ * (site created, updated, started, stopped, deleted; thumbnail captured). Mount
+ * once near the app root.
  */
 export function useSyncSitesWithEvents(): void {
 	const connector = useConnector();
@@ -355,6 +357,13 @@ export function useSyncSitesWithEvents(): void {
 			}
 		} );
 	}, [ connector, queryClient ] );
+	useEffect(
+		() =>
+			connector.onSiteThumbnailLoaded( ( siteId ) => {
+				void queryClient.invalidateQueries( { queryKey: siteThumbnailQueryKey( siteId ) } );
+			} ),
+		[ connector, queryClient ]
+	);
 }
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:

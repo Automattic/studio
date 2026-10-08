@@ -842,6 +842,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
+		onSiteThumbnailLoaded() {
+			// Thumbnails are captured by the desktop app only.
+			return () => {};
+		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.
 			return () => {};

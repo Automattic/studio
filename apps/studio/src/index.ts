@@ -8,7 +8,7 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
-	shell,
+	type WebContents,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -78,16 +78,63 @@ function getRendererUrl(): string {
 	return getCurrentRendererUrl();
 }
 
-function openExternalWebUrl( url: string ): void {
+function parseWebUrl( url: string ): string | null {
 	try {
 		const parsedUrl = new URL( url );
-		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
-			return;
-		}
-		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+		return [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ? parsedUrl.toString() : null;
 	} catch {
 		// Ignore malformed URLs from untrusted pages.
+		return null;
 	}
+}
+
+// The site preview is a single pane, so its popups open in that pane. Scripts
+// like the block editor's Preview open a blank window and point it at the real
+// URL later, so those get a hidden window whose first web navigation is loaded
+// into the pane instead.
+function openPopupsInSitePreview( contents: WebContents ) {
+	contents.setWindowOpenHandler( ( details ) => {
+		const url = parseWebUrl( details.url );
+		if ( url ) {
+			void contents.loadURL( url ).catch( () => undefined );
+			return { action: 'deny' };
+		}
+		if ( details.url === '' || details.url === 'about:blank' ) {
+			return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+		}
+		return { action: 'deny' };
+	} );
+
+	contents.on( 'did-create-window', ( popup ) => {
+		const closePopup = () => {
+			if ( ! popup.isDestroyed() ) {
+				popup.destroy();
+			}
+		};
+		const followPopup = ( targetUrl: string ) => {
+			const url = parseWebUrl( targetUrl );
+			if ( ! url ) {
+				return false;
+			}
+			closePopup();
+			if ( ! contents.isDestroyed() ) {
+				void contents.loadURL( url ).catch( () => undefined );
+			}
+			return true;
+		};
+		popup.webContents.on( 'will-navigate', ( event ) => {
+			if ( followPopup( event.url ) ) {
+				event.preventDefault();
+			}
+		} );
+		popup.webContents.on( 'did-start-navigation', ( event ) => {
+			if ( event.isMainFrame ) {
+				followPopup( event.url );
+			}
+		} );
+		contents.once( 'did-navigate', closePopup );
+		contents.once( 'destroyed', closePopup );
+	} );
 }
 
 if ( ! process.env.IS_DEV_BUILD ) {
@@ -261,14 +308,11 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( ( details ) => {
-			// Site-preview popups (target="_blank", admin-bar links, …) open
-			// in the user's browser rather than spawning a new Electron window.
-			if ( isSitePreviewWebview ) {
-				openExternalWebUrl( details.url );
-			}
-			return { action: 'deny' };
-		} );
+		if ( isSitePreviewWebview ) {
+			openPopupsInSitePreview( contents );
+		} else {
+			contents.setWindowOpenHandler( () => ( { action: 'deny' } ) );
+		}
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {

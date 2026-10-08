@@ -333,6 +333,96 @@ describe( 'App initialization', () => {
 		} );
 	} );
 
+	describe( 'popups from the site preview', () => {
+		type Listener = ( ...args: any[] ) => void;
+		type WindowOpenHandler = ( details: { url: string } ) => unknown;
+
+		function findListener( on: ReturnType< typeof vi.fn >, eventName: string ) {
+			return on.mock.calls.find( ( [ event ] ) => event === eventName )?.[ 1 ] as
+				| Listener
+				| undefined;
+		}
+
+		async function capturePopupHandling( contentsType: string ) {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			await mockedEvents.ready();
+
+			const contents = {
+				getType: () => contentsType,
+				on: vi.fn(),
+				once: vi.fn(),
+				setWindowOpenHandler: vi.fn(),
+				isDestroyed: vi.fn().mockReturnValue( false ),
+				loadURL: vi.fn().mockResolvedValue( undefined ),
+			};
+			await mockedEvents[ 'web-contents-created' ]( {}, contents );
+
+			const windowOpenHandler = contents.setWindowOpenHandler.mock
+				.calls[ 0 ]?.[ 0 ] as WindowOpenHandler;
+
+			function createPopup() {
+				const popup = {
+					isDestroyed: vi.fn().mockReturnValue( false ),
+					destroy: vi.fn(),
+					webContents: { on: vi.fn() },
+				};
+				findListener( contents.on, 'did-create-window' )?.( popup );
+				return popup;
+			}
+
+			return { contents, windowOpenHandler, createPopup };
+		}
+
+		it( 'loads popup links in the site preview', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'http://localhost:8881/hello-world/' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/hello-world/' );
+		} );
+
+		it( 'ignores popups that are not web pages', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'file:///etc/passwd' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'follows a blank popup to its first web page in the site preview', async () => {
+			const { contents, windowOpenHandler, createPopup } = await capturePopupHandling( 'webview' );
+
+			expect( windowOpenHandler( { url: 'about:blank' } ) ).toEqual( {
+				action: 'allow',
+				overrideBrowserWindowOptions: { show: false },
+			} );
+
+			const popup = createPopup();
+			const onStartNavigation = findListener( popup.webContents.on, 'did-start-navigation' );
+			onStartNavigation?.( { url: 'about:blank', isMainFrame: true } );
+			expect( popup.destroy ).not.toHaveBeenCalled();
+
+			onStartNavigation?.( { url: 'http://localhost:8881/?p=1&preview=true', isMainFrame: true } );
+
+			expect( popup.destroy ).toHaveBeenCalled();
+			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/?p=1&preview=true' );
+		} );
+
+		it( 'blocks popups outside the site preview', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'window' );
+
+			expect( windowOpenHandler( { url: 'https://wordpress.org/' } ) ).toEqual( {
+				action: 'deny',
+			} );
+			expect( windowOpenHandler( { url: 'about:blank' } ) ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+	} );
+
 	it( 'should handle authentication deep links', async () => {
 		const originalProcessPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );

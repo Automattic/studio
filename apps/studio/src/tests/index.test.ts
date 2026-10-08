@@ -159,6 +159,9 @@ function mockElectron() {
 				showMessageBox: vi.fn(),
 				showMessageBoxSync: vi.fn(),
 			},
+			shell: {
+				openExternal: vi.fn().mockResolvedValue( undefined ),
+			},
 		};
 	} );
 
@@ -348,9 +351,11 @@ describe( 'App initialization', () => {
 			vi.resetModules();
 			await import( '../index' );
 			await mockedEvents.ready();
+			const { shell } = await import( 'electron' );
 
 			const contents = {
 				getType: () => contentsType,
+				getURL: () => 'http://localhost:8881/wp-admin/post.php?post=1&action=edit',
 				on: vi.fn(),
 				once: vi.fn(),
 				setWindowOpenHandler: vi.fn(),
@@ -372,7 +377,7 @@ describe( 'App initialization', () => {
 				return popup;
 			}
 
-			return { contents, windowOpenHandler, createPopup };
+			return { contents, shell, windowOpenHandler, createPopup };
 		}
 
 		it( 'loads popup links in the site preview', async () => {
@@ -382,6 +387,36 @@ describe( 'App initialization', () => {
 
 			expect( result ).toEqual( { action: 'deny' } );
 			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/hello-world/' );
+		} );
+
+		it( 'opens popup links to other sites in the system browser', async () => {
+			const { contents, shell, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'https://wordpress.org/' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'opens plain links to other sites in the system browser', async () => {
+			const { contents, shell } = await capturePopupHandling( 'webview' );
+			const event = { preventDefault: vi.fn() };
+
+			findListener( contents.on, 'will-navigate' )?.( event, 'https://wordpress.org/' );
+
+			expect( event.preventDefault ).toHaveBeenCalled();
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+		} );
+
+		it( 'follows plain links within the site in the site preview', async () => {
+			const { contents, shell } = await capturePopupHandling( 'webview' );
+			const event = { preventDefault: vi.fn() };
+
+			findListener( contents.on, 'will-navigate' )?.( event, 'http://localhost:8881/hello-world/' );
+
+			expect( event.preventDefault ).not.toHaveBeenCalled();
+			expect( shell.openExternal ).not.toHaveBeenCalled();
 		} );
 
 		it( 'ignores popups that are not web pages', async () => {
@@ -410,6 +445,25 @@ describe( 'App initialization', () => {
 
 			expect( popup.destroy ).toHaveBeenCalled();
 			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/?p=1&preview=true' );
+		} );
+
+		it( 'follows a blank popup to another site in the system browser', async () => {
+			const { contents, shell, windowOpenHandler, createPopup } =
+				await capturePopupHandling( 'webview' );
+
+			windowOpenHandler( { url: '' } );
+			const popup = createPopup();
+			findListener(
+				popup.webContents.on,
+				'did-start-navigation'
+			)?.( {
+				url: 'https://wordpress.org/',
+				isMainFrame: true,
+			} );
+
+			expect( popup.destroy ).toHaveBeenCalled();
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
 		} );
 
 		it( 'blocks popups outside the site preview', async () => {

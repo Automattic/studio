@@ -8,6 +8,7 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
 	type WebContents,
 } from 'electron';
 import path from 'path';
@@ -88,15 +89,32 @@ function parseWebUrl( url: string ): string | null {
 	}
 }
 
-// The site preview is a single pane, so its popups open in that pane. Scripts
-// like the block editor's Preview open a blank window and point it at the real
-// URL later, so those get a hidden window whose first web navigation is loaded
-// into the pane instead.
-function openPopupsInSitePreview( contents: WebContents ) {
+function isOtherSiteThanPreview( contents: WebContents, url: string ) {
+	const currentUrl = parseWebUrl( contents.getURL() );
+	return ! currentUrl || new URL( url ).origin !== new URL( currentUrl ).origin;
+}
+
+// Links to the site shown in the pane open in the pane; others open in the
+// user's browser.
+function openSitePreviewPopupUrl( contents: WebContents, url: string ) {
+	if ( contents.isDestroyed() ) {
+		return;
+	}
+	if ( isOtherSiteThanPreview( contents, url ) ) {
+		void shell.openExternal( url ).catch( () => undefined );
+	} else {
+		void contents.loadURL( url ).catch( () => undefined );
+	}
+}
+
+// The site preview is a single pane, so it has nowhere to open new windows.
+// Scripts like the block editor's Preview open a blank window and point it at
+// the real URL later, so those get a hidden window that is followed instead.
+function handleSitePreviewPopups( contents: WebContents ) {
 	contents.setWindowOpenHandler( ( details ) => {
 		const url = parseWebUrl( details.url );
 		if ( url ) {
-			void contents.loadURL( url ).catch( () => undefined );
+			openSitePreviewPopupUrl( contents, url );
 			return { action: 'deny' };
 		}
 		if ( details.url === '' || details.url === 'about:blank' ) {
@@ -117,9 +135,7 @@ function openPopupsInSitePreview( contents: WebContents ) {
 				return false;
 			}
 			closePopup();
-			if ( ! contents.isDestroyed() ) {
-				void contents.loadURL( url ).catch( () => undefined );
-			}
+			openSitePreviewPopupUrl( contents, url );
 			return true;
 		};
 		popup.webContents.on( 'will-navigate', ( event ) => {
@@ -272,6 +288,11 @@ async function appBoot() {
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {
+				const url = parseWebUrl( navigationUrl );
+				if ( url && parseWebUrl( contents.getURL() ) && isOtherSiteThanPreview( contents, url ) ) {
+					event.preventDefault();
+					void shell.openExternal( url ).catch( () => undefined );
+				}
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
@@ -309,7 +330,7 @@ async function appBoot() {
 			}
 		} );
 		if ( isSitePreviewWebview ) {
-			openPopupsInSitePreview( contents );
+			handleSitePreviewPopups( contents );
 		} else {
 			contents.setWindowOpenHandler( () => ( { action: 'deny' } ) );
 		}

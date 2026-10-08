@@ -1,6 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
+import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, external, Icon } from '@wordpress/icons';
@@ -26,6 +27,7 @@ import {
 	PUSH_TO_LIVE_MUTATION_KEY,
 	useCancelSync,
 } from '@/data/queries/use-sync-site';
+import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { LiveSitesSection } from './live-sites-section';
@@ -121,7 +123,12 @@ export function MainView( {
 	const login = useLogin( { source: 'site_header' } );
 	const { data: snapshots } = useSnapshots();
 	const { data: snapshotUsage } = useSnapshotUsage();
-	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const { data: storedSites } = useConnectedWpcomSites( site.id );
+	const { data: wpcomSites } = useSyncableWpcomSites( { enabled: !! storedSites?.length } );
+	const connectedSites = useMemo(
+		() => withWpcomDetails( storedSites ?? [], wpcomSites ),
+		[ storedSites, wpcomSites ]
+	);
 
 	const siteSnapshots = useMemo(
 		() => getSiteSnapshots( snapshots, site.id ),
@@ -304,7 +311,7 @@ export function MainView( {
 			/>
 
 			<LiveSitesSection
-				liveSites={ connectedSites ?? [] }
+				liveSites={ connectedSites }
 				activity={ activity }
 				notice={ getLivePanelCopy( agenticEnabled, isOffline ) }
 				actionLabel={ agenticEnabled || isOffline ? __( 'Connect site' ) : __( 'Log in' ) }

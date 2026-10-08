@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { transformSitesResponse } from '../transform-sites';
+import { transformSitesResponse, withWpcomDetails } from '../transform-sites';
 
 // WordPress.com only returns options.software_version for Atomic/Jetpack
 // sites. Simple sites — which includes Business plans that have not yet been
@@ -79,5 +79,34 @@ describe( 'transformSitesResponse', () => {
 
 		expect( result.find( ( s ) => s.id === 3 )?.wpVersion ).toBe( '6.5' );
 		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
+	} );
+} );
+
+describe( 'withWpcomDetails', () => {
+	it( 'takes details from the site list, keeps the stored sync times, and flags missing sites', () => {
+		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
+		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
+		const stored = ( id: number ) => ( {
+			...business,
+			id,
+			localSiteId: 'local',
+			name: 'Old name',
+			syncSupport: 'already-connected' as const,
+			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
+		} );
+
+		const [ renamed, downgraded, gone ] = withWpcomDetails(
+			[ stored( business.id ), stored( free.id ), stored( 99 ) ],
+			[ business, free ]
+		);
+
+		expect( renamed ).toMatchObject( {
+			name: 'Simple Business',
+			localSiteId: 'local',
+			syncSupport: 'already-connected',
+			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
+		} );
+		expect( downgraded.syncSupport ).toBe( 'needs-upgrade' );
+		expect( gone ).toMatchObject( { name: 'Old name', syncSupport: 'deleted' } );
 	} );
 } );

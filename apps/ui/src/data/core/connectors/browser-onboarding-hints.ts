@@ -1,8 +1,7 @@
 import type { OnboardingHintsState } from '../types';
 
-// Workbench onboarding state. The desktop persists this in appdata via IPC; the
-// browser connectors (local + hosted) have no such store, so it lives in
-// localStorage, per origin.
+// Workbench onboarding state for the hosted connector, which has no app.json to
+// share with the desktop, so it lives in localStorage, per origin.
 const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
 
 export function readOnboardingHints(): OnboardingHintsState {

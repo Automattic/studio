@@ -917,6 +917,13 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onSiteThumbnailLoaded( listener ) {
+			return ipcListener.subscribe(
+				'thumbnail-loaded',
+				( _event: unknown, { id }: { id: string } ) => listener( id )
+			);
+		},
+
 		onToggleSitePreview( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

@@ -188,6 +188,7 @@ describe( 'useSyncSitesWithEvents', () => {
 				emitSiteEvent = listener;
 				return () => {};
 			},
+			onSiteThumbnailLoaded: () => () => {},
 		} as unknown as Connector );
 		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
 		const { result } = renderHook(

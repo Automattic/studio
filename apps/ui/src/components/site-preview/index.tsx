@@ -31,6 +31,7 @@ import { PREVIEW_TOGGLE_DURATION } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { siteDesignQueryKey, useSiteDesign } from '@/data/queries/use-site-design';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -397,8 +398,6 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	annotationCount: 0,
 	hasUnsavedDraft: false,
 };
-
-const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 
 // Where each realm segment lands before its per-realm memory has anything better.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
@@ -1129,7 +1128,7 @@ export function SitePreview( {
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	const siteDesign = useSiteDesign( site );
 	const siteThumbnail = useQuery( {
-		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
+		queryKey: siteThumbnailQueryKey( site.id ),
 		queryFn: () => connector.getSiteThumbnail( site.id ),
 		enabled: ! canPreview,
 		meta: { persist: false },

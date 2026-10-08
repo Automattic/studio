@@ -510,6 +510,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onSnapshotEvent() {
 			return () => {};
 		},
+		onSiteThumbnailLoaded() {
+			return () => {};
+		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.
 			return () => {};

@@ -69,7 +69,7 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
-import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import {
 	DEFAULT_ADMIN_USERNAME,
 	decodeAdminPassword,
@@ -615,11 +615,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			if ( token?.accessToken ) {
-				await fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/token', {
-					method: 'DELETE',
-					headers: { Authorization: `Bearer ${ token.accessToken }` },
-				} ).catch( () => undefined );
+			if ( token ) {
+				await revokeAuthToken( token.accessToken ).catch( () => undefined );
 			}
 			await updateSharedConfig( { authToken: undefined } );
 			res.status( 204 ).end();

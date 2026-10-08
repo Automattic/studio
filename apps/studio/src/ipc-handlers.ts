@@ -76,7 +76,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import {
 	DEFAULT_ADMIN_PASSWORD,
 	decodePassword,
@@ -86,6 +86,7 @@ import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
+	readAuthToken,
 	readSharedConfig,
 	updateSharedConfig,
 	updateSharedSession,
@@ -1339,6 +1340,11 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	const token = await readAuthToken();
+	if ( token ) {
+		// Best-effort: logging out offline still signs out locally.
+		await revokeAuthToken( token.accessToken ).catch( () => undefined );
+	}
 	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }

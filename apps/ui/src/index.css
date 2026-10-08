@@ -49,6 +49,13 @@
 	--studio-color-status-sync: #a855f7;
 }
 
+/* The color tokens hold their light defaults until ThemeProvider mounts (which
+   sets `data-color-scheme`), so let the window's own background show through
+   instead of flashing light on a dark launch. */
+:root:not( [data-color-scheme] ) body {
+	background-color: transparent;
+}
+
 body {
 	margin: 0;
 	padding: 0;

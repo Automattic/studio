@@ -2,6 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { listSites } from '@studio/common/sites/list';
 import fsExtra from 'fs-extra';
@@ -11,6 +12,7 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -76,7 +78,13 @@ export async function reconcileSitesRunningState(): Promise< void > {
 		if ( actualRunning === undefined ) {
 			continue;
 		}
-		server.adoptRunningState( actualRunning );
+		if ( server.adoptRunningState( actualRunning ) ) {
+			void sendIpcEventToRenderer( 'site-event', {
+				event: SITE_EVENTS.UPDATED,
+				siteId: server.details.id,
+				running: server.details.running,
+			} );
+		}
 	}
 }
 

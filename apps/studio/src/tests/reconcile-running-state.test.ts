@@ -2,8 +2,10 @@
  * @vitest-environment node
  */
 import EventEmitter from 'node:events';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { listSites } from '@studio/common/sites/list';
 import { vi } from 'vitest';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { SiteServer, reconcileSitesRunningState } from 'src/site-server';
 
 // `vi.mock` calls are hoisted above the imports above, so SiteServer sees the mocked CLI plumbing.
@@ -18,6 +20,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 vi.mock( '@studio/common/sites/list', () => ( {
 	listSites: vi.fn(),
 } ) );
+vi.mock( 'src/ipc-utils' );
 
 const mockListSites = vi.mocked( listSites );
 
@@ -53,6 +56,11 @@ describe( 'reconcileSitesRunningState', () => {
 		await reconcileSitesRunningState();
 
 		expect( SiteServer.get( 'stopped-in-reality' )?.details.running ).toBe( false );
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'site-event', {
+			event: SITE_EVENTS.UPDATED,
+			siteId: 'stopped-in-reality',
+			running: false,
+		} );
 	} );
 
 	it( 'marks a site running (with url) when the CLI reports it is actually running', async () => {

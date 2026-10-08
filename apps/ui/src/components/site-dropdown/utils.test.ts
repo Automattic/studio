@@ -85,16 +85,16 @@ describe( 'getSnapshotTimesLabel', () => {
 	const snapshot = { url: 'a.example.com', atomicSiteId: 1, localSiteId: 'site-1' };
 
 	it( 'states when a preview was updated and when it expires', () => {
-		expect( getSnapshotTimesLabel( { ...snapshot, date: now - 23 * 60_000 }, now ) ).toBe(
+		expect( getSnapshotTimesLabel( { ...snapshot, date: now - 23 * 60_000 }, 'en', now ) ).toBe(
 			'Updated 23 min. ago · expires in 7 days'
 		);
-		expect( getSnapshotTimesLabel( { ...snapshot, date: now }, now ) ).toBe(
+		expect( getSnapshotTimesLabel( { ...snapshot, date: now }, 'en', now ) ).toBe(
 			'Updated now · expires in 7 days'
 		);
 	} );
 
 	it( 'states how long ago an expired preview expired', () => {
-		expect( getSnapshotExpiredLabel( { ...snapshot, date: now - 10 * DAY_MS }, now ) ).toBe(
+		expect( getSnapshotExpiredLabel( { ...snapshot, date: now - 10 * DAY_MS }, 'en', now ) ).toBe(
 			'Expired 3 days ago'
 		);
 	} );

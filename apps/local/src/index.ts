@@ -108,6 +108,7 @@ import { listSites } from '@studio/common/sites/list';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
+	deleteAllPreviewSites,
 	deletePreviewSite,
 	fetchSnapshots,
 	publishPreviewSite,
@@ -1526,6 +1527,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
 			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+		} )
+	);
+
+	api.delete(
+		'/snapshots',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			await deleteAllPreviewSites( execute );
+			res.sendStatus( 204 );
 		} )
 	);
 

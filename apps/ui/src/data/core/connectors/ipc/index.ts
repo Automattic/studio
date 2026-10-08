@@ -205,7 +205,7 @@ export function createIpcConnector(): Connector {
 				blueprint,
 				flowType,
 			} = params;
-			return ( await ipcApi.createSite( path, {
+			const created = ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
 				fileAccess,
@@ -225,7 +225,8 @@ export function createIpcConnector(): Connector {
 					  }
 					: undefined,
 				flowType,
-			} ) ) as SiteDetails;
+			} );
+			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
 		async deleteSite( id, deleteFiles = true ) {

@@ -1,6 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { type SiteOperationKind } from '@studio/common/lib/site-operation';
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
+import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { useIsMutating } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, external, Icon } from '@wordpress/icons';
@@ -26,7 +27,7 @@ import {
 	PUSH_TO_LIVE_MUTATION_KEY,
 	useCancelSync,
 } from '@/data/queries/use-sync-site';
-import { canCancelSyncActivity, getSyncCancelLabels } from '@/data/sync-activity';
+import { getSyncCancelLabels } from '@/data/sync-activity';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { LiveSitesSection } from './live-sites-section';
 import styles from './main-view.module.css';

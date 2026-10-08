@@ -1,5 +1,5 @@
 import { SYNC_EVENTS } from '@studio/common/lib/cli-events';
-import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
+import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 
@@ -8,16 +8,6 @@ let latest: SyncEvent | undefined;
 export function reportSyncActivity( siteId: string, activity: SyncActivity ): Promise< void > {
 	latest = { siteId, activity };
 	return emitCliEvent( { event: SYNC_EVENTS.ACTIVITY, data: latest } );
-}
-
-function isCancellable( activity: SyncActivity ): boolean {
-	if ( activity.kind !== 'pending' ) {
-		return false;
-	}
-	if ( activity.direction === 'push' ) {
-		return canCancelPush( activity.phase );
-	}
-	return activity.direction === 'pull' && canCancelPull( activity.action );
 }
 
 /**
@@ -30,7 +20,7 @@ export function exitOnCancel(): void {
 			process.exit( 1 );
 		}
 		const { siteId, activity } = latest;
-		if ( ! isCancellable( activity ) ) {
+		if ( ! canCancelSyncActivity( activity ) ) {
 			return;
 		}
 		void reportSyncActivity( siteId, { kind: 'cancelled', direction: activity.direction } ).finally(

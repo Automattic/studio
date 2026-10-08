@@ -88,6 +88,7 @@ import {
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -1512,6 +1513,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await fetchSnapshots( execute ) );
+		} )
+	);
+
+	// Proxied like the quota, so the browser never holds the wpcom token.
+	api.get(
+		'/snapshots/usage',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchSnapshotUsage( token.accessToken ) : null );
 		} )
 	);
 

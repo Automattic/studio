@@ -2,6 +2,7 @@ import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import {
 	STUDIO_ASSISTANT_QUOTA_URL,
 	studioAssistantQuotaSchema,
@@ -54,23 +55,6 @@ function generateBackupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`-${ pad( now.getHours() ) }-${ pad( now.getMinutes() ) }-${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
-}
-
-function parseSnapshotUsage( response: unknown ): SnapshotUsage {
-	const record = response as Record< string, unknown > | null;
-	if (
-		! record ||
-		typeof record.site_count !== 'number' ||
-		typeof record.site_limit !== 'number' ||
-		typeof record.site_creation_blocked !== 'boolean'
-	) {
-		throw new Error( 'Invalid snapshot usage response.' );
-	}
-	return {
-		siteCount: record.site_count,
-		siteLimit: record.site_limit,
-		siteCreationBlocked: record.site_creation_blocked,
-	};
 }
 
 /**
@@ -448,11 +432,8 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			const data = await fetchWpcomJson(
-				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
-				'snapshot usage'
-			);
-			return data === null ? null : parseSnapshotUsage( data );
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? fetchSnapshotUsage( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {

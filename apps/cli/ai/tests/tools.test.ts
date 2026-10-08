@@ -31,9 +31,9 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
+import { LOCAL_CHANGE, READ_ONLY, type AnyStudioAgentTool } from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
-import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -245,6 +245,17 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_delete',
 			] )
 		);
+	} );
+
+	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
+		const annotations = Object.fromEntries(
+			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
+		);
+		expect( annotations.site_list ).toEqual( READ_ONLY );
+		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
+		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
+			expect( annotations[ name ] ).toBeUndefined();
+		}
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {

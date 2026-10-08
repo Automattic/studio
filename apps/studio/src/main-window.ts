@@ -23,6 +23,7 @@ import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
 import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { writeLogToFile, type LogLevel } from 'src/logging';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
 import {
@@ -32,6 +33,12 @@ import {
 	saveWindowBounds,
 } from 'src/storage/user-data';
 import type { WindowBounds } from 'src/storage/storage-types';
+
+const RENDERER_LOG_LEVELS: Record< 'info' | 'warning' | 'error', LogLevel > = {
+	info: 'info',
+	warning: 'warn',
+	error: 'erro',
+};
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
@@ -231,6 +238,14 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		if ( isToggleSidebarShortcut( input ) ) {
 			event.preventDefault();
 			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
+		}
+	} );
+
+	// Uncaught errors and unhandled rejections reach the console too, so this
+	// puts all of them in the support logs.
+	mainWebContents.on( 'console-message', ( { level, message } ) => {
+		if ( level !== 'debug' ) {
+			writeLogToFile( RENDERER_LOG_LEVELS[ level ], `ren${ mainWebContents.id }`, message );
 		}
 	} );
 

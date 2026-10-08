@@ -27,7 +27,7 @@ import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
-	hasUploadingPushOperations,
+	hasCancellableSyncOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
 import {
@@ -509,7 +509,7 @@ async function appBoot() {
 			const CANCEL_BUTTON_INDEX = 1;
 
 			const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
-				hasUploadingPushOperations()
+				hasCancellableSyncOperations()
 					? {
 							message: __( 'Sync is in progress' ),
 							detail: __(

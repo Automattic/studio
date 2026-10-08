@@ -233,6 +233,7 @@ type DefaultPhpArgsOptions = {
 	disallowRiskyFunctions?: boolean;
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
+	workerIndex?: number;
 };
 
 export function getDefaultPhpArgs(
@@ -242,13 +243,20 @@ export function getDefaultPhpArgs(
 		disallowRiskyFunctions = false,
 		enableXdebug = false,
 		autoPrependFile,
+		workerIndex,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
 	// already pinned in php.ini — opcache's on-disk script blob format isn't
 	// stable across minor versions and reusing a cache populated by a different
 	// PHP can crash the server at startup.
-	const cacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
+	// Server workers also get a directory each: a worker reading an entry another
+	// worker is still writing segfaults under CPU load (STU-2484).
+	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
+	const cacheDirectory =
+		workerIndex === undefined
+			? versionCacheDirectory
+			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
 	// `-c` points the binary at our php.ini and short-circuits the default

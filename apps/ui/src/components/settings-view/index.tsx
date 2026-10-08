@@ -151,7 +151,7 @@ function PreferenceRow( {
 }: {
 	title: string;
 	description?: ReactNode;
-	children: ReactNode;
+	children?: ReactNode;
 } ) {
 	return (
 		<section className={ styles.preferenceRow }>
@@ -234,7 +234,17 @@ function PreferenceSelect< TValue extends string >( {
 	);
 }
 
-function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
+function DefaultSiteDirectoryField( {
+	value,
+	onSelect,
+}: {
+	value: string;
+	onSelect?: () => void;
+} ) {
+	// Without a native folder picker (the browser), the path is shown, not edited.
+	if ( ! onSelect ) {
+		return <PreferenceRow title={ __( 'Default site directory' ) } description={ value } />;
+	}
 	return (
 		<PreferenceRow title={ __( 'Default site directory' ) }>
 			<button
@@ -267,7 +277,7 @@ function PreferencesPanel( {
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
-	onDefaultSiteDirectorySelect: () => void;
+	onDefaultSiteDirectorySelect?: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
@@ -434,7 +444,11 @@ export function SettingsView( {
 								installedApps={ installedApps }
 								saveError={ savePreferences.isError }
 								onColorSchemeChange={ handleColorSchemeChange }
-								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
+								onDefaultSiteDirectorySelect={
+									connector.capabilities.nativeFolderPicker
+										? () => void handleSelectDefaultDirectory()
+										: undefined
+								}
 								onChange={ handleChange }
 							/>
 						</Tabs.Panel>

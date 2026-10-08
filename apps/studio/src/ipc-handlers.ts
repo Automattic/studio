@@ -77,11 +77,7 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import {
-	DEFAULT_ADMIN_PASSWORD,
-	decodePassword,
-	encodePassword,
-} from '@studio/common/lib/passwords';
+import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -90,18 +86,16 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -189,7 +183,7 @@ import {
 	listActiveAgentRuns,
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
-import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -735,7 +729,6 @@ export async function removeWordPressSkillFromAllSites(
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
-const DEFAULT_ENCODED_PASSWORD = encodePassword( DEFAULT_ADMIN_PASSWORD );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
@@ -950,76 +943,8 @@ export async function updateSite(
 		throw new Error( `Site not found: ${ updatedSite.id }` );
 	}
 
-	const currentSite = server.details;
-
-	const options: EditSiteOptions = {
-		path: currentSite.path,
-		siteId: updatedSite.id,
-	};
-
-	if ( updatedSite.name !== currentSite.name ) {
-		options.name = updatedSite.name;
-	}
-
-	if ( updatedSite.customDomain !== currentSite.customDomain ) {
-		options.domain = updatedSite.customDomain ?? '';
-	}
-
-	if ( updatedSite.enableHttps !== currentSite.enableHttps ) {
-		options.https = updatedSite.enableHttps ?? false;
-	}
-
-	if ( updatedSite.phpVersion !== currentSite.phpVersion ) {
-		options.php = updatedSite.phpVersion;
-	}
-
-	if ( wpVersion ) {
-		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
-	}
-
-	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
-		options.fileAccess = getSiteFileAccess( updatedSite );
-	}
-
-	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
-		options.xdebug = updatedSite.enableXdebug ?? false;
-	}
-
-	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
-		options.adminUsername = updatedSite.adminUsername;
-	}
-
-	if (
-		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
-		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
-	) {
-		// CLI set expects plain text password (it encodes before saving)
-		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
-	}
-
-	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
-		options.adminEmail = updatedSite.adminEmail;
-	}
-
-	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
-		options.debugLog = updatedSite.enableDebugLog ?? false;
-	}
-
-	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
-		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
-	}
-
-	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
-		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
-	}
-
-	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
-		options.environmentType = getWpEnvironmentType( updatedSite );
-	}
-
-	const hasCliChanges = Object.keys( options ).length > 2;
-
-	if ( hasCliChanges ) {
+	const options = getSiteEditOptions( server.details, updatedSite, wpVersion );
+	if ( Object.keys( options ).length > 2 ) {
 		await editSiteViaCli( options );
 	}
 }

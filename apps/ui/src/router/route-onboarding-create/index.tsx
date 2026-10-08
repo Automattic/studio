@@ -28,9 +28,9 @@ import type { CreateSiteFormValues } from '@/components/create-site-form';
 import type { AiModelId } from '@/data/core';
 
 function mapBlueprintSettingsToFormValues(
-	blueprint: SelectedBlueprint,
-	settings: ReturnType< typeof extractFormValuesFromBlueprint >
+	blueprint: SelectedBlueprint
 ): Partial< CreateSiteFormValues > {
+	const settings = extractFormValuesFromBlueprint( blueprint.blueprint );
 	const name = settings.siteName || blueprint.title;
 	return {
 		name,
@@ -250,6 +250,12 @@ export function CreateSitePage() {
 		pendingBlueprintSlot.getSnapshot
 	);
 	const showBrief = chatEnabled && ! selectedBlueprint;
+	const requiresCustomDomain = useMemo(
+		() =>
+			!! selectedBlueprint &&
+			!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain,
+		[ selectedBlueprint ]
+	);
 
 	const cleanupBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
@@ -284,18 +290,12 @@ export function CreateSitePage() {
 		[ cleanupBlueprint, setProgress ]
 	);
 
-	const blueprintSettings = useMemo(
-		() => selectedBlueprint && extractFormValuesFromBlueprint( selectedBlueprint.blueprint ),
-		[ selectedBlueprint ]
-	);
 	const initialValues = useMemo(
 		() => ( {
 			...( proposedName ? { name: proposedName } : {} ),
-			...( selectedBlueprint && blueprintSettings
-				? mapBlueprintSettingsToFormValues( selectedBlueprint, blueprintSettings )
-				: {} ),
+			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
 		} ),
-		[ proposedName, selectedBlueprint, blueprintSettings ]
+		[ proposedName, selectedBlueprint ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -386,7 +386,7 @@ export function CreateSitePage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
-				requiresCustomDomain={ !! blueprintSettings?.requiresCustomDomain }
+				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				panelFooter={

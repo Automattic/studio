@@ -43,7 +43,7 @@ type Props = {
 	getPublishLabel: ( idle: string ) => string;
 };
 
-type Editing = { hostname: string; mode: 'rename' | 'delete' } | null;
+type Editing = { hostname: string; mode: 'rename' | 'delete' | 'update' } | null;
 
 export function PreviewsSection( {
 	site,
@@ -144,13 +144,30 @@ export function PreviewsSection( {
 				}
 				if ( editing?.hostname === snapshot.url && editing.mode === 'delete' ) {
 					return (
-						<DeleteConfirmRow
+						<ConfirmRow
 							key={ snapshot.url }
-							name={ getSnapshotName( snapshot, site ) }
+							title={ __( 'Delete this preview?' ) }
+							detail={ getSnapshotName( snapshot, site ) }
+							confirmLabel={ __( 'Delete' ) }
 							onCancel={ () => setEditing( null ) }
 							onConfirm={ () => {
 								setEditing( null );
 								deleteSnapshot.mutate( { hostname: snapshot.url } );
+							} }
+						/>
+					);
+				}
+				if ( editing?.hostname === snapshot.url && editing.mode === 'update' ) {
+					return (
+						<ConfirmRow
+							key={ snapshot.url }
+							title={ __( 'Overwrite this preview?' ) }
+							detail={ __( 'Changes made on the preview will be lost.' ) }
+							confirmLabel={ __( 'Overwrite' ) }
+							onCancel={ () => setEditing( null ) }
+							onConfirm={ () => {
+								setEditing( null );
+								publish( getSnapshotHostname( snapshot ) );
 							} }
 						/>
 					);
@@ -170,7 +187,7 @@ export function PreviewsSection( {
 								console.error( 'Failed to copy preview URL:', error );
 							} )
 						}
-						onUpdate={ () => publish( getSnapshotHostname( snapshot ) ) }
+						onUpdate={ () => setEditing( { hostname: snapshot.url, mode: 'update' } ) }
 						// The CLI can't refresh an expired preview, so replace it.
 						onRecreate={ () =>
 							publish( undefined, snapshot.name, () =>
@@ -443,20 +460,24 @@ function RenameRow( {
 	);
 }
 
-function DeleteConfirmRow( {
-	name,
+function ConfirmRow( {
+	title,
+	detail,
+	confirmLabel,
 	onCancel,
 	onConfirm,
 }: {
-	name: string;
+	title: string;
+	detail: string;
+	confirmLabel: string;
 	onCancel: () => void;
 	onConfirm: () => void;
 } ) {
 	return (
 		<div className={ clsx( styles.row, styles.row_danger ) } role="group">
 			<div className={ styles.rowText }>
-				<div className={ styles.name }>{ __( 'Delete this preview?' ) }</div>
-				<div className={ styles.meta }>{ name }</div>
+				<div className={ styles.name }>{ title }</div>
+				<div className={ styles.meta }>{ detail }</div>
 			</div>
 			<div className={ styles.confirmActions }>
 				<Button
@@ -475,7 +496,7 @@ function DeleteConfirmRow( {
 					className={ styles.deleteButton }
 					onClick={ onConfirm }
 				>
-					{ __( 'Delete' ) }
+					{ confirmLabel }
 				</Button>
 			</div>
 		</div>

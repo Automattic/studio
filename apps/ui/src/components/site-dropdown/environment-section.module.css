@@ -78,6 +78,11 @@
 	background: color-mix(in srgb, var(--site-dropdown-menu-error) 10%, transparent);
 }
 
+.row_danger .name,
+.row_danger .meta {
+	white-space: normal;
+}
+
 .rowText {
 	flex: 1;
 	min-width: 0;

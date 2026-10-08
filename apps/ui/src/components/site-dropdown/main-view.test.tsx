@@ -250,10 +250,12 @@ describe( 'MainView', () => {
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '24% · Media uploads…' );
 	} );
 
-	it( 'updates the existing preview site while the snapshot is fresh', () => {
+	it( 'updates the existing preview site once the overwrite is confirmed', () => {
 		renderMainView();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Update preview site' } ) );
+		expect( publishPreviewMutate ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Overwrite' } ) );
 
 		expect( publishPreviewMutate ).toHaveBeenCalledWith(
 			expect.objectContaining( {

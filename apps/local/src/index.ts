@@ -407,7 +407,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				publishWatches.delete( studioSiteId );
 				sseSend( {
 					channel: 'sync-connect',
-					payload: { remoteSiteId: matchId, studioSiteId },
+					payload: { remoteSiteId: matchId, studioSiteId, autoOpenPush: true },
 				} );
 				return;
 			}

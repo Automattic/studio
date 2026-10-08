@@ -1000,13 +1000,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
-			} finally {
-				cleanupCreateArgs();
+				// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
 				if ( body.blueprint?.filePath ) {
 					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
 						() => undefined
 					);
 				}
+			} finally {
+				cleanupCreateArgs();
 				if ( bundleTempDir ) {
 					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
 				}

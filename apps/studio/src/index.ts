@@ -227,9 +227,15 @@ async function appBoot() {
 			if ( isSitePreviewWebview ) {
 				return;
 			}
-			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
-			if ( ! allowedOrigins.includes( origin ) ) {
+			const target = new URL( navigationUrl );
+			const renderer = new URL( getRendererUrl() );
+			// Every file: URL has the same opaque 'null' origin, so a packaged renderer is
+			// matched by path. Otherwise a file dropped on the window replaces the app.
+			const isRenderer =
+				renderer.protocol === 'file:'
+					? target.protocol === 'file:' && target.pathname === renderer.pathname
+					: target.origin === renderer.origin;
+			if ( ! isRenderer ) {
 				event.preventDefault();
 			}
 		} );

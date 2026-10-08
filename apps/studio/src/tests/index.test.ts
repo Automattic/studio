@@ -5,7 +5,7 @@ import fs from 'fs';
 import { normalize } from 'path';
 import { vol } from 'memfs';
 import { vi, beforeAll, afterAll } from 'vitest';
-import { createMainWindow, getMainWindow } from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 
 vi.mock( 'fs' );
 vi.mock( 'file-stream-rotator' );
@@ -331,6 +331,32 @@ describe( 'App initialization', () => {
 			expect( dialog.showMessageBoxSync ).not.toHaveBeenCalled();
 			expect( event.preventDefault ).not.toHaveBeenCalled();
 		} );
+	} );
+
+	it( 'keeps a packaged app window on its renderer when a local file is dropped on it', async () => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		await import( '../index' );
+		await mockedEvents.ready();
+		vi.mocked( getCurrentRendererUrl ).mockReturnValue(
+			'file:///Applications/Studio.app/Contents/Resources/app.asar/.vite/renderer-ui/index.html'
+		);
+		const contents = { getType: () => 'window', on: vi.fn(), setWindowOpenHandler: vi.fn() };
+		await mockedEvents[ 'web-contents-created' ]( {}, contents );
+		const willNavigate = contents.on.mock.calls.find(
+			( [ event ] ) => event === 'will-navigate'
+		)?.[ 1 ] as ( event: { preventDefault: () => void }, url: string ) => void;
+
+		const droppedFile = { preventDefault: vi.fn() };
+		willNavigate( droppedFile, 'file:///Users/me/Downloads/page.html' );
+		const appPage = { preventDefault: vi.fn() };
+		willNavigate(
+			appPage,
+			'file:///Applications/Studio.app/Contents/Resources/app.asar/.vite/renderer-ui/index.html#/sites'
+		);
+
+		expect( droppedFile.preventDefault ).toHaveBeenCalled();
+		expect( appPage.preventDefault ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle authentication deep links', async () => {

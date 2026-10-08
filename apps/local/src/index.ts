@@ -120,9 +120,12 @@ import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import {
+	onboardingHintsSchema,
+	readOnboardingHints,
 	readSiteSortOrders,
 	readUserPreferences,
 	userPreferencesPatchSchema,
+	writeOnboardingHints,
 	writeSiteSortOrders,
 	writeUserPreferences,
 } from './user-preferences';
@@ -1375,6 +1378,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeUserPreferences( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/onboarding-hints',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingHints() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding-hints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = onboardingHintsSchema.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding hints' } );
+				return;
+			}
+			await writeOnboardingHints( parsed.data );
 			res.status( 204 ).end();
 		} )
 	);

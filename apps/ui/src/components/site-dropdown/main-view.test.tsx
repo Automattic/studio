@@ -81,6 +81,10 @@ vi.mock( '@/data/queries/use-snapshots', () => ( {
 	useRenameSnapshot: () => ( { mutate: renameSnapshotMutate } ),
 } ) );
 
+vi.mock( '@/data/queries/use-user-locale', () => ( {
+	useUserLocale: () => undefined,
+} ) );
+
 const cancelSyncMutate = vi.fn();
 
 vi.mock( '@/data/queries/use-sync-site', () => ( {

@@ -76,6 +76,7 @@ import {
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { useAddAiCreditsUrl } from '@/hooks/use-add-ai-credits-url';
 import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
+import { isImeComposing } from '@/lib/is-ime-composing';
 import { AiCreditsControl } from './ai-credits-control';
 import { AiCreditsWarningStrip } from './ai-credits-warning-strip';
 import { clearComposerDraft, getComposerDraft, saveComposerDraft } from './draft-store';
@@ -1109,6 +1110,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onPaste={ pasteHandlers.onPaste }
 							onKeyDown={ ( event ) => {
+								if ( isImeComposing( event ) ) {
+									return;
+								}
 								if ( slash.handleKeyDown( event ) ) {
 									return;
 								}

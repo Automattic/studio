@@ -30,6 +30,9 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/lib/validation', () => ( {
+	validateSiteSize: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };

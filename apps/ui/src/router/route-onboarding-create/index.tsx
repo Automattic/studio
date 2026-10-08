@@ -228,7 +228,6 @@ export function CreateSitePage() {
 	const { setProgress } = useOnboardingProgress();
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
-	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
 	const createSession = useCreateSession();
 	const { chatEnabled } = useAgenticFeatures();
@@ -280,12 +279,17 @@ export function CreateSitePage() {
 		[ cleanupBlueprint, setProgress ]
 	);
 
+	const blueprintValues = useMemo(
+		() => selectedBlueprint && mapBlueprintSettingsToFormValues( selectedBlueprint ),
+		[ selectedBlueprint ]
+	);
+	const { data: proposedName } = useProposedSiteName( sites, blueprintValues?.name );
 	const initialValues = useMemo(
 		() => ( {
+			...blueprintValues,
 			...( proposedName ? { name: proposedName } : {} ),
-			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
 		} ),
-		[ proposedName, selectedBlueprint ]
+		[ proposedName, blueprintValues ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {

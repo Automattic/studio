@@ -9,9 +9,6 @@ export function useAgentInstructions() {
 		queryKey: AGENT_INSTRUCTIONS_QUERY_KEY,
 		queryFn: () => connector.getAgentInstructions(),
 		enabled: connector.capabilities.agentInstructions,
-		// The file is also edited outside this window (CLI, browser UI, by hand). A cached copy
-		// would be shown and then autosaved back over those edits.
-		meta: { persist: false },
 	} );
 }
 

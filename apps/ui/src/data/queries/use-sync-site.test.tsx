@@ -19,7 +19,8 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	return { ...actual, useConnector: vi.fn() };
 } );
 
-vi.mock( '@/data/app-messages', () => ( {
+vi.mock( '@/data/app-messages', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@/data/app-messages') >() ),
 	toast: { success: vi.fn(), error: vi.fn() },
 } ) );
 

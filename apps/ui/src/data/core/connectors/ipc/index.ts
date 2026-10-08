@@ -330,7 +330,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async startSite( id ) {
-			await ipcApi.startServer( id );
+			await unwrapIpcError( ipcApi.startServer( id ) );
 		},
 
 		async stopSite( id ) {

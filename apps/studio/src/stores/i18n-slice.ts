@@ -27,16 +27,13 @@ const i18nSlice = createSlice( {
 
 			// Update default I18n data to reflect language change when using
 			// I18n functions from `@wordpress/i18n` package.
-			// Note we need to update this in both the renderer and main processes.
 			if ( translations ) {
 				defaultI18n.resetLocaleData();
 				defaultI18n.setLocaleData( translations );
-				void getIpcApi().setDefaultLocaleData( translations );
 			} else {
 				// In case we don't find translations, we reset the locale data to
 				// fallback to the default translations.
 				defaultI18n.resetLocaleData();
-				void getIpcApi().resetDefaultLocaleData();
 			}
 
 			void getIpcApi().setupAppMenu( { needsOnboarding: false } );

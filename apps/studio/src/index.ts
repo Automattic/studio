@@ -38,7 +38,7 @@ import {
 	StatsGroup,
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { getUserLocaleWithFallback, loadLocaleData } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
@@ -411,6 +411,7 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		loadLocaleData( locale );
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );

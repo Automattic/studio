@@ -49,8 +49,6 @@ beforeEach( async () => {
 		// Save path.
 		saveAnalyticsEnabled: vi.fn().mockResolvedValue( undefined ),
 		saveUserLocale: vi.fn().mockResolvedValue( undefined ),
-		setDefaultLocaleData: vi.fn().mockResolvedValue( undefined ),
-		resetDefaultLocaleData: vi.fn().mockResolvedValue( undefined ),
 		setupAppMenu: vi.fn().mockResolvedValue( undefined ),
 	} );
 

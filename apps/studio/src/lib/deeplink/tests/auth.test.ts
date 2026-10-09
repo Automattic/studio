@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { dialog } from 'electron';
 import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -12,6 +13,7 @@ const mockWpcomGet = vi.fn();
 
 vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( 'src/ipc-utils' );
+vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('src/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -54,38 +56,27 @@ describe( 'handleAuthDeeplink', () => {
 		expect( writeFile ).toHaveBeenCalled();
 	} );
 
-	it( 'should handle authentication error from WordPress.com', async () => {
-		const url = new URL( 'wp-studio://auth#error=access_denied' );
-		await handleAuthDeeplink( url );
-
-		// Matched by message, not identity: the error also carries a `code` for Tracks, and the renderer
-		// keys its "Authorization denied" dialog off the message.
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-			error: expect.objectContaining( { message: 'access_denied' } ),
-		} );
+	const expectErrorDialog = ( message: string ) => {
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+			undefined,
+			expect.objectContaining( { type: 'error', message } )
+		);
+		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		expect( writeFile ).not.toHaveBeenCalled();
+	};
+
+	it( 'shows "Authorization denied" when the user denies access on WordPress.com', async () => {
+		await handleAuthDeeplink( new URL( 'wp-studio://auth#error=access_denied' ) );
+
+		expectErrorDialog( 'Authorization denied' );
 	} );
 
-	it( 'should handle invalid token response', async () => {
-		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=invalid' );
-		await handleAuthDeeplink( url );
+	it( 'shows "Authentication error" for an invalid token response', async () => {
+		await handleAuthDeeplink(
+			new URL( 'wp-studio://auth#access_token=mock-token&expires_in=invalid' )
+		);
 
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-			error: expect.any( Error ),
-		} );
-		expect( writeFile ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle wpcom API error', async () => {
-		mockWpcomGet.mockRejectedValue( new Error( 'API Error' ) );
-
-		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
-		await handleAuthDeeplink( url );
-
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-			error: expect.any( Error ),
-		} );
-		expect( writeFile ).not.toHaveBeenCalled();
+		expectErrorDialog( 'Authentication error' );
 	} );
 
 	describe( 'Tracks event', () => {

@@ -1,12 +1,15 @@
+import { dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { updateSharedConfig, authTokenSchema } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
+import { getMainWindow } from 'src/main-window';
 import type { TracksAuthFailureReason } from 'src/lib/tracks';
 
 const meResponseSchema = z.object( {
@@ -17,8 +20,7 @@ const meResponseSchema = z.object( {
 
 type StoredAuthToken = z.infer< typeof authTokenSchema >;
 
-// Tags the failure so Tracks can classify it without matching on the message text. The messages
-// themselves are unchanged — the renderer still recognises `access_denied` by substring.
+// Tags the failure so Tracks and the error dialog can classify it without matching on the message text.
 class AuthCallbackError extends Error {
 	constructor(
 		message: string,
@@ -108,11 +110,21 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 				? error.originalError
 				: error
 		);
+		const failureReason = classifyAuthFailure( error );
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 			...authProps,
 			success: false,
-			failure_reason: classifyAuthFailure( error ),
+			failure_reason: failureReason,
 		} );
-		void sendIpcEventToRenderer( 'auth-updated', { error } );
+		const denied = failureReason === 'access_denied';
+		await dialog.showMessageBox( await getMainWindow(), {
+			type: 'error',
+			message: denied ? __( 'Authorization denied' ) : __( 'Authentication error' ),
+			detail: denied
+				? __(
+						'It looks like you denied the authorization request. To proceed, please click "Approve"'
+				  )
+				: __( 'Please try again.' ),
+		} );
 	}
 }

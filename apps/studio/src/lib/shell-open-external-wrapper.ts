@@ -48,3 +48,13 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 		} );
 	}
 };
+
+export function parseWebUrl( url: string ): string | null {
+	try {
+		const parsedUrl = new URL( url );
+		return [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ? parsedUrl.toString() : null;
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
+		return null;
+	}
+}

@@ -42,6 +42,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
@@ -77,16 +78,6 @@ const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
 	return getCurrentRendererUrl();
-}
-
-function parseWebUrl( url: string ): string | null {
-	try {
-		const parsedUrl = new URL( url );
-		return [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ? parsedUrl.toString() : null;
-	} catch {
-		// Ignore malformed URLs from untrusted pages.
-		return null;
-	}
 }
 
 function isOtherSiteThanPreview( contents: WebContents, url: string ) {

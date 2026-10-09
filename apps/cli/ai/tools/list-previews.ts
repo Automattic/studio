@@ -3,7 +3,7 @@ import { Type } from 'typebox';
 import { z } from 'zod';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { isSnapshotExpired } from 'cli/lib/snapshots';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { captureConsoleOutput, resolveSite, textResult } from './utils';
 
 // Enrich the raw snapshot JSON the CLI command emits with an explicit category
@@ -46,6 +46,7 @@ export const listPreviewsTool = defineTool(
 		}
 	},
 	{
+		annotations: READ_ONLY,
 		promptSnippet:
 			'List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.',
 	}

@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const auditPerformanceTool = defineTool(
@@ -47,6 +47,7 @@ export const auditPerformanceTool = defineTool(
 		}
 	},
 	{
+		annotations: READ_ONLY,
 		promptSnippet:
 			'Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.',
 	}

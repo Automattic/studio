@@ -3,7 +3,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { Type } from 'typebox';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const listConnectedRemoteSitesTool = defineTool(
@@ -47,6 +47,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 		}
 	},
 	{
+		annotations: READ_ONLY,
 		promptSnippet:
 			'List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.',
 	}

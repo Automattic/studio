@@ -498,7 +498,7 @@ export function CreateSiteForm( {
 				...customDomainToggleField< FormData >(),
 				...( requiresCustomDomain && {
 					isDisabled: true,
-					description: __( 'WordPress multisite requires a custom domain.' ),
+					description: __( 'This Blueprint requires a custom domain.' ),
 				} ),
 			},
 			customDomainField< FormData >( existingDomainNames ),

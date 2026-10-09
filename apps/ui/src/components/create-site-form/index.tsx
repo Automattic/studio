@@ -71,6 +71,7 @@ interface CreateSiteFormProps {
 	onCancel: () => void;
 	isSubmitting?: boolean;
 	isSubmitDisabled?: boolean;
+	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
 	submitLabel?: string;
 	cancelLabel?: string;
@@ -413,6 +414,7 @@ export function CreateSiteForm( {
 	onCancel,
 	isSubmitting,
 	isSubmitDisabled,
+	requiresCustomDomain,
 	submitError,
 	submitLabel,
 	cancelLabel,
@@ -492,7 +494,13 @@ export function CreateSiteForm( {
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
-			customDomainToggleField< FormData >(),
+			{
+				...customDomainToggleField< FormData >(),
+				...( requiresCustomDomain && {
+					isDisabled: true,
+					description: __( 'This Blueprint requires a custom domain.' ),
+				} ),
+			},
 			customDomainField< FormData >( existingDomainNames ),
 			{
 				id: 'enableHttps',
@@ -502,7 +510,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames, isOffline, wpVersions ]
+		[ existingDomainNames, isOffline, requiresCustomDomain, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(

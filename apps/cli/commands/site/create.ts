@@ -217,36 +217,62 @@ function sourceFilePayload( filePath: string, relativePath: string ): Record< st
 	};
 }
 
-function resolveDataLiberationWebsiteRoot( sourceDir: string ): string {
-	const receiptPath = path.join( sourceDir, 'capture-receipt.json' );
-	if ( ! fs.existsSync( receiptPath ) ) {
-		return sourceDir;
+function captureRelativePath( value: unknown ): string {
+	if (
+		typeof value !== 'string' ||
+		! value ||
+		value.includes( '\\' ) ||
+		value.includes( '\0' ) ||
+		path.posix.isAbsolute( value ) ||
+		/^[a-z]:/i.test( value ) ||
+		value.split( '/' ).some( ( part ) => ! part || part === '.' || part === '..' )
+	) {
+		throw new LoggerError( __( 'Data Liberation paths must stay inside the capture directory.' ) );
 	}
+	return value;
+}
 
+function assertCapturePath( captureRoot: string, filePath: string ): void {
+	const relative = path.relative( captureRoot, filePath );
+	if ( relative ) captureRelativePath( relative.split( path.sep ).join( '/' ) );
+	let current = captureRoot;
+	for ( const part of [ '', ...relative.split( path.sep ).filter( Boolean ) ] ) {
+		current = path.join( current, part );
+		if ( fs.lstatSync( current ).isSymbolicLink() ) {
+			throw new LoggerError(
+				__( 'Data Liberation capture paths must not contain symbolic links.' )
+			);
+		}
+	}
+}
+
+function resolveDataLiberationWebsiteRoot( sourceDir: string ): {
+	websiteRoot: string;
+	entrypoint?: string;
+} {
+	const captureRoot = [ sourceDir, path.dirname( sourceDir ) ].find( isDataLiberationCaptureRoot );
+	if ( ! captureRoot ) return { websiteRoot: sourceDir };
+	const receiptPath = path.join( captureRoot, 'capture-receipt.json' );
+	assertCapturePath( captureRoot, receiptPath );
 	const receipt = readSiteArtifact( receiptPath );
-	if ( receipt.schema !== DATA_LIBERATION_CAPTURE_RECEIPT_SCHEMA ) {
-		return sourceDir;
+	const namespace = captureRelativePath( receipt.websiteRoot );
+	const websiteRoot = path.join( captureRoot, namespace );
+	if ( captureRoot !== sourceDir && path.resolve( websiteRoot ) !== path.resolve( sourceDir ) ) {
+		return { websiteRoot: sourceDir };
 	}
-
-	if ( typeof receipt.websiteRoot !== 'string' || ! receipt.websiteRoot.trim() ) {
-		throw new LoggerError( __( 'Data Liberation capture receipt must declare a website root.' ) );
+	assertCapturePath( captureRoot, websiteRoot );
+	if ( ! fs.statSync( websiteRoot ).isDirectory() ) {
+		throw new LoggerError( __( 'Data Liberation website root must be a directory.' ) );
 	}
-
-	const outputRoot = path.resolve( sourceDir );
-	const websiteRoot = path.resolve( sourceDir, receipt.websiteRoot );
-	const relativeRoot = path.relative( outputRoot, websiteRoot );
-	if ( relativeRoot === '..' || relativeRoot.startsWith( `..${ path.sep }` ) ) {
-		throw new LoggerError(
-			__( 'Data Liberation website root must stay inside the capture directory.' )
-		);
+	const entrypoint = captureRelativePath( receipt.entrypoint );
+	if ( ! entrypoint.startsWith( `${ namespace }/` ) ) {
+		throw new LoggerError( __( 'Data Liberation entrypoint must stay inside the website root.' ) );
 	}
-	if ( ! fs.existsSync( websiteRoot ) || ! fs.statSync( websiteRoot ).isDirectory() ) {
-		throw new LoggerError(
-			sprintf( __( 'Data Liberation capture root not found: %s' ), websiteRoot )
-		);
+	assertCapturePath( captureRoot, path.join( captureRoot, entrypoint ) );
+	if ( ! fs.statSync( path.join( captureRoot, entrypoint ) ).isFile() ) {
+		throw new LoggerError( __( 'Data Liberation entrypoint must be a file.' ) );
 	}
-
-	return websiteRoot;
+	return { websiteRoot, entrypoint };
 }
 
 function isDataLiberationCaptureRoot( directory: string ): boolean {
@@ -278,11 +304,18 @@ function collectArtifactRootReports(
 		) {
 			continue;
 		}
+		if (
+			path.resolve( resolveDataLiberationWebsiteRoot( candidateRoot ).websiteRoot ) !==
+			path.resolve( websiteRoot )
+		) {
+			continue;
+		}
 
 		const files: Array< { name: string; from: string } > = [];
 		for ( const name of ARTIFACT_ROOT_REPORT_FILES ) {
 			const filePath = path.join( candidateRoot, name );
 			if ( fs.existsSync( filePath ) && fs.statSync( filePath ).isFile() ) {
+				assertCapturePath( candidateRoot, filePath );
 				files.push( { name, from: filePath } );
 			}
 		}
@@ -316,13 +349,14 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 			}
 		}
 
-		const stagedSourcePath = resolveDataLiberationWebsiteRoot( sourcePath );
+		const { websiteRoot: stagedSourcePath, entrypoint } =
+			resolveDataLiberationWebsiteRoot( sourcePath );
 		if ( fs.readdirSync( stagedSourcePath ).length === 0 ) {
 			throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
 		}
 		return {
 			path: sourcePath,
-			payload: {},
+			payload: entrypoint ? { entrypoint } : {},
 			stagedSourcePath,
 			stagedReportFiles: collectArtifactRootReports( sourcePath, stagedSourcePath ),
 		};
@@ -384,6 +418,7 @@ function buildStaticSiteImporterRequest(
 		requestSource = {
 			type: 'files',
 			ref: 'request-bundle:source',
+			...( payload.entrypoint ? { entrypoint: payload.entrypoint } : {} ),
 			...( reports.length > 0 ? { metadata: { reports } } : {} ),
 		};
 	} else if ( artifact && typeof artifact === 'object' && ! Array.isArray( artifact ) ) {
@@ -876,12 +911,39 @@ async function runStaticSiteImport(
 	} else {
 		fs.mkdirSync( path.dirname( requestPath ), { recursive: true } );
 		if ( sourcePath ) {
-			await fs.promises.cp( sourcePath, staticSiteImportSourcePath( site.path ), {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
+			const captureReceipt = reportFiles.find(
+				( report ) => report.name === 'capture-receipt.json'
+			);
+			const captureRoot = captureReceipt ? path.dirname( captureReceipt.from ) : undefined;
+			const namespace = captureRoot ? path.relative( captureRoot, sourcePath ) : '';
+			if ( captureRoot ) {
+				captureRelativePath( namespace.split( path.sep ).join( '/' ) );
+				assertCapturePath( captureRoot, sourcePath );
+			}
+			await fs.promises.cp(
+				sourcePath,
+				path.join( staticSiteImportSourcePath( site.path ), namespace ),
+				{
+					recursive: true,
+					errorOnExist: true,
+					force: false,
+					...( captureRoot
+						? {
+								filter: ( from: string ) => {
+									assertCapturePath( captureRoot, from );
+									if ( ! fs.statSync( from ).isDirectory() && ! fs.statSync( from ).isFile() ) {
+										throw new LoggerError(
+											__( 'Data Liberation capture entries must be files or directories.' )
+										);
+									}
+									return true;
+								},
+						  }
+						: {} ),
+				}
+			);
 			for ( const report of reportFiles ) {
+				if ( captureRoot ) assertCapturePath( captureRoot, report.from );
 				await fs.promises.copyFile(
 					report.from,
 					path.join( staticSiteImportSourcePath( site.path ), report.name )

@@ -2,6 +2,8 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promi
 import os from 'os';
 import path from 'path';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
@@ -31,9 +33,9 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
+import { LOCAL_CHANGE, READ_ONLY, type AnyStudioAgentTool } from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
-import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -127,6 +129,13 @@ vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 
 vi.mock( '@studio/common/lib/connected-sites', () => ( {
 	getConnectedWpcomSitesForLocalSite: vi.fn(),
+} ) );
+
+vi.mock( '@studio/common/lib/sync/sync-api', () => ( { fetchSyncableSites: vi.fn() } ) );
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -245,6 +254,17 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_delete',
 			] )
 		);
+	} );
+
+	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
+		const annotations = Object.fromEntries(
+			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
+		);
+		expect( annotations.site_list ).toEqual( READ_ONLY );
+		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
+		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
+			expect( annotations[ name ] ).toBeUndefined();
+		}
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
@@ -731,20 +751,23 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
+		const site = {
+			id: 111,
+			localSiteId: '',
+			name: 'My Production Site',
+			url: 'https://myprod.wordpress.com',
+			isStaging: false,
+			isPressable: false,
+			environmentType: 'production',
+			syncSupport: 'syncable' as const,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
 		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
-			{
-				id: 111,
-				localSiteId: 'site-123',
-				name: 'My Production Site',
-				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'already-connected',
-				lastPullTimestamp: null,
-				lastPushTimestamp: null,
-			},
+			{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
 		] );
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
 
 		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',

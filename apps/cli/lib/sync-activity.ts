@@ -25,6 +25,11 @@ function isCancellable( activity: SyncActivity ): boolean {
  * Node's default exit, so exit here, unless the sync is past the point where stopping is safe.
  */
 export function exitOnCancel(): void {
+	// A host that quits mid-sync closes our output pipes. Writing to them would crash a sync that
+	// has to finish, like a pull halfway through rewriting the local site.
+	for ( const stream of [ process.stdout, process.stderr ] ) {
+		stream.on( 'error', () => undefined );
+	}
 	process.on( 'SIGTERM', () => {
 		if ( ! latest ) {
 			process.exit( 1 );

@@ -58,7 +58,25 @@ export interface ToolPromptOptions {
 	promptGuidelines?: string[];
 }
 
+// What a call can change, for hosts that ask the user before running a tool
+// (MCP tool annotations). A tool that declares nothing may destroy data and
+// reach beyond this machine, so hosts ask before each call.
+export interface ToolAnnotations {
+	readOnlyHint?: boolean;
+	destructiveHint?: boolean;
+	openWorldHint?: boolean;
+}
+
+export const READ_ONLY: ToolAnnotations = { readOnlyHint: true };
+// Changes only this machine, without deleting or overwriting the user's work.
+export const LOCAL_CHANGE: ToolAnnotations = {
+	readOnlyHint: false,
+	destructiveHint: false,
+	openWorldHint: false,
+};
+
 export interface ToolOptions extends ToolPromptOptions {
+	annotations?: ToolAnnotations;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
@@ -93,6 +111,7 @@ export interface AnyStudioAgentTool {
 	promptSnippet?: string;
 	promptGuidelines?: string[];
 	settlesPendingWork?: boolean;
+	annotations?: ToolAnnotations;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -112,6 +131,7 @@ export function defineTool< TProps extends TProperties >(
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.annotations ? { annotations: options.annotations } : {} ),
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {

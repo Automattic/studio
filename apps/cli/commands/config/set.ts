@@ -1,7 +1,8 @@
+import path from 'node:path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	encodePassword,
 	validateAdminEmail,
@@ -35,6 +36,8 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -45,6 +48,7 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -66,6 +70,52 @@ export interface SetCommandOptions {
 	debugDisplay?: boolean;
 	scriptDebug?: boolean;
 	environmentType?: WpEnvironmentType;
+}
+
+// WordPress is installed on the first start, which writes wp-config.php and creates the database.
+// A site with neither (e.g. `site create --no-start`) can't boot WP-CLI. Pulled/imported sites
+// keep their config outside the site directory, so they never count as unprovisioned.
+async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
+	if ( site.runtimeBlueprintPath ) {
+		return false;
+	}
+	const [ hasConfig, hasDatabase ] = await Promise.all( [
+		pathExists( path.join( site.path, 'wp-config.php' ) ),
+		pathExists( path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ) ),
+	] );
+	return ! hasConfig && ! hasDatabase;
+}
+
+async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
+	// Swap the core files like `site create --wp` does; the installer runs on the first start.
+	// Installing up front instead would leave a newer DB schema than the code on a downgrade.
+	if ( await isUnprovisionedSite( site ) ) {
+		await downloadWordPress( wp );
+		await recursiveCopyDirectory( getWordPressVersionPath( wp ), site.path );
+		return;
+	}
+
+	await using command = await runWpCliCommand( site, [
+		'core',
+		'update',
+		getWordPressVersionUrl( wp ),
+		'--force',
+		'--skip-plugins',
+		'--skip-themes',
+	] );
+
+	if ( ( await command.response.exitCode ) === 0 ) {
+		return;
+	}
+
+	const message = sprintf( __( 'Failed to update WordPress version to %s' ), wp );
+	const output =
+		( await command.response.stderrText ).trim() || ( await command.response.stdoutText ).trim();
+	if ( ! output ) {
+		throw new LoggerError( message );
+	}
+	console.error( message, output );
+	throw new LoggerError( message, new Error( summarizeWpCliStderr( output ) ) );
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
@@ -348,21 +398,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
-			const zipUrl = getWordPressVersionUrl( wp );
-
-			await using command = await runWpCliCommand( site, [
-				'core',
-				'update',
-				zipUrl,
-				'--force',
-				'--skip-plugins',
-				'--skip-themes',
-			] );
-
-			const exitCode = await command.response.exitCode;
-			if ( exitCode !== 0 ) {
-				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
-			}
+			await setWordPressVersion( site, wp );
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {

@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { textResult } from './utils';
 
 export const waitForAnnotationsTool = defineTool(
@@ -32,5 +32,6 @@ export const waitForAnnotationsTool = defineTool(
 				`Failed to read annotations: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
-	}
+	},
+	{ annotations: READ_ONLY }
 );

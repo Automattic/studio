@@ -9,7 +9,6 @@ export function useAgentInstructions() {
 		queryKey: AGENT_INSTRUCTIONS_QUERY_KEY,
 		queryFn: () => connector.getAgentInstructions(),
 		enabled: connector.capabilities.agentInstructions,
-		staleTime: Infinity,
 	} );
 }
 

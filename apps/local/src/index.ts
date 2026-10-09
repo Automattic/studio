@@ -70,11 +70,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
-import {
-	DEFAULT_ADMIN_USERNAME,
-	decodeAdminPassword,
-	decodePassword,
-} from '@studio/common/lib/passwords';
+import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -87,14 +83,11 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { getSiteFileAccess, type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -102,7 +95,7 @@ import {
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
-import { buildSiteSetArgs } from '@studio/common/sites/edit';
+import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
@@ -133,7 +126,7 @@ import type { AiSettings } from '@studio/common/ai/providers';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
-import type { EditSiteOptions } from '@studio/common/sites/edit';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -1040,9 +1033,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Edit a site's settings — the same CLI `site set` the desktop uses, built
-	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded.
+	// Edit a site's settings — the same CLI `site set` and settings diff the
+	// desktop uses: only changed fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1060,57 +1052,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 
-			const options: EditSiteOptions = { path: current.path, siteId: current.id };
-			if ( updated.name !== undefined && updated.name !== current.name ) {
-				options.name = updated.name;
-			}
-			if ( ( updated.customDomain ?? '' ) !== ( current.customDomain ?? '' ) ) {
-				options.domain = updated.customDomain ?? '';
-			}
-			if ( ( updated.enableHttps ?? false ) !== ( current.enableHttps ?? false ) ) {
-				options.https = updated.enableHttps ?? false;
-			}
-			if ( updated.phpVersion !== undefined && updated.phpVersion !== current.phpVersion ) {
-				options.php = updated.phpVersion;
-			}
-			if ( wpVersion ) {
-				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
-			}
-			if ( getSiteFileAccess( updated ) !== getSiteFileAccess( current ) ) {
-				options.fileAccess = getSiteFileAccess( updated );
-			}
-			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
-				options.xdebug = updated.enableXdebug ?? false;
-			}
-			if (
-				( updated.adminUsername ?? DEFAULT_ADMIN_USERNAME ) !==
-				( current.adminUsername ?? DEFAULT_ADMIN_USERNAME )
-			) {
-				options.adminUsername = updated.adminUsername;
-			}
-			if (
-				decodeAdminPassword( updated.adminPassword ) !==
-				decodeAdminPassword( current.adminPassword )
-			) {
-				// The CLI expects a plaintext password (it encodes before saving).
-				options.adminPassword = decodeAdminPassword( updated.adminPassword );
-			}
-			if ( ( updated.adminEmail ?? '' ) !== ( current.adminEmail ?? '' ) ) {
-				options.adminEmail = updated.adminEmail;
-			}
-			if ( ( updated.enableDebugLog ?? false ) !== ( current.enableDebugLog ?? false ) ) {
-				options.debugLog = updated.enableDebugLog ?? false;
-			}
-			if ( ( updated.enableDebugDisplay ?? false ) !== ( current.enableDebugDisplay ?? false ) ) {
-				options.debugDisplay = updated.enableDebugDisplay ?? false;
-			}
-			if ( ( updated.enableScriptDebug ?? false ) !== ( current.enableScriptDebug ?? false ) ) {
-				options.scriptDebug = updated.enableScriptDebug ?? false;
-			}
-			if ( getWpEnvironmentType( updated ) !== getWpEnvironmentType( current ) ) {
-				options.environmentType = getWpEnvironmentType( updated );
-			}
-
+			const options = getSiteEditOptions( current, updated, wpVersion );
 			// More than path + siteId means a real change to apply.
 			if ( Object.keys( options ).length > 2 ) {
 				await new Promise< void >( ( resolve, reject ) => {

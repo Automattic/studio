@@ -57,6 +57,7 @@ import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-insta
 import {
 	getRunningSiteCount,
 	persistAutoStartForRunningSites,
+	reconcileSitesRunningState,
 	SiteServer,
 	stopAllServers,
 } from 'src/site-server';
@@ -497,6 +498,8 @@ async function appBoot() {
 		// so sites must be loaded first.
 		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
+		// Catches what the events stream never reports, like sites lost to a daemon crash.
+		app.on( 'browser-window-focus', () => void reconcileSitesRunningState() );
 
 		await createMainWindow();
 

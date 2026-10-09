@@ -365,6 +365,45 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Plugins' ) ).toBeInTheDocument();
 	} );
 
+	it( 'copies the site URL and local path from the about card', async () => {
+		renderView();
+
+		expect( screen.getByText( 'http://localhost:8881' ) ).toBeVisible();
+		expect( screen.getByText( '/Users/example/Studio/demo-site' ) ).toBeVisible();
+
+		const copyUrl = screen.getByRole( 'button', { name: 'Copy site URL' } );
+		fireEvent.click( copyUrl );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy local path' } ) );
+
+		await waitFor( () => {
+			expect( copyUrl ).toHaveAttribute( 'data-copied', 'true' );
+			expect( copyText ).toHaveBeenNthCalledWith( 1, 'http://localhost:8881' );
+			expect( copyText ).toHaveBeenNthCalledWith( 2, '/Users/example/Studio/demo-site' );
+		} );
+	} );
+
+	it( 'copies the custom domain URL when the site has one', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { customDomain: 'demo.wp.local', enableHttps: true } ) ],
+			isLoading: false,
+		} );
+
+		renderView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy site URL' } ) );
+
+		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( 'https://demo.wp.local' ) );
+	} );
+
+	it( "hides the local path on hosts that are not on the user's machine", () => {
+		useConnectorMock.mockReturnValue( connectorStub( false ) );
+
+		renderView();
+
+		expect( screen.getByRole( 'button', { name: 'Copy site URL' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Copy local path' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'indicates when disk usage is still being measured', () => {
 		useSiteStorageUsageMock.mockReturnValue( { data: undefined, isPending: true } );
 

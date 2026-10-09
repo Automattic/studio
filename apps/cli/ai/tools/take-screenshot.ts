@@ -2,7 +2,7 @@ import { copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Type } from 'typebox';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
 	saveScreenshotFile,
@@ -245,6 +245,7 @@ export function createTakeScreenshotTool( {
 		},
 		{
 			settlesPendingWork: true,
+			annotations: LOCAL_CHANGE,
 			promptSnippet: visionEnabled
 				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
 				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',

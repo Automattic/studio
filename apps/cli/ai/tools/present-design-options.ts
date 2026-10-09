@@ -7,7 +7,7 @@ import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
 import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
-import { defineTool, type ToolResult } from './define-tool';
+import { defineTool, type ToolResult, READ_ONLY } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
@@ -319,6 +319,6 @@ export function createPresentDesignOptionsTool( {
 					: `The user picked option ${ picked + 1 }: ${ answer }`
 			);
 		},
-		{ settlesPendingWork: true }
+		{ settlesPendingWork: true, annotations: READ_ONLY }
 	);
 }

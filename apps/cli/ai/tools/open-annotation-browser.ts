@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { openAnnotationBrowser } from 'cli/ai/inspector/inspector-inject';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
 
 export const openAnnotationBrowserTool = defineTool(
@@ -24,5 +24,6 @@ export const openAnnotationBrowserTool = defineTool(
 				}`
 			);
 		}
-	}
+	},
+	{ annotations: LOCAL_CHANGE }
 );

@@ -501,7 +501,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< StudioAssistantTopUpPricing | null >( `/top-up-pricing${ query }` );
 		},
 		async deleteAllSnapshots() {
-			// No-op: the local server has no delete-all route yet.
+			await api( '/snapshots', { method: 'DELETE' } );
 		},
 		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.

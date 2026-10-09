@@ -469,10 +469,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
 				method: 'POST',
-				body: JSON.stringify( { path: backupPath } ),
+				body: JSON.stringify( {
+					path: backupPath,
+					suppressTracksEvent: options?.suppressTracksEvent,
+				} ),
 			} );
 		},
 

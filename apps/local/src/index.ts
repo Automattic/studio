@@ -1233,15 +1233,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
-						// Onboarding imports are part of the add-site flow, which `studio_site_imported`
-						// deliberately does not count.
 						[
 							'import',
 							'--path',
 							site.path,
 							upload.path,
 							'--start-server',
-							'--suppress-tracks-event',
+							...( req.body?.suppressTracksEvent === true ? [ '--suppress-tracks-event' ] : [] ),
 						],
 						{ output: 'capture' }
 					);

@@ -123,7 +123,12 @@ export function OnboardingImportPage() {
 			phase = 'importing';
 			setProgress( __( 'Importing backup…' ) );
 			setImportingSiteId( site.id );
-			await importSite.mutateAsync( { siteId: site.id, backupPath } );
+			await importSite.mutateAsync( {
+				siteId: site.id,
+				backupPath,
+				// `studio_site_imported` counts imports into existing sites only.
+				suppressTracksEvent: true,
+			} );
 			importCompleted = true;
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {

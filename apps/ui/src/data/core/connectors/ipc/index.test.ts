@@ -51,6 +51,7 @@ describe( 'createIpcConnector exports', () => {
 
 		expect( exportSite ).toHaveBeenCalledWith( 'site-1', '/tmp/demo-backup.zip', {
 			mode: 'full',
+			showErrorModal: false,
 			showItemInFolder: true,
 			showNotification: true,
 		} );
@@ -64,6 +65,7 @@ describe( 'createIpcConnector exports', () => {
 
 		expect( exportSite ).toHaveBeenCalledWith( 'site-1', '/tmp/demo-backup.sql', {
 			mode: 'db',
+			showErrorModal: false,
 			showItemInFolder: true,
 			showNotification: true,
 		} );

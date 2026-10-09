@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
@@ -15,6 +15,7 @@ import {
 	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
+	openURL,
 	readBlueprintFile,
 	readLocalMediaFile,
 } from 'src/ipc-handlers';
@@ -422,5 +423,28 @@ describe( 'readLocalMediaFile', () => {
 		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
 		expect( file.name ).toBe( 'screenshot.jpg' );
 		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
+	} );
+} );
+
+describe( 'openURL', () => {
+	it( 'only hands web URLs to the OS', () => {
+		const openExternal = vi.fn().mockResolvedValue( undefined );
+		( shell as unknown as { openExternal: typeof openExternal } ).openExternal = openExternal;
+
+		for ( const url of [
+			'https://wordpress.com/',
+			'http://localhost:8881/',
+			'file:///etc/passwd',
+			'vscode://file/tmp',
+			'smb://host/share',
+			'relative/path',
+		] ) {
+			openURL( mockIpcMainInvokeEvent, url );
+		}
+
+		expect( openExternal.mock.calls ).toEqual( [
+			[ 'https://wordpress.com/' ],
+			[ 'http://localhost:8881/' ],
+		] );
 	} );
 } );

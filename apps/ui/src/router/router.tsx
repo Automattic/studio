@@ -1,5 +1,6 @@
 import { createRouter } from '@tanstack/react-router';
 import { createPackagedRouterHistory } from '@/app/router-history';
+import { AppErrorFallback } from '@/components/app-error-fallback';
 import { dashboardLayoutRoute } from './layout-dashboard';
 import { onboardingLayoutRoute } from './layout-onboarding';
 import { rootRoute } from './layout-root';
@@ -44,6 +45,7 @@ export function createAppRouter( context: RouterContext ) {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
+		defaultErrorComponent: AppErrorFallback,
 		history: createPackagedRouterHistory(),
 	} );
 }

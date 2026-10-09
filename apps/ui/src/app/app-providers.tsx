@@ -1,4 +1,3 @@
-import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { ThemeProvider } from '@wordpress/theme';
@@ -6,7 +5,6 @@ import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
 import { appThemeColor } from '@/components/app-theme-scope';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
-import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -15,12 +13,7 @@ import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
 import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
-import type { Connector } from '@/data/core';
 import type { PropsWithChildren } from 'react';
-
-interface AppProvidersProps extends PropsWithChildren {
-	connector: Connector;
-}
 
 function SiteEventsBridge() {
 	useSyncSitesWithEvents();
@@ -53,17 +46,13 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	);
 }
 
-export function AppProviders( { children, connector }: AppProvidersProps ) {
+export function AppProviders( { children }: PropsWithChildren ) {
 	return (
-		<ConnectorProvider connector={ connector }>
-			<QueryClientProvider client={ queryClient }>
-				<AgentRunProvider>
-					<SiteEventsBridge />
-					<I18nProvider i18n={ defaultI18n }>
-						<ThemedApp>{ children }</ThemedApp>
-					</I18nProvider>
-				</AgentRunProvider>
-			</QueryClientProvider>
-		</ConnectorProvider>
+		<AgentRunProvider>
+			<SiteEventsBridge />
+			<I18nProvider i18n={ defaultI18n }>
+				<ThemedApp>{ children }</ThemedApp>
+			</I18nProvider>
+		</AgentRunProvider>
 	);
 }

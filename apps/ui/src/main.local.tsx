@@ -1,9 +1,5 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from '@/app';
-import { persistPromise } from '@/data/core';
+import { startApp } from '@/app';
 import { createLocalConnector } from '@/data/core/connectors/local';
-import { applyLocale } from '@/lib/apply-locale';
 
 // Local entry point. Identical to `main.tsx` except it wires the HTTP/SSE local
 // connector instead of the Electron IPC connector, so the same React app runs
@@ -17,18 +13,8 @@ function getDefaultApiBaseUrl(): string {
 	return import.meta.env.DEV ? 'http://localhost:8081' : window.location.origin;
 }
 
-async function bootstrap() {
-	const connector = createLocalConnector( {
+startApp(
+	createLocalConnector( {
 		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
-	} );
-
-	await Promise.all( [ connector.init?.(), applyLocale( connector ), persistPromise ] );
-
-	createRoot( document.getElementById( 'root' )! ).render(
-		<StrictMode>
-			<App connector={ connector } />
-		</StrictMode>
-	);
-}
-
-void bootstrap();
+	} )
+);

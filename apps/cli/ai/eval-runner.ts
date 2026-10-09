@@ -37,13 +37,16 @@ import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { formatActiveSitePrefix } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
+import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { deleteSnapshotFromConfig } from 'cli/lib/cli-config/snapshots';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -67,9 +70,17 @@ const evalSeedSchema = z.object( {
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
 	// A real (stopped) site under STUDIO_SITES_ROOT, active for the turn, with
-	// `files` written relative to its root. Deleted after the turn.
+	// `files` written relative to its root, then each `wpCli` argv run in order
+	// (e.g. to activate a theme or seed database rows). Each `inspect` argv runs
+	// after the turn and its output lands in the result's `inspections`, so
+	// assertions can check site state before the site is deleted.
 	activeSite: z
-		.object( { name: z.string(), files: z.record( z.string(), z.string() ).optional() } )
+		.object( {
+			name: z.string(),
+			files: z.record( z.string(), z.string() ).optional(),
+			wpCli: z.array( z.array( z.string() ) ).optional(),
+			inspect: z.array( z.array( z.string() ) ).optional(),
+		} )
 		.optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
@@ -81,8 +92,16 @@ interface EvalRunnerInput {
 	seed?: EvalSeed;
 }
 
+interface Inspection {
+	args: string[];
+	exitCode: number | null;
+	stdout: string;
+	stderr: string;
+}
+
 interface SeededFixtures {
 	cleanup: () => Promise< void >;
+	inspect: () => Promise< Inspection[] >;
 	promptPrefix?: string;
 }
 
@@ -158,6 +177,8 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			.replace( /[^a-z0-9]+/g, '-' )
 			.replace( /^-|-$/g, '' );
 		activeSitePath = path.join( STUDIO_SITES_ROOT, slug );
+		// WordPress is installed on first start, so WP-CLI seeds need a started site.
+		const needsInstall = !! activeSite.wpCli?.length;
 		await runCreateSiteCommand(
 			activeSitePath,
 			{
@@ -166,7 +187,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 				phpVersion: DEFAULT_PHP_VERSION,
 				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				enableHttps: false,
-				noStart: true,
+				noStart: ! needsInstall,
 				skipBrowser: true,
 				skipLogDetails: true,
 			},
@@ -177,12 +198,60 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			mkdirSync( path.dirname( filePath ), { recursive: true } );
 			writeFileSync( filePath, content );
 		}
+		try {
+			const site = await getSiteByFolder( activeSitePath );
+			for ( const args of activeSite.wpCli ?? [] ) {
+				await using command = await runWpCliCommand( site, args );
+				const exitCode = await command.response.exitCode;
+				const stdout = await command.response.stdoutText;
+				const stderr = await command.response.stderrText;
+				// WP-CLI `eval` exits 0 on PHP warnings, so seed scripts signal failure by printing SEED_ERROR.
+				if ( exitCode !== 0 || stdout.includes( 'SEED_ERROR' ) ) {
+					throw new Error(
+						`Seed \`wp ${ args[ 0 ] }\` failed (exit ${ exitCode }): ${ stdout } ${ stderr }`
+					);
+				}
+			}
+			if ( needsInstall ) {
+				await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, activeSitePath, new Logger() );
+			}
+		} catch ( error ) {
+			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
+			throw error;
+		}
 		promptPrefix = formatActiveSitePrefix( {
 			name: activeSite.name,
 			path: activeSitePath,
 			running: false,
 		} );
 	}
+
+	const inspect = async (): Promise< Inspection[] > => {
+		if ( ! activeSitePath || ! activeSite?.inspect?.length ) {
+			return [];
+		}
+		const site = await getSiteByFolder( activeSitePath );
+		const inspections: Inspection[] = [];
+		for ( const args of activeSite.inspect ) {
+			try {
+				await using command = await runWpCliCommand( site, args );
+				inspections.push( {
+					args,
+					exitCode: await command.response.exitCode,
+					stdout: await command.response.stdoutText,
+					stderr: await command.response.stderrText,
+				} );
+			} catch ( error ) {
+				inspections.push( {
+					args,
+					exitCode: null,
+					stdout: '',
+					stderr: error instanceof Error ? error.message : String( error ),
+				} );
+			}
+		}
+		return inspections;
+	};
 
 	const cleanup = async () => {
 		if ( activeSitePath ) {
@@ -208,7 +277,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 			}
 		}
 	};
-	return { cleanup, promptPrefix };
+	return { cleanup, inspect, promptPrefix };
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -386,11 +455,11 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 	let lastTurnEndedEmpty = false;
 
-	let cleanupSeed: ( () => Promise< void > ) | null = null;
+	let seeded: SeededFixtures | null = null;
+	let inspections: Inspection[] = [];
 	let prompt = input.prompt.trim();
 	if ( input.seed ) {
-		const seeded = await seedFixtures( input.seed );
-		cleanupSeed = seeded.cleanup;
+		seeded = await seedFixtures( input.seed );
 		if ( seeded.promptPrefix ) {
 			prompt = `${ seeded.promptPrefix }\n\n${ prompt }`;
 		}
@@ -517,8 +586,9 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
-		if ( cleanupSeed ) {
-			await cleanupSeed().catch( () => undefined );
+		if ( seeded ) {
+			inspections = await seeded.inspect().catch( () => [] );
+			await seeded.cleanup().catch( () => undefined );
 		}
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
@@ -537,6 +607,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		inspections,
 	};
 }
 

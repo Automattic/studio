@@ -1099,6 +1099,26 @@ tests:
               License URI: http://www.gnu.org/licenses/gpl-2.0.html
               Text Domain: bakery
               */
+            wp-content/themes/bakery/functions.php: |
+              <?php
+              /**
+               * Bakery theme functions.
+               *
+               * @package bakery
+               */
+
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style(
+              		'bakery-style',
+              		get_parent_theme_file_uri( 'style.css' ),
+              		array(),
+              		wp_get_theme()->get( 'Version' )
+              	);
+              } );
+
+              add_action( 'after_setup_theme', function () {
+              	add_editor_style( 'style.css' );
+              } );
             wp-content/themes/bakery/theme.json: |
               {
               	"$schema": "https://schemas.wp.org/wp/6.7/theme.json",

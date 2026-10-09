@@ -5,49 +5,8 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-const THEME_BLOCK_FILE_PATTERN =
-	/^wp-content\/themes\/([\w.-]+)\/(templates|parts)\/([\w.-]+)\.html$/;
-
-/**
- * Once a template or template part is saved in the Site Editor, WordPress
- * renders that database copy instead of the theme file. Returns a warning for
- * the agent when the validated file is shadowed that way, or null.
- */
-async function getDatabaseOverrideNote(
-	site: SiteData,
-	filePath: string
-): Promise< string | null > {
-	const relativePath = path.relative( site.path, filePath ).split( path.sep ).join( '/' );
-	const match = relativePath.match( THEME_BLOCK_FILE_PATTERN );
-	if ( ! match ) {
-		return null;
-	}
-	const [ , theme, folder, slug ] = match;
-	const type = folder === 'parts' ? 'wp_template_part' : 'wp_template';
-	const label = folder === 'parts' ? 'template part' : 'template';
-	const php = `if ( ! in_array( '${ theme }', array( get_stylesheet(), get_template() ), true ) ) { return; }
-$template = get_block_template( get_stylesheet() . '//${ slug }', '${ type }' );
-if ( $template && 'custom' === $template->source && $template->wp_id ) { echo 'OVERRIDE_POST_ID=' . $template->wp_id; }`;
-
-	try {
-		await using command = await runWpCliCommand( site, [ 'eval', php ] );
-		const id = ( await command.response.stdoutText ).match( /OVERRIDE_POST_ID=(\d+)/ )?.[ 1 ];
-		if ( ! id ) {
-			return null;
-		}
-		return [
-			`Warning: this file is not what the site renders. The ${ label } "${ slug }" was customized in the Site Editor, so WordPress renders its saved copy (${ type } post ${ id }) instead, and edits to this file do not appear on the site.`,
-			`Make the same change in the saved copy: read it with \`wp post get ${ id } --field=post_content\`, apply your edit while keeping the user's other changes, validate the result, and save it with \`wp post update ${ id } <file>\`. Then tell the user. Do not delete the saved copy to make this file take effect unless the user agrees, because that discards their Site Editor changes.`,
-		].join( '\n' );
-	} catch {
-		return null;
-	}
-}
 
 function formatPreview( content: string ): string {
 	const compact = content.replace( /\s+/g, ' ' ).trim();
@@ -116,12 +75,6 @@ export const validateBlocksTool = defineTool(
 				throw new Error( 'Either content or filePath must be provided.' );
 			}
 
-			const overrideNote = filePath ? getDatabaseOverrideNote( site, filePath ) : null;
-			const result = async ( lines: string[] ) => {
-				const note = await overrideNote;
-				return textResult( ( note ? [ ...lines, '', note ] : lines ).join( '\n' ) );
-			};
-
 			// Stage 1: static core/html policy check. Acts as a gate — if it
 			// fails we stop here instead of paying the live-editor round-trip on
 			// content we already know needs rewriting.
@@ -144,7 +97,7 @@ export const validateBlocksTool = defineTool(
 					'',
 					'Rewrite each invalid core/html block as editable core or plugin blocks, then call validate_blocks again. Editor validation was skipped until the HTML policy passes.',
 				];
-				return result( lines );
+				return textResult( lines.join( '\n' ) );
 			}
 
 			const htmlSummary =
@@ -167,11 +120,13 @@ export const validateBlocksTool = defineTool(
 
 			if ( report.invalidBlocks === 0 ) {
 				context.onProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
-				return result( [
-					htmlSummary,
-					`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
-					'No editor serialization fixes needed.',
-				] );
+				return textResult(
+					[
+						htmlSummary,
+						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
+						'No editor serialization fixes needed.',
+					].join( '\n' )
+				);
 			}
 
 			const invalidNames = report.results
@@ -226,7 +181,7 @@ export const validateBlocksTool = defineTool(
 				lines.push( '', 'No automatic editor serialization fix was available.' );
 			}
 
-			return result( lines );
+			return textResult( lines.join( '\n' ) );
 		} catch ( error ) {
 			throw new Error(
 				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`

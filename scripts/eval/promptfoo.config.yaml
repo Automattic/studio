@@ -1180,11 +1180,12 @@ tests:
             if (!raw) return { pass: false, score: 0, reason: `no header inspection: ${JSON.stringify(d.inspections || d.error).slice(0, 300)}` };
             const header = JSON.parse(raw[1]);
             const content = header.content || '';
-            const applied = /"openSubmenusOnClick"\s*:\s*true/.test(content);
+            // WordPress 7.0 replaced the deprecated openSubmenusOnClick with submenuVisibility; accept either.
+            const applied = /"openSubmenusOnClick"\s*:\s*true|"submenuVisibility"\s*:\s*"click"/.test(content);
             const kept = content.includes('Fresh bread daily since 1998');
             const segments = d.textSegments || [];
             const finalText = segments[segments.length - 1] || '';
-            const mentions = /override|database|takes? precedence|saved (copy|version)|customi[sz](ed|ations?) (in|from|made in) the site editor|site editor (customi[sz]ations?|changes|edits|copy|version)/i.test(segments.join('\n'));
+            const mentions = /(template( part)?|database|site editor|saved) override|database|takes? precedence|saved (copy|version)|customi[sz](ed|ations?) (in|from|made in) the site editor|site editor (customi[sz]ations?|changes|edits|copy|version)/i.test(finalText);
             const asked = mentions && finalText.includes('?');
             const state = `rendered header (${header.source}, ${header.stylesheet}): submenus-on-click=${applied}, tagline=${kept}`;
             if (applied && kept) return { pass: true, score: 1, reason: `change reached the rendered header; ${state}` };
@@ -1255,7 +1256,7 @@ tests:
             const kept = String(styles.userLineHeight) === '1.7';
             const segments = d.textSegments || [];
             const finalText = segments[segments.length - 1] || '';
-            const mentions = /override|database|takes? precedence|custom styles|saved (styles|colou?rs?|in the site editor)|customi[sz](ed|ations?) (in|from|made in) the (site editor|styles panel)|site editor (customi[sz]ations?|changes|edits|styles)/i.test(segments.join('\n'));
+            const mentions = /(global styles|user|database|site editor|saved) override|database|takes? precedence|custom styles|saved (styles|colou?rs?|in the site editor)|customi[sz](ed|ations?) (in|from|made in) the (site editor|styles panel)|site editor (customi[sz]ations?|changes|edits|styles)/i.test(finalText);
             const asked = mentions && finalText.includes('?');
             const state = `rendered background=${styles.background} (${styles.rawBackground}), saved line height=${styles.userLineHeight}`;
             if (applied && kept) return { pass: true, score: 1, reason: `change reached the rendered styles; ${state}` };

@@ -161,12 +161,6 @@ async function getAppMenu(
 				process.crash();
 			},
 		},
-		{
-			label: __( 'Test Render Failure (dev only)' ),
-			click: async () => {
-				void sendIpcEventToRenderer( 'test-render-failure' );
-			},
-		},
 	];
 
 	// Cmd/Ctrl+R belongs to the site preview: the agentic renderer binds it in

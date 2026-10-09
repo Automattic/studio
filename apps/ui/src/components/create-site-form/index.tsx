@@ -85,6 +85,7 @@ interface FormData {
 	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
 	pathError: string;
+	isWordPress: boolean;
 	// Suppresses the path field's required check during the auto-gen async
 	// window so a seeded name doesn't flash "1 error found" on the Advanced
 	// toggle before `generateProposedPath` resolves.
@@ -118,6 +119,7 @@ function createDefaultFormData(): FormData {
 		path: '',
 		hasCustomPath: false,
 		pathError: '',
+		isWordPress: false,
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
@@ -155,6 +157,7 @@ function applyInitialValues(
 			path: defaults.path,
 			hasCustomPath: defaults.hasCustomPath,
 			pathError: defaults.pathError,
+			isWordPress: defaults.isWordPress,
 			isPathPending: defaults.isPathPending,
 		},
 		phpVersion: { phpVersion: defaults.phpVersion },
@@ -182,6 +185,7 @@ function applyInitialValues(
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
 		next.pathError = '';
+		next.isWordPress = false;
 		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
@@ -240,6 +244,7 @@ function usePathAutoGenerate(
 				onChangeRef.current( {
 					path: result.path,
 					pathError: result.error ?? '',
+					isWordPress: result.isWordPress,
 					isPathPending: false,
 				} );
 			} catch {
@@ -282,17 +287,21 @@ function PathField( {
 			path: result.path,
 			hasCustomPath: true,
 			pathError: result.error ?? '',
+			isWordPress: result.isWordPress,
 			...( ! item.name && result.name ? { name: result.name } : {} ),
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = item.pathError || validity?.custom?.message;
-	const help = (
-		<>
-			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-			<LearnMoreLink docsLinksKey="docsSites" />
-		</>
-	);
+	const help =
+		item.path && item.isWordPress ? (
+			__( 'The existing WordPress site at this path will be added.' )
+		) : (
+			<>
+				{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
+				<LearnMoreLink docsLinksKey="docsSites" />
+			</>
+		);
 	const error = errorMessage ? (
 		<p role="alert" className="components-validated-control__indicator is-invalid">
 			<Icon
@@ -316,7 +325,9 @@ function PathField( {
 					label={ field.label }
 					hideLabelFromVision={ hideLabelFromVision }
 					value={ item.path }
-					onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
+					onChange={ ( value ) =>
+						onChange( { path: value, hasCustomPath: true, pathError: '', isWordPress: false } )
+					}
 					help={ errorMessage ? undefined : help }
 				/>
 				{ error }

@@ -561,6 +561,8 @@ describe( 'CLI: studio create', () => {
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					title: '  Example Brand  ',
+					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
 				} )
 			);
 			const plugin = 'https://example.com/ssi.zip';
@@ -976,6 +978,7 @@ describe( 'CLI: studio create', () => {
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				} )
 			);
 
@@ -989,6 +992,7 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).toEqual( {
 				type: 'files',
 				ref: 'request-bundle:source',
+				entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				metadata: {
 					reports: [ 'capture-receipt.json', 'diagnostics.json', 'scroll-states.json' ],
 				},
@@ -1046,6 +1050,7 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).toEqual( {
 				type: 'files',
 				ref: 'request-bundle:source',
+				entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				metadata: {
 					reports: [
 						'capture-receipt.json',
@@ -1077,7 +1082,7 @@ describe( 'CLI: studio create', () => {
 				expect( reportNames ).not.toContain( excluded );
 			}
 			expect( request.source ).not.toHaveProperty( 'files' );
-			expect( request.source ).not.toHaveProperty( 'entrypoint' );
+			expect( request.source.entrypoint ).toBe( `${ path.basename( websiteDir ) }/index.html` );
 		} );
 
 		it( 'resolves the Data Liberation capture directory from a website/ import source', () => {
@@ -1092,6 +1097,7 @@ describe( 'CLI: studio create', () => {
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
 				} )
 			);
 
@@ -1115,6 +1121,7 @@ describe( 'CLI: studio create', () => {
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				} )
 			);
 
@@ -1129,6 +1136,7 @@ describe( 'CLI: studio create', () => {
 			expect( request.source ).toEqual( {
 				type: 'files',
 				ref: 'request-bundle:source',
+				entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				metadata: {
 					reports: [ 'capture-receipt.json' ],
 				},
@@ -1186,6 +1194,7 @@ describe( 'CLI: studio create', () => {
 				JSON.stringify( {
 					schema: 'data-liberation/capture-receipt/v1',
 					websiteRoot: path.basename( websiteDir ),
+					entrypoint: `${ path.basename( websiteDir ) }/index.html`,
 				} )
 			);
 			const blueprint = buildCreateFromSourceBlueprint(
@@ -1201,11 +1210,16 @@ describe( 'CLI: studio create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
 
 			const stagedSource = path.join( mockSitePath, '.studio-import', 'source' );
-			expect( copySpy ).toHaveBeenCalledWith( websiteDir, stagedSource, {
-				recursive: true,
-				errorOnExist: true,
-				force: false,
-			} );
+			expect( copySpy ).toHaveBeenCalledWith(
+				websiteDir,
+				path.join( stagedSource, path.basename( websiteDir ) ),
+				{
+					recursive: true,
+					errorOnExist: true,
+					force: false,
+					filter: expect.any( Function ),
+				}
+			);
 			expect( copyFileSpy ).toHaveBeenCalledWith(
 				path.join( captureDir, 'capture-receipt.json' ),
 				path.join( stagedSource, 'capture-receipt.json' )
@@ -1214,6 +1228,147 @@ describe( 'CLI: studio create', () => {
 				path.join( captureDir, 'interaction-states.json' ),
 				path.join( stagedSource, 'interaction-states.json' )
 			);
+		} );
+
+		it( 'preserves a nested capture namespace and binary bytes through actual staging', async () => {
+			fsMkdirSyncSpy.mockRestore();
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-namespace-' ) );
+			const capture = path.join( root, 'capture' );
+			const sitePath = path.join( root, 'site' );
+			const websiteRoot = 'portable/site';
+			const entrypoint = `${ websiteRoot }/pages/home.html`;
+			const binary = Buffer.from( [ 0, 255, 128, 13, 10, 0, 42 ] );
+			fs.mkdirSync( path.join( capture, websiteRoot, 'pages' ), { recursive: true } );
+			fs.mkdirSync( path.join( capture, 'screenshots' ) );
+			fs.writeFileSync( path.join( capture, entrypoint ), '<main>Neutral gallery</main>' );
+			fs.writeFileSync( path.join( capture, websiteRoot, 'image.webp' ), binary );
+			fs.writeFileSync( path.join( capture, 'screenshots', 'raw.png' ), 'excluded' );
+			const receipt = JSON.stringify( {
+				schema: 'data-liberation/capture-receipt/v1',
+				websiteRoot,
+				entrypoint,
+				routes: [ { url: 'https://example.com/customer', path: entrypoint } ],
+				assets: [ { path: `${ websiteRoot }/image.webp` } ],
+			} );
+			const interactions = '{"schema":"data-liberation/captured-interactions/v1","pages":[]}';
+			fs.writeFileSync( path.join( capture, 'capture-receipt.json' ), receipt );
+			fs.writeFileSync( path.join( capture, 'interaction-states.json' ), interactions );
+			const blueprint = buildCreateFromSourceBlueprint(
+				capture,
+				'Neutral Site',
+				'https://example.com/static-site-importer.zip'
+			);
+			let inspected = false;
+			vi.mocked( runWpCliCommand ).mockImplementation( async () => {
+				const source = path.join( sitePath, '.studio-import', 'source' );
+				const request = JSON.parse(
+					fs.readFileSync( path.join( sitePath, '.studio-import', 'request.json' ), 'utf8' )
+				);
+				expect( request.source.entrypoint ).toBe( entrypoint );
+				expect( fs.readFileSync( path.join( source, 'capture-receipt.json' ), 'utf8' ) ).toBe(
+					receipt
+				);
+				expect( fs.readFileSync( path.join( source, 'interaction-states.json' ), 'utf8' ) ).toBe(
+					interactions
+				);
+				for ( const reference of [ entrypoint, `${ websiteRoot }/image.webp` ] ) {
+					expect( fs.existsSync( path.join( source, reference ) ) ).toBe( true );
+				}
+				expect( fs.readFileSync( path.join( source, websiteRoot, 'image.webp' ) ) ).toEqual(
+					binary
+				);
+				expect( fs.existsSync( path.join( source, 'screenshots' ) ) ).toBe( false );
+				inspected = true;
+				return mockWpCli();
+			} );
+			try {
+				await runCommand( sitePath, { ...defaultTestOptions, blueprint, noStart: true } );
+				expect( inspected ).toBe( true );
+			} finally {
+				fs.rmSync( root, { recursive: true, force: true } );
+			}
+		} );
+
+		it.each( [ '../outside', '/outside', 'C:/outside', 'website/../outside', 'website\\outside' ] )(
+			'rejects an unbounded capture website root %s',
+			( websiteRoot ) => {
+				const capture = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-path-' ) );
+				fs.writeFileSync(
+					path.join( capture, 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'data-liberation/capture-receipt/v1',
+						websiteRoot,
+						entrypoint: `${ websiteRoot }/index.html`,
+					} )
+				);
+				try {
+					expect( () =>
+						buildCreateFromSourceBlueprint( capture, 'Site', 'https://example.com/ssi.zip' )
+					).toThrow( 'paths must stay inside' );
+				} finally {
+					fs.rmSync( capture, { recursive: true, force: true } );
+				}
+			}
+		);
+
+		it.each( [ 'outside.html', 'website/../outside.html', '/website/index.html' ] )(
+			'rejects an entrypoint outside the declared website root %s',
+			( entrypoint ) => {
+				const capture = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-entry-' ) );
+				fsMkdirSyncSpy.mockRestore();
+				fs.mkdirSync( path.join( capture, 'website' ) );
+				fs.writeFileSync(
+					path.join( capture, 'capture-receipt.json' ),
+					JSON.stringify( {
+						schema: 'data-liberation/capture-receipt/v1',
+						websiteRoot: 'website',
+						entrypoint,
+					} )
+				);
+				try {
+					expect( () =>
+						buildCreateFromSourceBlueprint( capture, 'Site', 'https://example.com/ssi.zip' )
+					).toThrow();
+				} finally {
+					fs.rmSync( capture, { recursive: true, force: true } );
+				}
+			}
+		);
+
+		it( 'rejects website and sidecar symbolic links escaping a capture', () => {
+			fsMkdirSyncSpy.mockRestore();
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-capture-link-' ) );
+			const capture = path.join( root, 'capture' );
+			const outside = path.join( root, 'outside' );
+			fs.mkdirSync( capture );
+			fs.mkdirSync( outside );
+			fs.writeFileSync( path.join( outside, 'index.html' ), '<main>Outside</main>' );
+			fs.writeFileSync(
+				path.join( capture, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'data-liberation/capture-receipt/v1',
+					websiteRoot: 'website',
+					entrypoint: 'website/index.html',
+				} )
+			);
+			try {
+				fs.symlinkSync( outside, path.join( capture, 'website' ), 'junction' );
+				expect( () =>
+					buildCreateFromSourceBlueprint( capture, 'Site', 'https://example.com/ssi.zip' )
+				).toThrow( 'symbolic links' );
+				fs.unlinkSync( path.join( capture, 'website' ) );
+				fs.mkdirSync( path.join( capture, 'website' ) );
+				fs.writeFileSync( path.join( capture, 'website', 'index.html' ), '<main>Inside</main>' );
+				fs.symlinkSync(
+					path.join( outside, 'index.html' ),
+					path.join( capture, 'interaction-states.json' )
+				);
+				expect( () =>
+					buildCreateFromSourceBlueprint( capture, 'Site', 'https://example.com/ssi.zip' )
+				).toThrow( 'symbolic links' );
+			} finally {
+				fs.rmSync( root, { recursive: true, force: true } );
+			}
 		} );
 
 		it( 'checks bundled SQLite before capturing a URL source', async () => {

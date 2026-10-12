@@ -502,16 +502,3 @@ export async function rotateReprintSecret(
 		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
 	}
 }
-
-export async function revokeAuthToken( token: string ): Promise< void > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-	try {
-		await wpcom.req.del( {
-			apiNamespace: 'wpcom/v2',
-			path: '/studio-app/token',
-			method: 'DELETE',
-		} );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to revoke token' ), error );
-	}
-}

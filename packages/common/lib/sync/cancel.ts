@@ -1,4 +1,5 @@
 import { SyncCommandLoggerAction } from '@studio/common/logger-actions';
+import type { SyncActivity } from '@studio/common/lib/sync/activity';
 import type { PushPhase } from '@studio/common/types/sync';
 
 // Kept free of Node imports so the renderers can share these helpers with the
@@ -60,4 +61,18 @@ const PULL_REMOTE_ACTIONS: string[] = [
 export function canCancelPull( action: string | undefined ): boolean {
 	// No progress reported yet: the CLI has not started doing anything local.
 	return action === undefined || PULL_REMOTE_ACTIONS.includes( action );
+}
+
+/**
+ * Whether stopping the CLI now cancels this sync. A push or pull past the
+ * point where stopping is safe keeps running instead.
+ */
+export function canCancelSyncActivity( activity: SyncActivity | null | undefined ): boolean {
+	if ( activity?.kind !== 'pending' ) {
+		return false;
+	}
+	if ( activity.direction === 'push' ) {
+		return canCancelPush( activity.phase );
+	}
+	return activity.direction === 'pull' && canCancelPull( activity.action );
 }

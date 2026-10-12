@@ -18,6 +18,16 @@ export function getAuthenticationUrl(
 	return url.toString();
 }
 
+export async function revokeAuthToken( accessToken: string ): Promise< void > {
+	const response = await fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/token', {
+		method: 'DELETE',
+		headers: { Authorization: `Bearer ${ accessToken }` },
+	} );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to revoke token: ${ response.status }` );
+	}
+}
+
 export function getSignUpUrl( locale: SupportedLocale, redirectUri?: string ): string {
 	const url = new URL( 'https://wordpress.com/start/wpcc/oauth2-user' );
 	url.searchParams.set( 'oauth2_client_id', CLIENT_ID );

@@ -27,4 +27,4 @@ node apps/cli/dist/cli/main.mjs site list
 echo '--- :vitest: Run CLI E2E Tests'
 # Serialize the files: each spins up its own sandbox WordPress + daemon, and
 # booting several at once starves the CI host, flaking `site start`.
-npm test -- --tagsFilter='e2e' --no-file-parallelism
+npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts

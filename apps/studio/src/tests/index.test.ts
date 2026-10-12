@@ -159,6 +159,9 @@ function mockElectron() {
 				showMessageBox: vi.fn(),
 				showMessageBoxSync: vi.fn(),
 			},
+			shell: {
+				openExternal: vi.fn().mockResolvedValue( undefined ),
+			},
 		};
 	} );
 
@@ -330,6 +333,147 @@ describe( 'App initialization', () => {
 
 			expect( dialog.showMessageBoxSync ).not.toHaveBeenCalled();
 			expect( event.preventDefault ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'popups from the site preview', () => {
+		type Listener = ( ...args: any[] ) => void;
+		type WindowOpenHandler = ( details: { url: string } ) => unknown;
+
+		function findListener( on: ReturnType< typeof vi.fn >, eventName: string ) {
+			return on.mock.calls.find( ( [ event ] ) => event === eventName )?.[ 1 ] as
+				| Listener
+				| undefined;
+		}
+
+		async function capturePopupHandling( contentsType: string ) {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			await mockedEvents.ready();
+			const { shell } = await import( 'electron' );
+
+			const contents = {
+				getType: () => contentsType,
+				getURL: () => 'http://localhost:8881/wp-admin/post.php?post=1&action=edit',
+				on: vi.fn(),
+				once: vi.fn(),
+				setWindowOpenHandler: vi.fn(),
+				isDestroyed: vi.fn().mockReturnValue( false ),
+				loadURL: vi.fn().mockResolvedValue( undefined ),
+			};
+			await mockedEvents[ 'web-contents-created' ]( {}, contents );
+
+			const windowOpenHandler = contents.setWindowOpenHandler.mock
+				.calls[ 0 ]?.[ 0 ] as WindowOpenHandler;
+
+			function createPopup() {
+				const popup = {
+					isDestroyed: vi.fn().mockReturnValue( false ),
+					destroy: vi.fn(),
+					webContents: { on: vi.fn() },
+				};
+				findListener( contents.on, 'did-create-window' )?.( popup );
+				return popup;
+			}
+
+			return { contents, shell, windowOpenHandler, createPopup };
+		}
+
+		it( 'loads popup links in the site preview', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'http://localhost:8881/hello-world/' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/hello-world/' );
+		} );
+
+		it( 'opens popup links to other sites in the system browser', async () => {
+			const { contents, shell, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'https://wordpress.org/' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'opens plain links to other sites in the system browser', async () => {
+			const { contents, shell } = await capturePopupHandling( 'webview' );
+			const event = { preventDefault: vi.fn() };
+
+			findListener( contents.on, 'will-navigate' )?.( event, 'https://wordpress.org/' );
+
+			expect( event.preventDefault ).toHaveBeenCalled();
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+		} );
+
+		it( 'follows plain links within the site in the site preview', async () => {
+			const { contents, shell } = await capturePopupHandling( 'webview' );
+			const event = { preventDefault: vi.fn() };
+
+			findListener( contents.on, 'will-navigate' )?.( event, 'http://localhost:8881/hello-world/' );
+
+			expect( event.preventDefault ).not.toHaveBeenCalled();
+			expect( shell.openExternal ).not.toHaveBeenCalled();
+		} );
+
+		it( 'ignores popups that are not web pages', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'webview' );
+
+			const result = windowOpenHandler( { url: 'file:///etc/passwd' } );
+
+			expect( result ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'follows a blank popup to its first web page in the site preview', async () => {
+			const { contents, windowOpenHandler, createPopup } = await capturePopupHandling( 'webview' );
+
+			expect( windowOpenHandler( { url: 'about:blank' } ) ).toEqual( {
+				action: 'allow',
+				overrideBrowserWindowOptions: { show: false },
+			} );
+
+			const popup = createPopup();
+			const onStartNavigation = findListener( popup.webContents.on, 'did-start-navigation' );
+			onStartNavigation?.( { url: 'about:blank', isMainFrame: true } );
+			expect( popup.destroy ).not.toHaveBeenCalled();
+
+			onStartNavigation?.( { url: 'http://localhost:8881/?p=1&preview=true', isMainFrame: true } );
+
+			expect( popup.destroy ).toHaveBeenCalled();
+			expect( contents.loadURL ).toHaveBeenCalledWith( 'http://localhost:8881/?p=1&preview=true' );
+		} );
+
+		it( 'follows a blank popup to another site in the system browser', async () => {
+			const { contents, shell, windowOpenHandler, createPopup } =
+				await capturePopupHandling( 'webview' );
+
+			windowOpenHandler( { url: '' } );
+			const popup = createPopup();
+			findListener(
+				popup.webContents.on,
+				'did-start-navigation'
+			)?.( {
+				url: 'https://wordpress.org/',
+				isMainFrame: true,
+			} );
+
+			expect( popup.destroy ).toHaveBeenCalled();
+			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'blocks popups outside the site preview', async () => {
+			const { contents, windowOpenHandler } = await capturePopupHandling( 'window' );
+
+			expect( windowOpenHandler( { url: 'https://wordpress.org/' } ) ).toEqual( {
+				action: 'deny',
+			} );
+			expect( windowOpenHandler( { url: 'about:blank' } ) ).toEqual( { action: 'deny' } );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
 		} );
 	} );
 

@@ -49,8 +49,8 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connector,
 } ) );
 
-vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
-	useConnectedWpcomSites: () => ( { data: connectedSites } ),
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	useLiveWpcomSites: () => connectedSites,
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {

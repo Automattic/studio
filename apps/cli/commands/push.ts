@@ -346,9 +346,11 @@ async function runPush(
 					progress = 50;
 			}
 
+			// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while the
+			// live site updates shows the push again.
+			reportPhase( phase, phaseProgress );
 			const roundedProgress = Math.round( progress );
 			if ( roundedProgress !== lastProgress ) {
-				reportPhase( phase, phaseProgress );
 				stalledAttempts = 0;
 				lastProgress = roundedProgress;
 			} else {

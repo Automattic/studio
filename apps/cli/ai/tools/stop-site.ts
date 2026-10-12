@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
 import { Logger } from 'cli/logger';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const stopSiteTool = defineTool(
@@ -25,5 +25,5 @@ export const stopSiteTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Stop a running site' }
+	{ promptSnippet: 'Stop a running site', annotations: LOCAL_CHANGE }
 );

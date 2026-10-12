@@ -1,4 +1,6 @@
+import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
+import type { Connector } from '@/data/core';
 
 // Session-only dismissals for persistent sidebar cards. Lives here rather than in
 // use-app-messages so the update hooks can reset it without an import cycle.
@@ -211,6 +213,21 @@ export const toast = {
 	error: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'error', title, ...options } ),
 };
+
+// Only where the host keeps a log file the user can open.
+export function openStudioLogsAction( connector: Connector ): ToastAction | undefined {
+	if ( ! connector.capabilities.studioLogs ) {
+		return undefined;
+	}
+	return {
+		label: __( 'Open Studio Logs' ),
+		onClick: () => {
+			void connector.openStudioLogs().catch( ( error ) => {
+				console.error( 'Failed to open Studio logs:', error );
+			} );
+		},
+	};
+}
 
 // Hover pause — <AppToasts /> calls these on mouse enter/leave. Resuming
 // restarts the full duration; no remaining-time bookkeeping. A toast that is

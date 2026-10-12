@@ -21,7 +21,7 @@ import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/m
 import { loadSkills } from 'cli/ai/skills';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
-import { defineTool, type StudioAgentTool } from 'cli/ai/tools/define-tool';
+import { defineTool, READ_ONLY, type StudioAgentTool } from 'cli/ai/tools/define-tool';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { renderSkill } from 'cli/ai/tools/skill';
 import { textResult } from 'cli/ai/tools/utils';
@@ -83,7 +83,8 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): ServedT
 				args.skill
 					? renderSkill( args.skill )
 					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
-			)
+			),
+		{ annotations: READ_ONLY }
 	);
 	const library = client.apps ? libraryPage() : null;
 	return [
@@ -130,6 +131,7 @@ export async function startMcpStdioServer(): Promise< void > {
 			name: tool.name,
 			description: tool.description,
 			inputSchema: tool.parameters as unknown as Record< string, unknown >,
+			annotations: tool.annotations,
 			...listing,
 		} ) ),
 	} ) );

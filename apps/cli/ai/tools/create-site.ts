@@ -7,7 +7,7 @@ import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const createSiteTool = defineTool(
@@ -86,5 +86,8 @@ export const createSiteTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Create a new WordPress site (name only — handles everything automatically)' }
+	{
+		promptSnippet: 'Create a new WordPress site (name only — handles everything automatically)',
+		annotations: LOCAL_CHANGE,
+	}
 );

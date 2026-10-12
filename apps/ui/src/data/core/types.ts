@@ -257,7 +257,11 @@ export interface Connector {
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
 	// Its progress and result arrive as sync activity (`onSyncActivity`).
-	importSiteFromBackup( siteId: string, backupPath: string ): Promise< void >;
+	importSiteFromBackup(
+		siteId: string,
+		backupPath: string,
+		options?: { suppressTracksEvent?: boolean }
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

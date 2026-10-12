@@ -186,7 +186,7 @@ export function createIpcConnector(): Connector {
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			return ( await ipcApi.reconcileSites() ) as SiteDetails[];
 		},
 
 		async createSite( params ) {

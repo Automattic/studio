@@ -1,4 +1,4 @@
-import { canCancelPull, canCancelPush } from '@studio/common/lib/sync/cancel';
+import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
@@ -86,24 +86,6 @@ export function applySyncActivity( siteId: string, activity: SyncActivity ): boo
 	}
 	emit();
 	return activity.kind !== 'pending';
-}
-
-/**
- * Whether the in-flight operation can still be stopped. Mirrors the legacy
- * renderer: a push is cancellable until the remote import is initiated, a pull
- * until the CLI starts writing the local site.
- */
-export function canCancelSyncActivity( activity: SyncActivity | null ): boolean {
-	if ( activity?.kind !== 'pending' ) {
-		return false;
-	}
-	if ( activity.direction === 'push' ) {
-		return canCancelPush( activity.phase );
-	}
-	if ( activity.direction === 'pull' ) {
-		return canCancelPull( activity.action );
-	}
-	return false;
 }
 
 function subscribe( listener: () => void ): () => void {

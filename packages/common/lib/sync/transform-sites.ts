@@ -69,3 +69,26 @@ export function transformSitesResponse(
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
 }
+
+/**
+ * Fills stored connections in from the account's current site list: only the link and the sync
+ * times are read from storage. A connection missing from the list was deleted, or the user lost
+ * access to it.
+ */
+export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[] ): SyncSite[] {
+	return connections.map( ( { id, localSiteId, lastPullTimestamp, lastPushTimestamp } ) => {
+		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
+		const syncSupport = ! site
+			? 'deleted'
+			: site.syncSupport === 'syncable'
+			? 'already-connected'
+			: site.syncSupport;
+		return {
+			...( site ?? { id, name: '', url: '', isStaging: false, isPressable: false } ),
+			localSiteId,
+			syncSupport,
+			lastPullTimestamp,
+			lastPushTimestamp,
+		};
+	} );
+}

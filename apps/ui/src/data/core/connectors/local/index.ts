@@ -469,10 +469,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
 				method: 'POST',
-				body: JSON.stringify( { path: backupPath } ),
+				body: JSON.stringify( {
+					path: backupPath,
+					suppressTracksEvent: options?.suppressTracksEvent,
+				} ),
 			} );
 		},
 
@@ -498,7 +501,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< StudioAssistantTopUpPricing | null >( `/top-up-pricing${ query }` );
 		},
 		async deleteAllSnapshots() {
-			// No-op: the local server has no delete-all route yet.
+			await api( '/snapshots', { method: 'DELETE' } );
 		},
 		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.

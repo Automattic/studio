@@ -55,7 +55,7 @@ export async function listLocalFileTree(
 						deployIgnore
 					);
 				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
+					console.warn( 'Failed to load children for', itemPath, childErr );
 					directoryEntry.children = [];
 				}
 			}
@@ -65,7 +65,7 @@ export async function listLocalFileTree(
 
 		return result;
 	} catch ( err ) {
-		console.error( `Failed to list raw file tree for path ${ path }:`, err );
+		console.error( 'Failed to list raw file tree for path', path, err );
 		return [];
 	}
 }

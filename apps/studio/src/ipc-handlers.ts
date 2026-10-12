@@ -185,6 +185,7 @@ import {
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
+import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -957,7 +958,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	const maintenanceCheck = checkMaintenanceFile( server.details.path );
 	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error( 'MAINTENANCE_MODE' );
+		throw new Error(
+			__(
+				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+			)
+		);
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
@@ -975,7 +980,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+			throw new Error(
+				__(
+					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
+				)
+			);
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -1048,7 +1057,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	}
 
 	if ( server.details.running ) {

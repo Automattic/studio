@@ -51,7 +51,7 @@ export function useSettleSync() {
 				if ( settled.kind === 'success' ) {
 					toast.success( __( 'Preview site published' ) );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( 'Failed to publish preview site' ) );
+					toast.error( __( 'Failed to publish preview site' ), { description: settled.message } );
 				}
 				return;
 			}

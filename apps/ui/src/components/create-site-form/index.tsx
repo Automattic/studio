@@ -34,6 +34,7 @@ import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
 	DataFormControlProps,
@@ -471,12 +472,22 @@ export function CreateSiteForm( {
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {
-			const keep =
-				prev.wpVersion === DEFAULT_WORDPRESS_VERSION ||
-				( ! isOffline && !! wpVersions?.some( ( version ) => version.value === prev.wpVersion ) );
-			return keep ? prev : { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION };
+			if ( prev.wpVersion === DEFAULT_WORDPRESS_VERSION ) return prev;
+			const wpVersion =
+				( ! isOffline && findOfferedWpVersion( prev.wpVersion, wpVersions ) ) ||
+				DEFAULT_WORDPRESS_VERSION;
+			return wpVersion === prev.wpVersion ? prev : { ...prev, wpVersion };
 		} );
 	}, [ wpVersions, isOffline, data.wpVersion ] );
+	const blueprintWpVersion = initialValues?.wpVersion;
+	const unavailableWpVersion =
+		! isOffline &&
+		wpVersions?.length &&
+		blueprintWpVersion &&
+		blueprintWpVersion !== DEFAULT_WORDPRESS_VERSION &&
+		! findOfferedWpVersion( blueprintWpVersion, wpVersions )
+			? blueprintWpVersion
+			: undefined;
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -498,10 +509,19 @@ export function CreateSiteForm( {
 			},
 			phpVersionField< FormData >(),
 			fileAccessField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
-				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
-				offline: isOffline,
-			} ),
+			{
+				...wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+					autoUpdateVersion: getLatestVersionLabel( wpVersions ),
+					offline: isOffline,
+				} ),
+				...( unavailableWpVersion && {
+					description: sprintf(
+						/* translators: %s: WordPress version, e.g. 5.9 */
+						__( "This Blueprint asks for WordPress %s, which Studio can't install." ),
+						unavailableWpVersion
+					),
+				} ),
+			},
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -521,7 +541,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames, isOffline, requiresCustomDomain, wpVersions ]
+		[ existingDomainNames, isOffline, requiresCustomDomain, unavailableWpVersion, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -769,5 +789,15 @@ export function CreateSiteForm( {
 
 			<OnboardingFooter>{ actions }</OnboardingFooter>
 		</form>
+	);
+}
+
+// The list only offers each branch's newest release, so a Blueprint asking for
+// "6.5" or "6.5.5" gets 6.5's newest release (the list is newest-first).
+function findOfferedWpVersion( version: string, offered: WordPressVersion[] = [] ) {
+	const branch = version.split( '.' ).slice( 0, 2 ).join( '.' );
+	return (
+		offered.find( ( { value } ) => value === version )?.value ??
+		offered.find( ( { value } ) => value.startsWith( `${ branch }.` ) )?.value
 	);
 }

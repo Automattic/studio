@@ -15,7 +15,9 @@ describe( 'import connector contracts', () => {
 		} );
 		const connector = createIpcConnector();
 
-		await connector.importSiteFromBackup( 'site-1', '/tmp/backup.sql' );
+		await connector.importSiteFromBackup( 'site-1', '/tmp/backup.sql', {
+			suppressTracksEvent: true,
+		} );
 
 		expect( importSite ).toHaveBeenCalledWith( 'site-1', '/tmp/backup.sql', {
 			alwaysStartServer: true,

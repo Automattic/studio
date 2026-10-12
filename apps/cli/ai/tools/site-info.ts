@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { runCommand as runStatusCommand } from 'cli/commands/site/status';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { captureConsoleOutput, resolveSite, textResult } from './utils';
 
 export const getSiteInfoTool = defineTool(
@@ -20,5 +20,8 @@ export const getSiteInfoTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Get details about a specific site (path, URL, admin username, running status)' }
+	{
+		promptSnippet: 'Get details about a specific site (path, URL, admin username, running status)',
+		annotations: READ_ONLY,
+	}
 );

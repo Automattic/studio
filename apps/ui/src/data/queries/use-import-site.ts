@@ -6,6 +6,7 @@ import { applySyncActivity } from '@/data/sync-activity';
 interface ImportSiteInput {
 	siteId: string;
 	backupPath: string;
+	suppressTracksEvent?: boolean;
 }
 
 // Imports a backup over an existing site, whether it was just created by the
@@ -15,7 +16,8 @@ export function useImportSite() {
 	const connector = useConnector();
 	const settleFromMutation = useSettleFromMutation();
 	return useMutation< void, Error, ImportSiteInput >( {
-		mutationFn: ( { siteId, backupPath } ) => connector.importSiteFromBackup( siteId, backupPath ),
+		mutationFn: ( { siteId, backupPath, suppressTracksEvent } ) =>
+			connector.importSiteFromBackup( siteId, backupPath, { suppressTracksEvent } ),
 		onMutate: ( { siteId } ) => {
 			applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
 		},

@@ -604,6 +604,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );
 

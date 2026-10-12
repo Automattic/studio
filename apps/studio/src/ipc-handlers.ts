@@ -139,7 +139,7 @@ import {
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	recordTracksEvent,
@@ -1317,8 +1317,12 @@ export async function openSiteURL(
 	void shellOpenExternalWrapper( url.toString() );
 }
 
+// Only web URLs: other schemes would launch whatever app handles them.
 export function openURL( event: IpcMainInvokeEvent, url: string ) {
-	void shellOpenExternalWrapper( url );
+	const webUrl = parseWebUrl( url );
+	if ( webUrl ) {
+		void shellOpenExternalWrapper( webUrl );
+	}
 }
 
 export function copyText( event: IpcMainInvokeEvent, text: string ) {
@@ -1796,7 +1800,7 @@ export async function openAppAtPath(
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
-				openURL( event, editor.url( p ) );
+				void shellOpenExternalWrapper( editor.url( p ) );
 			}
 			return;
 		}
@@ -1809,7 +1813,7 @@ export async function openAppAtPath(
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
-				openURL( event, editor.url( p ) );
+				void shellOpenExternalWrapper( editor.url( p ) );
 			}
 			return;
 		}

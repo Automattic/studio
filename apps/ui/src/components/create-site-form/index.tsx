@@ -456,17 +456,18 @@ export function CreateSiteForm( {
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
 	// While offline, "latest" is the only version installable without a
-	// download, so it's forced — same as the legacy version selector. A
-	// Blueprint may name a branch ("6.5"): pin its newest release (the list is
-	// newest-first) rather than dropping to "latest".
+	// download, so it's forced — same as the legacy version selector. The list
+	// only offers each branch's newest release, so a Blueprint asking for "6.5"
+	// or "6.5.5" pins 6.5's newest release rather than dropping to "latest".
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {
 			if ( prev.wpVersion === DEFAULT_WORDPRESS_VERSION ) return prev;
 			const offered = isOffline ? [] : wpVersions ?? [];
+			const branch = prev.wpVersion.split( '.' ).slice( 0, 2 ).join( '.' );
 			const wpVersion =
 				offered.find( ( { value } ) => value === prev.wpVersion )?.value ??
-				offered.find( ( { value } ) => value.startsWith( `${ prev.wpVersion }.` ) )?.value ??
+				offered.find( ( { value } ) => value.startsWith( `${ branch }.` ) )?.value ??
 				DEFAULT_WORDPRESS_VERSION;
 			return wpVersion === prev.wpVersion ? prev : { ...prev, wpVersion };
 		} );

@@ -575,9 +575,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __(
-								'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
-							),
+							detail: __( 'The sync will keep running after you quit Studio.' ),
 							type: 'info',
 					  };
 

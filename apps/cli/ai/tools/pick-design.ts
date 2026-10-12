@@ -10,7 +10,7 @@ import {
 } from 'cli/ai/design-catalog';
 import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { textResult } from './utils';
 
 // Without a question tool (MCP, non-interactive runs) there is nobody to pick,
@@ -94,7 +94,8 @@ export function createPickDesignTool( {
 				);
 			}
 			return textResult( sections.join( '\n\n---\n\n' ) );
-		}
+		},
+		{ annotations: READ_ONLY }
 	);
 }
 

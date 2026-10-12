@@ -1,5 +1,5 @@
 import { Type } from 'typebox';
-import { defineTool } from 'cli/ai/tools/define-tool';
+import { defineTool, READ_ONLY } from 'cli/ai/tools/define-tool';
 import { textResult } from 'cli/ai/tools/utils';
 import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';
@@ -22,10 +22,16 @@ export function createLibraryTools( uri: string ) {
 	const waitForSiteChanges = createSiteWatcher();
 	return [
 		{
-			tool: defineTool( 'open_wordpress', "Opens the user's local Studio sites.", {}, async () => {
-				const localSites = await readLocalSites();
-				return { ...textResult( `${ localSites.length } local sites.` ), _meta: { localSites } };
-			} ),
+			tool: defineTool(
+				'open_wordpress',
+				"Opens the user's local Studio sites.",
+				{},
+				async () => {
+					const localSites = await readLocalSites();
+					return { ...textResult( `${ localSites.length } local sites.` ), _meta: { localSites } };
+				},
+				{ annotations: READ_ONLY }
+			),
 			listing: {
 				title: 'WordPress',
 				icons: [
@@ -56,7 +62,8 @@ export function createLibraryTools( uri: string ) {
 						...textResult( 'Preview ready.' ),
 						_meta: { image: await capturePreview( site.url ) },
 					};
-				}
+				},
+				{ annotations: READ_ONLY }
 			),
 			listing: { _meta: pageOnly },
 		},
@@ -68,7 +75,8 @@ export function createLibraryTools( uri: string ) {
 				async ( { since } ) => {
 					const revision = await waitForSiteChanges( since );
 					return { ...textResult( `Revision ${ revision }.` ), _meta: { revision } };
-				}
+				},
+				{ annotations: READ_ONLY }
 			),
 			listing: { _meta: pageOnly },
 		},
@@ -81,7 +89,8 @@ export function createLibraryTools( uri: string ) {
 				async () => ( {
 					...textResult( 'WordPress.com sites.' ),
 					_meta: { wpcom: await readWpcomSites() },
-				} )
+				} ),
+				{ annotations: READ_ONLY }
 			),
 			listing: { _meta: pageOnly },
 		},

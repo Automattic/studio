@@ -229,7 +229,9 @@ export function createIpcConnector(): Connector {
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
-			return ( await ipcApi.copySite( sourceSiteId, newSiteId, newName ) ) as SiteDetails;
+			return ( await unwrapIpcError(
+				ipcApi.copySite( sourceSiteId, newSiteId, newName )
+			) ) as SiteDetails;
 		},
 
 		async generateProposedSiteName( usedSites ): Promise< string > {

@@ -30,9 +30,9 @@ export function getSiteSnapshots( snapshots: Snapshot[] | undefined, siteId: str
 }
 
 // "now", "5 minutes ago", "yesterday", "in 7 days": the largest whole unit that fits.
-function formatRelativeDate( timestampMs: number, now: number ): string {
+function formatRelativeDate( timestampMs: number, now: number, locale?: string ): string {
 	const diff = timestampMs - now;
-	const format = new Intl.RelativeTimeFormat( undefined, { numeric: 'auto', style: 'short' } );
+	const format = new Intl.RelativeTimeFormat( locale, { numeric: 'auto', style: 'short' } );
 	if ( Math.abs( diff ) < 60_000 ) {
 		return format.format( 0, 'second' );
 	}
@@ -49,20 +49,38 @@ export function getSnapshotExpiry( snapshot: Snapshot ): number {
 	return snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
 }
 
-export function getSnapshotTimesLabel( snapshot: Snapshot, now = Date.now() ): string {
+export function getSnapshotTimesLabel(
+	snapshot: Snapshot,
+	locale?: string,
+	now = Date.now()
+): string {
 	return sprintf(
 		/* translators: 1: when the preview was last updated, e.g. "5 minutes ago". 2: when it expires, e.g. "in 7 days". */
 		__( 'Updated %1$s · expires %2$s' ),
-		formatRelativeDate( snapshot.date, now ),
-		formatRelativeDate( getSnapshotExpiry( snapshot ), now )
+		formatRelativeDate( snapshot.date, now, locale ),
+		formatRelativeDate( getSnapshotExpiry( snapshot ), now, locale )
 	);
 }
 
-export function getSnapshotExpiredLabel( snapshot: Snapshot, now = Date.now() ): string {
+export function getSnapshotDatesLabel( snapshot: Snapshot, locale?: string ): string {
+	const format = new Intl.DateTimeFormat( locale, { dateStyle: 'medium', timeStyle: 'short' } );
+	return sprintf(
+		/* translators: 1: when the preview was last updated, e.g. "Oct 4, 2026, 9:23 AM". 2: when it expires, e.g. "Oct 11, 2026, 9:23 AM". */
+		__( 'Updated on %1$s, expires on %2$s' ),
+		format.format( snapshot.date ),
+		format.format( getSnapshotExpiry( snapshot ) )
+	);
+}
+
+export function getSnapshotExpiredLabel(
+	snapshot: Snapshot,
+	locale?: string,
+	now = Date.now()
+): string {
 	return sprintf(
 		/* translators: %s: when the preview expired, e.g. "1 day ago". */
 		__( 'Expired %s' ),
-		formatRelativeDate( getSnapshotExpiry( snapshot ), now )
+		formatRelativeDate( getSnapshotExpiry( snapshot ), now, locale )
 	);
 }
 

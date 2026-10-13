@@ -1,5 +1,6 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -36,6 +37,8 @@ export function useSites() {
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
+		// Also catches running states that changed without a site event (e.g. a daemon crash).
+		refetchInterval: 2 * 60 * 1000,
 	} );
 }
 
@@ -84,8 +87,13 @@ export function useCopySite() {
 		// the one kind no CLI command records — see `SITE_OPERATIONS`.
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-		onError: () => toast.error( __( 'Failed to copy site' ) ),
+		onSuccess: ( site ) => {
+			/* translators: %s: name of the new copy of a site */
+			toast.success( sprintf( __( '%s created' ), site.name ) );
+			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		},
+		onError: ( error ) =>
+			toast.error( __( 'Failed to copy site' ), { description: error.message } ),
 	} );
 }
 
@@ -146,8 +154,11 @@ export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 				toast.success( __( 'Site started' ) );
 			}
 		},
-		onError: ( _error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ) ),
+		onError: ( error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ), {
+				description: getErrorMessage( error ),
+				action: openStudioLogsAction( connector ),
+			} ),
 	} );
 }
 

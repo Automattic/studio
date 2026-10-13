@@ -5,7 +5,7 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 function formatPreview( content: string ): string {
@@ -189,6 +189,7 @@ export const validateBlocksTool = defineTool(
 		}
 	},
 	{
+		annotations: LOCAL_CHANGE,
 		promptSnippet:
 			"Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.",
 	}

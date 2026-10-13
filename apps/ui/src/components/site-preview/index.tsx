@@ -2347,7 +2347,9 @@ function WebviewSurface( {
 				ref={ ref }
 				src={ initialSrc }
 				className={ styles.iframe }
-				allowpopups={ true }
+				// @types/react types this as boolean, but React 19 drops `true` on
+				// unknown attributes, which leaves Electron blocking every popup.
+				allowpopups={ 'true' as unknown as boolean }
 				partition="persist:site-preview"
 			/>
 			{ ! ready ? (

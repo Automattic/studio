@@ -1,6 +1,57 @@
 Unreleased
 ==========
 
+1.24.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* build(deps): bump the ruby-minor-and-patch group with 2 updates #4999
+* build(deps): bump ruby/setup-ruby from 1.325.0 to 1.327.0 #4991
+* CLI: make the WordPress.com login steps reusable outside the terminal #5005
+* Let wpcom_request work on any WordPress.com site #5003
+* CLI: deliver site events to studio mcp processes #5006
+* Studio Code: generate the tool list for live WordPress.com site sessions too #5004
+* Studio MCP: serve Studio's instructions and skills to external agents on demand #5007
+* Studio MCP: let the user pick the site's look and layout from rendered options #5009
+* Log the server's error text when a sync API call fails #5002
+* Studio MCP: show design options and site screenshots in the desktop apps #5012
+* Move Sandbox sites to native PHP and remove the PHP runtime switch from the UI #5010
+* Studio Code: one agent for local and WordPress.com sites, also in studio mcp #5013
+* Studio Code runbooks: make site images with the agent's own image tool when generate_images isn't available #5014
+* Studio MCP: clickable design picker for hosts that render MCP Apps #5016
+* Studio MCP: Let Codex make site images with image_gen when logged in, and stop builds copying files into the site #5017
+* Studio MCP: a WordPress tab for agent apps' sidebars, listing the local Studio sites #5018
+* Remove the Playground runtime #5015
+* build(deps): bump anthropics/claude-code-action from 1.0.237 to 1.0.241 #5025
+* build(deps-dev): bump the electron group with 2 updates #5027
+* Studio MCP: WordPress.com sites in the WordPress tab #5031
+* build(deps): bump simple-git from 3.36.0 to 4.0.2 #5030
+* build(deps): bump the cli-utilities group with 2 updates #5029
+* Rename the Studio admin when only its username changes #5033
+* Open the site front end in the external browser without logging into WP Admin #5035
+* Run Blueprint wp-cli steps through the bundled PHP so they work on Windows #5032
+* Import .wpress backups from current All-in-One WP Migration versions #5034
+* Open site preview popups in the pane, and other sites in the system browser #5084
+* Stop site settings saves from overwriting the WordPress admin email #5039
+* Agentic UI: Stop agent instructions autosave from overwriting edits made elsewhere #5061
+* Let a push or pull that can't be stopped finish after Studio quits, and show it again on relaunch #5050
+* Give each native PHP worker its own opcache file cache so workers stop segfaulting under CPU load #5083
+* Agentic UI: Show an error instead of loading forever when preferences fail, and revert failed saves #5062
+* Show connected WordPress.com sites with their current name, URL and sync status #5086
+* build(deps): bump anthropics/claude-code-action from 1.0.241 to 1.0.244 #5091
+* Fix changing the WordPress version on a site that has never been started #5085
+* Studio MCP: tell hosts which tools only read or change this machine, so Codex stops asking before each call #5088
+* Keep Studio's own files in open_basedir when the site is on another drive on Windows #5082
+* Agentic UI: Label connected sites that no longer exist and hide their Pull/Push #5059
+* Agentic UI: Count backup imports into existing sites in Tracks #5074
+* Agentic UI: Require a custom domain when creating a site from a multisite Blueprint #5046
+* Browser UI: Make Delete all preview sites actually delete them #5048
+* Studio Code: Apply theme template edits to Site Editor customizations instead of silently missing them #5092
+* Agentic UI: Don't send a chat message on the Enter that confirms an IME candidate #5038
+* Only open web links from the app's UI in the system browser #5043
+* Agentic UI Updates #5093
+* Warn before quitting Studio while a push or pull is running #5045
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.23.0...v1.24.0
+
 1.23.0
 =====
 * Made the Agentic UI the only Studio UI, retiring Studio Classic #4988

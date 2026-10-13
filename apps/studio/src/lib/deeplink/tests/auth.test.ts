@@ -11,7 +11,6 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 
 const mockWpcomGet = vi.fn();
 
-vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/tracks', async ( importActual ) => {

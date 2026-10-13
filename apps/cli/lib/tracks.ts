@@ -22,13 +22,26 @@ export {
 export interface TracksOrigin {
 	channel: TracksChannel;
 	ui_version?: TracksUiVersion;
+	// `studio-mcp` only: the agent app, and the Studio plugin when it started the server.
+	mcp_client?: string;
+	plugin?: string;
+	plugin_version?: string;
 }
 
 // Resolves the origin from `STUDIO_TRACKS_ORIGIN`, a `<channel>:<ui_version>` string set by the host
-// that spawned the CLI (e.g. `studio-ui:v2`, `studio-web:v2`). Absent or unrecognized means a
-// standalone invocation. See `docs/design-docs/analytics-tracks.md`.
+// that spawned the CLI (e.g. `studio-ui:v2`, `studio-web:v2`), or `studio-mcp`, which `studio mcp`
+// sets for itself. Absent or unrecognized means a standalone invocation. See
+// `docs/design-docs/analytics-tracks.md`.
 export function getTracksOrigin(): TracksOrigin {
 	const [ channel, version ] = ( process.env.STUDIO_TRACKS_ORIGIN ?? '' ).split( ':' );
+	if ( channel === 'studio-mcp' ) {
+		return {
+			channel,
+			mcp_client: process.env.STUDIO_MCP_CLIENT || undefined,
+			plugin: process.env.STUDIO_PLUGIN_ID || undefined,
+			plugin_version: process.env.STUDIO_PLUGIN_VERSION || undefined,
+		};
+	}
 	if ( ! isTracksChannel( channel ) || channel === 'studio-cli' ) {
 		return { channel: 'studio-cli' };
 	}

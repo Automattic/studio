@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 // eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -11,6 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
+import { type DesignTracksContext } from 'cli/ai/design-tracks';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import {
 	DESIGN_PICKER_HTML,
@@ -25,6 +27,7 @@ import { defineTool, READ_ONLY, type StudioAgentTool } from 'cli/ai/tools/define
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
 import { renderSkill } from 'cli/ai/tools/skill';
 import { textResult } from 'cli/ai/tools/utils';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
 	// Renders MCP Apps, such as the design picker.
@@ -56,15 +59,24 @@ interface ServedTool {
 	listing?: Record< string, unknown >;
 }
 
-function createTools( client: ClientSupport, imageGeneration: boolean ): ServedTool[] {
+function createTools(
+	client: ClientSupport,
+	imageGeneration: boolean,
+	tracks?: DesignTracksContext
+): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
 	const definitions = resolveStudioToolDefinitions( {
 		imageGeneration: imageGeneration && ! client.ownImageTool,
 		canAskUser: true,
 		imageLink,
+		tracks,
 	} );
-	const designOptions = createPresentDesignOptionsTool( { imageLink, picker: client.apps } );
+	const designOptions = createPresentDesignOptionsTool( {
+		imageLink,
+		picker: client.apps,
+		tracks,
+	} );
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
@@ -109,6 +121,10 @@ function appPages(): AppPage[] {
 // Uses the low-level Server API rather than McpServer.registerTool, which only
 // accepts zod-shaped inputs — our tools are typebox JSON Schema.
 export async function startMcpStdioServer(): Promise< void > {
+	// Tells this process's events, and those of the processes it starts, apart
+	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
+	const sessionId = randomUUID();
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -123,7 +139,16 @@ export async function startMcpStdioServer(): Promise< void > {
 	let tools = createTools( client, imageGeneration );
 	server.oninitialized = () => {
 		client = describeClient( server );
-		tools = createTools( client, imageGeneration );
+		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
+		tools = createTools( client, imageGeneration, {
+			ai_session_id: sessionId,
+			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
+			client: 'studio-mcp',
+		} );
+		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
+			...getTracksOrigin(),
+			mcp_apps: client.apps,
+		} ).catch( () => undefined );
 	};
 
 	server.setRequestHandler( ListToolsRequestSchema, async () => ( {

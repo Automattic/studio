@@ -9,7 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -102,6 +102,7 @@ export function useExportFullSite() {
 	return useMutation( {
 		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
+		onError: () => toastExportFailure( connector, __( 'Failed to export site' ) ),
 	} );
 }
 
@@ -110,7 +111,12 @@ export function useExportDatabase() {
 	return useMutation( {
 		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
+		onError: () => toastExportFailure( connector, __( 'Failed to export database' ) ),
 	} );
+}
+
+function toastExportFailure( connector: Connector, title: string ) {
+	toast.error( title, { action: openStudioLogsAction( connector ) } );
 }
 
 export interface StartSiteOptions {

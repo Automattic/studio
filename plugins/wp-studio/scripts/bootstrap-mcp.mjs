@@ -34,6 +34,9 @@ const UPDATE_STAGING = path.join( STUDIO_HOME, '.plugin-update' );
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FIRST_UPDATE_CHECK_MS = 30_000;
 const IDLE_RETRY_MS = 60_000;
+// The oldest Studio CLI with what the plugin relies on: `studio_instructions`,
+// the design picker and the WordPress tab.
+const MIN_CLI_VERSION = [ 1, 24, 0 ];
 const SETUP_URI = 'ui://wordpress-studio/setup.html';
 const LOG_LINES = 12;
 
@@ -51,9 +54,10 @@ let studio = null; // how to run the Studio CLI: { command, args, updates }
 let child = null; // the running `studio mcp`
 let relaying = false; // host messages go straight to `studio mcp`
 let swapping = false; // `studio mcp` is restarting on a new version
+let choosing = true; // the CLI to run is not chosen yet
 let hostInitialize = null; // the host's initialize params, replayed on restarts
 let libraryHtml = null;
-const queued = []; // host messages that arrive while `studio mcp` restarts
+const queued = []; // host messages that arrive before `studio mcp` can take them
 const inFlight = new Set(); // host requests `studio mcp` has not answered yet
 
 const write = ( message ) => process.stdout.write( JSON.stringify( message ) + '\n' );
@@ -207,10 +211,25 @@ const realpath = ( file ) => {
 	}
 };
 
-// A development build (STUDIO_CLI_BIN), the `studio` command, then the known
-// install locations. Only the CLI this plugin installs (in ~/.studio) is
-// updated here: the desktop app and npm update theirs.
-function findStudio() {
+const cliVersion = ( command ) =>
+	new Promise( ( resolve ) => {
+		execFile( command, [ '--version' ], { timeout: 60_000 }, ( error, stdout ) =>
+			resolve( error ? null : stdout.match( /\d+\.\d+\.\d+/ )?.[ 0 ] ?? null )
+		);
+	} );
+
+// Pre-releases count as their version: a 1.24.0 beta has what 1.24.0 has.
+const isRecentEnough = ( version ) => {
+	const parts = version.split( '.' ).map( Number );
+	const differs = MIN_CLI_VERSION.findIndex( ( part, i ) => parts[ i ] !== part );
+	return differs === -1 || parts[ differs ] > MIN_CLI_VERSION[ differs ];
+};
+
+// A development build (STUDIO_CLI_BIN), then the first recent enough of the
+// `studio` command and the known install locations; with none, the plugin
+// installs its own. Only that CLI (in ~/.studio) is updated here: the desktop
+// app and npm update theirs.
+async function findStudio() {
 	if ( process.env.STUDIO_CLI_BIN ) {
 		return { command: process.execPath, args: [ process.env.STUDIO_CLI_BIN ], updates: false };
 	}
@@ -224,10 +243,22 @@ function findStudio() {
 		'/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh',
 		'/usr/lib/studio/resources/bin/studio-cli.sh',
 	];
-	const command = candidates.find( isExecutable );
-	return command
-		? { command, args: [], updates: realpath( command ) === realpath( STUDIO_BIN ) }
-		: null;
+	const checked = new Set();
+	for ( const command of candidates.filter( isExecutable ) ) {
+		const target = realpath( command );
+		if ( checked.has( target ) ) continue;
+		checked.add( target );
+		const version = await cliVersion( command );
+		if ( version && isRecentEnough( version ) ) {
+			return { command, args: [], updates: target === realpath( STUDIO_BIN ) };
+		}
+		log(
+			`Skipping the Studio CLI at ${ command } (${
+				version ?? 'unknown version'
+			}): the plugin needs ${ MIN_CLI_VERSION.join( '.' ) } or later.`
+		);
+	}
+	return null;
 }
 
 const pending = new Map(); // our own requests to `studio mcp`, by id
@@ -553,7 +584,7 @@ readline.createInterface( { input: process.stdin } ).on( 'line', ( line ) => {
 		forward( line, message );
 		return;
 	}
-	if ( swapping ) {
+	if ( swapping || choosing ) {
 		queued.push( { line, message } );
 		return;
 	}
@@ -701,10 +732,18 @@ const SETUP_HTML = `<!doctype html>
 </body>
 </html>`;
 
-studio = findStudio();
+studio = await findStudio();
+choosing = false;
 if ( studio ) {
 	startStudio();
 	scheduleUpdateCheck( FIRST_UPDATE_CHECK_MS );
 } else {
 	install();
+}
+for ( const { line, message } of queued.splice( 0 ) ) {
+	if ( relaying ) {
+		forward( line, message );
+	} else {
+		handleWhileInstalling( message );
+	}
 }

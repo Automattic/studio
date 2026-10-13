@@ -28,7 +28,8 @@ into Studio, or log in to WordPress.com.
 The plugin runs the Studio CLI. If you have none, it installs one into `~/.studio` the first time it
 starts (a download of about 250 MB) and shows the progress in the WordPress page. It keeps that
 install up to date: new versions are installed in the background and swapped in while no site is
-running. A Studio CLI from the desktop app or from npm is used as is; those update on their own.
+running. A Studio CLI from the desktop app or from npm is used as long as it is 1.24.0 or later,
+and updates on its own; with an older one, the plugin installs its own.
 
 ## Telemetry
 

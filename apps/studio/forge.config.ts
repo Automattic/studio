@@ -284,15 +284,6 @@ const config: ForgeConfig = {
 				}
 			}
 
-			console.log( 'Removing source maps from CLI bundle dependencies...' );
-			for ( const sourceMap of globSync( '**/*.map', {
-				cwd: cliNodeModules,
-				absolute: true,
-				nodir: true,
-			} ) ) {
-				fs.rmSync( sourceMap, { force: true } );
-			}
-
 			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
 			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
 			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow

@@ -3,7 +3,6 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getAuthenticationToken, getSignUpUrl } from 'src/lib/oauth';
 
-vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );

@@ -1,4 +1,5 @@
-import * as Sentry from '@sentry/electron/renderer';
+import { init as initSentry } from '@sentry/electron/renderer';
+import { captureException } from '@studio/common/lib/error-reporting';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
@@ -7,7 +8,7 @@ import { createIpcConnector } from '@/data/core/connectors/ipc';
 import { applyLocale } from '@/lib/apply-locale';
 
 // Events go through the main process, which adds the release and the user.
-Sentry.init();
+initSentry();
 
 async function bootstrap() {
 	const connector = createIpcConnector();
@@ -17,7 +18,7 @@ async function bootstrap() {
 	createRoot( document.getElementById( 'root' )!, {
 		// Errors an error boundary catches (the router's included) never reach Sentry's global handlers.
 		onCaughtError: ( error, errorInfo ) => {
-			Sentry.captureException( error );
+			captureException( error );
 			console.error( error, errorInfo.componentStack );
 		},
 	} ).render(

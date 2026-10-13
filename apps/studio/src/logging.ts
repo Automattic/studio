@@ -78,7 +78,7 @@ export function writeLogToFile(
 ) {
 	const [ message ] = args;
 
-	if ( typeof message === 'string' && message.includes( '%' ) ) {
+	if ( args.length > 1 && typeof message === 'string' && message.includes( '%' ) ) {
 		const unsupportedPlaceholdersMessage =
 			"Attempted to log a string using placeholders, which isn't supported";
 		logStream?.write(

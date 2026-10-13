@@ -44,6 +44,7 @@ export default defineConfig(
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'apps/mcp-ui/vite.config.ts',
+						'plugins/studio-code/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
 						'eslint.config.mjs',

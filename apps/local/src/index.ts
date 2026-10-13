@@ -130,7 +130,11 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
-import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type {
+	TracksEventName,
+	TracksProps,
+	TracksSiteCreateFlowType,
+} from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -1012,6 +1016,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminPassword?: string;
 				adminEmail?: string;
 				skipStart?: boolean;
+				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets. `bundleUrl` triggers a server-side
@@ -1056,6 +1061,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
+					flowType: body.flowType,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: blueprintFilePath,
 				} );
@@ -1175,6 +1181,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername: source.adminUsername || undefined,
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
+				flowType: 'duplicate',
 			} );
 			const created = await runCliCommand( execute, args, siteListItemSchema );
 			// The copied database still points at the source site's URL, so the copy

@@ -18,7 +18,7 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/instal
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { getUserLocaleWithFallback, loadLocaleData } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
@@ -75,6 +75,7 @@ export async function getUserTerminal() {
 export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
 	const previous = ( await readSharedConfig() ).locale;
 	await updateSharedConfig( { locale } );
+	loadLocaleData( locale );
 	if ( locale !== previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
 			locale,

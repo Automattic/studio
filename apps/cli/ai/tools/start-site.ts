@@ -2,7 +2,7 @@ import { Type } from 'typebox';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { Logger } from 'cli/logger';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const startSiteTool = defineTool(
@@ -27,5 +27,5 @@ export const startSiteTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'Start a stopped site' }
+	{ promptSnippet: 'Start a stopped site', annotations: LOCAL_CHANGE }
 );

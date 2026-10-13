@@ -2,7 +2,7 @@ import { cp } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
 import { getSkillPath } from 'cli/ai/skills';
-import { defineTool } from './define-tool';
+import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
@@ -32,5 +32,6 @@ export const installTaxonomyScriptsTool = defineTool(
 				}`
 			);
 		}
-	}
+	},
+	{ annotations: LOCAL_CHANGE }
 );

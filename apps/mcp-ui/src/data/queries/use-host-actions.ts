@@ -29,9 +29,10 @@ export function useSendPrompt() {
 			if ( ! canTargetMessages( capabilities ) ) {
 				return sendMessage( { text: prompt + DATA_NOTE } );
 			}
-			// The mention is empty outside a plugin install.
+			// The mention is empty outside a plugin install. A draft keeps its trailing
+			// space, for the user to type on.
 			return sendMessage( {
-				text: `${ PLUGIN_MENTION } ${ draft ?? prompt + DATA_NOTE }`.trim(),
+				text: `${ PLUGIN_MENTION } ${ draft ?? prompt + DATA_NOTE }`.trimStart(),
 				openaiTarget: { target: 'new', send: false },
 			} );
 		},

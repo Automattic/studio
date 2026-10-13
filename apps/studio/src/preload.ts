@@ -140,8 +140,6 @@ const api: IpcApi = {
 	openCertificate: () => ipcRendererSend( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
-	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
-	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
 		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	ensureMinWindowWidth: ( minimumWidth ) =>

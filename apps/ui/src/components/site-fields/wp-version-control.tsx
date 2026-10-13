@@ -121,6 +121,7 @@ export function WpVersionControl< Item >( {
 				__nextHasNoMarginBottom
 				label={ field.label }
 				hideLabelFromVision={ hideLabelFromVision }
+				help={ disabled ? undefined : field.description }
 			>
 				<fieldset
 					className={ styles.updateModeControl }

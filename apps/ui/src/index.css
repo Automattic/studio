@@ -58,8 +58,13 @@ body {
 	background-color: var( --wpds-color-background-surface-neutral );
 	color: var( --wpds-color-foreground-content-neutral );
 	color-scheme: light dark;
-	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+/* Unlike `scrollbar-color`, `scrollbar-width` isn't inherited, so inner scroll
+   containers need it set directly. */
+* {
+	scrollbar-width: thin;
 }
 
 /* Overriding the font-family tokens covers everything themed by the design

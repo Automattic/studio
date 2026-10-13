@@ -59,7 +59,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -76,19 +75,21 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
+	readAuthToken,
 	readSharedConfig,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
-import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import {
+	getLocalFileSize,
+	listLocalFileTree as listSiteFileTree,
+} from '@studio/common/lib/sync/local-file-tree';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -103,7 +104,7 @@ import {
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
-import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -184,6 +185,7 @@ import {
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
+import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -218,7 +220,6 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -957,7 +958,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	const maintenanceCheck = checkMaintenanceFile( server.details.path );
 	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error( 'MAINTENANCE_MODE' );
+		throw new Error(
+			__(
+				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+			)
+		);
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
@@ -975,7 +980,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+			throw new Error(
+				__(
+					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
+				)
+			);
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -1048,7 +1057,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	}
 
 	if ( server.details.running ) {
@@ -1264,6 +1275,11 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	const token = await readAuthToken();
+	if ( token ) {
+		// Best-effort: logging out offline still signs out locally.
+		await revokeAuthToken( token.accessToken ).catch( () => undefined );
+	}
 	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
@@ -1334,7 +1350,6 @@ export function getAppGlobals(): AppGlobals {
 		platform: process.platform,
 		appName: app.name,
 		appVersion: app.getVersion(),
-		arm64Translation: app.runningUnderARM64Translation,
 		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
@@ -1893,14 +1908,6 @@ export async function promptWindowsSpeedUpSites(
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
 }
 
-export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
-	defaultI18n.setLocaleData( locale );
-}
-
-export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
-	defaultI18n.resetLocaleData();
-}
-
 export function toggleMinWindowWidth(
 	event: IpcMainInvokeEvent,
 	isSidebarVisible: boolean,
@@ -2019,15 +2026,7 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const fullPath = nodePath.join( site.details.path, ...filePath );
-	try {
-		return fs.statSync( fullPath ).size;
-	} catch ( error ) {
-		// Dangling symlink or unreadable entry. It's skipped when archiving,
-		// so count it as zero rather than failing the size check.
-		console.warn( `Skipping ${ fullPath }: ${ error }` );
-		return 0;
-	}
+	return getLocalFileSize( nodePath.join( site.details.path, ...filePath ) );
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
@@ -2329,66 +2328,14 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 }
 
 export async function listLocalFileTree(
-	_event: Electron.IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	siteId: string,
 	path: string,
-	maxDepth: number = 3,
-	currentDepth: number = 0,
-	deployIgnore?: Ignore
+	maxDepth: number = 3
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-
-	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_IGNORE_DEFAULTS );
-	}
-
-	const fullPath = nodePath.join( server.details.path, path );
-
-	try {
-		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
-		const result = [];
-
-		for ( const entry of entries ) {
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
-
-			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
-				continue;
-			}
-
-			const isDirectory = entry.isDirectory();
-
-			const directoryEntry: RawDirectoryEntry = {
-				name: entry.name,
-				isDirectory,
-				path: itemPath,
-			};
-
-			const shouldLimit = shouldLimitDepth( itemPath );
-			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
-				try {
-					directoryEntry.children = await listLocalFileTree(
-						_event,
-						siteId,
-						itemPath,
-						maxDepth,
-						currentDepth + 1,
-						deployIgnore
-					);
-				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
-					directoryEntry.children = [];
-				}
-			}
-
-			result.push( directoryEntry );
-		}
-
-		return result;
-	} catch ( err ) {
-		console.error( `Failed to list raw file tree for path ${ path }:`, err );
-		return [];
-	}
+	return listSiteFileTree( server.details.path, path, maxDepth );
 }
 
 export async function validateBlueprint(

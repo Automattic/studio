@@ -59,6 +59,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import {
 	arePathsEqual,
+	calculateDirectorySizeForArchive,
 	confineToRoot,
 	isEmptyDir,
 	isWordPressDirectory,
@@ -67,9 +68,10 @@ import {
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
-import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
@@ -83,9 +85,11 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -609,11 +613,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			if ( token?.accessToken ) {
-				await fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/token', {
-					method: 'DELETE',
-					headers: { Authorization: `Bearer ${ token.accessToken }` },
-				} ).catch( () => undefined );
+			if ( token ) {
+				await revokeAuthToken( token.accessToken ).catch( () => undefined );
 			}
 			await updateSharedConfig( { authToken: undefined } );
 			res.status( 204 ).end();
@@ -803,6 +804,72 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					return;
 				}
 				throw error;
+			}
+		} )
+	);
+
+	// Selective push: the dialog's file tree, size estimates and multisite warning,
+	// from the helpers the desktop uses. `path` is relative to the site and
+	// confined to it.
+	async function resolveSitePath(
+		req: Request,
+		res: Response
+	): Promise< { sitePath: string; fullPath: string } | null > {
+		const sitePath = await readSitePath( req.params.id );
+		if ( ! sitePath ) {
+			res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+			return null;
+		}
+		const fullPath = confineToRoot( sitePath, String( req.query.path ?? '' ) );
+		if ( ! fullPath ) {
+			res.status( 400 ).json( { error: 'Path is outside the site' } );
+			return null;
+		}
+		return { sitePath, fullPath };
+	}
+
+	api.get(
+		'/sites/:id/file-tree',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json(
+					await listLocalFileTree(
+						resolved.sitePath,
+						path.relative( resolved.sitePath, resolved.fullPath ),
+						Number( req.query.depth ) || undefined
+					)
+				);
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/directory-size',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( await calculateDirectorySizeForArchive( resolved.fullPath ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/file-size',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( getLocalFileSize( resolved.fullPath ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/multisite',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const resolved = await resolveSitePath( req, res );
+			if ( resolved ) {
+				res.json( isMultisite( resolved.sitePath ) );
 			}
 		} )
 	);
@@ -1453,6 +1520,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await fetchSnapshots( execute ) );
+		} )
+	);
+
+	// Proxied like the quota, so the browser never holds the wpcom token.
+	api.get(
+		'/snapshots/usage',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchSnapshotUsage( token.accessToken ) : null );
 		} )
 	);
 

@@ -37,6 +37,8 @@ export function useSites() {
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
+		// Also catches running states that changed without a site event (e.g. a daemon crash).
+		refetchInterval: 2 * 60 * 1000,
 	} );
 }
 

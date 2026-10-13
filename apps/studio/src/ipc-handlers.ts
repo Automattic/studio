@@ -104,7 +104,7 @@ import {
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
-import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -1350,7 +1350,6 @@ export function getAppGlobals(): AppGlobals {
 		platform: process.platform,
 		appName: app.name,
 		appVersion: app.getVersion(),
-		arm64Translation: app.runningUnderARM64Translation,
 		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
@@ -1907,14 +1906,6 @@ export async function promptWindowsSpeedUpSites(
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
-}
-
-export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
-	defaultI18n.setLocaleData( locale );
-}
-
-export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
-	defaultI18n.resetLocaleData();
 }
 
 export function toggleMinWindowWidth(

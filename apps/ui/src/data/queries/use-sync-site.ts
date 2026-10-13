@@ -51,7 +51,7 @@ export function useSettleSync() {
 				if ( settled.kind === 'success' ) {
 					toast.success( __( 'Preview site published' ) );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( 'Failed to publish preview site' ) );
+					toast.error( __( 'Failed to publish preview site' ), { description: settled.message } );
 				}
 				return;
 			}
@@ -87,10 +87,8 @@ export function useSettleSync() {
 				toast.success( isPush ? __( 'Push complete' ) : __( 'Pull complete' ) );
 			} else if ( settled.kind === 'cancelled' ) {
 				toast.success( isPush ? __( 'Push cancelled' ) : __( 'Pull cancelled' ) );
-			} else if ( isPush ) {
-				toast.error( __( "Push didn't complete" ) );
 			} else {
-				toast.error( __( "Pull didn't complete" ), {
+				toast.error( isPush ? __( "Push didn't complete" ) : __( "Pull didn't complete" ), {
 					description: settled.message,
 					action: openStudioLogsAction( connector ),
 				} );
@@ -101,7 +99,8 @@ export function useSettleSync() {
 }
 
 // Pull and import failures carry the CLI's raw error. The UI shows plain
-// language instead, and the raw error goes to the logs.
+// language instead, and the raw error goes to the logs. Push keeps the CLI's
+// message: it already names the cause (size limit, live import failure, timeout).
 function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
 	if ( direction === 'pull' ) {
 		return canOpenLogs

@@ -1,5 +1,5 @@
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { captureConsoleOutput, textResult } from './utils';
 
 export const listSitesTool = defineTool(
@@ -16,5 +16,5 @@ export const listSitesTool = defineTool(
 			);
 		}
 	},
-	{ promptSnippet: 'List all local WordPress sites with their status' }
+	{ promptSnippet: 'List all local WordPress sites with their status', annotations: READ_ONLY }
 );

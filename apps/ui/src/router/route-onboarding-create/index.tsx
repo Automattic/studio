@@ -3,6 +3,7 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
+import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -31,11 +32,14 @@ function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
 ): Partial< CreateSiteFormValues > {
 	const settings = extractFormValuesFromBlueprint( blueprint.blueprint );
+	const name = settings.siteName || blueprint.title;
 	return {
-		name: settings.siteName || blueprint.title,
+		name,
 		phpVersion: settings.phpVersion,
 		wpVersion: settings.wpVersion,
-		customDomain: settings.customDomain,
+		customDomain:
+			settings.customDomain ??
+			( settings.requiresCustomDomain ? generateCustomDomainFromSiteName( name ) : undefined ),
 		enableHttps: settings.enableHttps,
 		adminUsername: settings.adminUsername,
 		adminPassword: settings.adminPassword,
@@ -247,6 +251,12 @@ export function CreateSitePage() {
 		pendingBlueprintSlot.getSnapshot
 	);
 	const showBrief = chatEnabled && ! selectedBlueprint;
+	const requiresCustomDomain = useMemo(
+		() =>
+			!! selectedBlueprint &&
+			!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain,
+		[ selectedBlueprint ]
+	);
 
 	const cleanupBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
@@ -381,6 +391,7 @@ export function CreateSitePage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
+				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				panelFooter={

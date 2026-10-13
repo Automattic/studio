@@ -1,6 +1,6 @@
+import { revokeAuthToken } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { revokeAuthToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -17,7 +17,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/api' );
+vi.mock( '@studio/common/lib/oauth' );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
 } ) );

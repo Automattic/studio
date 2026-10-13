@@ -899,7 +899,7 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Import' } ) );
 
 		await waitFor( () =>
-			expect( importSiteFromBackup ).toHaveBeenCalledWith( 'site-1', '/tmp/backup.tar.gz' )
+			expect( importSiteFromBackup ).toHaveBeenCalledWith( 'site-1', '/tmp/backup.tar.gz', {} )
 		);
 	} );
 

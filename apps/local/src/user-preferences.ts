@@ -1,4 +1,4 @@
-import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import {
 	isAnalyticsOptedOutInConfig,
@@ -75,6 +75,15 @@ const APP_CONFIG_KEYS = [
 	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
+function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
+	return nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot;
+}
+
+// Where new and duplicated sites go: the desktop's preference, else the sites root.
+export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< string > {
+	return getDefaultSiteDirectory( await readAppConfig(), sitesRoot );
+}
+
 export async function readUserPreferences( {
 	sitesRoot,
 	installedApps,
@@ -90,7 +99,7 @@ export async function readUserPreferences( {
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
-		defaultSiteDirectory: nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot,
+		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 	};
 }

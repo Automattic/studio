@@ -119,6 +119,7 @@ import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import {
 	onboardingHintsSchema,
+	readDefaultSiteDirectory,
 	readOnboardingHints,
 	readSiteSortOrders,
 	readUserPreferences,
@@ -965,9 +966,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const sites = await listSites( execute );
 			const baseName = typeof req.query.base === 'string' ? req.query.base : undefined;
 			const usedNames = sites.map( ( site ) => site.name );
+			const siteDirectory = await readDefaultSiteDirectory( sitesRoot );
 			const name = baseName
-				? await generateNumberedName( baseName, usedNames, sitesRoot )
-				: await generateSiteName( usedNames, sitesRoot );
+				? await generateNumberedName( baseName, usedNames, siteDirectory )
+				: await generateSiteName( usedNames, siteDirectory );
 			res.json( { name } );
 		} )
 	);
@@ -975,7 +977,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/site-defaults/path',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = path.join( sitesRoot, sanitizeFolderName( String( req.query.name ?? '' ) ) );
+			const sitePath = path.join(
+				await readDefaultSiteDirectory( sitesRoot ),
+				sanitizeFolderName( String( req.query.name ?? '' ) )
+			);
 			try {
 				res.json( {
 					path: sitePath,
@@ -994,15 +999,20 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post( '/paths/compare', ( req: Request, res: Response ) => {
-		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		// Confine both operands to `sitesRoot` before any filesystem access; nothing
-		// outside it can be a site, so a non-match is the correct answer.
-		const confined1 = path1 ? confineToRoot( sitesRoot, path1 ) : null;
-		const confined2 = path2 ? confineToRoot( sitesRoot, path2 ) : null;
-		const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
-		res.json( { equal } );
-	} );
+	api.post(
+		'/paths/compare',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { path1, path2 } = req.body as { path1?: string; path2?: string };
+			// Confine both operands to the directory new sites go to before any
+			// filesystem access: proposed paths live there, so a non-match outside it
+			// is the correct answer.
+			const root = await readDefaultSiteDirectory( sitesRoot );
+			const confined1 = path1 ? confineToRoot( root, path1 ) : null;
+			const confined2 = path2 ? confineToRoot( root, path2 ) : null;
+			const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
+			res.json( { equal } );
+		} )
+	);
 
 	api.post(
 		'/sites',
@@ -1165,12 +1175,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			// `<name> Copy`, bumped to `Copy 2`, `Copy 3`… — mirrors the desktop.
+			const siteDirectory = await readDefaultSiteDirectory( sitesRoot );
 			const newName = await generateNumberedName(
 				`${ source.name } Copy`,
 				sites.map( ( s ) => s.name ),
-				sitesRoot
+				siteDirectory
 			);
-			const newPath = path.join( sitesRoot, sanitizeFolderName( newName ) );
+			const newPath = path.join( siteDirectory, sanitizeFolderName( newName ) );
 			const newId = crypto.randomUUID();
 			await recursiveCopyDirectory( source.path, newPath );
 

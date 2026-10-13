@@ -1,10 +1,11 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
-import { toast } from '@/data/app-messages';
+import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
@@ -36,6 +37,8 @@ export function useSites() {
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
+		// Also catches running states that changed without a site event (e.g. a daemon crash).
+		refetchInterval: 2 * 60 * 1000,
 	} );
 }
 
@@ -140,8 +143,11 @@ export function useStartSite( { silent = false }: StartSiteOptions = {} ) {
 				toast.success( __( 'Site started' ) );
 			}
 		},
-		onError: ( _error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ) ),
+		onError: ( error, id ) =>
+			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ), {
+				description: getErrorMessage( error ),
+				action: openStudioLogsAction( connector ),
+			} ),
 	} );
 }
 

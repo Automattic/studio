@@ -24,7 +24,7 @@ export interface IpcEvents {
 		},
 	];
 	'ai-credits-purchased': [ void ];
-	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
+	'auth-updated': [ { token: StoredAuthToken } | { token: null } ];
 	'on-export': [ ExportIpcEvent[ 'event' ], string ];
 	'on-import': [ ImportEventTuple, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];

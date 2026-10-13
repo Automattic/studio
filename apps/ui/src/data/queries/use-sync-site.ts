@@ -4,7 +4,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
-import { toast } from '@/data/app-messages';
+import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteStorageUsageQueryKey } from '@/data/queries/use-site-storage-usage';
@@ -51,7 +51,7 @@ export function useSettleSync() {
 				if ( settled.kind === 'success' ) {
 					toast.success( __( 'Preview site published' ) );
 				} else if ( settled.kind === 'error' ) {
-					toast.error( __( 'Failed to publish preview site' ) );
+					toast.error( __( 'Failed to publish preview site' ), { description: settled.message } );
 				}
 				return;
 			}
@@ -72,7 +72,7 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					toast.error( __( "Import didn't complete" ), {
 						description: settled.message,
-						action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+						action: openStudioLogsAction( connector ),
 					} );
 				}
 				return;
@@ -87,12 +87,10 @@ export function useSettleSync() {
 				toast.success( isPush ? __( 'Push complete' ) : __( 'Pull complete' ) );
 			} else if ( settled.kind === 'cancelled' ) {
 				toast.success( isPush ? __( 'Push cancelled' ) : __( 'Pull cancelled' ) );
-			} else if ( isPush ) {
-				toast.error( __( "Push didn't complete" ) );
 			} else {
-				toast.error( __( "Pull didn't complete" ), {
+				toast.error( isPush ? __( "Push didn't complete" ) : __( "Pull didn't complete" ), {
 					description: settled.message,
-					action: canOpenLogs ? openStudioLogsAction( connector ) : undefined,
+					action: openStudioLogsAction( connector ),
 				} );
 			}
 		},
@@ -101,7 +99,8 @@ export function useSettleSync() {
 }
 
 // Pull and import failures carry the CLI's raw error. The UI shows plain
-// language instead, and the raw error goes to the logs.
+// language instead, and the raw error goes to the logs. Push keeps the CLI's
+// message: it already names the cause (size limit, live import failure, timeout).
 function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) {
 	if ( direction === 'pull' ) {
 		return canOpenLogs
@@ -120,17 +119,6 @@ function getPlainErrorMessage( direction: SyncDirection, canOpenLogs: boolean ) 
 			  );
 	}
 	return undefined;
-}
-
-export function openStudioLogsAction( connector: Connector ) {
-	return {
-		label: __( 'Open Studio Logs' ),
-		onClick: () => {
-			void connector.openStudioLogs().catch( ( error ) => {
-				console.error( 'Failed to open Studio logs:', error );
-			} );
-		},
-	};
 }
 
 // Mount once near the app root.

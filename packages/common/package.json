@@ -4,8 +4,18 @@
 	"version": "1.0.0",
 	"type": "module",
 	"description": "Shared code between Studio app and CLI",
+	"exports": {
+		"./constants": "./constants.ts",
+		"./logger-actions": "./logger-actions.ts",
+		"./ai/*": "./ai/*.ts",
+		"./lib/*": "./lib/*.ts",
+		"./sites/*": "./sites/*.ts",
+		"./types/*": "./types/*.ts",
+		"./translations": "./translations/index.ts",
+		"./translations/*.json": "./translations/*.json",
+		"./assets/*": "./assets/*"
+	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
 		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},

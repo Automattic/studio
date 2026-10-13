@@ -131,11 +131,11 @@ where the sender actually runs — see Testing below for what fires in which bui
   a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
 - **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
   and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
-  Import/Export tab, the agentic UI's export buttons, and standalone-CLI runs all funnel there —
+  Import/Export tab, the agentic UI's import and export buttons, and standalone-CLI runs all funnel there —
   `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
   events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
   commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
-  import, browser-UI import route), sync-pull imports, and Classic's sync-push exports — pass a hidden
+  import in both the desktop app and the browser UI), sync-pull imports, and Classic's sync-push exports — pass a hidden
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.

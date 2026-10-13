@@ -17,6 +17,7 @@ import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshot
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure, normalizeHostname } from 'cli/lib/utils';
+import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -86,6 +87,7 @@ export async function runCommand(
 		if ( endDate < now ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
+		await validateSiteSize( siteFolder );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>

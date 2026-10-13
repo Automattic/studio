@@ -154,6 +154,13 @@ async function main(): Promise< void > {
 	fs.mkdirSync( path.join( stagingDir, 'bin' ), { recursive: true } );
 
 	fs.cpSync( cliDistDir, path.join( stagingDir, 'cli' ), { recursive: true } );
+	run(
+		`node scripts/prune-bundled-node-modules.mjs "${ path.join(
+			stagingDir,
+			'cli',
+			'node_modules'
+		) }" --platform ${ platformArg } --arch ${ archArg }`
+	);
 
 	// Reuse the desktop app's CLI launcher scripts — same bin/node + cli/main.mjs
 	// layout — so there's a single launcher implementation. The standalone

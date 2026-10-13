@@ -222,6 +222,17 @@ const config: ForgeConfig = {
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
+			// install:bundle already pruned by OS; only the target arch is known here.
+			await execAsync( [
+				'node',
+				path.join( repoRoot, 'scripts', 'prune-bundled-node-modules.mjs' ),
+				cliNodeModules,
+				'--platform',
+				platform,
+				'--arch',
+				arch,
+			] );
+
 			// Clean up koffi binaries (uses {platform}_{arch} format).
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
 			const koffiTarget = `${ platform }_${ arch }`;

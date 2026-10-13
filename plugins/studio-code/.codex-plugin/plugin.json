@@ -1,0 +1,54 @@
+{
+  "name": "studio-code",
+  "version": "0.1.0",
+  "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, open your Studio and WordPress.com sites from the WordPress tab, preview them, and publish to WordPress.com.",
+  "author": {
+    "name": "Automattic",
+    "url": "https://automattic.com"
+  },
+  "homepage": "https://developer.wordpress.com/studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "wordpress",
+    "wordpress-studio",
+    "wordpress-com",
+    "local site",
+    "website",
+    "landing page",
+    "blog",
+    "portfolio",
+    "online store",
+    "site-builder",
+    "block-theme"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.codex.json",
+  "interface": {
+    "displayName": "WordPress Studio",
+    "shortDescription": "Build and manage WordPress sites",
+    "longDescription": "Build WordPress sites from a conversation: Studio creates the site on your computer, asks about the look and layout with rendered previews, generates the imagery, builds a block theme and checks the result visually. The WordPress tab lists your local Studio sites and your WordPress.com sites, with a page per site to start it, open WP Admin, run speed and SEO audits, or work on a live site. Publish to WordPress.com when you are ready. Studio installs itself the first time and keeps itself up to date.",
+    "developerName": "Automattic",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://developer.wordpress.com/studio/",
+    "privacyPolicyURL": "https://automattic.com/privacy/",
+    "termsOfServiceURL": "https://wordpress.com/tos/",
+    "defaultPrompt": [
+      "Build a WordPress site for my bakery",
+      "Redesign my Studio site",
+      "Publish my site to WordPress.com"
+    ],
+    "brandColor": "#101517",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png",
+    "screenshots": [
+      "./assets/screenshot-look.png",
+      "./assets/screenshot-layout.png"
+    ]
+  }
+}

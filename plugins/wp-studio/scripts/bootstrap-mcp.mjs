@@ -31,6 +31,7 @@ const STUDIO_HOME = process.env.STUDIO_CLI_HOME || path.join( homedir(), '.studi
 const STUDIO_BIN = path.join( STUDIO_HOME, 'bin', 'studio' );
 const UPDATE_STATE = path.join( STUDIO_HOME, 'plugin-update.json' );
 const UPDATE_STAGING = path.join( STUDIO_HOME, '.plugin-update' );
+const INSTALL_LOCK = path.join( STUDIO_HOME, '.plugin-install.lock' );
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FIRST_UPDATE_CHECK_MS = 30_000;
 const IDLE_RETRY_MS = 60_000;
@@ -161,6 +162,59 @@ function watchDownload() {
 	}, 500 );
 }
 
+const isAlive = ( pid ) => {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch ( error ) {
+		return error.code === 'EPERM';
+	}
+};
+const installLockHolder = () => {
+	try {
+		return Number( readFileSync( INSTALL_LOCK, 'utf8' ) );
+	} catch {
+		return null;
+	}
+};
+const otherInstallRunning = () => {
+	const holder = installLockHolder();
+	return holder > 0 && holder !== process.pid && isAlive( holder );
+};
+
+// Codex starts one server per session, so two can find no CLI at once: the first
+// to take the lock installs, the others wait for it. A lock left by a process
+// that died is taken over.
+function takeInstallLock() {
+	mkdirSync( STUDIO_HOME, { recursive: true } );
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
+		try {
+			writeFileSync( INSTALL_LOCK, String( process.pid ), { flag: 'wx' } );
+			return true;
+		} catch {
+			if ( otherInstallRunning() ) return false;
+			rmSync( INSTALL_LOCK, { force: true } );
+		}
+	}
+	return false;
+}
+
+function waitForOtherInstall() {
+	setup.step = 'Waiting for another install';
+	log( 'Another WordPress Studio session is installing the Studio CLI.' );
+	const timer = setInterval( async () => {
+		if ( otherInstallRunning() ) return;
+		clearInterval( timer );
+		studio = await findStudio();
+		if ( studio ) {
+			setup.step = 'Starting';
+			startStudio( { afterSetup: true } );
+		} else {
+			install();
+		}
+	}, 2000 );
+}
+
 function install() {
 	Object.assign( setup, {
 		state: 'installing',
@@ -169,8 +223,12 @@ function install() {
 		log: [],
 		downloadedBytes: 0,
 	} );
-	log( `Installing the Studio CLI from ${ INSTALLER_URL }` );
 	watchDownload();
+	if ( ! takeInstallLock() ) {
+		waitForOtherInstall();
+		return;
+	}
+	log( `Installing the Studio CLI from ${ INSTALLER_URL }` );
 	const installer = spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], {
 		env: process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
@@ -184,6 +242,7 @@ function install() {
 	readline.createInterface( { input: installer.stdout } ).on( 'line', onLine );
 	readline.createInterface( { input: installer.stderr } ).on( 'line', onLine );
 	installer.on( 'exit', ( code ) => {
+		rmSync( INSTALL_LOCK, { force: true } );
 		if ( code === 0 && existsSync( STUDIO_BIN ) ) {
 			setup.step = 'Starting';
 			studio = { command: STUDIO_BIN, args: [], updates: true };

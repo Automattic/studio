@@ -921,7 +921,9 @@ export async function createSite(
 			throw new Error( logErrorMessage );
 		}
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	} finally {
 		if ( bundleTempDir ) {
 			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );

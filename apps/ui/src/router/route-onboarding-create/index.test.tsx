@@ -323,6 +323,16 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.formProps?.isSubmitDisabled ).toBe( false );
 	} );
 
+	it( 'requires a custom domain for a multisite Blueprint', () => {
+		render( <CreateSitePage /> );
+		const multisite = blueprint( 'Network' );
+		multisite.blueprint.steps = [ { step: 'enableMultisite' } ];
+		selectBlueprint( multisite );
+
+		expect( mocks.formProps?.requiresCustomDomain ).toBe( true );
+		expect( mocks.formProps?.initialValues ).toMatchObject( { customDomain: 'network.wp.local' } );
+	} );
+
 	it( 'keeps the selected Blueprint for a retry after failure', async () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
 		const { unmount } = render( <CreateSitePage /> );
@@ -330,7 +340,11 @@ describe( 'CreateSitePage', () => {
 		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
 
-		await screen.findByText( 'Creation failed' );
+		await waitFor( () =>
+			expect( mocks.formProps?.submitError ).toEqual(
+				expect.objectContaining( { details: 'Creation failed' } )
+			)
+		);
 		expect( mocks.setProgress ).toHaveBeenCalledWith( 'Creating site…' );
 		expect( mocks.setProgress ).toHaveBeenCalledWith( null );
 		expect( mocks.mutateAsync ).toHaveBeenCalledWith(

@@ -1,6 +1,5 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { UnsupportedError } from '../unsupported-error';
@@ -534,10 +533,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		async getOnboardingHints() {
-			return readOnboardingHints();
+			return {};
 		},
-		async setOnboardingHints( partial ) {
-			writeOnboardingHints( partial );
+		async setOnboardingHints() {
+			// No-op.
 		},
 		onShowGettingStarted() {
 			// No application menu on the hosted surface.

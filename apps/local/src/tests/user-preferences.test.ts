@@ -170,3 +170,19 @@ describe( 'POST /api/sites/sort-order', () => {
 		await expect( postSortOrder( { updates: 'nope' } ) ).resolves.toMatchObject( { status: 400 } );
 	} );
 } );
+
+describe( '/api/onboarding-hints', () => {
+	it( 'merges a patch into the progress the desktop stored', async () => {
+		writeAppConfig( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
+
+		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { tourCompletedVersion: 2 } ),
+		} );
+
+		expect( response.status ).toBe( 204 );
+		const hints = await ( await fetch( `${ server.url }/api/onboarding-hints` ) ).json();
+		expect( hints ).toEqual( { tourCompletedVersion: 2, migratedFromClassic: true } );
+	} );
+} );

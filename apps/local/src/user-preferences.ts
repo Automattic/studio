@@ -154,3 +154,29 @@ export async function writeSiteSortOrders(
 		config.siteMetadata = siteMetadata;
 	} );
 }
+
+// The orientation guide's progress, kept in `app.json` like the desktop does so
+// finishing the tour in either front end settles both. `.loose()` keeps any
+// field a newer desktop adds.
+export const onboardingHintsSchema = z
+	.object( {
+		tourCompletedVersion: z.number().optional(),
+		tourDismissedVersion: z.number().optional(),
+		migratedFromClassic: z.boolean().optional(),
+	} )
+	.loose();
+
+type OnboardingHints = z.infer< typeof onboardingHintsSchema >;
+
+export async function readOnboardingHints(): Promise< OnboardingHints > {
+	return onboardingHintsSchema.catch( {} ).parse( ( await readAppConfig() ).onboardingHints );
+}
+
+export async function writeOnboardingHints( patch: OnboardingHints ): Promise< void > {
+	await updateAppConfig( ( config ) => {
+		config.onboardingHints = {
+			...onboardingHintsSchema.catch( {} ).parse( config.onboardingHints ),
+			...patch,
+		};
+	} );
+}

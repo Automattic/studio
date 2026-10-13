@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "studio-code",
+      "name": "wp-studio",
       "source": {
         "source": "local",
-        "path": "./plugins/studio-code"
+        "path": "./plugins/wp-studio"
       },
       "policy": {
         "installation": "AVAILABLE",

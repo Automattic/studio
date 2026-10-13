@@ -16,7 +16,7 @@
       "startup_timeout_sec": 600,
       "tool_timeout_sec": 3600,
       "env": {
-        "STUDIO_PLUGIN_ID": "studio-code@studio"
+        "STUDIO_PLUGIN_ID": "wp-studio@studio"
       }
     }
   }

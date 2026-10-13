@@ -9,7 +9,7 @@ checks the result visually. Publish it to WordPress.com when you are ready.
 
 ```bash
 codex plugin marketplace add Automattic/studio
-codex plugin add studio-code@studio
+codex plugin add wp-studio@studio
 ```
 
 The **WordPress** tab in the sidebar needs two Codex features that are still in development:

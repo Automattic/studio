@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { defineTool } from './define-tool';
+import { defineTool, READ_ONLY } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const auditSeoTool = defineTool(
@@ -48,6 +48,7 @@ export const auditSeoTool = defineTool(
 		}
 	},
 	{
+		annotations: READ_ONLY,
 		promptSnippet:
 			'Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.',
 	}

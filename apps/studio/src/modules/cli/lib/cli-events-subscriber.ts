@@ -10,6 +10,7 @@ import {
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
@@ -165,6 +166,7 @@ export async function startCliEventsSubscriber(): Promise< void > {
 
 			const syncParsed = cliSyncEventSchema.safeParse( data );
 			if ( syncParsed.success ) {
+				trackSyncActivity( syncParsed.data.value );
 				void sendIpcEventToRenderer( 'sync-activity', syncParsed.data.value );
 				return;
 			}

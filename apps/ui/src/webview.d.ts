@@ -9,7 +9,6 @@ declare module 'react' {
 		interface IntrinsicElements {
 			webview: React.DetailedHTMLProps< React.HTMLAttributes< HTMLElement >, HTMLElement > & {
 				src?: string;
-				allowpopups?: string;
 				partition?: string;
 				preload?: string;
 				nodeintegration?: string;

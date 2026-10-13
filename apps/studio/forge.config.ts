@@ -69,9 +69,12 @@ const config: ForgeConfig = {
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
+			// Source maps are uploaded to Sentry at build time and not needed at runtime.
+			/\.map$/,
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
+			/^\/php-bin/,
 		],
 	},
 	rebuildConfig: {},
@@ -279,6 +282,15 @@ const config: ForgeConfig = {
 						}
 					}
 				}
+			}
+
+			console.log( 'Removing source maps from CLI bundle dependencies...' );
+			for ( const sourceMap of globSync( '**/*.map', {
+				cwd: cliNodeModules,
+				absolute: true,
+				nodir: true,
+			} ) ) {
+				fs.rmSync( sourceMap, { force: true } );
 			}
 
 			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai

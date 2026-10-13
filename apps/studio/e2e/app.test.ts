@@ -17,7 +17,7 @@ test.describe( 'Electron app', () => {
 	} );
 
 	test( 'should ensure app title is correct.', async () => {
-		expect( await session.mainWindow.title() ).toBe( 'Studio' );
+		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
 	} );
 
 	test( 'first screen displayed is onboarding', async () => {

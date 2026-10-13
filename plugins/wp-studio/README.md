@@ -12,13 +12,6 @@ codex plugin marketplace add Automattic/studio
 codex plugin add wp-studio@studio
 ```
 
-The **WordPress** tab in the sidebar needs two Codex features that are still in development:
-
-```bash
-codex features enable mcp_2026_07_28
-codex features enable codex_apps_mcp_2026_07_28
-```
-
 Restart the ChatGPT app afterwards. Any other MCP client can run the server directly: add a stdio
 server named `wordpress-studio` that runs `studio mcp`.
 

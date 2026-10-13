@@ -7,7 +7,7 @@ import {
 	isCAImportedInUserNssDbsLinux,
 	isCATrustedOnLinux,
 } from '@studio/common/lib/linux-trust-store';
-import { isRootCATrusted, trustRootCA } from '@studio/common/lib/root-ca-trust';
+import { hasUntrustedRootCA, isRootCATrusted, trustRootCA } from '@studio/common/lib/root-ca-trust';
 
 vi.mock( '@studio/common/lib/linux-trust-store', () => ( {
 	LINUX_TRUST_STORE_PATH: '/usr/local/share/ca-certificates/studio-ca.crt',
@@ -108,6 +108,21 @@ describe( 'certificate-manager (Linux)', () => {
 			await expect( isRootCATrusted() ).resolves.toBe( false );
 			expect( mockedIsCATrustedOnLinux ).not.toHaveBeenCalled();
 			expect( mockedIsCAImportedInUserNssDbsLinux ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'hasUntrustedRootCA', () => {
+		it( 'flags an existing certificate the system does not trust', async () => {
+			setPlatform( 'linux' );
+			mockedIsCATrustedOnLinux.mockResolvedValue( false );
+
+			await expect( hasUntrustedRootCA() ).resolves.toBe( true );
+		} );
+
+		it( 'has nothing to flag before the certificate exists', async () => {
+			existsSpy.mockReturnValue( false );
+
+			await expect( hasUntrustedRootCA() ).resolves.toBe( false );
 		} );
 	} );
 

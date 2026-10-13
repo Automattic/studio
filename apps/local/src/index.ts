@@ -78,6 +78,11 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
+import {
+	ROOT_CA_CERT_PATH,
+	hasUntrustedRootCA,
+	trustRootCA,
+} from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -1388,6 +1393,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( detectInstalledApps() );
+		} )
+	);
+
+	// Studio's root certificate, which signs every HTTPS site's certificate.
+	api.get(
+		'/certificate',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { trusted: ! ( await hasUntrustedRootCA() ) } );
+		} )
+	);
+
+	api.post(
+		'/certificate/trust',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			// macOS has no automatic trust: show the file for a manual Keychain step.
+			if ( process.platform === 'darwin' ) {
+				await openPath( path.dirname( ROOT_CA_CERT_PATH ) );
+			} else {
+				await trustRootCA();
+			}
+			res.status( 204 ).end();
 		} )
 	);
 

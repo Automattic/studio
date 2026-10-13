@@ -408,6 +408,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No native folder picker in a browser.
 			return null;
 		},
+		async isCertificateTrusted() {
+			return true;
+		},
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
 		async getAgentInstructions(): Promise< string > {
 			throw new UnsupportedError( 'getAgentInstructions' );
 		},

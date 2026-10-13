@@ -715,6 +715,13 @@ export function createIpcConnector(): Connector {
 			}
 		},
 
+		async isCertificateTrusted(): Promise< boolean > {
+			return ( await ipcApi.isCATrusted() ) as boolean;
+		},
+		async trustCertificate() {
+			// Main reports a failure in its own error dialog.
+			await ipcApi.trustCertificate();
+		},
 		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
 				__( 'Select default site directory' ),

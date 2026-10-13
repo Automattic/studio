@@ -8,13 +8,13 @@ import {
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
+import { BaseControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import { LearnMoreLink } from '@/components/learn-more';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	adminEmailField,
@@ -27,6 +27,7 @@ import {
 	customDomainToggleField,
 	wpVersionField,
 } from '@/components/site-fields';
+import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
@@ -376,25 +377,6 @@ function PathField( {
 	);
 }
 
-function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
-	return (
-		<CheckboxControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			checked={ item.enableHttps }
-			onChange={ ( checked ) => onChange( { enableHttps: checked } ) }
-			help={
-				<>
-					{ __(
-						'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-					) }{ ' ' }
-					<LearnHowLink docsLinksKey="docsSslInStudio" />
-				</>
-			}
-		/>
-	);
-}
-
 function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 	const fieldIds: string[] = [];
 	const collect = ( field: FormField | string ) => {
@@ -538,7 +520,7 @@ export function CreateSiteForm( {
 				type: 'boolean',
 				label: __( 'Enable HTTPS' ),
 				isVisible: ( item: FormData ) => item.useCustomDomain,
-				Edit: EnableHttpsControl,
+				Edit: EnableHttpsControl< FormData >,
 			},
 		],
 		[ existingDomainNames, isOffline, requiresCustomDomain, unavailableWpVersion, wpVersions ]

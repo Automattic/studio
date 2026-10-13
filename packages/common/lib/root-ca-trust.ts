@@ -69,6 +69,12 @@ export async function isRootCATrusted(): Promise< boolean > {
 	return false;
 }
 
+// True when Studio has a root certificate the OS doesn't trust. Before the
+// first HTTPS site there is none: the CLI creates it then and asks to trust it.
+export async function hasUntrustedRootCA(): Promise< boolean > {
+	return fs.existsSync( ROOT_CA_CERT_PATH ) && ! ( await isRootCATrusted() );
+}
+
 /**
  * Trust the root CA certificate in the system trust store
  * @throws { Error } If the certificate trust operation fails

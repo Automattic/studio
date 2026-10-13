@@ -385,6 +385,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No native folder picker in a browser.
 			return null;
 		},
+		async isCertificateTrusted() {
+			return ( await api< { trusted: boolean } >( '/certificate' ) ).trusted;
+		},
+		async trustCertificate() {
+			await api( '/certificate/trust', { method: 'POST' } );
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',

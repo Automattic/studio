@@ -15,7 +15,7 @@ export function startSite( execute: ExecuteCliCommand, sitePath: string ): Promi
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', ( { error } ) => {
 			error.baseMessage = 'Failed to start site';
-			reject( error );
+			reject( error.lastErrorMessage ? new Error( error.lastErrorMessage ) : error );
 		} );
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );

@@ -1,21 +1,41 @@
+import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
+import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
+
 /**
- * This set is used to store the IDs of active sync operations. It's used to determine if we should
- * display a confirmation modal before quitting the app.
+ * Push/pull operations reported by the legacy renderer.
  */
 export const ACTIVE_SYNC_OPERATIONS = new Map<
 	string,
 	PullStateProgressInfo | PushStateProgressInfo | undefined
 >();
 
-/**
- * Determine if the set of active push/pull operations has any members.
- */
+// The push or pull each site is running, as published by the CLI, whoever started it.
+const PENDING_SYNCS = new Map< string, SyncActivity >();
+
+export function trackSyncActivity( { siteId, activity }: SyncEvent ): void {
+	if ( activity.direction !== 'push' && activity.direction !== 'pull' ) {
+		return;
+	}
+	if ( activity.kind === 'pending' ) {
+		PENDING_SYNCS.set( siteId, activity );
+	} else {
+		PENDING_SYNCS.delete( siteId );
+	}
+}
+
 export function hasActiveSyncOperations(): boolean {
-	return ACTIVE_SYNC_OPERATIONS.size > 0;
+	return PENDING_SYNCS.size > 0;
+}
+
+/**
+ * Whether quitting would cancel a sync: the app stops the CLI processes it runs on quit.
+ */
+export function hasCancellableSyncOperations(): boolean {
+	return [ ...PENDING_SYNCS.values() ].some( canCancelSyncActivity );
 }
 
 /**
@@ -57,15 +77,4 @@ export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | und
 		return false;
 	}
 	return uploadingStateKeys.includes( key );
-}
-
-export function hasUploadingPushOperations(): boolean {
-	//  Iterate over all the sites and check if any operation is cancelable
-	let result = false;
-	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
-		if ( state && 'key' in state ) {
-			result = result || pushBackupIsUploading( state.key as PushStateProgressInfo[ 'key' ] );
-		}
-	}
-	return result;
 }

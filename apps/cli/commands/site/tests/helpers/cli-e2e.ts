@@ -88,6 +88,18 @@ export function setupCliEnv(): CliEnv {
 }
 
 export function cleanupCliEnv( env: CliEnv ): void {
+	// CI sets this to keep the daemon logs, which record why a site process died, for upload.
+	const keptLogsDir = process.env.STUDIO_E2E_DAEMON_LOGS_DIR;
+	const daemonLogsDir = path.join( env.daemonHome, 'logs' );
+	if ( keptLogsDir && fs.existsSync( daemonLogsDir ) ) {
+		try {
+			fs.cpSync( daemonLogsDir, path.resolve( keptLogsDir, path.basename( env.daemonHome ) ), {
+				recursive: true,
+			} );
+		} catch {
+			// Best effort: missing diagnostics must not fail the test.
+		}
+	}
 	fs.rmSync( env.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 	fs.rmSync( env.daemonHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 }

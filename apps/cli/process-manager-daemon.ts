@@ -27,6 +27,10 @@ const STOP_TIMEOUT_MS = 2_500;
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
+// A child's `exit` can fire before its stderr is fully read (notably on Windows), so the `exit`
+// event waits for `close` to carry the full stderr tail. Bounded in case a grandchild inherited
+// the pipes and holds them open.
+const STDIO_DRAIN_TIMEOUT_MS = 1_000;
 
 // Cap on concurrently running site processes, at roughly 120 MB of memory each.
 const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -46,6 +50,7 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
+	exitAnnounced: boolean;
 	// Track child pids of the child process so that they aren't orphaned when the parent exits.
 	grandchildrenPids?: number[];
 };
@@ -263,6 +268,7 @@ export class ProcessManagerDaemon {
 			stderrBuffer: [],
 			stderrBufferBytes: 0,
 			settled: false,
+			exitAnnounced: false,
 		};
 
 		this.managedProcesses.set( pmId, managedProcess );
@@ -301,11 +307,17 @@ export class ProcessManagerDaemon {
 			for ( const line of errorText.split( '\n' ) ) {
 				this.recordStderrLine( managedProcess, line );
 			}
-			void this.handleProcessExit( managedProcess );
+			this.handleProcessExit( managedProcess );
+			void this.announceProcessExit( managedProcess );
 		} );
 
 		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess );
+			this.handleProcessExit( managedProcess );
+			setTimeout( () => void this.announceProcessExit( managedProcess ), STDIO_DRAIN_TIMEOUT_MS );
+		} );
+
+		child.on( 'close', () => {
+			void this.announceProcessExit( managedProcess );
 		} );
 
 		await this.broadcastEvent( {
@@ -347,7 +359,7 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private async handleProcessExit( managedProcess: ManagedProcess ) {
+	private handleProcessExit( managedProcess: ManagedProcess ) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -355,6 +367,14 @@ export class ProcessManagerDaemon {
 		managedProcess.settled = true;
 		managedProcess.status = 'stopped';
 		this.managedProcesses.delete( managedProcess.pmId );
+	}
+
+	private async announceProcessExit( managedProcess: ManagedProcess ) {
+		if ( managedProcess.exitAnnounced ) {
+			return;
+		}
+
+		managedProcess.exitAnnounced = true;
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 

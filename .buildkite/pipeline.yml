@@ -133,6 +133,8 @@ steps:
       - label: CLI E2E Tests on {{matrix}}
         key: cli_e2e_tests_mac_windows
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
+        artifact_paths:
+          - test-results/daemon-logs/**/*.log
         agents:
           queue: "{{matrix}}"
         timeout_in_minutes: 30
@@ -146,6 +148,8 @@ steps:
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        artifact_paths:
+          - test-results/daemon-logs/**/*.log
         agents:
           queue: default
         timeout_in_minutes: 30

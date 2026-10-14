@@ -26,9 +26,9 @@ into Studio, or log in to WordPress.com.
 ## The Studio CLI
 
 The plugin carries the Studio CLI. It unpacks it the first time it starts, which takes a few
-seconds, or a minute or two on Windows, and it updates with the plugin. A Studio CLI from the desktop app or from npm is used
-instead when it is at least as recent. Like any Studio CLI outside the desktop app, it downloads PHP
-when it first starts a site.
+seconds, or a minute or two on Windows, and it updates with the plugin. A Studio CLI from the
+desktop app or from npm is used instead when it is at least as recent. Like any Studio CLI outside
+the desktop app, it downloads PHP when it first starts a site.
 
 ## Telemetry
 

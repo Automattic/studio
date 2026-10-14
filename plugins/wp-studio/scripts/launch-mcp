@@ -1,15 +1,11 @@
 #!/bin/sh
-# Starts the plugin's MCP server: bootstrap-mcp.mjs, which finds the Studio CLI
-# (installing it when there is none, keeping that install up to date) and runs
-# `studio mcp` behind it. It prefers the Node.js of Studio or the ChatGPT app,
-# recent enough to run a CLI the plugin carries, then looks past the user's
-# shell PATH, which desktop agents often start plugin servers without. Without
-# a Node.js, it runs a Studio CLI directly: the `studio` command, then the known
-# install locations, installing one first when there is none.
+# Starts the plugin's MCP server, bootstrap-mcp.mjs. It prefers the Node.js of
+# Studio or the ChatGPT app, recent enough to run the Studio CLI the plugin
+# carries, then looks past the user's shell PATH, which desktop agents often
+# start plugin servers without. Without a Node.js, it runs an installed Studio
+# CLI directly.
 #
 # stdout carries the MCP messages: anything else must go to stderr.
-
-INSTALLER_URL="${STUDIO_INSTALLER_URL:-https://wordpress.studio/install.sh}"
 
 find_node() {
 	if [ -n "$STUDIO_NODE" ]; then
@@ -25,18 +21,6 @@ find_node() {
 	fi
 }
 
-start_installed() {
-	for candidate in \
-		"$HOME/.studio/bin/studio" \
-		"$HOME/.local/bin/studio" \
-		/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh \
-		/usr/lib/studio/resources/bin/studio-cli.sh; do
-		if [ -x "$candidate" ]; then
-			exec "$candidate" mcp
-		fi
-	done
-}
-
 NODE="$(find_node)"
 if [ -n "$NODE" ] && [ -x "$NODE" ]; then
 	exec "$NODE" "$(dirname "$0")/bootstrap-mcp.mjs"
@@ -46,12 +30,5 @@ if command -v studio >/dev/null 2>&1; then
 	exec studio mcp
 fi
 
-start_installed
-
-echo 'WordPress Studio CLI not found: installing it into ~/.studio (a download of about 260 MB)...' >&2
-if curl -fsSL "$INSTALLER_URL" | sh >&2; then
-	start_installed
-fi
-
-echo 'Could not install the WordPress Studio CLI. Install it with `curl -fsSL https://wordpress.studio/install.sh | bash` and start a new session.' >&2
+echo 'WordPress Studio needs Node.js 22 or later, or the Studio desktop app.' >&2
 exit 1

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --experimental-strip-types
 /**
- * Builds the WordPress Studio plugin for OpenAI's plugin directory, which wants plugins to ship
- * their server: the plugin with the Studio CLI inside. The CLI is the build the desktop app embeds
+ * Builds the WordPress Studio plugin with the Studio CLI inside, as the Automattic/studio-plugins
+ * marketplace and OpenAI's plugin directory ship it. The CLI is the build the desktop app embeds
  * (WordPress and phpMyAdmin included, no Node.js: the plugin runs it with the host's), packed as
  * one brotli-compressed tarball that the plugin unpacks on first start. A single archive keeps the
  * package within the directory's limits, which this script checks.

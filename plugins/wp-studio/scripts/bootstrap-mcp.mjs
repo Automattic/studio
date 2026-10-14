@@ -120,9 +120,14 @@ async function unpack() {
 	rmSync( staging, { recursive: true, force: true } );
 	mkdirSync( staging );
 	try {
-		const tar = spawn( 'tar', [ '-xf', '-', '-C', staging ], {
-			stdio: [ 'pipe', 'ignore', 'pipe' ],
-		} );
+		// Windows' own tar: Git Bash's GNU tar can come first on PATH.
+		const tar = spawn(
+			WINDOWS ? path.join( process.env.SystemRoot, 'System32', 'tar.exe' ) : 'tar',
+			[ '-xf', '-', '-C', staging ],
+			{
+				stdio: [ 'pipe', 'ignore', 'pipe' ],
+			}
+		);
 		readline
 			.createInterface( { input: tar.stderr } )
 			.on( 'line', ( line ) => process.stderr.write( `${ line }\n` ) );

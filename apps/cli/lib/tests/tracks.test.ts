@@ -73,6 +73,27 @@ describe( 'getTracksOrigin', () => {
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v1' } );
 	} );
 
+	it( 'resolves studio-mcp with the agent app and the plugin that started it', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
+		process.env.STUDIO_MCP_CLIENT = 'codex-mcp-client';
+		process.env.STUDIO_PLUGIN_ID = 'wp-studio@studio';
+		process.env.STUDIO_PLUGIN_VERSION = '0.1.0';
+		expect( getTracksOrigin() ).toStrictEqual( {
+			channel: 'studio-mcp',
+			mcp_client: 'codex-mcp-client',
+			plugin: 'wp-studio@studio',
+			plugin_version: '0.1.0',
+		} );
+	} );
+
+	it( 'resolves studio-mcp without plugin properties when the server was configured by hand', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
+		process.env.STUDIO_MCP_CLIENT = 'claude-code';
+		delete process.env.STUDIO_PLUGIN_ID;
+		delete process.env.STUDIO_PLUGIN_VERSION;
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-mcp', mcp_client: 'claude-code' } );
+	} );
+
 	it( 'falls back to studio-cli for an unknown channel', () => {
 		process.env.STUDIO_TRACKS_ORIGIN = 'studio-desktop:v2';
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-cli' } );

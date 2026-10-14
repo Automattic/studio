@@ -15,6 +15,7 @@ import type {
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -42,6 +43,7 @@ export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
+export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -437,6 +439,14 @@ export interface Connector {
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
+	// False when Studio has a root certificate (which signs every HTTPS site's
+	// certificate) that the OS doesn't trust, so browsers warn about those sites.
+	// True before the first HTTPS site: there's no certificate to trust yet.
+	isCertificateTrusted(): Promise< boolean >;
+	// Trusts it (Windows and Linux ask for administrator access). macOS needs a
+	// manual Keychain step, so there it reveals the certificate file instead.
+	trustCertificate(): Promise< void >;
+
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
 	getAgentInstructions(): Promise< string >;
@@ -637,12 +647,6 @@ export interface OnboardingHintsState {
 	// Studio (vs a fresh install that starts here). Drives the guide's first-page
 	// "Welcome to WordPress Studio 2.0" migrating copy.
 	migratedFromClassic?: boolean;
-}
-
-export interface SnapshotUsage {
-	siteCount: number;
-	siteLimit: number;
-	siteCreationBlocked: boolean;
 }
 
 export interface SkillStatus {

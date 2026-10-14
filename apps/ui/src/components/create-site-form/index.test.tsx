@@ -30,6 +30,11 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-certificate-trust', () => ( {
+	useCertificateTrust: () => ( { data: true } ),
+	useTrustCertificate: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
 } ) );

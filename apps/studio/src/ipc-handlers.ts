@@ -78,6 +78,11 @@ import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
+import {
+	ROOT_CA_CERT_PATH,
+	hasUntrustedRootCA,
+	trustRootCA,
+} from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -119,11 +124,6 @@ import {
 	type AgenticUiSurface,
 } from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
-import {
-	openCertificate as openCertificateDialog,
-	isRootCATrusted,
-	trustRootCA,
-} from 'src/lib/certificate-manager';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -875,6 +875,12 @@ export async function createSite(
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
 
+		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
+		if ( blueprint?.filePath ) {
+			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
+			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
+		}
+
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
@@ -921,13 +927,12 @@ export async function createSite(
 			throw new Error( logErrorMessage );
 		}
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	} finally {
 		if ( bundleTempDir ) {
 			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
-		} else if ( blueprint?.filePath ) {
-			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
 	}
 }
@@ -1350,7 +1355,6 @@ export function getAppGlobals(): AppGlobals {
 		platform: process.platform,
 		appName: app.name,
 		appVersion: app.getVersion(),
-		arm64Translation: app.runningUnderARM64Translation,
 		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
@@ -2031,11 +2035,11 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
-	return openCertificateDialog();
+	shell.showItemInFolder( ROOT_CA_CERT_PATH );
 }
 
 export async function isCATrusted(): Promise< boolean > {
-	return isRootCATrusted();
+	return ! ( await hasUntrustedRootCA() );
 }
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
@@ -2053,7 +2057,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			} );
 		}
 	} else {
-		await openCertificateDialog();
+		shell.showItemInFolder( ROOT_CA_CERT_PATH );
 	}
 }
 

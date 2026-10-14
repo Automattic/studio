@@ -14,7 +14,6 @@ import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LearnHowLink } from '@/components/learn-more';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -31,6 +30,7 @@ import {
 	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
+import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
@@ -104,25 +104,6 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		enableScriptDebug: site.enableScriptDebug ?? false,
 		environmentType: getWpEnvironmentType( site ),
 	};
-}
-
-function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
-	return (
-		<CheckboxControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			checked={ item.enableHttps }
-			onChange={ ( checked ) => onChange( { enableHttps: checked } ) }
-			help={
-				<>
-					{ __(
-						'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-					) }{ ' ' }
-					<LearnHowLink docsLinksKey="docsSslInStudio" />
-				</>
-			}
-		/>
-	);
 }
 
 /**
@@ -244,7 +225,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				type: 'boolean',
 				label: __( 'Enable HTTPS' ),
 				isVisible: ( item: FormData ) => item.useCustomDomain,
-				Edit: EnableHttpsControl,
+				Edit: EnableHttpsControl< FormData >,
 			},
 			enableXdebugField< FormData >( { conflictingSiteName: xdebugConflictSiteName } ),
 			{

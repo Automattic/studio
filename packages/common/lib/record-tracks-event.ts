@@ -46,6 +46,7 @@ export const TRACKS_EVENTS = {
 	CODE_SESSION_CREATED: 'studio_code_session_created',
 	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
+	MCP_SESSION_START: 'studio_mcp_session_start',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
 	SYNC_PULL: 'studio_sync_pull',
@@ -74,10 +75,10 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
-// Which application an event came from: the Electron app, the browser UI served by `studio ui`, or a
-// bare terminal invocation. Orthogonal to `ui_version`, which is the renderer chrome.
-// See `docs/design-docs/analytics-tracks.md`.
-export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web' ] as const;
+// Which application an event came from: the Electron app, the browser UI served by `studio ui`, a
+// bare terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
+// is the renderer chrome. See `docs/design-docs/analytics-tracks.md`.
+export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web', 'studio-mcp' ] as const;
 export type TracksChannel = ( typeof TRACKS_CHANNELS )[ number ];
 export type TracksUiVersion = 'v1' | 'v2';
 
@@ -118,8 +119,9 @@ export interface TracksAiIdentity {
 	client: TracksAiClient;
 }
 
-// Which AI product the event came from; `channel` still records the surface.
-export type TracksAiClient = 'studio-code';
+// Which AI product the event came from: Studio Code, or an agent app using Studio through
+// `studio mcp`; `channel` still records the surface.
+export type TracksAiClient = 'studio-code' | 'studio-mcp';
 
 // Sent as `length_bucket`; bucketed because the instructions text is never sent.
 export type TracksInstructionsLengthBucket = 'empty' | 'short' | 'medium' | 'long';

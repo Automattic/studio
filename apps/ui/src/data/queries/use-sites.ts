@@ -9,7 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -87,8 +87,13 @@ export function useCopySite() {
 		// the one kind no CLI command records — see `SITE_OPERATIONS`.
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-		onError: () => toast.error( __( 'Failed to copy site' ) ),
+		onSuccess: ( site ) => {
+			/* translators: %s: name of the new copy of a site */
+			toast.success( sprintf( __( '%s created' ), site.name ) );
+			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		},
+		onError: ( error ) =>
+			toast.error( __( 'Failed to copy site' ), { description: error.message } ),
 	} );
 }
 
@@ -97,6 +102,7 @@ export function useExportFullSite() {
 	return useMutation( {
 		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
+		onError: () => toastExportFailure( connector, __( 'Failed to export site' ) ),
 	} );
 }
 
@@ -105,7 +111,12 @@ export function useExportDatabase() {
 	return useMutation( {
 		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
 		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
+		onError: () => toastExportFailure( connector, __( 'Failed to export database' ) ),
 	} );
+}
+
+function toastExportFailure( connector: Connector, title: string ) {
+	toast.error( title, { action: openStudioLogsAction( connector ) } );
 }
 
 export interface StartSiteOptions {

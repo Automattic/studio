@@ -50,7 +50,7 @@ import {
 	cliSyncEventSchema,
 	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
-import { createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
+import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -78,6 +78,11 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
+import {
+	ROOT_CA_CERT_PATH,
+	hasUntrustedRootCA,
+	trustRootCA,
+} from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -85,6 +90,7 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -117,9 +123,13 @@ import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
 import {
+	onboardingHintsSchema,
+	readDefaultSiteDirectory,
+	readOnboardingHints,
 	readSiteSortOrders,
 	readUserPreferences,
 	userPreferencesPatchSchema,
+	writeOnboardingHints,
 	writeSiteSortOrders,
 	writeUserPreferences,
 } from './user-preferences';
@@ -129,7 +139,11 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSettings } from '@studio/common/ai/providers';
 import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
-import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type {
+	TracksEventName,
+	TracksProps,
+	TracksSiteCreateFlowType,
+} from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -404,7 +418,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				publishWatches.delete( studioSiteId );
 				sseSend( {
 					channel: 'sync-connect',
-					payload: { remoteSiteId: matchId, studioSiteId },
+					payload: { remoteSiteId: matchId, studioSiteId, autoOpenPush: true },
 				} );
 				return;
 			}
@@ -957,9 +971,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const sites = await listSites( execute );
 			const baseName = typeof req.query.base === 'string' ? req.query.base : undefined;
 			const usedNames = sites.map( ( site ) => site.name );
+			const siteDirectory = await readDefaultSiteDirectory( sitesRoot );
 			const name = baseName
-				? await generateNumberedName( baseName, usedNames, sitesRoot )
-				: await generateSiteName( usedNames, sitesRoot );
+				? await generateNumberedName( baseName, usedNames, siteDirectory )
+				: await generateSiteName( usedNames, siteDirectory );
 			res.json( { name } );
 		} )
 	);
@@ -967,7 +982,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/site-defaults/path',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = path.join( sitesRoot, sanitizeFolderName( String( req.query.name ?? '' ) ) );
+			const sitePath = path.join(
+				await readDefaultSiteDirectory( sitesRoot ),
+				sanitizeFolderName( String( req.query.name ?? '' ) )
+			);
 			try {
 				res.json( {
 					path: sitePath,
@@ -986,15 +1004,20 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post( '/paths/compare', ( req: Request, res: Response ) => {
-		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		// Confine both operands to `sitesRoot` before any filesystem access; nothing
-		// outside it can be a site, so a non-match is the correct answer.
-		const confined1 = path1 ? confineToRoot( sitesRoot, path1 ) : null;
-		const confined2 = path2 ? confineToRoot( sitesRoot, path2 ) : null;
-		const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
-		res.json( { equal } );
-	} );
+	api.post(
+		'/paths/compare',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { path1, path2 } = req.body as { path1?: string; path2?: string };
+			// Confine both operands to the directory new sites go to before any
+			// filesystem access: proposed paths live there, so a non-match outside it
+			// is the correct answer.
+			const root = await readDefaultSiteDirectory( sitesRoot );
+			const confined1 = path1 ? confineToRoot( root, path1 ) : null;
+			const confined2 = path2 ? confineToRoot( root, path2 ) : null;
+			const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
+			res.json( { equal } );
+		} )
+	);
 
 	api.post(
 		'/sites',
@@ -1011,6 +1034,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminPassword?: string;
 				adminEmail?: string;
 				skipStart?: boolean;
+				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets. `bundleUrl` triggers a server-side
@@ -1055,18 +1079,24 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
+					flowType: body.flowType,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: blueprintFilePath,
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
-			} finally {
-				cleanupCreateArgs();
+				// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
 				if ( body.blueprint?.filePath ) {
 					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
 						() => undefined
 					);
 				}
+			} catch ( error ) {
+				throw error instanceof CliCommandError && error.lastErrorMessage
+					? new Error( error.lastErrorMessage )
+					: error;
+			} finally {
+				cleanupCreateArgs();
 				if ( bundleTempDir ) {
 					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
 				}
@@ -1151,12 +1181,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			// `<name> Copy`, bumped to `Copy 2`, `Copy 3`… — mirrors the desktop.
+			const siteDirectory = await readDefaultSiteDirectory( sitesRoot );
 			const newName = await generateNumberedName(
 				`${ source.name } Copy`,
 				sites.map( ( s ) => s.name ),
-				sitesRoot
+				siteDirectory
 			);
-			const newPath = path.join( sitesRoot, sanitizeFolderName( newName ) );
+			const newPath = path.join( siteDirectory, sanitizeFolderName( newName ) );
 			const newId = crypto.randomUUID();
 			await recursiveCopyDirectory( source.path, newPath );
 
@@ -1170,6 +1201,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername: source.adminUsername || undefined,
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
+				flowType: 'duplicate',
 			} );
 			const created = await runCliCommand( execute, args, siteListItemSchema );
 			// The copied database still points at the source site's URL, so the copy
@@ -1365,6 +1397,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Studio's root certificate, which signs every HTTPS site's certificate.
+	api.get(
+		'/certificate',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { trusted: ! ( await hasUntrustedRootCA() ) } );
+		} )
+	);
+
+	api.post(
+		'/certificate/trust',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			// macOS has no automatic trust: show the file for a manual Keychain step.
+			if ( process.platform === 'darwin' ) {
+				await openPath( path.dirname( ROOT_CA_CERT_PATH ) );
+			} else {
+				await trustRootCA();
+			}
+			res.status( 204 ).end();
+		} )
+	);
+
 	// --- Global preferences — the same app.json/shared.json the desktop uses ---
 	api.get(
 		'/user-preferences',
@@ -1382,6 +1435,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeUserPreferences( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/onboarding-hints',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingHints() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding-hints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = onboardingHintsSchema.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding hints' } );
+				return;
+			}
+			await writeOnboardingHints( parsed.data );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1519,6 +1592,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await fetchSnapshots( execute ) );
+		} )
+	);
+
+	// Proxied like the quota, so the browser never holds the wpcom token.
+	api.get(
+		'/snapshots/usage',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchSnapshotUsage( token.accessToken ) : null );
 		} )
 	);
 

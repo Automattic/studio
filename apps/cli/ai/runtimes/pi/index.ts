@@ -37,6 +37,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -613,7 +614,7 @@ function buildAgentTools(
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
-	const tracks = { sessionId: config.session.getSessionId() };
+	const tracks = getAiTracksIdentity( config.session.getSessionId() );
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
 			? [

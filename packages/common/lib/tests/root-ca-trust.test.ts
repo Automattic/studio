@@ -1,21 +1,23 @@
 import fs from 'node:fs';
+import sudo from '@vscode/sudo-prompt';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	buildLinuxTrustInstallCommand,
 	importCAIntoUserNssDbsLinux,
 	isCAImportedInUserNssDbsLinux,
 	isCATrustedOnLinux,
 } from '@studio/common/lib/linux-trust-store';
-import sudo from '@vscode/sudo-prompt';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isRootCATrusted, trustRootCA } from 'cli/lib/certificate-manager';
+import { hasUntrustedRootCA, isRootCATrusted, trustRootCA } from '@studio/common/lib/root-ca-trust';
 
 vi.mock( '@studio/common/lib/linux-trust-store', () => ( {
 	LINUX_TRUST_STORE_PATH: '/usr/local/share/ca-certificates/studio-ca.crt',
 	LINUX_NSS_NICKNAME: 'WordPress Studio CA',
 	isCATrustedOnLinux: vi.fn(),
 	isCAImportedInUserNssDbsLinux: vi.fn(),
+	areAllFirefoxProfilesTrustedLinux: vi.fn( async () => true ),
 	buildLinuxTrustInstallCommand: vi.fn(),
 	importCAIntoUserNssDbsLinux: vi.fn(),
+	importCAIntoFirefoxProfilesLinux: vi.fn(),
 } ) );
 
 vi.mock( '@vscode/sudo-prompt', () => ( {
@@ -106,6 +108,21 @@ describe( 'certificate-manager (Linux)', () => {
 			await expect( isRootCATrusted() ).resolves.toBe( false );
 			expect( mockedIsCATrustedOnLinux ).not.toHaveBeenCalled();
 			expect( mockedIsCAImportedInUserNssDbsLinux ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'hasUntrustedRootCA', () => {
+		it( 'flags an existing certificate the system does not trust', async () => {
+			setPlatform( 'linux' );
+			mockedIsCATrustedOnLinux.mockResolvedValue( false );
+
+			await expect( hasUntrustedRootCA() ).resolves.toBe( true );
+		} );
+
+		it( 'has nothing to flag before the certificate exists', async () => {
+			existsSpy.mockReturnValue( false );
+
+			await expect( hasUntrustedRootCA() ).resolves.toBe( false );
 		} );
 	} );
 

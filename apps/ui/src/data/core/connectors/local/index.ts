@@ -2,7 +2,6 @@ import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -18,6 +17,7 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
+	OnboardingHintsState,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -53,7 +53,10 @@ type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'sync-activity'; payload: SyncEvent }
-	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } }
+	| {
+			channel: 'sync-connect';
+			payload: { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean };
+	  }
 	| { channel: 'site-event'; payload: SiteEvent }
 	| { channel: 'snapshot-event'; payload: SnapshotEvent }
 	| { channel: 'auth-event'; payload: unknown };
@@ -350,6 +353,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
+					flowType: params.flowType,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -380,6 +384,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
 			return null;
+		},
+		async isCertificateTrusted() {
+			return ( await api< { trusted: boolean } >( '/certificate' ) ).trusted;
+		},
+		async trustCertificate() {
+			await api( '/certificate/trust', { method: 'POST' } );
 		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
@@ -486,9 +496,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< Snapshot[] >( '/snapshots' );
 		},
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			// No usage endpoint on the local server yet; callers fall back to
-			// counting snapshots.
-			return null;
+			return api< SnapshotUsage | null >( '/snapshots/usage' );
 		},
 		async getStudioAssistantQuota() {
 			// The server proxies the WordPress.com quota endpoint and returns
@@ -888,10 +896,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => {};
 		},
 		async getOnboardingHints() {
-			return readOnboardingHints();
+			return api< OnboardingHintsState >( '/onboarding-hints' );
 		},
 		async setOnboardingHints( partial ) {
-			writeOnboardingHints( partial );
+			await api( '/onboarding-hints', { method: 'PATCH', body: JSON.stringify( partial ) } );
 		},
 		onShowGettingStarted() {
 			// No application menu in a browser tab.

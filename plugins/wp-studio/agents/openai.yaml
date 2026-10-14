@@ -1,0 +1,9 @@
+interface:
+  display_name: "WordPress Studio"
+  short_description: "Build and manage WordPress sites"
+  icon_small: "./assets/logo.png"
+  icon_large: "./assets/logo.png"
+  brand_color: "#101517"
+
+policy:
+  allow_implicit_invocation: true

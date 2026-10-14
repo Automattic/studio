@@ -25,7 +25,7 @@ import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
-	createOrReuseAiSession,
+	createHydratedAiSession,
 	hydrateAiSessionSummary,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
@@ -56,10 +56,9 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
 	calculateDirectorySizeForArchive,
@@ -76,36 +75,47 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import {
-	DEFAULT_ADMIN_PASSWORD,
-	decodePassword,
-	encodePassword,
-} from '@studio/common/lib/passwords';
+import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
+import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
+import {
+	ROOT_CA_CERT_PATH,
+	hasUntrustedRootCA,
+	trustRootCA,
+} from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
+	readAuthToken,
 	readSharedConfig,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
-import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
-import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import {
+	getLocalFileSize,
+	listLocalFileTree as listSiteFileTree,
+} from '@studio/common/lib/sync/local-file-tree';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { getSiteEditOptions } from '@studio/common/sites/edit';
+import {
+	designFixesSchema,
+	fixSiteDesign,
+	readSiteDesign,
+	type SiteDesign,
+} from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
-import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { __, sprintf } from '@wordpress/i18n';
+import {
+	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
+	MACOS_TRAFFIC_LIGHT_POSITION,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+} from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import {
@@ -114,11 +124,6 @@ import {
 	type AgenticUiSurface,
 } from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
-import {
-	openCertificate as openCertificateDialog,
-	isRootCATrusted,
-	trustRootCA,
-} from 'src/lib/certificate-manager';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -135,7 +140,7 @@ import {
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	recordTracksEvent,
@@ -154,6 +159,7 @@ import {
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
 	setAgenticControlsSurface,
+	type TrafficLightsPosition,
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -178,7 +184,8 @@ import {
 	listActiveAgentRuns,
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
-import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
+import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -213,7 +220,6 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -249,7 +255,10 @@ export {
 	createSnapshot,
 	deleteSnapshot,
 	deleteAllSnapshots,
+	deletePreviewSite,
 	fetchSnapshots,
+	publishPreviewSite,
+	renamePreviewSite,
 	setSnapshot,
 	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
@@ -336,10 +345,7 @@ export async function createAiSession(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 
-	// Binds the session to the site and reuses an existing empty draft for it
-	// instead of piling up orphans — the shared logic the `studio ui` server
-	// uses too.
-	const { created, ...summary } = await createOrReuseAiSession( sessionsRoot, {
+	const summary = await createHydratedAiSession( sessionsRoot, {
 		site: server && {
 			id: server.details.id,
 			name: server.details.name,
@@ -347,14 +353,12 @@ export async function createAiSession(
 		},
 	} );
 
-	// Fires from Main, not the CLI: sessions are created in-process. Reused drafts don't count.
+	// Fires from Main, not the CLI: sessions are created in-process.
 	// `studio ui` emits the same event from its own session route.
-	if ( created ) {
-		await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
-			...getAiTracksIdentity( summary.id ),
-			has_site: Boolean( server ),
-		} );
-	}
+	await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
+		...getAiTracksIdentity( summary.id ),
+		has_site: Boolean( server ),
+	} );
 
 	return summary;
 }
@@ -726,7 +730,6 @@ export async function removeWordPressSkillFromAllSites(
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
-const DEFAULT_ENCODED_PASSWORD = encodePassword( DEFAULT_ADMIN_PASSWORD );
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, DEBUG_LOG_RELATIVE_PATH );
@@ -810,7 +813,6 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
-		runtime?: SiteRuntime;
 		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
@@ -828,7 +830,6 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
-		runtime,
 		fileAccess,
 		adminUsername,
 		adminPassword,
@@ -859,7 +860,6 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
-				runtime,
 				fileAccess,
 				customDomain,
 				enableHttps,
@@ -875,6 +875,12 @@ export async function createSite(
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
 
+		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
+		if ( blueprint?.filePath ) {
+			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
+			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
+		}
+
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
@@ -883,11 +889,6 @@ export async function createSite(
 
 		return server.details;
 	} catch ( error ) {
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		const contexts: Record< string, Record< string, unknown > > = {
 			site: {
 				hasBlueprint: !! blueprint,
@@ -898,11 +899,6 @@ export async function createSite(
 			},
 		};
 
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
-
 		const debugLog = readWordPressDebugLog( path );
 		if ( debugLog && debugLog.length > 0 ) {
 			contexts.debugLog = { entries: debugLog };
@@ -910,10 +906,10 @@ export async function createSite(
 
 		const processManagerLogs = readProcessManagerLogs( siteId );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -925,19 +921,18 @@ export async function createSite(
 
 		// If the error message is generic, try to surface a more useful message from
 		// the process manager logs. The detailed error is often captured in stdout
-		// (e.g. blueprint execution errors logged by playground-cli).
+		// (e.g. Blueprint execution errors).
 		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
 		if ( logErrorMessage ) {
 			throw new Error( logErrorMessage );
 		}
 
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	} finally {
 		if ( bundleTempDir ) {
 			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
-		} else if ( blueprint?.filePath ) {
-			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
 	}
 }
@@ -954,80 +949,8 @@ export async function updateSite(
 		throw new Error( `Site not found: ${ updatedSite.id }` );
 	}
 
-	const currentSite = server.details;
-
-	const options: EditSiteOptions = {
-		path: currentSite.path,
-		siteId: updatedSite.id,
-	};
-
-	if ( updatedSite.name !== currentSite.name ) {
-		options.name = updatedSite.name;
-	}
-
-	if ( updatedSite.customDomain !== currentSite.customDomain ) {
-		options.domain = updatedSite.customDomain ?? '';
-	}
-
-	if ( updatedSite.enableHttps !== currentSite.enableHttps ) {
-		options.https = updatedSite.enableHttps ?? false;
-	}
-
-	if ( updatedSite.phpVersion !== currentSite.phpVersion ) {
-		options.php = updatedSite.phpVersion;
-	}
-
-	if ( wpVersion ) {
-		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
-	}
-
-	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
-		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
-	}
-
-	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
-		options.fileAccess = getSiteFileAccess( updatedSite );
-	}
-
-	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
-		options.xdebug = updatedSite.enableXdebug ?? false;
-	}
-
-	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
-		options.adminUsername = updatedSite.adminUsername;
-	}
-
-	if (
-		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
-		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
-	) {
-		// CLI set expects plain text password (it encodes before saving)
-		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
-	}
-
-	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
-		options.adminEmail = updatedSite.adminEmail;
-	}
-
-	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
-		options.debugLog = updatedSite.enableDebugLog ?? false;
-	}
-
-	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
-		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
-	}
-
-	if ( updatedSite.enableScriptDebug !== currentSite.enableScriptDebug ) {
-		options.scriptDebug = updatedSite.enableScriptDebug ?? false;
-	}
-
-	if ( getWpEnvironmentType( updatedSite ) !== getWpEnvironmentType( currentSite ) ) {
-		options.environmentType = getWpEnvironmentType( updatedSite );
-	}
-
-	const hasCliChanges = Object.keys( options ).length > 2;
-
-	if ( hasCliChanges ) {
+	const options = getSiteEditOptions( server.details, updatedSite, wpVersion );
+	if ( Object.keys( options ).length > 2 ) {
 		await editSiteViaCli( options );
 	}
 }
@@ -1040,7 +963,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	const maintenanceCheck = checkMaintenanceFile( server.details.path );
 	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error( 'MAINTENANCE_MODE' );
+		throw new Error(
+			__(
+				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+			)
+		);
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
@@ -1056,14 +983,13 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			// Ignore errors persisting auto-start state
 		}
 
-		// Skip WASM memory errors - they're user system issues, not bugs
-		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
-		}
-
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+			throw new Error(
+				__(
+					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
+				)
+			);
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -1116,11 +1042,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			},
 		};
 
-		const cliError = parseCliError( error );
-		if ( cliError?.cliArgs ) {
-			contexts.startup = cliError.cliArgs;
-		}
-
 		const debugLog = readWordPressDebugLog( server.details.path );
 		if ( debugLog && debugLog.length > 0 ) {
 			contexts.debugLog = { entries: debugLog };
@@ -1128,10 +1049,10 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const processManagerLogs = readProcessManagerLogs( id );
 		if ( processManagerLogs.stdout && processManagerLogs.stdout.length > 0 ) {
-			contexts.playgroundLogs = { entries: processManagerLogs.stdout };
+			contexts.processLogs = { entries: processManagerLogs.stdout };
 		}
 		if ( processManagerLogs.stderr && processManagerLogs.stderr.length > 0 ) {
-			contexts.playgroundErrors = { entries: processManagerLogs.stderr };
+			contexts.processErrors = { entries: processManagerLogs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -1141,10 +1062,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		if ( errorMessageContains( error, '"unreachable" WASM instruction executed' ) ) {
-			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
-		}
-		throw error;
+		throw error instanceof CliCommandError && error.lastErrorMessage
+			? new Error( error.lastErrorMessage )
+			: error;
 	}
 
 	if ( server.details.running ) {
@@ -1306,9 +1226,6 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
-		// Copies keep the source site's runtime settings rather than picking up
-		// the default for new sites.
-		runtime: getSiteRuntime( sourceSite ),
 		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
@@ -1319,8 +1236,7 @@ export async function copySite(
 		flowType: 'duplicate',
 	} );
 
-	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
-	// explicitly update that option
+	// The copy keeps the source site's siteurl, so point it at the new port
 	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)
@@ -1364,6 +1280,11 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
+	const token = await readAuthToken();
+	if ( token ) {
+		// Best-effort: logging out offline still signs out locally.
+		await revokeAuthToken( token.accessToken ).catch( () => undefined );
+	}
 	setSentryWpcomUserIdMain( undefined );
 	return await updateSharedConfig( { authToken: undefined } );
 }
@@ -1417,8 +1338,12 @@ export async function openSiteURL(
 	void shellOpenExternalWrapper( url.toString() );
 }
 
+// Only web URLs: other schemes would launch whatever app handles them.
 export function openURL( event: IpcMainInvokeEvent, url: string ) {
-	void shellOpenExternalWrapper( url );
+	const webUrl = parseWebUrl( url );
+	if ( webUrl ) {
+		void shellOpenExternalWrapper( webUrl );
+	}
 }
 
 export function copyText( event: IpcMainInvokeEvent, text: string ) {
@@ -1430,7 +1355,6 @@ export function getAppGlobals(): AppGlobals {
 		platform: process.platform,
 		appName: app.name,
 		appVersion: app.getVersion(),
-		arm64Translation: app.runningUnderARM64Translation,
 		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
@@ -1478,6 +1402,32 @@ export async function cancelSiteStorageUsage(
 	requestId: string
 ): Promise< void > {
 	siteStorageControllers.get( requestId )?.abort();
+}
+
+const activeThemeSlug = ( server: SiteServer ) => async () =>
+	( await server.getThemeDetails() )?.slug;
+
+export async function getSiteDesign(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteDesign | null > {
+	const server = SiteServer.get( id );
+	return server ? readSiteDesign( server.details.path, activeThemeSlug( server ) ) : null;
+}
+
+export async function fixSiteDesignDrift(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	fixes: unknown
+): Promise< SiteDesign | null > {
+	const server = SiteServer.get( id );
+	return server
+		? fixSiteDesign(
+				server.details.path,
+				activeThemeSlug( server ),
+				designFixesSchema.parse( fixes )
+		  )
+		: null;
 }
 
 export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
@@ -1697,18 +1647,6 @@ export async function enableAgenticUi(
 	}
 }
 
-export async function disableAgenticUi(
-	_event: IpcMainInvokeEvent,
-	surface: AgenticUiSurface = 'settings'
-): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', false, surface );
-	setAgenticUiEnabled( false );
-	const mainWindow = await getMainWindow();
-	if ( mainWindow && ! mainWindow.isDestroyed() ) {
-		await loadMainWindowRenderer( mainWindow );
-	}
-}
-
 export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
 	await updateAppdata( { agenticUiBannerDismissed: true } );
 }
@@ -1882,7 +1820,7 @@ export async function openAppAtPath(
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
-				openURL( event, editor.url( p ) );
+				void shellOpenExternalWrapper( editor.url( p ) );
 			}
 			return;
 		}
@@ -1895,7 +1833,7 @@ export async function openAppAtPath(
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
-				openURL( event, editor.url( p ) );
+				void shellOpenExternalWrapper( editor.url( p ) );
 			}
 			return;
 		}
@@ -1973,14 +1911,6 @@ export async function promptWindowsSpeedUpSites(
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
 	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
-}
-
-export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
-	defaultI18n.setLocaleData( locale );
-}
-
-export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
-	defaultI18n.resetLocaleData();
 }
 
 export function toggleMinWindowWidth(
@@ -2101,23 +2031,15 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	const fullPath = nodePath.join( site.details.path, ...filePath );
-	try {
-		return fs.statSync( fullPath ).size;
-	} catch ( error ) {
-		// Dangling symlink or unreadable entry. It's skipped when archiving,
-		// so count it as zero rather than failing the size check.
-		console.warn( `Skipping ${ fullPath }: ${ error }` );
-		return 0;
-	}
+	return getLocalFileSize( nodePath.join( site.details.path, ...filePath ) );
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
-	return openCertificateDialog();
+	shell.showItemInFolder( ROOT_CA_CERT_PATH );
 }
 
 export async function isCATrusted(): Promise< boolean > {
-	return isRootCATrusted();
+	return ! ( await hasUntrustedRootCA() );
 }
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
@@ -2135,7 +2057,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			} );
 		}
 	} else {
-		await openCertificateDialog();
+		shell.showItemInFolder( ROOT_CA_CERT_PATH );
 	}
 }
 
@@ -2411,66 +2333,14 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 }
 
 export async function listLocalFileTree(
-	_event: Electron.IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	siteId: string,
 	path: string,
-	maxDepth: number = 3,
-	currentDepth: number = 0,
-	deployIgnore?: Ignore
+	maxDepth: number = 3
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-
-	if ( ! deployIgnore ) {
-		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_IGNORE_DEFAULTS );
-	}
-
-	const fullPath = nodePath.join( server.details.path, path );
-
-	try {
-		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
-		const result = [];
-
-		for ( const entry of entries ) {
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
-
-			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
-				continue;
-			}
-
-			const isDirectory = entry.isDirectory();
-
-			const directoryEntry: RawDirectoryEntry = {
-				name: entry.name,
-				isDirectory,
-				path: itemPath,
-			};
-
-			const shouldLimit = shouldLimitDepth( itemPath );
-			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
-				try {
-					directoryEntry.children = await listLocalFileTree(
-						_event,
-						siteId,
-						itemPath,
-						maxDepth,
-						currentDepth + 1,
-						deployIgnore
-					);
-				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
-					directoryEntry.children = [];
-				}
-			}
-
-			result.push( directoryEntry );
-		}
-
-		return result;
-	} catch ( err ) {
-		console.error( `Failed to list raw file tree for path ${ path }:`, err );
-		return [];
-	}
+	return listSiteFileTree( server.details.path, path, maxDepth );
 }
 
 export async function validateBlueprint(
@@ -2546,6 +2416,19 @@ export async function setWindowControlsSurface(
 	}
 	setAgenticControlsSurface( surface );
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
+}
+
+export async function setTrafficLightsPosition(
+	event: IpcMainInvokeEvent,
+	position: TrafficLightsPosition
+) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow || process.platform !== 'darwin' ) {
+		return;
+	}
+	parentWindow.setWindowButtonPosition(
+		position === 'toolbar' ? MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION : MACOS_TRAFFIC_LIGHT_POSITION
+	);
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {

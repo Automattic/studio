@@ -146,10 +146,9 @@ describe( 'OpenInMenu', () => {
 		fireEvent.click( destination( 'Zed' ) );
 		fireEvent.click( destination( 'Terminal' ) );
 
-		// The browser opens the site's front page through the host's openSiteUrl,
-		// which wraps it in /studio-auto-login — opening it raw would hit the
-		// login form. The preview's address bar owns "open the current page".
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/' );
+		// The browser opens the site's front page logged out; only WP Admin
+		// signs in. The preview's address bar owns "open the current page".
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/', { autoLogin: false } );
 		expect( openExternalUrl ).not.toHaveBeenCalled();
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
@@ -200,6 +199,18 @@ describe( 'OpenInMenu', () => {
 		} );
 	} );
 
+	it( 'opens WP Admin in the OS browser through the host so the session is kept', () => {
+		renderMenu( { running: true } );
+
+		fireEvent.click( destination( 'Browser (WP Admin)' ) );
+
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/' );
+		expect( openExternalUrl ).not.toHaveBeenCalled();
+		expect( trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'external',
+		} );
+	} );
+
 	it( 'shows a single "Open in…" trigger rather than repeating a destination', () => {
 		renderMenu( { running: true } );
 
@@ -208,10 +219,11 @@ describe( 'OpenInMenu', () => {
 		expect( screen.queryByRole( 'button', { name: 'Open in Browser' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'stays available while the site is stopped, minus the browser and phpMyAdmin', () => {
+	it( 'stays available while the site is stopped, minus the browser, WP Admin and phpMyAdmin', () => {
 		renderMenu( { running: false } );
 
 		expect( destination( 'Browser' ) ).toBeDisabled();
+		expect( destination( 'Browser (WP Admin)' ) ).toBeDisabled();
 		expect( destination( 'phpMyAdmin' ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Open in…' } ) ).toBeEnabled();
 

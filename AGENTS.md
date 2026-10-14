@@ -1,6 +1,6 @@
 # AI Instructions
 
-WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, uses WordPress Playground (PHP WASM) for running sites.
+WordPress Studio - Electron desktop app for managing local WordPress sites. Built with React + TypeScript, runs sites with a bundled native PHP binary.
 
 ## Essential Commands
 
@@ -19,6 +19,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`
 - **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override).
+- **MCP Apps (`apps/mcp-ui`)**: `npm run cli:build:mcp-ui` builds the page into the CLI; plain `cli:build` does NOT rebuild it. Verify it in an agent app that renders MCP Apps, in light and dark; the WordPress library opens from the ChatGPT app's sidebar once the Studio plugin is installed.
 
 ## Agent Evals (Studio Code)
 
@@ -33,7 +34,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Electron 3-Process**: Main (Node.js) → Preload (IPC bridge) → Renderer (React)
 **Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
 **Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
-**CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
+**CLI** (`apps/cli/`): native PHP site servers, yargs commands, child process of desktop app
 **Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
 
 ## Directory Structure
@@ -42,6 +43,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
 **`/apps/ui`**: Agentic browser UI (`@studio/ui`). app/ (providers, router), components/, data/, hooks/, lib/. **Different stack from `apps/studio`** — React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`; no Redux, no Tailwind. Built per target: `build:local` / `build:hosted`.
 **`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
+**`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
 **`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
@@ -56,7 +58,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 **Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
 **Main**: Electron
-**CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
+**CLI**: native PHP binaries, WP-CLI, @wp-playground/blueprints (Blueprint types and schema validation)
 **Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs
 
@@ -73,6 +75,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **Theming / colors (renderer CSS)**: Each app in `apps/` has its own dark-mode strategy — identify which app a file belongs to before picking color tokens:
 - **`apps/studio` (legacy renderer)**: supports light + dark via `@media (prefers-color-scheme: dark)`. For any **color** (text, background, border, fill, brand/theme, error/running states) **MUST** use Studio's dark-aware `--color-frame-*` tokens defined in `apps/studio/src/index.css` (e.g. `--color-frame-text`, `--color-frame-bg`, `--color-frame-surface`, `--color-frame-border`, `--color-frame-theme`, `--color-frame-error`). **NEVER** use `--wpds-color-*` tokens for color here — no app-wide color `ThemeProvider` wraps this app (only density-scoped ones inside Studio Code), so they fall back to light-only values from `@wordpress/ui` and render broken (invisible text, wrong borders) in dark mode. When a needed color has no `--color-frame-*` token, add one (with both light and dark values) rather than reaching for `--wpds-color-*`. As of June 2026 there is no plan to refactor `apps/studio` onto `ThemeProvider` — it may be replaced entirely.
 - **`apps/ui` (agentic UI)**: the whole canvas is wrapped in `ThemeProvider` (`apps/ui/src/app/app-providers.tsx`), so the rule is the **opposite** — always use `--wpds-color-*` variables for color; they adapt to the active theme. Do not use `--color-frame-*` tokens here.
+- **`apps/mcp-ui` (MCP Apps pages)**: no `ThemeProvider` and no `@wordpress/ui`. Colors are the `--app-*` variables in `apps/mcp-ui/src/index.css`, defined with `light-dark()` so they follow the host's theme; use neither `--wpds-color-*` nor `--color-frame-*` here.
 - Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent and fine to use in any app.
 
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
@@ -129,9 +132,11 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, reaching the same data through different connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. Implementing a `Connector` method for only one target leaves a gap in the other, and it fails **silently** — the `local` connector tends to fall back to browser-local defaults rather than error, so the browser UI quietly shows stale or empty values. When you add or change a `Connector` method, do both sides: the main-process IPC handler AND an `apps/local` route. Desktop-owned state in `app.json` is readable from the server via `readAppConfig`/`updateAppConfig` (`packages/common/lib/app-config.ts`) — prefer that over keeping a separate copy in the browser, and put the fallback for an unset value in `packages/common` so the two can't drift. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
 
-**IMPORTANT - Gate App-Specific Agent Tools**: The Studio Code agent tools (`apps/cli/ai/tools/`) run in several contexts: forked by the Desktop app or the `studio ui` server (a Studio UI is attached), standalone terminal `studio code` sessions, and the MCP server. A tool or prompt instruction that only makes sense in one of them (e.g. `refresh_browser` reloading the preview pane, `studio_present` widgets — both need a UI attached) **leaks into the other contexts unless explicitly gated** — the model gets told to call a tool that does nothing there. When adding an app- or context-specific tool or behavior, gate BOTH sides on the right flag in `resolveStudioToolDefinitions` (`apps/cli/ai/tools/index.ts`) — `emitChatArtifacts` = UI attached (derived from `process.send`) — AND its mentions in the system prompt (`buildLocalIntro` in `apps/cli/ai/system-prompt.ts`, which receives the same flags). The prompt's tool list itself is generated from the registered tools (each tool's `promptSnippet` and `promptGuidelines`, see `define-tool.ts`), so it never needs gating; only behavioral mentions elsewhere in the prompt do. Add tests for both branches (present when flagged, absent by default); the MCP server calls `resolveStudioToolDefinitions()` with no options, so correct gating covers it automatically.
+**IMPORTANT - One Implementation Per Site Operation**: Site operations the CLI owns (push, pull, preview, import, export, start/stop…) must run through their CLI command from every surface — the Desktop main process, `apps/local`, and the agent tools alike. When a UI needs something the command lacks (structured progress, a non-interactive flag, cancellation), extend the command rather than rebuilding the operation from shared primitives in a host process. Parallel implementations drift: push was once reimplemented as `pushSite` because CLI `push` lacked structured output, after which selective sync, cancel and the remote-import wait each had to be fixed twice, and the agent's push never drove the UI. Commands also run without a terminal (the agent calls `runCommand` in-process, hosts fork the CLI with no stdin), so `runCommand` must never prompt or call `process.exit()`. Behaving differently in a terminal is fine: the yargs handler may prompt when `process.stdin.isTTY` and pass the answer in, and without a terminal the command falls back to a sensible default. See `docs/design-docs/cli-host-communication.md`.
 
-**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
+**IMPORTANT - Gate App-Specific Agent Tools**: The Studio Code agent tools (`apps/cli/ai/tools/`) run in several contexts: forked by the Desktop app or the `studio ui` server (a Studio UI is attached), standalone terminal `studio code` sessions, and the MCP server. A tool or prompt instruction that only makes sense in one of them (e.g. `refresh_browser` reloading the preview pane, which needs a UI attached) **leaks into the other contexts unless explicitly gated** — the model gets told to call a tool that does nothing there. When adding an app- or context-specific tool or behavior, gate BOTH sides on the right flag in `resolveStudioToolDefinitions` (`apps/cli/ai/tools/index.ts`) — `emitChatArtifacts` = UI attached (derived from `process.send`) — AND its mentions in the system prompt (`buildLocalIntro` in `apps/cli/ai/system-prompt.ts`, which receives the same flags). The prompt's tool list itself is generated from the registered tools (each tool's `promptSnippet` and `promptGuidelines`, see `define-tool.ts`), so it never needs gating; only behavioral mentions elsewhere in the prompt do. Add tests for both branches (present when flagged, absent by default); the MCP server never passes `emitChatArtifacts` to `resolveStudioToolDefinitions()`, so correct gating covers it automatically.
+
+**CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. WordPress core updates replace those files, so modifications are lost.
 
 **CRITICAL - Config File Locking**: Each config file has its own lockfile and helper pair — ensure that any write operation uses the correct pair for that specific file. Use `lockAppdata()` / `unlockAppdata()` for `app.json`, `lockCliConfig()` / `unlockCliConfig()` for `cli.json`, and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json`. Concurrent unlocked writes will corrupt the file.
 
@@ -145,12 +150,13 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
-**CRITICAL - Playground/PHP-WASM Package Versions**: Always pin `@wp-playground/*` and `@php-wasm/*` packages to **exact versions** (no `^` or `~` ranges) in all `package.json` files. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict. npm then installs duplicate copies of all PHP WASM packages nested under the conflicting package's `node_modules/`. The `prune-php-wasm` vite plugin only removes top-level asyncify directories and misses nested copies, resulting in ~450 MB of bloat in the app bundle. More critically, different parts of Studio end up running mismatched Playground/PHP-WASM versions, which can cause subtle and hard-to-diagnose runtime failures in core site operations.
+**CRITICAL - Playground Package Versions**: Always pin `@wp-playground/*` packages (and any `@php-wasm/*` they pull in) to **exact versions** (no `^` or `~` ranges) in all `package.json` files, and bump them in lockstep. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict, and npm then installs duplicate nested copies of the shared Playground packages. Studio no longer runs sites on Playground; it only uses `@wp-playground/blueprints` for Blueprint types and schema validation, and `@wp-playground/tools` for the phpMyAdmin files. Keep `@wp-playground/blueprints` a devDependency everywhere: import only types from it (the schema validator is bundled by Vite, and `__isStepDefinition` lives in `packages/common/lib/blueprint-settings.ts`). A runtime import makes the CLI bundle ship it with ~100 MB of transitive dependencies (Octokit, isomorphic-git).
 
 ## Detailed Documentation
 
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
+- **CLI ↔ App Communication**: `docs/design-docs/cli-host-communication.md` - How operations publish their state and activity to every Studio app, and the principles behind it
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
@@ -159,7 +165,7 @@ For in-depth information, see these docs:
 
 ## Quick Reference
 
-**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `validateBlueprintData()` for schema validation
+**Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints applied via `blueprints.phar`, `validateBlueprintData()` for schema validation
 **Sync**: OAuth via `packages/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 

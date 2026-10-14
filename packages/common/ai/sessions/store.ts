@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { buildAiSessionFileName } from './file-naming';
+import { buildAiSessionFileName, extractAiSessionIdFromFilePath } from './file-naming';
 import { migrateLegacyFileInPlace } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
 import { readAiSessionSummaryFromEntries } from './summary';
@@ -68,11 +68,31 @@ async function listSessionFilesRecursively( directory: string ): Promise< string
 	}
 }
 
+async function readAiSessionSummary( filePath: string ): Promise< AiSessionSummary | undefined > {
+	return readAiSessionSummaryFromEntries( filePath, await readPiFileEntries( filePath ) );
+}
+
+// File names carry the session id, so only the matching files are parsed; the
+// full scan remains for files that don't follow the naming contract.
+async function findSessionsByIdOrPrefix(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary[] > {
+	const matchingFiles = ( await listSessionFilesRecursively( rootDirectory ) ).filter(
+		( filePath ) => extractAiSessionIdFromFilePath( filePath ).startsWith( sessionIdOrPrefix )
+	);
+	if ( matchingFiles.length === 0 ) {
+		return listAiSessions( rootDirectory );
+	}
+	const summaries = await Promise.all( matchingFiles.map( readAiSessionSummary ) );
+	return summaries.filter( ( session ): session is AiSessionSummary => !! session );
+}
+
 async function resolveSessionByIdOrPrefix(
 	rootDirectory: string,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	const sessions = await listAiSessions( rootDirectory );
+	const sessions = await findSessionsByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	const exactMatch = sessions.find( ( session ) => session.id === sessionIdOrPrefix );
 	const candidates = exactMatch
 		? [ exactMatch ]
@@ -124,12 +144,7 @@ async function pruneEmptySessionDirectories(
 
 export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
 	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
-	const results = await Promise.allSettled(
-		sessionFiles.map( async ( filePath ) => {
-			const entries = await readPiFileEntries( filePath );
-			return readAiSessionSummaryFromEntries( filePath, entries );
-		} )
-	);
+	const results = await Promise.allSettled( sessionFiles.map( readAiSessionSummary ) );
 
 	const sessions = results
 		.filter(

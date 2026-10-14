@@ -52,9 +52,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 					sitePath,
 					'--wp',
 					'latest',
-					// Sandbox is bundled; the default native runtime downloads PHP on start.
-					'--runtime',
-					'sandbox',
 					'--skip-browser',
 					'--skip-log-details',
 				],

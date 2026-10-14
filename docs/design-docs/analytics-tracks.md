@@ -131,25 +131,25 @@ where the sender actually runs — see Testing below for what fires in which bui
   a renderer-only affordance with no CLI equivalent, so it fires from the renderer.
 - **`studio_site_imported`/`studio_site_exported`** are emitted **only** by the CLI, from the `import`
   and `export` commands (`apps/cli/commands/import.ts`, `apps/cli/commands/export.ts`). The desktop
-  Import/Export tab, the agentic UI's export buttons, and standalone-CLI runs all funnel there —
+  Import/Export tab, the agentic UI's import and export buttons, and standalone-CLI runs all funnel there —
   `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`. The
   events deliberately mean **a user imported/exported a backup**: paths that reuse the same CLI
   commands as an implementation detail — add-site-flow imports (Classic add-site, agentic onboarding
-  import, browser-UI import route), sync-pull imports, and sync-push exports — pass a hidden
+  import in both the desktop app and the browser UI), sync-pull imports, and Classic's sync-push exports — pass a hidden
   `--suppress-tracks-event` flag and emit nothing. An aborted sync export also emits nothing (the CLI
   process is SIGTERM'd before it can record). Runs in parallel with the MC Stats import/export
   counters for now.
 - **`studio_sync_*`** are the deliberate exception to the CLI-is-the-sole-emitter pattern. Sync has
-  **three independent implementations** — Classic's Redux thunks and pollers
-  (`apps/studio/src/stores/sync/sync-operations-slice.ts`), the agentic UI's mutation hooks
-  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), and the CLI
-  `push`/`pull` commands — sharing only the connected-sites storage and the WordPress.com endpoints.
-  Classic never invokes the CLI for either operation, so there is no funnel to emit from; each surface
-  emits its own event and `channel`/`ui_version` identify it. The one overlap is **pull**: an
-  agentic-UI pull *is* a forked `studio pull`, so `pullSite` (`packages/common/sites/sync.ts`) passes
-  the same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
-  `channel=studio-cli` `studio_sync_pull` row is therefore always a genuine standalone run. Push needs
-  no flag: an agentic-UI push runs the CLI `export` command, not CLI `push`. **Cancels emit nothing**
+  **two independent implementations** — Classic's Redux thunks and pollers
+  (`apps/studio/src/stores/sync/sync-operations-slice.ts`) and the CLI `push`/`pull` commands —
+  sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
+  CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
+  `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
+  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and emits from its own mutation hooks
+  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), so it passes the
+  same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
+  `channel=studio-cli` `studio_sync_push`/`studio_sync_pull` row is therefore always a run no UI
+  started. **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -168,12 +168,20 @@ where the sender actually runs — see Testing below for what fires in which bui
   (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
   was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
   place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
-  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server builds the tools without a session and
-  records nothing. `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
+  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server gives each agent-app connection its own
+  `ai_session_id`, with the app's MCP client name as `agent_name` and `client=studio-mcp`
+  (`apps/cli/ai/runtimes/mcp/index.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
   `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI
   is attached (rendered previews need a chat pane), so a terminal `studio code` session still records
   proposals but picks made through the generic `AskUserQuestion` tool are not distinguishable and are
   not recorded.
+- **`studio_mcp_session_start`** fires from the MCP server (`apps/cli/ai/runtimes/mcp/index.ts`) once
+  an agent app (Codex, Claude Code, …) has connected to `studio mcp`. `studio mcp` sets
+  `STUDIO_TRACKS_ORIGIN=studio-mcp` for itself, so every event from its process and the processes it
+  starts (the site, preview, sync and design events the agent triggers) carries `channel=studio-mcp`
+  instead of counting as terminal use, plus `mcp_client` and, when the Studio plugin started the server,
+  `plugin` and `plugin_version`: the plugin's MCP config sets `STUDIO_PLUGIN_ID` and its launcher sets
+  `STUDIO_PLUGIN_VERSION`, while a hand-configured `studio mcp` has neither.
 - **`studio_onboarding_complete`** fires from desktop Main (`saveOnboarding`), the single funnel both
   front-ends reach — Studio Classic when the user skips or logs in, the agentic UI when the welcome tour
   ends (`connector.setOnboardingCompleted`). It is emitted only on a genuine `false → true` transition, so
@@ -220,17 +228,21 @@ none fits, and flag it for registration.
 
 | Property | Meaning | Studio values |
 |---|---|---|
-| `channel` | Entry platform / application | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation) |
+| `channel` | Entry platform / application | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`) |
 | `is_a11n` | Automattician flag (shared across products) | `true` / `false` (derived from the auth token email domain) |
 | `platform` | OS | `darwin`, `win32`, `linux` |
 | `arch` | CPU architecture | `arm64`, `x64`, … |
 | `app_version` | Product version | e.g. `1.15.0` |
-| `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (legacy), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli`. No standard slot — must be registered as a Studio-custom property. |
+| `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (legacy), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
+| `mcp_client` | **Custom (Studio-only):** the agent app, on `channel=studio-mcp` | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, … |
+| `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
 wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
 `channel: studio-ui` and `ui_version` (derived from the active renderer via `getPreferredUiVersion()`); the
-CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`.
+CLI wrapper resolves `channel`/`ui_version` from `STUDIO_TRACKS_ORIGIN`, and on `studio-mcp` adds
+`mcp_client`, `plugin` and `plugin_version` from `STUDIO_MCP_CLIENT`, `STUDIO_PLUGIN_ID` and
+`STUDIO_PLUGIN_VERSION`.
 
 `surface` (in-app area, e.g. `onboarding`/`settings`) is live on `studio_setting_telemetry_change`; the renderer
 supplies it per change (Main can't infer it) and it is meant to generalize to other settings-change
@@ -257,8 +269,8 @@ not drift.
 | Property | Meaning | Studio values |
 |---|---|---|
 | `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
-| `agent_name` | Agent runtime | `pi` |
-| `client` | AI product | `studio-code` — `channel` still records the surface |
+| `agent_name` | Agent runtime | `pi`; for `studio mcp`, the agent app's MCP client name (`codex-mcp-client`, …) |
+| `client` | AI product | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
 | `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
@@ -288,6 +300,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
+| `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
 | `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
@@ -307,8 +320,8 @@ The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customiz
 browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
 browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
 preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
-`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`; re-selecting the active
-tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
+`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`, design system →
+`open_design_system`; re-selecting the active tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
 "Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
 preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
 preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
@@ -331,6 +344,7 @@ enumerated prop values below.
 | `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
 | `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
 | `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
+| `studio_site_open_design_system` | Renderer (agentic) | `browser` (always `internal` — the design system view only exists in the preview panel) |
 | `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
 | `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
 
@@ -394,7 +408,7 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
-| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
+| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
 | `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |
 | `studio_sync_create_site` | Classic Create-site button + agentic UI onboarding connect | (none — opens WordPress.com checkout) |

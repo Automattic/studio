@@ -3,7 +3,7 @@ import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
 	getConfiguredPhpBinaryPackageId,
-	resolveNativePhpVersion,
+	resolveSupportedPhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import type { Migration } from '@studio/common/lib/migration';
@@ -17,7 +17,7 @@ function getBundledPhpBinaryRoot(): string {
 }
 
 function getDefaultPhpPackageId(): string {
-	const nativeVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+	const nativeVersion = resolveSupportedPhpVersion( DEFAULT_PHP_VERSION );
 	return getConfiguredPhpBinaryPackageId( nativeVersion ) ?? nativeVersion;
 }
 

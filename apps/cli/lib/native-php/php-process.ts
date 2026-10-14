@@ -3,7 +3,7 @@ import os from 'node:os';
 import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
-import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
@@ -46,12 +46,13 @@ export type BasePhpOptions = {
 	env?: NodeJS.ProcessEnv;
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
-	phpVersion: NativePhpSupportedVersion;
+	phpVersion: SupportedPHPVersion;
 	siteFolder?: string;
 	signal?: AbortSignal;
 };
 type SpawnPhpProcessOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe';
+	workerIndex?: number;
 };
 type RunPhpCommandOptions = BasePhpOptions & {
 	mode?: 'pipe' | 'no-pipe' | 'capture';
@@ -71,6 +72,12 @@ function formatCommandOutputTail( label: string, output: string ): string | unde
 	return `${ label }:\n${ tail }`;
 }
 
+// Studio runs WP-CLI on sites it manages, so it skips WP-CLI's root check like the Playground
+// runtime did; otherwise every WP-CLI call fails when Studio runs as root (Docker, Linux CI).
+export function getPhpChildEnv( env?: NodeJS.ProcessEnv ): NodeJS.ProcessEnv {
+	return withoutOversizedEnvValues( { ...process.env, WP_CLI_ALLOW_ROOT: '1', ...env } );
+}
+
 export function spawnPhpProcess(
 	args: string[],
 	{
@@ -84,6 +91,7 @@ export function spawnPhpProcess(
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 		autoPrependFile,
+		workerIndex,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs( phpVersion, {
@@ -91,11 +99,12 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions,
 		enableXdebug,
 		autoPrependFile,
+		workerIndex,
 	} );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: withoutOversizedEnvValues( env ? { ...process.env, ...env } : process.env ),
+		env: getPhpChildEnv( env ),
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 		detached,

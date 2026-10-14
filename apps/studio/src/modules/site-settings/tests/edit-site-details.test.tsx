@@ -295,7 +295,6 @@ describe( 'EditSiteDetails', () => {
 				...baseMockSiteDetails,
 				selectedSite: {
 					...baseMockSiteDetails.selectedSite,
-					runtime: 'native-php',
 					phpVersion: '7.4',
 				},
 				isEditModalOpen: true,

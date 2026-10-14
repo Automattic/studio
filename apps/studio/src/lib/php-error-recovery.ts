@@ -2,6 +2,8 @@ import http from 'http';
 import { watch as watchPaths, FSWatcher } from 'chokidar';
 import type { SiteServer } from 'src/site-server';
 
+const WATCH_POLL_INTERVAL_MS = 2000;
+
 const activeRecoveries = new Map<
 	string,
 	{
@@ -14,7 +16,7 @@ const activeRecoveries = new Map<
 
 /**
  * Determines if an error from a site start failure is caused by user PHP code
- * (themes/plugins) rather than an infrastructure issue (WASM memory, port conflicts, etc.).
+ * (themes/plugins) rather than an infrastructure issue (port conflicts, aborted starts, etc.).
  *
  * Uses an exclusion list: known infrastructure errors return false, everything else
  * is treated as a PHP user error.
@@ -27,10 +29,7 @@ export function isPhpUserError( error: unknown ): boolean {
 	const message = error.message;
 
 	const isInfrastructureError =
-		message.includes( 'Cannot allocate Wasm memory' ) ||
-		message.includes( 'EADDRINUSE' ) ||
-		message.includes( 'Operation aborted' ) ||
-		message.includes( '"unreachable" WASM instruction' );
+		message.includes( 'EADDRINUSE' ) || message.includes( 'Operation aborted' );
 
 	return ! isInfrastructureError;
 }
@@ -38,7 +37,7 @@ export function isPhpUserError( error: unknown ): boolean {
 /**
  * Extract the actual PHP error from PM2 log output.
  *
- * Playground outputs PHP errors in HTML format like:
+ * PHP errors can appear in HTML format like:
  *   <b>Fatal error</b>:  Uncaught Error: Call to undefined function foo() in /path/file.php:12
  */
 export function parsePhpError( logContent: string ): string {
@@ -111,10 +110,15 @@ export async function startErrorRecovery(
 	let retrying = false;
 	// chokidar instead of fs.watch({ recursive: true }), which is not reliably supported on Linux
 	// (Studio ships a Linux build). chokidar v4+ dropped globs, so filter for `.php` on the path.
+	// Polling is required: chokidar 5 has no FSEvents backend, and one fs.watch per file exhausts
+	// the main process's descriptors on a large site, breaking all later spawns with EBADF.
 	const watcher = watchPaths( path, {
 		ignoreInitial: true,
 		persistent: true,
 		ignorePermissionErrors: true,
+		usePolling: true,
+		interval: WATCH_POLL_INTERVAL_MS,
+		binaryInterval: WATCH_POLL_INTERVAL_MS,
 		ignored: ( entryPath: string ) => /[\\/](node_modules|\.git)([\\/]|$)/.test( entryPath ),
 	} );
 	watcher.on( 'error', ( error ) => {

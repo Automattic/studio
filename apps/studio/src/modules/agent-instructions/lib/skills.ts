@@ -3,7 +3,6 @@ import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agen
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { getBundledSkills, type SkillStatus } from './skills-constants';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 export { getBundledSkills, type SkillConfig, type SkillStatus } from './skills-constants';
 
@@ -18,7 +17,7 @@ export async function getSkillsStatus( sitePath: string ): Promise< SkillStatus[
 }
 
 export async function installAllSkills(
-	site: { path: string; runtime?: SiteRuntime },
+	site: { path: string },
 	overwrite: boolean = false
 ): Promise< void > {
 	const bundledPath = getAiInstructionsPath();
@@ -34,7 +33,7 @@ export async function installAllSkills(
 }
 
 export async function installSkillById(
-	site: { path: string; runtime?: SiteRuntime },
+	site: { path: string },
 	skillId: string,
 	overwrite: boolean = false
 ): Promise< void > {

@@ -1,42 +1,35 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	getSyncCancelLabels,
-	reportPushPhase,
-	reportSyncPending,
-	reportSyncProgress,
-	reportSyncSuccess,
-	useSiteSyncActivity,
-} from './sync-activity';
+import { applySyncActivity, getSyncCancelLabels, useSiteSyncActivity } from './sync-activity';
 
-describe( 'sync activity progress', () => {
+describe( 'applySyncActivity', () => {
 	afterEach( () => {
 		vi.useRealTimers();
 	} );
 
-	it( 'keeps live pull details available across consumers', () => {
+	it( 'shows a sync until its result expires, and settles it only once', () => {
 		vi.useFakeTimers();
-		const siteId = 'background-pull-site';
+		const siteId = 'pull-site';
 		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
 
-		act( () => reportSyncPending( siteId, 'pull' ) );
-		expect( result.current ).toEqual( { kind: 'pending', direction: 'pull' } );
-
-		act( () =>
-			reportSyncProgress( siteId, 'pull', {
+		act( () => {
+			applySyncActivity( siteId, {
+				kind: 'pending',
+				direction: 'pull',
 				message: 'Downloading backup… (50%)',
-				progress: 50,
-			} )
-		);
-		expect( result.current ).toEqual( {
+			} );
+		} );
+		expect( result.current ).toMatchObject( {
 			kind: 'pending',
-			direction: 'pull',
 			message: 'Downloading backup… (50%)',
-			progress: 50,
 		} );
 
 		act( () => {
-			reportSyncSuccess( siteId, 'pull' );
+			expect( applySyncActivity( siteId, { kind: 'success', direction: 'pull' } ) ).toBe( true );
+			expect( applySyncActivity( siteId, { kind: 'success', direction: 'pull' } ) ).toBe( false );
+		} );
+
+		act( () => {
 			vi.advanceTimersByTime( 30_000 );
 		} );
 		expect( result.current ).toBeNull();
@@ -46,16 +39,21 @@ describe( 'sync activity progress', () => {
 		const siteId = 'push-site';
 		const { result } = renderHook( () => useSiteSyncActivity( siteId ) );
 
-		act( () => reportSyncPending( siteId, 'push' ) );
-		act( () => reportPushPhase( siteId, 'creatingRemoteBackup', 40 ) );
-		expect( result.current ).toMatchObject( {
-			phase: 'creatingRemoteBackup',
-			message: 'Backing up remote site… (40%)',
+		act( () => {
+			applySyncActivity( siteId, {
+				kind: 'pending',
+				direction: 'push',
+				phase: 'creatingRemoteBackup',
+				progress: 40,
+			} );
 		} );
+		expect( result.current ).toMatchObject( { message: 'Backing up remote site… (40%)' } );
 
 		// The remote does not report a percentage for every phase.
-		act( () => reportPushPhase( siteId, 'finishing' ) );
-		expect( result.current ).toMatchObject( { phase: 'finishing', message: 'Almost there…' } );
+		act( () => {
+			applySyncActivity( siteId, { kind: 'pending', direction: 'push', phase: 'finishing' } );
+		} );
+		expect( result.current ).toMatchObject( { message: 'Almost there…' } );
 	} );
 } );
 

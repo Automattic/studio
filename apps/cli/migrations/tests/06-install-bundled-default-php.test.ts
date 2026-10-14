@@ -4,7 +4,7 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
 	getConfiguredPhpBinaryPackageId,
-	resolveNativePhpVersion,
+	resolveSupportedPhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installBundledDefaultPhp } from 'cli/migrations/06-install-bundled-default-php';
@@ -17,7 +17,7 @@ function getBinaryName(): string {
 }
 
 function getDefaultPhpPackageId(): string {
-	return getConfiguredPhpBinaryPackageId( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) )!;
+	return getConfiguredPhpBinaryPackageId( resolveSupportedPhpVersion( DEFAULT_PHP_VERSION ) )!;
 }
 
 function getBundledDefaultPhpDir(): string {

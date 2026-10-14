@@ -7,12 +7,12 @@ import {
 	DEFAULT_ADMIN_USERNAME,
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
-import { type NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
@@ -27,7 +27,7 @@ type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
 export async function ensureWpConfig(
 	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal?: AbortSignal,
 	config?: Pick<
 		ServerConfig,
@@ -128,7 +128,7 @@ export function writeSiteUrlPrependFile(
 
 export async function isWordPressInstalled(
 	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
 	const installationCheckScript = `
@@ -165,9 +165,16 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
+function isCoreLanguagePackInstalled( sitePath: string, locale: string ): boolean {
+	const languagesDir = path.join( sitePath, 'wp-content', 'languages' );
+	return [ `${ locale }.l10n.php`, `${ locale }.mo` ].some( ( file ) =>
+		fs.existsSync( path.join( languagesDir, file ) )
+	);
+}
+
 export async function installWordPress(
 	config: ServerConfig,
-	phpVersion: NativePhpSupportedVersion,
+	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
 	setDefaultPermalinksPath: string,
 	logToConsole: Logger
@@ -204,10 +211,30 @@ export async function installWordPress(
 		{ phpVersion, signal }
 	);
 
-	// WP-CLI's --locale flag may silently fall back to English when it can't
-	// download the language pack (e.g. offline, wordpress.org unreachable).
-	// Force WPLANG so the site respects the configured language even when
-	// translation files aren't available yet.
+	// `core install --locale` doesn't download translations, and WordPress only accepts a WPLANG
+	// whose pack is installed, so fetch the core pack when Studio didn't bundle it for this locale.
+	if ( locale && ! isCoreLanguagePackInstalled( config.sitePath, locale ) ) {
+		try {
+			await runPhpCommand(
+				[
+					getWpCliPharPath(),
+					'language',
+					'core',
+					'install',
+					locale,
+					`--path=${ config.sitePath }`,
+				],
+				{ phpVersion, signal }
+			);
+		} catch ( error ) {
+			logToConsole(
+				`Failed to install the ${ locale } language pack: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+
 	if ( locale ) {
 		try {
 			await runPhpCommand(

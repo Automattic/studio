@@ -7,7 +7,7 @@ import { removeOldServerFilesAndCertificates } from './05-remove-old-server-file
 import { setCliUserUninstalled } from './06-set-cli-user-uninstalled';
 import { removeDesksConfig } from './07-remove-desks-config';
 import { relocateAutostartToAppJson } from './08-relocate-autostart-to-app-json';
-import { seedAgenticUiPreference } from './09-seed-agentic-ui-preference';
+import { moveClassicUsersToAgenticUi } from './09-move-classic-users-to-agentic-ui';
 import type { Migration } from '@studio/common/lib/migration';
 
 export const migrations: Migration[] = [
@@ -19,6 +19,6 @@ export const migrations: Migration[] = [
 	setCliUserUninstalled,
 	removeDesksConfig,
 	relocateAutostartToAppJson,
-	seedAgenticUiPreference,
+	moveClassicUsersToAgenticUi,
 	moveAiSessionsToStudioDir,
 ];

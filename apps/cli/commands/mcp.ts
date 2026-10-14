@@ -4,7 +4,7 @@ import {
 	MCP_SERVER_NAME,
 } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
-import { startMcpStdioServer } from 'cli/ai/mcp-server';
+import { startMcpStdioServer } from 'cli/ai/runtimes/mcp';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 

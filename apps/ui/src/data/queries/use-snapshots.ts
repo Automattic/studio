@@ -1,7 +1,11 @@
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { useEffect } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import type { SnapshotUsage } from '@/data/core';
+import type { Snapshot, SnapshotUsage } from '@/data/core';
 
 export const SNAPSHOTS_QUERY_KEY = [ 'snapshots' ] as const;
 export const SNAPSHOT_USAGE_QUERY_KEY = [ 'snapshot-usage' ] as const;
@@ -55,5 +59,50 @@ export function useDeleteAllSnapshots( userId?: number ) {
 				( current ) => ( current ? { ...current, siteCount: 0 } : current )
 			);
 		},
+	} );
+}
+
+/**
+ * Keeps the cached preview list in step with the CLI, whoever changed it: this
+ * window, the agent or a terminal. Mount once near the app root.
+ */
+export function useSyncSnapshotsWithEvents(): void {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	useEffect( () => {
+		return connector.onSnapshotEvent( ( event ) => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
+			if ( event.event === SNAPSHOT_EVENTS.DELETED_ALL ) {
+				queryClient.setQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY, [] );
+				return;
+			}
+			if ( ! ( 'snapshotUrl' in event ) ) {
+				return;
+			}
+			const { snapshot, snapshotUrl } = event;
+			queryClient.setQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY, ( current = [] ) => {
+				const others = current.filter( ( item ) => item.url !== snapshotUrl );
+				return event.event === SNAPSHOT_EVENTS.DELETED || ! snapshot
+					? others
+					: [ ...others, snapshot ];
+			} );
+		} );
+	}, [ connector, queryClient ] );
+}
+
+export function useDeleteSnapshot() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( { hostname }: { hostname: string } ) => connector.deleteSnapshot( hostname ),
+		onError: () => toast.error( __( "Couldn't delete the preview site" ) ),
+	} );
+}
+
+export function useRenameSnapshot() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( { hostname, name }: { hostname: string; name: string } ) =>
+			connector.renameSnapshot( hostname, name ),
+		onError: () => toast.error( __( "Couldn't rename the preview site" ) ),
 	} );
 }

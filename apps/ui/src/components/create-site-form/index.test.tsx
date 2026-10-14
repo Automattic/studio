@@ -17,7 +17,9 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 vi.mock( '@/components/learn-more', () => ( {
 	LearnHowLink: () => null,
-	LearnMoreLink: () => null,
+	LearnMoreLink: ( { docsLinksKey }: { docsLinksKey: string } ) => (
+		<span data-testid={ `learn-more-${ docsLinksKey }` } />
+	),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -26,6 +28,11 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-certificate-trust', () => ( {
+	useCertificateTrust: () => ( { data: true } ),
+	useTrustCertificate: () => ( { mutate: vi.fn(), isPending: false } ),
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
@@ -115,7 +122,6 @@ describe( 'CreateSiteForm', () => {
 				agentInstructions: false,
 				aiSettings: false,
 				studioLogs: false,
-				switchToClassicUi: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -389,6 +395,25 @@ describe( 'CreateSiteForm', () => {
 		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/manual' } ) );
 	} );
 
+	it( 'offers file access choices without a PHP runtime choice', async () => {
+		const onSubmit = vi.fn();
+		renderForm( { name: 'Runtime' }, onSubmit );
+		openAdvancedSettings();
+		expect( screen.queryByRole( 'radio', { name: 'Native' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'radio', { name: 'Sandbox' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'radio', { name: 'Site directory' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'radio', { name: 'All files' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Runtime' )
+		);
+		fireEvent.click( screen.getByTestId( 'create-site-submit' ) );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { fileAccess: 'all-files' } )
+		);
+		expect( onSubmit.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
+	} );
+
 	it( 'surfaces path validation and generation errors without leaving the form pending', async () => {
 		usePathValidatorMock.mockReturnValue( {
 			generateProposedPath: vi.fn( async () => ( {
@@ -429,7 +454,6 @@ describe( 'CreateSiteForm', () => {
 				agentInstructions: false,
 				aiSettings: false,
 				studioLogs: false,
-				switchToClassicUi: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {
@@ -467,6 +491,42 @@ describe( 'CreateSiteForm', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked()
 		);
+	} );
+
+	it.each( [ '6.5', '6.5.5' ] )(
+		"pins a suggested %s to its branch's newest release",
+		async ( wpVersion ) => {
+			useWordPressVersionsMock.mockReturnValue( {
+				data: [
+					{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+					{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+					{ label: '6.5.13', value: '6.5.13', isBeta: false, isDevelopment: false },
+				],
+			} );
+			renderForm( { name: 'Old Blueprint', wpVersion } );
+			openAdvancedSettings();
+
+			await waitFor( () => expect( screen.getByLabelText( 'Version' ) ).toHaveValue( '6.5.13' ) );
+			expect( screen.getByRole( 'radio', { name: 'Select a version' } ) ).toBeChecked();
+		}
+	);
+
+	it( "says when a suggested WordPress version can't be installed", async () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.8.1', value: '6.8.1', isBeta: false, isDevelopment: false },
+			],
+		} );
+		renderForm( { name: 'Old Blueprint', wpVersion: '5.9' } );
+		openAdvancedSettings();
+
+		expect(
+			await screen.findByText(
+				"This Blueprint asks for WordPress 5.9, which Studio can't install."
+			)
+		).toBeVisible();
+		expect( screen.getByRole( 'radio', { name: 'Automatic updates' } ) ).toBeChecked();
 	} );
 
 	// The site does not exist yet, so the description names the version it will

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 // Standalone config (does not extend vitest.shared) on purpose: these are pure
-// Node script tests that don't need jsdom or the playground/php-wasm global
+// Node script tests that don't need jsdom or the global
 // setup the shared config pulls in.
 export default defineConfig( {
 	test: {

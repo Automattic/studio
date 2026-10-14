@@ -7,9 +7,8 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	getPhpBinaryDownloadInfo,
-	resolveNativePhpVersion,
+	resolveSupportedPhpVersion,
 	type PhpBinaryDownloadInfo,
-	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { ensureNativePhpIniFiles } from 'cli/lib/native-php/config';
 import { getPhpBinaryPath } from './paths';
@@ -22,7 +21,7 @@ export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
-	const nativePhpVersion = resolveNativePhpVersion( version );
+	const nativePhpVersion = resolveSupportedPhpVersion( version );
 
 	if ( ! fs.existsSync( getPhpBinaryPath( nativePhpVersion ) ) ) {
 		await downloadAndInstall( nativePhpVersion, onProgress );
@@ -49,7 +48,7 @@ async function waitForBinary( binaryPath: string ): Promise< void > {
 }
 
 async function downloadAndInstall(
-	version: NativePhpSupportedVersion,
+	version: SupportedPHPVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
 	const platform = process.platform;
@@ -102,7 +101,7 @@ async function downloadAndInstall(
 }
 
 export async function resolvePhpBinaryDownloadInfo(
-	version: NativePhpSupportedVersion,
+	version: SupportedPHPVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< PhpBinaryDownloadInfo > {
@@ -125,7 +124,7 @@ function getArchiveFileName( url: string ): string {
 async function verifyHash(
 	filePath: string,
 	expected: string,
-	version: NativePhpSupportedVersion,
+	version: SupportedPHPVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< void > {

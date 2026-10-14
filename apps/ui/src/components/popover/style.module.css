@@ -1,0 +1,5 @@
+/* Above the floating toast shelf (z-index: 110 in sidebar-layout). */
+.positioner {
+	z-index: 120;
+	outline: none;
+}

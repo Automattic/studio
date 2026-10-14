@@ -62,6 +62,10 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
+	publishPreviewSite: ( siteFolder, hostname, name ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
+	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	setSnapshot: ( hostname, options ) => ipcRendererInvoke( 'setSnapshot', hostname, options ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
@@ -91,8 +95,6 @@ const api: IpcApi = {
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	enableAgenticUi: ( surface?: AgenticUiSurface ) =>
 		ipcRendererInvoke( 'enableAgenticUi', surface ),
-	disableAgenticUi: ( surface?: AgenticUiSurface ) =>
-		ipcRendererInvoke( 'disableAgenticUi', surface ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
@@ -101,6 +103,8 @@ const api: IpcApi = {
 	getSiteStorageUsage: ( id, requestId ) =>
 		ipcRendererInvoke( 'getSiteStorageUsage', id, requestId ),
 	cancelSiteStorageUsage: ( requestId ) => ipcRendererInvoke( 'cancelSiteStorageUsage', requestId ),
+	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
+	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
@@ -136,8 +140,6 @@ const api: IpcApi = {
 	openCertificate: () => ipcRendererSend( 'openCertificate' ),
 	promptWindowsSpeedUpSites: ( ...args ) =>
 		ipcRendererInvoke( 'promptWindowsSpeedUpSites', ...args ),
-	setDefaultLocaleData: ( locale ) => ipcRendererInvoke( 'setDefaultLocaleData', locale ),
-	resetDefaultLocaleData: () => ipcRendererInvoke( 'resetDefaultLocaleData' ),
 	toggleMinWindowWidth: ( isSidebarVisible, currentSidebarWidth? ) =>
 		ipcRendererInvoke( 'toggleMinWindowWidth', isSidebarVisible, currentSidebarWidth ),
 	ensureMinWindowWidth: ( minimumWidth ) =>
@@ -224,6 +226,8 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
+	setTrafficLightsPosition: ( position ) =>
+		ipcRendererInvoke( 'setTrafficLightsPosition', position ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),

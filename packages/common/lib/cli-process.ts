@@ -108,9 +108,6 @@ export interface CliRunnerConfig {
 	// host is itself a Node process, like the CLI). The desktop overrides this
 	// with its bundled Node, since its own `execPath` is Electron.
 	nodeBinary?: string;
-	// Extra V8/Node flags for the child. The agent runs WordPress Playground, so
-	// the default enables JSPI.
-	execArgv?: string[];
 	// Optional error sink (the desktop wires Sentry here).
 	onError?: ( error: Error ) => void;
 }
@@ -173,7 +170,7 @@ export function killChild( child: ChildProcess ): void {
 }
 
 export function createCliRunner( config: CliRunnerConfig ): CliRunner {
-	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], onError } = config;
+	const { cliBinary, nodeBinary, onError } = config;
 	const liveChildren = new Set< ChildProcess >();
 
 	function executeCliCommand(
@@ -198,7 +195,8 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		const child = fork( cliBinary, [ ...args, '--avoid-telemetry' ], {
 			stdio,
 			execPath: nodeBinary,
-			execArgv,
+			// Don't inherit the host's own Node/V8 flags.
+			execArgv: [],
 			env: { ...process.env, ...options.env },
 		} );
 		liveChildren.add( child );
@@ -304,4 +302,49 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 	}
 
 	return { executeCliCommand, killAll } as CliRunner;
+}
+
+const cliResultMessageSchema = z.object( { action: z.literal( 'result' ), value: z.unknown() } );
+const cliProgressMessageSchema = z.object( {
+	status: z.literal( 'inprogress' ),
+	message: z.string(),
+} );
+
+/**
+ * Runs a CLI command and resolves with the result it reports (`logger.reportResult`), parsed by
+ * `schema`. Rejects with the command's error, or when it succeeds without reporting a result.
+ */
+export function runCliCommand< T >(
+	execute: ExecuteCliCommand,
+	args: string[],
+	schema: z.ZodType< T >,
+	options: { logPrefix?: string; onProgress?: ( message: string ) => void } = {}
+): Promise< T > {
+	return new Promise( ( resolve, reject ) => {
+		let result: z.ZodSafeParseResult< T > | undefined;
+		const [ emitter ] = execute( args, { output: 'capture', logPrefix: options.logPrefix } );
+		emitter.on( 'data', ( { data } ) => {
+			const message = cliResultMessageSchema.safeParse( data );
+			if ( message.success ) {
+				result = schema.safeParse( message.data.value );
+				return;
+			}
+			const progress = cliProgressMessageSchema.safeParse( data );
+			if ( progress.success ) {
+				options.onProgress?.( progress.data.message );
+			}
+		} );
+		emitter.on( 'success', () => {
+			if ( result?.success ) {
+				resolve( result.data );
+			} else {
+				reject(
+					result?.error ??
+						new Error( `\`studio ${ args.slice( 0, 2 ).join( ' ' ) }\` reported no result.` )
+				);
+			}
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }

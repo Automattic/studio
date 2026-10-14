@@ -5,7 +5,7 @@ import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
- * with `isError: true`. `rawHandler` is exposed so `mcp-server.ts` can
+ * with `isError: true`. `rawHandler` is exposed so `runtimes/mcp` can
  * dispatch external calls without pi's `{content, details}` wrapping.
  */
 
@@ -25,6 +25,9 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 export interface ToolResult {
 	content: ToolContent[];
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	// Data for the host's MCP App, kept out of the model's context. Not
+	// `structuredContent`: Claude Code gives that to the model instead of `content`.
+	_meta?: Record< string, unknown >;
 	// Work the tool leaves running after it returns, settling with an optional
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.
@@ -55,7 +58,25 @@ export interface ToolPromptOptions {
 	promptGuidelines?: string[];
 }
 
+// What a call can change, for hosts that ask the user before running a tool
+// (MCP tool annotations). A tool that declares nothing may destroy data and
+// reach beyond this machine, so hosts ask before each call.
+export interface ToolAnnotations {
+	readOnlyHint?: boolean;
+	destructiveHint?: boolean;
+	openWorldHint?: boolean;
+}
+
+export const READ_ONLY: ToolAnnotations = { readOnlyHint: true };
+// Changes only this machine, without deleting or overwriting the user's work.
+export const LOCAL_CHANGE: ToolAnnotations = {
+	readOnlyHint: false,
+	destructiveHint: false,
+	openWorldHint: false,
+};
+
 export interface ToolOptions extends ToolPromptOptions {
+	annotations?: ToolAnnotations;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
@@ -90,6 +111,7 @@ export interface AnyStudioAgentTool {
 	promptSnippet?: string;
 	promptGuidelines?: string[];
 	settlesPendingWork?: boolean;
+	annotations?: ToolAnnotations;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -109,6 +131,7 @@ export function defineTool< TProps extends TProperties >(
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.promptGuidelines ? { promptGuidelines: options.promptGuidelines } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.annotations ? { annotations: options.annotations } : {} ),
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {

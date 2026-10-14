@@ -69,7 +69,6 @@ export function openAboutWindow() {
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
 			const releasesText = escapeSingleQuotes( __( 'Release Notes' ) );
 			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
-			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
 			const script = `
 				document.title = '${ aboutStudioText }';
@@ -78,7 +77,6 @@ export function openAboutWindow() {
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
 				document.getElementById('release-notes').innerText = '${ releasesText }';
 				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
-				document.getElementById('local-sites').innerText = '${ localSitesText }';
 			`;
 			aboutWindow.webContents.executeJavaScript( script ).catch( ( err ) => {
 				console.error( 'Error executing JavaScript:', err );

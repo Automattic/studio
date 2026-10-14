@@ -1,7 +1,8 @@
+import path from 'node:path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	encodePassword,
 	validateAdminEmail,
@@ -9,21 +10,12 @@ import {
 } from '@studio/common/lib/passwords';
 import {
 	getSiteFileAccess,
-	isFileAccessAllowedForRuntime,
 	siteFileAccessSchema,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
-import {
-	getSiteRuntime,
-	siteModeSchema,
-	SITE_MODE_NATIVE,
-	SITE_MODE_SANDBOX,
-	siteRuntimeFromMode,
-	type SiteMode,
-} from '@studio/common/lib/site-runtime';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import {
 	getWpEnvironmentType,
@@ -40,9 +32,12 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
+	type SiteData,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -53,6 +48,7 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -65,7 +61,6 @@ export interface SetCommandOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
-	runtime?: SiteMode;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
@@ -75,6 +70,52 @@ export interface SetCommandOptions {
 	debugDisplay?: boolean;
 	scriptDebug?: boolean;
 	environmentType?: WpEnvironmentType;
+}
+
+// WordPress is installed on the first start, which writes wp-config.php and creates the database.
+// A site with neither (e.g. `site create --no-start`) can't boot WP-CLI. Pulled/imported sites
+// keep their config outside the site directory, so they never count as unprovisioned.
+async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
+	if ( site.runtimeBlueprintPath ) {
+		return false;
+	}
+	const [ hasConfig, hasDatabase ] = await Promise.all( [
+		pathExists( path.join( site.path, 'wp-config.php' ) ),
+		pathExists( path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ) ),
+	] );
+	return ! hasConfig && ! hasDatabase;
+}
+
+async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
+	// Swap the core files like `site create --wp` does; the installer runs on the first start.
+	// Installing up front instead would leave a newer DB schema than the code on a downgrade.
+	if ( await isUnprovisionedSite( site ) ) {
+		await downloadWordPress( wp );
+		await recursiveCopyDirectory( getWordPressVersionPath( wp ), site.path );
+		return;
+	}
+
+	await using command = await runWpCliCommand( site, [
+		'core',
+		'update',
+		getWordPressVersionUrl( wp ),
+		'--force',
+		'--skip-plugins',
+		'--skip-themes',
+	] );
+
+	if ( ( await command.response.exitCode ) === 0 ) {
+		return;
+	}
+
+	const message = sprintf( __( 'Failed to update WordPress version to %s' ), wp );
+	const output =
+		( await command.response.stderrText ).trim() || ( await command.response.stdoutText ).trim();
+	if ( ! output ) {
+		throw new LoggerError( message );
+	}
+	console.error( message, output );
+	throw new LoggerError( message, new Error( summarizeWpCliStderr( output ) ) );
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
@@ -92,7 +133,6 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		https,
 		php,
 		wp,
-		runtime,
 		fileAccess,
 		xdebug,
 		adminUsername,
@@ -110,7 +150,6 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		https === undefined &&
 		php === undefined &&
 		wp === undefined &&
-		runtime === undefined &&
 		fileAccess === undefined &&
 		xdebug === undefined &&
 		adminUsername === undefined &&
@@ -123,7 +162,7 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			)
 		);
 	}
@@ -143,8 +182,6 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
 	}
 
-	// Static check, so it belongs out here with the rest. The runtime-specific
-	// PHP check further down needs the site record and has to stay inside.
 	if ( options.php !== undefined ) {
 		validateSupportedPhpVersion( options.php );
 	}
@@ -170,7 +207,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		https,
 		php,
 		wp,
-		runtime,
 		fileAccess,
 		xdebug,
 		adminUsername,
@@ -187,15 +223,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		let site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const effectiveRuntime = runtime ? siteRuntimeFromMode( runtime ) : getSiteRuntime( site );
-		const effectiveFileAccess = fileAccess ?? getSiteFileAccess( site );
-		if ( ! isFileAccessAllowedForRuntime( effectiveRuntime, effectiveFileAccess ) ) {
-			throw new LoggerError(
-				__(
-					'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory. Use --runtime native or --file-access site-directory.'
-				)
-			);
-		}
 		const validatedPhp = php === undefined ? undefined : validateSupportedPhpVersion( php );
 
 		const initialCliConfig = await readCliConfig();
@@ -238,7 +265,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		const httpsChanged = https !== undefined && https !== site.enableHttps;
 		const phpChanged = validatedPhp !== undefined && validatedPhp !== site.phpVersion;
 		const wpChanged = wp !== undefined;
-		const runtimeChanged = runtime !== undefined && effectiveRuntime !== getSiteRuntime( site );
 		const fileAccessChanged = fileAccess !== undefined && fileAccess !== getSiteFileAccess( site );
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
 		const adminUsernameChanged =
@@ -259,7 +285,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			httpsChanged ||
 			phpChanged ||
 			wpChanged ||
-			runtimeChanged ||
 			fileAccessChanged ||
 			xdebugChanged ||
 			credentialsChanged ||
@@ -278,7 +303,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			httpsChanged,
 			phpChanged,
 			wpChanged,
-			runtimeChanged,
 			fileAccessChanged,
 			xdebugChanged,
 			credentialsChanged,
@@ -288,6 +312,11 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			environmentTypeChanged,
 		} );
 		const oldDomain = site.customDomain;
+		const previousCredentials = {
+			adminUsername: site.adminUsername,
+			adminPassword: site.adminPassword,
+			adminEmail: site.adminEmail,
+		};
 
 		try {
 			await lockCliConfig();
@@ -308,9 +337,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 			if ( phpChanged ) {
 				foundSite.phpVersion = validatedPhp!;
-			}
-			if ( runtimeChanged ) {
-				foundSite.runtime = effectiveRuntime;
 			}
 			if ( fileAccessChanged ) {
 				foundSite.fileAccess = fileAccess;
@@ -372,21 +398,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
-			const zipUrl = getWordPressVersionUrl( wp );
-
-			await using command = await runWpCliCommand( site, [
-				'core',
-				'update',
-				zipUrl,
-				'--force',
-				'--skip-plugins',
-				'--skip-themes',
-			] );
-
-			const exitCode = await command.response.exitCode;
-			if ( exitCode !== 0 ) {
-				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
-			}
+			await setWordPressVersion( site, wp );
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {
@@ -409,7 +421,22 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-			await startWordPressServer( site, logger );
+			try {
+				await startWordPressServer( site, logger );
+			} catch ( error ) {
+				if ( ! credentialsChanged ) {
+					throw error;
+				}
+				// Every start applies the saved credentials, so keeping ones that
+				// failed to apply would leave the site unable to start.
+				site = await restoreAdminCredentials( site.id, previousCredentials );
+				await stopWordPressServer( site.id );
+				await startWordPressServer( site, logger );
+				throw new LoggerError(
+					__( 'Failed to update the admin credentials. The previous credentials were restored.' ),
+					error
+				);
+			}
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 
@@ -418,6 +445,25 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		await emitCliEvent( { event: SITE_EVENTS.UPDATED, data: { siteId: site.id } } );
 	} finally {
 		await disconnectFromDaemon();
+	}
+}
+
+async function restoreAdminCredentials(
+	siteId: string,
+	credentials: Pick< SiteData, 'adminUsername' | 'adminPassword' | 'adminEmail' >
+): Promise< SiteData > {
+	try {
+		await lockCliConfig();
+		const cliConfig = await readCliConfig();
+		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
+		if ( ! site ) {
+			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
+		}
+		Object.assign( site, credentials );
+		await saveCliConfig( cliConfig );
+		return site;
+	} finally {
+		await unlockCliConfig();
 	}
 }
 
@@ -449,18 +495,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: getWpVersionOptionDescription(),
 					coerce: coerceWpVersionOption,
 				} )
-				.option( 'runtime', {
-					type: 'string',
-					description: __(
-						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
-					),
-					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ],
-				} )
 				.option( 'file-access', {
 					type: 'string',
-					description: __(
-						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
-					),
+					description: __( 'Which files PHP can access: the site directory only, or all files' ),
 					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
 				} )
 				.option( 'xdebug', {
@@ -505,7 +542,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					https: argv.https,
 					php: argv.php,
 					wp: argv.wp,
-					runtime: siteModeSchema.optional().parse( argv.runtime ),
 					fileAccess: siteFileAccessSchema.optional().parse( argv.fileAccess ),
 					xdebug: argv.xdebug,
 					adminUsername: argv.adminUsername,

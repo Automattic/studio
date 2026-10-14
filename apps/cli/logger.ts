@@ -3,6 +3,10 @@ import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );
 
+function shouldUsePlainOutput(): boolean {
+	return Boolean( process.env.CI ) || ! process.stdout.isTTY;
+}
+
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
 function canSend(): boolean {
@@ -40,19 +44,30 @@ export class Logger< T extends string > {
 	public spinner: Spinner;
 	private currentAction: string | null = null;
 	private onProgress: ProgressCallback | null;
+	private readonly progressObservers = new Set<
+		( message: string, action: string | null ) => void
+	>();
 
 	constructor( options?: { onProgress?: ProgressCallback } ) {
 		this.spinner = new Spinner();
 		this.onProgress = options?.onProgress ?? null;
 	}
 
+	public observeProgress( observer: ( message: string, action: string | null ) => void ) {
+		this.progressObservers.add( observer );
+		return () => this.progressObservers.delete( observer );
+	}
+
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
+		this.progressObservers.forEach( ( observer ) => observer( message, action ) );
 
 		if ( this.onProgress ) {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action, status: 'inprogress', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			this.spinner.setText( message );
 			if ( ! this.spinner.running ) {
@@ -62,10 +77,13 @@ export class Logger< T extends string > {
 	}
 
 	public reportProgress( message: string ) {
+		this.progressObservers.forEach( ( observer ) => observer( message, this.currentAction ) );
 		if ( this.onProgress ) {
 			this.onProgress( message, true );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'inprogress', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -79,6 +97,8 @@ export class Logger< T extends string > {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -94,6 +114,8 @@ export class Logger< T extends string > {
 			this.onProgress( message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -111,6 +133,8 @@ export class Logger< T extends string > {
 			this.onProgress( error.message );
 		} else if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
+		} else if ( shouldUsePlainOutput() ) {
+			console.error( error.message );
 		} else {
 			if ( ! this.spinner.running ) {
 				this.spinner.start();
@@ -119,6 +143,13 @@ export class Logger< T extends string > {
 		}
 
 		this.currentAction = null;
+	}
+
+	/** Sends the command's result to the host that started it. Hosts read it with `runCliCommand`. */
+	public reportResult( value: unknown ) {
+		if ( canSend() ) {
+			process.send!( { action: 'result', value } );
+		}
 	}
 
 	public reportKeyValuePair( key: string, value: string ) {

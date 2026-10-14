@@ -13,6 +13,13 @@ const connectorMocks = vi.hoisted( () => ( {
 	capabilities: { readLocalMedia: true },
 } ) );
 
+const reducedMotion = vi.hoisted( () => ( { value: false } ) );
+
+vi.mock( '@wordpress/compose', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@wordpress/compose') >() ),
+	useReducedMotion: () => reducedMotion.value,
+} ) );
+
 vi.mock( '@/components/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
 } ) );
@@ -567,7 +574,7 @@ describe( 'Conversation Ask User questions', () => {
 
 	it( 'skips delayed choreography and smooth scrolling for reduced motion', async () => {
 		vi.useFakeTimers();
-		const restoreMatchMedia = mockPrefersReducedMotion( true );
+		reducedMotion.value = true;
 		const scrollBy = vi.fn();
 		const originalScrollBy = window.scrollBy;
 		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
@@ -608,7 +615,7 @@ describe( 'Conversation Ask User questions', () => {
 		} finally {
 			window.scrollBy = originalScrollBy;
 			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
-			restoreMatchMedia();
+			reducedMotion.value = false;
 			vi.useRealTimers();
 		}
 	} );
@@ -1100,30 +1107,4 @@ function askUserAnswerEntry( id: string, text: string ): SessionEntry {
 			source: 'ask_user',
 		},
 	} as SessionEntry;
-}
-
-function mockPrefersReducedMotion( matches: boolean ) {
-	const originalMatchMedia = window.matchMedia;
-	const mutableWindow = window as unknown as { matchMedia?: typeof window.matchMedia };
-	mutableWindow.matchMedia = vi.fn(
-		( query: string ) =>
-			( {
-				matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
-				media: query,
-				onchange: null,
-				addEventListener: vi.fn(),
-				removeEventListener: vi.fn(),
-				addListener: vi.fn(),
-				removeListener: vi.fn(),
-				dispatchEvent: vi.fn(),
-			} ) as unknown as MediaQueryList
-	);
-
-	return () => {
-		if ( originalMatchMedia ) {
-			mutableWindow.matchMedia = originalMatchMedia;
-			return;
-		}
-		delete mutableWindow.matchMedia;
-	};
 }

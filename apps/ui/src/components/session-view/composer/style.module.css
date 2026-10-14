@@ -388,8 +388,6 @@
 	z-index: 100;
 	max-height: 240px;
 	overflow-y: auto;
-	margin: 0;
-	list-style: none;
 }
 
 .commandItem {
@@ -755,18 +753,6 @@
 
 .paidTiersNudgeDismiss:hover {
 	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.meta {
-	display: flex;
-	align-items: center;
-	margin-top: var(--wpds-dimension-padding-sm);
-	padding: 0 var(--wpds-dimension-padding-xs);
-}
-
-.error {
-	color: var(--wpds-color-foreground-content-error, #dc2626);
-	font-size: var(--wpds-typography-font-size-xs);
 }
 
 .dialogDescription {

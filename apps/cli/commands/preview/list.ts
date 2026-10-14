@@ -56,9 +56,9 @@ export async function runCommand(
 			// Snapshots are per-user; when logged out emit an empty list instead of
 			// erroring so consumers (e.g. the desktop app) degrade gracefully.
 			const token = await readAuthToken();
-			const json = JSON.stringify( token ? await getSnapshotsFromConfig( token.id ) : [] );
-			console.log( json );
-			logger.reportKeyValuePair( 'snapshots', json );
+			const snapshots = token ? await getSnapshotsFromConfig( token.id ) : [];
+			console.log( JSON.stringify( snapshots ) );
+			logger.reportResult( snapshots );
 			return;
 		}
 

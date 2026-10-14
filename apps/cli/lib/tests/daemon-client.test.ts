@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createConnectionMock = vi.fn();
@@ -115,6 +117,28 @@ describe( 'process manager daemon client', () => {
 		expect( createConnectionMock ).toHaveBeenCalledTimes( 2 );
 	} );
 
+	it.skipIf( process.platform === 'win32' )(
+		'emitCliEvent() sends each event to every Studio app and live studio mcp process',
+		async () => {
+			const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pm-' ) );
+			process.env.STUDIO_PROCESS_MANAGER_HOME = home;
+			const live = path.join( home, `events-mcp-${ process.pid }.sock` );
+			const dead = path.join( home, 'events-mcp-2147483646.sock' );
+			fs.writeFileSync( live, '' );
+			fs.writeFileSync( dead, '' );
+			const { emitCliEvent, EVENTS_SOCKET_PATHS } = await import( '../daemon-client' );
+
+			await emitCliEvent( { event: 'auth-logout', data: {} } as never );
+
+			expect( createConnectionMock.mock.calls.map( ( [ peer ] ) => peer ) ).toEqual( [
+				...Object.values( EVENTS_SOCKET_PATHS ),
+				live,
+			] );
+			expect( fs.existsSync( dead ) ).toBe( false );
+			fs.rmSync( home, { recursive: true, force: true } );
+		}
+	);
+
 	it( 'connectToDaemon() auto-starts the daemon when the socket is missing', async () => {
 		createConnectionMock.mockImplementationOnce( () => {
 			const error = new Error( 'missing' ) as NodeJS.ErrnoException;
@@ -160,6 +184,36 @@ describe( 'process manager daemon client', () => {
 		);
 	} );
 
+	it( 'startProcess() tells older daemons the site runs native PHP', async () => {
+		const requests: Array< Record< string, unknown > > = [];
+		createConnectionMock.mockImplementation( ( peer?: string ) => {
+			if ( isEventsSocketPath( peer ) ) {
+				eventSocket = createMockSocket();
+				return eventSocket;
+			}
+
+			return createMockSocket( ( socket, chunk ) => {
+				const request = JSON.parse( chunk.subarray( 4 ).toString( 'utf8' ) );
+				requests.push( request );
+				const payload =
+					request.type === 'start-process'
+						? { process: { name: 'app', pmId: 1, status: 'online', pid: 1000 } }
+						: {};
+				socket.emit( 'data', frameMessage( createSuccessResponse( request, payload ) ) );
+			} );
+		} );
+
+		const { connectToDaemon, startProcess } = await import( '../daemon-client' );
+		await connectToDaemon();
+		await startProcess( 'app', '/path/script.js' );
+
+		expect( requests.find( ( request ) => request.type === 'start-process' ) ).toMatchObject( {
+			processName: 'app',
+			scriptPath: '/path/script.js',
+			runtime: 'native-php',
+		} );
+	} );
+
 	it( 'isProcessRunning() filters for online processes only', async () => {
 		createConnectionMock.mockImplementation( ( peer?: string ) => {
 			if ( isEventsSocketPath( peer ) ) {
@@ -190,7 +244,6 @@ describe( 'process manager daemon client', () => {
 			pmId: 2,
 			status: 'online',
 			pid: 2000,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 	} );
 

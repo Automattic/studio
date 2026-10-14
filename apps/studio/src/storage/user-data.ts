@@ -87,6 +87,7 @@ type UserDataSafeKeys =
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
 	| 'agenticUiBannerDismissed'
+	| 'dontShowArm64Warning'
 	| 'agenticFeaturesEnabled';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;

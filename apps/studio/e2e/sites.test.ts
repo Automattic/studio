@@ -6,96 +6,35 @@ import {
 	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
 } from '@studio/common/types/php-versions';
 import fs from 'fs-extra';
-import { DEFAULT_SITE_NAME } from './constants';
-import { E2ESession } from './e2e-helpers';
-import AddSiteModal from './page-objects/add-site-modal';
-import MainSidebar from './page-objects/main-sidebar';
-import Onboarding from './page-objects/onboarding';
-import SiteContent from './page-objects/site-content';
+import { E2ESession, launchWithSite } from './e2e-helpers';
+import AddSite from './page-objects/add-site';
+import Sidebar from './page-objects/sidebar';
+import SiteOverview from './page-objects/site-overview';
 import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
-async function completeOnboardingWithParams( customSiteName?: string, customFolderName?: string ) {
-	const env: NodeJS.ProcessEnv = {};
-
-	if ( customFolderName ) {
-		const fullLocalPath = path.join( session.homePath, 'Studio', customFolderName );
-		await fs.mkdir( fullLocalPath, { recursive: true } );
-		env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
-	}
-	await session.launch( env );
-
-	const onboarding = new Onboarding( session.mainWindow );
-	const { siteName, localPath } = await onboarding.completeOnboarding( {
-		customSiteName,
-		customFolderName,
+async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
+	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
+	const dialog = session.mainWindow.getByRole( 'alertdialog' );
+	const deleteFiles = dialog.getByRole( 'checkbox', {
+		name: 'Delete site files from my computer',
 	} );
-
-	await onboarding.closeWhatsNew();
-
-	const siteContent = new SiteContent( session.mainWindow, siteName );
-	await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-
-	return {
-		siteName,
-		localPath,
-	};
+	await deleteFiles.setChecked( ! keepFiles );
+	await dialog.getByRole( 'button', { name: 'Delete site' } ).click();
+	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
+		timeout: 30_000,
+	} );
 }
 
-type PersistedSite = { id: string; path: string };
-
-async function getPersistedSite( siteName: string ): Promise< PersistedSite | undefined > {
-	const cliConfig = await fs
-		.readJson( path.join( session.cliConfigPath, 'cli.json' ) )
-		.catch( () => ( { sites: [] } ) );
-	return cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
-}
-
-/**
- * The sidebar can show a copied site (optimistic placeholder, then the IPC
- * result) slightly before the CLI's cli.json write is observable, so poll the
- * on-disk config instead of sampling it once.
- */
-async function waitForPersistedSite( siteName: string ): Promise< PersistedSite > {
-	await expect
-		.poll( async () => Boolean( await getPersistedSite( siteName ) ), {
-			message: `site "${ siteName }" was never persisted to cli.json`,
-			timeout: 30_000,
-		} )
-		.toBe( true );
-	return ( await getPersistedSite( siteName ) ) as PersistedSite;
-}
-
-/**
- * Drive the "Add site" modal through the create-site flow while selecting a
- * pre-existing local folder (returned by the mocked folder dialog via the
- * E2E_OPEN_FOLDER_DIALOG env var). When that folder already contains a
- * WordPress install, Studio adopts it instead of scaffolding a new one.
- *
- * Mirrors the onboarding order (name first, then path) so selecting the path
- * doesn't get clobbered by the site-name-driven path regeneration.
- */
-async function addSiteFromSelectedPath(
-	modal: AddSiteModal,
-	siteName: string,
-	folderName: string
-) {
-	await modal.createSiteButton.click();
-
-	const emptySiteButton = session.mainWindow.getByRole( 'button', { name: /Empty site/ } );
-	if ( await emptySiteButton.isVisible( { timeout: 2000 } ).catch( () => false ) ) {
-		await emptySiteButton.click();
-		await modal.continueButton.click();
-	}
-
-	await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
-	await modal.siteNameInput.fill( siteName );
-	await modal.selectLocalPathForTesting( folderName );
-
-	await expect( modal.addSiteButton ).toBeEnabled();
-	await modal.addSiteButton.click();
+// Copies a running site's install into `~/Studio/<folder>`, a folder no site uses yet. The source
+// is running, so recursiveCopyDirectory (unlike fs.copy) tolerates its SQLite journal/cache files
+// vanishing mid-copy.
+async function copyInstallTo( sourcePath: string, folder: string ) {
+	const target = path.join( session.homePath, 'Studio', folder );
+	await recursiveCopyDirectory( sourcePath, target );
+	return target;
 }
 
 test.describe( 'Sites', () => {
@@ -110,271 +49,149 @@ test.describe( 'Sites', () => {
 		[ 'E2E-Test-Site 2', 'hello' ],
 	].forEach( ( [ customSiteName, customFolderName ] ) => {
 		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
-			const { siteName, localPath } = await completeOnboardingWithParams(
-				customSiteName,
-				customFolderName
-			);
+			const { siteName, site } = await launchWithSite( session, {
+				siteName: customSiteName,
+				folder: customFolderName,
+			} );
 
-			// Check the site is running
-			const siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-			await expect( siteContent.siteNameHeading ).toHaveText( siteName );
+			if ( customSiteName ) {
+				expect( siteName ).toBe( customSiteName );
+			}
+			if ( customFolderName ) {
+				expect(
+					arePathsEqual( site.path, path.join( session.homePath, 'Studio', customFolderName ) )
+				).toBe( true );
+			}
+			expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
 
-			const sidebar = new MainSidebar( session.mainWindow );
-			const siteTitle = sidebar.getSiteNavButton( siteName );
-			await expect( siteTitle ).toHaveText( siteName );
-
-			// Check a WordPress site has been created
-			expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
-
-			await siteContent.navigateToTab( 'settings' );
-
-			await expect( siteContent.frontendButton ).toBeVisible();
-			const frontendUrl = await siteContent.frontendButton.textContent();
-			expect( frontendUrl ).not.toBeNull();
-			const response = await fetch( `http://${ frontendUrl }` );
+			const response = await fetch( await session.getSiteUrl( siteName ) );
 			expect( [ 200, 302 ] ).toContain( response.status );
 			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 		} );
 	} );
 
 	test( 'change PHP version', async () => {
-		await completeOnboardingWithParams();
-
+		const { siteName } = await launchWithSite( session );
 		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
 
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
+		const overview = new SiteOverview( session.mainWindow );
+		await overview.open( siteName, 'Settings' );
+		await expect( overview.phpVersionSelect ).toHaveValue( DEFAULT_PHP_VERSION );
 
-		await settingsTab.editSiteButton.click();
-		await expect( settingsTab.editSiteDialog ).toBeVisible();
+		await overview.phpVersionSelect.selectOption( newPhpVersion );
+		await overview.saveSettings();
 
-		const initialPhpVersion = await settingsTab.phpVersionSelect.inputValue();
-		expect( initialPhpVersion ).toBe( DEFAULT_PHP_VERSION );
-
-		await settingsTab.phpVersionSelect.selectOption( newPhpVersion );
-		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 120_000 } );
-
-		// The dialog seeds its dropdown from `useState(selectedSite.phpVersion)`
-		// at mount time and never resyncs on later prop changes, so reopening
-		// before the SITE_EVENTS.UPDATED round-trip (CLI _events socket → main
-		// → renderer Redux) lands will lock the dropdown to the stale value
-		// indefinitely. Wait on the read-only Settings-tab row first — it's
-		// bound directly to Redux, so it flips as soon as the round-trip
-		// completes.
-		await expect( settingsTab.phpVersionDisplay ).toContainText( newPhpVersion );
-
-		await settingsTab.editSiteButton.click();
-		await expect( settingsTab.editSiteDialog ).toBeVisible();
-
-		await expect( settingsTab.phpVersionSelect ).toHaveValue( newPhpVersion );
-
-		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
+		await expect
+			.poll( async () => await session.waitForSite( siteName ) )
+			.toMatchObject( { phpVersion: newPhpVersion } );
+		await expect( overview.phpVersionSelect ).toHaveValue( newPhpVersion );
 	} );
 
 	test( 'renames a site', async () => {
-		const { siteName } = await completeOnboardingWithParams();
-
+		const { siteName } = await launchWithSite( session );
 		const newSiteName = 'E2E-Test-Site-Renamed';
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
-		await settingsTab.editSiteButton.click();
-		await expect( settingsTab.editSiteDialog ).toBeVisible();
+		const overview = new SiteOverview( session.mainWindow );
+		await overview.open( siteName, 'Settings' );
+		await overview.siteNameInput.fill( newSiteName );
+		await overview.saveSettings();
 
-		await settingsTab.siteNameInput.fill( newSiteName );
-		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 20_000 } );
-
-		// Explicitly wait for the rename to propagate
-		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
-		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, {
-			timeout: 10000,
-		} );
+		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
+		await session.waitForSite( newSiteName );
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
-		const { siteName } = await completeOnboardingWithParams();
+		const { siteName } = await launchWithSite( session );
+		const siteUrl = await session.getSiteUrl( siteName );
 
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-
-		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
-		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
-
-		// page.goto opens a browser
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
-		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
+		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin/options-general.php` ) );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );
 		await siteTitleInput.press( 'Enter' );
 
-		await page.goto( frontendUrl );
+		await page.goto( siteUrl );
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
-		const { siteName, localPath } = await completeOnboardingWithParams();
+		const { siteName, site } = await launchWithSite( session );
 
-		expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
+		await deleteSite( siteName, { keepFiles: true } );
 
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-
-		// Playwright lacks support for interacting with native dialogs, so we mock
-		// the dialog module to simulate the user clicking the "Delete site"
-		// confirmation button without "Delete site files from my computer" checked.
-		// See: https://github.com/microsoft/playwright/issues/21432
-		await session.electronApp.evaluate( ( { dialog } ) => {
-			dialog.showMessageBox = async () => {
-				return { response: 0, checkboxChecked: false };
-			};
-		} );
-		await settingsTab.openDeleteSiteModal();
-		await session.mainWindow.waitForTimeout( 1000 );
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( DEFAULT_SITE_NAME ) ).not.toBeAttached( {
-			timeout: 10000,
-		} );
-
-		expect( await pathExists( localPath ) ).toBe( true );
+		expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
 	} );
 
 	skipTestOnWindows( 'delete site and remove directory from disk', async () => {
-		const { siteName, localPath } = await completeOnboardingWithParams();
+		const { siteName, site } = await launchWithSite( session );
 
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
+		await deleteSite( siteName, { keepFiles: false } );
 
-		// Playwright lacks support for interacting with native dialogs, so we mock
-		// the dialog module to simulate the user clicking the "Delete site"
-		// confirmation button with "Delete site files from my computer" checked.
-		// See: https://github.com/microsoft/playwright/issues/21432
-		await session.electronApp.evaluate( ( { dialog } ) => {
-			dialog.showMessageBox = async () => {
-				return { response: 0, checkboxChecked: true };
-			};
-		} );
-		await settingsTab.openDeleteSiteModal();
-		await session.mainWindow.waitForTimeout( 1000 );
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached( {
-			timeout: 10000,
-		} );
-
-		expect( await pathExists( localPath ) ).toBe( false );
+		await expect.poll( () => pathExists( site.path ) ).toBe( false );
 	} );
 
-	// Adopting an existing WordPress folder ("Add a site using an existing
-	// WordPress directory" / "a previously created site directory") both resolve
-	// to the same flow: pointing the create-site form at a directory that already
-	// contains a WordPress install. We simulate one by copying a freshly created
-	// install into an unassociated folder, so the test stays cross-platform (no
-	// reliance on the native delete dialog, which is mocked only on macOS).
+	// Pointing the create form at a folder that already holds WordPress adopts that install.
 	test( 'adds a site from an existing WordPress directory', async () => {
-		const existingFolderName = 'existing-wp-dir';
-		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
-		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
+		const folder = 'existing-wp-dir';
+		const { site: original } = await launchWithSite( session, { folder: 'original' } );
+		const existingDir = await copyInstallTo( original.path, folder );
+		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
 
-		const onboarding = new Onboarding( session.mainWindow );
-		const { localPath: originalPath } = await onboarding.completeOnboarding();
-		await onboarding.closeWhatsNew();
+		await new AddSite( session.mainWindow ).createSite( {
+			siteName: 'Adopted Site',
+			pickFolder: true,
+		} );
+		await new Sidebar( session.mainWindow ).expectRunning( 'Adopted Site' );
 
-		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		// Copy the full install into a folder not yet associated with any site. The
-		// source site is running, so recursiveCopyDirectory (unlike fs.copy) tolerates
-		// its SQLite journal/cache files vanishing mid-copy.
-		await recursiveCopyDirectory( originalPath, existingDir );
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-		await addSiteFromSelectedPath( modal, 'Adopted Site', existingFolderName );
-
-		const adoptedSite = new SiteContent( session.mainWindow, 'Adopted Site' );
-		await expect( adoptedSite.siteNameHeading ).toHaveText( 'Adopted Site', { timeout: 120_000 } );
-		await expect( adoptedSite.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		// It adopted the existing directory rather than scaffolding a new one.
-		const cliConfig = await fs.readJson( path.join( session.cliConfigPath, 'cli.json' ) );
-		const adopted = cliConfig.sites.find( ( s: { name: string } ) => s.name === 'Adopted Site' );
-		expect( adopted ).toBeDefined();
+		const adopted = await session.waitForSite( 'Adopted Site' );
 		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
 		expect( await pathExists( path.join( existingDir, 'wp-config.php' ) ) ).toBe( true );
 	} );
 
+	// Studio must not wipe a user's own MySQL connection settings when adopting their install.
 	test( 'preserves an existing MySQL wp-config.php when adding a WordPress directory', async () => {
-		const existingFolderName = 'mysql-wp-dir';
-		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
-		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
+		const { site: original } = await launchWithSite( session, { folder: 'original' } );
+		const existingDir = await copyInstallTo( original.path, 'mysql-wp-dir' );
 
-		const onboarding = new Onboarding( session.mainWindow );
-		const { localPath: originalPath } = await onboarding.completeOnboarding();
-		await onboarding.closeWhatsNew();
-
-		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		// The source site is running, so recursiveCopyDirectory (unlike fs.copy)
-		// tolerates its SQLite journal/cache files vanishing mid-copy.
-		await recursiveCopyDirectory( originalPath, existingDir );
-
-		// Configure the existing wp-config.php for a real MySQL database. The custom
-		// connection identity (host/user/password) must survive adoption — Studio
-		// must not wipe a user's existing MySQL configuration.
 		const wpConfigPath = path.join( existingDir, 'wp-config.php' );
-		const originalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		const mysqlDefines = [
 			"define( 'DB_NAME', 'my_production_db' );",
 			"define( 'DB_USER', 'wp_user' );",
 			"define( 'DB_PASSWORD', 'super-secret-pw' );",
 			"define( 'DB_HOST', 'mysql.example.com' );",
 		].join( '\n' );
+		const originalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		await fs.writeFile(
 			wpConfigPath,
 			originalConfig.replace( '<?php', `<?php\n${ mysqlDefines }\n` ),
 			'utf-8'
 		);
+		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
 
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-		await addSiteFromSelectedPath( modal, 'MySQL WP Site', existingFolderName );
+		await new AddSite( session.mainWindow ).createSite( {
+			siteName: 'MySQL WP Site',
+			pickFolder: true,
+		} );
+		await new Sidebar( session.mainWindow ).expectRunning( 'MySQL WP Site' );
 
-		const adoptedSite = new SiteContent( session.mainWindow, 'MySQL WP Site' );
-		await expect( adoptedSite.siteNameHeading ).toHaveText( 'MySQL WP Site', { timeout: 120_000 } );
-		await expect( adoptedSite.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		// The custom connection constants are preserved after adoption.
 		const finalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
 		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
 	} );
 
-	test( 'duplicates a site from site settings', async () => {
-		const { siteName } = await completeOnboardingWithParams();
+	test( 'duplicates a site from its overview', async () => {
+		const { siteName } = await launchWithSite( session );
 
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		const overview = new SiteOverview( session.mainWindow );
+		await overview.open( siteName );
+		await overview.manageButton( 'Duplicate' ).click();
 
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-		await settingsTab.openDuplicateSite();
-
-		const expectedCopyName = `${ siteName } Copy`;
-		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( expectedCopyName ) ).toBeVisible( {
+		const copyName = `${ siteName } Copy`;
+		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
 			timeout: 120_000,
 		} );
-
-		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
-		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		const copiedSite = await waitForPersistedSite( expectedCopyName );
-		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
+		const copy = await session.waitForSite( copyName );
+		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
 	} );
 } );
 
@@ -387,70 +204,40 @@ test.describe( 'Sites without cleanup in-between', () => {
 		await session.cleanup();
 	} );
 
-	test( 'copy site creates a duplicate with all files and thumbnail', async () => {
-		const { siteName } = await completeOnboardingWithParams();
-
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		const cliConfigFile = path.join( session.cliConfigPath, 'cli.json' );
-		const cliConfig = await fs.readJson( cliConfigFile );
-		const site = cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
-		const siteId = site.id;
+	test( 'duplicating from the sidebar copies all files and the thumbnail', async () => {
+		const { siteName, site } = await launchWithSite( session );
 
 		const thumbnailsDir = path.join( session.appDataPath, 'Studio', 'thumbnails' );
 		await fs.ensureDir( thumbnailsDir );
-		const sourceThumbnailPath = path.join( thumbnailsDir, `${ siteId }.png` );
-		await fs.writeFile( sourceThumbnailPath, 'test-thumbnail-data' );
+		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
 
-		// Trigger copy via IPC (bypassing native menu since Playwright can't interact with it)
-		// Use getFocusedWindow() instead of getAllWindows()[0] because the thumbnail
-		// capture feature creates hidden BrowserWindows that can appear at index 0.
-		await session.electronApp.evaluate(
-			( { BrowserWindow }, { siteId } ) => {
-				const mainWindow =
-					BrowserWindow.getFocusedWindow() ??
-					BrowserWindow.getAllWindows().find( ( w ) => w.isVisible() ) ??
-					BrowserWindow.getAllWindows()[ 0 ];
-				mainWindow.webContents.send( 'site-context-menu-action', {
-					action: 'copy-site',
-					siteId,
-				} );
-			},
-			{ siteId }
-		);
+		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate site' );
 
-		const expectedCopyName = `${ siteName } Copy`;
-		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( expectedCopyName ) ).toBeVisible( {
+		const copyName = `${ siteName } Copy`;
+		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
 			timeout: 120_000,
 		} );
-
-		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
-		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		const copiedSite = await waitForPersistedSite( expectedCopyName );
-		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
-
-		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );
-		expect( await pathExists( copiedThumbnailPath ) ).toBe( true );
+		const copy = await session.waitForSite( copyName );
+		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
+		await expect
+			.poll( () => pathExists( path.join( thumbnailsDir, `${ copy.id }.png` ) ) )
+			.toBe( true );
 	} );
 
 	test( 'stop all sites and then start the first site again', async () => {
-		const sidebar = new MainSidebar( session.mainWindow );
-		const stopAllButton = sidebar.getStopAllButton();
-		await stopAllButton.click();
+		const sidebar = new Sidebar( session.mainWindow );
+		await session.mainWindow.evaluate( () => window.ipcApi.stopAllServers() );
 
-		const noSitesRunningText = sidebar.locator.getByText( 'No sites running' );
-		await expect( noSitesRunningText ).toBeAttached( { timeout: 120_000 } );
+		const [ first ] = await session.getSites();
+		await expect( sidebar.getStatusButton( first.name ) ).toHaveAttribute(
+			'data-state',
+			'stopped',
+			{
+				timeout: 120_000,
+			}
+		);
 
-		const firstSiteInSidebar = sidebar.locator.getByRole( 'button' ).first();
-		const siteName = await firstSiteInSidebar.textContent();
-		expect( siteName ).not.toBeNull();
-		const siteContent = new SiteContent( session.mainWindow, siteName as string );
-
-		const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
-		await startButton.click();
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		await sidebar.getStatusButton( first.name ).click();
+		await sidebar.expectRunning( first.name );
 	} );
 } );

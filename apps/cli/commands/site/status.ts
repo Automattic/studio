@@ -1,7 +1,6 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
-import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
@@ -36,13 +35,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		/* translators: status value for the Xdebug setting in the site status output */
 		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
 
-		const runtime = getSiteRuntime( site );
 		const fileAccess = getSiteFileAccess( site );
-		/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
-		const nativeLabel = __( 'Native' );
-		/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
-		const sandboxLabel = __( 'Sandbox' );
-		const runtimeLabel = runtime === SITE_RUNTIME_NATIVE_PHP ? nativeLabel : sandboxLabel;
 		const fileAccessLabel =
 			/* translators: value for the File access setting in the site status output */
 			fileAccess === SITE_FILE_ACCESS_ALL_FILES ? __( 'All files' ) : __( 'Site directory' );
@@ -53,6 +46,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			value: string | undefined;
 			type?: string;
 			hidden?: boolean;
+			secret?: boolean;
 		}[] = [
 			{
 				key: __( 'Site URL' ),
@@ -70,7 +64,6 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
-			{ key: __( 'PHP runtime' ), jsonKey: 'runtime', value: runtimeLabel },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
 			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
@@ -83,6 +76,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				key: __( 'Admin password' ),
 				jsonKey: 'adminPassword',
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
+				secret: true,
 			},
 			{ key: __( 'Admin email' ), jsonKey: 'adminEmail', value: site.adminEmail },
 		].filter( ( { value, hidden } ) => value && ! hidden );
@@ -104,14 +98,16 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.flatMap( ( { jsonKey, value } ) =>
-					jsonKey === 'status'
-						? [
-								[ jsonKey, value ],
-								[ 'isOnline', isOnline ],
-						  ]
-						: [ [ jsonKey, value ] ]
-				)
+				siteData
+					.filter( ( { secret } ) => ! secret )
+					.flatMap( ( { jsonKey, value } ) =>
+						jsonKey === 'status'
+							? [
+									[ jsonKey, value ],
+									[ 'isOnline', isOnline ],
+							  ]
+							: [ [ jsonKey, value ] ]
+					)
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

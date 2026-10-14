@@ -31,6 +31,7 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import { useReducedMotion } from '@wordpress/compose';
 import { __, isRTL, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
@@ -157,35 +158,13 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [
-	'studio_present',
-	'AskUserQuestion',
-	'present_design_options',
-] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'AskUserQuestion', 'present_design_options' ] );
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 // Only a pre-layout fallback. The scroller spans the full column with the
 // composer floating over it, so the space to actually keep clear is the
 // scroller's reserved bottom padding, which tracks the live composer height.
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
-
-function usePrefersReducedMotion(): boolean {
-	const [ prefersReducedMotion, setPrefersReducedMotion ] = useState( false );
-
-	useEffect( () => {
-		if ( typeof window.matchMedia !== 'function' ) {
-			return;
-		}
-		const mediaQuery = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-		const updatePreference = () => setPrefersReducedMotion( mediaQuery.matches );
-
-		updatePreference();
-		mediaQuery.addEventListener( 'change', updatePreference );
-		return () => mediaQuery.removeEventListener( 'change', updatePreference );
-	}, [] );
-
-	return prefersReducedMotion;
-}
 
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
@@ -1371,7 +1350,7 @@ function AgentQuestionBatch( {
 } ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
-	const prefersReducedMotion = usePrefersReducedMotion();
+	const prefersReducedMotion = useReducedMotion();
 	const activeQuestionRef = useRef< HTMLDivElement | null >( null );
 	const shouldFocusActiveQuestionRef = useRef( false );
 	const total = questions.length;

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AiCreditsPurchaseDialog } from 'src/components/ai-credits-purchase-dialog';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useI18nLocale } from 'src/stores';
 import { useGetStudioAssistantTopUpPricing } from 'src/stores/wpcom-api';
 import type { ButtonVariant } from 'src/components/button';
 
@@ -20,7 +21,8 @@ export function AddAiCreditsButton( {
 	className?: string;
 	variant?: ButtonVariant;
 } ) {
-	const { data: pricing } = useGetStudioAssistantTopUpPricing();
+	const locale = useI18nLocale();
+	const { data: pricing } = useGetStudioAssistantTopUpPricing( { locale } );
 	const [ dialogOpen, setDialogOpen ] = useState( false );
 	const hasOptions = ( pricing?.options.length ?? 0 ) > 0;
 

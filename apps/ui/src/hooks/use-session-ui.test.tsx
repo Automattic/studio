@@ -1,7 +1,8 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { SessionUIProvider, useSessionPreviewUI } from './use-session-ui';
+import { SessionUIProvider, useSessionPreviewUI, useSessionUIDispatch } from './use-session-ui';
 import type { Connector } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -57,5 +58,23 @@ describe( 'useSessionPreviewUI site switching', () => {
 
 		act( () => result.current.setSite( 'site-a' ) );
 		expect( result.current.path ).toBe( '/contact' );
+	} );
+} );
+
+describe( 'useSessionPreviewUI agent reloads', () => {
+	it( 'leaves the design system page for the front end', () => {
+		const { result } = renderHook(
+			() => ( { preview: useSessionPreviewUI(), dispatch: useSessionUIDispatch() } ),
+			{ wrapper }
+		);
+
+		act( () => result.current.preview.setSite( 'site-a' ) );
+		act( () => result.current.preview.updatePath( '/about' ) );
+		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		expect( result.current.preview.path ).toBe( '/about' );
+
+		act( () => result.current.preview.updatePath( DESIGN_SYSTEM_PREVIEW_PATH ) );
+		act( () => result.current.dispatch( { type: 'preview/reload' } ) );
+		expect( result.current.preview.path ).toBe( '/' );
 	} );
 } );

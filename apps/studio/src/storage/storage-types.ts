@@ -19,11 +19,6 @@ export interface AppdataSiteData {
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
 	autoStart?: boolean;
-	// The last runtime stat counted for this site, and when (Unix ms). Dedupes
-	// the daily per-site runtime bump so restarts don't inflate it, while still
-	// re-counting when the day rolls over or the runtime/file-access choice changes.
-	runtimeStatBumpedAt?: number;
-	runtimeStat?: string;
 }
 
 export interface NightlyPromptResult {
@@ -55,6 +50,7 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	agenticUiBannerDismissed?: boolean;
+	dontShowArm64Warning?: boolean;
 	// Whether chat/agent features are offered inside the new UI. Distinct from
 	// `betaFeatures.enableAgenticUi`, which picks the renderer (new vs classic).
 	agenticFeaturesEnabled?: boolean;

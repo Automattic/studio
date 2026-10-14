@@ -1,0 +1,18 @@
+.badge {
+	flex-shrink: 0;
+	padding: 0 var(--wpds-dimension-padding-xs);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 400;
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-foreground-content-neutral-weak);
+}
+
+.badge[data-environment='staging'] {
+	border-color: var(--wpds-color-stroke-surface-warning-strong);
+}
+
+.badge[data-environment='development'] {
+	border-color: var(--wpds-color-stroke-surface-info-strong);
+}

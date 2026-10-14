@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAiCreditsNoticeForTests } from '@/data/ai-credits-notice';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
-import { useActivePersistentMessages } from './use-app-messages';
+import { useActivePersistentMessages, useRecordPersistentMessages } from './use-app-messages';
 import type { PersistentMessage } from './use-app-messages';
 import type { ReactNode } from 'react';
 
@@ -118,5 +119,37 @@ describe( 'useActivePersistentMessages AI credits notices', () => {
 		expect( creditsMessages( result.current.messages ) ).toEqual( [
 			expect.objectContaining( { id: 'ai-credits:warning' } ),
 		] );
+	} );
+} );
+
+describe( 'useRecordPersistentMessages', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		resetAiCreditsNoticeForTests();
+		resetAppMessagesForTests();
+	} );
+
+	it( 'logs a sidebar card to the notification history and keeps it after dismissal', () => {
+		mockUsage( 0.83 );
+		const { result } = renderHook(
+			() => {
+				useRecordPersistentMessages();
+				return useActivePersistentMessages();
+			},
+			{ wrapper }
+		);
+
+		expect( getNoticeHistory() ).toEqual( [
+			expect.objectContaining( {
+				id: 'ai-credits:warning',
+				intent: 'warning',
+				title: 'At 83% usage',
+			} ),
+		] );
+
+		act( () => result.current.dismiss( result.current.messages[ 0 ] ) );
+
+		expect( result.current.messages ).toEqual( [] );
+		expect( getNoticeHistory() ).toHaveLength( 1 );
 	} );
 } );

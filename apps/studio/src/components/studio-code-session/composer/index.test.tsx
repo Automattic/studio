@@ -17,6 +17,10 @@ vi.mock( 'src/stores/wpcom-api', async ( importOriginal ) => ( {
 	useGetStudioAssistantQuota: () => ( { data: undefined } ),
 	useGetStudioAssistantTopUpPricing: () => ( { data: undefined } ),
 } ) );
+vi.mock( 'src/stores', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('src/stores') >() ),
+	useI18nLocale: () => 'en',
+} ) );
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getPathForFile: mockGetPathForFile,

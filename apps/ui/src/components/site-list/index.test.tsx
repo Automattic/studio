@@ -232,14 +232,14 @@ describe( 'SiteList', () => {
 		expect( useConnectorMock().trackEvent ).toHaveBeenCalledWith( 'studio_site_open_folder' );
 	} );
 
-	it( 'opens phpMyAdmin and WP admin through the host so the session is kept', async () => {
+	it( 'opens phpMyAdmin and WP Admin through the host so the session is kept', async () => {
 		render( <SiteList /> );
 
 		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
 		fireEvent.click( await screen.findByText( 'Open in phpMyAdmin' ) );
 
 		fireEvent.contextMenu( screen.getByText( 'Running Site' ) );
-		fireEvent.click( await screen.findByText( 'Open WP admin' ) );
+		fireEvent.click( await screen.findByText( 'Open in Browser (WP Admin)' ) );
 
 		expect( useConnectorMock().openSiteUrl ).toHaveBeenCalledWith(
 			'running-site',
@@ -265,7 +265,10 @@ describe( 'SiteList', () => {
 			'true'
 		);
 		expect( screen.getByText( 'Open in phpMyAdmin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
-		expect( screen.getByText( 'Open WP admin' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByText( 'Open in Browser (WP Admin)' ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 		expect( screen.getByText( OPEN_IN_FILE_MANAGER ) ).not.toHaveAttribute( 'aria-disabled' );
 	} );
 

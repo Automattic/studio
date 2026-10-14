@@ -174,7 +174,6 @@ describe( 'useAddSite', () => {
 			undefined, // adminUsername
 			undefined, // adminPassword
 			undefined, // adminEmail
-			undefined, // runtime
 			undefined, // fileAccess
 			undefined // flowType
 		);

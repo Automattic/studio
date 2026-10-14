@@ -16,7 +16,7 @@
 	min-width: 0;
 }
 
-.themeSummary {
+.summary {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
@@ -75,21 +75,7 @@
 	cursor: not-allowed;
 }
 
-.themeDetails {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.themeValue {
-	overflow-wrap: anywhere;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-foreground-content-neutral);
-}
-
-.themeMeta {
+.versions {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;

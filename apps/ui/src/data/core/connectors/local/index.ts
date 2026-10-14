@@ -2,7 +2,6 @@ import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -18,8 +17,8 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
+	OnboardingHintsState,
 	ProposedSitePath,
-	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -31,8 +30,9 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
-import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
-import type { PushOutput } from '@studio/common/types/sync';
+import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -47,32 +47,19 @@ interface LocalConnectorOptions {
 	apiBaseUrl: string;
 }
 
-// One snapshot (preview-site) command's progress, correlated by operationId —
-// the browser-side view of the server's shared SnapshotOutput. Only the fields
-// the connector reacts to are modelled.
-type SnapshotSseOutput =
-	| { kind: 'key-value'; operationId: string; data: { key: string; value: string } }
-	| { kind: 'fatal-error'; operationId: string; data: { message: string } }
-	| { kind: 'success'; operationId: string }
-	| { kind: 'output' | 'error'; operationId: string };
-
-type PullProgressSseOutput = PullSiteProgress & {
-	siteId: string;
-	remoteSiteId: number;
-};
-type ImportSseOutput = { siteId: string; event: ImportEventTuple };
-type PushSseOutput = PushOutput & { siteId: string; remoteSiteId: number };
-
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
-	| { channel: 'snapshot'; payload: SnapshotSseOutput }
-	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
-	| { channel: 'sync-push'; payload: PushSseOutput }
-	| { channel: 'import'; payload: ImportSseOutput }
-	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
+	| { channel: 'sync-activity'; payload: SyncEvent }
+	| {
+			channel: 'sync-connect';
+			payload: { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean };
+	  }
+	| { channel: 'site-event'; payload: SiteEvent }
+	| { channel: 'snapshot-event'; payload: SnapshotEvent }
+	| { channel: 'auth-event'; payload: unknown };
 
 /**
  * The `studio ui` data source: the browser analog of the Electron IPC
@@ -93,13 +80,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
-	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
-	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
-	const pushOutputListeners = new Set< ( output: PushSseOutput ) => void >();
-	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
+	const syncActivityListeners = new Set< ( event: SyncEvent ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const siteEventListeners = new Set< ( event: SiteEvent ) => void >();
+	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
+	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -184,34 +171,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return site.url;
 	}
 
-	// Resolve when the snapshot command with this operationId finishes, with its
-	// published URL — correlating the `snapshot` SSE stream by operationId, the
-	// same way the IPC connector correlates the snapshot-* events.
-	function awaitSnapshotOperation( operationId: string ): Promise< { url: string } > {
-		return new Promise( ( resolve, reject ) => {
-			let capturedUrl: string | undefined;
-			const listener = ( output: SnapshotSseOutput ) => {
-				if ( output.operationId !== operationId ) {
-					return;
-				}
-				if ( output.kind === 'key-value' && output.data.key === 'url' ) {
-					capturedUrl = output.data.value;
-				} else if ( output.kind === 'success' ) {
-					snapshotListeners.delete( listener );
-					if ( capturedUrl ) {
-						resolve( { url: capturedUrl } );
-					} else {
-						reject( new Error( 'Preview site command succeeded but no URL was returned.' ) );
-					}
-				} else if ( output.kind === 'fatal-error' ) {
-					snapshotListeners.delete( listener );
-					reject( new Error( output.data.message ) );
-				}
-			};
-			snapshotListeners.add( listener );
-		} );
-	}
-
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -228,16 +187,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'snapshot' ) {
-					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-pull' ) {
-					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-push' ) {
-					pushOutputListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'import' ) {
-					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-activity' ) {
+					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'site-event' ) {
+					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'snapshot-event' ) {
+					snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'auth-event' ) {
+					authListeners.forEach( ( listener ) => listener() );
 				}
 			};
 		},
@@ -253,7 +212,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			agentInstructions: true,
 			aiSettings: true,
 			studioLogs: false,
-			switchToClassicUi: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -341,8 +299,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async logout() {
 			await api( '/auth/logout', { method: 'POST' } );
 		},
-		onAuthStateChanged() {
-			return () => {};
+		onAuthStateChanged( listener ) {
+			authListeners.add( listener );
+			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
 			return true;
@@ -368,6 +327,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );
 		},
+		async getSiteDesign( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
+		},
+		async fixSiteDesignDrift( siteId, fixes ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/design/fixes`, {
+				method: 'POST',
+				body: JSON.stringify( { fixes } ),
+			} );
+		},
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
@@ -377,6 +345,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					name: params.name,
 					path: params.path,
 					phpVersion: params.phpVersion,
+					fileAccess: params.fileAccess,
 					wpVersion: params.wpVersion,
 					customDomain: params.customDomain,
 					enableHttps: params.enableHttps,
@@ -384,6 +353,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
+					flowType: params.flowType,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -414,6 +384,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
 			return null;
+		},
+		async isCertificateTrusted() {
+			return ( await api< { trusted: boolean } >( '/certificate' ) ).trusted;
+		},
+		async trustCertificate() {
+			await api( '/certificate/trust', { method: 'POST' } );
 		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
@@ -504,21 +480,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
-			const listener = onProgress
-				? ( output: ImportSseOutput ) => {
-						if ( output.siteId === siteId ) onProgress( output.event );
-				  }
-				: undefined;
-			if ( listener ) importListeners.add( listener );
-			try {
-				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-					method: 'POST',
-					body: JSON.stringify( { path: backupPath } ),
-				} );
-			} finally {
-				if ( listener ) importListeners.delete( listener );
-			}
+		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
+			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+				method: 'POST',
+				body: JSON.stringify( {
+					path: backupPath,
+					suppressTracksEvent: options?.suppressTracksEvent,
+				} ),
+			} );
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
@@ -527,32 +496,37 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< Snapshot[] >( '/snapshots' );
 		},
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			// No usage endpoint on the local server yet; callers fall back to
-			// counting snapshots.
-			return null;
+			return api< SnapshotUsage | null >( '/snapshots/usage' );
 		},
 		async getStudioAssistantQuota() {
 			// The server proxies the WordPress.com quota endpoint and returns
 			// the already-parsed shape (or null when signed out).
 			return api< StudioAssistantQuota | null >( '/quota' );
 		},
-		async getStudioAssistantTopUpPricing() {
+		async getStudioAssistantTopUpPricing( locale?: string ) {
 			// Proxied server-side for the same reason as the quota: the browser
 			// UI never holds the wpcom token.
-			return api< StudioAssistantTopUpPricing | null >( '/top-up-pricing' );
+			const query = locale ? `?locale=${ encodeURIComponent( locale ) }` : '';
+			return api< StudioAssistantTopUpPricing | null >( `/top-up-pricing${ query }` );
 		},
 		async deleteAllSnapshots() {
-			// No-op: the local server has no delete-all route yet.
+			await api( '/snapshots', { method: 'DELETE' } );
 		},
-		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
+		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
-			// The server returns an operationId; progress + the final URL arrive on
-			// the `snapshot` SSE channel.
-			const { operationId } = await api< { operationId: string } >(
-				`/sites/${ encodeURIComponent( siteId ) }/preview`,
-				{ method: 'POST', body: JSON.stringify( { hostname: existingHostname } ) }
-			);
-			return awaitSnapshotOperation( operationId );
+			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
+				method: 'POST',
+				body: JSON.stringify( { hostname: existingHostname, name } ),
+			} );
+		},
+		async deleteSnapshot( hostname ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, { method: 'DELETE' } );
+		},
+		async renameSnapshot( hostname, name ) {
+			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, {
+				method: 'PATCH',
+				body: JSON.stringify( { name } ),
+			} );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
@@ -591,24 +565,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options, onPhase ) {
-			const listener = ( output: PushSseOutput ) => {
-				if ( output.siteId === siteId && output.kind === 'phase' ) {
-					onPhase?.( output.phase, output.progress );
-				}
-			};
-			if ( onPhase ) {
-				pushOutputListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pushOutputListeners.delete( listener );
-			}
+		async pushSiteToLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/push`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
 			if ( result?.cancelled ) {
@@ -622,32 +583,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, onProgress, options ) {
-			const listener = ( output: PullProgressSseOutput ) => {
-				if ( output.siteId === siteId ) {
-					onProgress?.( {
-						message: output.message,
-						...( output.progress === undefined ? {} : { progress: output.progress } ),
-						// Drives the cancel gate — without it every pull looks cancellable.
-						...( output.action === undefined ? {} : { action: output.action } ),
-					} );
-				}
-			};
-			if ( onProgress ) {
-				pullProgressListeners.add( listener );
-			}
-			let result: { cancelled?: boolean } | undefined;
-			try {
-				result = await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-					method: 'POST',
-					body: JSON.stringify( { remoteSiteId, options } ),
-				} );
-			} finally {
-				pullProgressListeners.delete( listener );
-			}
+		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+			const result = await api< { cancelled?: boolean } >(
+				`/sites/${ encodeURIComponent( siteId ) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
+		},
+		onSyncActivity( listener ) {
+			syncActivityListeners.add( listener );
+			return () => syncActivityListeners.delete( listener );
 		},
 		async getLatestRewindId( remoteSiteId ) {
 			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
@@ -659,21 +606,29 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				) }&path=${ encodeURIComponent( path ) }`
 			);
 		},
-		// Selective-sync local lookups: the server has no per-file endpoints yet,
-		// so degrade the same way the dialog does elsewhere without this data —
-		// category-level selection works; file trees, size estimates, and
-		// version warnings are simply absent.
-		async listLocalFileTree() {
-			return [];
+		async listLocalFileTree( siteId, path, depth ) {
+			return api< RawDirectoryEntry[] >(
+				`/sites/${ encodeURIComponent( siteId ) }/file-tree?path=${ encodeURIComponent(
+					path
+				) }&depth=${ depth }`
+			);
 		},
-		async getDirectorySize() {
-			return 0;
+		async getDirectorySize( siteId, path ) {
+			return api< number >(
+				`/sites/${ encodeURIComponent( siteId ) }/directory-size?path=${ encodeURIComponent(
+					path.join( '/' )
+				) }`
+			);
 		},
-		async getFileSize() {
-			return 0;
+		async getFileSize( siteId, path ) {
+			return api< number >(
+				`/sites/${ encodeURIComponent( siteId ) }/file-size?path=${ encodeURIComponent(
+					path.join( '/' )
+				) }`
+			);
 		},
-		async getIsMultisite() {
-			return undefined;
+		async getIsMultisite( siteId ) {
+			return api< boolean >( `/sites/${ encodeURIComponent( siteId ) }/multisite` );
 		},
 		async getHostingPhpVersion( remoteSiteId ) {
 			const version = await api< string | null >(
@@ -899,8 +854,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onFullscreenChange() {
 			return () => {};
 		},
-		onSiteEvent() {
-			return () => {};
+		onSiteEvent( listener ) {
+			siteEventListeners.add( listener );
+			return () => siteEventListeners.delete( listener );
+		},
+		onSnapshotEvent( listener ) {
+			snapshotEventListeners.add( listener );
+			return () => snapshotEventListeners.delete( listener );
 		},
 		onToggleSitePreview() {
 			// No application menu in a browser tab.
@@ -935,14 +895,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// A browser tab can't receive the wp-studio:// checkout return link.
 			return () => {};
 		},
-		async disableAgenticUi() {
-			// No-op in the browser.
-		},
 		async getOnboardingHints() {
-			return readOnboardingHints();
+			return api< OnboardingHintsState >( '/onboarding-hints' );
 		},
 		async setOnboardingHints( partial ) {
-			writeOnboardingHints( partial );
+			await api( '/onboarding-hints', { method: 'PATCH', body: JSON.stringify( partial ) } );
 		},
 		onShowGettingStarted() {
 			// No application menu in a browser tab.

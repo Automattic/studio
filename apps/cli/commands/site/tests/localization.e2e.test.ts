@@ -48,8 +48,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: localization', () => {
 				sitePath,
 				'--wp',
 				'latest',
-				'--runtime',
-				'sandbox',
 				'--skip-browser',
 				'--skip-log-details',
 			],

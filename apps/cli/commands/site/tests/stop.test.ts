@@ -1,4 +1,3 @@
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -65,7 +64,6 @@ describe( 'CLI: studio site stop', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -231,7 +229,6 @@ describe( 'CLI: studio site stop --all', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
-		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {

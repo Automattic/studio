@@ -9,6 +9,7 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 	shell,
+	type WebContents,
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -27,10 +28,9 @@ import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
-	hasUploadingPushOperations,
+	hasCancellableSyncOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
-import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -38,10 +38,11 @@ import {
 	StatsGroup,
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { getUserLocaleWithFallback, loadLocaleData } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
@@ -79,16 +80,68 @@ function getRendererUrl(): string {
 	return getCurrentRendererUrl();
 }
 
-function openExternalWebUrl( url: string ): void {
-	try {
-		const parsedUrl = new URL( url );
-		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
-			return;
-		}
-		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
-	} catch {
-		// Ignore malformed URLs from untrusted pages.
+function isOtherSiteThanPreview( contents: WebContents, url: string ) {
+	const currentUrl = parseWebUrl( contents.getURL() );
+	return ! currentUrl || new URL( url ).origin !== new URL( currentUrl ).origin;
+}
+
+// Links to the site shown in the pane open in the pane; others open in the
+// user's browser.
+function openSitePreviewPopupUrl( contents: WebContents, url: string ) {
+	if ( contents.isDestroyed() ) {
+		return;
 	}
+	if ( isOtherSiteThanPreview( contents, url ) ) {
+		void shell.openExternal( url ).catch( () => undefined );
+	} else {
+		void contents.loadURL( url ).catch( () => undefined );
+	}
+}
+
+// The site preview is a single pane, so it has nowhere to open new windows.
+// Scripts like the block editor's Preview open a blank window and point it at
+// the real URL later, so those get a hidden window that is followed instead.
+function handleSitePreviewPopups( contents: WebContents ) {
+	contents.setWindowOpenHandler( ( details ) => {
+		const url = parseWebUrl( details.url );
+		if ( url ) {
+			openSitePreviewPopupUrl( contents, url );
+			return { action: 'deny' };
+		}
+		if ( details.url === '' || details.url === 'about:blank' ) {
+			return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+		}
+		return { action: 'deny' };
+	} );
+
+	contents.on( 'did-create-window', ( popup ) => {
+		const closePopup = () => {
+			if ( ! popup.isDestroyed() ) {
+				popup.destroy();
+			}
+		};
+		const followPopup = ( targetUrl: string ) => {
+			const url = parseWebUrl( targetUrl );
+			if ( ! url ) {
+				return false;
+			}
+			closePopup();
+			openSitePreviewPopupUrl( contents, url );
+			return true;
+		};
+		popup.webContents.on( 'will-navigate', ( event ) => {
+			if ( followPopup( event.url ) ) {
+				event.preventDefault();
+			}
+		} );
+		popup.webContents.on( 'did-start-navigation', ( event ) => {
+			if ( event.isMainFrame ) {
+				followPopup( event.url );
+			}
+		} );
+		contents.once( 'did-navigate', closePopup );
+		contents.once( 'destroyed', closePopup );
+	} );
 }
 
 if ( ! process.env.IS_DEV_BUILD ) {
@@ -226,6 +279,11 @@ async function appBoot() {
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			if ( isSitePreviewWebview ) {
+				const url = parseWebUrl( navigationUrl );
+				if ( url && parseWebUrl( contents.getURL() ) && isOtherSiteThanPreview( contents, url ) ) {
+					event.preventDefault();
+					void shell.openExternal( url ).catch( () => undefined );
+				}
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
@@ -262,14 +320,11 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( ( details ) => {
-			// Site-preview popups (target="_blank", admin-bar links, …) open
-			// in the user's browser rather than spawning a new Electron window.
-			if ( isSitePreviewWebview ) {
-				openExternalWebUrl( details.url );
-			}
-			return { action: 'deny' };
-		} );
+		if ( isSitePreviewWebview ) {
+			handleSitePreviewPopups( contents );
+		} else {
+			contents.setWindowOpenHandler( () => ( { action: 'deny' } ) );
+		}
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {
@@ -347,6 +402,7 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		loadLocaleData( locale );
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );
@@ -389,10 +445,12 @@ async function appBoot() {
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
-				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				// The agentic UI's design system view loads DESIGN.md fonts.
+				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'
-					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
-					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*"
+					: "script-src 'self'",
 				// Site preview uses `<webview>` to host local WordPress sites
 				// served from arbitrary localhost ports and (optionally) HTTPS
 				// custom domains.
@@ -424,8 +482,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-		const betaFeatures = await getBetaFeatures();
-		setAgenticUiEnabled( betaFeatures.enableAgenticUi );
+		setAgenticUiEnabled( true );
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -509,7 +566,7 @@ async function appBoot() {
 			const CANCEL_BUTTON_INDEX = 1;
 
 			const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
-				hasUploadingPushOperations()
+				hasCancellableSyncOperations()
 					? {
 							message: __( 'Sync is in progress' ),
 							detail: __(
@@ -519,9 +576,7 @@ async function appBoot() {
 					  }
 					: {
 							message: __( 'Sync will continue' ),
-							detail: __(
-								'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
-							),
+							detail: __( 'The sync will keep running after you quit Studio.' ),
 							type: 'info',
 					  };
 

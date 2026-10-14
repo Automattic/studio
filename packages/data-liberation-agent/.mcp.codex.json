@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "data-liberation": {
-      "command": "node",
-      "args": ["./scripts/mcp-launcher.mjs"],
-      "cwd": "."
-    }
-  }
-}

@@ -359,20 +359,11 @@ window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 	);
 } );
 
-window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
-	let operationUpdate: Partial< SnapshotOperation > = {};
-
-	if ( payload.data.key === 'name' ) {
-		operationUpdate = { snapshotName: payload.data.value };
-	}
-	if ( payload.data.key === 'url' ) {
-		operationUpdate = { snapshotUrl: payload.data.value };
-	}
-
+window.ipcListener.subscribe( 'snapshot-result', ( event, payload ) => {
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
-			operation: operationUpdate,
+			operation: { snapshotName: payload.data.name, snapshotUrl: payload.data.url },
 		} )
 	);
 } );

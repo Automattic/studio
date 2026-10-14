@@ -3,7 +3,10 @@ import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { AddAiCreditsButton } from '@/components/add-ai-credits-button';
 import toastStyles from '@/components/app-toasts/style.module.css';
-import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
+import {
+	useActivePersistentMessages,
+	useRecordPersistentMessages,
+} from '@/data/queries/use-app-messages';
 import styles from './style.module.css';
 import type { NoticeAppearance } from '@/components/app-toasts';
 
@@ -74,4 +77,10 @@ export function AppMessageCardsDot( { className }: { className?: string } ) {
 	}
 
 	return <span className={ clsx( styles.dot, className ) } aria-hidden="true" />;
+}
+
+// Separate from the cards so logging continues while the sidebar is collapsed.
+export function AppMessageHistoryRecorder() {
+	useRecordPersistentMessages();
+	return null;
 }

@@ -3,7 +3,6 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { listSites } from '@studio/common/sites/list';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
@@ -205,17 +204,14 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		// Default to the native PHP runtime when the caller doesn't specify one.
-		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 		let result;
 		try {
-			result = await createSiteViaCli( { ...options, runtime, siteId } );
+			result = await createSiteViaCli( { ...options, siteId } );
 		} catch ( error ) {
 			// Not `unregister`, which would mark the id deleted; this site never existed.
 			servers.delete( siteId );
 			throw error;
 		}
-		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;
 
 		server.details.port = result.port;
@@ -300,7 +296,6 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
-			runtime: site.runtime,
 			fileAccess: site.fileAccess,
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,

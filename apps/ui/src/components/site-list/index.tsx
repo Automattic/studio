@@ -428,13 +428,6 @@ function SiteActionsMenu( {
 	// shortcuts, so labels, gating and Tracks events can't drift between them.
 	const destinations = useOpenInDestinations( site );
 
-	const handleOpenWpAdmin = () => {
-		void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-		void connector.openSiteUrl( site.id, '/wp-admin/' ).catch( ( error ) => {
-			console.error( 'Failed to open WP admin:', error );
-		} );
-	};
-
 	const handleDeleted = () => {
 		const viewingDeletedSite =
 			params.siteId === site.id ||
@@ -495,9 +488,6 @@ function SiteActionsMenu( {
 							) }
 						</Menu.Item>
 					) ) }
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
-						{ __( 'Open WP admin' ) }
-					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item disabled={ manageById.export.disabled } onClick={ manageById.export.run }>
 						{ manageById.export.loading ? __( 'Exporting…' ) : __( 'Export entire site' ) }

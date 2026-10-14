@@ -69,10 +69,7 @@ export function useSiteManagementActions(
 	// here because reading a site mid-delete or mid-restart is not worth doing.
 	const isBusy = useIsSiteBusy( site );
 
-	// Import is deliberately not a `SITE_OPERATIONS` kind — a sync can hold a
-	// site for tens of minutes, which costs more than it protects — so the CLI
-	// won't refuse these. Guard the write window here instead: an import
-	// replaces the files and database the others read from.
+	// Covers the backup upload, before the CLI takes the site.
 	const activity = useSiteSyncActivity( site.id );
 	const isImporting = activity?.kind === 'pending' && activity.direction === 'import';
 	const isWriting = isBusy || isImporting;

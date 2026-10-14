@@ -1,9 +1,9 @@
 import {
+	designSheet,
 	fontFamilyName as fontFamily,
 	googleFontsUrl,
 	parseDesignMd,
 	Style,
-	typographyStyles,
 } from '@studio/design-md';
 
 const escapeHtml = ( value: unknown ) =>
@@ -13,19 +13,6 @@ const css = ( value: unknown ) => String( value ).replace( /[<>{};"']/g, '' );
 
 const dimension = ( value: unknown ) =>
 	typeof value === 'number' ? `${ value }px` : css( value );
-
-function luminance( color: string ): number {
-	const hex = color.trim().match( /^#([0-9a-f]{6}|[0-9a-f]{3})/i )?.[ 1 ];
-	if ( ! hex ) {
-		return 0.5;
-	}
-	const full = hex.length === 3 ? [ ...hex ].map( ( digit ) => digit + digit ).join( '' ) : hex;
-	const [ r, g, b ] = [ 0, 2, 4 ].map( ( start ) => {
-		const channel = parseInt( full.slice( start, start + 2 ), 16 ) / 255;
-		return channel <= 0.04045 ? channel / 12.92 : ( ( channel + 0.055 ) / 1.055 ) ** 2.4;
-	} );
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
 
 function fontCss( style: Style ): string {
 	const family = fontFamily( style.fontFamily );
@@ -45,40 +32,21 @@ function fontLinks( styles: Style[] ): string {
 
 export function renderDesignBoard( design: string, image?: string ): string {
 	const tokens = parseDesignMd( design );
-	const colors = Object.entries( tokens.colors ?? {} ).filter(
-		( entry ): entry is [ string, string ] => typeof entry[ 1 ] === 'string'
-	);
-	const styles = typographyStyles( tokens );
-	if ( colors.length < 2 || ! styles.length ) {
-		throw new Error(
-			'The DESIGN.md front matter needs at least two colors, as quoted hex values (primary: "#c2552b"), and one typography style.'
-		);
-	}
-
-	const named = ( key: string ) => colors.find( ( [ name ] ) => name === key )?.[ 1 ];
-	const byLuminance = colors
-		.map( ( [ , value ] ) => value )
-		.sort( ( a, b ) => luminance( a ) - luminance( b ) );
-	const background = named( 'background' ) ?? byLuminance[ byLuminance.length - 1 ];
-	const text =
-		named( 'text' ) ??
-		( luminance( background ) > 0.2 ? byLuminance[ 0 ] : byLuminance[ byLuminance.length - 1 ] );
-	const primary = named( 'primary' ) ?? colors[ 0 ][ 1 ];
+	const {
+		palette,
+		background,
+		text,
+		primary,
+		accent,
+		ink,
+		styles,
+		display,
+		headline,
+		body,
+		label,
+		button,
+	} = designSheet( tokens );
 	const hairline = `color-mix(in srgb,${ css( text ) } 18%,transparent)`;
-	const ink = ( surface: string ) =>
-		Math.abs( luminance( text ) - luminance( surface ) ) >=
-		Math.abs( luminance( background ) - luminance( surface ) )
-			? text
-			: background;
-	const seen = new Set< string >();
-	const palette = [
-		[ 'primary', primary ],
-		[ 'background', background ],
-		[ 'text', text ],
-		...colors,
-	].filter(
-		( [ , value ] ) => ! seen.has( value.toLowerCase() ) && seen.add( value.toLowerCase() )
-	);
 	const accents = palette.slice( 3 );
 	const tile = ( [ key, value ]: string[] ) =>
 		`<div class="tile" style="background-color:${ css( value ) };color:${ css( ink( value ) ) }${
@@ -92,24 +60,11 @@ export function renderDesignBoard( design: string, image?: string ): string {
 		)
 		.join( '' );
 
-	const styleNamed = ( name: string ) => styles.find( ( [ key ] ) => key.includes( name ) )?.[ 1 ];
-	const display = styleNamed( 'display' ) ?? styles[ 0 ][ 1 ];
-	const headline = styleNamed( 'headline' ) ?? display;
-	const body = styleNamed( 'body' ) ?? styles[ styles.length - 1 ][ 1 ];
-	const label = styleNamed( 'label' ) ?? body;
 	const specimen = ( className: string, style: Style ) =>
 		`<figure><div class="aa ${ className }">Aa</div><figcaption>${ escapeHtml(
 			[ fontFamily( style.fontFamily ), style.fontWeight ].filter( Boolean ).join( ' · ' )
 		) }</figcaption></figure>`;
 
-	const resolve = ( value: unknown ): unknown => {
-		const reference = typeof value === 'string' ? value.match( /^\{([^}]+)\}$/ )?.[ 1 ] : undefined;
-		return reference
-			? reference
-					.split( '.' )
-					.reduce< unknown >( ( node, key ) => ( node as Style | undefined )?.[ key ], tokens )
-			: value;
-	};
 	const rounded = tokens.rounded ?? {};
 	const small = dimension( rounded.sm ?? rounded.md ?? 0 );
 	const shape =
@@ -119,15 +74,11 @@ export function renderDesignBoard( design: string, image?: string ): string {
 		rounded.lg ??
 		rounded.md ??
 		0;
-	const button = ( tokens.components?.[ 'button-primary' ] ?? {} ) as Style;
-	const buttonBackground = String( resolve( button.backgroundColor ) ?? primary );
-	const buttonType = resolve( button.typography );
 	const buttonCss = [
-		`border-radius:${ dimension( resolve( button.rounded ) ?? 0 ) }`,
-		`padding:${ dimension( resolve( button.padding ) ?? '14px 28px' ) }`,
-		fontCss( buttonType && typeof buttonType === 'object' ? ( buttonType as Style ) : label ),
+		`border-radius:${ dimension( button.rounded ) }`,
+		`padding:${ dimension( button.padding ) }`,
+		fontCss( button.typography ),
 	].join( ';' );
-	const accent = accents[ 0 ]?.[ 1 ] ?? text;
 	const treatment = tokens.imagery ?? {};
 	const overlay = [ 'multiply', 'screen' ].find( ( mode ) => mode === treatment.overlay );
 
@@ -168,9 +119,9 @@ figcaption{margin-top:12px;font-size:13px;opacity:.65}
 .stack{display:flex;flex-direction:column;gap:18px;min-width:0}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
 .button{border:1px solid transparent;${ buttonCss };font-size:15px;line-height:1.2}
-.primary{background-color:${ css( buttonBackground ) };color:${ css(
-		resolve( button.textColor ) ?? ink( buttonBackground )
-	) }${ buttonBackground === 'transparent' ? ';border-color:currentColor' : '' }}
+.primary{background-color:${ css( button.backgroundColor ) };color:${ css( button.textColor ) }${
+		button.backgroundColor === 'transparent' ? ';border-color:currentColor' : ''
+	}}
 .secondary{border-color:currentColor}
 .link{color:${ css( primary ) };text-decoration:underline;text-underline-offset:4px}
 .input{width:240px;border:1px solid color-mix(in srgb,${ css(

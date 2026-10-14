@@ -261,7 +261,10 @@ tests:
             if (!result || result.isError) {
               return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
             }
-            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
+            if (!/fonts downloaded to assets\/fonts/.test(result.text || '')) {
+              return { pass: false, score: 0, reason: `the scaffold did not self-host the DESIGN.md fonts: ${(result.text || '').split('\n').slice(0, 4).join(' ')}` };
+            }
+            return { pass: true, score: 1, reason: `blank theme scaffolded with self-hosted fonts: ${JSON.stringify(call.input)}` };
           });
       - type: javascript
         value: |
@@ -282,8 +285,8 @@ tests:
           });
       # Regression: the "Page content" cadence used to tell the agent to apply
       # page blocks via `wp_cli post update --post_content-file=<host path>`.
-      # `wp_cli` runs inside the PHP-WASM filesystem, so host paths silently
-      # resolve to empty content and the post is overwritten with nothing.
+      # `--post_content-file` is not a WP-CLI option, so the file is never read
+      # and the post content is not updated.
       # The fix is `wp_cli eval` + `file_get_contents(ABSPATH . ...)` — this
       # assertion fails if any wp_cli call reintroduces --post_content-file=.
       - type: javascript
@@ -299,7 +302,7 @@ tests:
             });
             if (offending.length > 0) {
               const sample = JSON.stringify(offending[0].input).slice(0, 300);
-              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which silently fails inside PHP-WASM (first: ${sample})` };
+              return { pass: false, score: 0, reason: `${offending.length} wp_cli call(s) used --post_content-file=, which is not a WP-CLI option (first: ${sample})` };
             }
             return { pass: true, score: 1, reason: 'no wp_cli call used --post_content-file=' };
           });
@@ -338,10 +341,10 @@ tests:
             }
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
-      # Workflow step 8: the build must finish by copying the final desktop
-      # take_screenshot capture to the scaffolded theme's screenshot.jpg (the
-      # Appearance → Themes thumbnail). The capture files are JPEGs, so the
-      # copied file must carry a real JPEG signature — a hand-crafted or
+      # Workflow step 7: the home page's desktop take_screenshot captures, with
+      # the scaffolded theme's directory as `themeScreenshot`, set its
+      # screenshot.jpg (the Appearance → Themes thumbnail). Captures are JPEGs,
+      # so the file must carry a real JPEG signature — a hand-crafted or
       # generated placeholder fails.
       - type: javascript
         value: |
@@ -990,4 +993,294 @@ tests:
             const mentionsNew = /\b(new|separate|another|second)\b/i.test(text);
             const asks = mentionsCurrent && mentionsNew && text.includes('?');
             return { pass: asks, score: asks ? 1 : 0, reason: asks ? 'agent stopped and asked whether to reuse the active site or create a new one' : `reply did not offer the current-vs-new choice: ${text.slice(0, 300)}` };
+          });
+
+  # An annotation left on the preview's Design system page names a DESIGN.md
+  # token. The agent changes it in DESIGN.md and carries it to theme.json.
+  - description: design system annotation updates DESIGN.md and theme.json
+    vars:
+      caseId: design-system-annotation
+      timeoutMs: 420000
+      askUserPolicy: allow_all
+      seed:
+        activeSite:
+          name: Eval Design Annotation
+          files:
+            DESIGN.md: |
+              ---
+              name: "Eval Design Annotation"
+              colors:
+                primary: "#2F6BFF"
+                background: "#FFFFFF"
+                text: "#111111"
+              typography:
+                body:
+                  fontFamily: "Inter"
+                  fontSize: "1rem"
+                  fontWeight: 400
+              ---
+
+              # Overview
+              A calm, minimal site.
+      prompt: |
+        The user submitted 1 visual annotation from the site preview.
+
+        Make the requested changes. When there are several annotations, address them in the order they were submitted.
+
+        When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
+
+        Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.
+
+        ## Submitted Annotations
+
+        ### 1. design token `colors.primary` - "primary: #2F6BFF"
+        - Page: Design system (DESIGN.md)
+        - Comment: Make the primary color a warm terracotta instead of this blue.
+
+        ```json
+        {
+          "id": "a_1",
+          "comment": "Make the primary color a warm terracotta instead of this blue.",
+          "nearbyText": "primary: #2F6BFF",
+          "designToken": "colors.primary",
+          "path": "DESIGN.md",
+          "timestamp": 1790000000000
+        }
+        ```
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '');
+            const written = (c) => [c.input?.content, c.input?.new_string, ...(Array.isArray(c.input?.edits) ? c.input.edits.map(e => e?.newText) : [])].filter(v => typeof v === 'string').join('\n');
+            const writes = calls.filter(c => c.name === 'Write' || c.name === 'Edit');
+            const design = writes.filter(c => pathOf(c.input).endsWith('DESIGN.md'));
+            const primary = design.map(written).join('\n').match(/primary:\s*"?(#[0-9a-fA-F]{3,8})/);
+            if (!primary || primary[1].toLowerCase() === '#2f6bff') {
+              return { pass: false, score: 0, reason: `DESIGN.md's primary color was not changed; DESIGN.md writes: ${JSON.stringify(design.map(c => c.input)).slice(0, 400)}` };
+            }
+            const themed = writes.some(c => /wp-content\/themes\/[^/]+\/theme\.json$/.test(pathOf(c.input))) || calls.some(c => c.name === 'scaffold_theme');
+            if (!themed) {
+              return { pass: false, score: 0, reason: `no theme.json update after changing DESIGN.md; tools: ${JSON.stringify(calls.map(c => c.name))}` };
+            }
+            return { pass: true, score: 1, reason: `DESIGN.md primary changed to ${primary[1]} and the theme followed` };
+          });
+
+  # STU-2155: once a template part is customized in the Site Editor, WordPress
+  # renders the database copy (a wp_template_part post) instead of the theme
+  # file. The seed customizes the header the way a user would (the theme's own
+  # header plus a tagline), then asks for a header change that has no visible
+  # effect to check with a screenshot. Passes when the change reaches the
+  # rendered header with the user's tagline intact, or when the agent stops to
+  # ask about the customization. Fails when the agent edits only
+  # parts/header.html (reporting success with nothing changed), or drops the
+  # tagline without asking.
+  - description: header change reaches a template part customized in the Site Editor
+    vars:
+      caseId: template-part-db-override
+      timeoutMs: 420000
+      seed:
+        activeSite:
+          name: Eval Template Override
+          files: &stu2155_theme_files
+            wp-content/themes/bakery/style.css: |
+              /*
+              Theme Name: Bakery
+              Description: A custom block theme scaffolded by Studio Code.
+              Requires at least: 6.7
+              Tested up to: 6.9
+              Requires PHP: 7.2
+              Version: 0.1.0
+              License: GNU General Public License v2 or later
+              License URI: http://www.gnu.org/licenses/gpl-2.0.html
+              Text Domain: bakery
+              */
+            wp-content/themes/bakery/functions.php: |
+              <?php
+              /**
+               * Bakery theme functions.
+               *
+               * @package bakery
+               */
+
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style(
+              		'bakery-style',
+              		get_parent_theme_file_uri( 'style.css' ),
+              		array(),
+              		wp_get_theme()->get( 'Version' )
+              	);
+              } );
+
+              add_action( 'after_setup_theme', function () {
+              	add_editor_style( 'style.css' );
+              } );
+            wp-content/themes/bakery/theme.json: |
+              {
+              	"$schema": "https://schemas.wp.org/wp/6.7/theme.json",
+              	"version": 3,
+              	"settings": {
+              		"appearanceTools": true,
+              		"layout": { "contentSize": "1000px", "wideSize": "1280px" },
+              		"useRootPaddingAwareAlignments": true,
+              		"color": {
+              			"palette": [
+              				{ "slug": "base", "name": "Base", "color": "#ffffff" },
+              				{ "slug": "contrast", "name": "Contrast", "color": "#1a1a1a" },
+              				{ "slug": "accent", "name": "Accent", "color": "#b5482a" }
+              			]
+              		}
+              	},
+              	"styles": {
+              		"color": { "background": "var:preset|color|base", "text": "var:preset|color|contrast" }
+              	}
+              }
+            wp-content/themes/bakery/templates/index.html: |
+              <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+              <!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->
+              <main class="wp-block-group">
+              	<!-- wp:paragraph -->
+              	<p>Welcome to the bakery.</p>
+              	<!-- /wp:paragraph -->
+              </main>
+              <!-- /wp:group -->
+
+              <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
+            wp-content/themes/bakery/parts/header.html: |
+              <!-- wp:group {"layout":{"type":"constrained"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:group {"layout":{"type":"flex","justifyContent":"space-between"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|40","bottom":"var:preset|spacing|40"}}}} -->
+              	<div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--40)">
+              		<!-- wp:site-title {"level":0} /-->
+              		<!-- wp:navigation /-->
+              	</div>
+              	<!-- /wp:group -->
+              </div>
+              <!-- /wp:group -->
+            wp-content/themes/bakery/parts/footer.html: |
+              <!-- wp:group {"layout":{"type":"constrained"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:site-title {"isLink":false,"level":0} /-->
+              </div>
+              <!-- /wp:group -->
+          wpCli:
+            - [theme, activate, bakery]
+            - - eval
+              - |
+                $file = get_block_file_template( get_stylesheet() . '//header', 'wp_template_part' );
+                $tagline = '<!-- wp:paragraph --><p>Fresh bread daily since 1998</p><!-- /wp:paragraph -->';
+                $content = str_replace( '<!-- wp:site-title {"level":0} /-->', "<!-- wp:site-title {\"level\":0} /-->\n\t\t" . $tagline, $file ? $file->content : '', $count );
+                if ( 1 !== $count ) { echo 'SEED_ERROR: site-title not found in parts/header.html'; return; }
+                $id = wp_insert_post( array( 'post_type' => 'wp_template_part', 'post_status' => 'publish', 'post_name' => 'header', 'post_title' => 'Header', 'post_content' => $content ), true );
+                if ( is_wp_error( $id ) ) { echo 'SEED_ERROR: ' . $id->get_error_message(); return; }
+                wp_set_object_terms( $id, get_stylesheet(), 'wp_theme' );
+                wp_set_object_terms( $id, 'header', 'wp_template_part_area' );
+                $template = get_block_template( get_stylesheet() . '//header', 'wp_template_part' );
+                if ( ! $template || 'custom' !== $template->source ) { echo 'SEED_ERROR: header override is not the rendered copy'; }
+          inspect:
+            - - eval
+              - |
+                $template = get_block_template( get_stylesheet() . '//header', 'wp_template_part' );
+                echo 'INSPECT_JSON=' . wp_json_encode( array( 'stylesheet' => get_stylesheet(), 'source' => $template ? $template->source : null, 'content' => $template ? $template->content : null ) ) . "\n";
+      prompt: |
+        Make the header navigation open its submenus on click instead of on hover.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const raw = (d.inspections || []).map(i => i.stdout).join('\n').match(/INSPECT_JSON=(.*)/);
+            if (!raw) return { pass: false, score: 0, reason: `no header inspection: ${JSON.stringify(d.inspections || d.error).slice(0, 300)}` };
+            const header = JSON.parse(raw[1]);
+            const content = header.content || '';
+            // WordPress 7.0 replaced the deprecated openSubmenusOnClick with submenuVisibility; accept either.
+            const applied = /"openSubmenusOnClick"\s*:\s*true|"submenuVisibility"\s*:\s*"click"/.test(content);
+            const kept = content.includes('Fresh bread daily since 1998');
+            const segments = d.textSegments || [];
+            const finalText = segments[segments.length - 1] || '';
+            const mentions = /(template( part)?|database|site editor|saved) override|database|takes? precedence|saved (copy|version)|customi[sz](ed|ations?) (in|from|made in) the site editor|site editor (customi[sz]ations?|changes|edits|copy|version)/i.test(finalText);
+            const asked = mentions && finalText.includes('?');
+            const state = `rendered header (${header.source}, ${header.stylesheet}): submenus-on-click=${applied}, tagline=${kept}`;
+            if (applied && kept) return { pass: true, score: 1, reason: `change reached the rendered header; ${state}` };
+            if (asked && kept) return { pass: true, score: 1, reason: `agent stopped to ask about the Site Editor customization; ${state}` };
+            if (!kept) return { pass: false, score: 0, reason: `the user's Site Editor customization was discarded${asked ? '' : ' without asking'}; ${state}` };
+            return { pass: false, score: 0, reason: `change never reached the rendered header and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
+          });
+
+  # STU-2155: colors saved in the Site Editor's Styles panel live in the
+  # wp_global_styles post and win over theme.json. The seed saves a background,
+  # a link color and a line height there, then asks for a different background.
+  # Passes when the rendered background is the requested color with the saved
+  # line height intact (the link color may fairly change for contrast), or when
+  # the agent stops to ask about the saved styles. Fails when
+  # the agent edits only theme.json (reporting success with nothing changed),
+  # or wipes the user's saved styles without asking.
+  - description: background change reaches Global Styles saved in the Site Editor
+    vars:
+      caseId: global-styles-db-override
+      timeoutMs: 420000
+      seed:
+        activeSite:
+          name: Eval Global Styles Override
+          files: *stu2155_theme_files
+          wpCli:
+            - [theme, activate, bakery]
+            - - eval
+              - |
+                $id = WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
+                // Under WP-CLI there is no current user, so the post is created without its theme term.
+                wp_set_object_terms( $id, get_stylesheet(), 'wp_theme' );
+                $styles = array( 'color' => array( 'background' => '#f6efe4' ), 'typography' => array( 'lineHeight' => '1.7' ), 'elements' => array( 'link' => array( 'color' => array( 'text' => '#8a3b1f' ) ) ) );
+                wp_update_post( array( 'ID' => $id, 'post_content' => wp_json_encode( array( 'version' => 3, 'isGlobalStylesUserThemeJSON' => true, 'styles' => $styles ) ) ) );
+                $user = WP_Theme_JSON_Resolver::get_user_data()->get_raw_data();
+                if ( '#f6efe4' !== ( $user['styles']['color']['background'] ?? null ) ) { echo 'SEED_ERROR: saved global styles are not applied'; }
+          inspect:
+            - - eval
+              - |
+                $merged = WP_Theme_JSON_Resolver::get_merged_data()->get_raw_data();
+                $user = WP_Theme_JSON_Resolver::get_user_data()->get_raw_data();
+                $resolve = function ( $value ) use ( $merged ) {
+                	if ( is_string( $value ) && ( preg_match( '/^var:preset\|color\|([a-z0-9-]+)$/i', $value, $m ) || preg_match( '/^var\(--wp--preset--color--([a-z0-9-]+)\)$/i', $value, $m ) ) ) {
+                		foreach ( (array) ( $merged['settings']['color']['palette'] ?? array() ) as $entries ) {
+                			foreach ( (array) $entries as $entry ) {
+                				if ( ( $entry['slug'] ?? '' ) === $m[1] ) {
+                					return $entry['color'];
+                				}
+                			}
+                		}
+                	}
+                	return $value;
+                };
+                $background = $merged['styles']['color']['background'] ?? null;
+                echo 'INSPECT_JSON=' . wp_json_encode( array( 'background' => $resolve( $background ), 'rawBackground' => $background, 'userLineHeight' => $user['styles']['typography']['lineHeight'] ?? null ) ) . "\n";
+      prompt: |
+        Change the site background color to dark navy #1e2a44.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const raw = (d.inspections || []).map(i => i.stdout).join('\n').match(/INSPECT_JSON=(.*)/);
+            if (!raw) return { pass: false, score: 0, reason: `no global styles inspection: ${JSON.stringify(d.inspections || d.error).slice(0, 300)}` };
+            const styles = JSON.parse(raw[1]);
+            const applied = String(styles.background || '').toLowerCase() === '#1e2a44';
+            const kept = String(styles.userLineHeight) === '1.7';
+            const segments = d.textSegments || [];
+            const finalText = segments[segments.length - 1] || '';
+            const mentions = /(global styles|user|database|site editor|saved) override|database|takes? precedence|custom styles|saved (styles|colou?rs?|in the site editor)|customi[sz](ed|ations?) (in|from|made in) the (site editor|styles panel)|site editor (customi[sz]ations?|changes|edits|styles)/i.test(finalText);
+            const asked = mentions && finalText.includes('?');
+            const state = `rendered background=${styles.background} (${styles.rawBackground}), saved line height=${styles.userLineHeight}`;
+            if (applied && kept) return { pass: true, score: 1, reason: `change reached the rendered styles; ${state}` };
+            if (asked && kept) return { pass: true, score: 1, reason: `agent stopped to ask about the saved Site Editor styles; ${state}` };
+            if (!kept) return { pass: false, score: 0, reason: `the user's saved Site Editor styles were discarded${asked ? '' : ' without asking'}; ${state}` };
+            return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });

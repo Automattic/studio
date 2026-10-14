@@ -1,9 +1,11 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
+import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { mockReportKeyValuePair } from 'cli/tests/test-utils';
+import { mockReportResult } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
+
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -20,7 +22,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportError = vi.fn();
 		reportProgress = vi.fn();
 		reportWarning = vi.fn();
-		reportKeyValuePair = mockReportKeyValuePair;
+		reportResult = mockReportResult;
 		spinner = {};
 		currentAction = null;
 	},
@@ -93,33 +95,89 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should list sites with json format', async () => {
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
 			await runCommand( 'json' );
 
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-				'sites',
-				JSON.stringify( [
-					{
-						id: 'site-1',
-						name: 'Test Site 1',
-						path: '/path/to/site1',
-						port: 8080,
-						phpVersion: '8.0',
-						url: 'http://localhost:8080',
-						running: false,
-					},
-					{
-						id: 'site-2',
-						name: 'Test Site 2',
-						path: '/path/to/site2',
-						port: 8081,
-						phpVersion: '8.0',
-						customDomain: 'my-site.wp.local',
-						url: 'http://my-site.wp.local',
-						running: false,
-					},
-				] )
-			);
+			const publicSites = [
+				{
+					id: 'site-1',
+					name: 'Test Site 1',
+					path: '/path/to/site1',
+					port: 8080,
+					phpVersion: '8.0',
+					url: 'http://localhost:8080',
+					running: false,
+				},
+				{
+					id: 'site-2',
+					name: 'Test Site 2',
+					path: '/path/to/site2',
+					port: 8081,
+					phpVersion: '8.0',
+					customDomain: 'my-site.wp.local',
+					url: 'http://my-site.wp.local',
+					running: false,
+				},
+			];
+			expect( consoleSpy ).toHaveBeenCalledWith( JSON.stringify( publicSites ) );
+			expect( mockReportResult ).toHaveBeenCalledWith( publicSites );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'prints only public fields in list JSON', async () => {
+			const plaintextPassword = 'super-secret-admin-password';
+			const encodedPassword = btoa( plaintextPassword );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				...testCliConfig,
+				sites: [
+					{
+						...testCliConfig.sites[ 0 ],
+						adminPassword: encodedPassword,
+						// Legacy field from configs written before the runtime switch was removed.
+						runtime: 'native-php',
+						latestCliPid: 4242,
+						// Unknown fields pass through the loose config schema; they must stay hidden.
+						futureApiToken: 'FUTURE_TOKEN_VALUE',
+					},
+				],
+			} as Awaited< ReturnType< typeof readCliConfig > > );
+
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledTimes( 1 );
+			const stdout = String( consoleSpy.mock.calls[ 0 ][ 0 ] );
+			const parsed = JSON.parse( stdout ) as Array< Record< string, unknown > >;
+
+			expect( parsed ).toHaveLength( 1 );
+			expect( parsed[ 0 ] ).toMatchObject( {
+				id: 'site-1',
+				name: 'Test Site 1',
+				path: '/path/to/site1',
+				port: 8080,
+				phpVersion: '8.0',
+				url: 'http://localhost:8080',
+				running: false,
+			} );
+			expect( parsed[ 0 ] ).not.toHaveProperty( 'runtime' );
+
+			for ( const key of Object.keys( parsed[ 0 ] ) ) {
+				expect( SITE_LIST_PUBLIC_FIELDS ).toContain( key );
+			}
+			expect( stdout ).not.toContain( plaintextPassword );
+			expect( stdout ).not.toContain( encodedPassword );
+			expect( stdout ).not.toContain( 'FUTURE_TOKEN_VALUE' );
+
+			expect( mockReportResult.mock.calls[ 0 ][ 0 ][ 0 ] ).toMatchObject( {
+				id: 'site-1',
+				adminPassword: encodedPassword,
+			} );
+
+			consoleSpy.mockRestore();
 		} );
 
 		// Both front ends disable a site's actions on what this reports, so an
@@ -137,8 +195,7 @@ describe( 'CLI: studio site list', () => {
 
 			await runCommand( 'json' );
 
-			const [ , json ] = mockReportKeyValuePair.mock.calls[ 0 ];
-			expect( JSON.parse( json )[ 0 ] ).not.toHaveProperty( 'operation' );
+			expect( mockReportResult.mock.calls[ 0 ][ 0 ][ 0 ].operation ).toBeUndefined();
 		} );
 
 		it( 'should handle no sites found', async () => {
@@ -155,16 +212,15 @@ describe( 'CLI: studio site list', () => {
 
 			await runCommand( 'json' );
 
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'sites', '[]' );
+			expect( mockReportResult ).toHaveBeenCalledWith( [] );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle custom domain in site URL', async () => {
 			await runCommand( 'json' );
 
-			expect( mockReportKeyValuePair ).toHaveBeenCalledWith(
-				'sites',
-				expect.stringContaining( 'my-site.wp.local' )
+			expect( mockReportResult ).toHaveBeenCalledWith(
+				expect.arrayContaining( [ expect.objectContaining( { url: 'http://my-site.wp.local' } ) ] )
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );

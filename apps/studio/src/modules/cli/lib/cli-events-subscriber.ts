@@ -3,12 +3,14 @@ import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
 	cliSnapshotEventSchema,
+	cliSyncEventSchema,
 	SiteEvent,
 	SITE_EVENTS,
 	SiteDetails,
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
@@ -121,8 +123,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	if ( wasNotRunning && effectiveRunning ) {
 		void captureSiteThumbnail( siteId );
-		await server.getThemeDetails();
-		await server.getSiteIcon();
+		// Cache warm-ups only (both are fetched on demand). Their WP-CLI runs must
+		// not hold up the queue, or the events behind this one — like the start
+		// operation's release — land seconds late.
+		void server.getThemeDetails().then( () => server.getSiteIcon() );
 		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
 		await server.persistAutoStart( true );
 	} else if ( ! wasNotRunning && ! effectiveRunning ) {
@@ -157,6 +161,13 @@ export async function startCliEventsSubscriber(): Promise< void > {
 				} else {
 					void sendIpcEventToRenderer( 'auth-updated', { token: null } );
 				}
+				return;
+			}
+
+			const syncParsed = cliSyncEventSchema.safeParse( data );
+			if ( syncParsed.success ) {
+				trackSyncActivity( syncParsed.data.value );
+				void sendIpcEventToRenderer( 'sync-activity', syncParsed.data.value );
 				return;
 			}
 

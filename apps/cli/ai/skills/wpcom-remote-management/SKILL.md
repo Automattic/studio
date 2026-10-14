@@ -1,17 +1,32 @@
 ---
 name: wpcom-remote-management
-description: Manage a remote WordPress.com site with wpcom_request, including API namespace selection, endpoint discovery, content/template/theme/plugin operations, response-size limits, and visual verification.
+description: Manage one of the user's live WordPress.com sites with wpcom_request, including the plan check, design limits by plan, API namespace selection, endpoint discovery, content/template/theme/plugin operations, response-size limits, and visual verification.
 user-invokable: true
 ---
 
 # WordPress.com Remote Management
 
-Use this skill after the mandatory remote-site plan check, before selecting endpoints or making changes to a WordPress.com site through `wpcom_request`.
+Use this skill for any work on one of the user's WordPress.com sites. These sites are live: change them only with `wpcom_request`, never with WP-CLI, Bash, or local site files. Work on a local copy only when the user asks for one (create a local site with `site_create`, then `site_pull` the WordPress.com site into it).
+
+## First: Check the Plan
+
+Before any change, call `GET /` with `apiNamespace: ""` and read `plan.product_slug`.
+
+- **Free plans** (e.g. `free_plan`) allow content only: posts, pages, templates, template parts, switching themes, and uploading media. They allow no design customization: no custom CSS, inline styles, style attributes on blocks, global styles, custom JavaScript, animations, custom colors, custom fonts, custom layouts, or plugin management. If the user asks for any design change — even a small one like a color or a font — refuse, explain that it requires a paid WordPress.com plan, and stop. Do not try workarounds such as inline styles or style attributes: they produce invalid blocks on WordPress.com.
+- **Paid plans** (Personal, Premium, Business, eCommerce) progressively add custom CSS, global styles, plugin management, and advanced customization. Check the specific plan for what it allows; for what a plan tier includes, load the `hosting-plans-helper` skill.
+
+## Block Content
+
+- Use only core WordPress blocks. No custom HTML blocks except for inline SVGs.
+- No decorative HTML comments (e.g. `<!-- Hero Section -->`); only block delimiter comments.
+- Color content from the active theme's palette using block color-slug attributes (e.g. `{"backgroundColor":"primary","textColor":"base"}`) rather than hardcoded hex values; introduce a custom color only when the palette genuinely lacks one.
+- No emojis anywhere in generated content.
 
 ## Tool Shape
 
 `wpcom_request` supports both the WordPress REST API and WordPress.com REST API endpoints:
 
+- `siteId`: the site's WordPress.com ID (the active-site line gives it; `site_connected_remote_sites` or `GET !/me/sites` with `apiNamespace: ""` find others)
 - `method`: `GET`, `POST`, `PUT`, or `DELETE`
 - `path`: relative to `/sites/{siteId}/`, such as `/posts`, `/posts/123`, or `/templates`
 - `query`: optional query parameters object
@@ -75,13 +90,13 @@ GET /plugins?fields=ID,name,description,URL
 
 For generated page content, template content, template-part content, global styles, or CSS, do not inline large generated strings in `wpcom_request.body`.
 
-Stage request payload files under `tmp/ai-payloads/` within Studio app data using small `Write` or `Edit` steps.
+Stage request payload files in the payload folder that `wpcom_request`'s description names (`tmp/ai-payloads/` in Studio's app data) using small `Write` or `Edit` steps, and pass their absolute paths.
 
 Use `bodyFiles` when staged files should become string fields inside the request body:
 
 ```text
 body: { "status": "publish" }
-bodyFiles: { "content": "tmp/ai-payloads/home.html" }
+bodyFiles: { "content": "<payload folder>/home.html" }
 ```
 
 The `bodyFiles` keys must be top-level REST body field names such as `content`, `excerpt`, or `css`, not filenames or nested paths. Do not use keys like `home.html`, `styles.css`, `content.raw`, or `styles.color.background`.
@@ -89,14 +104,14 @@ The `bodyFiles` keys must be top-level REST body field names such as `content`, 
 Use `bodyFile` when the staged file is the complete JSON request body, especially for endpoints that expect nested JSON objects such as `POST /global-styles/{id}`:
 
 ```text
-bodyFile: "tmp/ai-payloads/global-styles.json"
+bodyFile: "<payload folder>/global-styles.json"
 ```
 
 Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 ## Workflow
 
-1. Check the site plan first. This is already required by the remote system prompt and must happen before any change.
+1. Check the site plan first (see above).
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
 3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
 4. Verify with `take_screenshot` using `viewport: "all"` for desktop and mobile; when you cannot view images, verify from the rendered DOM with `inspect_design` instead.

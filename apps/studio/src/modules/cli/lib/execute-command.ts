@@ -145,7 +145,6 @@ export function executeCliCommand(
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
 		env: { ...process.env, STUDIO_TRACKS_ORIGIN: getTracksOriginEnv(), ...options.env },
 	} );
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();

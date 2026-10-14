@@ -14,8 +14,8 @@ const { connectedSites, pullMutate } = vi.hoisted( () => ( {
 } ) );
 
 vi.mock( '@/data/core', () => ( { useConnector: () => ( {} ) } ) );
-vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
-	useConnectedWpcomSites: () => ( { data: connectedSites } ),
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	useLiveWpcomSites: () => connectedSites,
 } ) );
 vi.mock( '@/data/queries/use-snapshots', () => ( { useSnapshots: () => ( { data: [] } ) } ) );
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -41,8 +41,8 @@ vi.mock( './publish-picker-view', () => ( { PublishPickerView: () => null } ) );
 // Stand-ins for the popup contents and the dialog, so the test can drive
 // "open the dialog" and "confirm it" without their real dependencies.
 vi.mock( './main-view', () => ( {
-	MainView: ( { onPullClick }: { onPullClick: () => void } ) => (
-		<button onClick={ onPullClick }>Pull from live</button>
+	MainView: ( { onPullClick }: { onPullClick: ( target: SyncSite ) => void } ) => (
+		<button onClick={ () => onPullClick( connectedSites[ 0 ] ) }>Pull from live</button>
 	),
 } ) );
 vi.mock( '@/components/selective-sync/sync-dialog', () => ( {

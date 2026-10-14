@@ -2,10 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { test, expect, Page } from '@playwright/test';
 import fs from 'fs-extra';
-import { E2ESession } from './e2e-helpers';
-import Onboarding from './page-objects/onboarding';
-import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
+import { E2ESession, launchWithSite } from './e2e-helpers';
 import { getUrlWithAutoLogin } from './utils';
 
 /**
@@ -30,31 +27,14 @@ async function closeWelcomeGuide( page: Page ) {
 test.describe( 'Site Navigation', () => {
 	const session = new E2ESession();
 
-	const siteName = 'My WordPress Website'; // Use the default site created during onboarding
-
 	let frontendUrl: string;
 	let wpAdminUrl: string;
 
 	test.beforeAll( async () => {
-		await session.launch();
-
-		// Complete onboarding before tests
-		const onboarding = new Onboarding( session.mainWindow );
-		await onboarding.completeOnboarding();
-
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
-
-		// Wait for default site to be ready and get URLs
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-
-		// Get site URLs for tests
-		const settingsTab = await siteContent.navigateToTab( 'settings' );
-		wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
-		frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
+		const { siteName } = await launchWithSite( session );
+		const siteUrl = await session.getSiteUrl( siteName );
+		frontendUrl = `${ siteUrl }/`;
+		wpAdminUrl = `${ siteUrl }/wp-admin`;
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {

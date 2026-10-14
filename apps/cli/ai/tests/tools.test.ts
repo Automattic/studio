@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promi
 import os from 'os';
 import path from 'path';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
@@ -22,7 +23,7 @@ import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import {
@@ -32,9 +33,9 @@ import {
 	withChatArtifactEmission,
 } from '../tools';
 import { createSiteTool } from '../tools/create-site';
+import { LOCAL_CHANGE, READ_ONLY, type AnyStudioAgentTool } from '../tools/define-tool';
 import { enrichPreviewListOutput } from '../tools/list-previews';
 import { createTakeScreenshotTool } from '../tools/take-screenshot';
-import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -114,7 +115,7 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 } ) );
 
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
-	runWpCliCommandWithMessaging: vi.fn(),
+	runWpCliCommand: vi.fn(),
 } ) );
 
 vi.mock( 'cli/lib/site-paths', async () => ( {
@@ -130,8 +131,14 @@ vi.mock( '@studio/common/lib/connected-sites', () => ( {
 	getConnectedWpcomSitesForLocalSite: vi.fn(),
 } ) );
 
+vi.mock( '@studio/common/lib/sync/sync-api', () => ( { fetchSyncableSites: vi.fn() } ) );
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
+} ) );
+
 describe( 'Studio AI MCP tools', () => {
-	const previousScratchpadWidgetType = 'sd-' + 'artefact';
 	const mockSite = {
 		id: 'site-123',
 		name: 'My Site',
@@ -249,6 +256,17 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
+		const annotations = Object.fromEntries(
+			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
+		);
+		expect( annotations.site_list ).toEqual( READ_ONLY );
+		expect( annotations.scaffold_theme ).toEqual( LOCAL_CHANGE );
+		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'wpcom_request' ] ) {
+			expect( annotations[ name ] ).toBeUndefined();
+		}
+	} );
+
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
 		const result = await getTool( 'validate_blocks' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -331,34 +349,6 @@ describe( 'Studio AI MCP tools', () => {
 		} finally {
 			await rm( siteDir, { recursive: true, force: true } );
 		}
-	} );
-
-	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
-		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-		expect( names ).not.toContain( 'show_artifact' );
-		expect( names ).not.toContain( 'studio_present' );
-		const namesWithArtifacts = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).map( ( tool ) => tool.name );
-		const studioPresent = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'studio_present' );
-		expect( namesWithArtifacts ).not.toContain( 'show_artifact' );
-		expect( namesWithArtifacts ).toContain( 'studio_present' );
-		expect( namesWithArtifacts ).toContain( 'site_create' );
-		expect( namesWithArtifacts ).toContain( 'wp_cli' );
-		expect( studioPresent?.description ).toContain( '- site-code-scratchpad:' );
-		expect( studioPresent?.description ).toContain( 'after any successful Write or Edit' );
-		expect( studioPresent?.description ).toContain(
-			'call studio_present with exactly one note widget'
-		);
-		expect( studioPresent?.description ).toContain( '- scratchpad:' );
-		expect( studioPresent?.description ).not.toContain( previousScratchpadWidgetType );
-		expect( studioPresent?.description ).toContain( '- saved-local-media:' );
-		expect( studioPresent?.description ).toContain(
-			'For generated SVGs, write a complete .svg file'
-		);
-		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
 	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
@@ -571,231 +561,6 @@ describe( 'Studio AI MCP tools', () => {
 		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
 	} );
 
-	it( 'emits explicit Studio widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const result = await executeTool( tool!, {
-			message: 'Showing the draft plan.',
-			widgets: [
-				{
-					type: 'note',
-					widgetProps: { text: 'Draft the homepage hero next.', tone: 'yellow' },
-				},
-			],
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [
-						{
-							type: 'note',
-							widgetProps: { text: 'Draft the homepage hero next.', tone: 'yellow' },
-						},
-					],
-				} ),
-			} )
-		);
-		expect( getTextContent( result ) ).toBe( 'Showing the draft plan.' );
-	} );
-
-	it( 'accepts local SVG media widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const localMediaWidget = {
-			type: 'media',
-			widgetProps: {
-				url: 'file:///tmp/rb-logo.svg',
-				mediaKind: 'image',
-				alt: 'RB logo SVG',
-				mediaId: null,
-				source: {
-					type: 'local',
-					path: '/tmp/rb-logo.svg',
-					name: 'rb-logo.svg',
-					mimeType: 'image/svg+xml',
-				},
-			},
-		};
-
-		await executeTool( tool!, {
-			widgets: [ localMediaWidget ],
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ localMediaWidget ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'accepts PDF widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const pdfWidget = {
-			type: 'pdf',
-			widgetProps: {
-				url: 'https://example.com/brief.pdf',
-				title: 'Brief',
-				mediaId: null,
-			},
-		};
-
-		await executeTool( tool!, {
-			widgets: [ pdfWidget ],
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ pdfWidget ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'accepts theme widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const themeWidgets = [
-			{
-				type: 'theme',
-				widgetProps: { viewMode: 'stack' },
-			},
-			{
-				type: 'theme-template',
-				widgetProps: {
-					templateId: 'twentytwentyfive//index',
-					slug: 'index',
-					title: 'Index',
-					description: '',
-					source: 'theme',
-				},
-			},
-			{
-				type: 'theme-styles',
-				widgetProps: {
-					palette: [
-						{ slug: 'background', name: 'Background', color: '#ffffff' },
-						{ slug: 'foreground', name: 'Foreground', color: '#111111' },
-					],
-					fontFamily: 'system-ui, sans-serif',
-					textColor: '#111111',
-					backgroundColor: '#ffffff',
-				},
-			},
-			{
-				type: 'theme-pattern',
-				widgetProps: {
-					patternId: 'twentytwentyfive/hero',
-					title: 'Hero',
-					content: '<!-- wp:cover /-->',
-					source: 'theme',
-				},
-			},
-			{
-				type: 'color',
-				widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
-			},
-		];
-
-		await executeTool( tool!, {
-			widgets: themeWidgets,
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: themeWidgets,
-				} ),
-			} )
-		);
-	} );
-
-	it( 'rejects drawing widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		await expect(
-			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'drawing',
-						widgetProps: { svg: '<svg viewBox="0 0 100 100"></svg>' },
-					},
-				],
-			} )
-		).rejects.toThrow( 'Unsupported widget type "drawing"' );
-		expect( emitEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects invalid explicit Studio widget artifacts', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		await expect(
-			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'page',
-						widgetProps: { pageId: '123', tone: 'neutral' },
-					},
-				],
-			} )
-		).rejects.toThrow( 'Invalid widget at index 0' );
-		expect( emitEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects Studio widget artifacts with tiny shape props', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		await expect(
-			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'post-collection',
-						widgetProps: {
-							query: {
-								postType: 'post',
-								perPage: 5,
-								status: 'publish',
-								orderby: 'date',
-								order: 'desc',
-							},
-						},
-						shapeProps: { w: 1, h: 1 },
-					},
-				],
-			} )
-		).rejects.toThrow( 'shapeProps may only include numeric w and h between 80 and 3000' );
-		expect( emitEvent ).not.toHaveBeenCalled();
-	} );
-
 	it( 'creates previews for a resolved local site', async () => {
 		const result = await getTool( 'preview_create' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -986,20 +751,23 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
+		const site = {
+			id: 111,
+			localSiteId: '',
+			name: 'My Production Site',
+			url: 'https://myprod.wordpress.com',
+			isStaging: false,
+			isPressable: false,
+			environmentType: 'production',
+			syncSupport: 'syncable' as const,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
 		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
-			{
-				id: 111,
-				localSiteId: 'site-123',
-				name: 'My Production Site',
-				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'already-connected',
-				lastPullTimestamp: null,
-				lastPushTimestamp: null,
-			},
+			{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
 		] );
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
 
 		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -1096,7 +864,6 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -1107,7 +874,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /does not run in a shell/ );
 
-		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
@@ -1116,9 +883,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -1129,7 +895,7 @@ describe( 'Studio AI MCP tools', () => {
 <!-- /wp:paragraph -->`,
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -1145,9 +911,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -1156,7 +921,7 @@ describe( 'Studio AI MCP tools', () => {
 			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -1171,9 +936,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -1183,7 +947,7 @@ describe( 'Studio AI MCP tools', () => {
 				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -1199,9 +963,8 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+		vi.mocked( runWpCliCommand ).mockResolvedValue(
 			mockWpCliResponse( { stdout: '123' } ) as never
 		);
 
@@ -1210,7 +973,7 @@ describe( 'Studio AI MCP tools', () => {
 			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
 		} as never );
 
-		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
+		expect( runWpCliCommand ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -1220,75 +983,12 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'emits a page artifact when wp_cli creates a page with chat artifacts enabled', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
-		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'wp_cli' );
-		expect( tool ).toBeDefined();
-
-		await executeTool( tool!, {
-			nameOrPath: 'My Site',
-			command: 'post create --post_type=page --post_title="About" --porcelain',
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ { type: 'page', widgetProps: { pageId: 123, tone: 'neutral' } } ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'emits automatic tool artifacts without filtering by widget type', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
-		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'wp_cli' );
-		expect( tool ).toBeDefined();
-
-		await executeTool( tool!, {
-			nameOrPath: 'My Site',
-			command: 'post create --post_title="Hello" --porcelain',
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ { type: 'post', widgetProps: { postId: 123 } } ],
-				} ),
-			} )
-		);
-	} );
-
 	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( {
 			name: 'site-123',
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -1299,14 +999,14 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /typographic dash/ );
 
-		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reserves media-library attachments, returns at once, and reports failures once the images are done', async () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
-		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.jpg' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [ mockSite, site ],
@@ -1317,12 +1017,12 @@ describe( 'Studio AI MCP tools', () => {
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 		] );
-		vi.mocked( runWpCliCommandWithMessaging )
+		vi.mocked( runWpCliCommand )
 			.mockResolvedValueOnce(
 				mockWpCliResponse( {
 					stdout: JSON.stringify( [
-						{ id: 7, file: 'wp-content/uploads/2026/09/hero.jpg', url: urlOf( 'hero.jpg' ) },
-						{ id: 8, file: 'wp-content/uploads/2026/09/buns.jpg', url: urlOf( 'buns.jpg' ) },
+						{ id: 7, file: 'wp-content/uploads/2026/09/hero.png', url: urlOf( 'hero.png' ) },
+						{ id: 8, file: 'wp-content/uploads/2026/09/buns.png', url: urlOf( 'buns.png' ) },
 					] ),
 				} ) as never
 			)
@@ -1331,25 +1031,25 @@ describe( 'Studio AI MCP tools', () => {
 		try {
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
-					{ path: path.join( uploads, 'hero.jpg' ), subject: 'A café counter at dawn' },
-					{ path: path.join( uploads, 'buns.jpg' ), subject: 'Cardamom buns on a tray' },
+					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },
 					{ path: themeImage, subject: 'Pebbles on a beach' },
 				],
 			} as never );
 
 			expect( getTextContent( result ) ).toContain(
-				`- ${ path.join( uploads, '2026', '09', 'hero.jpg' ) }, attachment ID 7, URL ${ urlOf(
-					'hero.jpg'
+				`- ${ path.join( uploads, '2026', '09', 'hero.png' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.png'
 				) }`
 			);
 			expect( await result.pending ).toContain(
-				`FAILED ${ path.join( uploads, 'buns.jpg' ) }: Timed out`
+				`FAILED ${ path.join( uploads, 'buns.png' ) }: Timed out`
 			);
 			await expect(
-				readFile( path.join( uploads, '2026', '09', 'hero.jpg' ), 'utf8' )
+				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )
 			).resolves.toBe( 'jpeg' );
 			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
-			const finalize = vi.mocked( runWpCliCommandWithMessaging ).mock.calls[ 1 ][ 1 ][ 1 ];
+			const finalize = vi.mocked( runWpCliCommand ).mock.calls[ 1 ][ 1 ][ 1 ];
 			expect(
 				JSON.parse(
 					Buffer.from( finalize.match( /base64_decode\( '([^']+)' \)/ )![ 1 ], 'base64' ).toString()
@@ -1375,6 +1075,7 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		afterEach( async () => {
+			vi.unstubAllGlobals();
 			await rm( tempSiteRoot, { recursive: true, force: true } );
 		} );
 
@@ -1453,11 +1154,29 @@ describe( 'Studio AI MCP tools', () => {
 			);
 		} );
 
-		it( 'fills theme.json from DESIGN.md and enqueues its fonts', async () => {
-			await writeFile(
+		const writeNunitoDesign = () =>
+			writeFile(
 				path.join( tempSiteRoot, 'DESIGN.md' ),
-				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n---\n'
+				'---\ncolors:\n  primary: "#e2231a"\ntypography:\n  body:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 400\n  headline:\n    fontFamily: "Nunito, sans-serif"\n    fontWeight: 700\n---\n'
 			);
+
+		it( 'fills theme.json from DESIGN.md and downloads its fonts into the theme', async () => {
+			await writeNunitoDesign();
+			const face = ( subset: string, weight: number, file: string ) =>
+				`/* ${ subset } */\n@font-face {\n  font-family: 'Nunito';\n  font-style: normal;\n  font-weight: ${ weight };\n  src: url(https://fonts.gstatic.com/${ file }.woff2) format('woff2');\n  unicode-range: U+${ subset };\n}\n`;
+			const fetchMock = vi.fn( async ( url: string ) =>
+				url.startsWith( 'https://fonts.googleapis.com/' )
+					? new Response(
+							[ 400, 700 ]
+								.flatMap( ( weight ) => [
+									face( 'latin-ext', weight, 'ext' ),
+									face( 'latin', weight, 'latin' ),
+								] )
+								.join( '' )
+					  )
+					: new Response( new Uint8Array( [ 1, 2, 3 ] ) )
+			);
+			vi.stubGlobal( 'fetch', fetchMock );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,
@@ -1471,16 +1190,24 @@ describe( 'Studio AI MCP tools', () => {
 				{ slug: 'primary', color: '#e2231a', name: 'Primary' },
 			] );
 			expect( themeJson.settings.layout ).toEqual( { contentSize: '1000px', wideSize: '1280px' } );
-			const functionsPhp = await readFile( path.join( themeDir, 'functions.php' ), 'utf8' );
-			expect( functionsPhp ).toContain(
-				"wp_enqueue_style( 'acme-studio-fonts', 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap', array(), null );"
+			expect( fetchMock ).toHaveBeenCalledWith(
+				'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap',
+				expect.anything()
 			);
-			expect( functionsPhp ).toContain( "array( 'acme-studio-fonts' )" );
-			expect( functionsPhp ).toContain(
-				"add_editor_style( 'https://fonts.googleapis.com/css2?family=Nunito:wght@400&display=swap' );"
+			expect( themeJson.settings.typography.fontFamilies[ 0 ].fontFace ).toEqual(
+				[ 'latin-ext', 'latin' ].map( ( subset ) => ( {
+					fontFamily: 'Nunito',
+					fontStyle: 'normal',
+					fontWeight: '400 700',
+					src: [ `file:./assets/fonts/nunito/nunito-400-700-${ subset }.woff2` ],
+					unicodeRange: `U+${ subset }`,
+				} ) )
 			);
+			await expect(
+				readFile( path.join( themeDir, 'assets/fonts/nunito/nunito-400-700-latin.woff2' ) )
+			).resolves.toEqual( Buffer.from( [ 1, 2, 3 ] ) );
 			expect( getTextContent( result ) ).toContain(
-				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 1 text style, 0 spacing steps)'
+				'theme.json carries the DESIGN.md tokens under the same names (1 color, 1 font family, 2 text styles, 0 spacing steps), with its fonts downloaded to assets/fonts and declared as fontFace.'
 			);
 		} );
 
@@ -1581,9 +1308,8 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCliResponse( { stdout: "Success: Switched to 'Acme Studio' theme." } ) as never
 			);
 
@@ -1592,7 +1318,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
+			expect( runWpCliCommand ).toHaveBeenCalledWith( scaffoldSite, [
 				'theme',
 				'activate',
 				'acme-studio',
@@ -1609,7 +1335,6 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
@@ -1618,7 +1343,7 @@ describe( 'Studio AI MCP tools', () => {
 				activate: false,
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain(
 				'Activate with: wp theme activate acme-studio'
 			);
@@ -1632,7 +1357,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain( 'Activation skipped:' );
 			expect( getTextContent( result ) ).toContain( 'Site is not running' );
 			expect( getTextContent( result ) ).toContain(
@@ -1646,9 +1371,8 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			vi.mocked( runWpCliCommand ).mockResolvedValue(
 				mockWpCliResponse( { stderr: 'Error: stylesheet missing.', exitCode: 1 } ) as never
 			);
 

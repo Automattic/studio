@@ -135,10 +135,14 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'StudioAssistantQuota' ],
 		} ),
-		getStudioAssistantTopUpPricing: builder.query< StudioAssistantTopUpPricing | null, void >( {
-			queryFn: async ( _arg, _api, _extraOptions, baseQuery ) => {
+		getStudioAssistantTopUpPricing: builder.query<
+			StudioAssistantTopUpPricing | null,
+			{ locale: string }
+		>( {
+			queryFn: async ( { locale }, _api, _extraOptions, baseQuery ) => {
+				// The store formats each price's `display` for this locale.
 				const result = await baseQuery( {
-					path: '/studio-app/ai-assistant/top-up-pricing',
+					path: `/studio-app/ai-assistant/top-up-pricing?_locale=${ encodeURIComponent( locale ) }`,
 					apiNamespace: 'wpcom/v2',
 				} );
 				// Pricing is a nicety, not a gate: a failed or unexpected

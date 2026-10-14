@@ -1,16 +1,12 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { ThemeProvider } from '@wordpress/theme';
-import { Popover, VisuallyHidden } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import { VisuallyHidden } from '@wordpress/ui';
 import { useState, type ReactElement } from 'react';
-import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import * as Popover from '@/components/popover';
 import { SiteList } from '@/components/site-list';
 import styles from './style.module.css';
 
-// A short pause before opening so incidental pointer travel across the
-// toggle doesn't flash the list, and a longer grace period before closing
-// so brief hover gaps don't dismiss it.
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
 
@@ -37,22 +33,15 @@ export function CollapsedSiteSwitcher( {
 				render={ trigger }
 			/>
 			<Popover.Popup
-				variant="unstyled"
-				className={ clsx( styles.popup, motionStyles.motion ) }
-				positioner={
-					<Popover.Positioner
-						side="top"
-						align="start"
-						sideOffset={ 8 }
-						className={ styles.positioner }
-					/>
-				}
+				side="top"
+				align="start"
+				sideOffset={ 8 }
+				className={ styles.popup }
+				style={ { backgroundColor } }
 			>
 				<VisuallyHidden render={ <Popover.Title /> }>{ __( 'Sites' ) }</VisuallyHidden>
-				{ /* Same dark theme scope as the expanded sidebar so the list
-				     renders identically on the window-chrome background. */ }
 				<ThemeProvider color={ { background: backgroundColor } }>
-					<div className={ styles.surface } style={ { backgroundColor } }>
+					<div className={ styles.surface }>
 						<div className={ styles.scrollArea }>
 							<SiteList
 								className={ styles.siteList }

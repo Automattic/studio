@@ -10,6 +10,7 @@ import {
 	resetAppMessagesForTests,
 	resumeToastExpiry,
 	showToast,
+	syncCardNotices,
 	toast,
 	TOAST_EXIT_MS,
 } from './app-messages';
@@ -249,6 +250,42 @@ describe( 'app-messages', () => {
 			settleExit();
 			expect( titles() ).toEqual( [] );
 			expect( historyTitles() ).toEqual( [ 'Saved' ] );
+		} );
+
+		it( 'logs a sidebar card once while it stays up, updating it when its content changes', () => {
+			const downloading = { id: 'app-update-downloading', intent: 'info' as const };
+			syncCardNotices( [ { ...downloading, title: 'Downloading update' } ] );
+			syncCardNotices( [ { ...downloading, title: 'Downloading update' } ] );
+			expect( historyTitles() ).toEqual( [ 'Downloading update' ] );
+
+			syncCardNotices( [
+				{ ...downloading, title: 'Downloading update', description: 'Updating to 1.23.0.' },
+			] );
+			expect( getNoticeHistory() ).toEqual( [
+				expect.objectContaining( { description: 'Updating to 1.23.0.' } ),
+			] );
+		} );
+
+		it( 'logs each card that replaces another as its own entry', () => {
+			syncCardNotices( [ { id: 'app-update-downloading', intent: 'info', title: 'Downloading' } ] );
+			syncCardNotices( [ { id: 'app-update:1.23.0', intent: 'info', title: 'Ready to install' } ] );
+			expect( historyTitles() ).toEqual( [ 'Ready to install', 'Downloading' ] );
+		} );
+
+		it( 'logs a card again when it comes back after going away', () => {
+			const card = { id: 'app-update-error', intent: 'error' as const, title: 'Update failed' };
+			syncCardNotices( [ card ] );
+			syncCardNotices( [] );
+			syncCardNotices( [ card ] );
+			expect( historyTitles() ).toEqual( [ 'Update failed', 'Update failed' ] );
+		} );
+
+		it( 'keeps a card still showing out of the list after "Clear all"', () => {
+			const card = { id: 'ai-credits:warning', intent: 'warning' as const, title: 'At 83% usage' };
+			syncCardNotices( [ card ] );
+			clearNoticeHistory();
+			syncCardNotices( [ card ] );
+			expect( historyTitles() ).toEqual( [] );
 		} );
 
 		it( 'clears the list and dismisses the toasts still showing or queued', () => {

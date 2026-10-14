@@ -1,37 +1,13 @@
-import { SITE_RUNTIME_NATIVE_PHP, getSiteRuntime } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	WpCliResponse,
-	runWpCliCommandWithMessaging,
-	runWpCliCommand,
-} from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
-
-// `response.stdout` is already shebang-stripped by `runWpCliCommand` /
-// `runWpCliCommandWithMessaging`, so this just forwards the streams verbatim.
-async function pipePHPResponse( response: WpCliResponse ) {
-	const stderrPipe = async () => {
-		for await ( const chunk of response.stderr ) {
-			process.stderr.write( chunk );
-		}
-	};
-
-	const stdoutPipe = async () => {
-		for await ( const chunk of response.stdout ) {
-			process.stdout.write( chunk );
-		}
-	};
-
-	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
-}
 
 export async function runCommand(
 	siteFolder: string,
@@ -41,34 +17,10 @@ export async function runCommand(
 	const site = await getSiteByFolder( siteFolder );
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
-	// The native runtime always spawns a local PHP child, so connect it directly to
-	// the terminal for piped/interactive stdin, live streaming output and colors. It
-	// never uses the daemon, and `reapPhpTreeOnInterrupt` handles Ctrl+C, so there's
-	// no daemon connection or signal handler to set up here.
-	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-		await using command = await runWpCliCommand( site, args, { phpVersion, stdio: 'inherit' } );
-		process.exitCode = await command.exitCode;
-		return;
-	}
-
-	// Playground sites run in the daemon (when running) or a fresh in-process PHP-WASM
-	// instance (when stopped), so their output can only be streamed, not inherited.
-	const onSignal = async () => {
-		await disconnectFromDaemon();
-		process.exit( 1 );
-	};
-	process.on( 'SIGINT', onSignal );
-	process.on( 'SIGTERM', onSignal );
-
-	try {
-		await connectToDaemon();
-
-		await using command = await runWpCliCommandWithMessaging( site, args, { phpVersion } );
-		await pipePHPResponse( command.response );
-		process.exitCode = await command.response.exitCode;
-	} finally {
-		await disconnectFromDaemon();
-	}
+	// Connect the PHP child directly to the terminal for piped/interactive stdin, live
+	// streaming output and colors. `reapPhpTreeOnInterrupt` handles Ctrl+C.
+	await using command = await runWpCliCommand( site, args, { phpVersion, stdio: 'inherit' } );
+	process.exitCode = await command.exitCode;
 }
 
 function removeArgumentFromArgv(

@@ -63,14 +63,12 @@ const useAiSettingsMock = vi.mocked( useAiSettings );
 const useSaveAnthropicApiKeyMock = vi.mocked( useSaveAnthropicApiKey );
 
 describe( 'AiPanel', () => {
-	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const mutate = vi.fn();
 	const saveKey = vi.fn();
 
 	function mockConnector( agentInstructions = true, aiSettings = false ) {
 		useConnectorMock.mockReturnValue( {
 			capabilities: { agentInstructions, aiSettings },
-			disableAgenticUi,
 		} as never );
 	}
 
@@ -97,7 +95,7 @@ describe( 'AiPanel', () => {
 		mockPreferences( true );
 	} );
 
-	it( 'turns agentic features off without leaving the new UI', () => {
+	it( 'turns agentic features off', () => {
 		mockConnector();
 		render( <AiPanel /> );
 
@@ -107,7 +105,6 @@ describe( 'AiPanel', () => {
 		fireEvent.click( toggle );
 
 		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: false } );
-		expect( disableAgenticUi ).not.toHaveBeenCalled();
 	} );
 
 	it( 'turns agentic features back on', () => {

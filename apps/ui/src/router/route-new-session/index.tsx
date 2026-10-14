@@ -5,10 +5,8 @@ import { dashboardLayoutRoute } from '../layout-dashboard';
 
 /**
  * Draft slot for a given site. We never actually render anything here — the
- * route eagerly asks the backend for (or reuses) an empty session, then
- * redirects to `/sessions/$sessionId`. The reuse happens inside the
- * `createSession` IPC handler, which returns the newest existing empty
- * session for the site if one exists, avoiding orphan sessions.
+ * route eagerly asks the backend for an empty session, then redirects to
+ * `/sessions/$sessionId`.
  */
 export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,

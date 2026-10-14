@@ -3,11 +3,6 @@ import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { isSameDay } from 'date-fns';
 import { bumpStat } from 'cli/lib/bump-stat';
 import {
@@ -19,24 +14,17 @@ import {
 } from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 
-// Composite runtime + file-access metric for the daily active-sites stat.
-// Sandbox is always confined to the site directory, so it has no file-access split.
-export function getSiteRuntimeStat( site: {
-	runtime?: SiteRuntime;
-	fileAccess?: SiteFileAccess;
-} ): StatsMetric {
-	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-		return getSiteFileAccess( site ) === SITE_FILE_ACCESS_ALL_FILES
-			? StatsMetric.RUNTIME_NATIVE_ALL_FILES
-			: StatsMetric.RUNTIME_NATIVE_SITE_DIR;
-	}
-	return StatsMetric.RUNTIME_SANDBOX;
+// File-access metric for the daily active-sites stat.
+export function getSiteRuntimeStat( site: { fileAccess?: SiteFileAccess } ): StatsMetric {
+	return getSiteFileAccess( site ) === SITE_FILE_ACCESS_ALL_FILES
+		? StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		: StatsMetric.RUNTIME_NATIVE_SITE_DIR;
 }
 
 /**
  * Counts a site toward the daily active-sites-by-runtime stat, deduped per site
  * per day so restarts don't inflate the numbers (re-counted when the day rolls
- * over or the runtime/file-access choice changes). Tracked here — the one funnel
+ * over or the file-access choice changes). Tracked here — the one funnel
  * every site start passes through — so it covers all actions (start,
  * edit-restart, create, import, pull).
  *

@@ -1,19 +1,11 @@
 import { input } from '@inquirer/prompts';
-import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
-import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
-import { emitCliEvent } from 'cli/lib/daemon-client';
-import { getAppLocale } from 'cli/lib/i18n';
-import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
 export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
@@ -31,8 +23,7 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
-	const appLocale = await getAppLocale();
-	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
+	const authUrl = await getCliAuthenticationUrl();
 
 	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 	try {
@@ -54,58 +45,14 @@ export async function runCommand(): Promise< void > {
 	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
 	console.log( '' );
 
-	let accessToken: Awaited< ReturnType< typeof input > >;
-	let user: Awaited< ReturnType< typeof getUserInfo > >;
-
-	// `account_type` is absent throughout: the CLI has no signup path.
-	const authProps = { ...getTracksOrigin(), source: 'cli' as const };
-
 	try {
-		accessToken = await input( { message: __( 'Authentication token:' ) } );
-		user = await getUserInfo( accessToken );
+		const accessToken = await input( { message: __( 'Authentication token:' ) } );
+		await storeAuthToken( accessToken );
 		logger.reportSuccess( __( 'Authentication completed successfully!' ) );
 	} catch ( error ) {
-		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
-			...authProps,
-			success: false,
-			failure_reason: 'profile_fetch_failed',
-		} );
-		logger.reportError( new LoggerError( __( 'Authentication failed. Please try again.' ) ) );
-		return;
-	}
-
-	const authToken = {
-		accessToken,
-		id: user.ID,
-		email: user.email,
-		displayName: user.display_name,
-		expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-		expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-	};
-
-	try {
-		await updateSharedConfig( { authToken } );
-	} catch ( error ) {
-		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
-			...authProps,
-			success: false,
-			failure_reason: 'unknown',
-		} );
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			logger.reportError( new LoggerError( __( 'Authentication failed' ), error ) );
-		}
-		return;
-	}
-
-	// After the token is stored — the wrapper reads it to resolve `is_a11n`.
-	await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
-
-	try {
-		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );
-	} catch {
-		// Best-effort: don't mask successful auth if event emission fails
+		logger.reportError(
+			error instanceof LoggerError ? error : new LoggerError( __( 'Authentication failed' ), error )
+		);
 	}
 }
 

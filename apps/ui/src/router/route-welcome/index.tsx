@@ -1,5 +1,6 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { CheckboxControl } from '@wordpress/components';
+import { useMediaQuery } from '@wordpress/compose';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { chevronRight } from '@wordpress/icons';
@@ -14,7 +15,6 @@ import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { EmptyBackground } from '../../components/session-view/empty-background';
 import { rootRoute } from '../layout-root';
@@ -28,7 +28,7 @@ function WelcomePage() {
 	const locale = useUserLocale();
 	const { data: preferences } = useUserPreferences();
 	const saveUserPreferences = useSaveUserPreferences();
-	const isDark = usePrefersColorScheme() === 'dark';
+	const isDark = useMediaQuery( '(prefers-color-scheme: dark)' );
 
 	// The welcome screen owns the account story: these are the features a
 	// WordPress.com login unlocks.

@@ -7,6 +7,7 @@ export const mockReportError = vi.fn();
 export const mockReportProgress = vi.fn();
 export const mockReportWarning = vi.fn();
 export const mockReportKeyValuePair = vi.fn();
+export const mockReportResult = vi.fn();
 
 /**
  * Creates a mock Logger instance with all the standard methods
@@ -19,6 +20,7 @@ export const createMockLogger = () => ( {
 	reportProgress: mockReportProgress,
 	reportWarning: mockReportWarning,
 	reportKeyValuePair: mockReportKeyValuePair,
+	reportResult: mockReportResult,
 	spinner: {},
 	currentAction: null,
 } );

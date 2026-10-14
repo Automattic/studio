@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
@@ -40,14 +40,6 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
-const dataLiberationSourcePath = resolve(
-	__dirname,
-	'..',
-	'..',
-	'packages',
-	'data-liberation-agent'
-);
-
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
 // separately (`npm run build:local --workspace=apps/ui`); absent in API-only
@@ -81,56 +73,24 @@ export function buildLocalUiPlugin() {
 	};
 }
 
-// Copy the committed data-liberation-agent/dist into the dist/cli/data-liberation-agent.
-function copyDataLiberationEngine( outDir: string ) {
-	const serverBundlePath = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' );
-	const scriptsDistPath = resolve( dataLiberationSourcePath, 'dist', 'scripts' );
-	if ( ! existsSync( serverBundlePath ) || ! existsSync( scriptsDistPath ) ) {
-		throw new Error(
-			'Data Liberation engine bundles are missing under packages/data-liberation-agent/dist/. ' +
-				'Run `npm -w data-liberation run build:mcp-bundle` and commit the updated artifacts.'
-		);
-	}
+// `studio mcp` serves the WordPress library page (apps/mcp-ui `dist`) from
+// `<chunk dir>/mcp-ui`. Built separately like the browser UI; release configs
+// include `buildMcpUiPlugin`.
+const mcpUiDistPath = resolve( __dirname, '../mcp-ui/dist' );
 
-	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
-	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
-	copyFileSync( serverBundlePath, resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' ) );
-	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
-		recursive: true,
-	} );
-
-	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
-	// Ship the launcher plus the self-contained driver bundles it falls back to
-	// when no dev dependencies resolve next to it (dist/scripts/).
-	cpSync( scriptsDistPath, resolve( engineOutDir, 'dist', 'scripts' ), {
-		recursive: true,
-	} );
-	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
-	copyFileSync(
-		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),
-		resolve( engineOutDir, 'scripts', 'run.mjs' )
-	);
-
-	// The bundle resolves vendored runtime assets (.php helpers run via
-	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
-	// engine's original src/ module paths — see the import.meta.url rewrite in
-	// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
-	// those files (and nothing else) under src/.
-	const copyRuntimeAssets = ( srcDir: string, destDir: string ) => {
-		for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
-			const from = resolve( srcDir, entry.name );
-			if ( entry.isDirectory() ) {
-				if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
-					continue;
-				}
-				copyRuntimeAssets( from, resolve( destDir, entry.name ) );
-			} else if ( /\.(php|json)$/.test( entry.name ) ) {
-				mkdirSync( destDir, { recursive: true } );
-				copyFileSync( from, resolve( destDir, entry.name ) );
+export function buildMcpUiPlugin() {
+	return {
+		name: 'build-mcp-ui',
+		apply: 'build' as const,
+		buildStart() {
+			execSync( 'npx vite build', { cwd: resolve( __dirname, '../mcp-ui' ), stdio: 'inherit' } );
+			if ( ! existsSync( mcpUiDistPath ) ) {
+				throw new Error(
+					`The MCP Apps page build did not produce ${ mcpUiDistPath }; refusing to ship a CLI without it.`
+				);
 			}
-		}
+		},
 	};
-	copyRuntimeAssets( resolve( dataLiberationSourcePath, 'src' ), resolve( engineOutDir, 'src' ) );
 }
 
 export const baseConfig = defineConfig( {
@@ -158,10 +118,11 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				copyDataLiberationEngine( outDir );
-
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
+				}
+				if ( existsSync( mcpUiDistPath ) ) {
+					cpSync( mcpUiDistPath, resolve( outDir, 'mcp-ui' ), { recursive: true } );
 				}
 			},
 		},
@@ -173,9 +134,7 @@ export const baseConfig = defineConfig( {
 				main: resolve( __dirname, 'index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
-				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
-				'reprint-child': resolve( __dirname, 'reprint-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],

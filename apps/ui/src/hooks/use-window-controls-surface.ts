@@ -11,14 +11,15 @@ import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
  * but a full-window page (settings, site creation) covers that chrome with a
  * surface that is the opposite shade in light mode. Only the covering surface
  * knows it is showing, so it owns the switch — and the restore on unmount is
- * what puts the chrome back. The host owns the actual colours.
+ * what puts the chrome back. The host owns the actual colours. Pass `null` to
+ * leave the surface alone while the caller isn't covering the controls.
  */
-export function useWindowControlsSurface( surface: 'chrome' | 'content' ) {
+export function useWindowControlsSurface( surface: 'chrome' | 'content' | 'toolbar' | null ) {
 	const connector = useConnector();
 	const hasOverlay = useWindowControlsOverlay() !== null;
 
 	useEffect( () => {
-		if ( ! hasOverlay || ! connector.setWindowControlsSurface ) {
+		if ( ! surface || ! hasOverlay || ! connector.setWindowControlsSurface ) {
 			return;
 		}
 		void connector.setWindowControlsSurface( surface );

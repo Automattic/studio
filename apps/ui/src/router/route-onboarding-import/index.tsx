@@ -1,6 +1,5 @@
 import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +8,7 @@ import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
@@ -78,6 +78,14 @@ export function OnboardingImportPage() {
 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
+	const [ importingSiteId, setImportingSiteId ] = useState< string >();
+	const importActivity = useSiteSyncActivity( importingSiteId );
+	useEffect( () => {
+		if ( importActivity?.kind === 'pending' && importActivity.message ) {
+			setProgress( importActivity.message );
+		}
+	}, [ importActivity, setProgress ] );
+
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		if ( ! selectedFile || isWorkingRef.current ) return;
 		isWorkingRef.current = true;
@@ -99,24 +107,27 @@ export function OnboardingImportPage() {
 				name: values.name,
 				path: values.path,
 				phpVersion: values.phpVersion,
+				fileAccess: values.fileAccess,
 				wpVersion: values.wpVersion,
 				customDomain: values.customDomain,
 				enableHttps: values.enableHttps,
 				adminUsername: values.adminUsername || undefined,
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
+				// A running site's WP-CLI lookups race the database import; the import starts the
+				// site once it's done. A WXR import needs the site's database to exist first.
+				skipStart: ! backupPath.toLowerCase().endsWith( '.xml' ),
 				flowType: 'import',
 			} );
 			createdSiteId = site.id;
 			phase = 'importing';
 			setProgress( __( 'Importing backup…' ) );
+			setImportingSiteId( site.id );
 			await importSite.mutateAsync( {
 				siteId: site.id,
 				backupPath,
-				onProgress: ( event ) => {
-					const message = getImportStatusMessage( event );
-					if ( message ) setProgress( message );
-				},
+				// `studio_site_imported` counts imports into existing sites only.
+				suppressTracksEvent: true,
 			} );
 			importCompleted = true;
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
@@ -150,6 +161,7 @@ export function OnboardingImportPage() {
 		} finally {
 			isWorkingRef.current = false;
 			setIsWorking( false );
+			setImportingSiteId( undefined );
 			setProgress( null );
 		}
 	};

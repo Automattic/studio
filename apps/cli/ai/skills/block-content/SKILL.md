@@ -161,7 +161,7 @@ wp_cli post create --post_content=""
 wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
 ```
 
-Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM filesystem; the host site directory is mounted at `/wordpress/`, so `ABSPATH === "/wordpress/"`. Host paths are not readable there and can silently update the post to empty content.
+Do not use `--post_content-file=<path>`: it is not a WP-CLI option, so WP-CLI never reads the file and the post content is not updated.
 
 ## Validation
 

@@ -626,13 +626,6 @@ export async function runCommand( options: {
 			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
 		}
 
-		// Read the WP.com access token for remote sites
-		let wpcomAccessToken: string | undefined;
-		if ( site?.remote ) {
-			const token = await readAuthToken();
-			wpcomAccessToken = token?.accessToken;
-		}
-
 		await persistSessionContext();
 
 		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
@@ -673,7 +666,6 @@ export async function runCommand( options: {
 			model: currentModel,
 			session: sm,
 			activeSite: site,
-			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );

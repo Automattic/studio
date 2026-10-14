@@ -5,32 +5,37 @@ import {
 	DEFAULT_ADMIN_USERNAME,
 	generatePassword,
 } from '@studio/common/lib/passwords';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
+import { BaseControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import { LearnMoreLink } from '@/components/learn-more';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	adminEmailField,
 	adminPasswordField,
 	adminUsernameField,
 	customDomainField,
+	fileAccessField,
 	phpVersionField,
 	siteNameField,
 	customDomainToggleField,
 	wpVersionField,
 } from '@/components/site-fields';
+import { EnableHttpsControl } from '@/components/site-fields/enable-https-control';
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
 	DataFormControlProps,
@@ -46,6 +51,7 @@ export interface CreateSiteFormValues {
 	name: string;
 	path: string;
 	phpVersion: SupportedPHPVersion;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	customDomain?: string;
 	enableHttps: boolean;
@@ -67,6 +73,7 @@ interface CreateSiteFormProps {
 	onCancel: () => void;
 	isSubmitting?: boolean;
 	isSubmitDisabled?: boolean;
+	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
 	submitLabel?: string;
 	cancelLabel?: string;
@@ -81,11 +88,13 @@ interface FormData {
 	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
 	pathError: string;
+	isWordPress: boolean;
 	// Suppresses the path field's required check during the auto-gen async
 	// window so a seeded name doesn't flash "1 error found" on the Advanced
 	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string;
@@ -98,6 +107,7 @@ interface FormData {
 const SIMPLE_FIELDS = [
 	'name',
 	'phpVersion',
+	'fileAccess',
 	'wpVersion',
 	'enableHttps',
 	'adminUsername',
@@ -112,8 +122,10 @@ function createDefaultFormData(): FormData {
 		path: '',
 		hasCustomPath: false,
 		pathError: '',
+		isWordPress: false,
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
+		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		useCustomDomain: false,
 		customDomain: '',
@@ -148,9 +160,11 @@ function applyInitialValues(
 			path: defaults.path,
 			hasCustomPath: defaults.hasCustomPath,
 			pathError: defaults.pathError,
+			isWordPress: defaults.isWordPress,
 			isPathPending: defaults.isPathPending,
 		},
 		phpVersion: { phpVersion: defaults.phpVersion },
+		fileAccess: { fileAccess: defaults.fileAccess },
 		wpVersion: { wpVersion: defaults.wpVersion },
 		customDomain: {
 			useCustomDomain: defaults.useCustomDomain,
@@ -174,6 +188,7 @@ function applyInitialValues(
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
 		next.pathError = '';
+		next.isWordPress = false;
 		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
@@ -232,6 +247,7 @@ function usePathAutoGenerate(
 				onChangeRef.current( {
 					path: result.path,
 					pathError: result.error ?? '',
+					isWordPress: result.isWordPress,
 					isPathPending: false,
 				} );
 			} catch {
@@ -274,17 +290,21 @@ function PathField( {
 			path: result.path,
 			hasCustomPath: true,
 			pathError: result.error ?? '',
+			isWordPress: result.isWordPress,
 			...( ! item.name && result.name ? { name: result.name } : {} ),
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = item.pathError || validity?.custom?.message;
-	const help = (
-		<>
-			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-			<LearnMoreLink docsLinksKey="docsSites" />
-		</>
-	);
+	const help =
+		item.path && item.isWordPress ? (
+			__( 'The existing WordPress site at this path will be added.' )
+		) : (
+			<>
+				{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
+				<LearnMoreLink docsLinksKey="docsSites" />
+			</>
+		);
 	const error = errorMessage ? (
 		<p role="alert" className="components-validated-control__indicator is-invalid">
 			<Icon
@@ -308,7 +328,9 @@ function PathField( {
 					label={ field.label }
 					hideLabelFromVision={ hideLabelFromVision }
 					value={ item.path }
-					onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
+					onChange={ ( value ) =>
+						onChange( { path: value, hasCustomPath: true, pathError: '', isWordPress: false } )
+					}
 					help={ errorMessage ? undefined : help }
 				/>
 				{ error }
@@ -355,25 +377,6 @@ function PathField( {
 	);
 }
 
-function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
-	return (
-		<CheckboxControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			checked={ item.enableHttps }
-			onChange={ ( checked ) => onChange( { enableHttps: checked } ) }
-			help={
-				<>
-					{ __(
-						'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-					) }{ ' ' }
-					<LearnHowLink docsLinksKey="docsSslInStudio" />
-				</>
-			}
-		/>
-	);
-}
-
 function countAdvancedErrors( validity: FormValidity, form: Form ): number {
 	const fieldIds: string[] = [];
 	const collect = ( field: FormField | string ) => {
@@ -405,6 +408,7 @@ export function CreateSiteForm( {
 	onCancel,
 	isSubmitting,
 	isSubmitDisabled,
+	requiresCustomDomain,
 	submitError,
 	submitLabel,
 	cancelLabel,
@@ -450,12 +454,22 @@ export function CreateSiteForm( {
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {
-			const keep =
-				prev.wpVersion === DEFAULT_WORDPRESS_VERSION ||
-				( ! isOffline && !! wpVersions?.some( ( version ) => version.value === prev.wpVersion ) );
-			return keep ? prev : { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION };
+			if ( prev.wpVersion === DEFAULT_WORDPRESS_VERSION ) return prev;
+			const wpVersion =
+				( ! isOffline && findOfferedWpVersion( prev.wpVersion, wpVersions ) ) ||
+				DEFAULT_WORDPRESS_VERSION;
+			return wpVersion === prev.wpVersion ? prev : { ...prev, wpVersion };
 		} );
 	}, [ wpVersions, isOffline, data.wpVersion ] );
+	const blueprintWpVersion = initialValues?.wpVersion;
+	const unavailableWpVersion =
+		! isOffline &&
+		wpVersions?.length &&
+		blueprintWpVersion &&
+		blueprintWpVersion !== DEFAULT_WORDPRESS_VERSION &&
+		! findOfferedWpVersion( blueprintWpVersion, wpVersions )
+			? blueprintWpVersion
+			: undefined;
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -476,24 +490,40 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
-				autoUpdateVersion: getLatestVersionLabel( wpVersions ),
-				offline: isOffline,
-			} ),
+			fileAccessField< FormData >(),
+			{
+				...wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+					autoUpdateVersion: getLatestVersionLabel( wpVersions ),
+					offline: isOffline,
+				} ),
+				...( unavailableWpVersion && {
+					description: sprintf(
+						/* translators: %s: WordPress version, e.g. 5.9 */
+						__( "This Blueprint asks for WordPress %s, which Studio can't install." ),
+						unavailableWpVersion
+					),
+				} ),
+			},
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
-			customDomainToggleField< FormData >(),
+			{
+				...customDomainToggleField< FormData >(),
+				...( requiresCustomDomain && {
+					isDisabled: true,
+					description: __( 'This Blueprint requires a custom domain.' ),
+				} ),
+			},
 			customDomainField< FormData >( existingDomainNames ),
 			{
 				id: 'enableHttps',
 				type: 'boolean',
 				label: __( 'Enable HTTPS' ),
 				isVisible: ( item: FormData ) => item.useCustomDomain,
-				Edit: EnableHttpsControl,
+				Edit: EnableHttpsControl< FormData >,
 			},
 		],
-		[ existingDomainNames, isOffline, wpVersions ]
+		[ existingDomainNames, isOffline, requiresCustomDomain, unavailableWpVersion, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -520,7 +550,7 @@ export function CreateSiteForm( {
 					id: 'phpEnvironment',
 					label: __( 'PHP environment' ),
 					layout: { type: 'card', withHeader: true, isCollapsible: false },
-					children: [ 'phpVersion' ],
+					children: [ 'phpVersion', 'fileAccess' ],
 				},
 				{
 					id: 'wordpressAdmin',
@@ -609,6 +639,7 @@ export function CreateSiteForm( {
 			name: data.name.trim(),
 			path: data.path,
 			phpVersion: data.phpVersion,
+			fileAccess: data.fileAccess,
 			wpVersion: data.wpVersion,
 			customDomain: data.useCustomDomain
 				? data.customDomain || generateCustomDomainFromSiteName( data.name )
@@ -740,5 +771,15 @@ export function CreateSiteForm( {
 
 			<OnboardingFooter>{ actions }</OnboardingFooter>
 		</form>
+	);
+}
+
+// The list only offers each branch's newest release, so a Blueprint asking for
+// "6.5" or "6.5.5" gets 6.5's newest release (the list is newest-first).
+function findOfferedWpVersion( version: string, offered: WordPressVersion[] = [] ) {
+	const branch = version.split( '.' ).slice( 0, 2 ).join( '.' );
+	return (
+		offered.find( ( { value } ) => value === version )?.value ??
+		offered.find( ( { value } ) => value.startsWith( `${ branch }.` ) )?.value
 	);
 }

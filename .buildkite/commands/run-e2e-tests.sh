@@ -120,7 +120,7 @@ fi
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"
 missing=()
-for f in reprint-child.mjs main.mjs wp-files/reprint/reprint.phar; do
+for f in php-server-child.mjs main.mjs wp-files/reprint/reprint.phar; do
   [ -f "$CLI_DIST/$f" ] || missing+=("$f")
 done
 if [ ${#missing[@]} -gt 0 ]; then

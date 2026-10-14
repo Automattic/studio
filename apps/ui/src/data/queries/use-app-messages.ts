@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
-import { DISMISSED_MESSAGES_QUERY_KEY } from '@/data/app-messages';
+import { DISMISSED_MESSAGES_QUERY_KEY, syncCardNotices } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -120,22 +120,13 @@ export function deriveUpdateMessages(
 	return [];
 }
 
-export function useActivePersistentMessages(): {
-	messages: PersistentMessage[];
-	dismiss: ( message: PersistentMessage ) => void;
-} {
+// Before session dismissals are applied.
+function usePersistentMessageSources(): PersistentMessage[] {
 	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const updateStatus = useAppUpdateStatus();
 	const locale = useUserLocale();
 	const aiCreditsMeter = useAiCreditsMeter();
 	const dismissedAiCreditsIntent = useDismissedAiCreditsIntent();
-	const { data: dismissedIds = [] } = useQuery( {
-		queryKey: DISMISSED_MESSAGES_QUERY_KEY,
-		queryFn: () => [] as string[],
-		staleTime: Infinity,
-		meta: { persist: false },
-	} );
 
 	const aiCreditsFraction = aiCreditsMeter?.fraction ?? null;
 	const aiCreditsIntent =
@@ -152,7 +143,7 @@ export function useActivePersistentMessages(): {
 		setDismissedAiCreditsIntent( aiCreditsNotice.dismissedIntent );
 	}, [ aiCreditsNotice.dismissedIntent ] );
 
-	const sources = useMemo( () => {
+	return useMemo( () => {
 		const messages = deriveUpdateMessages(
 			updateStatus.data,
 			() => void connector.installAppUpdate()
@@ -178,6 +169,28 @@ export function useActivePersistentMessages(): {
 		aiCreditsNotice.visible,
 		locale,
 	] );
+}
+
+// Mount once.
+export function useRecordPersistentMessages(): void {
+	const sources = usePersistentMessageSources();
+	useEffect( () => {
+		syncCardNotices( sources );
+	}, [ sources ] );
+}
+
+export function useActivePersistentMessages(): {
+	messages: PersistentMessage[];
+	dismiss: ( message: PersistentMessage ) => void;
+} {
+	const queryClient = useQueryClient();
+	const sources = usePersistentMessageSources();
+	const { data: dismissedIds = [] } = useQuery( {
+		queryKey: DISMISSED_MESSAGES_QUERY_KEY,
+		queryFn: () => [] as string[],
+		staleTime: Infinity,
+		meta: { persist: false },
+	} );
 
 	const messages = useMemo(
 		() => sources.filter( ( message ) => ! dismissedIds.includes( message.id ) ),

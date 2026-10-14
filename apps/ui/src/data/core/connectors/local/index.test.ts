@@ -124,42 +124,29 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
-	it( 'forwards matching pull progress from the local server event stream', async () => {
-		let onMessage: ( ( event: MessageEvent ) => void ) | null = null;
+	it( 'relays the sync activity on the local server event stream', async () => {
+		const stream: { onMessage?: ( event: MessageEvent ) => void } = {};
 		class MockEventSource {
-			set onmessage( listener: ( ( event: MessageEvent ) => void ) | null ) {
-				onMessage = listener;
+			set onmessage( listener: ( event: MessageEvent ) => void ) {
+				stream.onMessage = listener;
 			}
 
 			close() {}
 		}
 		vi.stubGlobal( 'EventSource', MockEventSource );
-		fetchMock.mockImplementation( async () => {
-			onMessage?.(
-				new MessageEvent( 'message', {
-					data: JSON.stringify( {
-						channel: 'sync-pull',
-						payload: {
-							siteId: 'site-1',
-							remoteSiteId: 42,
-							message: 'Creating remote backup… (20%)',
-							progress: 20,
-						},
-					} ),
-				} )
-			);
-			return new Response( null, { status: 204 } );
-		} );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
-		const onProgress = vi.fn();
+		const listener = vi.fn();
 		await connector.init?.();
+		connector.onSyncActivity( listener );
 
-		await connector.pullSiteFromLive( 'site-1', 42, onProgress );
+		const event = { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } };
+		stream.onMessage?.(
+			new MessageEvent( 'message', {
+				data: JSON.stringify( { channel: 'sync-activity', payload: event } ),
+			} )
+		);
 
-		expect( onProgress ).toHaveBeenCalledWith( {
-			message: 'Creating remote backup… (20%)',
-			progress: 20,
-		} );
+		expect( listener ).toHaveBeenCalledWith( event );
 	} );
 } );
 

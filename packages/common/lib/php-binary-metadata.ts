@@ -2,44 +2,35 @@ import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import {
 	getClosestSupportedPhpVersion,
-	LatestNativePhpSupportedVersion,
-	NativePhpSupportedVersions,
-	type NativePhpSupportedVersion,
+	isSupportedPHPVersion,
+	LatestSupportedPHPVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
 } from '../types/php-versions.ts';
 import phpBinaryCdnMetadataModule from './php-binary-cdn-metadata.mjs';
 
-export { NativePhpSupportedVersions, type NativePhpSupportedVersion };
-
-const nativePhpVersionSchema = z.enum( NativePhpSupportedVersions );
-export const MinimumNativePhpSupportedVersion =
-	NativePhpSupportedVersions[ NativePhpSupportedVersions.length - 1 ];
-
-export function validateNativePhpVersion( version: string ): NativePhpSupportedVersion {
-	const result = nativePhpVersionSchema.safeParse( version );
-	if ( ! result.success ) {
-		throw new Error(
-			sprintf(
-				`PHP %s is not supported by the native-php runtime. Supported versions: %s.`,
-				version,
-				NativePhpSupportedVersions.join( ', ' )
-			)
-		);
-	}
-	return result.data;
-}
-
-export function resolveNativePhpVersion( version: string ): NativePhpSupportedVersion {
-	const result = nativePhpVersionSchema.safeParse( version );
-	if ( result.success ) {
-		return result.data;
+// Maps a stored or requested PHP version to one Studio ships: older versions run with the closest
+// supported one, and an empty version means the latest.
+export function resolveSupportedPhpVersion( version: string ): SupportedPHPVersion {
+	if ( isSupportedPHPVersion( version ) ) {
+		return version;
 	}
 
 	if ( ! version ) {
-		return LatestNativePhpSupportedVersion;
+		return LatestSupportedPHPVersion;
 	}
 
 	const resolvedVersion = getClosestSupportedPhpVersion( version );
-	return resolvedVersion ?? validateNativePhpVersion( version );
+	if ( ! resolvedVersion ) {
+		throw new Error(
+			sprintf(
+				`PHP %s is not supported. Supported versions: %s.`,
+				version,
+				SupportedPHPVersions.join( ', ' )
+			)
+		);
+	}
+	return resolvedVersion;
 }
 
 const phpBinaryArtifactSchema = z.object( {
@@ -73,22 +64,20 @@ export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: stri
 	return platform === 'win32' ? 'x64' : arch;
 }
 
-export function getConfiguredPhpBinaryVersion(
-	version: NativePhpSupportedVersion
-): string | undefined {
+export function getConfiguredPhpBinaryVersion( version: SupportedPHPVersion ): string | undefined {
 	return version in phpBinaryCdnMetadata.versions
 		? phpBinaryCdnMetadata.versions[ version ]?.version
 		: undefined;
 }
 
 export function getConfiguredPhpBinaryPackageVersion(
-	version: NativePhpSupportedVersion
+	version: SupportedPHPVersion
 ): string | undefined {
 	return phpBinaryCdnMetadata.versions[ version ]?.packageVersion;
 }
 
 export function getConfiguredPhpBinaryPackageId(
-	version: NativePhpSupportedVersion
+	version: SupportedPHPVersion
 ): string | undefined {
 	const versionMetadata = phpBinaryCdnMetadata.versions[ version ];
 	if ( ! versionMetadata ) {
@@ -100,7 +89,7 @@ export function getConfiguredPhpBinaryPackageId(
 }
 
 export function getPhpBinaryDownloadInfo(
-	version: NativePhpSupportedVersion,
+	version: SupportedPHPVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): PhpBinaryDownloadInfo | undefined {

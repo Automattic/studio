@@ -1,7 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { WindowControlsCornerContext } from '@/hooks/use-window-controls-inset';
 import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/lib/resizable-panels';
 import { PreviewSplitFrame } from './index';
+import type { ComponentProps } from 'react';
+
+function CornerProbe( { testId }: { testId: string } ) {
+	const inCorner = useContext( WindowControlsCornerContext );
+	return <span data-testid={ testId } data-in-corner={ String( inCorner ) } />;
+}
 
 function getFrameRoot(): HTMLElement {
 	const root = screen.getByTestId( 'content' ).parentElement?.parentElement;
@@ -138,6 +147,106 @@ describe( 'PreviewSplitFrame', () => {
 			</PreviewSplitFrame>
 		);
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+	} );
+
+	describe( 'window drag strips', () => {
+		function renderStrips(
+			sidebarCollapsed: boolean,
+			props: Partial< ComponentProps< typeof PreviewSplitFrame > > = {}
+		) {
+			const { container } = render(
+				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
+					<PreviewSplitFrame
+						previewOpen
+						preview={ () => <aside aria-label="Site preview" /> }
+						{ ...props }
+					>
+						<span data-testid="content">Content</span>
+					</PreviewSplitFrame>
+				</SidebarCollapsedContext.Provider>
+			);
+			return Array.from( container.querySelectorAll( '[class*="dragStrip"]' ) ).map(
+				( strip ) =>
+					[ 'Top', 'Bottom', 'Start', 'End' ].find( ( edge ) =>
+						strip.className.includes( `dragStrip${ edge }` )
+					) + ( strip.className.includes( 'dragStripContentOnly' ) ? ':content' : '' )
+			);
+		}
+
+		it( 'covers the chrome gaps around the inset frame', () => {
+			expect( renderStrips( false ) ).toEqual( [ 'Top', 'Bottom', 'End' ] );
+		} );
+
+		it( 'uses every window edge of a flush frame around a stopped site', () => {
+			expect( renderStrips( true ) ).toEqual( [ 'Top', 'Start', 'Bottom', 'End' ] );
+		} );
+
+		it( 'keeps the edge handles off a live preview', () => {
+			expect( renderStrips( true, { previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom:content',
+			] );
+		} );
+
+		it( 'runs the bottom handle full width with the preview closed', () => {
+			expect( renderStrips( true, { previewOpen: false, previewLive: true } ) ).toEqual( [
+				'Top',
+				'Start',
+				'Bottom',
+			] );
+		} );
+
+		it( 'leaves only the top edge over a live full preview', () => {
+			expect( renderStrips( true, { previewFullscreen: true, previewLive: true } ) ).toEqual( [
+				'Top',
+			] );
+		} );
+	} );
+
+	describe( 'window controls corner', () => {
+		function renderFrame(
+			sidebarCollapsed: boolean,
+			props: Partial< ComponentProps< typeof PreviewSplitFrame > >
+		) {
+			render(
+				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
+					<PreviewSplitFrame preview={ () => <CornerProbe testId="preview" /> } { ...props }>
+						<span data-testid="content">Content</span>
+						<CornerProbe testId="chat" />
+					</PreviewSplitFrame>
+				</SidebarCollapsedContext.Provider>
+			);
+			return {
+				chat: screen.getByTestId( 'chat' ).dataset.inCorner,
+				preview: screen.getByTestId( 'preview' ).dataset.inCorner,
+			};
+		}
+
+		it( 'puts nothing in the corner while the sidebar keeps the frame inset', () => {
+			expect( renderFrame( false, { previewOpen: true } ) ).toEqual( {
+				chat: 'false',
+				preview: 'false',
+			} );
+		} );
+
+		it( 'puts the chat in the corner when the preview is closed', () => {
+			expect( renderFrame( true, {} ) ).toEqual( { chat: 'true', preview: 'false' } );
+		} );
+
+		it( 'puts the preview in the corner when it is open', () => {
+			expect( renderFrame( true, { previewOpen: true } ) ).toEqual( {
+				chat: 'false',
+				preview: 'true',
+			} );
+		} );
+
+		it( 'puts the preview in the corner in full preview', () => {
+			expect( renderFrame( true, { previewOpen: true, previewFullscreen: true } ) ).toEqual( {
+				chat: 'false',
+				preview: 'true',
+			} );
+		} );
 	} );
 
 	it( 'keeps preview space reserved when the first mount measurement is zero', () => {

@@ -295,9 +295,7 @@ describe( 'ContentTabSettings', () => {
 			const user = userEvent.setup();
 
 			renderWithProvider(
-				<ContentTabSettings
-					selectedSite={ { ...selectedSite, runtime: 'native-php', phpVersion: '7.4' } }
-				/>
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '7.4' } } />
 			);
 
 			await waitFor( () => {

@@ -8,7 +8,6 @@ import {
 	validateSelectedSitePath,
 	type PathValidationResult,
 } from '@studio/common/lib/site-path-validation';
-import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
@@ -33,7 +32,6 @@ export interface CreateSiteFormValues {
 	sitePath: string;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
-	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	useCustomDomain: boolean;
 	customDomain: string | null;
@@ -239,7 +237,6 @@ export function useAddSite() {
 					formValues.adminUsername,
 					formValues.adminPassword,
 					formValues.adminEmail,
-					formValues.runtime,
 					formValues.fileAccess,
 					flowType
 				);

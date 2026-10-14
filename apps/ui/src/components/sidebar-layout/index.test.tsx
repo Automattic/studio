@@ -11,14 +11,11 @@ vi.mock( '@/components/sidebar-header', () => ( {
 vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCards: () => null,
 	AppMessageCardsDot: () => null,
+	AppMessageHistoryRecorder: () => null,
 } ) );
 
 vi.mock( '@/components/collapsed-site-switcher', () => ( {
 	CollapsedSiteSwitcher: ( { trigger }: { trigger: ReactElement } ) => trigger,
-} ) );
-
-vi.mock( '@/components/studio-beta-menu', () => ( {
-	StudioBetaMenu: () => null,
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {

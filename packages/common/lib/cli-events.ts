@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
-import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
+import { syncEventSchema } from '@studio/common/lib/sync/activity';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
@@ -22,7 +22,6 @@ export const siteDetailsSchema = z.object( {
 	port: z.number(),
 	url: z.string(),
 	phpVersion: z.string(),
-	runtime: siteRuntimeSchema.optional(),
 	fileAccess: siteFileAccessSchema.optional(),
 	customDomain: z.string().optional(),
 	enableHttps: z.boolean().optional(),
@@ -67,6 +66,10 @@ export enum SITE_EVENTS {
 export enum AUTH_EVENTS {
 	LOGIN = 'auth-login',
 	LOGOUT = 'auth-logout',
+}
+
+export enum SYNC_EVENTS {
+	ACTIVITY = 'sync-activity',
 }
 
 export enum SNAPSHOT_EVENTS {
@@ -134,10 +137,16 @@ const authSocketEventSchema = z.object( {
 	} ),
 } );
 
+const syncSocketEventSchema = z.object( {
+	event: z.literal( SYNC_EVENTS.ACTIVITY ),
+	data: syncEventSchema,
+} );
+
 export const socketEventSchema = z.union( [
 	siteSocketEventSchema,
 	snapshotSocketEventSchema,
 	authSocketEventSchema,
+	syncSocketEventSchema,
 ] );
 export type SocketEvent = z.infer< typeof socketEventSchema >;
 
@@ -169,4 +178,13 @@ export const cliAuthEventSchema = z.object( {
 		.string()
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( authEventSchema ),
+} );
+
+export const cliSyncEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'sync-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( syncEventSchema ),
 } );

@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -7,6 +8,7 @@ import {
 	getRealmOpenEvent,
 	parseOmniboxInput,
 	PreviewAddressBar,
+	type PreviewRealm,
 } from './address-bar';
 import type { SiteDetails } from '@/data/core';
 import type { Mock } from 'vitest';
@@ -29,12 +31,12 @@ function renderAddressBar( {
 	path = '/',
 	site = SITE,
 	onNavigate = vi.fn< ( path: string ) => void >(),
-	onSwitchRealm = vi.fn< ( realm: 'frontend' | 'admin' | 'database' ) => void >(),
+	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
 }: {
 	path?: string;
 	site?: SiteDetails;
 	onNavigate?: Mock< ( path: string ) => void >;
-	onSwitchRealm?: Mock< ( realm: 'frontend' | 'admin' | 'database' ) => void >;
+	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
 } = {} ) {
 	const result = render(
 		<PreviewAddressBar
@@ -79,12 +81,14 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( '/wp-admin/' ) ).toBe( 'admin' );
 		expect( getPreviewRealm( DATABASE_HOME_PATH ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
+		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
 	} );
 
 	it( 'maps realms to open events', () => {
 		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
 		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
 		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
+		expect( getRealmOpenEvent( 'design' ) ).toBe( 'studio_site_open_design_system' );
 	} );
 
 	it( 'routes admin paths through auto-login', () => {

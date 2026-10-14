@@ -7,6 +7,7 @@ import {
 	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
+import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
@@ -31,28 +32,20 @@ import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
+	getAiModel,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
-import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { type TSchema } from 'typebox';
+import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
-import { createSiteTool } from 'cli/ai/tools/create-site';
 import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
-import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
-import { createTakeScreenshotTool, takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
-import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { getPendingWork, type PendingWork } from './pending-work';
@@ -70,14 +63,15 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioWpcomModel = Model< 'openai-completions' > | Model< 'openai-responses' >;
+type StudioWpcomModel =
+	| Model< 'openai-completions' >
+	| Model< 'openai-responses' >
+	| Model< 'anthropic-messages' >;
 type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
-const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
-const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -91,7 +85,6 @@ export interface StudioAgentTurnConfig {
 	env?: Record< string, string >;
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
-	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
@@ -117,9 +110,6 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
-	}
-	if ( resolvedConfig.activeSite?.remote ) {
-		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
@@ -273,25 +263,6 @@ async function runAgentSessionTurn(
 	}
 }
 
-// Resolve the runtime of the active local site so the system prompt can drop
-// Playground-specific WP-CLI guidance for native PHP sites. The active site
-// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
-// config. Falls back to native-php (the default runtime) for unknown, remote,
-// or unreadable sites.
-async function resolveActiveSiteRuntime(
-	activeSite: SiteInfo | null | undefined
-): Promise< SiteRuntime > {
-	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-	try {
-		const site = await getSiteByFolder( activeSite.path );
-		return getSiteRuntime( site );
-	} catch {
-		return SITE_RUNTIME_NATIVE_PHP;
-	}
-}
-
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -299,12 +270,10 @@ async function createStudioAgentSession(
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
-	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, runtime, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
-		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
 		isImageGenerationAvailable(),
 	] );
 
@@ -314,25 +283,11 @@ async function createStudioAgentSession(
 		imageGenerationEnabled,
 		visionEnabled
 	);
-	const systemPrompt = buildSystemPrompt(
-		isRemoteSite
-			? {
-					remoteSite: {
-						name: config.activeSite!.name,
-						url: config.activeSite!.url ?? '',
-						id: config.activeSite!.wpcomSiteId!,
-					},
-					userInstructions,
-					visionEnabled,
-			  }
-			: {
-					chatArtifactsEnabled,
-					runtime,
-					userInstructions,
-					visionEnabled,
-					tools: tools.map( toolPromptContribution ),
-			  }
-	);
+	const systemPrompt = buildSystemPrompt( {
+		chatArtifactsEnabled,
+		userInstructions,
+		tools: tools.map( toolPromptContribution ),
+	} );
 
 	const pendingWork = getPendingWork( config.session );
 	const toolDefinitions = tools.map( ( tool ) =>
@@ -394,9 +349,23 @@ function buildModel(
 		// upstreams a tier may resolve to, so compaction kicks in before any
 		// of them overflows.
 		//
-		// `strong` rides the Responses path: its upstream is a reasoning model
-		// that rejects tools-plus-reasoning on Chat Completions.
+		// `strong` rides the proxy's Anthropic Messages path, which sits beside
+		// `/v1` rather than under it and authenticates with a bearer token.
 		if ( modelId === 'strong' ) {
+			return {
+				...common,
+				baseUrl: baseUrl.replace( /\/v1$/, '' ),
+				headers: { ...creds.extraHeaders, Authorization: `Bearer ${ creds.apiKey }` },
+				api: 'anthropic-messages',
+				provider: STUDIO_WPCOM_PROVIDER,
+				reasoning: false,
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			};
+		}
+		// `balanced` rides the Responses path: its upstream is a reasoning model
+		// that rejects tools-plus-reasoning on Chat Completions.
+		if ( modelId === 'balanced' ) {
 			return {
 				...common,
 				api: 'openai-responses',
@@ -531,15 +500,34 @@ function createWpcomProviderConfig(
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
 	// is narrower, and the model registered below is the one passed in.
 	const stream = (
-		model.api === 'openai-completions' ? streamOpenAiCompletions : streamOpenAiResponses
+		model.api === 'openai-completions'
+			? streamOpenAiCompletions
+			: model.api === 'anthropic-messages'
+			? streamAnthropicMessages
+			: streamOpenAiResponses
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
+	// The model keeps its stable id for pi and the session history; only the
+	// request names the proxy's current upstream alias.
+	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite( stream( m, stripStaleImagesFromContext( ctx ), options ) ),
+			withUsageCapErrorRewrite(
+				stream( m, stripStaleImagesFromContext( ctx ), {
+					...options,
+					...( apiModelId
+						? {
+								onPayload: async ( params: unknown, payloadModel ) => {
+									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+									return { ...( next as Record< string, unknown > ), model: apiModelId };
+								},
+						  }
+						: {} ),
+				} )
+			),
 		models: [
 			{
 				id: model.id,
@@ -623,17 +611,18 @@ function buildAgentTools(
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean
 ): AgentToolAny[] {
-	const isRemoteSite = Boolean(
-		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
-	);
-
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
-	const tracks = { sessionId: config.session.getSessionId() };
+	const tracks = getAiTracksIdentity( config.session.getSessionId() );
 	const designOptionsTool: AgentToolAny[] =
 		config.onAskUser && chatArtifactsEnabled
-			? [ createPresentDesignOptionsTool( config.onAskUser, tracks ) as unknown as AgentToolAny ]
+			? [
+					createPresentDesignOptionsTool( {
+						onAskUser: config.onAskUser,
+						tracks,
+					} ) as unknown as AgentToolAny,
+			  ]
 			: [];
 
 	const skillToolDef = createSkillTool();
@@ -644,32 +633,12 @@ function buildAgentTools(
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
-	const remoteScratchTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
-		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
-	];
-
-	if ( isRemoteSite ) {
-		const remoteStudioTools = [
-			visionEnabled ? takeScreenshotTool : createTakeScreenshotTool( { visionEnabled: false } ),
-			createSiteTool,
-			pullSiteTool,
-		].map( ( tool ) => withChatArtifactEmission( tool, chatArtifactsEnabled ) );
-		return [
-			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			...remoteStudioTools,
-			...remoteScratchTools,
-			...askUserTool,
-			...skillTool,
-		];
-	}
-
+	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
+		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+		designSystemPreview( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
+		designSystemPreview( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
 		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),

@@ -4,6 +4,7 @@
 import { vi } from 'vitest';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { SiteServer } from 'src/site-server';
+import type { SiteListItem } from '@studio/common/lib/cli-events';
 
 // Electron's Node.js environment provides `btoa`/`atob`, but Vitest's does not
 vi.mock( '@studio/common/lib/passwords' );
@@ -72,10 +73,6 @@ vi.mock( 'src/modules/cli/lib/cli-server-process', () => {
 
 vi.mock( 'src/storage/user-data' );
 
-vi.mock( 'src/lib/beta-features', () => ( {
-	getDefaultSiteRuntime: vi.fn().mockResolvedValue( 'playground' ),
-} ) );
-
 describe( 'SiteServer', () => {
 	describe( 'create', () => {
 		beforeEach( () => {
@@ -87,7 +84,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-1',
 				port: 8765,
 				running: false,
-			} );
+			} as SiteListItem );
 
 			const { server, details } = await SiteServer.create( {
 				siteId: 'create-port-1',
@@ -105,7 +102,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-2',
 				port: 9100,
 				running: true,
-			} );
+			} as SiteListItem );
 
 			const { server, details } = await SiteServer.create( {
 				siteId: 'create-port-2',
@@ -126,7 +123,7 @@ describe( 'SiteServer', () => {
 				id: 'create-port-3',
 				port: 8881,
 				running: true,
-			} );
+			} as SiteListItem );
 
 			const { details } = await SiteServer.create( {
 				siteId: 'create-port-3',
@@ -173,12 +170,8 @@ describe( 'SiteServer', () => {
 	} );
 
 	describe( 'start', () => {
-		it( 'should throw if the server starts with a non-WordPress mode', async () => {
-			mockStartServer.mockRejectedValue(
-				new Error(
-					"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-				)
-			);
+		it( 'should throw if the server fails to start', async () => {
+			mockStartServer.mockRejectedValue( new Error( 'PHP error during startup' ) );
 
 			const server = SiteServer.register( {
 				id: 'test-id',
@@ -191,9 +184,7 @@ describe( 'SiteServer', () => {
 				themeDetails: undefined,
 			} );
 
-			await expect( server.start() ).rejects.toThrow(
-				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-			);
+			await expect( server.start() ).rejects.toThrow( 'PHP error during startup' );
 		} );
 	} );
 } );

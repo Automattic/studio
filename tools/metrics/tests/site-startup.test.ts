@@ -1,8 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { E2ESession } from '../../../apps/studio/e2e/e2e-helpers';
-import Onboarding from '../../../apps/studio/e2e/page-objects/onboarding';
-import SiteContent from '../../../apps/studio/e2e/page-objects/site-content';
-import WhatsNewModal from '../../../apps/studio/e2e/page-objects/whats-new-modal';
+import AddSite from '../../../apps/studio/e2e/page-objects/add-site';
+import Sidebar from '../../../apps/studio/e2e/page-objects/sidebar';
 import { median } from '../utils';
 
 test.describe( 'Startup Metrics', () => {
@@ -12,8 +11,6 @@ test.describe( 'Startup Metrics', () => {
 
 	test.beforeAll( async () => {
 		await session.launch();
-
-		// Complete onboarding before tests
 	} );
 
 	// eslint-disable-next-line no-empty-pattern
@@ -34,41 +31,33 @@ test.describe( 'Startup Metrics', () => {
 	} );
 
 	test( 'measure site creation and startup performance', async () => {
-		let siteContent;
+		const sidebar = new Sidebar( session.mainWindow );
+		const statusButton = sidebar.getStatusButton( siteName );
 
 		// Measure site creation time (includes initial startup time)
 		await test.step( 'Measure site creation time', async () => {
-			const onboarding = new Onboarding( session.mainWindow );
-			await expect( onboarding.heading ).toBeVisible();
+			const addSite = new AddSite( session.mainWindow );
+			await addSite.open();
 			const startTime = Date.now();
-			await onboarding.completeOnboarding();
-			await onboarding.closeWhatsNew();
-
-			siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached();
-			const endTime = Date.now();
-			const duration = endTime - startTime;
-			results.siteCreation = [ duration ];
+			await addSite.createSite( { siteName } );
+			await sidebar.expectRunning( siteName );
+			results.siteCreation = [ Date.now() - startTime ];
 		} );
 
 		results.siteStartup = [];
 		// Measure server stop/start 5 times
 		for ( let i = 0; i < 5; i++ ) {
 			await test.step( `Run ${ i + 1 }/5: Stopping and starting site`, async () => {
-				// Stop the site by clicking the Running button
-				await siteContent.runningButton.click();
-				const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
-				await expect( startButton ).toBeAttached();
+				await statusButton.click();
+				await expect( statusButton ).toHaveAttribute( 'data-state', 'stopped', {
+					timeout: 120_000,
+				} );
 
-				// Start timer
 				const startTime = Date.now();
-				await startButton.click();
-				// Wait for site to be running
-				await expect( siteContent.runningButton ).toBeAttached();
-				const endTime = Date.now();
-				const duration = endTime - startTime;
+				await statusButton.click();
+				await sidebar.expectRunning( siteName );
+				const duration = Date.now() - startTime;
 
-				// Log performance data for this run
 				console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );
 				results.siteStartup.push( duration );
 
@@ -76,17 +65,5 @@ test.describe( 'Startup Metrics', () => {
 				await session.mainWindow.waitForTimeout( 100 );
 			} );
 		}
-
-		// Delete the site after test
-		await test.step( 'Delete the site', async () => {
-			const settingsTab = await siteContent.navigateToTab( 'settings' );
-			await session.electronApp.evaluate( ( { dialog } ) => {
-				dialog.showMessageBox = async () => {
-					return { response: 0, checkboxChecked: true };
-				};
-			} );
-			await settingsTab.openDeleteSiteModal();
-			await session.mainWindow.waitForTimeout( 200 ); // Wait for deletion
-		} );
 	} );
 } );

@@ -1,7 +1,11 @@
 import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import {
 	createSnapshotManager,
+	deleteAllPreviewSites,
 	fetchSnapshots as fetchSnapshotsFromCli,
+	deletePreviewSite as deletePreviewSiteViaCli,
+	publishPreviewSite as publishPreviewSiteViaCli,
+	renamePreviewSite as renamePreviewSiteViaCli,
 	type SnapshotManager,
 	type SnapshotOutput,
 } from '@studio/common/sites/snapshots';
@@ -23,8 +27,8 @@ function snapshotManagerForWindow( window: BrowserWindow | null ): SnapshotManag
 						data: output.data,
 					} );
 					break;
-				case 'key-value':
-					sendIpcEventToRendererWithWindow( window, 'snapshot-key-value', {
+				case 'result':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-result', {
 						operationId: output.operationId,
 						data: output.data,
 					} );
@@ -53,6 +57,29 @@ function snapshotManagerForWindow( window: BrowserWindow | null ): SnapshotManag
 
 export async function fetchSnapshots(): Promise< Snapshot[] > {
 	return fetchSnapshotsFromCli( executeCliCommand );
+}
+
+// For apps/ui: resolves with the preview's URL once it's published. Progress
+// reaches the UI as sync activity, so nothing is forwarded on `snapshot-*`.
+export async function publishPreviewSite(
+	_event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname?: string,
+	name?: string
+): Promise< { url: string } > {
+	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name );
+}
+
+export async function deletePreviewSite( _event: IpcMainInvokeEvent, hostname: string ) {
+	return deletePreviewSiteViaCli( executeCliCommand, hostname );
+}
+
+export async function renamePreviewSite(
+	_event: IpcMainInvokeEvent,
+	hostname: string,
+	name: string
+) {
+	return renamePreviewSiteViaCli( executeCliCommand, hostname, name );
 }
 
 export async function createSnapshot(
@@ -88,13 +115,5 @@ export async function setSnapshot(
 }
 
 export async function deleteAllSnapshots() {
-	return new Promise< void >( ( resolve, reject ) => {
-		const [ cliEventEmitter ] = executeCliCommand( [ 'preview', 'delete', '--all' ], {
-			output: 'capture',
-			logPrefix: 'preview',
-		} );
-		cliEventEmitter.on( 'error', ( error ) => reject( error ) );
-		cliEventEmitter.on( 'failure', ( error ) => reject( error ) );
-		cliEventEmitter.on( 'success', () => resolve() );
-	} );
+	return deleteAllPreviewSites( executeCliCommand );
 }

@@ -1,13 +1,5 @@
-import { __ } from '@wordpress/i18n';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
-
-export interface BetaFeatureDefinition {
-	label: string;
-	key: string;
-	default: boolean;
-	description?: string;
-}
 
 /**
  * Default values for beta features.
@@ -15,21 +7,6 @@ export interface BetaFeatureDefinition {
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	enableAgenticUi: false,
 };
-
-/**
- * Returns beta feature definitions with translated labels and descriptions.
- * Must be called at runtime (not at module load) to ensure translations are loaded.
- */
-export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
-	return {
-		enableAgenticUi: {
-			label: __( 'New Studio experience' ),
-			key: 'enableAgenticUi',
-			default: BETA_FEATURE_DEFAULTS.enableAgenticUi,
-			description: __( 'A redesigned interface with AI-powered site building.' ),
-		},
-	};
-}
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	const features: Partial< BetaFeatures > = {};

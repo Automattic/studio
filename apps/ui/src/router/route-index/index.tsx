@@ -52,7 +52,7 @@ export const indexRoute = createRoute( {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
 		}
 
-		// No sessions yet: the new-session route creates (or reuses) an empty
+		// No sessions yet: the new-session route creates an empty
 		// session for the site and redirects to it.
 		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id } } );
 	},

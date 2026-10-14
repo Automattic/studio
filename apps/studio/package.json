@@ -25,7 +25,7 @@
 		"lint": "eslint src e2e",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge package .",
 		"publish": "electron-forge publish .",
-		"start-wayland": "npm -w wp-studio run build && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
+		"start-wayland": "npm -w wp-studio run build && electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

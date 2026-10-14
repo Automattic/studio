@@ -3,6 +3,7 @@ import {
 	type BrowserWindowConstructorOptions,
 	screen,
 	app,
+	dialog,
 	nativeTheme,
 } from 'electron';
 import fs from 'fs';
@@ -16,13 +17,11 @@ import {
 	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
-	MAIN_MIN_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { applyAppZoomCommand, getAppZoomCommand } from 'src/lib/app-zoom';
 import { warnIfRunningUnderArm64Translation } from 'src/lib/arm64-translation-warning';
-import { getPreferredStudioUiMode, type StudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from 'src/logging';
 import { removeMenu } from 'src/menu';
@@ -49,77 +48,42 @@ interface RendererLocation {
 	filePath?: string;
 }
 
-function getRendererFilePath( mode: StudioUiMode ) {
-	return path.join(
-		__dirname,
-		mode === 'default' ? '../renderer/index.html' : '../renderer-ui/index.html'
-	);
-}
+const RENDERER_FILE_PATH = path.join( __dirname, '../renderer-ui/index.html' );
 
-function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
-	if (
-		! app.isPackaged &&
-		preferredMode === 'agentic' &&
-		process.env[ 'ELECTRON_UI_RENDERER_URL' ]
-	) {
+function getRendererLocation(): RendererLocation {
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_UI_RENDERER_URL' ] ) {
 		return {
 			url: process.env[ 'ELECTRON_UI_RENDERER_URL' ],
 		};
 	}
 
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		return {
-			url: process.env[ 'ELECTRON_RENDERER_URL' ],
-		};
-	}
-
-	let mode = preferredMode;
-	let filePath = getRendererFilePath( mode );
-	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
-		mode = 'default';
-		filePath = getRendererFilePath( mode );
-	}
-
 	return {
-		filePath,
-		url: pathToFileURL( filePath ).href,
+		filePath: RENDERER_FILE_PATH,
+		url: pathToFileURL( RENDERER_FILE_PATH ).href,
 	};
 }
 
-function rememberRendererLocation( location: RendererLocation ) {
-	currentRendererUrl = location.url;
-}
-
 async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
-	rememberRendererLocation( location );
-	if ( location.filePath ) {
-		await window.loadFile( location.filePath );
+	currentRendererUrl = location.url;
+	if ( ! location.filePath ) {
+		await window.loadURL( location.url );
 		return;
 	}
-	await window.loadURL( location.url );
-}
-
-export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
-	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
-	// Switching renderers changes the floor. Growing it (agentic → default)
-	// also widens a window that is already below the new minimum.
-	const minWidth = getMinWindowWidth();
-	window.setMinimumSize( minWidth, MAIN_MIN_HEIGHT );
-	const [ width, height ] = window.getSize();
-	if ( width < minWidth ) {
-		window.setSize( minWidth, height, true );
+	if ( ! fs.existsSync( location.filePath ) ) {
+		// A build that skipped `scripts/build-ui-renderer.ts`, e.g. a stale `dist/`.
+		console.error( 'Studio renderer not found:', location.filePath );
+		dialog.showErrorBox(
+			'Studio could not start',
+			`The app's interface is missing (${ location.filePath }). Rebuild Studio and try again.`
+		);
+		app.quit();
+		return;
 	}
-	if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		window.setTitleBarOverlay( getTitleBarOverlayOptions() );
-	}
+	await window.loadFile( location.filePath );
 }
 
 export function getCurrentRendererUrl(): string {
-	if ( currentRendererUrl ) {
-		return currentRendererUrl;
-	}
-
-	return getRendererLocation( 'default' ).url;
+	return currentRendererUrl ?? getRendererLocation().url;
 }
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
@@ -158,14 +122,8 @@ function initializePortFinder( sites: SiteDetails[] ) {
 	} );
 }
 
-// Each renderer has its own floor, so the window can't be dragged narrower
-// than whichever one is on screen.
-function getMinWindowWidth(): number {
-	return getPreferredStudioUiMode() === 'agentic' ? AGENTIC_MIN_WIDTH : MAIN_MIN_WIDTH;
-}
-
 function isValidWindowBounds( bounds: WindowBounds ): boolean {
-	if ( bounds.width < getMinWindowWidth() || bounds.height < MAIN_MIN_HEIGHT ) {
+	if ( bounds.width < AGENTIC_MIN_WIDTH || bounds.height < MAIN_MIN_HEIGHT ) {
 		return false;
 	}
 
@@ -195,7 +153,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
-		minWidth: getMinWindowWidth(),
+		minWidth: AGENTIC_MIN_WIDTH,
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
@@ -255,7 +213,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
+	void loadRendererLocation( mainWindow, getRendererLocation() );
 
 	initializePortFinder( SiteServer.getAllDetails() );
 
@@ -355,9 +313,6 @@ export function setAgenticControlsSurface( surface: WindowControlsSurface ) {
 export type TrafficLightsPosition = 'default' | 'toolbar';
 
 export function getTitleBarOverlayOptions() {
-	if ( getPreferredStudioUiMode() !== 'agentic' ) {
-		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
-	}
 	const isDark = nativeTheme.shouldUseDarkColors;
 	// Chrome is dark in both schemes; the content surface tracks
 	// `--wpds-color-background-surface-neutral`, the toolbar

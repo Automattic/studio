@@ -4,9 +4,8 @@ import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { isDevRelease } from 'src/lib/version-utils';
-import { getExistingMainWindow, getMainWindow } from 'src/main-window';
+import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import type { IpcMainInvokeEvent } from 'electron';
 
@@ -107,14 +106,8 @@ export function setupUpdates() {
 			emitAppUpdateStatus();
 		}
 
-		// The agentic UI reports this in the sidebar; classic has no such affordance.
-		if ( showManualCheckDialogs ) {
-			if ( getPreferredStudioUiMode() === 'agentic' ) {
-				showManualCheckDialogs = false;
-			} else {
-				await showUpdateAvailableNotice();
-			}
-		}
+		// The renderer reports this in the sidebar.
+		showManualCheckDialogs = false;
 	} );
 
 	autoUpdater.on( 'update-not-available', async () => {
@@ -169,10 +162,6 @@ export function setupUpdates() {
 		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		emitAppUpdateStatus();
-		// The agentic UI surfaces this as a sidebar card; a modal on top would duplicate it.
-		if ( getPreferredStudioUiMode() !== 'agentic' ) {
-			await showUpdateReadyToInstallNotice();
-		}
 	} );
 
 	if ( ! shouldPoll ) {
@@ -214,29 +203,17 @@ export function setupUpdates() {
 }
 
 export async function manualCheckForUpdates() {
-	const agentic = getPreferredStudioUiMode() === 'agentic';
-
 	if ( updaterState === 'waiting-for-restart' ) {
-		// Not a valid state to check for updatees, user should be manually restarting instead
-		// However, let's open the dialog to let them easily restart
+		// Not a valid state to check for updates: the user should restart instead. Re-emitting
+		// re-surfaces the sidebar card if they dismissed it, so the menu item still does something.
 		console.log( 'Update has been already downloaded, proposing to restart again' );
-		// Re-emitting re-surfaces the sidebar card if the user dismissed it, so the menu item
-		// still does something in the agentic UI.
-		if ( agentic ) {
-			emitAppUpdateStatus( { requested: true } );
-		} else {
-			await showUpdateReadyToInstallNotice();
-		}
+		emitAppUpdateStatus( { requested: true } );
 		return;
 	}
 
 	if ( updaterState === 'downloading' ) {
 		console.log( 'Manually checking for update, but discovered a download is already in progress' );
-		if ( agentic ) {
-			emitAppUpdateStatus( { requested: true } );
-		} else {
-			await showUpdateAvailableNotice();
-		}
+		emitAppUpdateStatus( { requested: true } );
 		return;
 	}
 
@@ -280,78 +257,10 @@ function queueUpdateCheck() {
 	}, AUTO_UPDATE_INTERVAL_MS );
 }
 
-async function showUpdateAvailableNotice() {
-	showManualCheckDialogs = false;
-	const mainWindow = await getMainWindow();
-	await dialog.showMessageBox( mainWindow, {
-		type: 'info',
-		buttons: [ __( 'OK' ) ],
-		title: __( 'New Version Available' ),
-		message: availableVersion
-			? sprintf(
-					/* translators: 1: current version, e.g. "1.20.0". 2: new version, e.g. "1.21.0". */
-					__( 'Updating Studio from %1$s to %2$s' ),
-					app.getVersion(),
-					availableVersion
-			  )
-			: sprintf(
-					/* translators: %s is the current version number, e.g. "1.20.0". */
-					__( 'Updating Studio from %s' ),
-					app.getVersion()
-			  ),
-		detail: __(
-			'Studio will notify you when the update is ready to install. You can continue working normally.'
-		),
-	} );
-}
-
 async function showUpdateUnavailableNotice() {
 	showManualCheckDialogs = false;
-	// The agentic UI answers with a toast: there's nothing to act on.
-	if ( getPreferredStudioUiMode() === 'agentic' ) {
-		void sendIpcEventToRenderer( 'app-update-not-available', { currentVersion: app.getVersion() } );
-		return;
-	}
-	const mainWindow = await getMainWindow();
-	await dialog.showMessageBox( mainWindow, {
-		type: 'info',
-		buttons: [ __( 'OK' ) ],
-		title: __( 'Application Update' ),
-		message: __( 'No updates available' ),
-		detail: sprintf(
-			/* translators: %s is the current version number, e.g. "1.20.0". */
-			__(
-				"You're already running the latest version of Studio (%s). No update is needed at this time."
-			),
-			app.getVersion()
-		),
-	} );
-}
-
-async function showUpdateReadyToInstallNotice() {
-	// Only show the restart dialog if a window is already open. If the user
-	// closed the window while an update was downloading, don't recreate it —
-	// the update will be applied on the next launch or when the user reopens
-	// the app from the dock.
-	const existingWindow = getExistingMainWindow();
-	if ( ! existingWindow ) {
-		return;
-	}
-	const { response } = await dialog.showMessageBox( existingWindow, {
-		type: 'info',
-		buttons: [ __( 'Restart' ), __( 'Later' ) ],
-		title: __( 'Application Update' ),
-		message: __( 'Update ready to install' ),
-		detail: __(
-			'Restart Studio now to install the update, or choose Later to continue working and restart when convenient.'
-		),
-		defaultId: 0,
-		cancelId: 1,
-	} );
-
-	if ( response === 0 ) {
-		autoUpdater.quitAndInstall();
-	}
+	// The renderer answers with a toast: there's nothing to act on.
+	void sendIpcEventToRenderer( 'app-update-not-available', { currentVersion: app.getVersion() } );
 }
 
 function setupLinuxUpdates() {
@@ -516,21 +425,7 @@ async function showReadOnlyVolumeError( err: Error ) {
 
 	lastError = { reason: 'read-only-volume', detail: `${ detailMessage }\n\n${ detailPath }` };
 
-	if ( getPreferredStudioUiMode() === 'agentic' ) {
-		emitAppUpdateStatus();
-		return;
-	}
-
-	const existingWindow = getExistingMainWindow();
-	if ( ! existingWindow ) {
-		return;
-	}
-	await dialog.showMessageBox( existingWindow, {
-		type: 'warning',
-		buttons: [ __( 'OK' ) ],
-		message: __( 'Error updating Studio' ),
-		detail: `${ detailMessage }\n\n${ detailPath }`,
-	} );
+	emitAppUpdateStatus();
 }
 
 function buildAppUpdateStatus(): AppUpdateStatus {

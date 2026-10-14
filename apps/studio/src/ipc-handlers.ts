@@ -141,7 +141,6 @@ import {
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import {
 	recordTracksEvent,
 	TRACKS_EVENTS,
@@ -157,7 +156,6 @@ import {
 	getFrameTitleBarOverlayOptions,
 	getMainWindow,
 	getTitleBarOverlayOptions,
-	loadMainWindowRenderer,
 	setAgenticControlsSurface,
 	type TrafficLightsPosition,
 	type WindowControlsSurface,
@@ -213,12 +211,12 @@ import {
 	saveUserData,
 	unlockAppdata,
 } from 'src/storage/user-data';
-import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WpCliResult } from 'src/site-server';
 
@@ -1636,15 +1634,7 @@ export async function enableAgenticUi(
 	surface: AgenticUiSurface = 'settings'
 ): Promise< void > {
 	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
-	setAgenticUiEnabled( true );
-	// Opting in from classic Studio is the sole way an existing user reaches the
-	// agentic workbench, so record it here for the orientation guide's migrating
-	// copy. Must land before the renderer reloads below so the guide sees it.
 	await recordAgenticUiMigration();
-	const mainWindow = await getMainWindow();
-	if ( mainWindow && ! mainWindow.isDestroyed() ) {
-		await loadMainWindowRenderer( mainWindow );
-	}
 }
 
 export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {

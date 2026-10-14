@@ -27,7 +27,6 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getPreferredStudioUiMode } from 'src/lib/studio-ui-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -102,16 +101,12 @@ export function buildViewMenuItems( {
 			enabled: ! needsOnboarding,
 			click: onToggleSidebar,
 		},
-		...( getPreferredStudioUiMode() === 'agentic'
-			? [
-					{
-						label: __( 'Toggle Site Preview' ),
-						accelerator: 'CommandOrControl+Shift+B',
-						enabled: ! needsOnboarding,
-						click: onToggleSitePreview,
-					} as MenuItemConstructorOptions,
-			  ]
-			: [] ),
+		{
+			label: __( 'Toggle Site Preview' ),
+			accelerator: 'CommandOrControl+Shift+B',
+			enabled: ! needsOnboarding,
+			click: onToggleSitePreview,
+		},
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
@@ -163,17 +158,15 @@ async function getAppMenu(
 		},
 	];
 
-	// Cmd/Ctrl+R belongs to the site preview: the agentic renderer binds it in
-	// the DOM to reload the guest page, so the menu must leave the key alone
-	// there — a menu accelerator would consume it first. That leaves the app
-	// itself with no way to reload, so these target the app window explicitly
-	// rather than using `role: 'reload'`, which acts on whatever webContents
-	// has focus (the preview, once clicked into).
-	const previewOwnsReloadShortcut = getPreferredStudioUiMode() === 'agentic';
+	// Cmd/Ctrl+R belongs to the site preview: the renderer binds it in the DOM
+	// to reload the guest page, so the menu must leave the key alone — a menu
+	// accelerator would consume it first. That leaves the app itself with no way
+	// to reload, so these target the app window explicitly rather than using
+	// `role: 'reload'`, which acts on whatever webContents has focus (the
+	// preview, once clicked into).
 	const devTools: MenuItemConstructorOptions[] = [
 		{
 			label: __( 'Reload App' ),
-			...( previewOwnsReloadShortcut ? {} : { accelerator: 'CommandOrControl+R' } ),
 			click: () => void withAppWebContents( ( contents ) => contents.reload() ),
 		},
 		{
@@ -201,11 +194,10 @@ async function getAppMenu(
 		},
 	} ) );
 
-	// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer, so the menu must leave the
-	// key alone there — a menu accelerator would consume it before it reaches the DOM. With chat
-	// switched off nothing binds it, so the shortcut falls back to "Add Site…" as in classic.
-	const rendererOwnsNewShortcut =
-		getPreferredStudioUiMode() === 'agentic' && ( await getAgenticFeaturesEnabled() );
+	// The renderer binds Cmd/Ctrl+N to "New chat", so the menu must leave the key alone there — a
+	// menu accelerator would consume it before it reaches the DOM. With chat switched off nothing
+	// binds it, so the shortcut falls back to "Add Site…".
+	const rendererOwnsNewShortcut = await getAgenticFeaturesEnabled();
 
 	return Menu.buildFromTemplate( [
 		{

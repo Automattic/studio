@@ -5,7 +5,6 @@ import { app, autoUpdater, clipboard, dialog, shell, type MessageBoxOptions } fr
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
-import { setAgenticUiEnabled } from 'src/lib/studio-ui-mode';
 import { manualCheckForUpdates, setupUpdates, switchToNightlyAndUpdate } from 'src/updates';
 
 function getLastDialogOptions(): MessageBoxOptions {
@@ -142,25 +141,20 @@ describe( 'Linux updater', () => {
 		expect( shell.openExternal ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows "No updates available" on a manual check when the server returns 204', async () => {
+	it( 'tells the renderer there is no update on a manual check when the server returns 204', async () => {
 		global.fetch = vi.fn().mockResolvedValue( {
 			status: 204,
 			ok: true,
 		} as Response );
-		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
-			response: 0,
-			checkboxChecked: false,
-		} );
 
 		await manualCheckForUpdates();
 
 		await vi.waitFor( () => {
-			expect( dialog.showMessageBox ).toHaveBeenCalled();
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'app-update-not-available', {
+				currentVersion: '1.8.2',
+			} );
 		} );
-
-		const args = getLastDialogOptions();
-		expect( args.message ).toBe( 'No updates available' );
-		expect( shell.openExternal ).not.toHaveBeenCalled();
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reports to Sentry and shows no dialog when the server returns an error status', async () => {
@@ -192,19 +186,7 @@ describe( 'update ready to install', () => {
 		await handler?.( {}, 'notes', '1.9.0' );
 	}
 
-	afterEach( () => {
-		setAgenticUiEnabled( false );
-	} );
-
-	it( 'shows the restart dialog in the classic UI', async () => {
-		await emitUpdateDownloaded();
-
-		expect( getLastDialogOptions().message ).toBe( 'Update ready to install' );
-	} );
-
-	it( 'leaves the restart prompt to the sidebar card in the agentic UI', async () => {
-		setAgenticUiEnabled( true );
-
+	it( 'leaves the restart prompt to the sidebar card', async () => {
 		await emitUpdateDownloaded();
 
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
@@ -215,11 +197,6 @@ describe( 'update status emissions', () => {
 	function setupDarwinUpdates() {
 		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
 		setupUpdates();
-	}
-
-	// The flag that tells the event handlers a user asked for this check.
-	function showManualCheck() {
-		void manualCheckForUpdates();
 	}
 
 	function getHandler( event: string ) {
@@ -236,10 +213,6 @@ describe( 'update status emissions', () => {
 		vi.mocked( autoUpdater.on ).mockClear();
 		vi.mocked( sendIpcEventToRenderer ).mockClear();
 		vi.mocked( dialog.showMessageBox ).mockClear();
-	} );
-
-	afterEach( () => {
-		setAgenticUiEnabled( false );
 	} );
 
 	it( 'emits a checking state with the current version', async () => {
@@ -329,11 +302,10 @@ describe( 'update status emissions', () => {
 		} );
 	} );
 
-	it( 'reports a read-only volume error to the sidebar instead of a dialog in the agentic UI', async () => {
+	it( 'reports a read-only volume error to the sidebar instead of a dialog', async () => {
 		// Not part of the shared electron mock; only this path calls it.
 		( app as unknown as { isInApplicationsFolder: () => boolean } ).isInApplicationsFolder = () =>
 			true;
-		setAgenticUiEnabled( true );
 		setupDarwinUpdates();
 
 		const err = Object.assign( new Error( 'read-only' ), { code: 8 } );
@@ -346,20 +318,6 @@ describe( 'update status emissions', () => {
 			} );
 		} );
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
-	} );
-
-	it( 'names both versions in the manual-check dialog', async () => {
-		global.fetch = vi.fn().mockResolvedValue( {
-			status: 200,
-			ok: true,
-			json: async () => ( { version: '1.9.0' } ),
-		} as Response );
-		setupDarwinUpdates();
-		showManualCheck();
-
-		await getHandler( 'update-available' )?.();
-
-		expect( getLastDialogOptions().message ).toBe( 'Updating Studio from 1.8.2 to 1.9.0' );
 	} );
 
 	it( 'queries the nightly feed for the version after switching channels', async () => {
@@ -377,8 +335,7 @@ describe( 'update status emissions', () => {
 		expect( String( fetchMock.mock.calls.at( -1 )?.[ 0 ] ) ).toContain( 'channel=nightly' );
 	} );
 
-	it( 'still reports status when a manual check runs mid-download in the agentic UI', async () => {
-		setAgenticUiEnabled( true );
+	it( 'still reports status when a manual check runs mid-download', async () => {
 		setupDarwinUpdates();
 		await getHandler( 'update-available' )?.();
 		vi.mocked( sendIpcEventToRenderer ).mockClear();
@@ -389,8 +346,7 @@ describe( 'update status emissions', () => {
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 
-	it( 'still reports status when a manual check runs while ready to restart in the agentic UI', async () => {
-		setAgenticUiEnabled( true );
+	it( 'still reports status when a manual check runs while ready to restart', async () => {
 		setupDarwinUpdates();
 		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
 		vi.mocked( sendIpcEventToRenderer ).mockClear();
@@ -402,7 +358,6 @@ describe( 'update status emissions', () => {
 	} );
 
 	it( 'flags manual re-emissions so a dismissed card comes back', async () => {
-		setAgenticUiEnabled( true );
 		setupDarwinUpdates();
 		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
 		vi.mocked( sendIpcEventToRenderer ).mockClear();
@@ -413,7 +368,6 @@ describe( 'update status emissions', () => {
 	} );
 
 	it( 'does not flag automatic emissions as requested', async () => {
-		setAgenticUiEnabled( true );
 		setupDarwinUpdates();
 
 		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
@@ -421,8 +375,7 @@ describe( 'update status emissions', () => {
 		expect( getLastEmittedStatus()?.requested ).toBeUndefined();
 	} );
 
-	it( 'leaves the manual restart prompt to the sidebar card in the agentic UI', async () => {
-		setAgenticUiEnabled( true );
+	it( 'leaves the manual restart prompt to the sidebar card', async () => {
 		setupDarwinUpdates();
 		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
 		vi.mocked( dialog.showMessageBox ).mockClear();

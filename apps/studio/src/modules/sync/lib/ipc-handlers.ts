@@ -22,12 +22,12 @@ import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
-import {
-	PullStateProgressInfo,
-	PushStateProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import {
+	ACTIVE_SYNC_OPERATIONS,
+	type PullStateProgressInfo,
+	type PushStateProgressInfo,
+} from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { getAuthenticationToken } from 'src/lib/oauth';

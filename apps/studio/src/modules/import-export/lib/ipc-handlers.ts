@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { exportErrorPayloadSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { readSite } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { showErrorMessageBox } from 'src/ipc-handlers';
@@ -12,7 +13,6 @@ import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { executeExportCliCommand } from 'src/modules/cli/lib/execute-export-command';
 import { executeImportCliCommand } from 'src/modules/cli/lib/execute-import-command';
-import { SiteServer } from 'src/site-server';
 
 const errorSchema = z.object( { message: z.string() } );
 
@@ -117,7 +117,7 @@ export async function importSite(
 	importArchivePath: string,
 	options: ImportOptions = {}
 ): Promise< void > {
-	const site = SiteServer.get( siteId );
+	const site = await readSite( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
@@ -130,7 +130,7 @@ export async function importSite(
 		suppressTracksEvent = false,
 	} = options;
 
-	const args = [ 'import', '--path', site.details.path, importArchivePath ];
+	const args = [ 'import', '--path', site.path, importArchivePath ];
 
 	if ( alwaysStartServer ) {
 		args.push( '--start-server' );
@@ -140,7 +140,7 @@ export async function importSite(
 		args.push( '--suppress-tracks-event' );
 	}
 
-	const eventEmitter = executeImportCliCommand( site.details.id, args );
+	const eventEmitter = executeImportCliCommand( site.id, args );
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', async ( { importerType } ) => {
@@ -148,7 +148,7 @@ export async function importSite(
 
 			if ( showNotification ) {
 				const notification = new Notification( {
-					title: site.details.name,
+					title: site.name,
 					body: __( 'Import completed' ),
 				} );
 				notification.show();
@@ -215,7 +215,7 @@ export async function exportSite(
 	destinationPath: string,
 	options: ExportOptions
 ): Promise< void > {
-	const site = SiteServer.get( siteId );
+	const site = await readSite( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
@@ -232,7 +232,7 @@ export async function exportSite(
 		suppressTracksEvent = false,
 	} = options;
 
-	const args = [ 'export', '--path', site.details.path, destinationPath, '--mode', mode ];
+	const args = [ 'export', '--path', site.path, destinationPath, '--mode', mode ];
 
 	if ( splitDatabaseDumpByTable ) {
 		args.push( '--split-db-dump-by-table' );
@@ -250,7 +250,7 @@ export async function exportSite(
 		args.push( '--include-only', ...specificSelectionPaths );
 	}
 
-	const eventEmitter = executeExportCliCommand( site.details.id, args, {
+	const eventEmitter = executeExportCliCommand( site.id, args, {
 		abortSignal,
 	} );
 
@@ -263,7 +263,7 @@ export async function exportSite(
 
 			if ( showNotification ) {
 				const notification = new Notification( {
-					title: site.details.name,
+					title: site.name,
 					body: __( 'Export completed' ),
 				} );
 				notification.show();

@@ -33,21 +33,6 @@ interface StoppedSiteDetails {
 	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		supportsWidgets: boolean;
-		supportsMenus: boolean;
-	};
-	// Absolute filesystem path of the configured WordPress Site Icon.
-	// `null` means we've checked and the site has no icon configured;
-	// `undefined` means we've never fetched.
-	siteIconPath?: string | null;
-	// Data URL produced from `siteIconPath` for the renderer to display.
-	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
-	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;

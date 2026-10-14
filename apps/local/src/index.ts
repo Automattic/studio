@@ -105,9 +105,11 @@ import {
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
-import { startSite, stopSite } from '@studio/common/sites/lifecycle';
+import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
+import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
+import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -126,11 +128,9 @@ import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
 	readOnboardingHints,
-	readSiteSortOrders,
 	readUserPreferences,
 	userPreferencesPatchSchema,
 	writeOnboardingHints,
-	writeSiteSortOrders,
 	writeUserPreferences,
 } from './user-preferences';
 import type { UserPreferencesContext } from './user-preferences';
@@ -217,8 +217,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; thumbnails/theme details/`sortOrder` are desktop-only
-// enrichments, merged in by callers.
+// nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
 function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 	return {
 		id: site.id,
@@ -242,7 +241,6 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		environmentType: site.environmentType,
 		operation: site.operation,
 		sortOrder,
-		siteIcon: null,
 	};
 }
 
@@ -728,11 +726,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const [ sites, sortOrders ] = await Promise.all( [
-				listSites( execute ),
-				readSiteSortOrders(),
-			] );
-			res.json( sites.map( ( site ) => toSiteDetails( site, sortOrders.get( site.id ) ) ) );
+			const sites = await listSitesWithMetadata( execute );
+			res.json( sites.map( ( site ) => toSiteDetails( site, site.sortOrder ) ) );
 		} )
 	);
 
@@ -749,7 +744,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'updates required' } );
 				return;
 			}
-			await writeSiteSortOrders( parsed.data.updates );
+			await updateSiteMetadata(
+				Object.fromEntries(
+					parsed.data.updates.map( ( { siteId, sortOrder } ) => [ siteId, { sortOrder } ] )
+				)
+			);
 			res.status( 204 ).end();
 		} )
 	);
@@ -785,6 +784,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Both of these read straight from cli.json via `readSitePath` rather than
 	// forking the CLI for a site list: the UI asks for them on every site
 	// switch, and a fork costs about a second of CPU each time.
+	api.get(
+		'/sites/:id/theme-details',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readThemeDetails( execute, sitePath ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/site-icon',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteIcon( execute, sitePath ) );
+		} )
+	);
+
 	api.get(
 		'/sites/:id/wp-version',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1116,16 +1139,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const keepFiles = req.query.deleteFiles === 'false';
-			await new Promise< void >( ( resolve, reject ) => {
-				const [ emitter ] = execute(
-					[ 'site', 'delete', '--path', site.path, keepFiles ? '--no-files' : '--files' ],
-					{ output: 'capture' }
-				);
-				emitter.on( 'success', () => resolve() );
-				emitter.on( 'failure', ( { error } ) => reject( error ) );
-				emitter.on( 'error', ( { error } ) => reject( error ) );
-			} );
+			await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1159,12 +1173,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const [ sites, sortOrders ] = await Promise.all( [
-				listSites( execute ),
-				readSiteSortOrders(),
-			] );
-			const refreshed = sites.find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( refreshed ?? current, sortOrders.get( req.params.id ) ) );
+			const refreshed = ( await listSitesWithMetadata( execute ) ).find(
+				( s ) => s.id === req.params.id
+			);
+			res.json( toSiteDetails( refreshed ?? current, refreshed?.sortOrder ) );
 		} )
 	);
 

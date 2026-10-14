@@ -17,6 +17,7 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
 import {
 	installExtension,
@@ -43,6 +44,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
+import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
@@ -54,12 +56,6 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import {
-	getRunningSiteCount,
-	persistAutoStartForRunningSites,
-	SiteServer,
-	stopAllServers,
-} from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -482,10 +478,6 @@ async function appBoot() {
 
 		await setupSentryUserId();
 
-		// Fetch data from CLI and subscribe to CLI events before starting the user data
-		// watcher. The watcher can trigger getMainWindow() which creates the window early,
-		// so sites must be loaded first.
-		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
@@ -546,12 +538,12 @@ async function appBoot() {
 	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
 	 */
 	let shouldStopSitesOnQuit = true;
-	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
+	let restartSitesOnLaunch = true;
 
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
-		clearAutoStartOnQuit = behavior === 'stop';
+		restartSitesOnLaunch = behavior !== 'stop';
 	};
 
 	app.on( 'before-quit', ( event ) => {
@@ -593,26 +585,21 @@ async function appBoot() {
 			}
 		}
 
-		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
-			event.preventDefault();
+		if ( getAutoUpdaterState() === 'waiting-for-restart' ) {
+			return;
+		}
 
-			void ( async () => {
-				const userData = await loadUserData();
+		event.preventDefault();
 
-				if ( userData.quitSitesBehavior !== undefined ) {
-					applyQuitSitesBehavior( userData.quitSitesBehavior );
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
+		void ( async () => {
+			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
+				( site ) => site.running
+			).length;
+			const userData = runningSiteCount > 0 ? await loadUserData() : undefined;
 
-				if ( process.env.E2E ) {
-					isQuittingConfirmed = true;
-					app.quit();
-					return;
-				}
-
+			if ( userData && userData.quitSitesBehavior !== undefined ) {
+				applyQuitSitesBehavior( userData.quitSitesBehavior );
+			} else if ( userData && ! process.env.E2E ) {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const KEEP_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
@@ -647,12 +634,11 @@ async function appBoot() {
 				}
 
 				applyQuitSitesBehavior( behavior );
-				isQuittingConfirmed = true;
-				app.quit();
-			} )();
+			}
 
-			return;
-		}
+			isQuittingConfirmed = true;
+			app.quit();
+		} )();
 	} );
 
 	app.on( 'will-quit', ( event ) => {
@@ -660,20 +646,26 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 
-		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			void ( async () => {
-				try {
-					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
-					if ( clearAutoStartOnQuit ) {
-						await persistAutoStartForRunningSites( false );
-					}
+		event.preventDefault();
+		void ( async () => {
+			try {
+				// The sites running now start again on the next launch, unless the user chose to stop them.
+				const sites = await getSites().catch( () => [] );
+				await updateSiteMetadata(
+					Object.fromEntries(
+						sites.map( ( site ) => [
+							site.id,
+							{ autoStart: restartSitesOnLaunch && site.running },
+						] )
+					)
+				).catch( ( error ) => console.error( 'Failed to save auto-start on quit:', error ) );
+				if ( shouldStopSitesOnQuit ) {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
-				} finally {
-					app.exit();
 				}
-			} )();
-		}
+			} finally {
+				app.exit();
+			}
+		} )();
 	} );
 
 	app.on( 'activate', () => {

@@ -1,10 +1,12 @@
-import { SiteServer } from 'src/site-server';
+import { executeWpCliCommand } from 'src/lib/sites';
 
 // Search the database for the old site URL and replace it with the new one
-export const updateSiteUrl = async ( server: SiteServer, newUrl: string ) => {
-	const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl`, {
-		skipPluginsAndThemes: true,
-	} );
+export const updateSiteUrl = async ( site: { id: string; path: string }, newUrl: string ) => {
+	const { stdout: currentSiteUrl } = await executeWpCliCommand(
+		site,
+		[ 'option', 'get', 'siteurl' ],
+		{ skipPluginsAndThemes: true }
+	);
 
 	if ( ! currentSiteUrl ) {
 		console.error( 'Failed to fetch site URL' );
@@ -29,8 +31,9 @@ export const updateSiteUrl = async ( server: SiteServer, newUrl: string ) => {
 	];
 
 	for ( const urlToReplace of oldUrlVariants ) {
-		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ urlToReplace }' '${ newUrl }' --skip-columns=guid`,
+		const { stderr, exitCode } = await executeWpCliCommand(
+			site,
+			[ 'search-replace', urlToReplace, newUrl, '--skip-columns=guid' ],
 			{ skipPluginsAndThemes: true }
 		);
 

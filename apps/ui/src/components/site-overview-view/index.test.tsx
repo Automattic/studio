@@ -152,6 +152,15 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+const blockTheme = {
+	name: 'Twenty Twenty-Six',
+	path: '/wp-content/themes/twentytwentysix',
+	slug: 'twentytwentysix',
+	isBlockTheme: true,
+	supportsMenus: false,
+	supportsWidgets: false,
+};
+let themeDetails: typeof blockTheme | undefined;
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
@@ -229,8 +238,9 @@ describe( 'SiteOverviewView', () => {
 			} ) ),
 		} );
 		useConnectorMock.mockReturnValue( connectorStub() );
-		useThemeDetailsMock.mockImplementation( ( site ) =>
-			site.themeDetails ? { state: 'ready', details: site.themeDetails } : { state: 'unknown' }
+		themeDetails = blockTheme;
+		useThemeDetailsMock.mockImplementation( () =>
+			themeDetails ? { state: 'ready', details: themeDetails } : { state: 'unknown' }
 		);
 		useUserPreferencesMock.mockReturnValue( { data: preferencesStub( 'vscode' ) } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
@@ -729,20 +739,16 @@ describe( 'SiteOverviewView', () => {
 	} );
 
 	it( 'shows classic-theme shortcuts based on theme support', () => {
+		themeDetails = {
+			name: 'Twenty Twenty-One',
+			path: '/wp-content/themes/twentytwentyone',
+			slug: 'twentytwentyone',
+			isBlockTheme: false,
+			supportsMenus: true,
+			supportsWidgets: false,
+		};
 		useSitesMock.mockReturnValue( {
-			data: [
-				createSite( {
-					running: true,
-					themeDetails: {
-						name: 'Twenty Twenty-One',
-						path: '/wp-content/themes/twentytwentyone',
-						slug: 'twentytwentyone',
-						isBlockTheme: false,
-						supportsMenus: true,
-						supportsWidgets: false,
-					},
-				} ),
-			],
+			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
 
@@ -1030,12 +1036,6 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 		adminUsername: 'admin',
 		adminEmail: 'admin@example.com',
 		enableDebugLog: true,
-		themeDetails: {
-			name: 'Twenty Twenty-Six',
-			path: '/wp-content/themes/twentytwentysix',
-			slug: 'twentytwentysix',
-			isBlockTheme: true,
-		},
 		...overrides,
 	};
 }

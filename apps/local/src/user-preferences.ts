@@ -133,37 +133,6 @@ export async function writeUserPreferences( patch: UserPreferencesPatch ): Promi
 	}
 }
 
-// The manual sidebar order lives per site in `app.json`; the CLI's `site list`
-// doesn't carry it. Parsed rather than cast so malformed metadata can't throw
-// mid-write, and `.loose()` so the desktop-only fields stored alongside
-// `sortOrder` (site icon, theme details) survive a write.
-const siteMetadataSchema = z
-	.record( z.string(), z.object( { sortOrder: z.number().optional() } ).loose().catch( {} ) )
-	.catch( {} );
-
-export async function readSiteSortOrders(): Promise< Map< string, number > > {
-	const siteMetadata = siteMetadataSchema.parse( ( await readAppConfig() ).siteMetadata );
-	const sortOrders = new Map< string, number >();
-	for ( const [ siteId, { sortOrder } ] of Object.entries( siteMetadata ) ) {
-		if ( sortOrder !== undefined ) {
-			sortOrders.set( siteId, sortOrder );
-		}
-	}
-	return sortOrders;
-}
-
-export async function writeSiteSortOrders(
-	updates: { siteId: string; sortOrder: number }[]
-): Promise< void > {
-	await updateAppConfig( ( config ) => {
-		const siteMetadata = siteMetadataSchema.parse( config.siteMetadata );
-		for ( const { siteId, sortOrder } of updates ) {
-			siteMetadata[ siteId ] = { ...siteMetadata[ siteId ], sortOrder };
-		}
-		config.siteMetadata = siteMetadata;
-	} );
-}
-
 // The orientation guide's progress, kept in `app.json` like the desktop does so
 // finishing the tour in either front end settles both. `.loose()` keeps any
 // field a newer desktop adds.

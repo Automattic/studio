@@ -38,6 +38,7 @@ import type {
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
+	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -170,7 +171,7 @@ export function createIpcConnector(): Connector {
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			return ( await ipcApi.reconcileSites() ) as SiteDetails[];
+			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		},
 
 		async createSite( params ) {
@@ -363,8 +364,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
 		},
 
-		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
-			return ( await ipcApi.loadThemeDetails( siteId ) ) as SiteDetails[ 'themeDetails' ];
+		async getThemeDetails( siteId ) {
+			return ( await ipcApi.loadThemeDetails( siteId ) ) as ThemeDetails;
+		},
+
+		async getSiteIcon( siteId ) {
+			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {

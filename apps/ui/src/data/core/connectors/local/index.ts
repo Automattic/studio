@@ -27,6 +27,7 @@ import type {
 	StudioAssistantTopUpPricing,
 	SyncSite,
 	UserPreferences,
+	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -323,6 +324,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
+		},
+		async getThemeDetails( siteId ) {
+			return api< ThemeDetails >( `/sites/${ encodeURIComponent( siteId ) }/theme-details` );
+		},
+		async getSiteIcon( siteId ) {
+			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
 		},
 		async getSiteStorageUsage( siteId, signal ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/storage`, { signal } );

@@ -8,6 +8,7 @@ import { registerSelectiveSyncConnector } from '@/components/selective-sync/lib/
 import { SyncDialog } from '@/components/selective-sync/sync-dialog';
 import '@/components/selective-sync/selective-sync.css';
 import { useConnector } from '@/data/core';
+import { useSiteIcon } from '@/data/queries/use-site-icon';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
@@ -48,6 +49,7 @@ export function SiteDropdown( {
 }: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( defaultOpen );
+	const siteIcon = useSiteIcon( site.id );
 	const rootRef = useRef< HTMLDivElement >( null );
 	const reopenAfterDialogRef = useRef( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
@@ -181,7 +183,7 @@ export function SiteDropdown( {
 							showSiteIcon={ showSiteIcon }
 							showStatus={ showStatus }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
-							siteIconImage={ site.siteIcon }
+							siteIconImage={ siteIcon }
 						/>
 					}
 				/>

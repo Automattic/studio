@@ -95,11 +95,23 @@ import {
 } from '@studio/common/sites/blueprint-extract';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
+	deleteSite as deleteSiteViaCli,
+	startSite,
+	stopSite,
+} from '@studio/common/sites/lifecycle';
+import { updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
 	designFixesSchema,
 	fixSiteDesign,
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
+import {
+	readSiteIcon,
+	readThemeDetails,
+	type ThemeDetails,
+} from '@studio/common/sites/site-identity';
+import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
 import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
@@ -122,6 +134,7 @@ import {
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getSite, getSites } from 'src/lib/sites';
 import {
 	recordTracksEvent,
 	TRACKS_EVENTS,
@@ -150,8 +163,9 @@ import {
 	listActiveAgentRuns,
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
+import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
-import { CliCommandError } from 'src/modules/cli/lib/execute-command';
+import { CliCommandError, executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import {
@@ -162,15 +176,8 @@ import {
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer, reconcileSitesRunningState } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import {
-	updateAppdata,
-	loadUserData,
-	lockAppdata,
-	saveUserData,
-	unlockAppdata,
-} from 'src/storage/user-data';
+import { updateAppdata, loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -271,24 +278,20 @@ export async function createAiSession(
 	siteId?: string
 ): Promise< AiSessionSummary > {
 	const sessionsRoot = getSessionsDirectory();
-	const server = siteId ? SiteServer.get( siteId ) : undefined;
-	if ( siteId && ! server ) {
+	const site = siteId ? await readSite( siteId ) : undefined;
+	if ( siteId && ! site ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 
 	const summary = await createHydratedAiSession( sessionsRoot, {
-		site: server && {
-			id: server.details.id,
-			name: server.details.name,
-			path: server.details.path,
-		},
+		site: site ? { id: site.id, name: site.name, path: site.path } : undefined,
 	} );
 
 	// Fires from Main, not the CLI: sessions are created in-process.
 	// `studio ui` emits the same event from its own session route.
 	await recordTracksEvent( TRACKS_EVENTS.CODE_SESSION_CREATED, {
 		...getAiTracksIdentity( summary.id ),
-		has_site: Boolean( server ),
+		has_site: Boolean( site ),
 	} );
 
 	return summary;
@@ -325,13 +328,12 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
 	}
-	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
-	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
-	if ( ! ownerServer ) {
+	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
+	if ( ! ownerSite ) {
 		return;
 	}
 
-	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
+	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerSite.id );
 	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
 
 	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
@@ -342,9 +344,9 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	// Live was disconnected since the last flip. Record the fallback so the
 	// CLI's replay sees Local on the next turn.
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
-		siteName: ownerServer.details.name,
-		sitePath: ownerServer.details.path,
-		siteId: ownerServer.details.id,
+		siteName: ownerSite.name,
+		sitePath: ownerSite.path,
+		siteId: ownerSite.id,
 	} );
 }
 
@@ -450,11 +452,10 @@ export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	const sites = SiteServer.getAll();
 	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
-	const tasks = sites.map( ( site ) =>
-		installSkillToSite( site.details, bundledPath, options.skillId, overwrite )
+	const tasks = ( await readSitePaths() ).map( ( path ) =>
+		installSkillToSite( { path }, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -473,8 +474,7 @@ export async function removeWordPressSkillFromAllSites(
 	_event: IpcMainInvokeEvent,
 	skillId: string
 ): Promise< void > {
-	const sites = SiteServer.getAll();
-	const tasks = sites.map( ( site ) => removeSkillFromSite( site.details.path, skillId ) );
+	const tasks = ( await readSitePaths() ).map( ( path ) => removeSkillFromSite( path, skillId ) );
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
 		if ( result.status === 'rejected' ) {
@@ -521,37 +521,7 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 }
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
-	const sites = SiteServer.getAllDetails();
-	const userData = await loadUserData();
-	await Promise.all(
-		sites.map( async ( site ) => {
-			const appdataSite = userData.siteMetadata[ site.id ];
-			if ( ! appdataSite ) {
-				return;
-			}
-			site.sortOrder = appdataSite.sortOrder;
-			site.themeDetails = appdataSite.themeDetails;
-			site.siteIconPath = appdataSite.siteIconPath;
-			site.autoStart = appdataSite.autoStart;
-
-			// Read the icon file from disk and hand the renderer a data URL.
-			// Keeping the base64 out of the persisted appdata avoids bloating
-			// app.json with image bytes.
-			if ( appdataSite.siteIconPath ) {
-				site.siteIcon = await getImageData( appdataSite.siteIconPath );
-			} else if ( appdataSite.siteIconPath === null ) {
-				site.siteIcon = null;
-			}
-		} )
-	);
-
-	return sites;
-}
-
-// Re-query running state before returning details, so the renderer can self-correct a missed event.
-export async function reconcileSites( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
-	await reconcileSitesRunningState();
-	return getSiteDetails( event );
+	return getSites();
 }
 
 export async function createSite(
@@ -605,26 +575,23 @@ export async function createSite(
 	}
 
 	try {
-		const { server } = await SiteServer.create(
-			{
-				path,
-				name: siteName,
-				wpVersion,
-				phpVersion,
-				fileAccess,
-				customDomain,
-				enableHttps,
-				siteId,
-				blueprint: blueprint?.blueprint,
-				originalBlueprintPath: blueprintFilePath,
-				adminUsername,
-				adminPassword,
-				adminEmail,
-				noStart,
-				flowType,
-			},
-			{ wpVersion, blueprint: blueprint?.blueprint }
-		);
+		const site = await createSiteViaCli( {
+			path,
+			name: siteName,
+			wpVersion,
+			phpVersion,
+			fileAccess,
+			customDomain,
+			enableHttps,
+			siteId,
+			blueprint: blueprint?.blueprint,
+			originalBlueprintPath: blueprintFilePath,
+			adminUsername,
+			adminPassword,
+			adminEmail,
+			noStart,
+			flowType,
+		} );
 
 		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
 		if ( blueprint?.filePath ) {
@@ -632,13 +599,7 @@ export async function createSite(
 			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
 
-		// If the site is running after creation, fetch theme details and update thumbnail
-		if ( server.details.running ) {
-			void loadThemeDetails( event, server.details.id );
-			void loadSiteIcon( server.details.id );
-		}
-
-		return server.details;
+		return site;
 	} catch ( error ) {
 		const contexts: Record< string, Record< string, unknown > > = {
 			site: {
@@ -688,31 +649,30 @@ export async function createSite(
 	}
 }
 
-// Update a site's details (name, custom domain, PHP version, etc). This function calls the
-// `site set` CLI command and updates the `SiteServer` instance after the CLI completes.
+// Update a site's details (name, custom domain, PHP version, etc) with the `site set` CLI command.
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails,
 	wpVersion?: string
 ): Promise< void > {
-	const server = SiteServer.get( updatedSite.id );
-	if ( ! server ) {
+	const site = await getSite( updatedSite.id );
+	if ( ! site ) {
 		throw new Error( `Site not found: ${ updatedSite.id }` );
 	}
 
-	const options = getSiteEditOptions( server.details, updatedSite, wpVersion );
+	const options = getSiteEditOptions( site, updatedSite, wpVersion );
 	if ( Object.keys( options ).length > 2 ) {
 		await editSiteViaCli( options );
 	}
 }
 
 export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+	const site = await getSite( id );
+	if ( ! site ) {
 		return;
 	}
 
-	const maintenanceCheck = checkMaintenanceFile( server.details.path );
+	const maintenanceCheck = checkMaintenanceFile( site.path );
 	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
 		throw new Error(
 			__(
@@ -725,15 +685,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
 	await stopErrorRecovery( id );
 
+	const start = () => startSite( executeCliCommand, site.path );
 	try {
-		await server.start();
+		console.log( `Starting server for '${ site.name }'` );
+		await start();
 	} catch ( error ) {
-		try {
-			await server.persistAutoStart( false );
-		} catch {
-			// Ignore errors persisting auto-start state
-		}
-
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error(
@@ -755,27 +711,24 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			const errorMessage = parsePhpError( logContent );
 
 			try {
-				await startErrorRecovery( server, errorMessage, readProcessManagerLogs );
-				console.log(
-					`[PHP Recovery - ${ id }] Serving PHP error page on port ${ server.details.port }`
-				);
+				await startErrorRecovery( site, errorMessage, readProcessManagerLogs, start );
+				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ site.port }` );
+				const url = `http://localhost:${ site.port }`;
 				void sendIpcEventToRenderer( 'site-event', {
 					event: SITE_EVENTS.UPDATED,
 					siteId: id,
 					site: {
-						id: server.details.id,
-						name: server.details.name,
-						path: server.details.path,
-						port: server.details.port,
-						url:
-							( 'url' in server.details ? server.details.url : undefined ) ??
-							`http://localhost:${ server.details.port }`,
-						phpVersion: server.details.phpVersion,
+						id,
+						name: site.name,
+						path: site.path,
+						port: site.port,
+						url,
+						phpVersion: site.phpVersion,
 					},
 					running: true,
 				} );
 				// Refresh the thumbnail so it shows the error page instead of a stale capture.
-				void captureSiteThumbnail( id );
+				void captureSiteThumbnail( { id, url } );
 				return;
 			} catch ( recoveryError ) {
 				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );
@@ -785,15 +738,15 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
-				running: server.details.running,
-				phpVersion: server.details.phpVersion,
-				port: server.details.port,
-				hasCustomDomain: !! server.details.customDomain,
-				httpsEnabled: !! server.details.enableHttps,
+				running: site.running,
+				phpVersion: site.phpVersion,
+				port: site.port,
+				hasCustomDomain: !! site.customDomain,
+				httpsEnabled: !! site.enableHttps,
 			},
 		};
 
-		const debugLog = readWordPressDebugLog( server.details.path );
+		const debugLog = readWordPressDebugLog( site.path );
 		if ( debugLog && debugLog.length > 0 ) {
 			contexts.debugLog = { entries: debugLog };
 		}
@@ -818,32 +771,27 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			: error;
 	}
 
-	if ( server.details.running ) {
-		void loadThemeDetails( event, id );
-		void loadSiteIcon( id );
-	}
-
 	// Keep managed instruction files (STUDIO.md) up-to-date
-	void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
-		( error ) => {
-			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-		}
-	);
+	void updateManagedInstructionFiles( site, getAiInstructionsPath() ).catch( ( error ) => {
+		console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+	} );
 
-	console.log( `Server started for '${ server.details.name }'` );
+	console.log( `Server started for '${ site.name }'` );
 }
 
 export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+	const sitePath = await readSitePath( id );
+	if ( ! sitePath ) {
 		return;
 	}
 
 	await stopErrorRecovery( id );
-	await server.stop();
-	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
-	// transition the events subscriber relies on, so persist it explicitly here.
-	await server.persistAutoStart( false );
+	console.log( 'Stopping server with ID', id );
+	try {
+		await stopSite( executeCliCommand, sitePath );
+	} catch ( error ) {
+		console.error( error );
+	}
 }
 
 export interface FolderDialogResponse {
@@ -924,12 +872,12 @@ export async function showOpenFolderDialog(
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	const server = SiteServer.get( id );
+	const sitePath = await readSitePath( id );
 	console.log( 'Deleting site', id );
-	if ( ! server ) {
+	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
-	await server.delete( deleteFiles );
+	await deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
 }
 
 export async function copySite(
@@ -938,11 +886,10 @@ export async function copySite(
 	newSiteId: string,
 	siteName: string
 ): Promise< SiteDetails > {
-	const sourceServer = SiteServer.get( sourceSiteId );
-	if ( ! sourceServer ) {
+	const sourceSite = await getSite( sourceSiteId );
+	if ( ! sourceSite ) {
 		throw new Error( 'Source site not found.' );
 	}
-	const sourceSite = sourceServer.details;
 
 	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
@@ -957,7 +904,7 @@ export async function copySite(
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
 	}
 
-	const { server, details } = await SiteServer.create( {
+	const site = await createSiteViaCli( {
 		path: finalSitePath,
 		name: siteName,
 		siteId: newSiteId,
@@ -973,15 +920,9 @@ export async function copySite(
 	} );
 
 	// The copy keeps the source site's siteurl, so point it at the new port
-	await updateSiteUrl( server, `http://localhost:${ details.port }` );
+	await updateSiteUrl( site, `http://localhost:${ site.port }` );
 
-	// Persist themeDetails to appdata (Studio-only data)
-	if ( sourceSite.themeDetails ) {
-		server.details.themeDetails = sourceSite.themeDetails;
-		await server.persistThemeDetails();
-	}
-
-	return details;
+	return site;
 }
 
 export async function authenticate(
@@ -1032,8 +973,8 @@ export async function openSiteURL(
 	relativeURL = '',
 	{ autoLogin = true }: { autoLogin?: boolean } = {}
 ) {
-	const site = SiteServer.get( id );
-	if ( ! site?.server?.url ) {
+	const site = await getSite( id );
+	if ( ! site ) {
 		await showMessageBox( event, {
 			type: 'error',
 			message: __( 'Failed to open link' ),
@@ -1045,14 +986,14 @@ export async function openSiteURL(
 	// When the caller didn't ask for a specific path (the generic "Open site"
 	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
 	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
-	const usingLandingPage = ! relativeURL && !! site.details.landingPage;
-	const targetPath = relativeURL || site.details.landingPage || '';
-	let url = new URL( targetPath, site.server.url );
+	const usingLandingPage = ! relativeURL && !! site.landingPage;
+	const targetPath = relativeURL || site.landingPage || '';
+	let url = new URL( targetPath, site.url );
 	// Blueprint landing pages may point at admin screens; force auto-login so
 	// users don't get bounced to the login page. This matches Playground's
 	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
 	if ( autoLogin || usingLandingPage ) {
-		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
+		const autoLoginUrl = new URL( '/studio-auto-login', site.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
 		url = autoLoginUrl;
 	}
@@ -1081,13 +1022,9 @@ export function getAppGlobals(): AppGlobals {
 	};
 }
 
-export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		return '-';
-	}
-	const wordPressPath = server.details.path;
-	return getWordPressVersion( wordPressPath );
+export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
+	const sitePath = await readSitePath( id );
+	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
 // In-flight storage measurements, keyed by the renderer's request id. Walking a
@@ -1102,17 +1039,17 @@ export async function getSiteStorageUsage(
 	id: string,
 	requestId?: string
 ): Promise< SiteStorageUsage | null > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+	const sitePath = await readSitePath( id );
+	if ( ! sitePath ) {
 		return null;
 	}
 	if ( ! requestId ) {
-		return measureSiteStorage( server.details.path );
+		return measureSiteStorage( sitePath );
 	}
 	const controller = new AbortController();
 	siteStorageControllers.set( requestId, controller );
 	try {
-		return await measureSiteStorage( server.details.path, { signal: controller.signal } );
+		return await measureSiteStorage( sitePath, { signal: controller.signal } );
 	} finally {
 		siteStorageControllers.delete( requestId );
 	}
@@ -1125,15 +1062,15 @@ export async function cancelSiteStorageUsage(
 	siteStorageControllers.get( requestId )?.abort();
 }
 
-const activeThemeSlug = ( server: SiteServer ) => async () =>
-	( await server.getThemeDetails() )?.slug;
+const activeThemeSlug = ( sitePath: string ) => async () =>
+	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
 export async function getSiteDesign(
 	_event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDesign | null > {
-	const server = SiteServer.get( id );
-	return server ? readSiteDesign( server.details.path, activeThemeSlug( server ) ) : null;
+	const sitePath = await readSitePath( id );
+	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
 }
 
 export async function fixSiteDesignDrift(
@@ -1141,22 +1078,15 @@ export async function fixSiteDesignDrift(
 	id: string,
 	fixes: unknown
 ): Promise< SiteDesign | null > {
-	const server = SiteServer.get( id );
-	return server
-		? fixSiteDesign(
-				server.details.path,
-				activeThemeSlug( server ),
-				designFixesSchema.parse( fixes )
-		  )
+	const sitePath = await readSitePath( id );
+	return sitePath
+		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
 }
 
-export function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		return false;
-	}
-	return isMultisite( server.details.path );
+export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
+	const sitePath = await readSitePath( id );
+	return sitePath ? isMultisite( sitePath ) : false;
 }
 
 export async function generateProposedSitePath(
@@ -1265,41 +1195,18 @@ export async function readLocalMediaFile(
 	};
 }
 
-// Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
-// process.
-async function loadSiteIcon( id: string ): Promise< void > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		return;
-	}
-
-	const oldIconPath = server.details.siteIconPath;
-	const iconPath = await server.getSiteIcon();
-	if ( iconPath !== oldIconPath ) {
-		await server.persistSiteIcon();
-	}
-}
-
 export async function loadThemeDetails(
 	_event: IpcMainInvokeEvent,
 	id: string
-): Promise< StartedSiteDetails[ 'themeDetails' ] > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
+): Promise< ThemeDetails > {
+	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
+}
 
-	void captureSiteThumbnail( id );
-
-	const oldThemePath = server.details.themeDetails?.path;
-	const themeDetails = await server.getThemeDetails();
-	const hasThemeChanged = themeDetails?.path !== oldThemePath;
-
-	if ( hasThemeChanged ) {
-		await server.persistThemeDetails();
-	}
-
-	return themeDetails;
+export async function getSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< string | null > {
+	return readSiteIcon( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1558,6 +1465,14 @@ export async function ensureMinWindowWidth(
 	return parentWindow.getContentSize()[ 0 ];
 }
 
+async function requireSitePath( siteId: string ): Promise< string > {
+	const sitePath = await readSitePath( siteId );
+	if ( ! sitePath ) {
+		throw new Error( 'Site not found.' );
+	}
+	return sitePath;
+}
+
 /**
  * Returns the absolute path of a file in the site's directory.
  * Returns null if the file does not exist.
@@ -1567,29 +1482,26 @@ export async function getAbsolutePathFromSite(
 	siteId: string,
 	relativePath: string
 ): Promise< string | null > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	const path = nodePath.join( server.details.path, relativePath );
+	const path = nodePath.join( await requireSitePath( siteId ), relativePath );
 	return ( await pathExists( path ) ) ? path : null;
 }
 
-export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	return calculateDirectorySizeForArchive( nodePath.join( site.details.path, ...subdir ) );
+export async function getDirectorySize(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	subdir: string[]
+) {
+	return calculateDirectorySizeForArchive(
+		nodePath.join( await requireSitePath( siteId ), ...subdir )
+	);
 }
 
-export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	return getLocalFileSize( nodePath.join( site.details.path, ...filePath ) );
+export async function getFileSize(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	filePath: string[]
+) {
+	return getLocalFileSize( nodePath.join( await requireSitePath( siteId ), ...filePath ) );
 }
 
 export async function isCATrusted(): Promise< boolean > {
@@ -1630,9 +1542,7 @@ export async function listLocalFileTree(
 	path: string,
 	maxDepth: number = 3
 ): Promise< RawDirectoryEntry[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) throw new Error( 'Site not found' );
-	return listSiteFileTree( server.details.path, path, maxDepth );
+	return listSiteFileTree( await requireSitePath( siteId ), path, maxDepth );
 }
 
 export async function readBlueprintFile(
@@ -1710,18 +1620,9 @@ export async function updateSitesSortOrder(
 	event: IpcMainInvokeEvent,
 	updates: { siteId: string; sortOrder: number }[]
 ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-
-		for ( const { siteId, sortOrder } of updates ) {
-			userData.siteMetadata[ siteId ] = { ...userData.siteMetadata[ siteId ], sortOrder };
-		}
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
+	await updateSiteMetadata(
+		Object.fromEntries( updates.map( ( { siteId, sortOrder } ) => [ siteId, { sortOrder } ] ) )
+	);
 }
 
 function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {

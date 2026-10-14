@@ -30,17 +30,20 @@ function autoLoginPath( target: string ) {
 function renderAddressBar( {
 	path = '/',
 	site = SITE,
+	siteIcon,
 	onNavigate = vi.fn< ( path: string ) => void >(),
 	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
 }: {
 	path?: string;
 	site?: SiteDetails;
+	siteIcon?: string;
 	onNavigate?: Mock< ( path: string ) => void >;
 	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
 } = {} ) {
 	const result = render(
 		<PreviewAddressBar
 			site={ site }
+			siteIcon={ siteIcon }
 			siteUrl={ SITE_URL }
 			path={ path }
 			onNavigate={ onNavigate }
@@ -150,7 +153,7 @@ describe( 'PreviewAddressBar', () => {
 
 	it( 'puts the configured site icon inside the address field', () => {
 		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
-		const { container } = renderAddressBar( { site: { ...SITE, siteIcon } } );
+		const { container } = renderAddressBar( { siteIcon } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect(
 			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
@@ -206,7 +209,7 @@ describe( 'PreviewAddressBar', () => {
 
 	it( 'shows preview shortcuts from the address field', async () => {
 		const siteIcon = 'data:image/png;base64,c2hvcnRjdXQtaWNvbg==';
-		const { onSwitchRealm } = renderAddressBar( { site: { ...SITE, siteIcon } } );
+		const { onSwitchRealm } = renderAddressBar( { siteIcon } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
 

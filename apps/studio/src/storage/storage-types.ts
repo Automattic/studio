@@ -15,8 +15,6 @@ export interface WindowBounds {
 export type { QuitSitesBehavior };
 
 export interface AppdataSiteData {
-	themeDetails?: SiteDetails[ 'themeDetails' ];
-	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
 	autoStart?: boolean;
 }

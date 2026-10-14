@@ -85,7 +85,7 @@ test.describe( 'Import backup formats', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
 		await session.reportMainProcessLogsOnFailure( testInfo );
 		// Run one site at a time to keep peak memory low on constrained hosts.
-		await session.mainWindow.evaluate( () => window.ipcApi.stopAllServers() );
+		await session.stopAllSites();
 	} );
 
 	test.afterAll( async () => {

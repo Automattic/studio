@@ -287,16 +287,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
-// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
-export function getFrameTitleBarOverlayOptions() {
-	const isDark = nativeTheme.shouldUseDarkColors;
-	return {
-		color: isDark ? '#2f2f2f' : '#fff',
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
-		height: WINDOWS_TITLEBAR_HEIGHT,
-	};
-}
-
 export type WindowControlsSurface = 'chrome' | 'content' | 'toolbar';
 
 // The agentic UI's controls sit in the chrome gap above the content frame,

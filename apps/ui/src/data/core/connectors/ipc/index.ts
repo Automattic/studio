@@ -119,7 +119,7 @@ export function createIpcConnector(): Connector {
 			// Install the application menu (View > Toggle DevTools, etc.).
 			// The old renderer does this from its app bootstrap; the new UI
 			// needs to opt in explicitly.
-			await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			await ipcApi.setupAppMenu();
 		},
 
 		// Native desktop app: every affordance is available.
@@ -364,9 +364,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
-			// `false` skips the loading event consumed by Classic; this UI tracks
-			// the same request through React Query.
-			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+			return ( await ipcApi.loadThemeDetails( siteId ) ) as SiteDetails[ 'themeDetails' ];
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -711,7 +709,7 @@ export function createIpcConnector(): Connector {
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
 				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
 				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+				await ipcApi.setupAppMenu();
 			}
 		},
 

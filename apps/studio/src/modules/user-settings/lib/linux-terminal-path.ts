@@ -1,5 +1,5 @@
+import { SupportedTerminal, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { findOnPath } from 'src/lib/find-on-path';
-import { SupportedTerminal, terminalConfig } from 'src/modules/user-settings/lib/terminal';
 
 /**
  * Finds the executable path for a given terminal on Linux by walking $PATH.

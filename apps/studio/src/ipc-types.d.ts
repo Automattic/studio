@@ -112,14 +112,7 @@ type IpcApi = {
 	getAppZoomFactor: () => number;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
-interface FeatureFlags {}
-
-interface BetaFeatures {
-	enableAgenticUi: boolean;
-}
-
-interface AppGlobals extends FeatureFlags {
+interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;
@@ -129,7 +122,6 @@ interface AppGlobals extends FeatureFlags {
 // Our IPC objects will be attached to the `window` global
 interface Window {
 	ipcApi: IpcApi;
-	appGlobals: AppGlobals;
 }
 
 // Network

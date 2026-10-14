@@ -26,17 +26,6 @@ export function simplifyErrorForDisplay(
 }
 
 /**
- * Like `simplifyErrorForDisplay`, but also truncates to the first sentence.
- * Useful when the first line is a long, detailed error message and the dialog
- * should stay concise (e.g. blueprint errors). Full details are available via logs.
- */
-export function simplifyErrorToFirstSentence( error: unknown ): Error {
-	const simplified = simplifyErrorForDisplay( error );
-	const firstSentence = simplified.message.match( /^.+?\.(?=\s|$)/ );
-	return firstSentence ? new Error( firstSentence[ 0 ] ) : simplified;
-}
-
-/**
  * Extract a user-facing error message from process manager logs. The child process often logs
  * detailed error information to stdout before exiting. This scans log
  * lines for "Error:" prefixed entries which typically contain the root cause.

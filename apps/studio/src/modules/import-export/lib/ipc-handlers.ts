@@ -1,4 +1,4 @@
-import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
+import { shell, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
 import * as Sentry from '@sentry/electron/main';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
@@ -130,7 +130,6 @@ export async function importSite(
 		suppressTracksEvent = false,
 	} = options;
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	const args = [ 'import', '--path', site.details.path, importArchivePath ];
 
 	if ( alwaysStartServer ) {
@@ -141,7 +140,7 @@ export async function importSite(
 		args.push( '--suppress-tracks-event' );
 	}
 
-	const eventEmitter = executeImportCliCommand( site.details.id, args, parentWindow );
+	const eventEmitter = executeImportCliCommand( site.details.id, args );
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', async ( { importerType } ) => {
@@ -233,7 +232,6 @@ export async function exportSite(
 		suppressTracksEvent = false,
 	} = options;
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	const args = [ 'export', '--path', site.details.path, destinationPath, '--mode', mode ];
 
 	if ( splitDatabaseDumpByTable ) {
@@ -252,7 +250,7 @@ export async function exportSite(
 		args.push( '--include-only', ...specificSelectionPaths );
 	}
 
-	const eventEmitter = executeExportCliCommand( site.details.id, args, parentWindow, {
+	const eventEmitter = executeExportCliCommand( site.details.id, args, {
 		abortSignal,
 	} );
 

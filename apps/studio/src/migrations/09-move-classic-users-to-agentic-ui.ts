@@ -3,9 +3,8 @@
  * greets them as migrating users, the same as opting in from classic Studio used to.
  */
 
-import { updateBetaFeature } from 'src/lib/beta-features';
 import { recordAgenticUiMigration } from 'src/modules/user-settings/lib/ipc-handlers';
-import { loadUserData } from 'src/storage/user-data';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import type { Migration } from '@studio/common/lib/migration';
 
 export const moveClassicUsersToAgenticUi: Migration = {
@@ -15,6 +14,6 @@ export const moveClassicUsersToAgenticUi: Migration = {
 	},
 	async run() {
 		await recordAgenticUiMigration();
-		await updateBetaFeature( 'enableAgenticUi', true );
+		await updateAppdata( { betaFeatures: undefined } );
 	},
 };

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import { escapeRegex } from '@studio/common/lib/escape-regex';
-import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { SupportedEditor, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 
 /**
  * Finds the executable path for a given editor on Windows

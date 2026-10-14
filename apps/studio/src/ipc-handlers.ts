@@ -1,8 +1,6 @@
 import { exec, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
-	Menu,
-	MenuItem,
 	app,
 	clipboard,
 	dialog,
@@ -10,12 +8,10 @@ import {
 	webContents,
 	type IpcMainInvokeEvent,
 	type WebContents,
-	Notification,
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
-import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -31,15 +27,11 @@ import {
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import {
-	deleteAiSessionPlacement,
-	readAiSessionPlacement,
-} from '@studio/common/ai/sessions/placement';
+import { readAiSessionPlacement } from '@studio/common/ai/sessions/placement';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
-	deleteAiSession as deleteAiSessionFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
 import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
@@ -55,7 +47,6 @@ import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
@@ -85,7 +76,6 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
-	deleteSharedSession,
 	readAuthToken,
 	readSharedConfig,
 	updateSharedConfig,
@@ -95,6 +85,8 @@ import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
+import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -109,26 +101,15 @@ import {
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
-import { __, sprintf } from '@wordpress/i18n';
-import {
-	MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION,
-	MACOS_TRAFFIC_LIGHT_POSITION,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-} from 'src/constants';
-import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { __ } from '@wordpress/i18n';
+import { MACOS_TOOLBAR_TRAFFIC_LIGHT_POSITION, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
-import {
-	getBetaFeatures as getBetaFeaturesFromLib,
-	updateBetaFeature as updateBetaFeatureInLib,
-	type AgenticUiSurface,
-} from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
@@ -150,10 +131,8 @@ import {
 	type TracksUiVersion,
 } from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import * as windowsHelpers from 'src/lib/windows-helpers';
-import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
+import { getLogsFilePath } from 'src/logging';
 import {
-	getFrameTitleBarOverlayOptions,
 	getMainWindow,
 	getTitleBarOverlayOptions,
 	setAgenticControlsSurface,
@@ -161,21 +140,10 @@ import {
 	type WindowControlsSurface,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
-import {
-	getAllInstructionFilesStatus,
-	installInstructionFile,
-	removeInstructionFile,
-	type InstructionFileStatus,
-} from 'src/modules/agent-instructions/lib/instructions';
 import {
 	getBundledSkills,
-	getSkillsStatus,
-	installAllSkills,
-	installSkillById,
-	removeSkillById,
 	type SkillStatus,
-} from 'src/modules/agent-instructions/lib/skills';
+} from 'src/modules/agent-instructions/lib/skills-constants';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -186,23 +154,15 @@ import { editSiteViaCli } from 'src/modules/cli/lib/cli-site-editor';
 import { CliCommandError } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
-import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import {
-	recordAgenticUiMigration,
-	getUserEditor,
 	getUserTerminal,
 	getDefaultSiteDirectory,
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
-import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import {
-	SiteServer,
-	reconcileSitesRunningState,
-	stopAllServers as triggerStopAllServers,
-} from 'src/site-server';
+import { SiteServer, reconcileSitesRunningState } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	updateAppdata,
@@ -218,7 +178,6 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { WpCliResult } from 'src/site-server';
 
 export {
 	isStudioCliInstalled,
@@ -228,37 +187,24 @@ export {
 } from 'src/modules/cli/lib/ipc-handlers';
 
 export {
-	addSyncOperation,
 	cancelSyncOperation,
-	clearSyncOperation,
 	connectWpcomSites,
 	disconnectWpcomSites,
-	downloadSyncBackup,
-	exportSiteForPush,
 	fetchSyncableWpcomSites,
 	getConnectedWpcomSites,
 	getHostingPhpVersion,
 	getLatestRewindId,
 	listRemoteFileTree,
-	pauseSyncUpload,
 	pullSiteFromLive,
-	pushArchive,
 	pushSiteToLive,
-	removeSyncBackup,
-	resumeSyncUpload,
-	updateConnectedWpcomSites,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
-	createSnapshot,
-	deleteSnapshot,
 	deleteAllSnapshots,
 	deletePreviewSite,
 	fetchSnapshots,
 	publishPreviewSite,
 	renamePreviewSite,
-	setSnapshot,
-	updateSnapshot,
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
@@ -274,7 +220,6 @@ export {
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
-	previewColorScheme,
 	saveAgenticFeaturesEnabled,
 	saveAnalyticsEnabled,
 	saveAnthropicApiKey,
@@ -282,12 +227,10 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveQuitSitesBehavior,
-	setAiProvider,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
 	saveWapuuScore,
-	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
@@ -321,16 +264,6 @@ export async function loadAiSession(
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
 	return loadHydratedAiSession( getSessionsDirectory(), sessionIdOrPrefix );
-}
-
-export async function deleteAiSession(
-	_event: IpcMainInvokeEvent,
-	sessionIdOrPrefix: string
-): Promise< AiSessionSummary > {
-	const deleted = await deleteAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
-	await deleteSharedSession( deleted.id );
-	await deleteAiSessionPlacement( deleted.id );
-	return deleted;
 }
 
 export async function createAiSession(
@@ -445,16 +378,6 @@ export async function continueAiSession(
 	} );
 }
 
-export async function markAiMessageEdited(
-	_event: IpcMainInvokeEvent,
-	sessionId: string,
-	originalEntryId: string
-): Promise< void > {
-	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.message_edited', {
-		originalEntryId,
-	} );
-}
-
 export async function listActiveAiAgentRuns(
 	_event: IpcMainInvokeEvent
 ): Promise< ActiveAgentRun[] > {
@@ -497,81 +420,6 @@ export interface SetSessionEnvironmentResult {
 	summary: AiSessionSummary;
 }
 
-/**
- * Flip a session between operating on its owner site's local runtime vs. the
- * linked WordPress.com live site. The owner site itself never changes — this
- * writes a fresh `site.selected` event naming the concrete site (local or
- * remote) the next turn will act on.
- *
- * Resolves the live endpoint here rather than accepting it from the renderer
- * so a buggy UI can't accidentally rebind the session to a different site.
- */
-export async function setSessionEnvironment(
-	_event: IpcMainInvokeEvent,
-	sessionId: string,
-	environment: 'local' | 'live'
-): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
-
-	if ( ! summary.ownerSiteId && ! summary.ownerSitePath ) {
-		throw new Error( 'Cannot change environment: session has no owner site' );
-	}
-
-	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
-	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
-	if ( ! ownerServer ) {
-		throw new Error(
-			`Cannot change environment: owner site is no longer available (${
-				summary.ownerSiteId ?? summary.ownerSitePath
-			})`
-		);
-	}
-
-	if ( environment === 'live' ) {
-		const candidates = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
-		// Prefer the production (non-staging) site to match the UI's
-		// `pickLiveSite` behavior in the site dropdown.
-		const liveSite = candidates.find( ( s ) => ! s.isStaging ) ?? candidates[ 0 ];
-
-		if ( ! liveSite ) {
-			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
-		}
-
-		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
-			siteName: liveSite.name,
-			// Keep the local owner's path and id on remote picks too, so live/local
-			// environment flips still resolve against the same local site.
-			sitePath: ownerServer.details.path,
-			siteId: ownerServer.details.id,
-			remote: true,
-			url: liveSite.url,
-			wpcomSiteId: liveSite.id,
-		} );
-
-		const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
-		return {
-			environment: 'live',
-			url: liveSite.url,
-			wpcomSiteId: liveSite.id,
-			summary: refreshed.summary,
-		};
-	}
-
-	const details = ownerServer.details;
-	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
-		siteName: details.name,
-		sitePath: details.path,
-		siteId: details.id,
-		url: 'url' in details ? details.url : undefined,
-	} );
-
-	const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
-	return {
-		environment: 'local',
-		summary: refreshed.summary,
-	};
-}
-
 export async function interruptAiAgentRun(
 	_event: IpcMainInvokeEvent,
 	runId: string
@@ -585,93 +433,6 @@ export async function answerAiAgentQuestion(
 	answers: Record< string, string >
 ): Promise< void > {
 	answerAgentRun( runId, answers );
-}
-
-export async function getAgentInstructionsStatus(
-	_event: IpcMainInvokeEvent,
-	siteId: string
-): Promise< InstructionFileStatus[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return getAllInstructionFilesStatus( server.details.path );
-}
-
-export async function installAgentInstructions(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	options?: { overwrite?: boolean; fileType?: InstructionFileType }
-): Promise< { path: string; overwritten: boolean } > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	const overwrite = options?.overwrite ?? false;
-	const fileType = options?.fileType ?? 'agents';
-	return installInstructionFile( server.details.path, fileType, overwrite );
-}
-
-export async function removeAgentInstruction(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	fileType: InstructionFileType
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	await removeInstructionFile( server.details.path, fileType );
-}
-
-export async function getWordPressSkillsStatus(
-	_event: IpcMainInvokeEvent,
-	siteId: string
-): Promise< SkillStatus[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	return getSkillsStatus( server.details.path );
-}
-
-export async function installWordPressSkills(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	options?: { overwrite?: boolean }
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details, overwrite );
-}
-
-export async function installWordPressSkillById(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	skillId: string,
-	options?: { overwrite?: boolean }
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	const overwrite = options?.overwrite ?? false;
-	await installSkillById( server.details, skillId, overwrite );
-}
-
-export async function removeWordPressSkillById(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	skillId: string
-): Promise< void > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( `Site not found: ${ siteId }` );
-	}
-	await removeSkillById( server.details.path, skillId );
 }
 
 export async function getWordPressSkillsStatusAllSites(
@@ -793,14 +554,6 @@ export async function reconcileSites( event: IpcMainInvokeEvent ): Promise< Site
 	return getSiteDetails( event );
 }
 
-export async function getXdebugEnabledSite(
-	_event: IpcMainInvokeEvent
-): Promise< SiteDetails | null > {
-	const sites = SiteServer.getAllDetails();
-	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
-	return xdebugSite || null;
-}
-
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
@@ -882,7 +635,7 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
-			void loadSiteIcon( event, server.details.id );
+			void loadSiteIcon( server.details.id );
 		}
 
 		return server.details;
@@ -1022,7 +775,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 					running: true,
 				} );
 				// Refresh the thumbnail so it shows the error page instead of a stale capture.
-				void captureSiteThumbnail( id, true );
+				void captureSiteThumbnail( id );
 				return;
 			} catch ( recoveryError ) {
 				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );
@@ -1067,7 +820,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
-		void loadSiteIcon( event, id );
+		void loadSiteIcon( id );
 	}
 
 	// Keep managed instruction files (STUDIO.md) up-to-date
@@ -1091,10 +844,6 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
 	// transition the events subscriber relies on, so persist it explicitly here.
 	await server.persistAutoStart( false );
-}
-
-export async function stopAllServers(): Promise< void > {
-	await triggerStopAllServers();
 }
 
 export interface FolderDialogResponse {
@@ -1174,11 +923,6 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
-	const userData = await loadUserData();
-	return userData.sentryUserId;
-}
-
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
 	const server = SiteServer.get( id );
 	console.log( 'Deleting site', id );
@@ -1211,12 +955,6 @@ export async function copySite(
 	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
-		const thumbnailData = await getImageData( newThumbnailPath );
-		sendIpcEventToRendererWithWindow(
-			BrowserWindow.fromWebContents( event.sender ),
-			'thumbnail-loaded',
-			{ id: newSiteId, imageData: thumbnailData }
-		);
 	}
 
 	const { server, details } = await SiteServer.create( {
@@ -1246,16 +984,6 @@ export async function copySite(
 	return details;
 }
 
-export function logRendererMessage(
-	event: IpcMainInvokeEvent,
-	level: LogLevel,
-	...args: unknown[]
-): void {
-	// 4 characters long so it aligns with the main process logs
-	const processId = `ren${ event.sender.id }`;
-	writeLogToFile( level, processId, ...args );
-}
-
 export async function authenticate(
 	event: IpcMainInvokeEvent,
 	isSignup = false,
@@ -1271,10 +999,6 @@ export async function authenticate(
 
 export async function getAuthenticationToken() {
 	return oauthClient.getAuthenticationToken();
-}
-
-export async function isAuthenticated() {
-	return oauthClient.isAuthenticated();
 }
 
 export async function clearAuthenticationToken() {
@@ -1354,7 +1078,6 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		isWindowsStore: process.windowsStore ?? false,
-		...buildFeatureFlags(),
 	};
 }
 
@@ -1500,10 +1223,6 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 	await shell.openPath( path );
 }
 
-export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
-	shell.showItemInFolder( path );
-}
-
 export async function openStudioLogs( _event: IpcMainInvokeEvent ) {
 	await shell.openPath( getLogsFilePath() );
 }
@@ -1548,60 +1267,39 @@ export async function readLocalMediaFile(
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
 // process.
+async function loadSiteIcon( id: string ): Promise< void > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		return;
+	}
+
+	const oldIconPath = server.details.siteIconPath;
+	const iconPath = await server.getSiteIcon();
+	if ( iconPath !== oldIconPath ) {
+		await server.persistSiteIcon();
+	}
+}
+
 export async function loadThemeDetails(
-	event: IpcMainInvokeEvent,
-	id: string,
-	emitLoadingEvent = true
+	_event: IpcMainInvokeEvent,
+	id: string
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
-	void captureSiteThumbnail( id, emitLoadingEvent );
-
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( emitLoadingEvent ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
-	}
+	void captureSiteThumbnail( id );
 
 	const oldThemePath = server.details.themeDetails?.path;
 	const themeDetails = await server.getThemeDetails();
 	const hasThemeChanged = themeDetails?.path !== oldThemePath;
-
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loaded', {
-		id,
-		details: themeDetails,
-	} );
 
 	if ( hasThemeChanged ) {
 		await server.persistThemeDetails();
 	}
 
 	return themeDetails;
-}
-
-// Mirror of loadThemeDetails for the Site Icon: fetch from the running
-// site's mu-plugin command and persist the resolved path so the renderer
-// can read it back from appdata via getSiteDetails.
-export async function loadSiteIcon(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	const oldIconPath = server.details.siteIconPath;
-	const iconPath = await server.getSiteIcon();
-	const hasIconChanged = iconPath !== oldIconPath;
-
-	if ( hasIconChanged ) {
-		await server.persistSiteIcon();
-	}
-
-	return iconPath;
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1625,56 +1323,7 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	}
 }
 
-export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
-	return await getBetaFeaturesFromLib();
-}
-
-export async function enableAgenticUi(
-	_event: IpcMainInvokeEvent,
-	surface: AgenticUiSurface = 'settings'
-): Promise< void > {
-	await updateBetaFeatureInLib( 'enableAgenticUi', true, surface );
-	await recordAgenticUiMigration();
-}
-
-export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
-	await updateAppdata( { agenticUiBannerDismissed: true } );
-}
-
-export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
-	const userData = await loadUserData();
-	return userData.agenticUiBannerDismissed === true;
-}
-
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
-
-export async function executeWPCLiInline(
-	_event: IpcMainInvokeEvent,
-	{
-		siteId,
-		args,
-		skipPluginsAndThemes = false,
-	}: {
-		siteId: string;
-		args: string;
-		skipPluginsAndThemes?: boolean;
-	}
-): Promise< WpCliResult > {
-	if ( SiteServer.isDeleted( siteId ) ) {
-		return {
-			stdout: '',
-			stderr: `Cannot execute command on deleted site ${ siteId }`,
-			exitCode: 1,
-		};
-	}
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	return server.executeWpCliCommand( args, {
-		skipPluginsAndThemes,
-	} );
-}
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
@@ -1875,18 +1524,8 @@ export async function showErrorMessageBox(
 	}
 }
 
-export function showNotification(
-	_event: IpcMainInvokeEvent,
-	options: Electron.NotificationConstructorOptions
-) {
-	new Notification( options ).show();
-}
-
-export async function setupAppMenu(
-	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean; isAddSiteVisible?: boolean }
-) {
-	await setupMenu( config );
+export async function setupAppMenu() {
+	await setupMenu();
 }
 
 export async function popupAppMenu(
@@ -1894,31 +1533,6 @@ export async function popupAppMenu(
 	position?: { x: number; y: number }
 ) {
 	await popupMenu( position );
-}
-
-export async function promptWindowsSpeedUpSites(
-	_event: IpcMainInvokeEvent,
-	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
-) {
-	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
-}
-
-export function toggleMinWindowWidth(
-	event: IpcMainInvokeEvent,
-	isSidebarVisible: boolean,
-	currentSidebarWidth?: number
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
-		return;
-	}
-	const sidebarW = currentSidebarWidth ?? SIDEBAR_WIDTH;
-	const [ currentWidth, currentHeight ] = parentWindow.getSize();
-	const newWidth = Math.max(
-		MAIN_MIN_WIDTH,
-		isSidebarVisible ? currentWidth - sidebarW : currentWidth + sidebarW
-	);
-	parentWindow.setSize( newWidth, currentHeight, true );
 }
 
 export async function ensureMinWindowWidth(
@@ -1962,52 +1576,6 @@ export async function getAbsolutePathFromSite(
 	return ( await pathExists( path ) ) ? path : null;
 }
 
-/**
- * Opens a file in the IDE with the site context.
- * Uses the user's preferred editor, falling back to the first installed editor.
- */
-export async function openFileInIDE(
-	event: IpcMainInvokeEvent,
-	relativePath: string,
-	siteId: string
-) {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-
-	const filepath = await getAbsolutePathFromSite( event, siteId, relativePath );
-	if ( ! filepath ) {
-		return;
-	}
-
-	const editorKey = await getUserEditor();
-	if ( ! editorKey ) {
-		return;
-	}
-
-	const openSingleFileExceptions = [ { platform: 'darwin', editorKey: 'phpstorm' } ];
-
-	if (
-		openSingleFileExceptions.some(
-			( f ) => f.platform === process.platform && f.editorKey === editorKey
-		)
-	) {
-		await openAppAtPath( event, editorKey, filepath );
-		return;
-	}
-	// Open site folder and file in a single call
-	await openAppAtPath( event, editorKey, server.details.path, [ filepath ] );
-}
-
-export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	return site.hasSQLitePlugin();
-}
-
 export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
@@ -2022,10 +1590,6 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 		throw new Error( 'Site not found.' );
 	}
 	return getLocalFileSize( nodePath.join( site.details.path, ...filePath ) );
-}
-
-export function openCertificate( _event: IpcMainInvokeEvent ) {
-	shell.showItemInFolder( ROOT_CA_CERT_PATH );
 }
 
 export async function isCATrusted(): Promise< boolean > {
@@ -2051,271 +1615,9 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
-export function showSiteContextMenu(
-	event: IpcMainInvokeEvent,
-	context: {
-		siteId: string;
-		isRunning: boolean;
-		isLoading: boolean;
-		isAddingSite: boolean;
-		isAnySiteAdding: boolean;
-		isSyncing: boolean;
-		finderLabel: string;
-		editorLabel: string | null;
-		terminalLabel: string;
-	}
-) {
-	const {
-		siteId,
-		isRunning,
-		isLoading,
-		isAddingSite,
-		isAnySiteAdding,
-		isSyncing,
-		finderLabel,
-		editorLabel,
-		terminalLabel,
-	} = context;
-	const menu = new Menu();
-
-	if ( isRunning ) {
-		menu.append(
-			new MenuItem( {
-				label: __( 'Stop' ),
-				enabled: ! isAddingSite,
-				click: () => {
-					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
-						'site-context-menu-action',
-						{
-							action: 'stop',
-							siteId,
-						}
-					);
-				},
-			} )
-		);
-	} else {
-		menu.append(
-			new MenuItem( {
-				label: __( 'Start' ),
-				enabled: ! isLoading && ! isAddingSite,
-				click: () => {
-					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
-						'site-context-menu-action',
-						{
-							action: 'start',
-							siteId,
-						}
-					);
-				},
-			} )
-		);
-	}
-
-	menu.append( new MenuItem( { type: 'separator' } ) );
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'Open site' ),
-			enabled: ! isLoading && ! isAddingSite,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'open-site',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'WP admin' ),
-			enabled: ! isLoading && ! isAddingSite,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'open-admin',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append( new MenuItem( { type: 'separator' } ) );
-
-	menu.append(
-		new MenuItem( {
-			label: sprintf(
-				/* translators: %s is the name of the file explorer. E.g. "Open in Finder" */
-				__( 'Open in %s' ),
-				finderLabel
-			),
-			enabled: ! isAddingSite,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'open-finder',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	if ( editorLabel ) {
-		menu.append(
-			new MenuItem( {
-				label: sprintf(
-					/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
-					__( 'Open in %s' ),
-					editorLabel
-				),
-				enabled: ! isAddingSite,
-				click: () => {
-					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
-						'site-context-menu-action',
-						{
-							action: 'open-editor',
-							siteId,
-						}
-					);
-				},
-			} )
-		);
-	}
-
-	menu.append(
-		new MenuItem( {
-			label: sprintf(
-				/* translators: %s is the name of the terminal. E.g. "Open in Terminal" */
-				__( 'Open in %s' ),
-				terminalLabel
-			),
-			enabled: ! isAddingSite,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'open-terminal',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append( new MenuItem( { type: 'separator' } ) );
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'Edit site…' ),
-			enabled: ! isAddingSite,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'edit-site',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'Duplicate site…' ),
-			enabled: ! isLoading && ! isAnySiteAdding,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'copy-site',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAnySiteAdding && ! isSyncing,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'delete',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	const window = BrowserWindow.fromWebContents( event.sender );
-	if ( window ) {
-		menu.popup( { window } );
-	}
-}
-
-/**
- * Checks the size of a sync backup file before downloading.
- * Returns the size in bytes.
- */
-export async function checkSyncBackupSize(
-	event: IpcMainInvokeEvent,
-	downloadUrl: string
-): Promise< number > {
-	return new Promise( ( resolve, reject ) => {
-		https
-			.get( downloadUrl, { method: 'HEAD' }, ( res ) => {
-				if ( res.statusCode !== 200 ) {
-					reject( new Error( `Failed to fetch file size: ${ res.statusMessage }` ) );
-					return;
-				}
-
-				const contentLength = res.headers[ 'content-length' ];
-				if ( ! contentLength ) {
-					reject( new Error( 'Content-Length header not found' ) );
-					return;
-				}
-
-				resolve( parseInt( contentLength, 10 ) );
-			} )
-			.on( 'error', ( error: Error ) => {
-				Sentry.captureException( error );
-				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
-			} );
-	} );
-}
-
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
-}
-
-export async function getAllCustomDomains(): Promise< string[] > {
-	return SiteServer.getAllDetails()
-		.map( ( site ) => site.customDomain )
-		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
 export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
@@ -2331,13 +1633,6 @@ export async function listLocalFileTree(
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
 	return listSiteFileTree( server.details.path, path, maxDepth );
-}
-
-export async function validateBlueprint(
-	_event: IpcMainInvokeEvent,
-	blueprintJson: Blueprint[ 'blueprint' ]
-) {
-	return validateBlueprintData( blueprintJson );
 }
 
 export async function readBlueprintFile(
@@ -2372,26 +1667,6 @@ export async function cleanupBlueprintTempDir(
 	tempDir: string
 ): Promise< void > {
 	await cleanupBlueprintTempDirShared( tempDir );
-}
-
-export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow ) {
-		return;
-	}
-
-	if ( process.platform === 'darwin' ) {
-		parentWindow.setWindowButtonVisibility( visible );
-		if ( visible ) {
-			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
-		}
-	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		// Hiding the controls means a fullscreen modal (e.g. Add site) now sits behind them,
-		// so the overlay must match its theme-aware `bg-frame` background instead of the chrome.
-		parentWindow.setTitleBarOverlay(
-			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
-		);
-	}
 }
 
 // Repaints the window-controls overlay for whichever surface it is sitting on;

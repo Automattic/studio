@@ -1,10 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import type { GuideDefinition } from './guide';
 
-// Keep these pages in step with the classic renderer's modal
-// (apps/studio/src/modules/whats-new/components/whats-new-modal.tsx) — both are
-// gated by the same FORCE_SHOW_WHATS_NEW switch in @studio/common.
-
 export function getWhatsNewGuide(): GuideDefinition {
 	return {
 		pages: [

@@ -19,5 +19,10 @@ Restart the ChatGPT app afterwards. The app ships its own Codex at
 
 The plugins are developed in [Automattic/studio](https://github.com/Automattic/studio/tree/trunk/plugins)
 and published to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins) with each
-Studio release, versioned as that release. Open issues and pull requests in Automattic/studio. To try
-your changes, add the marketplace from your checkout: `codex plugin marketplace add ./plugins`.
+Studio release, versioned as that release and with the Studio CLI inside (`cli.tar.br`). Each release
+replaces that repository's single commit, so cloning it never fetches older copies of the CLI. Open
+issues and pull requests in Automattic/studio.
+
+To try your changes, add the marketplace from your checkout, `codex plugin marketplace add ./plugins`,
+and point the plugin at a Studio CLI build with `STUDIO_CLI_BIN`. `npm run cli:bundle:plugin` builds
+the plugin with the CLI inside.

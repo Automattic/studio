@@ -45,7 +45,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **Fastlane lane**: `publish_release`
 
-- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which publishes `plugins/` to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from
+- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also keeps `wp-studio-<version>.zip`, the package for OpenAI's plugin directory, as a workflow artifact
 - Creates a backmerge PR from `release/<version>` into `trunk`
 - Removes the branch protection from `release/<version>` and deletes the branch
 

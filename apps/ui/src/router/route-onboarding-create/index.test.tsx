@@ -73,13 +73,11 @@ vi.mock( '@/components/session-view/composer', () => ( {
 
 vi.mock( '@/data/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: () => ( {
-			cleanupBlueprintTempDir: mocks.cleanup,
-			openExternalUrl: mocks.openExternalUrl,
-		} ),
+	const connector = {
+		cleanupBlueprintTempDir: mocks.cleanup,
+		openExternalUrl: mocks.openExternalUrl,
 	};
+	return { ...actual, useConnector: () => connector };
 } );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
@@ -335,9 +333,9 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.formProps?.initialValues ).toMatchObject( { customDomain: 'network.wp.local' } );
 	} );
 
-	it( 'submits the selected Blueprint and restores the form after failure', async () => {
+	it( 'keeps the selected Blueprint for a retry after failure', async () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
-		render( <CreateSitePage /> );
+		const { unmount } = render( <CreateSitePage /> );
 		const selected = blueprint( 'Selected', '/tmp/selected' );
 		selectBlueprint( selected );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
@@ -356,7 +354,10 @@ describe( 'CreateSitePage', () => {
 				} ),
 			} )
 		);
+		expect( mocks.formProps?.submitLabel ).toBe( 'Create site from Blueprint' );
+		expect( mocks.cleanup ).not.toHaveBeenCalled();
+
+		unmount();
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
-		expect( mocks.formProps?.submitLabel ).toBeUndefined();
 	} );
 } );

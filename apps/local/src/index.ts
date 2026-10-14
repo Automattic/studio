@@ -1080,17 +1080,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
+				// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
+						() => undefined
+					);
+				}
 			} catch ( error ) {
 				throw error instanceof CliCommandError && error.lastErrorMessage
 					? new Error( error.lastErrorMessage )
 					: error;
 			} finally {
 				cleanupCreateArgs();
-				if ( body.blueprint?.filePath ) {
-					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
-						() => undefined
-					);
-				}
 				if ( bundleTempDir ) {
 					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
 				}

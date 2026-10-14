@@ -871,6 +871,12 @@ export async function createSite(
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
 
+		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
+		if ( blueprint?.filePath ) {
+			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
+			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
+		}
+
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
@@ -923,9 +929,6 @@ export async function createSite(
 	} finally {
 		if ( bundleTempDir ) {
 			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
-		} else if ( blueprint?.filePath ) {
-			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
 	}
 }

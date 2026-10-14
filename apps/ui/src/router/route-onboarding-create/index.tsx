@@ -365,14 +365,8 @@ export function CreateSitePage() {
 					: __( 'Review the site name and local folder, then try again.' ),
 				details: getErrorMessage( error ),
 			} );
-			if ( blueprint?.tempDir ) {
-				await connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-				transferredTempDirRef.current = null;
-				if ( selectedBlueprintRef.current === blueprint ) {
-					selectedBlueprintRef.current = null;
-					setSelectedBlueprint( null );
-				}
-			}
+			// The server keeps an uploaded bundle when creation fails; it's ours to clean up again.
+			transferredTempDirRef.current = null;
 		}
 	};
 

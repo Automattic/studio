@@ -12,7 +12,6 @@ import {
 	createSite,
 	ensureMinWindowWidth,
 	getFileSize,
-	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
 	openURL,
@@ -236,106 +235,6 @@ describe( 'ensureMinWindowWidth', () => {
 	} );
 } );
 
-describe( 'getXdebugEnabledSite', () => {
-	it( 'should return null when no site has Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: false,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				running: false,
-				phpVersion: '8.4',
-				port: 9998,
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toBeNull();
-	} );
-
-	it( 'should return the site that has Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: false,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				enableXdebug: true,
-				running: true,
-				phpVersion: '8.4',
-				port: 9999,
-				url: 'https://site-2.test',
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toEqual( {
-			id: 'site-2',
-			name: 'Site 2',
-			path: '/path/to/site-2',
-			running: true,
-			enableXdebug: true,
-			phpVersion: '8.4',
-			port: 9999,
-			url: 'https://site-2.test',
-		} );
-	} );
-
-	it( 'should return the first site when multiple have Xdebug enabled', async () => {
-		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
-			{
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				enableXdebug: true,
-				running: false,
-				phpVersion: '8.4',
-				port: 9999,
-			},
-			{
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				enableXdebug: true,
-				running: true,
-				phpVersion: '8.4',
-				port: 9998,
-			},
-		] as SiteDetails[] );
-
-		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
-
-		expect( result ).toEqual( {
-			id: 'site-1',
-			name: 'Site 1',
-			path: '/path/to/site-1',
-			running: false,
-			enableXdebug: true,
-			phpVersion: '8.4',
-			port: 9999,
-		} );
-	} );
-} );
-
 describe( 'loadThemeDetails', () => {
 	it( 'should capture thumbnail but not persist theme details when theme has not changed', async () => {
 		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
@@ -353,7 +252,7 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
 	} );
 
 	it( 'should persist theme details and capture thumbnail when theme has changed', async () => {
@@ -373,7 +272,7 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id' );
 	} );
 } );
 

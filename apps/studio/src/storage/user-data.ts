@@ -86,7 +86,6 @@ type UserDataSafeKeys =
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
-	| 'agenticUiBannerDismissed'
 	| 'dontShowArm64Warning'
 	| 'agenticFeaturesEnabled';
 

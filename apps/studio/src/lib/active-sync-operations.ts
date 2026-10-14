@@ -1,35 +1,6 @@
 import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 
-export type PullStateProgressInfo = {
-	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
-	progress: number;
-	message: string;
-};
-export type PushStateProgressInfo = {
-	key:
-		| 'creatingBackup'
-		| 'uploading'
-		| 'creatingRemoteBackup'
-		| 'applyingChanges'
-		| 'finishing'
-		| 'finished'
-		| 'failed'
-		| 'cancelled'
-		| 'uploadingPaused'
-		| 'uploadingManuallyPaused';
-	progress: number;
-	message: string;
-};
-
-/**
- * Push/pull operations reported by the legacy renderer.
- */
-export const ACTIVE_SYNC_OPERATIONS = new Map<
-	string,
-	PullStateProgressInfo | PushStateProgressInfo | undefined
->();
-
 // The push or pull each site is running, as published by the CLI, whoever started it.
 const PENDING_SYNCS = new Map< string, SyncActivity >();
 
@@ -53,45 +24,4 @@ export function hasActiveSyncOperations(): boolean {
  */
 export function hasCancellableSyncOperations(): boolean {
 	return [ ...PENDING_SYNCS.values() ].some( canCancelSyncActivity );
-}
-
-/**
- * Check if a pull operation can be cancelled based on its current state.
- */
-export function canCancelPull( key: PullStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const cancellableStateKeys: PullStateProgressInfo[ 'key' ][] = [ 'in-progress', 'downloading' ];
-	if ( ! key ) {
-		return false;
-	}
-	return cancellableStateKeys.includes( key );
-}
-
-/**
- * Check if a push operation can be cancelled based on its current state.
- */
-export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [
-		'creatingBackup',
-		'uploading',
-		'uploadingManuallyPaused',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return cancellableStateKeys.includes( key );
-}
-
-/**
- * Check if a push operation has finished uploading the backup file.
- */
-export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-		'creatingBackup',
-		'uploading',
-		'uploadingManuallyPaused',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return uploadingStateKeys.includes( key );
 }

@@ -164,6 +164,17 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
+	async stopAllSites() {
+		await this.mainWindow.evaluate( async () => {
+			const sites = await window.ipcApi.getSiteDetails();
+			await Promise.all(
+				sites
+					.filter( ( site ) => site.running )
+					.map( ( site ) => window.ipcApi.stopServer( site.id ) )
+			);
+		} );
+	}
+
 	async cleanup() {
 		await this.closeApp();
 		await rimraf( this.sessionPath, {

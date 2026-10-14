@@ -1,5 +1,5 @@
+import { SupportedEditor, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { findOnPath } from 'src/lib/find-on-path';
-import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 
 /**
  * Finds the executable path for a given editor on Linux by walking $PATH.

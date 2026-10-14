@@ -8,7 +8,6 @@ function buildTestViewMenuItems(
 	overrides: Partial< Parameters< typeof buildViewMenuItems >[ 0 ] > = {}
 ) {
 	return buildViewMenuItems( {
-		needsOnboarding: false,
 		isDevelopment: false,
 		isAlwaysOnTop: false,
 		devTools: [],
@@ -31,22 +30,11 @@ describe( 'buildViewMenuItems', () => {
 		const items = buildTestViewMenuItems( { onToggleSitePreview } );
 		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Site Preview' );
 
-		expect( toggleSitePreviewItem ).toMatchObject( {
-			accelerator: 'CommandOrControl+Shift+B',
-			enabled: true,
-		} );
+		expect( toggleSitePreviewItem ).toMatchObject( { accelerator: 'CommandOrControl+Shift+B' } );
 
 		toggleSitePreviewItem?.click?.( {} as never, undefined as never, undefined as never );
 
 		expect( onToggleSitePreview ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'disables the site preview command during onboarding', () => {
-		const toggleSitePreviewItem = buildTestViewMenuItems( { needsOnboarding: true } ).find(
-			( item ) => item.label === 'Toggle Site Preview'
-		);
-
-		expect( toggleSitePreviewItem ).toMatchObject( { enabled: false } );
 	} );
 
 	it( 'keeps development tools after the site preview command', () => {

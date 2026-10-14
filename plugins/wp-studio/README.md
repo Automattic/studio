@@ -25,20 +25,10 @@ into Studio, or log in to WordPress.com.
 
 ## The Studio CLI
 
-The plugin runs the Studio CLI. If you have none, it installs one into `~/.studio` the first time it
-starts (a download of about 250 MB) and shows the progress in the WordPress page. It keeps that
-install up to date: new versions are installed in the background and swapped in while no site is
-running. A Studio CLI from the desktop app or from npm is used as long as it is 1.24.0 or later,
-and updates on its own; with an older one, the plugin installs its own.
-
-On Windows, the plugin installs the Studio CLI into `%LOCALAPPDATA%\studio` and doesn't update it,
-since Windows can't replace the files of a CLI that a Codex session is running. To update it, run
-`irm https://wordpress.studio/install.ps1 | iex` in PowerShell with the ChatGPT app closed.
-
-The plugin in OpenAI's plugin directory carries its own Studio CLI instead, which it unpacks the
-first time it starts and which updates with the plugin. It still uses a Studio CLI from the desktop
-app or npm when that one is at least as recent. Like any Studio CLI outside the desktop app, it
-downloads PHP when it first starts a site.
+The plugin carries the Studio CLI. It unpacks it the first time it starts, which takes a few
+seconds, and it updates with the plugin. A Studio CLI from the desktop app or from npm is used
+instead when it is at least as recent. Like any Studio CLI outside the desktop app, it downloads PHP
+when it first starts a site.
 
 ## Telemetry
 

@@ -1,7 +1,8 @@
 name: Publish Plugins
 
-# Publishes `plugins/` as Automattic/studio-plugins, the marketplace agent apps install the Studio
-# plugins from, with each plugin versioned as the Studio release.
+# Builds the Studio plugins with the Studio CLI inside and publishes them as Automattic/studio-plugins,
+# the marketplace agent apps install them from. The package for OpenAI's plugin directory is kept as
+# a workflow artifact.
 on:
   release:
     types: [published]
@@ -12,35 +13,6 @@ permissions:
 
 jobs:
   publish:
-    # Only released code: a release tag, or trunk to republish by hand.
-    if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/checkout@v7
-        with:
-          repository: Automattic/studio-plugins
-          ssh-key: ${{ secrets.STUDIO_PLUGINS_DEPLOY_KEY }}
-          path: dist
-
-      - name: Publish to Automattic/studio-plugins
-        run: |
-          version=$(jq -r .version apps/cli/package.json)
-          rsync -a --delete --exclude .git plugins/ dist/
-          cp LICENSE.md dist/
-          jq --arg version "$version" '.version = $version' plugins/wp-studio/.codex-plugin/plugin.json > dist/wp-studio/.codex-plugin/plugin.json
-          cd dist
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
-          git tag "v$version"
-          git push --atomic origin HEAD "v$version"
-
-  # The plugin with the Studio CLI inside, for OpenAI's plugin directory. Its payload has the native
-  # files of every platform, so one Linux build serves all of them.
-  codex-plugin-package:
     runs-on: ubuntu-latest
     env:
       # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
@@ -56,10 +28,36 @@ jobs:
 
       - run: npm run download-language-packs
 
-      - run: npm run cli:bundle:codex-plugin
+      # The CLI has the native files of every platform, so one Linux build serves all of them.
+      - run: npm run cli:bundle:plugin
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: codex-plugin-package
+          name: plugin-bundle
           path: standalone-bundles/wp-studio-*.zip
           compression-level: 0
+
+      # Only released code: a release tag, or trunk to republish by hand.
+      - if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        uses: actions/checkout@v7
+        with:
+          repository: Automattic/studio-plugins
+          ssh-key: ${{ secrets.STUDIO_PLUGINS_DEPLOY_KEY }}
+          path: dist
+
+      # Each release replaces the repository's single commit, so cloning it never fetches older
+      # copies of the CLI.
+      - name: Publish to Automattic/studio-plugins
+        if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          cd dist
+          git checkout -q --orphan release
+          git rm -rqf .
+          cp -R ../plugins/.agents ../plugins/README.md ../LICENSE.md .
+          unzip -q "../standalone-bundles/wp-studio-$version.zip" -d wp-studio
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qm "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
+          git push --force origin HEAD:trunk

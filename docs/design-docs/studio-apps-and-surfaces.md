@@ -14,7 +14,7 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 
 | Surface | Package(s) | Runtime | UI | Backend | Audience |
 | --- | --- | --- | --- | --- | --- |
-| **Desktop** | `apps/studio` | Electron (main/preload/renderer) | `apps/ui` (+ legacy renderer) | `@studio/common` in-process + forks the CLI | End users on macOS/Windows/Linux |
+| **Desktop** | `apps/studio` | Electron (main/preload/renderer) | `apps/ui` | `@studio/common` in-process + forks the CLI | End users on macOS/Windows/Linux |
 | **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | Native PHP site servers | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
 | **Hosted** | `apps/hosted` + `apps/ui` | Node server in the cloud | `apps/ui` (`dist-hosted`) in the browser | Cloud backend (WordPress.com / Telex sandbox agent) | Cloud product; no local machine |
@@ -95,7 +95,7 @@ The desktop consumes `apps/ui` through its own bundling with the `ipc` connector
 
 ### Desktop (`apps/studio`)
 
-The classic Electron three-process app: **Main** (Node.js — IPC handlers, site servers, storage, OAuth, sync, migrations), **Preload** (the `contextBridge` exposing `window.ipcApi`), and **Renderer** (React). The renderer is `apps/ui` driven by the `ipc` connector (behind a feature flag alongside the legacy renderer). The Main process holds the business logic by importing `@studio/common` **and** by forking the CLI for true site/agent operations. Electron-only concerns (thumbnails via `capturePage`, native dialogs, the `wp-studio://` protocol handler, `shell.openPath`) stay in the desktop wrapper.
+The Electron three-process app: **Main** (Node.js — IPC handlers, site servers, storage, OAuth, sync, migrations), **Preload** (the `contextBridge` exposing `window.ipcApi`), and **Renderer** (React). The renderer is `apps/ui` driven by the `ipc` connector. The Main process holds the business logic by importing `@studio/common` **and** by forking the CLI for true site/agent operations. Electron-only concerns (thumbnails via `capturePage`, native dialogs, the `wp-studio://` protocol handler, `shell.openPath`) stay in the desktop wrapper.
 
 ### CLI (`apps/cli`)
 

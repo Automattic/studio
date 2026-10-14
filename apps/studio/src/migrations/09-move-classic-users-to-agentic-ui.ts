@@ -4,7 +4,7 @@
  */
 
 import { recordAgenticUiMigration } from 'src/modules/user-settings/lib/ipc-handlers';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { Migration } from '@studio/common/lib/migration';
 
 export const moveClassicUsersToAgenticUi: Migration = {
@@ -14,6 +14,13 @@ export const moveClassicUsersToAgenticUi: Migration = {
 	},
 	async run() {
 		await recordAgenticUiMigration();
-		await updateAppdata( { betaFeatures: undefined } );
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			delete userData.betaFeatures?.enableAgenticUi;
+			await saveUserData( userData );
+		} finally {
+			await unlockAppdata();
+		}
 	},
 };

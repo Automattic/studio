@@ -39,8 +39,8 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
-	/** Read only by migration 09: `enableAgenticUi: false` marked a classic UI user. */
-	betaFeatures?: { enableAgenticUi?: boolean };
+	/** Beta features the user opted into, by key. Migration 09 removes the classic-era `enableAgenticUi`. */
+	betaFeatures?: Record< string, boolean >;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
 	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */

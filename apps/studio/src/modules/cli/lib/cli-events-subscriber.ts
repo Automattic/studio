@@ -13,12 +13,11 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
-import { forgetSite, refreshSiteIcon, refreshThemeDetails } from 'src/lib/sites';
+import { forgetSite, getSites, refreshSiteIcon, refreshThemeDetails } from 'src/lib/sites';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-// The last running state each site reported, so the start/stop side effects fire on a transition
-// only. The CLI reports every site once when the subscriber starts; that first report sets the
-// baseline without side effects.
+// The last running state of each site, so the start/stop side effects fire on a transition only.
+// Seeded from the site list when the subscriber starts; a site missing from it is new, so stopped.
 const lastRunning = new Map< string, boolean >();
 
 const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
@@ -44,14 +43,11 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
 	const running = event.running || isInErrorRecovery( siteId );
-	const wasRunning = lastRunning.get( siteId );
+	const wasRunning = lastRunning.get( siteId ) ?? false;
 	lastRunning.set( siteId, running );
 	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
 
-	if (
-		running === wasRunning ||
-		( eventType === SITE_EVENTS.UPDATED && wasRunning === undefined )
-	) {
+	if ( running === wasRunning ) {
 		return;
 	}
 
@@ -71,6 +67,13 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 export async function startCliEventsSubscriber(): Promise< void > {
+	if ( subscriber ) {
+		return;
+	}
+	for ( const site of await getSites().catch( () => [] ) ) {
+		lastRunning.set( site.id, site.running );
+	}
+
 	return new Promise( ( resolve, reject ) => {
 		if ( subscriber ) {
 			return resolve();

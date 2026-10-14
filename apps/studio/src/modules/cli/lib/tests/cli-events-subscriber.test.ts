@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
-import { forgetSite, refreshThemeDetails } from 'src/lib/sites';
+import { forgetSite, getSites, refreshThemeDetails } from 'src/lib/sites';
 import { startCliEventsSubscriber } from 'src/modules/cli/lib/cli-events-subscriber';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
@@ -37,10 +37,12 @@ async function emitSiteEvent( event: SITE_EVENTS, siteId: string, running: boole
 }
 
 beforeAll( async () => {
-	vi.mocked( executeCliCommand ).mockReturnValue( [ cliEvents, {} ] as never );
-	const started = startCliEventsSubscriber();
-	cliEvents.emit( 'started' );
-	await started;
+	vi.mocked( executeCliCommand ).mockImplementation( () => {
+		setTimeout( () => cliEvents.emit( 'started' ) );
+		return [ cliEvents, {} ] as never;
+	} );
+	vi.mocked( getSites ).mockResolvedValue( [ { id: 'site-a', running: true } ] as never );
+	await startCliEventsSubscriber();
 } );
 
 beforeEach( () => {
@@ -50,7 +52,7 @@ beforeEach( () => {
 } );
 
 describe( 'CLI events subscriber', () => {
-	it( 'takes the first report of a site as its baseline, then acts on running transitions', async () => {
+	it( 'acts on running transitions only, starting from the site list', async () => {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith(
 			'site-event',
@@ -71,6 +73,15 @@ describe( 'CLI events subscriber', () => {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
 		expect( captureSiteThumbnail ).not.toHaveBeenCalled();
 		expect( updateSiteMetadata ).not.toHaveBeenCalled();
+	} );
+
+	it( 'starts a new site once, whichever of its events lands first', async () => {
+		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-new', true );
+		await emitSiteEvent( SITE_EVENTS.CREATED, 'site-new', true );
+
+		expect( captureSiteThumbnail ).toHaveBeenCalledTimes( 1 );
+		expect( updateSiteMetadata ).toHaveBeenCalledTimes( 1 );
+		expect( updateSiteMetadata ).toHaveBeenCalledWith( { 'site-new': { autoStart: true } } );
 	} );
 
 	it( 'reports a site serving the PHP error page as running', async () => {

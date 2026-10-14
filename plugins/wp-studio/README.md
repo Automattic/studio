@@ -31,6 +31,11 @@ install up to date: new versions are installed in the background and swapped in 
 running. A Studio CLI from the desktop app or from npm is used as long as it is 1.24.0 or later,
 and updates on its own; with an older one, the plugin installs its own.
 
+The plugin in OpenAI's plugin directory carries its own Studio CLI instead, which it unpacks the
+first time it starts and which updates with the plugin. It still uses a Studio CLI from the desktop
+app or npm when that one is at least as recent. Like any Studio CLI outside the desktop app, it
+downloads PHP when it first starts a site.
+
 ## Telemetry
 
 The plugin itself sends no telemetry. The Studio CLI sends anonymous usage events to Automattic

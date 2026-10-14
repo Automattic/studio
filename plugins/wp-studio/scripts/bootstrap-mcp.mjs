@@ -2,14 +2,18 @@
 // Without a Studio CLI, it stands in for it while one installs in the background,
 // so the host gets a server (and the WordPress page) right away. A CLI it
 // installed is kept up to date: new versions are installed aside and swapped in
-// when Studio is idle.
+// when Studio is idle. The plugin built for OpenAI's directory carries its CLI
+// instead (`cli.tar.br`): it is unpacked on first start and never updated here,
+// since updates come as new plugin versions.
 // No dependencies: it runs with any Node.js before Studio is on the machine.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
 import { execFile, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
 	accessSync,
 	constants,
+	createReadStream,
 	existsSync,
 	mkdirSync,
 	readdirSync,
@@ -23,6 +27,9 @@ import {
 import { homedir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { pipeline } from 'node:stream/promises';
+import { fileURLToPath } from 'node:url';
+import { createBrotliDecompress } from 'node:zlib';
 
 const INSTALLER_URL = process.env.STUDIO_INSTALLER_URL || 'https://wordpress.studio/install.sh';
 const UPDATES_URL =
@@ -32,12 +39,18 @@ const STUDIO_BIN = path.join( STUDIO_HOME, 'bin', 'studio' );
 const UPDATE_STATE = path.join( STUDIO_HOME, 'plugin-update.json' );
 const UPDATE_STAGING = path.join( STUDIO_HOME, '.plugin-update' );
 const INSTALL_LOCK = path.join( STUDIO_HOME, '.plugin-install.lock' );
+const PLUGIN_ROOT = fileURLToPath( new URL( '..', import.meta.url ) );
+const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
+// Unpacked inside the plugin, so Codex removes it with this plugin version.
+const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
+const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
+const bundled = existsSync( CLI_BUNDLE );
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FIRST_UPDATE_CHECK_MS = 30_000;
 const IDLE_RETRY_MS = 60_000;
 // The oldest Studio CLI with what the plugin relies on: `studio_instructions`,
 // the design picker and the WordPress tab.
-const MIN_CLI_VERSION = [ 1, 24, 0 ];
+const MIN_CLI_VERSION = '1.24.0';
 const SETUP_URI = 'ui://wordpress-studio/setup.html';
 const LOG_LINES = 12;
 
@@ -45,7 +58,7 @@ const WORDPRESS_LOGO_SVG =
 	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M 22 12 C 22 6.49 17.51 2 12 2 C 6.48 2 2 6.49 2 12 C 2 17.52 6.48 22 12 22 C 17.51 22 22 17.52 22 12 M 9.78 17.37 L 6.37 8.22 C 6.92 8.2 7.54 8.14 7.54 8.14 C 8.04 8.08 7.98 7.01 7.48 7.03 C 7.48 7.03 6.03 7.14 5.11 7.14 C 4.93 7.14 4.74 7.14 4.53 7.13 C 6.12 4.69 8.87 3.11 12 3.11 C 14.33 3.11 16.45 3.98 18.05 5.45 C 17.37 5.34 16.4 5.84 16.4 7.03 C 16.4 7.77 16.85 8.39 17.3 9.13 C 17.65 9.74 17.85 10.49 17.85 11.59 C 17.85 13.08 16.45 16.59 16.45 16.59 L 13.42 8.22 C 13.96 8.2 14.24 8.05 14.24 8.05 C 14.74 8 14.68 6.8 14.18 6.83 C 14.18 6.83 12.74 6.95 11.8 6.95 C 10.93 6.95 9.47 6.83 9.47 6.83 C 8.97 6.8 8.91 8.03 9.41 8.05 L 10.33 8.13 L 11.59 11.54 L 9.78 17.37 M 19.41 12 C 19.65 11.36 20.15 10.13 19.84 7.75 C 20.54 9.04 20.89 10.46 20.89 12 C 20.89 15.29 19.16 18.24 16.49 19.78 C 17.46 17.19 18.43 14.58 19.41 12 M 8.1 20.09 C 5.12 18.65 3.11 15.53 3.11 12 C 3.11 10.7 3.34 9.52 3.83 8.41 C 5.25 12.3 6.67 16.2 8.1 20.09 M 12.13 13.46 L 14.71 20.44 C 13.85 20.73 12.95 20.89 12 20.89 C 11.21 20.89 10.43 20.78 9.71 20.56 C 10.52 18.18 11.33 15.82 12.13 13.46 L 12.13 13.46" /></svg>';
 
 // Studio's usage events tell plugin sessions apart by STUDIO_PLUGIN_ID (from the
-// MCP config) and this version.
+// MCP config) and this version. A bundled CLI has the plugin's version too.
 try {
 	process.env.STUDIO_PLUGIN_VERSION ??= JSON.parse(
 		readFileSync( new URL( '../.codex-plugin/plugin.json', import.meta.url ), 'utf8' )
@@ -264,6 +277,35 @@ function install() {
 	} );
 }
 
+const BUNDLED_STUDIO = { command: process.execPath, args: [ BUNDLED_MAIN ], updates: false };
+
+// Unpacks the bundled CLI aside and moves it in place once complete, so a
+// session that starts meanwhile never runs a partial CLI.
+async function unpack() {
+	const staging = `${ BUNDLED_CLI }.${ process.pid }`;
+	rmSync( staging, { recursive: true, force: true } );
+	mkdirSync( staging );
+	try {
+		const tar = spawn( 'tar', [ '-xf', '-', '-C', staging ], {
+			stdio: [ 'pipe', 'ignore', 'pipe' ],
+		} );
+		readline.createInterface( { input: tar.stderr } ).on( 'line', log );
+		const [ , [ code ] ] = await Promise.all( [
+			pipeline( createReadStream( CLI_BUNDLE ), createBrotliDecompress(), tar.stdin ),
+			once( tar, 'close' ),
+		] );
+		if ( code !== 0 ) throw new Error( `tar exited with code ${ code }` );
+		try {
+			renameSync( path.join( staging, 'cli' ), BUNDLED_CLI );
+		} catch ( error ) {
+			// Another session unpacked it first.
+			if ( ! existsSync( BUNDLED_MAIN ) ) throw error;
+		}
+	} finally {
+		rmSync( staging, { recursive: true, force: true } );
+	}
+}
+
 const isExecutable = ( file ) => {
 	try {
 		accessSync( file, constants.X_OK );
@@ -288,17 +330,22 @@ const cliVersion = ( command ) =>
 	} );
 
 // Pre-releases count as their version: a 1.24.0 beta has what 1.24.0 has.
-const isRecentEnough = ( version ) => {
+const isRecentEnough = ( version, minimum ) => {
 	const parts = version.split( '.' ).map( Number );
-	const differs = MIN_CLI_VERSION.findIndex( ( part, i ) => parts[ i ] !== part );
-	return differs === -1 || parts[ differs ] > MIN_CLI_VERSION[ differs ];
+	const minimumParts = minimum.split( '.' ).map( Number );
+	const differs = minimumParts.findIndex( ( part, i ) => parts[ i ] !== part );
+	return differs === -1 || parts[ differs ] > minimumParts[ differs ];
 };
 
 // A development build (STUDIO_CLI_BIN), then the first recent enough of the
 // `studio` command and the known install locations; with none, the plugin
-// installs its own. Only that CLI (in ~/.studio) is updated here: the desktop
+// installs its own, or unpacks the one it carries. A bundled CLI gives way only
+// to one at least as recent, so it never touches config a newer Studio wrote.
+// Only a CLI the plugin installed (in ~/.studio) is updated here: the desktop
 // app and npm update theirs.
-async function findStudio() {
+async function findStudio(
+	minimum = ( bundled && process.env.STUDIO_PLUGIN_VERSION ) || MIN_CLI_VERSION
+) {
 	if ( process.env.STUDIO_CLI_BIN ) {
 		return { command: process.execPath, args: [ process.env.STUDIO_CLI_BIN ], updates: false };
 	}
@@ -318,13 +365,13 @@ async function findStudio() {
 		if ( checked.has( target ) ) continue;
 		checked.add( target );
 		const version = await cliVersion( command );
-		if ( version && isRecentEnough( version ) ) {
-			return { command, args: [], updates: target === realpath( STUDIO_BIN ) };
+		if ( version && isRecentEnough( version, minimum ) ) {
+			return { command, args: [], updates: ! bundled && target === realpath( STUDIO_BIN ) };
 		}
 		log(
 			`Skipping the Studio CLI at ${ command } (${
 				version ?? 'unknown version'
-			}): the plugin needs ${ MIN_CLI_VERSION.join( '.' ) } or later.`
+			}): the plugin needs ${ minimum } or later.`
 		);
 	}
 	return null;
@@ -562,7 +609,7 @@ function answerSetup( message ) {
 		return true;
 	}
 	if ( method === 'tools/call' && params?.name === 'studio_setup_retry' ) {
-		if ( setup.state === 'failed' ) install();
+		if ( setup.state === 'failed' && ! bundled ) install();
 		reply( id, textResult( describeStatus(), setupStatus() ) );
 		return true;
 	}
@@ -802,11 +849,24 @@ const SETUP_HTML = `<!doctype html>
 </html>`;
 
 studio = await findStudio();
+// Unpacking takes seconds, so the host waits for it and starts with every tool.
+if ( ! studio && bundled ) {
+	try {
+		if ( ! existsSync( BUNDLED_MAIN ) ) {
+			log( 'Unpacking the Studio CLI that comes with the plugin.' );
+			await unpack();
+		}
+		studio = BUNDLED_STUDIO;
+	} catch ( error ) {
+		setup.state = 'failed';
+		log( `Could not unpack the Studio CLI: ${ error.message }` );
+	}
+}
 choosing = false;
 if ( studio ) {
 	startStudio();
 	scheduleUpdateCheck( FIRST_UPDATE_CHECK_MS );
-} else {
+} else if ( ! bundled ) {
 	install();
 }
 for ( const { line, message } of queued.splice( 0 ) ) {

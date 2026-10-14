@@ -78,7 +78,11 @@ import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
-import { ROOT_CA_CERT_PATH, isRootCATrusted, trustRootCA } from '@studio/common/lib/root-ca-trust';
+import {
+	ROOT_CA_CERT_PATH,
+	hasUntrustedRootCA,
+	trustRootCA,
+} from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -2035,7 +2039,7 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 }
 
 export async function isCATrusted(): Promise< boolean > {
-	return isRootCATrusted();
+	return ! ( await hasUntrustedRootCA() );
 }
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {

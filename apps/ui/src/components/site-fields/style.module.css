@@ -69,3 +69,8 @@
 .compactSelect {
 	width: min(180px, 100%);
 }
+
+.helpAction {
+	display: flex;
+	margin-block-start: var(--wpds-dimension-gap-xs);
+}

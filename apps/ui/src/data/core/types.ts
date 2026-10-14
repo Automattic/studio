@@ -439,6 +439,14 @@ export interface Connector {
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
+	// False when Studio has a root certificate (which signs every HTTPS site's
+	// certificate) that the OS doesn't trust, so browsers warn about those sites.
+	// True before the first HTTPS site: there's no certificate to trust yet.
+	isCertificateTrusted(): Promise< boolean >;
+	// Trusts it (Windows and Linux ask for administrator access). macOS needs a
+	// manual Keychain step, so there it reveals the certificate file instead.
+	trustCertificate(): Promise< void >;
+
 	// The user's global Studio Code instructions, a markdown file injected into
 	// every agent session. Gated by `capabilities.agentInstructions`.
 	getAgentInstructions(): Promise< string >;

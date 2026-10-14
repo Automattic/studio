@@ -70,10 +70,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
-**Theming / colors (CSS)**: Each app in `apps/` has its own dark-mode strategy — identify which app a file belongs to before picking color tokens:
-- **`apps/ui` (agentic UI)**: the whole canvas is wrapped in `ThemeProvider` (`apps/ui/src/app/app-providers.tsx`), so always use `--wpds-color-*` variables for color; they adapt to the active theme.
-- **`apps/mcp-ui` (MCP Apps pages)**: no `ThemeProvider` and no `@wordpress/ui`. Colors are the `--app-*` variables in `apps/mcp-ui/src/index.css`, defined with `light-dark()` so they follow the host's theme; don't use `--wpds-color-*` here.
-- Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent and fine to use in any app.
+**Theming / colors (CSS)**: Always use `--wpds-color-*` variables for color; the `ThemeProvider` wrapping the UI (`apps/ui/src/app/app-providers.tsx`) makes them adapt to the active theme. Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent.
 
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`packages/common/lib/shared-config.ts`).
@@ -125,7 +122,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 ## Common Pitfalls
 
-**CRITICAL - Dark Mode Color Tokens**: The right color tokens depend on the app. In `apps/ui`, use `--wpds-color-*` tokens — the app-wide `ThemeProvider` makes them adapt to the active theme. In `apps/mcp-ui`, which has no `ThemeProvider`, the wpds color tokens keep their hardcoded light fallbacks and break in dark mode, so use its `--app-*` variables. In all apps, always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
+**CRITICAL - Dark Mode Color Tokens**: Use `--wpds-color-*` tokens for color — the `ThemeProvider` makes them adapt to the active theme. Always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
 
 **IMPORTANT - Two Front Ends, One Feature**: `apps/ui` runs in both the Desktop app and the `studio ui` browser app, reaching the same data through different connectors (`apps/ui/src/data/core/connectors/`): `ipc` talks to the Electron main process, `local` talks to the `apps/local` HTTP server. Implementing a `Connector` method for only one target leaves a gap in the other, and it fails **silently** — the `local` connector tends to fall back to browser-local defaults rather than error, so the browser UI quietly shows stale or empty values. When you add or change a `Connector` method, do both sides: the main-process IPC handler AND an `apps/local` route. Desktop-owned state in `app.json` is readable from the server via `readAppConfig`/`updateAppConfig` (`packages/common/lib/app-config.ts`) — prefer that over keeping a separate copy in the browser, and put the fallback for an unset value in `packages/common` so the two can't drift. Verify in both: the Desktop app, and `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`.
 

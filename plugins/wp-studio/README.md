@@ -31,6 +31,10 @@ install up to date: new versions are installed in the background and swapped in 
 running. A Studio CLI from the desktop app or from npm is used as long as it is 1.24.0 or later,
 and updates on its own; with an older one, the plugin installs its own.
 
+On Windows, the plugin installs the Studio CLI into `%LOCALAPPDATA%\studio` and doesn't update it,
+since Windows can't replace the files of a CLI that a Codex session is running. To update it, run
+`irm https://wordpress.studio/install.ps1 | iex` in PowerShell with the ChatGPT app closed.
+
 The plugin in OpenAI's plugin directory carries its own Studio CLI instead, which it unpacks the
 first time it starts and which updates with the plugin. It still uses a Studio CLI from the desktop
 app or npm when that one is at least as recent. Like any Studio CLI outside the desktop app, it

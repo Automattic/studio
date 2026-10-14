@@ -1,10 +1,10 @@
 // The plugin's MCP server: it runs `studio mcp` and relays every message to it.
 // Without a Studio CLI, it stands in for it while one installs in the background,
 // so the host gets a server (and the WordPress page) right away. A CLI it
-// installed is kept up to date: new versions are installed aside and swapped in
-// when Studio is idle. The plugin built for OpenAI's directory carries its CLI
-// instead (`cli.tar.br`): it is unpacked on first start and never updated here,
-// since updates come as new plugin versions.
+// installed is kept up to date, except on Windows: new versions are installed
+// aside and swapped in when Studio is idle. The plugin built for OpenAI's
+// directory carries its CLI instead (`cli.tar.br`): it is unpacked on first
+// start and never updated here, since updates come as new plugin versions.
 // No dependencies: it runs with any Node.js before Studio is on the machine.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
@@ -31,11 +31,19 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { createBrotliDecompress } from 'node:zlib';
 
-const INSTALLER_URL = process.env.STUDIO_INSTALLER_URL || 'https://wordpress.studio/install.sh';
+const WINDOWS = process.platform === 'win32';
+const INSTALLER_URL =
+	process.env.STUDIO_INSTALLER_URL ||
+	`https://wordpress.studio/install.${ WINDOWS ? 'ps1' : 'sh' }`;
 const UPDATES_URL =
 	process.env.STUDIO_UPDATES_URL || 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
-const STUDIO_HOME = process.env.STUDIO_CLI_HOME || path.join( homedir(), '.studio' );
-const STUDIO_BIN = path.join( STUDIO_HOME, 'bin', 'studio' );
+// Where the official installers put the CLI.
+const STUDIO_HOME =
+	process.env.STUDIO_CLI_HOME ||
+	( WINDOWS
+		? path.join( process.env.LOCALAPPDATA || path.join( homedir(), 'AppData', 'Local' ), 'studio' )
+		: path.join( homedir(), '.studio' ) );
+const STUDIO_BIN = path.join( STUDIO_HOME, 'bin', WINDOWS ? 'studio.cmd' : 'studio' );
 const UPDATE_STATE = path.join( STUDIO_HOME, 'plugin-update.json' );
 const UPDATE_STAGING = path.join( STUDIO_HOME, '.plugin-update' );
 const INSTALL_LOCK = path.join( STUDIO_HOME, '.plugin-install.lock' );
@@ -171,7 +179,7 @@ function watchDownload() {
 		}
 		try {
 			for ( const entry of readdirSync( STUDIO_HOME ) ) {
-				if ( ! entry.startsWith( '.studio-install.' ) ) continue;
+				if ( ! entry.startsWith( '.studio-install' ) ) continue;
 				const staging = path.join( STUDIO_HOME, entry );
 				for ( const file of readdirSync( staging ) ) {
 					if ( file.endsWith( '.tgz' ) ) {
@@ -238,6 +246,16 @@ function waitForOtherInstall() {
 	}, 2000 );
 }
 
+// The official installer, which prints its progress.
+const spawnInstaller = ( options ) =>
+	WINDOWS
+		? spawn(
+				'powershell.exe',
+				[ '-NoProfile', '-Command', `irm '${ INSTALLER_URL }' | iex` ],
+				options
+		  )
+		: spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], options );
+
 function install() {
 	Object.assign( setup, {
 		state: 'installing',
@@ -252,10 +270,7 @@ function install() {
 		return;
 	}
 	log( `Installing the Studio CLI from ${ INSTALLER_URL }` );
-	const installer = spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], {
-		env: process.env,
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-	} );
+	const installer = spawnInstaller( { env: process.env, stdio: [ 'ignore', 'pipe', 'pipe' ] } );
 	const onLine = ( line ) => {
 		if ( ! line.trim() ) return;
 		log( line );
@@ -322,9 +337,15 @@ const realpath = ( file ) => {
 	}
 };
 
+// Windows runs a batch file (a `studio.cmd`) only through cmd.exe, as one command line.
+const commandArgs = ( command, args, options ) =>
+	/\.(bat|cmd)$/i.test( command )
+		? [ [ `"${ command }"`, ...args ].join( ' ' ), [], { ...options, shell: true } ]
+		: [ command, args, options ];
+
 const cliVersion = ( command ) =>
 	new Promise( ( resolve ) => {
-		execFile( command, [ '--version' ], { timeout: 60_000 }, ( error, stdout ) =>
+		execFile( ...commandArgs( command, [ '--version' ], { timeout: 60_000 } ), ( error, stdout ) =>
 			resolve( error ? null : stdout.match( /\d+\.\d+\.\d+/ )?.[ 0 ] ?? null )
 		);
 	} );
@@ -341,18 +362,19 @@ const isRecentEnough = ( version, minimum ) => {
 // `studio` command and the known install locations; with none, the plugin
 // installs its own, or unpacks the one it carries. A bundled CLI gives way only
 // to one at least as recent, so it never touches config a newer Studio wrote.
-// Only a CLI the plugin installed (in ~/.studio) is updated here: the desktop
-// app and npm update theirs.
+// Only a CLI the plugin installed is updated here: the desktop app and npm
+// update theirs.
 async function findStudio(
 	minimum = ( bundled && process.env.STUDIO_PLUGIN_VERSION ) || MIN_CLI_VERSION
 ) {
 	if ( process.env.STUDIO_CLI_BIN ) {
 		return { command: process.execPath, args: [ process.env.STUDIO_CLI_BIN ], updates: false };
 	}
+	const names = WINDOWS ? [ 'studio.exe', 'studio.cmd', 'studio.bat' ] : [ 'studio' ];
 	const candidates = [
 		...( process.env.PATH ?? '' )
 			.split( path.delimiter )
-			.map( ( dir ) => path.join( dir, 'studio' ) ),
+			.flatMap( ( dir ) => names.map( ( name ) => path.join( dir, name ) ) ),
 		// The installer links the CLI it installed last here, wherever it put it.
 		path.join( homedir(), '.local', 'bin', 'studio' ),
 		STUDIO_BIN,
@@ -398,10 +420,12 @@ function forward( line, message ) {
 // included, go straight to it. After setup or an update, the host has already
 // initialized, so its handshake is replayed before relaying resumes.
 function startStudio( { afterSetup = false, afterUpdate = false } = {} ) {
-	child = spawn( studio.command, [ ...studio.args, 'mcp' ], {
-		env: process.env,
-		stdio: [ 'pipe', 'pipe', 'inherit' ],
-	} );
+	child = spawn(
+		...commandArgs( studio.command, [ ...studio.args, 'mcp' ], {
+			env: process.env,
+			stdio: [ 'pipe', 'pipe', 'inherit' ],
+		} )
+	);
 	child.on( 'exit', ( code ) => {
 		if ( swapping ) {
 			return;
@@ -518,7 +542,7 @@ function stageUpdate( version ) {
 	rmSync( UPDATE_STAGING, { recursive: true, force: true } );
 	mkdirSync( path.join( UPDATE_STAGING, 'home' ), { recursive: true } );
 	return new Promise( ( resolve ) => {
-		const installer = spawn( '/bin/sh', [ '-c', 'curl -fsSL "$0" | sh', INSTALLER_URL ], {
+		const installer = spawnInstaller( {
 			env: {
 				...process.env,
 				HOME: path.join( UPDATE_STAGING, 'home' ),
@@ -595,8 +619,10 @@ async function checkForUpdate() {
 	scheduleUpdateCheck( UPDATE_CHECK_INTERVAL_MS );
 }
 
+// Not on Windows: it keeps the files of a running CLI from being replaced, and
+// each Codex session runs one.
 function scheduleUpdateCheck( delay ) {
-	if ( studio?.updates ) {
+	if ( studio?.updates && ! WINDOWS ) {
 		setTimeout( () => void checkForUpdate(), delay ).unref();
 	}
 }

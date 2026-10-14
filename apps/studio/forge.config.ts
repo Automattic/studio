@@ -61,11 +61,8 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/postcss\./,
-			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,

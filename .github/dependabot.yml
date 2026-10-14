@@ -61,10 +61,6 @@ updates:
       # Sentry monitoring
       - dependency-name: "@sentry/*"
 
-      # Redux ecosystem
-      - dependency-name: "@reduxjs/*"
-      - dependency-name: "react-redux"
-
       # React ecosystem
       - dependency-name: "react"
       - dependency-name: "react-*"
@@ -121,18 +117,11 @@ updates:
       - dependency-name: "appdmg"
       - dependency-name: "@vscode/sudo-prompt"
 
-      # Polyfills
-      - dependency-name: "web-streams-polyfill"
-      - dependency-name: "resize-observer-polyfill"
-      - dependency-name: "isomorphic-fetch"
-
       # Binary packaging
       - dependency-name: "@yao-pkg/*"
 
       # Dev tools
       - dependency-name: "prettier"
-      - dependency-name: "postcss"
-      - dependency-name: "tailwindcss"
       - dependency-name: "nock"
       - dependency-name: "jsdom"
       - dependency-name: "electron-devtools-installer"

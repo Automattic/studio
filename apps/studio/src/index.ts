@@ -444,7 +444,7 @@ async function appBoot() {
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
-				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
 				// The agentic UI's design system view loads DESIGN.md fonts.
 				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'

@@ -324,7 +324,8 @@ async function unpack() {
 const isExecutable = ( file ) => {
 	try {
 		accessSync( file, constants.X_OK );
-		return statSync( file ).isFile();
+		// Windows can't stat an app execution alias, like the desktop app's `studio.exe`.
+		return WINDOWS || statSync( file ).isFile();
 	} catch {
 		return false;
 	}

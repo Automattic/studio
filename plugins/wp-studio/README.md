@@ -8,7 +8,7 @@ checks the result visually. Publish it to WordPress.com when you are ready.
 ## Install
 
 ```bash
-codex plugin marketplace add Automattic/studio
+codex plugin marketplace add Automattic/studio-plugins
 codex plugin add wp-studio@studio
 ```
 
@@ -25,11 +25,10 @@ into Studio, or log in to WordPress.com.
 
 ## The Studio CLI
 
-The plugin runs the Studio CLI. If you have none, it installs one into `~/.studio` the first time it
-starts (a download of about 250 MB) and shows the progress in the WordPress page. It keeps that
-install up to date: new versions are installed in the background and swapped in while no site is
-running. A Studio CLI from the desktop app or from npm is used as long as it is 1.24.0 or later,
-and updates on its own; with an older one, the plugin installs its own.
+The plugin carries the Studio CLI. It unpacks it the first time it starts, which takes a few
+seconds, and it updates with the plugin. A Studio CLI from the desktop app or from npm is used
+instead when it is at least as recent. Like any Studio CLI outside the desktop app, it downloads PHP
+when it first starts a site.
 
 ## Telemetry
 

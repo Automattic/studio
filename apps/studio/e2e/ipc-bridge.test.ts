@@ -29,28 +29,28 @@ test.describe( 'IPC bridge', () => {
 			// A spread of representative handlers: core, auth, a site invoke handler,
 			// a re-exported module handler, and a send-style (void) handler.
 			getAppGlobals: typeof window.ipcApi?.getAppGlobals,
-			isAuthenticated: typeof window.ipcApi?.isAuthenticated,
+			getAuthenticationToken: typeof window.ipcApi?.getAuthenticationToken,
 			startServer: typeof window.ipcApi?.startServer,
-			createSnapshot: typeof window.ipcApi?.createSnapshot,
+			fetchSnapshots: typeof window.ipcApi?.fetchSnapshots,
 			openURL: typeof window.ipcApi?.openURL,
 			subscribe: typeof window.ipcListener?.subscribe,
 		} ) );
 
 		expect( exposed ).toEqual( {
 			getAppGlobals: 'function',
-			isAuthenticated: 'function',
+			getAuthenticationToken: 'function',
 			startServer: 'function',
-			createSnapshot: 'function',
+			fetchSnapshots: 'function',
 			openURL: 'function',
 			subscribe: 'function',
 		} );
 	} );
 
-	test( 'invoke handler round-trips a primitive (isAuthenticated)', async () => {
-		const result = await session.mainWindow.evaluate( () => window.ipcApi.isAuthenticated() );
+	test( 'invoke handler round-trips a primitive (isFullscreen)', async () => {
+		const result = await session.mainWindow.evaluate( () => window.ipcApi.isFullscreen() );
 
-		// Asserting the shape, not the auth state: this verifies the invoke/handle
-		// round-trip and sender validation, not whatever the isolated env's auth happens to be.
+		// Asserting the shape, not the window state: this verifies the invoke/handle
+		// round-trip and sender validation.
 		expect( typeof result ).toBe( 'boolean' );
 	} );
 

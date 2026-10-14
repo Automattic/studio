@@ -1,5 +1,3 @@
-/* Replaces the legacy `skeleton-bg` utility from apps/studio/src/index.css,
-   which isn't part of the generated selective-sync.css sheet. */
 .placeholder {
 	animation: skeleton-pulse 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
 	background-image: linear-gradient(

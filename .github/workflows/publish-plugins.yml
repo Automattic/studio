@@ -1,0 +1,63 @@
+name: Publish Plugins
+
+# Builds the Studio plugins with the Studio CLI inside and publishes them as Automattic/studio-plugins,
+# the marketplace agent apps install them from. The package for OpenAI's plugin directory is kept as
+# a workflow artifact.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - run: npm ci
+
+      - run: npm run download-language-packs
+
+      # The CLI has the native files of every platform, so one Linux build serves all of them.
+      - run: npm run cli:bundle:plugin
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plugin-bundle
+          path: standalone-bundles/wp-studio-*.zip
+          compression-level: 0
+
+      # Only released code: a release tag, or trunk to republish by hand.
+      - if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        uses: actions/checkout@v7
+        with:
+          repository: Automattic/studio-plugins
+          ssh-key: ${{ secrets.STUDIO_PLUGINS_DEPLOY_KEY }}
+          path: dist
+
+      # Each release replaces the repository's single commit, so cloning it never fetches older
+      # copies of the CLI.
+      - name: Publish to Automattic/studio-plugins
+        if: github.ref == 'refs/heads/trunk' || startsWith( github.ref, 'refs/tags/' )
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          cd dist
+          git checkout -q --orphan release
+          git rm -rqf .
+          cp -R ../plugins/.agents ../plugins/README.md ../LICENSE.md .
+          unzip -q "../standalone-bundles/wp-studio-$version.zip" -d wp-studio
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qm "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
+          git push --force origin HEAD:trunk

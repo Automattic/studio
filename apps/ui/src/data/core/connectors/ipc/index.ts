@@ -38,6 +38,7 @@ import type {
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
+	ThemeDetails,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSettings } from '@studio/common/ai/providers';
@@ -119,7 +120,7 @@ export function createIpcConnector(): Connector {
 			// Install the application menu (View > Toggle DevTools, etc.).
 			// The old renderer does this from its app bootstrap; the new UI
 			// needs to opt in explicitly.
-			await ipcApi.setupAppMenu( { needsOnboarding: false } );
+			await ipcApi.setupAppMenu();
 		},
 
 		// Native desktop app: every affordance is available.
@@ -170,7 +171,7 @@ export function createIpcConnector(): Connector {
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			return ( await ipcApi.reconcileSites() ) as SiteDetails[];
+			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		},
 
 		async createSite( params ) {
@@ -363,10 +364,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
 		},
 
-		async getThemeDetails( siteId ): Promise< SiteDetails[ 'themeDetails' ] > {
-			// `false` skips the loading event consumed by Classic; this UI tracks
-			// the same request through React Query.
-			return ( await ipcApi.loadThemeDetails( siteId, false ) ) as SiteDetails[ 'themeDetails' ];
+		async getThemeDetails( siteId ) {
+			return ( await ipcApi.loadThemeDetails( siteId ) ) as ThemeDetails;
+		},
+
+		async getSiteIcon( siteId ) {
+			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -711,7 +714,7 @@ export function createIpcConnector(): Connector {
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
 				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
 				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu( { needsOnboarding: false } );
+				await ipcApi.setupAppMenu();
 			}
 		},
 

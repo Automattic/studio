@@ -225,15 +225,9 @@ export function useUpdateSite() {
 	return useMutation( {
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
-			// Intentionally skip an immediate invalidateQueries here: the CLI
-			// edit and the site-updated event are emitted from two separate
-			// CLI processes, so the event is usually still in flight when the
-			// IPC call resolves. A refetch fired now races ahead of the
-			// handler in cli-events-subscriber and returns pre-event state,
-			// which flashes the old values back into the settings form.
-			// `useSyncSitesWithEvents` invalidates `SITES_QUERY_KEY` once the
-			// site-event lands, giving us a single refetch against fresh
-			// in-memory details.
+			// No invalidateQueries here: the site-updated event this edit
+			// emits makes `useSyncSitesWithEvents` refetch the list, so a
+			// refetch now would only duplicate it.
 		},
 		onSuccess: ( _data, { site, wpVersion } ) => {
 			// Seed the applied version rather than refetching, which can still

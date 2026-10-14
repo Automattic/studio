@@ -1,5 +1,4 @@
-// Same glyph as Classic's `XDebugIcon` (apps/studio/src/components/icons/
-// xdebug-icon.tsx), recolored via `currentColor` for the wpds theme.
+// Recolored via `currentColor` for the wpds theme.
 export function XdebugIcon( { className }: { className?: string } ) {
 	return (
 		<svg className={ className } viewBox="0 0 24 24" aria-hidden="true" focusable="false">

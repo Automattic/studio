@@ -33,21 +33,6 @@ interface StoppedSiteDetails {
 	adminEmail?: string;
 	tlsKey?: string;
 	tlsCert?: string;
-	themeDetails?: {
-		name: string;
-		path: string;
-		slug: string;
-		isBlockTheme: boolean;
-		supportsWidgets: boolean;
-		supportsMenus: boolean;
-	};
-	// Absolute filesystem path of the configured WordPress Site Icon.
-	// `null` means we've checked and the site has no icon configured;
-	// `undefined` means we've never fetched.
-	siteIconPath?: string | null;
-	// Data URL produced from `siteIconPath` for the renderer to display.
-	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
-	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;
@@ -112,14 +97,7 @@ type IpcApi = {
 	getAppZoomFactor: () => number;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no flags in flight; see `src/lib/feature-flags.ts`
-interface FeatureFlags {}
-
-interface BetaFeatures {
-	enableAgenticUi: boolean;
-}
-
-interface AppGlobals extends FeatureFlags {
+interface AppGlobals {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;
@@ -129,7 +107,6 @@ interface AppGlobals extends FeatureFlags {
 // Our IPC objects will be attached to the `window` global
 interface Window {
 	ipcApi: IpcApi;
-	appGlobals: AppGlobals;
 }
 
 // Network

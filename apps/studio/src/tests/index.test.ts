@@ -513,47 +513,70 @@ describe( 'App initialization', () => {
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
-	it( 'should show the quit-sites dialog with keep-running choices', async () => {
-		vi.doMock( 'src/site-server', () => ( {
-			getRunningSiteCount: vi.fn().mockReturnValue( 1 ),
-			persistAutoStartForRunningSites: vi.fn().mockResolvedValue( undefined ),
-			SiteServer: {
-				fetchAll: vi.fn().mockResolvedValue( undefined ),
-			},
+	async function quitWithRunningSite( dialogResponse: number ) {
+		vi.doMock( 'src/lib/sites', () => ( {
+			getSites: vi.fn().mockResolvedValue( [
+				{ id: 'running-site', running: true },
+				{ id: 'stopped-site', running: false },
+			] ),
 			stopAllServers: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		vi.doMock( '@studio/common/sites/metadata', () => ( {
+			updateSiteMetadata: vi.fn().mockResolvedValue( undefined ),
 		} ) );
 		const { mockedEvents } = mockElectron();
 
 		vi.resetModules();
 		await import( '../index' );
 		const { app, dialog } = await import( 'electron' );
-		const { persistAutoStartForRunningSites } = await import( 'src/site-server' );
 		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
-			response: 0,
-			checkboxChecked: true,
+			response: dialogResponse,
+			checkboxChecked: false,
 		} );
 		const event = { preventDefault: vi.fn() };
 
 		void mockedEvents[ 'before-quit' ]( event );
-
-		await vi.waitFor( () => {
-			expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
-				type: 'question',
-				message: 'Keep the site running?',
-				detail: 'Your site can stay available in the background after Studio quits.',
-				buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
-				checkboxLabel: 'Remember my choice',
-				cancelId: 2,
-				defaultId: 0,
-			} );
-			expect( app.quit ).toHaveBeenCalled();
-		} );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
 		expect( event.preventDefault ).toHaveBeenCalled();
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalled() );
 
-		// "Stop site" must stop and stay stopped, so autoStart is cleared rather than preserved.
-		const willQuitEvent = { preventDefault: vi.fn() };
-		await mockedEvents[ 'will-quit' ]( willQuitEvent );
-		expect( vi.mocked( persistAutoStartForRunningSites ) ).toHaveBeenCalledWith( false );
+		return {
+			dialog,
+			updateSiteMetadata: vi.mocked(
+				( await import( '@studio/common/sites/metadata' ) ).updateSiteMetadata
+			),
+			stopAllServers: vi.mocked( ( await import( 'src/lib/sites' ) ).stopAllServers ),
+		};
+	}
+
+	it( 'asks whether to keep running sites, and "Stop site" keeps them stopped next launch', async () => {
+		const { dialog, updateSiteMetadata, stopAllServers } = await quitWithRunningSite( 0 );
+
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
+			type: 'question',
+			message: 'Keep the site running?',
+			detail: 'Your site can stay available in the background after Studio quits.',
+			buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
+			checkboxLabel: 'Remember my choice',
+			cancelId: 2,
+			defaultId: 0,
+		} );
+		expect( updateSiteMetadata ).toHaveBeenCalledWith( {
+			'running-site': { autoStart: false },
+			'stopped-site': { autoStart: false },
+		} );
+		expect( stopAllServers ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves sites running on "Keep site running", flagging them to start next launch', async () => {
+		const { updateSiteMetadata, stopAllServers } = await quitWithRunningSite( 1 );
+
+		expect( updateSiteMetadata ).toHaveBeenCalledWith( {
+			'running-site': { autoStart: true },
+			'stopped-site': { autoStart: false },
+		} );
+		expect( stopAllServers ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

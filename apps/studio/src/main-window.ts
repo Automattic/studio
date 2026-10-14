@@ -9,7 +9,6 @@ import {
 import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
-import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
 	AGENTIC_TITLEBAR_HEIGHT,
@@ -25,7 +24,6 @@ import { warnIfRunningUnderArm64Translation } from 'src/lib/arm64-translation-wa
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from 'src/logging';
 import { removeMenu } from 'src/menu';
-import { SiteServer } from 'src/site-server';
 import {
 	loadUserData,
 	updateAppdata,
@@ -112,14 +110,6 @@ export function isToggleSidebarShortcut(
 	}
 
 	return input.control && ! input.meta;
-}
-
-function initializePortFinder( sites: SiteDetails[] ) {
-	sites.forEach( ( site ) => {
-		if ( site.port ) {
-			portFinder.addUnavailablePort( site.port );
-		}
-	} );
 }
 
 function isValidWindowBounds( bounds: WindowBounds ): boolean {
@@ -215,8 +205,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	void loadRendererLocation( mainWindow, getRendererLocation() );
 
-	initializePortFinder( SiteServer.getAllDetails() );
-
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateAppdata( { devToolsOpen: true } );
 	} );
@@ -285,16 +273,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	mainWindow.on( 'resized', saveBounds );
 
 	return mainWindow;
-}
-
-// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
-export function getFrameTitleBarOverlayOptions() {
-	const isDark = nativeTheme.shouldUseDarkColors;
-	return {
-		color: isDark ? '#2f2f2f' : '#fff',
-		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
-		height: WINDOWS_TITLEBAR_HEIGHT,
-	};
 }
 
 export type WindowControlsSurface = 'chrome' | 'content' | 'toolbar';

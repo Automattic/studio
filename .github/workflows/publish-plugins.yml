@@ -42,6 +42,9 @@ jobs:
   # files of every platform, so one Linux build serves all of them.
   codex-plugin-package:
     runs-on: ubuntu-latest
+    env:
+      # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
 

@@ -119,23 +119,16 @@ describe( 'error recovery watcher', () => {
 		fs.writeFileSync( pluginFile, '<?php // broken' );
 
 		let startCalls = 0;
-		const siteServer = {
-			details: { id: 'watch-site', port, path: dir } as {
-				id: string;
-				port: number;
-				path: string;
-				running?: boolean;
-				url?: string;
-			},
-			server: {} as { url?: string },
-			inErrorRecovery: false,
-			start: async () => {
-				startCalls++;
-			},
-		};
 
 		try {
-			await startErrorRecovery( siteServer as never, 'Fatal error: boom', () => ( {} ) );
+			await startErrorRecovery(
+				{ id: 'watch-site', port, path: dir },
+				'Fatal error: boom',
+				() => ( {} ),
+				async () => {
+					startCalls++;
+				}
+			);
 			// startErrorRecovery does not await the initial scan; without this the assertion below
 			// samples an empty set and passes even against a descriptor-backed watcher.
 			await vi.waitFor( () => expect( activeHandleNames() ).toContain( 'StatWatcher' ), {
@@ -154,29 +147,19 @@ describe( 'error recovery watcher', () => {
 } );
 
 describe( 'error recovery port lifecycle', () => {
-	test( 'holds the port and marks the site running, then releases both on stop', async () => {
+	test( 'holds the port while in recovery, then releases it on stop', async () => {
 		const port = await getFreePort();
 		const dir = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'php-recovery-test-' ) );
-		const siteServer = {
-			details: { id: 'test-site', port, path: dir } as {
-				id: string;
-				port: number;
-				path: string;
-				running?: boolean;
-				url?: string;
-			},
-			server: {} as { url?: string },
-			inErrorRecovery: false,
-			start: async () => {},
-		};
 
 		try {
-			await startErrorRecovery( siteServer as never, 'Fatal error: boom', () => ( {} ) );
+			await startErrorRecovery(
+				{ id: 'test-site', port, path: dir },
+				'Fatal error: boom',
+				() => ( {} ),
+				async () => {}
+			);
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( true );
-			// The recovery error server holds the port; the site shows as running and in recovery.
 			expect( await canBind( port ) ).toBe( false );
-			expect( siteServer.details.running ).toBe( true );
-			expect( siteServer.inErrorRecovery ).toBe( true );
 			// The error page is served with status 200 so the thumbnail screenshot can capture it
 			// (the screenshot window rejects responses with status >= 500).
 			nock.enableNetConnect( '127.0.0.1' );
@@ -191,10 +174,8 @@ describe( 'error recovery port lifecycle', () => {
 
 			await stopErrorRecovery( 'test-site' );
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( false );
-			// The port is released and the running/recovery state cleared, so a real restart can proceed.
+			// The port is released, so a real restart can proceed.
 			expect( await canBind( port ) ).toBe( true );
-			expect( siteServer.details.running ).toBe( false );
-			expect( siteServer.inErrorRecovery ).toBe( false );
 		} finally {
 			await stopErrorRecovery( 'test-site' );
 			fs.rmSync( dir, { recursive: true, force: true } );

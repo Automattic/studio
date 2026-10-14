@@ -10,13 +10,13 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { readSitePath } from '@studio/common/sites/site-path';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { SiteServer } from 'src/site-server';
 
 /**
  * Registry to store AbortControllers for ongoing sync operations (push/pull).
@@ -73,15 +73,15 @@ async function runCancellableSync(
 	remoteSiteId: number,
 	sync: ( sitePath: string, signal: AbortSignal ) => Promise< void >
 ): Promise< SyncOperationResult > {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
+	const sitePath = await readSitePath( siteId );
+	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
 	const operationId = `${ siteId }-${ remoteSiteId }`;
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 	try {
-		await sync( site.details.path, abortController.signal );
+		await sync( sitePath, abortController.signal );
 		return { cancelled: false };
 	} catch ( error ) {
 		// A user cancel is an intentional stop, not a failure. Rejecting here would

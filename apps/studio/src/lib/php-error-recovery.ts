@@ -1,13 +1,11 @@
 import http from 'http';
 import { watch as watchPaths, FSWatcher } from 'chokidar';
-import type { SiteServer } from 'src/site-server';
 
 const WATCH_POLL_INTERVAL_MS = 2000;
 
 const activeRecoveries = new Map<
 	string,
 	{
-		siteServer: SiteServer;
 		errorServer: http.Server;
 		watcher: FSWatcher;
 		debounceTimer?: ReturnType< typeof setTimeout >;
@@ -86,11 +84,12 @@ function generateErrorPageHtml( errorMessage: string ): string {
  * On file change, retries starting the site.
  */
 export async function startErrorRecovery(
-	siteServer: SiteServer,
+	site: { id: string; port: number; path: string },
 	errorMessage: string,
-	readPm2Logs: ( siteId: string ) => { stdout?: string[]; stderr?: string[] }
+	readPm2Logs: ( siteId: string ) => { stdout?: string[]; stderr?: string[] },
+	startSite: () => Promise< void >
 ): Promise< void > {
-	const { id, port, path } = siteServer.details;
+	const { id, port, path } = site;
 
 	await stopErrorRecovery( id );
 
@@ -139,11 +138,11 @@ export async function startErrorRecovery(
 				void ( async () => {
 					retrying = true;
 					console.log( `[PHP Recovery - ${ id }] PHP file change detected, retrying...` );
-					// Tear down this recovery (frees the port, clears the fake running state,
-					// closes this watcher) before attempting the real start.
+					// Tear down this recovery (frees the port, closes this watcher) before
+					// attempting the real start.
 					await stopErrorRecovery( id );
 					try {
-						await siteServer.start();
+						await startSite();
 						console.log( `[PHP Recovery - ${ id }] Site recovered successfully` );
 					} catch {
 						// Still failing - re-serve the error page with the latest error and keep watching.
@@ -152,7 +151,7 @@ export async function startErrorRecovery(
 						const logContent = [ ...( pm2Logs.stdout ?? [] ), ...( pm2Logs.stderr ?? [] ) ].join(
 							'\n'
 						);
-						await startErrorRecovery( siteServer, parsePhpError( logContent ), readPm2Logs );
+						await startErrorRecovery( site, parsePhpError( logContent ), readPm2Logs, startSite );
 					} finally {
 						retrying = false;
 					}
@@ -161,26 +160,12 @@ export async function startErrorRecovery(
 		}
 	} );
 
-	activeRecoveries.set( id, { siteServer, errorServer, watcher } );
-
-	// Mark the site running (serving the error page) so the UI shows it as reachable. The CLI
-	// reports it stopped, so `inErrorRecovery` keeps running-state adoption (the events subscriber
-	// and the reconciler) from overwriting this. stopErrorRecovery clears both.
-	siteServer.inErrorRecovery = true;
-	const url = `http://localhost:${ port }`;
-	siteServer.details = {
-		...siteServer.details,
-		running: true,
-		url,
-	};
-	siteServer.server.url = url;
+	activeRecoveries.set( id, { errorServer, watcher } );
 }
 
 /**
- * Stop error recovery for a site: close the error server and file watcher, and clear the
- * "serving error page" running state. Awaits the error server close so the site's port is
- * released — and clears `running` so SiteServer.start()'s guard doesn't skip a real restart —
- * before returning.
+ * Stop error recovery for a site: close the error server and file watcher. Awaits the error
+ * server close so the site's port is released before returning.
  */
 export async function stopErrorRecovery( siteId: string ): Promise< void > {
 	const recovery = activeRecoveries.get( siteId );
@@ -193,21 +178,12 @@ export async function stopErrorRecovery( siteId: string ): Promise< void > {
 		clearTimeout( recovery.debounceTimer );
 	}
 	await recovery.watcher.close();
-
-	recovery.siteServer.inErrorRecovery = false;
-	const { running, ...rest } = recovery.siteServer.details;
-	if ( 'url' in rest ) {
-		const { url, ...stopped } = rest;
-		recovery.siteServer.details = { running: false, ...stopped };
-	} else {
-		recovery.siteServer.details = { running: false, ...rest };
-	}
-
 	await new Promise< void >( ( resolve ) => recovery.errorServer.close( () => resolve() ) );
 }
 
 /**
- * Check if a site is currently in error recovery mode.
+ * Check if a site is currently in error recovery mode. The CLI reports such a site stopped, but
+ * it serves the error page on its port, so Studio shows it as running.
  */
 export function isInErrorRecovery( siteId: string ): boolean {
 	return activeRecoveries.has( siteId );

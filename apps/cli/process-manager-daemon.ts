@@ -51,6 +51,7 @@ type ManagedProcessBase = {
 	stderrBufferBytes: number;
 	settled: boolean;
 	exitAnnounced: boolean;
+	exitStatus?: string;
 	// Track child pids of the child process so that they aren't orphaned when the parent exits.
 	grandchildrenPids?: number[];
 };
@@ -273,6 +274,8 @@ export class ProcessManagerDaemon {
 
 		this.managedProcesses.set( pmId, managedProcess );
 
+		// Tells restarts of the same site apart in its shared log files.
+		writeTimestampedLines( stdoutStream, `[Process manager] Started (pid: ${ child.pid })` );
 		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
 		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
 			this.recordStderrLine( managedProcess, line );
@@ -311,7 +314,10 @@ export class ProcessManagerDaemon {
 			void this.announceProcessExit( managedProcess );
 		} );
 
-		child.on( 'exit', () => {
+		child.on( 'exit', ( code, signal ) => {
+			// A process killed from outside or crashed natively writes nothing itself; its exit
+			// code (e.g. 3221225477 for an access violation on Windows) is the only trace.
+			managedProcess.exitStatus = `[Process manager] Exited (pid: ${ child.pid }, code: ${ code }, signal: ${ signal })`;
 			this.handleProcessExit( managedProcess );
 			setTimeout( () => void this.announceProcessExit( managedProcess ), STDIO_DRAIN_TIMEOUT_MS );
 		} );
@@ -375,6 +381,10 @@ export class ProcessManagerDaemon {
 		}
 
 		managedProcess.exitAnnounced = true;
+		if ( managedProcess.exitStatus ) {
+			writeTimestampedLines( managedProcess.stderrStream, managedProcess.exitStatus );
+			this.recordStderrLine( managedProcess, managedProcess.exitStatus );
+		}
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 

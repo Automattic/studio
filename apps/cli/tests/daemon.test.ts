@@ -143,7 +143,7 @@ describe( 'ProcessManagerDaemon', () => {
 		);
 	} );
 
-	it( 'includes captured stderr in the exit event payload', async () => {
+	it( 'includes captured stderr and the exit code in the exit event payload', async () => {
 		const child = new MockChildProcess();
 		spawnMock.mockReturnValue( child );
 		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
@@ -183,6 +183,7 @@ describe( 'ProcessManagerDaemon', () => {
 		const payload = ( exitCall![ 0 ] as { payload: { stderrTail?: string } } ).payload;
 		expect( payload.stderrTail ).toContain( 'SyntaxError: boom' );
 		expect( payload.stderrTail ).toContain( 'at Module._compile' );
+		expect( payload.stderrTail ).toContain( 'code: 1' );
 	} );
 
 	it( 'stops listing an exited process at once and announces its exit if close never comes', async () => {

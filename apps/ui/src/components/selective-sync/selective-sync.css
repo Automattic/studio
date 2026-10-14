@@ -972,7 +972,7 @@
 	padding: 0;
 }
 
-/* From apps/studio/src/index.css — reduce WP's default 128px viewport margin.
+/* Reduce WP's default 128px viewport margin.
    Width/min-width restate the dialog's `w-3/5 min-w-[550px]` utilities at
    higher specificity so the frame size matches legacy regardless of stylesheet
    order. */
@@ -1052,16 +1052,14 @@ html[data-color-scheme='dark'] .selective-sync-modal .components-button.is-secon
 	box-shadow: inset 0 0 0 1px var( --color-frame-border ) !important;
 }
 
-/* Checkboxes — dark surface instead of Emotion's white
-   (copied from apps/studio/src/index.css dark block) */
+/* Checkboxes — dark surface instead of Emotion's white */
 html[data-color-scheme='dark'] .selective-sync-modal .components-checkbox-control__input[type='checkbox'],
 html[data-color-scheme='dark'] .selective-sync-modal input[type='checkbox'] {
 	border-color: var( --color-frame-border );
 	background-color: var( --color-frame-surface );
 }
 
-/* Input/select controls — override Emotion's white backgrounds
-   (copied from apps/studio/src/index.css dark block) */
+/* Input/select controls — override Emotion's white backgrounds */
 html[data-color-scheme='dark'] .selective-sync-modal .components-select-control__input,
 html[data-color-scheme='dark'] .selective-sync-modal .components-input-control__input {
 	color: var( --color-frame-text ) !important;
@@ -1085,7 +1083,7 @@ html[data-color-scheme='dark'] .selective-sync-modal .select-minimal .components
 	border-color: transparent !important;
 }
 
-/* WP Notice (copied from apps/studio/src/index.css dark block) */
+/* WP Notice */
 html[data-color-scheme='dark'] .selective-sync-modal .components-notice {
 	background-color: var( --color-frame-surface );
 	color: var( --color-frame-text );

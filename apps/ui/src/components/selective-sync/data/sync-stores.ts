@@ -14,8 +14,6 @@ import type { BackupLsItem } from '@studio/common/types/sync-tree';
 // Hook signatures and return shapes mirror the originals so the copied
 // `sync-dialog.tsx` works unchanged.
 
-// Mirrors the legacy `PullSiteOptions` from
-// apps/studio/src/stores/sync/sync-operations-slice.ts.
 export type PullSiteOptions = {
 	optionsToSync: SyncOption[];
 	include_path_list?: string[];
@@ -25,7 +23,6 @@ const getParentFolder = ( parentPath: string ) => {
 	return parentPath.split( '/' ).filter( Boolean ).pop() ?? '';
 };
 
-// Copied verbatim from apps/studio/src/stores/sync/sync-api.ts.
 const convertBackupItemToTreeNode = (
 	name: string,
 	item: BackupLsItem,

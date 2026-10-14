@@ -31,10 +31,14 @@ echo '--- :vitest: Run CLI E2E Tests'
 export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
 test_exit=0
 # TEMPORARY (revert before merge): repeat the flaky file until it fails, to capture its daemon logs.
-for run in $(seq 1 12); do
-  echo "--- :repeat: site-management.e2e.test.ts run $run/12"
-  npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism apps/cli/commands/site/tests/site-management.e2e.test.ts || { test_exit=$?; break; }
-done
+if [ "$PLATFORM" = "windows" ]; then
+  for run in $(seq 1 30); do
+    echo "--- :repeat: site-management.e2e.test.ts run $run/30"
+    npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism apps/cli/commands/site/tests/site-management.e2e.test.ts || { test_exit=$?; break; }
+  done
+else
+  npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts || test_exit=$?
+fi
 if [ "$test_exit" -eq 0 ]; then
   rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
 fi

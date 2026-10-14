@@ -1,5 +1,5 @@
 import { getLocaleData, isSupportedLocale } from '@studio/common/lib/locale';
-import { defaultI18n } from '@wordpress/i18n';
+import { _x, defaultI18n } from '@wordpress/i18n';
 import type { Connector } from '@/data/core';
 
 /**
@@ -24,6 +24,9 @@ export async function applyLocale( connector: Connector ): Promise< void > {
 		const htmlLang = defaultI18n.__( 'html_lang_attribute' );
 		document.documentElement.lang = htmlLang === 'html_lang_attribute' ? locale : htmlLang;
 
+		// isRTL() looks up the translation of the special string `ltr`; this call keeps
+		// it in the extracted strings, so RTL locales translate it.
+		_x( 'ltr', 'text direction' );
 		// isRTL() reads the direction from the loaded data, so it must run after setLocaleData.
 		document.documentElement.dir = defaultI18n.isRTL() ? 'rtl' : 'ltr';
 	}

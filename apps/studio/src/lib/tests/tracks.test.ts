@@ -9,7 +9,6 @@ import {
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getPreferredUiVersion } from 'src/lib/studio-ui-mode';
 import { recordTracksEvent } from '../tracks';
 
 vi.mock( import( 'electron' ), async ( importActual ) => {
@@ -28,13 +27,11 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 	isAnalyticsOptedOut: vi.fn(),
 	isAutomatticianFromToken: vi.fn(),
 } ) );
-vi.mock( 'src/lib/studio-ui-mode', () => ( { getPreferredUiVersion: vi.fn() } ) );
 
 const mockRecord = vi.mocked( __recordTracksEvent );
 const mockInstallId = vi.mocked( getOrCreateAnalyticsInstallId );
 const mockOptedOut = vi.mocked( isAnalyticsOptedOut );
 const mockIsA11n = vi.mocked( isAutomatticianFromToken );
-const mockUiVersion = vi.mocked( getPreferredUiVersion );
 
 const originalEnv = { ...process.env };
 
@@ -42,7 +39,6 @@ beforeEach( () => {
 	vi.clearAllMocks();
 	mockInstallId.mockResolvedValue( 'install-uuid' );
 	mockIsA11n.mockResolvedValue( false );
-	mockUiVersion.mockReturnValue( 'v1' );
 	vi.mocked( app.getVersion ).mockReturnValue( '9.9.9' );
 	// The dev/CI-build gate reads these; clear them so the "sends when opted in" assertions don't
 	// flake when the suite itself runs under CI (which sets CI=true) or a dev build (IS_DEV_BUILD).
@@ -99,21 +95,8 @@ it( 'attaches channel and ui_version from commonProps without a call-site opt-in
 			app_version: '9.9.9',
 			is_a11n: true,
 			channel: 'studio-ui',
-			ui_version: 'v1',
+			ui_version: 'v2',
 			is_first_launch: true,
 		} )
-	);
-} );
-
-it( 'attaches ui_version: v2 when the agentic renderer is active', async () => {
-	mockOptedOut.mockResolvedValue( false );
-	mockUiVersion.mockReturnValue( 'v2' );
-
-	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
-
-	expect( mockRecord ).toHaveBeenCalledWith(
-		TRACKS_EVENTS.APP_LAUNCH,
-		{ type: 'anon', id: 'install-uuid' },
-		expect.objectContaining( { channel: 'studio-ui', ui_version: 'v2' } )
 	);
 } );

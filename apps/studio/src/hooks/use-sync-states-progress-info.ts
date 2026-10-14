@@ -1,27 +1,9 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
+import type { PullStateProgressInfo, PushStateProgressInfo } from 'src/lib/active-sync-operations';
 
-export type PullStateProgressInfo = {
-	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
-	progress: number;
-	message: string;
-};
-export type PushStateProgressInfo = {
-	key:
-		| 'creatingBackup'
-		| 'uploading'
-		| 'creatingRemoteBackup'
-		| 'applyingChanges'
-		| 'finishing'
-		| 'finished'
-		| 'failed'
-		| 'cancelled'
-		| 'uploadingPaused'
-		| 'uploadingManuallyPaused';
-	progress: number;
-	message: string;
-};
+export type { PullStateProgressInfo, PushStateProgressInfo };
 
 function getPushUploadPercentage(
 	statusKey: PushStateProgressInfo[ 'key' ] | undefined,

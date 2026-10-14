@@ -1,9 +1,26 @@
 import { canCancelSyncActivity } from '@studio/common/lib/sync/cancel';
 import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
-import type {
-	PullStateProgressInfo,
-	PushStateProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
+
+export type PullStateProgressInfo = {
+	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
+	progress: number;
+	message: string;
+};
+export type PushStateProgressInfo = {
+	key:
+		| 'creatingBackup'
+		| 'uploading'
+		| 'creatingRemoteBackup'
+		| 'applyingChanges'
+		| 'finishing'
+		| 'finished'
+		| 'failed'
+		| 'cancelled'
+		| 'uploadingPaused'
+		| 'uploadingManuallyPaused';
+	progress: number;
+	message: string;
+};
 
 /**
  * Push/pull operations reported by the legacy renderer.

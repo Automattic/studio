@@ -8,7 +8,7 @@ checks the result visually. Publish it to WordPress.com when you are ready.
 ## Install
 
 ```bash
-codex plugin marketplace add Automattic/studio
+codex plugin marketplace add Automattic/studio-plugins
 codex plugin add wp-studio@studio
 ```
 

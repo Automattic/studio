@@ -1,0 +1,37 @@
+name: Publish Plugins
+
+# Publishes `plugins/` as Automattic/studio-plugins, the marketplace agent apps install the Studio
+# plugins from, with each plugin versioned as the Studio release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: Automattic/studio-plugins
+          ssh-key: ${{ secrets.STUDIO_PLUGINS_DEPLOY_KEY }}
+          path: dist
+
+      - name: Publish to Automattic/studio-plugins
+        run: |
+          version=$(jq -r .version apps/cli/package.json)
+          rsync -a --delete --exclude .git plugins/ dist/
+          cp LICENSE.md dist/
+          jq --arg version "$version" '.version = $version' plugins/wp-studio/.codex-plugin/plugin.json > dist/wp-studio/.codex-plugin/plugin.json
+          cd dist
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
+          git tag "v$version"
+          git push --atomic origin HEAD "v$version"

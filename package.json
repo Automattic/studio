@@ -93,7 +93,6 @@
 		"fs-extra": "^11.3.3",
 		"glob": "^13.0.6",
 		"globals": "^17.8.0",
-		"isomorphic-fetch": "^3.0.0",
 		"jsdom": "^24.0.0",
 		"knip": "^5.88.1",
 		"memfs": "^4.57.1",
@@ -107,7 +106,6 @@
 		"undici": "^8.3.0",
 		"vite": "^8.2.1",
 		"vitest": "^4.1.10",
-		"web-streams-polyfill": "^4.2.0",
 		"yargs": "^18.2.0",
 		"zod": "^4.3.6"
 	}

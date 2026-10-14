@@ -10,7 +10,6 @@
 				"src/index.ts",
 				"src/preload.ts",
 				"src/migrations/index.ts",
-				"src/additional-phrases.ts",
 				"forge.config.ts",
 				"electron.vite.config.ts",
 				"e2e/global-setup.ts",
@@ -52,7 +51,6 @@
 		}
 	},
 	"ignoreDependencies": [
-		"@sentry/react",
 		"@automattic/wp-babel-makepot"
 	],
 	"ignoreBinaries": ["scripts/eval/promptfoo.config.yaml"]

@@ -42,7 +42,6 @@ export default defineConfig(
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
 						'apps/studio/windowsSign.ts',
-						'apps/studio/tailwind.config.js',
 						'apps/mcp-ui/vite.config.ts',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',

@@ -10,6 +10,7 @@ export default mergeConfig(
 		assetsInclude: [ '**/*.riv' ],
 		test: {
 			name: 'studio',
+			environment: 'node',
 			include: [ 'src/**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
 			env: {

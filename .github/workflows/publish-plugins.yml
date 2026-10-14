@@ -40,7 +40,7 @@ jobs:
 
   # The plugin with the Studio CLI inside, for OpenAI's plugin directory. Its payload has the native
   # files of every platform, so one Linux build serves all of them.
-  codex-plugin-package:
+  plugin-bundle:
     runs-on: ubuntu-latest
     env:
       # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
@@ -56,10 +56,10 @@ jobs:
 
       - run: npm run download-language-packs
 
-      - run: npm run cli:bundle:codex-plugin
+      - run: npm run cli:bundle:plugin
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: codex-plugin-package
+          name: plugin-bundle
           path: standalone-bundles/wp-studio-*.zip
           compression-level: 0

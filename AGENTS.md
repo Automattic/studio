@@ -39,7 +39,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 
 ## Directory Structure
 
-**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/), preload.ts | modules/ (sync, cli, user-settings, preview-site)
+**`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, storage/, lib/), preload.ts | modules/ (sync, cli, user-settings, preview-site)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
 **`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. app/ (providers, router), components/, data/, hooks/, lib/. Built per target: `build:local` / `build:hosted`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
 **`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
@@ -50,8 +50,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 ## Key Patterns
 
 **IPC**: Renderer → `window.ipcApi.*` → Preload (contextBridge) → Main `ipc-handlers.ts` → Business logic
-**CliServerProcess**: Desktop spawns CLI as child process (`apps/studio/src/modules/cli/lib/cli-server-process.ts`)
-**SiteServer** (`apps/studio/src/site-server.ts`): Manages site instances, server start/stop, SSL certs, ports
+**Sites** (`apps/studio/src/lib/sites.ts`): Main keeps no copy of the site list. It asks the CLI (`site list`, or `cli.json` via `@studio/common/sites/site-path` when only a path or name is needed) and merges Studio's per-site fields from `app.json` via `@studio/common/sites/metadata`, shared with `apps/local`
 
 ## Tech Stack
 

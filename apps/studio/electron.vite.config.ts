@@ -21,9 +21,6 @@ export default defineConfig( {
 			),
 		},
 		build: {
-			externalizeDeps: {
-				exclude: [ '@studio/common' ],
-			},
 			rolldownOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),

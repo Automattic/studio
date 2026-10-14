@@ -66,9 +66,12 @@ const config: ForgeConfig = {
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
+			// Source maps are uploaded to Sentry at build time and not needed at runtime.
+			/\.map$/,
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
+			/^\/php-bin/,
 		],
 	},
 	rebuildConfig: {},

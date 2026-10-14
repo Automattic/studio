@@ -103,6 +103,7 @@ export function useDebouncedValue< T >( value: T, delayMs: number ): T {
 
 interface PreviewAddressBarProps {
 	site: SiteDetails;
+	siteIcon?: string | null;
 	siteUrl: string;
 	path: string;
 	onNavigate: ( path: string ) => void;
@@ -175,6 +176,7 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 
 export function PreviewAddressBar( {
 	site,
+	siteIcon,
 	siteUrl,
 	path,
 	onNavigate,
@@ -224,7 +226,7 @@ export function PreviewAddressBar( {
 				<SiteIcon
 					className={ siteIconClassName }
 					seed={ `${ site.id }:${ site.name }:${ site.path }` }
-					imageSrc={ site.siteIcon }
+					imageSrc={ siteIcon }
 				/>
 			);
 		}

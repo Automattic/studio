@@ -18,6 +18,7 @@ export type {
 	SessionEntry,
 	SiteDesign,
 	SiteDetails,
+	ThemeDetails,
 	SiteStorageUsage,
 	SkillStatus,
 	Snapshot,

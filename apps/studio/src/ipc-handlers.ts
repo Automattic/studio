@@ -106,6 +106,11 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
+import {
+	readSiteIcon,
+	readThemeDetails,
+	type ThemeDetails,
+} from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths, readSites } from '@studio/common/sites/site-path';
 import { measureSiteStorage, type SiteStorageUsage } from '@studio/common/sites/storage-usage';
 import { __ } from '@wordpress/i18n';
@@ -129,7 +134,7 @@ import {
 } from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getSite, getSites, refreshThemeDetails, type Site } from 'src/lib/sites';
+import { getSite, getSites } from 'src/lib/sites';
 import {
 	recordTracksEvent,
 	TRACKS_EVENTS,
@@ -516,14 +521,7 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 }
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
-	// Read the icon file from disk and hand the renderer a data URL. Keeping the
-	// base64 out of the persisted appdata avoids bloating app.json with image bytes.
-	return Promise.all(
-		( await getSites() ).map( async ( site ) => ( {
-			...site,
-			siteIcon: site.siteIconPath ? await getImageData( site.siteIconPath ) : site.siteIconPath,
-		} ) )
-	);
+	return getSites();
 }
 
 export async function createSite(
@@ -692,12 +690,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		console.log( `Starting server for '${ site.name }'` );
 		await start();
 	} catch ( error ) {
-		try {
-			await updateSiteMetadata( { [ id ]: { autoStart: false } } );
-		} catch {
-			// Ignore errors persisting auto-start state
-		}
-
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error(
@@ -800,9 +792,6 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	} catch ( error ) {
 		console.error( error );
 	}
-	// Stopping a single site by hand clears its auto-start, even when the events subscriber
-	// missed the transition.
-	await updateSiteMetadata( { [ id ]: { autoStart: false } } );
 }
 
 export interface FolderDialogResponse {
@@ -933,11 +922,7 @@ export async function copySite(
 	// The copy keeps the source site's siteurl, so point it at the new port
 	await updateSiteUrl( site, `http://localhost:${ site.port }` );
 
-	if ( sourceSite.themeDetails ) {
-		await updateSiteMetadata( { [ site.id ]: { themeDetails: sourceSite.themeDetails } } );
-	}
-
-	return { ...site, themeDetails: sourceSite.themeDetails };
+	return site;
 }
 
 export async function authenticate(
@@ -1077,15 +1062,15 @@ export async function cancelSiteStorageUsage(
 	siteStorageControllers.get( requestId )?.abort();
 }
 
-const activeThemeSlug = ( site: Site ) => async () =>
-	site.running ? ( await refreshThemeDetails( site ) )?.slug : undefined;
+const activeThemeSlug = ( sitePath: string ) => async () =>
+	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
 
 export async function getSiteDesign(
 	_event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDesign | null > {
-	const site = await getSite( id );
-	return site ? readSiteDesign( site.path, activeThemeSlug( site ) ) : null;
+	const sitePath = await readSitePath( id );
+	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
 }
 
 export async function fixSiteDesignDrift(
@@ -1093,9 +1078,9 @@ export async function fixSiteDesignDrift(
 	id: string,
 	fixes: unknown
 ): Promise< SiteDesign | null > {
-	const site = await getSite( id );
-	return site
-		? fixSiteDesign( site.path, activeThemeSlug( site ), designFixesSchema.parse( fixes ) )
+	const sitePath = await readSitePath( id );
+	return sitePath
+		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
 }
 
@@ -1210,21 +1195,18 @@ export async function readLocalMediaFile(
 	};
 }
 
-// Read a running site's theme details and refresh its thumbnail.
 export async function loadThemeDetails(
 	_event: IpcMainInvokeEvent,
 	id: string
-): Promise< StartedSiteDetails[ 'themeDetails' ] > {
-	const site = await getSite( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	if ( ! site.running ) {
-		return undefined;
-	}
+): Promise< ThemeDetails > {
+	return readThemeDetails( executeCliCommand, await requireSitePath( id ) );
+}
 
-	void captureSiteThumbnail( site );
-	return refreshThemeDetails( site );
+export async function getSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< string | null > {
+	return readSiteIcon( executeCliCommand, await requireSitePath( id ) );
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {

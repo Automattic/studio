@@ -9,20 +9,8 @@ import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 // metadata can't throw, and `.loose()` so fields a newer desktop adds survive
 // a write.
 
-export const themeDetailsSchema = z.object( {
-	name: z.string().catch( '' ),
-	path: z.string(),
-	slug: z.string(),
-	isBlockTheme: z.boolean(),
-	supportsWidgets: z.boolean(),
-	supportsMenus: z.boolean(),
-} );
-
 const siteMetadataFields = z.object( {
 	sortOrder: z.number().optional().catch( undefined ),
-	themeDetails: themeDetailsSchema.optional().catch( undefined ),
-	// `null` means the site has no icon; `undefined` that it was never fetched.
-	siteIconPath: z.string().nullable().optional().catch( undefined ),
 	autoStart: z.boolean().optional().catch( undefined ),
 } );
 
@@ -59,7 +47,7 @@ export async function listSitesWithMetadata(
 ): Promise< ( SiteListItem & SiteMetadata )[] > {
 	const [ sites, metadata ] = await Promise.all( [ listSites( execute ), readSiteMetadata() ] );
 	return sites.map( ( site ) => {
-		const { sortOrder, themeDetails, siteIconPath, autoStart } = metadata[ site.id ] ?? {};
-		return { ...site, sortOrder, themeDetails, siteIconPath, autoStart };
+		const { sortOrder, autoStart } = metadata[ site.id ] ?? {};
+		return { ...site, sortOrder, autoStart };
 	} );
 }

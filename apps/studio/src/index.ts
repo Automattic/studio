@@ -539,12 +539,11 @@ async function appBoot() {
 	 */
 	let shouldStopSitesOnQuit = true;
 	let isQuittingConfirmed = false;
-	// Running sites whose autoStart the "Stop" choice clears on quit.
-	let clearAutoStartSiteIds: string[] = [];
+	let restartSitesOnLaunch = true;
 
-	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior, runningSiteIds: string[] ) => {
+	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
-		clearAutoStartSiteIds = behavior === 'stop' ? runningSiteIds : [];
+		restartSitesOnLaunch = behavior !== 'stop';
 	};
 
 	app.on( 'before-quit', ( event ) => {
@@ -593,14 +592,13 @@ async function appBoot() {
 		event.preventDefault();
 
 		void ( async () => {
-			const runningSiteIds = ( await getSites().catch( () => [] ) )
-				.filter( ( site ) => site.running )
-				.map( ( site ) => site.id );
-			const runningSiteCount = runningSiteIds.length;
+			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
+				( site ) => site.running
+			).length;
 			const userData = runningSiteCount > 0 ? await loadUserData() : undefined;
 
 			if ( userData && userData.quitSitesBehavior !== undefined ) {
-				applyQuitSitesBehavior( userData.quitSitesBehavior, runningSiteIds );
+				applyQuitSitesBehavior( userData.quitSitesBehavior );
 			} else if ( userData && ! process.env.E2E ) {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const KEEP_RUNNING_BUTTON_INDEX = 1;
@@ -635,7 +633,7 @@ async function appBoot() {
 					await updateAppdata( { quitSitesBehavior: behavior } );
 				}
 
-				applyQuitSitesBehavior( behavior, runningSiteIds );
+				applyQuitSitesBehavior( behavior );
 			}
 
 			isQuittingConfirmed = true;
@@ -648,24 +646,26 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 
-		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			void ( async () => {
-				try {
-					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
-					if ( clearAutoStartSiteIds.length ) {
-						await updateSiteMetadata(
-							Object.fromEntries(
-								clearAutoStartSiteIds.map( ( id ) => [ id, { autoStart: false } ] )
-							)
-						);
-					}
+		event.preventDefault();
+		void ( async () => {
+			try {
+				// The sites running now start again on the next launch, unless the user chose to stop them.
+				const sites = await getSites().catch( () => [] );
+				await updateSiteMetadata(
+					Object.fromEntries(
+						sites.map( ( site ) => [
+							site.id,
+							{ autoStart: restartSitesOnLaunch && site.running },
+						] )
+					)
+				).catch( ( error ) => console.error( 'Failed to save auto-start on quit:', error ) );
+				if ( shouldStopSitesOnQuit ) {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
-				} finally {
-					app.exit();
 				}
-			} )();
-		}
+			} finally {
+				app.exit();
+			}
+		} )();
 	} );
 
 	app.on( 'activate', () => {

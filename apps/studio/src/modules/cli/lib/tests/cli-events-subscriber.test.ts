@@ -1,15 +1,13 @@
 import EventEmitter from 'node:events';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
-import { forgetSite, getSites, refreshThemeDetails } from 'src/lib/sites';
+import { forgetSite, getSites } from 'src/lib/sites';
 import { startCliEventsSubscriber } from 'src/modules/cli/lib/cli-events-subscriber';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-vi.mock( '@studio/common/sites/metadata' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/lib/active-sync-operations' );
 vi.mock( 'src/lib/capture-site-thumbnail' );
@@ -47,41 +45,31 @@ beforeAll( async () => {
 
 beforeEach( () => {
 	vi.clearAllMocks();
-	vi.mocked( refreshThemeDetails ).mockResolvedValue( undefined );
 	vi.mocked( isInErrorRecovery ).mockReturnValue( false );
 } );
 
 describe( 'CLI events subscriber', () => {
-	it( 'acts on running transitions only, starting from the site list', async () => {
+	it( "captures a site's thumbnail when it starts, starting from the site list", async () => {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith(
 			'site-event',
 			expect.objectContaining( { siteId: 'site-a', running: true } )
 		);
 		expect( captureSiteThumbnail ).not.toHaveBeenCalled();
-		expect( updateSiteMetadata ).not.toHaveBeenCalled();
 
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', false );
-		expect( updateSiteMetadata ).toHaveBeenLastCalledWith( { 'site-a': { autoStart: false } } );
-
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
+		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
+
+		expect( captureSiteThumbnail ).toHaveBeenCalledTimes( 1 );
 		expect( captureSiteThumbnail ).toHaveBeenCalledWith( siteDetails( 'site-a' ) );
-		expect( refreshThemeDetails ).toHaveBeenCalledWith( siteDetails( 'site-a' ) );
-		expect( updateSiteMetadata ).toHaveBeenLastCalledWith( { 'site-a': { autoStart: true } } );
-
-		vi.clearAllMocks();
-		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-a', true );
-		expect( captureSiteThumbnail ).not.toHaveBeenCalled();
-		expect( updateSiteMetadata ).not.toHaveBeenCalled();
 	} );
 
-	it( 'starts a new site once, whichever of its events lands first', async () => {
+	it( 'captures a new site once, whichever of its events lands first', async () => {
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-new', true );
 		await emitSiteEvent( SITE_EVENTS.CREATED, 'site-new', true );
 
 		expect( captureSiteThumbnail ).toHaveBeenCalledTimes( 1 );
-		expect( updateSiteMetadata ).toHaveBeenCalledTimes( 1 );
-		expect( updateSiteMetadata ).toHaveBeenCalledWith( { 'site-new': { autoStart: true } } );
 	} );
 
 	it( 'reports a site serving the PHP error page as running', async () => {
@@ -94,7 +82,6 @@ describe( 'CLI events subscriber', () => {
 			'site-event',
 			expect.objectContaining( { siteId: 'site-b', running: true } )
 		);
-		expect( updateSiteMetadata ).not.toHaveBeenCalledWith( { 'site-b': { autoStart: false } } );
 	} );
 
 	it( 'forgets a deleted site', async () => {

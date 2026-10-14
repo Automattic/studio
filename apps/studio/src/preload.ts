@@ -81,6 +81,7 @@ const api: IpcApi = {
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
 	loadThemeDetails: ( id ) => ipcRendererInvoke( 'loadThemeDetails', id ),
+	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>

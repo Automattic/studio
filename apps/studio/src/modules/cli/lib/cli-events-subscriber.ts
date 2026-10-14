@@ -8,15 +8,14 @@ import {
 	SITE_EVENTS,
 } from '@studio/common/lib/cli-events';
 import { sequential } from '@studio/common/lib/sequential';
-import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
-import { forgetSite, getSites, refreshSiteIcon, refreshThemeDetails } from 'src/lib/sites';
+import { forgetSite, getSites } from 'src/lib/sites';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
-// The last running state of each site, so the start/stop side effects fire on a transition only.
+// The last running state of each site, so a site's thumbnail is captured when it starts only.
 // Seeded from the site list when the subscriber starts; a site missing from it is new, so stopped.
 const lastRunning = new Map< string, boolean >();
 
@@ -35,7 +34,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	// This event says nothing about whether the site is running, so it must not
-	// fire the start/stop side effects below.
+	// count as a start below.
 	if ( eventType === SITE_EVENTS.OPERATIONS_CHANGED ) {
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
@@ -47,20 +46,8 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	lastRunning.set( siteId, running );
 	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
 
-	if ( running === wasRunning ) {
-		return;
-	}
-
-	if ( running ) {
+	if ( running && ! wasRunning ) {
 		void captureSiteThumbnail( site );
-		// Cache warm-ups only (both are fetched on demand). Their WP-CLI runs must
-		// not hold up the queue, or the events behind this one — like the start
-		// operation's release — land seconds late.
-		void refreshThemeDetails( site ).then( () => refreshSiteIcon( site ) );
-		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
-		await updateSiteMetadata( { [ siteId ]: { autoStart: true } } );
-	} else if ( wasRunning ) {
-		await updateSiteMetadata( { [ siteId ]: { autoStart: false } } );
 	}
 } );
 

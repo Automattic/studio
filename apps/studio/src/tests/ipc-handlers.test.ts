@@ -5,6 +5,7 @@ import { BrowserWindow, IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
+import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
@@ -19,8 +20,6 @@ import {
 	readBlueprintFile,
 	readLocalMediaFile,
 } from 'src/ipc-handlers';
-import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
-import { getSite, refreshThemeDetails } from 'src/lib/sites';
 import { getMainWindow } from 'src/main-window';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 
@@ -42,6 +41,7 @@ vi.mock( '@sentry/electron/main', () => ( {
 vi.mock( 'src/lib/sites' );
 vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
+vi.mock( '@studio/common/sites/site-identity' );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
 	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
@@ -205,33 +205,30 @@ describe( 'ensureMinWindowWidth', () => {
 } );
 
 describe( 'loadThemeDetails', () => {
-	const themeDetails = {
-		name: 'Twenty Twenty-Five',
-		path: '/themes/twentytwentyfive',
-		slug: 'twentytwentyfive',
-		isBlockTheme: true,
-		supportsWidgets: false,
-		supportsMenus: false,
-	};
+	it( "reads the theme from the site's folder, whether or not it runs", async () => {
+		const themeDetails = {
+			name: 'Twenty Twenty-Five',
+			path: '/themes/twentytwentyfive',
+			slug: 'twentytwentyfive',
+			isBlockTheme: true,
+			supportsWidgets: false,
+			supportsMenus: false,
+		};
+		vi.mocked( readSitePath ).mockResolvedValue( '/test' );
+		vi.mocked( readThemeDetails ).mockResolvedValue( themeDetails );
 
-	it( 'reads the theme of a running site and refreshes its thumbnail', async () => {
-		const site = { ...mockSiteDetails, running: true as const };
-		vi.mocked( getSite ).mockResolvedValue( site );
-		vi.mocked( refreshThemeDetails ).mockResolvedValue( themeDetails );
-
-		await expect( loadThemeDetails( mockIpcMainInvokeEvent, site.id ) ).resolves.toBe(
+		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'site-id' ) ).resolves.toBe(
 			themeDetails
 		);
-		expect( captureSiteThumbnail ).toHaveBeenCalledWith( site );
+		expect( readThemeDetails ).toHaveBeenCalledWith( expect.any( Function ), '/test' );
 	} );
 
-	it( 'returns nothing for a stopped site', async () => {
-		vi.mocked( getSite ).mockResolvedValue( mockSiteDetails );
+	it( 'rejects an unknown site', async () => {
+		vi.mocked( readSitePath ).mockResolvedValue( null );
 
-		await expect(
-			loadThemeDetails( mockIpcMainInvokeEvent, mockSiteDetails.id )
-		).resolves.toBeUndefined();
-		expect( refreshThemeDetails ).not.toHaveBeenCalled();
+		await expect( loadThemeDetails( mockIpcMainInvokeEvent, 'missing' ) ).rejects.toThrow(
+			'Site not found.'
+		);
 	} );
 } );
 

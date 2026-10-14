@@ -1,15 +1,10 @@
 import fs from 'fs';
-import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	listSitesWithMetadata,
-	readSiteMetadata,
-	themeDetailsSchema,
 	updateSiteMetadata,
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
-import { z } from 'zod';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -135,54 +130,4 @@ export async function executeWpCliCommand(
 	} ).finally( () => {
 		clearTimeout( timeoutId );
 	} );
-}
-
-/** Read a running site's active theme, persisting it when it changed. */
-export async function refreshThemeDetails(
-	site: SiteRef
-): Promise< SiteDetails[ 'themeDetails' ] > {
-	const stored = ( await readSiteMetadata() )[ site.id ]?.themeDetails;
-	try {
-		const { stdout, stderr, exitCode } = await executeWpCliCommand( site, [
-			'studio',
-			'get-theme-details',
-		] );
-		if ( exitCode !== 0 || ! stdout ) {
-			console.error( 'Failed to get theme details via WP-CLI', { exitCode, stdout, stderr } );
-			return stored;
-		}
-
-		const themeDetails = themeDetailsSchema.parse( parseJsonFromPhpOutput( stdout ) );
-		if ( themeDetails.path !== stored?.path ) {
-			await updateSiteMetadata( { [ site.id ]: { themeDetails } } );
-		}
-		return themeDetails;
-	} catch ( error ) {
-		console.error( 'Failed to get theme details:', error );
-		return stored;
-	}
-}
-
-const siteIconSchema = z.object( { relativePath: z.string() } ).nullable();
-
-/** Read a running site's icon path, persisting it when it changed. */
-export async function refreshSiteIcon( site: SiteRef ): Promise< void > {
-	try {
-		const { stdout, stderr, exitCode } = await executeWpCliCommand( site, [
-			'studio',
-			'get-site-icon',
-		] );
-		if ( exitCode !== 0 ) {
-			console.error( 'Failed to get site icon via WP-CLI', { exitCode, stdout, stderr } );
-			return;
-		}
-
-		const icon = siteIconSchema.parse( parseJsonFromPhpOutput( stdout ) );
-		const siteIconPath = icon && nodePath.join( site.path, icon.relativePath );
-		if ( siteIconPath !== ( await readSiteMetadata() )[ site.id ]?.siteIconPath ) {
-			await updateSiteMetadata( { [ site.id ]: { siteIconPath } } );
-		}
-	} catch ( error ) {
-		console.error( 'Failed to get site icon:', error );
-	}
 }

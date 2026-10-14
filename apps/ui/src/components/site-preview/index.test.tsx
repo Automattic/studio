@@ -122,16 +122,8 @@ describe( 'SitePreview', () => {
 	} );
 
 	it( 'refreshes theme details after activation inside the preview', async () => {
-		const themeDetails = {
-			name: 'Twenty Thirteen',
-			path: '/wp-content/themes/twentythirteen',
-			slug: 'twentythirteen',
-			isBlockTheme: false,
-		};
-		const getThemeDetails = vi.fn().mockResolvedValue( themeDetails );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
-			getThemeDetails,
 			trackEvent: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -142,11 +134,15 @@ describe( 'SitePreview', () => {
 				reloadNonce={ 0 }
 			/>
 		);
+		queryClient.setQueryData( themeDetailsQueryKey( 'site-1' ), { slug: 'twentytwentyfive' } );
 
 		fireEvent.load( container.querySelector( 'iframe' )! );
 
-		await waitFor( () => expect( getThemeDetails ).toHaveBeenCalledWith( 'site-1' ) );
-		expect( queryClient.getQueryData( themeDetailsQueryKey( 'site-1' ) ) ).toEqual( themeDetails );
+		await waitFor( () =>
+			expect( queryClient.getQueryState( themeDetailsQueryKey( 'site-1' ) )?.isInvalidated ).toBe(
+				true
+			)
+		);
 	} );
 
 	it( 'hides the browser controls and shows the stopped preview treatment when the site is not running', async () => {

@@ -33,7 +33,7 @@ export const WINDOWS_TITLEBAR_HEIGHT = 44;
 export const AGENTIC_TITLEBAR_HEIGHT = 32;
 export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 export const ABOUT_WINDOW_WIDTH = 300;
-export const ABOUT_WINDOW_HEIGHT = 350;
+export const ABOUT_WINDOW_HEIGHT = 285;
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =

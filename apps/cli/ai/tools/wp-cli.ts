@@ -116,7 +116,7 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 
 export const runWpCliTool = defineTool(
 	'wp_cli',
-	'Runs a WP-CLI command on a specific WordPress site. ' +
+	'Runs a WP-CLI command on a specific WordPress site. The site must be running (site_start if needed). ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list". ' +
 		'The command takes literal arguments, not shell syntax — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content. ' +
 		'For large post content, write the validated markup to a scratch file inside the site directory and pass its path to `post create <file>` (or `post update <id> <file>`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with `--post_content=...` as the final argument. ' +

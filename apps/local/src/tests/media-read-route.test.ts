@@ -79,8 +79,8 @@ describe( 'GET /api/media/read', () => {
 		mkdirSync( path.dirname( siteLink ), { recursive: true } );
 		symlinkSync( secret, siteLink );
 
-		expect( ( await read( path.join( siteRoot, 'wp-config.php' ) ) ).status ).toBe( 400 );
 		for ( const requested of [
+			path.join( siteRoot, 'wp-config.php' ),
 			secret,
 			sessionLink,
 			siteLink,

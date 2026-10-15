@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
-import { realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -69,8 +68,8 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
@@ -193,6 +192,12 @@ export interface LocalServer {
 
 const DEFAULT_PORT = 8081;
 
+const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
+
+function isLoopbackHost( host: string ): boolean {
+	return host === 'localhost' || host === '::1' || host.startsWith( '127.' );
+}
+
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment
 // (implicit grant), which never reaches the server, so this page reads it
@@ -252,36 +257,6 @@ function backupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`_${ pad( now.getHours() ) }_${ pad( now.getMinutes() ) }_${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ ts }` );
-}
-
-// Raster formats only: an SVG served from the API origin could run scripts
-// there, and nothing in the transcript needs one.
-const SERVED_MEDIA_MIME_TYPES = new Set( [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'image/avif',
-] );
-
-// `requested` with symlinks resolved, when it lies inside one of `roots` both
-// as written and once resolved.
-async function resolveWithinRoots( roots: string[], requested: string ): Promise< string | null > {
-	for ( const root of roots ) {
-		const candidate = path.resolve( root, requested );
-		if ( ! candidate.startsWith( path.resolve( root ) + path.sep ) ) {
-			continue;
-		}
-		try {
-			const resolved = await realpath( candidate );
-			if ( resolved.startsWith( ( await realpath( root ) ) + path.sep ) ) {
-				return resolved;
-			}
-		} catch {
-			// Missing file or root.
-		}
-	}
-	return null;
 }
 
 // Express 4 doesn't forward async rejections to the error middleware — an
@@ -467,6 +442,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// All API routes live under `/api` so they can't collide with the SPA's
 	// real-path routes (`/sessions/:id` is both an app URL and an API resource).
 	const api = express.Router();
+
+	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
+	// this unauthenticated API same-origin, so on loopback only requests
+	// addressed to a local name get through.
+	if ( isLoopbackHost( host ) ) {
+		app.use( ( req: Request, res: Response, next ) => {
+			if ( ! LOCAL_HOSTNAMES.has( req.hostname ) ) {
+				res.status( 403 ).json( { error: 'Host not allowed' } );
+				return;
+			}
+			next();
+		} );
+	}
 
 	// Restrict cross-origin access to the known `studio ui` origins. The server is
 	// loopback-only, but loopback is reachable from any page in the user's
@@ -1372,27 +1360,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/media/read',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const requested = typeof req.query.path === 'string' ? req.query.path : '';
-			const mimeType = getLocalMediaMimeType( requested );
-			if ( ! requested || ! SERVED_MEDIA_MIME_TYPES.has( mimeType ) ) {
-				res.status( 400 ).json( { error: 'Unsupported media path' } );
-				return;
-			}
-			const sessionFile = await resolveWithinRoots( [ sessionsRoot ], requested );
-			const resolved =
-				sessionFile ?? ( await resolveWithinRoots( await readSitePaths(), requested ) );
-			const stats = resolved ? await stat( resolved ) : null;
-			if ( ! resolved || ! stats?.isFile() ) {
+			const media = await resolveLocalMediaFile( requested, [
+				sessionsRoot,
+				...( await readSitePaths() ),
+			] );
+			if ( ! media ) {
 				res.status( 404 ).json( { error: 'Media not found' } );
 				return;
 			}
-			res.setHeader( 'Content-Type', mimeType );
-			res.setHeader( 'Content-Length', stats.size );
+			res.setHeader( 'Content-Type', media.mimeType );
+			res.setHeader( 'Content-Length', media.size );
 			// Session files never change; a site image can be regenerated in place.
 			res.setHeader(
 				'Cache-Control',
-				sessionFile ? 'private, max-age=31536000, immutable' : 'no-cache'
+				media.root === sessionsRoot ? 'private, max-age=31536000, immutable' : 'no-cache'
 			);
-			await pipeline( createReadStream( resolved ), res );
+			await pipeline( createReadStream( media.path ), res );
 		} )
 	);
 

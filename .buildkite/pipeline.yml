@@ -137,8 +137,7 @@ steps:
           - test-results/daemon-logs/**/*.log
         agents:
           queue: "{{matrix}}"
-        # TEMPORARY (revert before merge): room for the repeated Windows run.
-        timeout_in_minutes: 80
+        timeout_in_minutes: 30
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - mac

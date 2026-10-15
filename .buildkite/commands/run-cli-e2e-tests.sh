@@ -30,15 +30,7 @@ echo '--- :vitest: Run CLI E2E Tests'
 # Each test's daemon logs record why a site process died; keep them only when a test fails.
 export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
 test_exit=0
-# TEMPORARY (revert before merge): repeat the flaky file until it fails, to capture its daemon logs.
-if [ "$PLATFORM" = "windows" ]; then
-  for run in $(seq 1 50); do
-    echo "--- :repeat: site-management.e2e.test.ts run $run/50"
-    npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism apps/cli/commands/site/tests/site-management.e2e.test.ts || { test_exit=$?; break; }
-  done
-else
-  npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts || test_exit=$?
-fi
+npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts || test_exit=$?
 if [ "$test_exit" -eq 0 ]; then
   rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
 fi

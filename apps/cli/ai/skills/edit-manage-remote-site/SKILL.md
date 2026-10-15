@@ -113,7 +113,7 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 1. Check the site plan first (see above).
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
-3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
+3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins. For content, template, or design changes the plan allows, load the `visual-design` skill first and follow the site's existing palette and theme, styling through block attributes and global styles; its catalogs, DESIGN.md, and `scaffold_theme` are for local sites.
 4. Verify with `take_screenshot` using `viewport: "all"` for desktop and mobile; when you cannot view images, verify from the rendered DOM with `inspect_design` instead.
 5. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 

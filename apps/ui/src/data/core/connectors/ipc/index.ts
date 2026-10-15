@@ -507,9 +507,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async cancelSync( siteId, remoteSiteId ): Promise< void > {
-			// Same registry the classic renderer cancels through — the operation id
-			// is `${siteId}-${remoteSiteId}`.
-			ipcApi.cancelSyncOperation( `${ siteId }-${ remoteSiteId }` );
+			ipcApi.cancelSyncOperation( siteId, remoteSiteId );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {

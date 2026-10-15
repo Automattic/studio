@@ -92,9 +92,13 @@ import {
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
-import { fetchLatestRewindId, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchHostingPhpVersion,
+	fetchLatestRewindId,
+	fetchRemoteFileTreeContents,
+	fetchSyncableSites,
+} from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	onboardingHintsSchema,
@@ -105,8 +109,6 @@ import {
 	writeOnboardingHints,
 	writeUserPreferences,
 } from '@studio/common/lib/user-settings/user-preferences';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
@@ -127,7 +129,7 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { measureSiteStorage } from '@studio/common/sites/storage-usage';
-import { pullSite, pushSite } from '@studio/common/sites/sync';
+import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -323,21 +325,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 	}
 
-	// In-flight push/pull, keyed the same way the desktop keys them
-	// (`${siteId}-${remoteSiteId}`), so `/sync/cancel` can abort one.
-	const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
-	function registerSyncAbort( siteId: string, remoteSiteId: number ) {
-		const key = `${ siteId }-${ remoteSiteId }`;
-		const controller = new AbortController();
-		SYNC_ABORT_CONTROLLERS.set( key, controller );
-		const release = () => {
-			if ( SYNC_ABORT_CONTROLLERS.get( key ) === controller ) {
-				SYNC_ABORT_CONTROLLERS.delete( key );
-			}
-		};
-		release.signal = controller.signal;
-		return release;
-	}
+	const syncRunner = createSyncRunner( execute );
 
 	// Background watch for the WordPress.com site the user is about to create via
 	// the "Create new" checkout. A browser tab can't receive the wp-studio://
@@ -1664,21 +1652,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const release = registerSyncAbort( req.params.id, remoteSiteId );
-			try {
-				await pullSite( execute, site.path, remoteSiteId, options, release.signal );
-			} catch ( error ) {
-				// A user cancel is an intentional stop, not a server error — report it
-				// as a result so it doesn't surface as a 500.
-				if ( ! isSyncCancelledError( error ) ) {
-					throw error;
-				}
-				res.json( { cancelled: true } );
-				return;
-			} finally {
-				release();
-			}
-			res.json( { cancelled: false } );
+			res.json( await syncRunner.pull( req.params.id, site.path, remoteSiteId, options ) );
 		} )
 	);
 
@@ -1693,7 +1667,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
 			}
-			SYNC_ABORT_CONTROLLERS.get( `${ req.params.id }-${ remoteSiteId }` )?.abort();
+			syncRunner.cancel( req.params.id, remoteSiteId );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1729,24 +1703,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'rewindId and path are required' } );
 				return;
 			}
-			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-			const rawResponse = await wpcom.req.post( {
-				path: `/sites/${ Number( req.params.remoteSiteId ) }/rewind/backup/ls`,
-				apiNamespace: 'wpcom/v2',
-				body: { backup_id: rewindId, path: treePath },
-			} );
-			const parsed = z
-				.object( {
-					ok: z.boolean(),
-					error: z.string().optional(),
-					contents: z.record( z.string(), z.unknown() ).optional(),
-				} )
-				.parse( rawResponse );
-			if ( ! parsed.ok ) {
-				res.status( 502 ).json( { error: parsed.error || 'Failed to fetch remote file tree' } );
-				return;
-			}
-			res.json( parsed.contents ?? {} );
+			res.json(
+				await fetchRemoteFileTreeContents(
+					token.accessToken,
+					Number( req.params.remoteSiteId ),
+					rewindId,
+					treePath
+				)
+			);
 		} )
 	);
 
@@ -1758,16 +1722,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 401 ).json( { error: 'Authentication required.' } );
 				return;
 			}
-			try {
-				const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-				const response = await wpcom.req.get( {
-					apiNamespace: 'wpcom/v2',
-					path: `/sites/${ Number( req.params.remoteSiteId ) }/hosting/php-version`,
-				} );
-				res.json( z.string().parse( response ) );
-			} catch {
-				res.json( null );
-			}
+			res.json(
+				( await fetchHostingPhpVersion( token.accessToken, Number( req.params.remoteSiteId ) ) ) ??
+					null
+			);
 		} )
 	);
 
@@ -1790,19 +1748,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const release = registerSyncAbort( req.params.id, remoteSiteId );
-			try {
-				await pushSite( execute, site.path, remoteSiteId, options, release.signal );
-			} catch ( error ) {
-				if ( ! isSyncCancelledError( error ) ) {
-					throw error;
-				}
-				res.json( { cancelled: true } );
-				return;
-			} finally {
-				release();
-			}
-			res.json( { cancelled: false } );
+			res.json( await syncRunner.push( req.params.id, site.path, remoteSiteId, options ) );
 		} )
 	);
 

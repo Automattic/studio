@@ -105,7 +105,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
 	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
-	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	cancelSyncOperation: ( siteId, remoteSiteId ) =>
+		ipcRendererSend( 'cancelSyncOperation', siteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),

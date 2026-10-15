@@ -29,6 +29,7 @@ import { loadUserData, updateAppdata } from 'src/storage/user-data';
 vi.mock( 'electron', () => ( {
 	BrowserWindow: { fromWebContents: vi.fn() },
 	nativeTheme: {},
+	systemPreferences: { setUserDefault: vi.fn() },
 } ) );
 vi.mock( 'src/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('src/lib/tracks') >();

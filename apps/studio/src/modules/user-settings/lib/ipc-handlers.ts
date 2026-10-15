@@ -21,7 +21,7 @@ import {
 } from '@studio/common/lib/user-settings/installed-apps';
 import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import { DEFAULT_TERMINAL } from 'src/constants';
-import { getUserLocaleWithFallback, loadLocaleData } from 'src/lib/locale-node';
+import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
@@ -75,6 +75,7 @@ export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string 
 	const previous = ( await readSharedConfig() ).locale;
 	await updateSharedConfig( { locale } );
 	loadLocaleData( locale );
+	setMacAppLanguage( locale );
 	if ( locale !== previous ) {
 		await recordTracksEvent( TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, {
 			locale,

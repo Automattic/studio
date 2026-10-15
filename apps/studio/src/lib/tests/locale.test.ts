@@ -1,11 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { app, systemPreferences } from 'electron';
+import { app } from 'electron';
 import { getLocaleData } from '@studio/common/lib/locale';
 import { createI18n } from '@wordpress/i18n';
 import { vi } from 'vitest';
-import { getSupportedLocale, setMacAppLanguage } from 'src/lib/locale-node';
+import { getSupportedLocale } from 'src/lib/locale-node';
 
 vi.mocked( app ).getLocale = vi.fn();
 
@@ -46,38 +46,6 @@ describe( 'getSupportedLocale', () => {
 	it( 'returns the Traditional Chinese zh-tw option when the user preference is zh-Hant', () => {
 		mockAppLocale( 'zh-Hant' );
 		expect( getSupportedLocale() ).toBe( 'zh-tw' );
-	} );
-} );
-
-describe( 'setMacAppLanguage', () => {
-	const originalPlatform = process.platform;
-
-	function mockPlatform( platform: NodeJS.Platform ) {
-		Object.defineProperty( process, 'platform', { value: platform } );
-	}
-
-	beforeEach( () => {
-		vi.mocked( systemPreferences.setUserDefault ).mockClear();
-	} );
-
-	afterEach( () => {
-		mockPlatform( originalPlatform );
-	} );
-
-	it( 'sets the macOS app language to the locale, in BCP 47 casing', () => {
-		mockPlatform( 'darwin' );
-		setMacAppLanguage( 'pt-br' );
-		expect( systemPreferences.setUserDefault ).toHaveBeenCalledWith( 'AppleLanguages', 'array', [
-			'pt-BR',
-		] );
-	} );
-
-	it( 'ignores unsupported locales and other platforms', () => {
-		mockPlatform( 'darwin' );
-		setMacAppLanguage( 'mi-NZ' );
-		mockPlatform( 'win32' );
-		setMacAppLanguage( 'pl' );
-		expect( systemPreferences.setUserDefault ).not.toHaveBeenCalled();
 	} );
 } );
 

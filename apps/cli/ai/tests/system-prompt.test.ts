@@ -93,11 +93,10 @@ describe( 'buildSystemPrompt', () => {
 		expect( terminalPrompt ).not.toContain( 'refresh_browser' );
 	} );
 
-	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-
-		expect( prompt ).toContain( '## Screenshots' );
-		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	it( 'warns that terminal users may not see screenshots only when chat artifacts are disabled', () => {
+		const caveat = 'Do not respond as though the user is looking at the capture';
+		expect( buildSystemPrompt( { chatArtifactsEnabled: false } ) ).toContain( caveat );
+		expect( buildSystemPrompt( { chatArtifactsEnabled: true } ) ).not.toContain( caveat );
 	} );
 
 	it( 'describes the screenshot and inspect tools for models without vision', () => {
@@ -108,12 +107,6 @@ describe( 'buildSystemPrompt', () => {
 		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
 		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
 		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
-	} );
-
-	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
-
-		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 
 	it( 'appends the user global instructions when set', () => {
@@ -128,12 +121,5 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( 'was truncated here' );
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
-	} );
-
-	it( 'includes the terminal screenshot caveat for terminal sessions', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
-
-		expect( prompt ).toContain( '## Screenshots' );
-		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
 	} );
 } );

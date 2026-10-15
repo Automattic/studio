@@ -31,13 +31,10 @@ export interface BuildSystemPromptOptions {
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
 	const chatArtifactsEnabled = options.chatArtifactsEnabled ?? false;
-	const screenshotSection = chatArtifactsEnabled
+	const screenshotRule = chatArtifactsEnabled
 		? ''
 		: `
-
-## Screenshots
-
-This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
+- This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
 	const refreshBrowserRule = chatArtifactsEnabled
 		? `
 - After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.`
@@ -63,7 +60,7 @@ This session runs in a terminal, which may not be able to display images. Screen
 - Design quality and visual ambition are not in conflict with using core blocks. Style through the most structured channel that fits: theme.json (palette, presets, element and block styles) first; a registered block style variation for a treatment repeated across instances of a block type; custom CSS targeting block classNames last, for what those cannot express (descendant selectors, keyframe animations — hover/focus/active on buttons and links belong in theme.json \`styles.elements\`, and responsive styles are supported in theme.json and block styles, so neither justifies CSS). CSS can achieve any visual design, but the block structure is for editability — styling expressed structurally stays visible and editable in the Site Editor, while custom CSS does not.
 - Do NOT modify WordPress core files. Only work within wp-content/, and the site's DESIGN.md.
 - Do NOT edit the files of installed third-party themes (default themes like twentytwentyfive, marketplace/community themes such as Ollie, anything installed via \`wp theme install\` or already present on the site) — a theme update silently wipes such edits. Default to a child theme: call \`scaffold_theme\` with \`parentTheme\` set to the installed theme's slug, then make every customization (style.css, theme.json, templates, parts, patterns) in the child theme. Themes Studio Code created — their style.css Description says "scaffolded by Studio Code" — are safe to edit directly. If the user explicitly asks you to edit an installed theme's files directly, comply, but first warn once that a theme update will overwrite the changes.
-- Before running wp_cli, ensure the site is running (site_start if needed).${ refreshBrowserRule }
+- Before running wp_cli, ensure the site is running (site_start if needed).${ refreshBrowserRule }${ screenshotRule }
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
@@ -72,7 +69,7 @@ This session runs in a terminal, which may not be able to display images. Screen
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
-	) }${ screenshotSection }
+	) }
 
 ${ SKILL_ROUTING }${ buildUserInstructionsSection( options.userInstructions ) }
 `;

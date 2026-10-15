@@ -27,10 +27,6 @@ const STOP_TIMEOUT_MS = 2_500;
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
-// A child's `exit` can fire before its stderr is fully read (notably on Windows), so the `exit`
-// event waits for `close` to carry the full stderr tail. Bounded in case a grandchild inherited
-// the pipes and holds them open.
-const STDIO_DRAIN_TIMEOUT_MS = 1_000;
 
 // Cap on concurrently running site processes, at roughly 120 MB of memory each.
 const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -50,8 +46,6 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
-	exitAnnounced: boolean;
-	exitStatus?: string;
 	// Track child pids of the child process so that they aren't orphaned when the parent exits.
 	grandchildrenPids?: number[];
 };
@@ -84,10 +78,6 @@ function timestampLogLine( line: string ): string {
 }
 
 function writeTimestampedLines( target: WriteStream, content: string ) {
-	// A write between end() and finish emits an unhandled 'error' that kills the daemon.
-	if ( target.writableEnded ) {
-		return;
-	}
 	const normalizedContent = content.split( '\r\n' ).join( '\n' );
 	const lines = normalizedContent.trimEnd().split( '\n' );
 
@@ -273,7 +263,6 @@ export class ProcessManagerDaemon {
 			stderrBuffer: [],
 			stderrBufferBytes: 0,
 			settled: false,
-			exitAnnounced: false,
 		};
 
 		this.managedProcesses.set( pmId, managedProcess );
@@ -314,20 +303,16 @@ export class ProcessManagerDaemon {
 			for ( const line of errorText.split( '\n' ) ) {
 				this.recordStderrLine( managedProcess, line );
 			}
-			this.handleProcessExit( managedProcess );
-			void this.announceProcessExit( managedProcess );
+			void this.handleProcessExit( managedProcess );
 		} );
 
 		child.on( 'exit', ( code, signal ) => {
 			// A process killed from outside or crashed natively writes nothing itself; its exit
 			// code (e.g. 3221225477 for an access violation on Windows) is the only trace.
-			managedProcess.exitStatus = `[Process manager] Exited (pid: ${ child.pid }, code: ${ code }, signal: ${ signal })`;
-			this.handleProcessExit( managedProcess );
-			setTimeout( () => void this.announceProcessExit( managedProcess ), STDIO_DRAIN_TIMEOUT_MS );
-		} );
-
-		child.on( 'close', () => {
-			void this.announceProcessExit( managedProcess );
+			void this.handleProcessExit(
+				managedProcess,
+				`[Process manager] Exited (pid: ${ child.pid }, code: ${ code }, signal: ${ signal })`
+			);
 		} );
 
 		await this.broadcastEvent( {
@@ -369,7 +354,7 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private handleProcessExit( managedProcess: ManagedProcess ) {
+	private async handleProcessExit( managedProcess: ManagedProcess, exitStatus?: string ) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -377,17 +362,9 @@ export class ProcessManagerDaemon {
 		managedProcess.settled = true;
 		managedProcess.status = 'stopped';
 		this.managedProcesses.delete( managedProcess.pmId );
-	}
-
-	private async announceProcessExit( managedProcess: ManagedProcess ) {
-		if ( managedProcess.exitAnnounced ) {
-			return;
-		}
-
-		managedProcess.exitAnnounced = true;
-		if ( managedProcess.exitStatus ) {
-			writeTimestampedLines( managedProcess.stderrStream, managedProcess.exitStatus );
-			this.recordStderrLine( managedProcess, managedProcess.exitStatus );
+		if ( exitStatus ) {
+			writeTimestampedLines( managedProcess.stderrStream, exitStatus );
+			this.recordStderrLine( managedProcess, exitStatus );
 		}
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
@@ -443,11 +420,8 @@ export class ProcessManagerDaemon {
 			crlfDelay: Infinity,
 		} );
 
-		// Output can still arrive after the stream is ended, past the stdio drain timeout.
 		lineReader.on( 'line', ( line ) => {
-			if ( ! target.writableEnded ) {
-				target.write( timestampLogLine( line ) );
-			}
+			void target.write( timestampLogLine( line ) );
 			onLine?.( line );
 		} );
 	}

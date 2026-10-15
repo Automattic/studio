@@ -19,7 +19,6 @@ class MockChildProcess extends EventEmitter {
 	kill = vi.fn( () => {
 		this.connected = false;
 		this.emit( 'exit', 0 );
-		this.emit( 'close', 0 );
 		return true;
 	} );
 }
@@ -167,11 +166,11 @@ describe( 'ProcessManagerDaemon', () => {
 		} );
 
 		child.stderr.write( 'SyntaxError: boom\n' );
-		// `exit` can fire before the last stderr lines are read; they still belong in the tail.
-		child.emit( 'exit', 1 );
-		child.stderr.end( '    at Module._compile\n' );
+		child.stderr.write( '    at Module._compile\n' );
+		// Let readline consume the lines before triggering exit.
 		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
-		child.emit( 'close', 1 );
+
+		child.emit( 'exit', 1 );
 		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
 
 		const exitCall = broadcastSpy.mock.calls.find( ( [ event ] ) => {
@@ -184,71 +183,6 @@ describe( 'ProcessManagerDaemon', () => {
 		expect( payload.stderrTail ).toContain( 'SyntaxError: boom' );
 		expect( payload.stderrTail ).toContain( 'at Module._compile' );
 		expect( payload.stderrTail ).toContain( 'code: 1' );
-	} );
-
-	it( 'stops listing an exited process at once and announces its exit if close never comes', async () => {
-		const child = new MockChildProcess();
-		spawnMock.mockReturnValue( child );
-		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
-
-		const daemon = new ProcessManagerDaemon();
-		const daemonInternal = daemon as unknown as {
-			handleRequest: ( request: unknown ) => Promise< { payload: { processes?: unknown[] } } >;
-			broadcastEvent: ( event: unknown ) => Promise< void >;
-		};
-		const broadcastSpy = vi
-			.spyOn( daemonInternal, 'broadcastEvent' )
-			.mockResolvedValue( undefined );
-
-		await daemonInternal.handleRequest( {
-			type: 'start-process',
-			requestId: '1',
-			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
-		} );
-
-		child.emit( 'exit', 1 );
-
-		const list = await daemonInternal.handleRequest( { type: 'list-processes', requestId: '2' } );
-		expect( list.payload.processes ).toEqual( [] );
-
-		await vi.waitFor(
-			() =>
-				expect( broadcastSpy ).toHaveBeenCalledWith(
-					expect.objectContaining( { payload: expect.objectContaining( { event: 'exit' } ) } )
-				),
-			{ timeout: 2000 }
-		);
-	} );
-
-	it( 'ignores output that arrives while the log streams are closing', async () => {
-		const child = new MockChildProcess();
-		spawnMock.mockReturnValue( child );
-		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
-
-		const daemon = new ProcessManagerDaemon();
-		const daemonInternal = daemon as unknown as {
-			handleRequest: ( request: unknown ) => Promise< unknown >;
-			broadcastEvent: ( event: unknown ) => Promise< void >;
-		};
-		vi.spyOn( daemonInternal, 'broadcastEvent' ).mockResolvedValue( undefined );
-
-		await daemonInternal.handleRequest( {
-			type: 'start-process',
-			requestId: '1',
-			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
-		} );
-
-		child.emit( 'exit', 1 );
-		child.emit( 'close', 1 );
-		// A write between the stream's end() and finish would emit an unhandled 'error'.
-		child.stderr.write( 'late output\n' );
-		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
 	} );
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {

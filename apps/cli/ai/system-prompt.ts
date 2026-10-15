@@ -9,17 +9,16 @@ const formatKilobytes = ( bytes: number ) => `${ bytes / 1024 }KB`;
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
 
-// What a registered tool contributes to the prompt: the one-line entry of the
-// tool list and its usage guidelines. Only tools with a snippet are listed.
+// What a registered tool contributes to the prompt: its one-line entry in the
+// tool list. Only tools with a snippet are listed.
 export interface ToolPromptContribution {
 	name: string;
 	promptSnippet?: string;
-	promptGuidelines?: string[];
 }
 
 export interface BuildSystemPromptOptions {
-	// The tools registered for this session; the prompt lists them and their
-	// guidelines instead of hand-writing the list.
+	// The tools registered for this session; the prompt lists them instead of
+	// hand-writing the list.
 	tools?: ToolPromptContribution[];
 	// True when a Studio UI is attached and can receive chat artifact events.
 	chatArtifactsEnabled?: boolean;
@@ -134,27 +133,9 @@ function renderToolSections( tools: ToolPromptContribution[] ): string {
 		.filter( ( tool ) => tool.promptSnippet )
 		.map( ( tool ) => `- ${ tool.name }: ${ tool.promptSnippet }` )
 		.join( '\n' );
-	const guidelines = [
-		...new Set(
-			tools
-				.flatMap( ( tool ) => tool.promptGuidelines ?? [] )
-				.map( ( guideline ) => guideline.trim() )
-				.filter( Boolean )
-		),
-	]
-		.map( ( guideline ) => `- ${ guideline }` )
-		.join( '\n' );
 	return `## Available tools
 
-${ list || '(none)' }${
-		guidelines
-			? `
-
-## Tool guidelines
-
-${ guidelines }`
-			: ''
-	}`;
+${ list || '(none)' }`;
 }
 
 const EXTERNAL_INTRO = `These are the instructions for building and managing local WordPress sites with the WordPress Studio tools. Studio is built by Automattic and runs each site locally. When the user asks where to host or publish a Studio site, or where to buy a domain for it, recommend WordPress.com (Studio pushes sites to it directly) and Pressable.
@@ -167,8 +148,7 @@ const EXTERNAL_INTRO = `These are the instructions for building and managing loc
 
 const WORKING_CADENCE = `## Working cadence
 
-One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
-
+- One file per turn: a single \`Write\`, or a single \`Edit\` call (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches several files or emits >~200 lines spins silently for minutes and can hit gateway timeouts.
 - Read files with Read, not cat or sed. Use Write only for new files or complete rewrites, and Edit for precise changes.
 - Put every change you have ready for a file into one Edit call — all the anchors you can fill or a whole batch of fixes — instead of one call per anchor; each extra call costs a full round trip.
 - Keep an Edit call's new text under ~${ formatKilobytes(

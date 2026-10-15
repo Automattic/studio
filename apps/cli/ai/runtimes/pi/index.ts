@@ -556,13 +556,12 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and guidelines and so do Studio's (see
-// define-tool.ts); the AgentTool type does not carry them, hence the cast.
-type ToolPromptFields = { promptSnippet?: string; promptGuidelines?: string[] };
+// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
+// the AgentTool type does not carry it, hence the cast.
+type ToolPromptFields = { promptSnippet?: string };
 
 function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	const { promptSnippet, promptGuidelines } = tool as ToolPromptFields;
-	return { name: tool.name, promptSnippet, promptGuidelines };
+	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
 function toToolDefinition(
@@ -578,7 +577,6 @@ function toToolDefinition(
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
 		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
-		promptGuidelines: ( tool as ToolPromptFields ).promptGuidelines,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
@@ -631,13 +629,7 @@ function buildAgentTools(
 	// pi's tools are registered under Studio's names; the prompt text for them
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( {
-			...tool,
-			name,
-			label: name,
-			promptGuidelines: undefined,
-			...getFileToolPrompt( name ),
-		} ) as AgentTool< S >;
+		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
 		chatArtifactsEnabled ? withDesignSystemPreview( tool, STUDIO_SITES_ROOT ) : tool;

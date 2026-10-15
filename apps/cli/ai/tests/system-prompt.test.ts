@@ -13,7 +13,6 @@ const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0
 	resolveStudioToolDefinitions( options ).map( ( tool ) => ( {
 		name: tool.name,
 		promptSnippet: tool.promptSnippet,
-		promptGuidelines: tool.promptGuidelines,
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
@@ -65,20 +64,17 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
-	it( 'lists the registered tools and their guidelines', () => {
+	it( 'lists the registered tools that have a snippet', () => {
 		const prompt = buildSystemPrompt( {
 			tools: [
 				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
-				{ name: 'Edit', promptGuidelines: [ 'Use one Edit call with multiple entries' ] },
 				{ name: 'hidden' },
 			],
 		} );
 		expect( prompt ).toContain(
 			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
 		);
-		expect( prompt ).toContain( '## Tool guidelines\n\n- Use one Edit call with multiple entries' );
 		expect( prompt ).not.toContain( '- hidden' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Tool guidelines' );
 	} );
 
 	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {

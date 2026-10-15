@@ -18,7 +18,6 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AppGlobals,
 	AuthUser,
-	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	InstalledApps,
@@ -26,7 +25,6 @@ import type {
 	LoadedAiSession,
 	AppUpdateStatus,
 	ProposedSitePath,
-	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	SkillStatus,
@@ -35,7 +33,6 @@ import type {
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SupportedEditor,
-	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 	ThemeDetails,
@@ -627,88 +624,32 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [
-				editor,
-				terminal,
-				colorScheme,
-				quitSitesBehavior,
-				locale,
-				analyticsEnabled,
-				defaultSiteDirectory,
-				studioCliInstalled,
-				studioCliExternallyManaged,
-				agenticFeaturesEnabled,
-			] = ( await Promise.all( [
-				ipcApi.getUserEditor(),
-				ipcApi.getUserTerminal(),
-				ipcApi.getColorScheme(),
-				ipcApi.getQuitSitesBehavior(),
-				ipcApi.getUserLocale(),
-				ipcApi.getAnalyticsEnabled(),
-				ipcApi.getDefaultSiteDirectory(),
+			const [ preferences, studioCliInstalled, studioCliExternallyManaged ] = await Promise.all( [
+				ipcApi.getUserPreferences(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
-				ipcApi.getAgenticFeaturesEnabled(),
-			] ) ) as [
-				SupportedEditor | null,
-				SupportedTerminal | null,
-				ColorScheme,
-				QuitSitesBehavior | undefined,
-				string | undefined,
-				boolean,
-				string,
-				boolean,
-				boolean,
-				boolean,
-			];
+			] );
 			return {
-				editor,
-				terminal,
-				colorScheme,
-				quitSitesBehavior,
-				locale,
-				analyticsEnabled,
-				defaultSiteDirectory,
-				studioCliInstalled,
-				studioCliExternallyManaged,
-				agenticFeaturesEnabled,
+				...( preferences as Omit<
+					UserPreferences,
+					'studioCliInstalled' | 'studioCliExternallyManaged'
+				> ),
+				studioCliInstalled: studioCliInstalled as boolean,
+				studioCliExternallyManaged: studioCliExternallyManaged as boolean,
 			};
 		},
 
-		async setUserPreferences( partial, source ): Promise< void > {
-			const writes: Array< Promise< unknown > > = [];
-			if ( 'editor' in partial ) {
-				writes.push( ipcApi.saveUserEditor( partial.editor ) );
-			}
-			if ( 'terminal' in partial ) {
-				writes.push( ipcApi.saveUserTerminal( partial.terminal ) );
-			}
-			if ( 'colorScheme' in partial && partial.colorScheme ) {
-				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
-			}
-			if ( 'quitSitesBehavior' in partial ) {
-				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
-			}
-			if ( 'locale' in partial && partial.locale ) {
-				writes.push( ipcApi.saveUserLocale( partial.locale ) );
-			}
-			if ( 'analyticsEnabled' in partial ) {
-				writes.push(
-					ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled, {
-						surface: source?.surface ?? 'settings',
-					} )
-				);
-			}
-			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
-				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
-			}
-			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
-				writes.push(
-					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
-				);
-			}
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+		async setUserPreferences( { studioCliInstalled, ...partial }, source ): Promise< void > {
+			const writes: Array< Promise< unknown > > = [
+				ipcApi.setUserPreferences( {
+					...Object.fromEntries(
+						Object.entries( partial ).map( ( [ key, value ] ) => [ key, value ?? null ] )
+					),
+					surface: source?.surface,
+				} ),
+			];
+			if ( typeof studioCliInstalled === 'boolean' ) {
+				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}
 			await Promise.all( writes );
 			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
@@ -769,7 +710,9 @@ export function createIpcConnector(): Connector {
 
 		async openSiteInEditor( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
-			const editor = ( await ipcApi.getUserEditor() ) as SupportedEditor | null;
+			const { editor } = ( await ipcApi.getUserPreferences() ) as {
+				editor: SupportedEditor | null;
+			};
 			if ( ! editor ) {
 				throw new Error( 'No preferred editor configured.' );
 			}

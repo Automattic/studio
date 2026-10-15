@@ -433,24 +433,27 @@ rather than inheriting the caller's fallback.
 
 #### Settings-change events
 
-All fire from Desktop Main **only on a real change** (the handler compares against the persisted value
-first), and all carry a `surface` prop identifying where the change was made — `settings` unless noted.
+All fire **only on a real change** (the writer compares against the persisted value first), and all carry
+a `surface` prop identifying where the change was made — `settings` unless noted. The user preferences
+(telemetry through agentic features below) are written by `writeUserPreferences`
+(`packages/common/lib/user-settings/user-preferences.ts`), which records them from Desktop Main and from
+`studio ui` alike; the other events below still fire from Desktop Main only.
 Sensitive values are never sent as strings (see `is_default` and the directory note below).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_setting_telemetry_change` | `saveAnalyticsEnabled` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
-| `studio_setting_appearance_change` | `saveColorScheme` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
-| `studio_setting_language_change` | `saveUserLocale` | `locale`, `surface` (`settings`) |
-| `studio_setting_code_editor_change` | `saveUserEditor` | `editor`, `surface` (`settings`) |
-| `studio_setting_terminal_change` | `saveUserTerminal` | `terminal`, `surface` (`settings`) |
-| `studio_setting_default_directory_change` | `saveDefaultSiteDirectory` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
-| `studio_setting_quit_action_change` | `saveQuitSitesBehavior` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
+| `studio_setting_telemetry_change` | `writeUserPreferences` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
+| `studio_setting_appearance_change` | `writeUserPreferences` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
+| `studio_setting_language_change` | `writeUserPreferences` | `locale`, `surface` (`settings`) |
+| `studio_setting_code_editor_change` | `writeUserPreferences` | `editor`, `surface` (`settings`) |
+| `studio_setting_terminal_change` | `writeUserPreferences` | `terminal`, `surface` (`settings`) |
+| `studio_setting_default_directory_change` | `writeUserPreferences` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
+| `studio_setting_quit_action_change` | `writeUserPreferences` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
 | `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
-| `studio_setting_agentic_features_change` | `saveAgenticFeaturesEnabled` | `enabled` (boolean), `surface` (`settings`) |
+| `studio_setting_agentic_features_change` | `writeUserPreferences` | `enabled` (boolean), `surface` (`settings`) |
 | `studio_setting_ui_change` | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026 | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) |
 | `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
-| `studio_setting_ai_provider_change` | `saveAnthropicApiKey`/`setAiProvider` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
+| `studio_setting_ai_provider_change` | `saveAnthropicApiKey` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
 
 `studio_setting_instructions_change` is the one settings event Main cannot detect on its own. Classic
 saves on an explicit button press, but the agentic UI autosaves on an 800 ms debounce, so by the time

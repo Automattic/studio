@@ -37,16 +37,11 @@ import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
 import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import {
-	installSkillToSite,
-	removeSkillFromSite,
-	updateManagedInstructionFiles,
-} from '@studio/common/lib/agent-skills';
+import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { errorMessageContains } from '@studio/common/lib/cli-error';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
@@ -65,7 +60,6 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
-import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
@@ -96,6 +90,7 @@ import {
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
+	SiteCapacityError,
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
@@ -672,15 +667,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		return;
 	}
 
-	const maintenanceCheck = checkMaintenanceFile( site.path );
-	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-		throw new Error(
-			__(
-				'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
-			)
-		);
-	}
-
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
 	// otherwise the recovery error server still bound to the site's port causes EADDRINUSE.
 	await stopErrorRecovery( id );
@@ -691,12 +677,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		await start();
 	} catch ( error ) {
 		// Capacity limit is expected behavior, not a bug — skip Sentry
-		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
-			throw new Error(
-				__(
-					'The maximum number of running sites has been reached. Stop some running sites before starting new ones.'
-				)
-			);
+		if ( error instanceof SiteCapacityError ) {
+			throw error;
 		}
 
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
@@ -766,15 +748,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			contexts,
 		} );
 
-		throw error instanceof CliCommandError && error.lastErrorMessage
-			? new Error( error.lastErrorMessage )
-			: error;
+		throw error;
 	}
-
-	// Keep managed instruction files (STUDIO.md) up-to-date
-	void updateManagedInstructionFiles( site, getAiInstructionsPath() ).catch( ( error ) => {
-		console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-	} );
 
 	console.log( `Server started for '${ site.name }'` );
 }

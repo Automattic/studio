@@ -18,6 +18,7 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 // The last running state of each site, so a site's thumbnail is captured when it starts only.
 // Seeded from the site list when the subscriber starts; a site missing from it is new, so stopped.
 const lastRunning = new Map< string, boolean >();
+let seeded: Promise< void > = Promise.resolve();
 
 const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
 	const { event: eventType, siteId, site } = event;
@@ -42,9 +43,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
 	const running = event.running || isInErrorRecovery( siteId );
+	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
+	await seeded;
 	const wasRunning = lastRunning.get( siteId ) ?? false;
 	lastRunning.set( siteId, running );
-	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
 
 	if ( running && ! wasRunning ) {
 		void captureSiteThumbnail( site );
@@ -57,9 +59,13 @@ export async function startCliEventsSubscriber(): Promise< void > {
 	if ( subscriber ) {
 		return;
 	}
-	for ( const site of await getSites().catch( () => [] ) ) {
-		lastRunning.set( site.id, site.running );
-	}
+	seeded = getSites()
+		.then( ( sites ) => {
+			for ( const site of sites ) {
+				lastRunning.set( site.id, site.running );
+			}
+		} )
+		.catch( () => undefined );
 
 	return new Promise( ( resolve, reject ) => {
 		if ( subscriber ) {

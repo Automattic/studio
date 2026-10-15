@@ -476,11 +476,11 @@ async function appBoot() {
 
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
-		await setupSentryUserId();
-
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
+
+		void setupSentryUserId().catch( Sentry.captureException );
 
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
 		startNightlyPromptPoller();
